@@ -57,39 +57,6 @@ PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 
 
 # Helper Functions
-def get_default_route_port_groups(ptfhost, file_path):
-    """
-    Check for the default route (0.0.0.0/0) in the FIB information file
-    and return its groups of next hop port indices.
-
-    Args:
-        ptfhost: The PTF host object.
-        file_path: The path to the FIB info file.
-
-    Returns:
-        A list of next hop port groups or an empty list if not found.
-    """
-
-    # Attempt to read the FIB info file
-    result = ptfhost.shell("cat {}".format(file_path))
-    if result['rc'] != 0:
-        logger.error("Failed to read file {} from PTF host.".format(file_path))
-        return []
-
-    lines = result['stdout_lines']
-
-    # Find the line containing the default route
-    default_route_line = next((line.strip() for line in lines if '0.0.0.0/0' in line), None)
-
-    if not default_route_line:
-        logger.info("No default route found. Returning an empty list.")
-        return []  # Return an empty list if no default route is found
-
-    # Extract all numbers inside square brackets and convert them to integers
-    matches = re.findall(r'\[(\d+(?: \d+)*)\]', default_route_line)
-    return [[int(num) for num in group.split()] for group in matches]
-
-
 def get_default_route_nexthop_count(ptfhost, file_path, ipver):
     """Return the validated default-route nexthop count for one address family."""
     prefix = {"ipv4": "0.0.0.0/0", "ipv6": "::/0"}.get(ipver)
@@ -263,28 +230,13 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     return ptf_ports_to_filter
 
 
-def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
-    """Get FIB info from database and store to text files on PTF host.
-
-    For T2 topology, generate a single file to /root/fib_info_all_duts.txt to PTF host.
-    For other topologies, generate one file for each duthost. File name pattern:
-        /root/fib_info_dut<dut_index>.txt
-
-    Args:
-        duthosts (DutHosts): Instance of DutHosts for interacting with DUT hosts.
-        ptfhost (PTFHost): Instance of PTFHost for interacting with the PTF host.
-        duts_running_config_facts (dict): Running config facts of all DUT hosts.
-        duts_minigraph_facts (dict): Minigraph facts of all DUT hosts.
-        tbinfo (object): Instance of TestbedInfo.
-
-    Returns:
-        list: List of FIB info file names on PTF host.
-    """
+def get_fib_info_per_function(duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
+    """Return one structured FIB snapshot per DUT, or one combined snapshot for T2."""
     duts_config_facts = duts_running_config_facts
     testname = request.node.name
-    files = []
+    fib_infos = []
     if tbinfo['topo']['type'] != "t2":
-        for dut_index, duthost in enumerate(duthosts):
+        for duthost in duthosts:
             fib_info = get_fib_info(
                 duthost, duts_config_facts[duthost.hostname], duts_minigraph_facts[duthost.hostname], testname
             )
@@ -293,16 +245,36 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
                 # add a default route as failover in the prefix matching
                 fib_info['0.0.0.0/0'] = []
                 fib_info['::/0'] = []
+            fib_infos.append(fib_info)
+    else:
+        fib_infos.append(get_t2_fib_info(duthosts, duts_config_facts, duts_minigraph_facts, testname))
+
+    return fib_infos
+
+
+def gen_fib_info_files_per_function(ptfhost, fib_infos, tbinfo, request):
+    """Store structured FIB snapshots in files on the PTF host."""
+    testname = request.node.name
+    files = []
+    if tbinfo['topo']['type'] != "t2":
+        for dut_index, fib_info in enumerate(fib_infos):
             filename = '/root/fib_info_dut_{0}_{1}.txt'.format(testname, dut_index)
             gen_fib_info_file(ptfhost, fib_info, filename)
             files.append(filename)
     else:
-        fib_info = get_t2_fib_info(duthosts, duts_config_facts, duts_minigraph_facts, testname)
         filename = '/root/fib_info_all_duts.txt'
-        gen_fib_info_file(ptfhost, fib_info, filename)
+        gen_fib_info_file(ptfhost, fib_infos[0], filename)
         files.append(filename)
 
     return files
+
+
+def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
+    """Get FIB info from the DUTs and store it in files on the PTF host."""
+    fib_infos = get_fib_info_per_function(
+        duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+    )
+    return gen_fib_info_files_per_function(ptfhost, fib_infos, tbinfo, request)
 
 
 @pytest.fixture(scope="module")
@@ -905,17 +877,22 @@ def test_ecmp_group_member_flap(
     else:
         test_balancing = True
 
-    # --- Load initial FIB files ---
-    fib_files = fib_info_files_per_function(
-        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
-    )
+    def _get_default_route_port_groups(fib_infos):
+        return [
+            [int(port) for port in group]
+            for group in fib_infos[0].get('0.0.0.0/0', [])
+        ]
 
-    # Verify that the default route has valid nexthops
-    nh_ptf_port_groups = get_default_route_port_groups(ptfhost, fib_files[0])
+    # --- Load initial FIB snapshot ---
+    fib_infos = get_fib_info_per_function(
+        duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+    )
+    nh_ptf_port_groups = _get_default_route_port_groups(fib_infos)
     nh_ptf_ports = [port for group in nh_ptf_port_groups for port in group]
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if len(nh_ptf_port_groups) <= 1:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
+    fib_files = gen_fib_info_files_per_function(ptfhost, fib_infos, tbinfo, request)
 
     # --- Identify the DUT and ports from the minigraph facts ---
     upstream_lc = duthosts[0].hostname
@@ -1043,11 +1020,11 @@ def test_ecmp_group_member_flap(
                     "{} PortChannel state is not ready after {}".format(shut_dut_port, phase)
                 )
 
-            candidate_fib_files = fib_info_files_per_function(
-                duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
+            candidate_fib_infos = get_fib_info_per_function(
+                duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
             )
             state["port_groups"] = {
-                frozenset(group) for group in get_default_route_port_groups(ptfhost, candidate_fib_files[0])
+                frozenset(group) for group in _get_default_route_port_groups(candidate_fib_infos)
             }
             logging.info(
                 "Waiting for ECMP next hops after {}: expected {}, observed {}".format(
@@ -1058,7 +1035,9 @@ def test_ecmp_group_member_flap(
                 state["port_groups"] == expected_groups,
                 "ECMP next hops are not ready after {}".format(phase)
             )
-            state["fib_files"] = candidate_fib_files
+            state["fib_files"] = gen_fib_info_files_per_function(
+                ptfhost, candidate_fib_infos, tbinfo, request
+            )
             return True
 
         pytest_assert(
