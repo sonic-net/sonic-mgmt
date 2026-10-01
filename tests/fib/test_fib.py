@@ -929,6 +929,8 @@ def test_ecmp_group_member_flap(
         if candidate_ptf_port not in all_port_indices:
             continue
         candidate_asic_id, candidate_dut_port = all_port_indices[candidate_ptf_port]
+        # Find the PortChannel containing this DUT port.
+        # Example: Ethernet0 -> PortChannel102.
         candidate_lag_name = next((
             name for name, lag in lag_facts['lags'].items()
             if candidate_dut_port in lag['po_config']['ports']
