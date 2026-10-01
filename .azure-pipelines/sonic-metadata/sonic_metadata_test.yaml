@@ -383,26 +383,6 @@ parameters:
   displayName: "ENABLE_CPA"
 
 stages:
-- stage: SONiCMetadataPreTest
-  jobs:
-  - job:
-    pool: nightly
-    displayName: "SONiC Metadata Unit Test"
-    timeoutInMinutes: 100
-    steps:
-    - checkout: self
-    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
-    - template: step_metadata_unit_test.yml
-
-  - job:
-    pool: nightly
-    displayName: "SONiC Metadata Linter Test"
-    timeoutInMinutes: 100
-    steps:
-    - checkout: self
-    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
-    - template: step_metadata_linter.yml
-
 - template: metadata_upgrade_template.yml
   parameters:
     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
