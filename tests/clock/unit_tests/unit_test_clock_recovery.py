@@ -13,11 +13,14 @@ import os
 import re
 import signal
 import shlex
+import shutil
 import subprocess
+import sys
 import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -105,11 +108,156 @@ def _ntp_namespace(*function_names):
         "uuid": uuid,
         "pytest_assert": assert_condition,
     }
-    return _load_functions(NTP_UTILS_PATH, function_names, namespace)
+    functions = tuple(dict.fromkeys((
+        "_get_ntp_watchdog_identity_commands",
+        "_retire_ntp_server_recovery",
+        "_restore_ntp_server",
+    ) + function_names))
+    return _load_functions(NTP_UTILS_PATH, functions, namespace)
 
 
 def assert_condition(condition, message):
     assert condition, message
+
+
+def _process_identity(pid, recovery_id):
+    fields = Path("/proc/{}/stat".format(pid)).read_text().rpartition(") ")[2].split()
+    boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+    return "{} {} {} {}".format(pid, fields[19], boot_id, recovery_id)
+
+
+def _wait_for_file(path, timeout=5):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return
+        time.sleep(0.02)
+    pytest.fail("File was not published: {}".format(path))
+
+
+@pytest.fixture
+def ptf_recovery_sandbox(tmp_path):
+    namespace = _ntp_namespace(
+        "_install_ntp_server_recovery",
+        "_refresh_ntp_server_recovery",
+    )
+    namespace.update({
+        "NTP_SERVER_RECOVERY_LEASE": 3,
+        "NTP_SERVER_RECOVERY_RETRY_INTERVAL": 1,
+        "NTP_SERVER_RECOVERY_COMMAND_TIMEOUT": 2,
+        "NTP_SERVER_LOCK_TIMEOUT": 3,
+        "NTP_SERVER_WATCHDOG_POLL_INTERVAL": 1,
+    })
+    config_path = tmp_path / "ntp.conf"
+    backup_path = tmp_path / "ntp.conf.backup"
+    service_state = tmp_path / "service-state"
+    service_failure = tmp_path / "service-failure"
+    bin_path = tmp_path / "bin"
+    bin_path.mkdir()
+    service_script = bin_path / "service"
+    service_script.write_text(
+        "#!/bin/sh\n"
+        "[ ! -e {} ] || exit 1\n"
+        "printf '%s\\n' \"$2\" > {}\n".format(
+            shlex.quote(str(service_failure)),
+            shlex.quote(str(service_state))
+        )
+    )
+    service_script.chmod(0o755)
+    environment = dict(os.environ, PATH="{}:{}".format(bin_path, os.environ["PATH"]))
+
+    def localize(value):
+        return value.replace("/tmp/sonic-mgmt-", str(tmp_path / "sonic-mgmt-"))
+
+    ptfhost = Mock()
+    ptfhost.shell.return_value = {"rc": 0}
+    ptfhost.command.return_value = {"rc": 0}
+    service_name = "clock-test-{}".format(uuid.uuid4().hex)
+    original = namespace["_install_ntp_server_recovery"](
+        ptfhost, service_name, str(config_path), str(backup_path), True, 20
+    )
+    recovery = {key: localize(value) if isinstance(value, str) else value for key, value in original.items()}
+    Path(recovery["script_path"]).write_text(localize(ptfhost.copy.call_args.kwargs["content"]))
+    Path(recovery["script_path"]).chmod(0o755)
+    config_path.write_text("temporary\n")
+    backup_path.write_text("original\n")
+    Path(recovery["owner_path"]).write_text("{}\n".format(recovery["recovery_id"]))
+    uptime = int(float(Path("/proc/uptime").read_text().split()[0]))
+    Path(recovery["deadline_path"]).write_text("{}\n".format(uptime + 20))
+    processes = []
+    detached_identities = []
+
+    class LocalHost:
+        lose_install_reply = False
+
+        @staticmethod
+        def copy(content, dest, mode):
+            path = Path(localize(dest))
+            path.write_text(localize(content))
+            path.chmod(mode)
+
+        def shell(self, command, module_ignore_errors=False):
+            result = subprocess.run(
+                ["sh", "-c", localize(command)],
+                text=True,
+                capture_output=True,
+                env=environment,
+                timeout=12
+            )
+            for path in tmp_path.glob("*.pid"):
+                identity = path.read_text().strip()
+                if identity not in detached_identities:
+                    detached_identities.append(identity)
+            if self.lose_install_reply and "setsid sh -c" in command and result.returncode == 0:
+                self.lose_install_reply = False
+                raise RuntimeError("reply lost after watchdog installation")
+            if result.returncode != 0 and not module_ignore_errors:
+                raise RuntimeError(result.stderr)
+            return {"rc": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
+
+        command = shell
+
+    def start(shell="sh"):
+        process = subprocess.Popen(
+            [shell, "-c", recovery["watchdog_command"]],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+            start_new_session=True
+        )
+        processes.append(process)
+        _wait_for_file(Path(recovery["pid_path"]))
+        return process
+
+    sandbox = SimpleNamespace(
+        namespace=namespace,
+        recovery=recovery,
+        host=LocalHost(),
+        config_path=config_path,
+        backup_path=backup_path,
+        service_state=service_state,
+        service_failure=service_failure,
+        environment=environment,
+        service_name=service_name,
+        start=start,
+        localize=localize,
+        install_command=localize(ptfhost.shell.call_args.args[0]),
+    )
+    try:
+        yield sandbox
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+        for identity in detached_identities:
+            fields = identity.split()
+            if len(fields) != 4:
+                continue
+            pid = int(fields[0])
+            if Path("/proc/{}/stat".format(pid)).exists() and _process_identity(pid, fields[3]) == identity:
+                os.kill(pid, signal.SIGTERM)
 
 
 def _request(ntp_server=None):
@@ -909,6 +1057,30 @@ def test_ntp_server_accepts_hostnames_and_rejects_directives():
         namespace["normalize_ntp_server"]("time.example.com\nmakestep 1 -1")
 
 
+@pytest.mark.parametrize("value", [
+    "", " \t\n", "a" * 254, "time example.com", "time/example.com",
+    "time@example.com", "time;example.com", "time\x00example.com",
+    "-time.example.com", "time.example.com-", "time.example.com.", "t\u00e9st.example.com",
+])
+def test_ntp_server_rejects_invalid_hostnames(value):
+    namespace = _ntp_namespace("normalize_ntp_server")
+    with pytest.raises(ValueError):
+        namespace["normalize_ntp_server"](value)
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("a", "a"),
+    ("a" * 253, "a" * 253),
+    ("time_server-1.example.com", "time_server-1.example.com"),
+    (" time.example.com \n", "time.example.com"),
+    ("192.0.2.1", "192.0.2.1"),
+    ("2001:0db8::1", "2001:db8::1"),
+])
+def test_ntp_server_preserves_supported_hostnames_and_addresses(value, expected):
+    namespace = _ntp_namespace("normalize_ntp_server")
+    assert namespace["normalize_ntp_server"](value) == expected
+
+
 def test_ptf_watchdog_and_lock_are_bounded():
     namespace = _ntp_namespace("_install_ntp_server_recovery")
     ptfhost = Mock()
@@ -931,93 +1103,49 @@ def test_ptf_watchdog_and_lock_are_bounded():
     assert "timeout --kill-after=10 120" in install_command
     assert "sonic-mgmt-ntp-server-recovery-" in install_command
     assert "sleep 1" in install_command
-    assert "ps -o stat=" in install_command
+    assert "/proc/$identity_pid/stat" in install_command
+    assert "kill -- -" not in install_command
     subprocess.run(["bash", "-n"], input=recovery_script, text=True, check=True)
-    subprocess.run(["bash", "-n", "-c", install_command], check=True)
+    for shell in ("sh", "bash"):
+        subprocess.run([shell, "-n", "-c", install_command], check=True)
 
 
-def test_ptf_watchdog_retries_lock_contention_and_clears_owner(tmp_path):
-    namespace = _ntp_namespace("_install_ntp_server_recovery")
-    namespace["NTP_SERVER_RECOVERY_LEASE"] = 5
-    namespace["NTP_SERVER_RECOVERY_RETRY_INTERVAL"] = 1
-    namespace["NTP_SERVER_RECOVERY_COMMAND_TIMEOUT"] = 2
-    namespace["NTP_SERVER_LOCK_TIMEOUT"] = 1
-    namespace["NTP_SERVER_WATCHDOG_POLL_INTERVAL"] = 1
-    ptfhost = Mock()
-    ptfhost.shell.return_value = {"rc": 0}
-    ptfhost.command.return_value = {"rc": 0}
-    service_name = "clock-test-{}".format(uuid.uuid4().hex)
-    backup_path = tmp_path / "ntp.conf.backup"
-
-    recovery = namespace["_install_ntp_server_recovery"](
-        ptfhost,
-        service_name,
-        str(tmp_path / "ntp.conf"),
-        str(backup_path),
-        True,
-        1
+def test_ptf_watchdog_retries_lock_contention_and_clears_owner(ptf_recovery_sandbox, tmp_path):
+    sandbox = ptf_recovery_sandbox
+    recovery = sandbox.recovery
+    lock_timeout_path = tmp_path / "lock-timed-out"
+    flock_wrapper = Path(sandbox.environment["PATH"].split(":")[0]) / "flock"
+    real_flock = shutil.which("flock")
+    assert real_flock
+    flock_wrapper.write_text(
+        "#!/bin/sh\n"
+        "{} \"$@\"\n"
+        "result=$?\n"
+        "if [ \"$result\" -ne 0 ]; then touch {}; fi\n"
+        "exit \"$result\"\n".format(shlex.quote(real_flock), shlex.quote(str(lock_timeout_path)))
     )
-
-    script_path = Path(recovery["script_path"])
-    pid_path = Path(recovery["pid_path"])
-    deadline_path = Path(recovery["deadline_path"])
-    owner_path = Path(recovery["owner_path"])
-    lock_path = Path(recovery["lock_path"])
-    marker_path = tmp_path / "recovered"
+    flock_wrapper.chmod(0o755)
+    process = sandbox.start()
     ready_path = tmp_path / "lock-ready"
-    cleanup_paths = [
-        script_path,
-        pid_path,
-        deadline_path,
-        owner_path,
-        lock_path,
-    ]
-    holder = None
+    holder = subprocess.Popen(
+        ["sh", "-c", "exec 9>{}; flock -x 9; touch {}; sleep 5".format(
+            shlex.quote(recovery["lock_path"]), shlex.quote(str(ready_path))
+        )],
+        start_new_session=True
+    )
     try:
-        script_path.write_text(
-            "#!/bin/bash\n"
-            "touch {}\n"
-            "rm -f {}\n".format(
-                shlex.quote(str(marker_path)),
-                shlex.quote(str(owner_path))
-            )
-        )
-        script_path.chmod(0o755)
-        backup_path.write_text("original\n")
-        deadline_path.write_text("0\n")
-        owner_path.write_text("{}\n".format(recovery["recovery_id"]))
-        holder = subprocess.Popen([
-            "bash",
-            "-c",
-            "exec 9>{}; flock -x 9; touch {}; sleep 3".format(
-                shlex.quote(str(lock_path)),
-                shlex.quote(str(ready_path))
-            )
-        ])
-        for _ in range(100):
-            if ready_path.exists():
-                break
-            time.sleep(0.02)
-        assert ready_path.exists()
-
-        result = subprocess.run(
-            ["bash", "-c", recovery["watchdog_command"]],
-            text=True,
-            capture_output=True,
-            timeout=10
-        )
-
-        assert result.returncode == 0, result.stderr
-        assert marker_path.exists()
-        assert not owner_path.exists()
+        _wait_for_file(ready_path)
+        Path(recovery["deadline_path"]).write_text("0\n")
+        _, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stderr
+        assert lock_timeout_path.exists()
+        assert sandbox.config_path.read_text() == "original\n"
+        assert not Path(recovery["owner_path"]).exists()
+        assert not Path(recovery["pid_path"]).exists()
     finally:
-        if holder is not None and holder.poll() is None:
-            os.kill(holder.pid, signal.SIGKILL)
-        if holder is not None:
-            holder.wait(timeout=5)
-        for path in cleanup_paths:
-            if path.exists():
-                path.unlink()
+        if holder.poll() is None:
+            os.killpg(holder.pid, signal.SIGKILL)
+        holder.wait(timeout=5)
 
 
 def test_ptf_watchdog_refresh_updates_deadline_without_pid_replacement():
@@ -1043,143 +1171,454 @@ def test_ptf_watchdog_refresh_updates_deadline_without_pid_replacement():
     subprocess.run(["bash", "-n", "-c", refresh_command], check=True)
 
 
-def test_ptf_watchdog_refresh_extends_live_process_deadline(tmp_path):
-    namespace = _ntp_namespace("_refresh_ntp_server_recovery")
-    owner_path = tmp_path / "recover.owner"
-    pid_path = tmp_path / "recover.pid"
-    deadline_path = tmp_path / "recover.deadline"
-    lock_path = tmp_path / "recover.lock"
-    owner_path.write_text("owner-id\n")
-    old_watchdog = subprocess.Popen(["setsid", "sh", "-c", "sleep 60"])
-    pid_path.write_text("{}\n".format(old_watchdog.pid))
-    deadline_path.write_text("1\n")
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_ptf_watchdog_refresh_extends_live_process_deadline(ptf_recovery_sandbox, shell):
+    sandbox = ptf_recovery_sandbox
+    recovery = sandbox.recovery
+    process = sandbox.start(shell)
+    identity = Path(recovery["pid_path"]).read_text()
+    old_deadline = int(Path(recovery["deadline_path"]).read_text())
+    recovery["recovery_timeout"] = 40
 
-    class LocalHost:
-        @staticmethod
-        def shell(command):
-            result = subprocess.run(
-                ["bash", "-c", command],
-                text=True,
-                capture_output=True
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr)
-            return {
-                "rc": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
+    sandbox.namespace["_refresh_ntp_server_recovery"](sandbox.host, recovery)
 
-    recovery = {
-        "pid_path": str(pid_path),
-        "deadline_path": str(deadline_path),
-        "owner_path": str(owner_path),
-        "recovery_id": "owner-id",
-        "lock_path": str(lock_path),
-        "recovery_timeout": 3600,
-    }
+    assert Path(recovery["pid_path"]).read_text() == identity
+    assert identity.strip() == _process_identity(process.pid, recovery["recovery_id"])
+    assert int(Path(recovery["deadline_path"]).read_text()) > old_deadline
+    assert process.poll() is None
+
+
+def test_ptf_watchdog_refresh_rejects_dead_process(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    recovery = sandbox.recovery
+    process = sandbox.start()
+    identity = Path(recovery["pid_path"]).read_text()
+    process.kill()
+    process.communicate(timeout=5)
+    Path(recovery["pid_path"]).write_text(identity)
+    deadline = Path(recovery["deadline_path"]).read_text()
+
+    with pytest.raises(RuntimeError, match="identity is not live"):
+        sandbox.namespace["_refresh_ntp_server_recovery"](sandbox.host, recovery)
+
+    assert Path(recovery["deadline_path"]).read_text() == deadline
+
+
+@pytest.mark.parametrize("invalid_field", [
+    "missing", "empty", "pid-only", "extra-field", "invalid-pid",
+    "invalid-start", "start", "boot", "context",
+])
+def test_ptf_watchdog_refresh_rejects_stale_or_malformed_identity(ptf_recovery_sandbox, invalid_field):
+    sandbox = ptf_recovery_sandbox
+    recovery = sandbox.recovery
+    sandbox.start()
+    pid_path = Path(recovery["pid_path"])
+    identity = pid_path.read_text().split()
+    if invalid_field == "missing":
+        pid_path.unlink()
+    elif invalid_field == "empty":
+        pid_path.write_text("")
+    elif invalid_field == "pid-only":
+        pid_path.write_text(identity[0])
+    elif invalid_field == "extra-field":
+        pid_path.write_text(" ".join(identity + ["extra"]))
+    else:
+        field, value = {
+            "invalid-pid": (0, "-1"),
+            "invalid-start": (1, "not-a-start-time"),
+            "start": (1, str(int(identity[1]) + 1)),
+            "boot": (2, "another-boot"),
+            "context": (3, "another-context"),
+        }[invalid_field]
+        identity[field] = value
+        pid_path.write_text(" ".join(identity))
+    deadline = Path(recovery["deadline_path"]).read_text()
+
+    with pytest.raises(RuntimeError, match="identity is not live"):
+        sandbox.namespace["_refresh_ntp_server_recovery"](sandbox.host, recovery)
+
+    assert Path(recovery["deadline_path"]).read_text() == deadline
+    assert sandbox.backup_path.read_text() == "original\n"
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_ptf_identity_parser_handles_process_names_with_parentheses_and_newlines(ptf_recovery_sandbox, shell):
+    sandbox = ptf_recovery_sandbox
+    process = subprocess.Popen([
+        sys.executable, "-c",
+        "import ctypes, time; "
+        "ctypes.CDLL(None).prctl(15, b'name )\\n test', 0, 0, 0); "
+        "print('ready', flush=True); time.sleep(60)",
+    ], stdout=subprocess.PIPE, text=True)
     try:
-        namespace["_refresh_ntp_server_recovery"](LocalHost(), recovery)
-
-        assert int(pid_path.read_text().strip()) == old_watchdog.pid
-        assert int(deadline_path.read_text().strip()) > 1
-        os.kill(old_watchdog.pid, 0)
+        assert process.stdout.readline().strip() == "ready"
+        identity = _process_identity(process.pid, sandbox.recovery["recovery_id"])
+        Path(sandbox.recovery["pid_path"]).write_text(identity)
+        command = sandbox.namespace["_get_ntp_watchdog_identity_commands"](sandbox.recovery)
+        result = subprocess.run(
+            [shell, "-c", command + "watchdog_is_live"],
+            text=True, capture_output=True, timeout=5
+        )
+        assert result.returncode == 0, result.stderr
     finally:
-        if old_watchdog.poll() is None:
-            os.killpg(old_watchdog.pid, signal.SIGKILL)
-            old_watchdog.wait(timeout=5)
+        process.kill()
+        process.communicate(timeout=5)
 
 
-def test_ptf_watchdog_refresh_rejects_dead_process(tmp_path):
-    namespace = _ntp_namespace("_refresh_ntp_server_recovery")
-    owner_path = tmp_path / "recover.owner"
-    pid_path = tmp_path / "recover.pid"
-    deadline_path = tmp_path / "recover.deadline"
-    lock_path = tmp_path / "recover.lock"
-    owner_path.write_text("owner-id\n")
-    dead_watchdog = subprocess.Popen(["setsid", "sh", "-c", "true"])
-    dead_watchdog.wait(timeout=5)
-    pid_path.write_text("{}\n".format(dead_watchdog.pid))
-    deadline_path.write_text("1\n")
+def test_ptf_identity_rejects_zombie_process(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = subprocess.Popen(["sh", "-c", "exit 0"])
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            stat = Path("/proc/{}/stat".format(process.pid)).read_text()
+            if stat.rpartition(") ")[2].split()[0] == "Z":
+                break
+            time.sleep(0.02)
+        else:
+            pytest.fail("Process did not become a zombie")
+        Path(sandbox.recovery["pid_path"]).write_text(
+            _process_identity(process.pid, sandbox.recovery["recovery_id"])
+        )
+        with pytest.raises(RuntimeError, match="identity is not live"):
+            sandbox.namespace["_refresh_ntp_server_recovery"](sandbox.host, sandbox.recovery)
+    finally:
+        process.wait(timeout=5)
 
-    class LocalHost:
-        @staticmethod
-        def shell(command):
-            result = subprocess.run(
-                ["bash", "-c", command],
-                text=True,
-                capture_output=True
-            )
-            if result.returncode != 0:
-                raise RuntimeError(result.stderr)
-            return {"rc": result.returncode}
 
+def test_ptf_stale_identity_cannot_refresh_or_signal_unrelated_process(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = subprocess.Popen(["sh", "-c", "sleep 60"], start_new_session=True)
+    try:
+        identity = _process_identity(process.pid, sandbox.recovery["recovery_id"]).split()
+        identity[1] = str(int(identity[1]) - 1)
+        Path(sandbox.recovery["pid_path"]).write_text(" ".join(identity))
+        deadline = Path(sandbox.recovery["deadline_path"]).read_text()
+
+        with pytest.raises(RuntimeError, match="identity is not live"):
+            sandbox.namespace["_refresh_ntp_server_recovery"](sandbox.host, sandbox.recovery)
+        assert Path(sandbox.recovery["deadline_path"]).read_text() == deadline
+
+        sandbox.namespace["_restore_ntp_server"](sandbox.host, sandbox.recovery)
+
+        assert process.poll() is None
+        assert sandbox.config_path.read_text() == "original\n"
+        assert not Path(sandbox.recovery["owner_path"]).exists()
+        assert not Path(sandbox.recovery["pid_path"]).exists()
+    finally:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate(timeout=5)
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_ptf_watchdog_success_invalidates_identity_and_restores_state(ptf_recovery_sandbox, shell):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["deadline_path"]).write_text("0\n")
+    process = subprocess.Popen(
+        [shell, "-c", sandbox.recovery["watchdog_command"]],
+        text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=sandbox.environment
+    )
+    _, stderr = process.communicate(timeout=5)
+
+    assert process.returncode == 0, stderr
+    assert sandbox.config_path.read_text() == "original\n"
+    assert sandbox.service_state.read_text() == "restart\n"
+    for key in ("owner_path", "pid_path", "script_path", "deadline_path", "backup_path"):
+        assert not Path(sandbox.recovery[key]).exists(), key
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_ptf_watchdog_failed_lease_invalidates_identity_but_keeps_recovery_state(ptf_recovery_sandbox, shell):
+    sandbox = ptf_recovery_sandbox
+    sandbox.service_failure.touch()
+    Path(sandbox.recovery["deadline_path"]).write_text("0\n")
+    process = sandbox.start(shell)
+    _, stderr = process.communicate(timeout=8)
+
+    assert process.returncode == 1
+    assert "recovery state retained" in stderr
+    assert not Path(sandbox.recovery["pid_path"]).exists()
+    assert Path(sandbox.recovery["owner_path"]).read_text().strip() == sandbox.recovery["recovery_id"]
+    assert sandbox.backup_path.read_text() == "original\n"
+    assert Path(sandbox.recovery["script_path"]).exists()
+    assert Path(sandbox.recovery["deadline_path"]).exists()
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+@pytest.mark.parametrize("signum", [signal.SIGHUP, signal.SIGINT, signal.SIGTERM])
+def test_ptf_watchdog_signal_invalidates_only_its_identity(ptf_recovery_sandbox, shell, signum):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start(shell)
+    process.send_signal(signum)
+    _, stderr = process.communicate(timeout=5)
+
+    assert process.returncode == 128 + signum, stderr
+    assert not Path(sandbox.recovery["pid_path"]).exists()
+    assert Path(sandbox.recovery["owner_path"]).read_text().strip() == sandbox.recovery["recovery_id"]
+    assert sandbox.backup_path.read_text() == "original\n"
+    assert Path(sandbox.recovery["script_path"]).exists()
+
+
+def test_ptf_watchdog_exit_does_not_remove_another_identity(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start()
+    foreign_identity = _process_identity(os.getpid(), "another-context")
+    Path(sandbox.recovery["pid_path"]).write_text(foreign_identity)
+    process.terminate()
+    process.communicate(timeout=5)
+
+    assert Path(sandbox.recovery["pid_path"]).read_text() == foreign_identity
+    assert sandbox.backup_path.read_text() == "original\n"
+
+
+def test_ptf_old_watchdog_is_fenced_by_a_new_context(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start()
+    sandbox.host.shell(
+        "exec 9>{}; flock -x 9; printf '%s\\n' next-context > {}; "
+        "printf '%s\\n' next-config > {}".format(
+            shlex.quote(sandbox.recovery["lock_path"]),
+            shlex.quote(sandbox.recovery["owner_path"]),
+            shlex.quote(str(sandbox.config_path))
+        )
+    )
+    _, stderr = process.communicate(timeout=5)
+
+    assert process.returncode == 0, stderr
+    assert Path(sandbox.recovery["owner_path"]).read_text() == "next-context\n"
+    assert sandbox.config_path.read_text() == "next-config\n"
+    assert not sandbox.service_state.exists()
+    assert not Path(sandbox.recovery["pid_path"]).exists()
+
+
+def test_ptf_inline_restore_cooperatively_retires_watchdog(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start()
+
+    sandbox.namespace["_restore_ntp_server"](sandbox.host, sandbox.recovery)
+    process.communicate(timeout=5)
+
+    assert process.returncode == 0
+    assert sandbox.config_path.read_text() == "original\n"
+    assert sandbox.service_state.read_text() == "restart\n"
+    for key in ("owner_path", "pid_path", "script_path", "deadline_path", "backup_path"):
+        assert not Path(sandbox.recovery[key]).exists(), key
+
+
+def test_ptf_retirement_refuses_unrestored_context(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start()
+
+    with pytest.raises(RuntimeError, match="unrestored PTF NTP context"):
+        sandbox.namespace["_retire_ntp_server_recovery"](sandbox.host, sandbox.recovery)
+
+    assert process.poll() is None
+    assert sandbox.backup_path.read_text() == "original\n"
+    assert Path(sandbox.recovery["pid_path"]).exists()
+
+
+def test_ptf_failed_inline_restore_keeps_watchdog_and_recovery_inputs(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    process = sandbox.start()
+    sandbox.service_failure.touch()
+
+    with pytest.raises(AssertionError, match="Failed to restore the PTF"):
+        sandbox.namespace["_restore_ntp_server"](sandbox.host, sandbox.recovery)
+
+    assert process.poll() is None
+    assert Path(sandbox.recovery["pid_path"]).exists()
+    assert sandbox.backup_path.read_text() == "original\n"
+    assert Path(sandbox.recovery["owner_path"]).read_text().strip() == sandbox.recovery["recovery_id"]
+    assert Path(sandbox.recovery["script_path"]).exists()
+
+
+def test_ptf_retirement_timeout_is_bounded_and_preserves_recovery_inputs(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    sandbox.recovery["watchdog_command"] = sandbox.recovery["watchdog_command"].replace(
+        'sleep "$remaining"', "sleep 60"
+    )
+    sandbox.start()
+    started = time.monotonic()
+
+    with pytest.raises(RuntimeError, match="watchdog did not retire"):
+        sandbox.namespace["_restore_ntp_server"](sandbox.host, sandbox.recovery)
+
+    assert time.monotonic() - started < 12
+    assert sandbox.config_path.read_text() == "original\n"
+    assert not Path(sandbox.recovery["owner_path"]).exists()
+    for key in ("pid_path", "script_path", "deadline_path", "backup_path"):
+        assert Path(sandbox.recovery[key]).exists(), key
+
+
+def test_ptf_late_watchdog_start_does_not_republish_after_rollback(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+
+    result = subprocess.run(
+        ["sh", "-c", sandbox.recovery["watchdog_command"]],
+        text=True, capture_output=True, timeout=5, env=sandbox.environment
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not Path(sandbox.recovery["pid_path"]).exists()
+    assert sandbox.config_path.read_text() == "original\n"
+
+
+@pytest.mark.parametrize("was_active", [True, False])
+def test_ptf_parent_waits_for_child_owned_identity_without_lock_deadlock(ptf_recovery_sandbox, was_active):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+
+    original = sandbox.namespace["_install_ntp_server_recovery"](
+        sandbox.host, sandbox.service_name, str(sandbox.config_path), str(sandbox.backup_path), was_active, 20
+    )
     recovery = {
-        "pid_path": str(pid_path),
-        "deadline_path": str(deadline_path),
-        "owner_path": str(owner_path),
-        "recovery_id": "owner-id",
-        "lock_path": str(lock_path),
-        "recovery_timeout": 3600,
+        key: sandbox.localize(value) if isinstance(value, str) else value for key, value in original.items()
     }
 
-    with pytest.raises(RuntimeError):
-        namespace["_refresh_ntp_server_recovery"](LocalHost(), recovery)
+    identity = Path(recovery["pid_path"]).read_text().strip()
+    pid = int(identity.split()[0])
+    assert identity == _process_identity(pid, recovery["recovery_id"])
+    assert "$!" not in sandbox.install_command
+    sandbox.config_path.write_text("temporary\n")
+    sandbox.namespace["_restore_ntp_server"](sandbox.host, recovery)
+    assert sandbox.config_path.read_text() == "original\n"
+    assert sandbox.service_state.read_text() == ("restart\n" if was_active else "stop\n")
+    assert not Path(recovery["pid_path"]).exists()
 
-    assert deadline_path.read_text() == "1\n"
+
+def test_ptf_lost_install_reply_restores_and_retires_context(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+    sandbox.host.lose_install_reply = True
+
+    with pytest.raises(RuntimeError, match="reply lost"):
+        sandbox.namespace["_install_ntp_server_recovery"](
+            sandbox.host, sandbox.service_name, str(sandbox.config_path), str(sandbox.backup_path), True, 20
+        )
+
+    assert sandbox.config_path.read_text() == "original\n"
+    assert not Path(sandbox.recovery["owner_path"]).exists()
+    assert not list(sandbox.config_path.parent.glob("*.pid"))
+    assert not sandbox.backup_path.exists()
 
 
-def test_ptf_watchdog_refresh_signal_keeps_existing_watchdog_and_valid_deadline(tmp_path):
-    namespace = _ntp_namespace("_refresh_ntp_server_recovery")
-    owner_path = tmp_path / "recover.owner"
-    pid_path = tmp_path / "recover.pid"
-    deadline_path = tmp_path / "recover.deadline"
-    lock_path = tmp_path / "recover.lock"
-    owner_path.write_text("owner-id\n")
-    watchdog = subprocess.Popen(["setsid", "sh", "-c", "sleep 60"])
-    pid_path.write_text("{}\n".format(watchdog.pid))
-    deadline_path.write_text("1\n")
+def test_ptf_lost_install_reply_with_failed_restore_retains_live_recovery(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+    sandbox.host.lose_install_reply = True
+    sandbox.service_failure.touch()
+
+    with pytest.raises(AssertionError, match="Failed to restore the PTF"):
+        sandbox.namespace["_install_ntp_server_recovery"](
+            sandbox.host, sandbox.service_name, str(sandbox.config_path), str(sandbox.backup_path), True, 20
+        )
+
+    recovery_id = Path(sandbox.recovery["owner_path"]).read_text().strip()
+    records = list(sandbox.config_path.parent.glob("*.pid"))
+    assert len(records) == 1
+    identity = records[0].read_text().strip()
+    assert identity == _process_identity(int(identity.split()[0]), recovery_id)
+    assert sandbox.backup_path.read_text() == "original\n"
+    assert records[0].with_suffix(".sh").exists()
+    assert records[0].with_suffix(".deadline").exists()
+
+
+def test_ptf_failed_child_publication_rolls_back_without_parent_pid_record(ptf_recovery_sandbox):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+    identity_commands = sandbox.namespace["_get_ntp_watchdog_identity_commands"]
+    sandbox.namespace["_get_ntp_watchdog_identity_commands"] = lambda recovery: (
+        identity_commands(recovery) + "process_identity() { return 1; }\n"
+    )
+
+    with pytest.raises(RuntimeError, match="did not publish a live identity"):
+        sandbox.namespace["_install_ntp_server_recovery"](
+            sandbox.host, sandbox.service_name, str(sandbox.config_path), str(sandbox.backup_path), True, 20
+        )
+
+    assert sandbox.config_path.read_text() == "original\n"
+    assert not Path(sandbox.recovery["owner_path"]).exists()
+    assert not list(sandbox.config_path.parent.glob("*.pid"))
+    assert not sandbox.backup_path.exists()
+
+
+def test_ptf_parent_interruption_before_publication_cannot_resurrect_identity(ptf_recovery_sandbox, tmp_path):
+    sandbox = ptf_recovery_sandbox
+    Path(sandbox.recovery["owner_path"]).unlink()
+    sandbox.config_path.write_text("original\n")
+    ready = tmp_path / "child-starting"
+    wrapper = Path(sandbox.environment["PATH"].split(":")[0]) / "setsid"
+    real_setsid = shutil.which("setsid")
+    assert real_setsid
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        "touch {}\n"
+        "sleep 2\n"
+        "exec {} \"$@\"\n".format(shlex.quote(str(ready)), shlex.quote(real_setsid))
+    )
+    wrapper.chmod(0o755)
+    process = subprocess.Popen(
+        ["sh", "-c", sandbox.install_command],
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env=sandbox.environment, start_new_session=True
+    )
+    try:
+        _wait_for_file(ready)
+        process.terminate()
+        _, stderr = process.communicate(timeout=5)
+        assert process.returncode == 143, stderr
+        time.sleep(3)
+        assert sandbox.config_path.read_text() == "original\n"
+        assert not Path(sandbox.recovery["owner_path"]).exists()
+        assert not Path(sandbox.recovery["pid_path"]).exists()
+        assert not sandbox.backup_path.exists()
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+        process.communicate(timeout=5)
+
+
+def test_ptf_watchdog_refresh_signal_keeps_existing_watchdog_and_valid_deadline(ptf_recovery_sandbox, tmp_path):
+    sandbox = ptf_recovery_sandbox
+    recovery = sandbox.recovery
+    watchdog = sandbox.start()
+    identity = Path(recovery["pid_path"]).read_text()
+    deadline_path = Path(recovery["deadline_path"])
+    old_deadline = deadline_path.read_text()
+    recovery["recovery_timeout"] = 40
 
     class InterruptingLocalHost:
         @staticmethod
         def shell(command):
             process = subprocess.Popen(
-                ["bash", "-c", command],
+                ["sh", "-c", command],
                 text=True,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stderr=subprocess.PIPE,
+                env=sandbox.environment
             )
             for _ in range(100):
-                if deadline_path.read_text() != "1\n":
+                if deadline_path.read_text() != old_deadline:
                     break
                 time.sleep(0.02)
             os.kill(process.pid, signal.SIGTERM)
             _, stderr = process.communicate(timeout=5)
             raise RuntimeError(stderr)
 
-    recovery = {
-        "pid_path": str(pid_path),
-        "deadline_path": str(deadline_path),
-        "owner_path": str(owner_path),
-        "recovery_id": "owner-id",
-        "lock_path": str(lock_path),
-        "recovery_timeout": 3600,
-    }
-    try:
-        with pytest.raises(RuntimeError):
-            namespace["_refresh_ntp_server_recovery"](
-                InterruptingLocalHost(),
-                recovery
-            )
+    with pytest.raises(RuntimeError):
+        sandbox.namespace["_refresh_ntp_server_recovery"](InterruptingLocalHost(), recovery)
 
-        assert int(pid_path.read_text().strip()) == watchdog.pid
-        assert int(deadline_path.read_text().strip()) > 1
-        os.kill(watchdog.pid, 0)
-        assert not list(tmp_path.glob("recover.deadline.*.tmp"))
-    finally:
-        if watchdog.poll() is None:
-            os.killpg(watchdog.pid, signal.SIGKILL)
-            watchdog.wait(timeout=5)
+    assert Path(recovery["pid_path"]).read_text() == identity
+    assert int(deadline_path.read_text()) > int(old_deadline)
+    assert watchdog.poll() is None
+    assert not list(tmp_path.glob("*.deadline.*.tmp"))
 
 
 def test_direct_ptf_restore_is_bounded():
@@ -1191,6 +1630,9 @@ def test_direct_ptf_restore_is_bounded():
         "pid_path": "/tmp/recover.pid",
         "deadline_path": "/tmp/recover.deadline",
         "backup_path": "/tmp/ntp.conf.backup",
+        "owner_path": "/tmp/recover.owner",
+        "recovery_id": "owner-id",
+        "lock_path": "/tmp/recover.lock",
     }
 
     namespace["_restore_ntp_server"](ptfhost, recovery)
