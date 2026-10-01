@@ -779,6 +779,7 @@ sonic_nokia_sup:
     slot_num: slot0
     num_asics: 16
     num_fabric_asics: 16
+    num_fabric_cards: 4
     switchids: [300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315]
     asics_host_ip: '20.0.0.1/32'
     asics_host_ipv6: 'FC00:20::1/128'
