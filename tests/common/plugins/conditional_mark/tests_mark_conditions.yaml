@@ -481,6 +481,7 @@ bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
     conditions_logical_operator: and
+    conditions:
       - "is_multi_asic==True"
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
