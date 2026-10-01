@@ -431,7 +431,8 @@ all:
         - smartswitch-t1
         - t1-smartswitch-ha
         - ft2-64
-        - ft2-16
+        - ft2-cpo-64
+        - ft2-cpo-16
         - ft2-o128
         - lt2-o128-d110u14
         - lt2-p32o64

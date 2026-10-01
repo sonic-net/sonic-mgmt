@@ -4076,7 +4076,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url, vmhost):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4233,7 +4233,8 @@ def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):
         mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
                                                                         duthosts,
                                                                         mux_server_url,
-                                                                        tbinfo)
+                                                                        tbinfo,
+                                                                        vmhost)
 
     if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
         logger.info("Set all mux ports to manual mode on all ToRs")
