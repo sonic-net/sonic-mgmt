@@ -500,6 +500,7 @@ bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
     conditions_logical_operator: and
+    conditions:
       - "is_multi_asic==True"
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
@@ -1419,6 +1420,12 @@ disk/test_disk_exhaustion.py:
 #######################################
 #####             dns             #####
 #######################################
+dns/static_dns/test_static_dns.py::TestStaticMgmtPortIP::test_dynamic_dns_not_working_when_static_ip_configured:
+  xfail:
+    reason: "dhclient eth0 can replace the static mgmt IP on BMC platforms and render the DUT unreachable."
+    conditions:
+      - "'bmc' in topo_type and https://github.com/sonic-net/sonic-mgmt/issues/27308"
+
 dns/static_dns/test_static_dns.py::test_static_dns_basic:
   skip:
     reason: "Found regression issue on multi-asic platform, need to skip for multi-asic platform until the issue is fixed."
@@ -3866,11 +3873,20 @@ kubesonic/test_k8s_join_disjoin.py:
       - "branch in ['master']"
       - "asic_type in ['vs']"
 
+#######################################
+#####            layer1           #####
+#######################################
 layer1/:
   skip:
     reason: 'Layer 1 tests require physical port interfaces, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+layer1/test_fec_error.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
 
 #######################################
 #####           lldp              #####

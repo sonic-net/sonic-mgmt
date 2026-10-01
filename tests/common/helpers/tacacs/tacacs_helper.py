@@ -282,8 +282,27 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
 def restore_tacacs_servers(duthost):
     # Restore the TACACS plus server in config_db.json
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
-    for tacacs_server in config_facts.get("TACPLUS_SERVER", {}):
-        duthost.shell("sudo config tacacs add %s" % tacacs_server)
+    for tacacs_server, server_config in config_facts.get("TACPLUS_SERVER", {}).items():
+        # Preserve per-server attributes (tcp_port, priority, etc.) from the persisted
+        # config. Without this, "config tacacs add" falls back to the default TACACS
+        # port (49), silently converting a non-default-port server (e.g. the test
+        # server on port 59) into a port-49 entry that points at a non-existent
+        # daemon and floods syslog with nss_tacplus connection failures.
+        add_cmd = "sudo config tacacs add %s" % tacacs_server
+        if isinstance(server_config, dict):
+            if server_config.get("tcp_port"):
+                add_cmd += " --port %s" % server_config["tcp_port"]
+            if server_config.get("priority"):
+                add_cmd += " --pri %s" % server_config["priority"]
+            if server_config.get("timeout"):
+                add_cmd += " --timeout %s" % server_config["timeout"]
+            if server_config.get("auth_type"):
+                add_cmd += " --auth_type %s" % server_config["auth_type"]
+            if server_config.get("passkey"):
+                add_cmd += " --key %s" % server_config["passkey"]
+            if server_config.get("vrf") == "mgmt":
+                add_cmd += " --use-mgmt-vrf"
+        duthost.shell(add_cmd)
 
     cmds = []
     aaa_config = config_facts.get("AAA", {})
