@@ -1828,7 +1828,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+        if "pkts_num_egr_mem" in list(qosConfig[pgProfile].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[pgProfile]["pkts_num_egr_mem"]
+        elif "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
         if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
@@ -1852,7 +1854,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiPgHeadroomWatermark(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, resetWatermark,
-            change_lag_lacp_timer):
+            change_lag_lacp_timer, clear_pg_wm):
         """
             Test QoS SAI PG headroom watermark test
 
@@ -2045,7 +2047,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         egressLossyProfile, resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic,
-        change_lag_lacp_timer, blockGrpcTraffic, iptables_drop_ipv6_tx  # noqa: F811
+        change_lag_lacp_timer, blockGrpcTraffic, iptables_drop_ipv6_tx, clear_pg_wm  # noqa: F811
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -2119,7 +2121,9 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["platform_asic"] = None
 
-        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+        if "pkts_num_egr_mem" in list(qosConfig[queueProfile].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[queueProfile]["pkts_num_egr_mem"]
+        elif "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
         if "packet_size" in list(qosConfig[queueProfile].keys()):

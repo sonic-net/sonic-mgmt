@@ -3961,18 +3961,27 @@ def clear_pg_watermark(interface):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_index = src_asic.asic_index
 
-        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] not in ["gr2", "gr2x"]:
+        if src_dut.facts['asic_type'] == "cisco-8000" and dutConfig["dutAsic"] in ["gr2", "gr2x"]:
+            interfaces = self.get_port_channel_members(src_dut, src_port)
+
+            self.copy_clear_pg_wm_script_cisco_8000(
+                dut=src_dut,
+                ports=interfaces,
+                asic=src_index)
+
+            src_dut.shell('sudo show platform npu script -s clear_pg_wm.py')
+
             yield
             return
 
-        interfaces = self.get_port_channel_members(src_dut, src_port)
-
-        self.copy_clear_pg_wm_script_cisco_8000(
-            dut=src_dut,
-            ports=interfaces,
-            asic=src_index)
-
-        src_dut.shell('sudo show platform npu script -s clear_pg_wm.py')
+        # For non cisco-8000/gr2(x) platforms, the previous test's PG/queue
+        # watermarks (high-water marks) are not automatically cleared and
+        # can otherwise leak into the initial reading of the next watermark
+        # test. Clear them explicitly via the standard SONiC CLI.
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            duthost.shell('sudo sonic-clear priority-group watermark shared', module_ignore_errors=True)
+            duthost.shell('sudo sonic-clear priority-group watermark headroom', module_ignore_errors=True)
+            duthost.shell('sudo sonic-clear queue watermark all', module_ignore_errors=True)
 
         yield
         return
