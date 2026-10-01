@@ -5615,6 +5615,27 @@ snmp/test_snmp_queue_counters.py:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
+#####       sonic_operations      #####
+#######################################
+sonic_operations/test_cphc_package_nightly.py:
+  skip:
+    reason: "Temporarily skip in BJW: package image-server availability is pending"
+    conditions:
+      - "inv_name in ['bjw', 'bjw2', 'bjw3']"
+
+sonic_operations/test_package_download_nightly.py:
+  skip:
+    reason: "Temporarily skip in BJW: package image-server availability is pending"
+    conditions:
+      - "inv_name in ['bjw', 'bjw2', 'bjw3']"
+
+sonic_operations/test_postupgrade_package_nightly.py:
+  skip:
+    reason: "Temporarily skip in BJW: package image-server availability is pending"
+    conditions:
+      - "inv_name in ['bjw', 'bjw2', 'bjw3']"
+
+#######################################
 #####            span             #####
 #######################################
 span:

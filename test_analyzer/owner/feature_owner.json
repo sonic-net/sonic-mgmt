@@ -1872,6 +1872,22 @@
         ]
     },
     {
+        "feature": "sonic-operations",
+        "owner": "Ryan Zhu",
+        "email": "ryanzhu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "sonic-operations.test_cphc_package_nightly",
+                    "sonic-operations.test_package_download_nightly",
+                    "sonic-operations.test_postupgrade_package_nightly"
+                ],
+                "owner": "Ryan Zhu",
+                "email": "ryanzhu@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "span",
         "owner": "bing wang",
         "email": "bingwang@microsoft.com",

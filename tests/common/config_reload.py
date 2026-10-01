@@ -2,6 +2,8 @@ import json
 import time
 import logging
 import os
+import re
+import shlex
 
 from tests.common.helpers.assertions import pytest_assert
 from _pytest.outcomes import OutcomeException
@@ -92,6 +94,23 @@ def config_force_option_supported(duthost):
     if "force" in out['stdout'].strip():
         return True
     return False
+
+
+def _supports_zebra_nexthop(sonic_host):
+    """Check for the zebra_nexthop leaf in the installed device metadata model."""
+    model_path = '/usr/local/yang-models/sonic-device_metadata.yang'
+    result = sonic_host.shell('cat {}'.format(shlex.quote(model_path)))
+    pytest_assert(result['rc'] == 0,
+                  "Failed to read {}: {}".format(model_path, result.get('stderr', '')))
+    # Keep quoted strings intact so descriptions and comments cannot impersonate a leaf.
+    tokens = re.findall(
+        r'"(?:\\.|[^"\\])*"|\'[^\']*\'|/\*.*?\*/|//[^\n]*|[A-Za-z_][\w.:-]*|[{};]',
+        result['stdout'], re.DOTALL)
+    tokens = [token for token in tokens if not token.startswith(('//', '/*'))]
+    return any(
+        keyword == 'leaf' and name in ('zebra_nexthop', '"zebra_nexthop"', "'zebra_nexthop'")
+        and body == '{'
+        for keyword, name, body in zip(tokens, tokens[1:], tokens[2:]))
 
 
 def _check_all_dpu_module_states(sonic_host, dpu_expected_states):
@@ -279,6 +298,7 @@ def is_upstream_t2(duthost):
                              module_ignore_errors=True)
     return (dut_type and dut_type.get('stdout') == 'UpperSpineRouter')
 
+
 def _reload_health_check_with_retry(sonic_host, wait, retries=CONFIG_RELOAD_SAFE_HEALTH_RETRIES):
     """
     Wait for critical services + processes to be healthy after a config reload,
@@ -398,10 +418,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         mg_facts = sonic_host.minigraph_facts(host=sonic_host.hostname)['ansible_facts']
         zebra_nexthop = mg_facts.get('minigraph_device_metadata', {}).get('zebra_nexthop')
         if zebra_nexthop:
-            logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
-            sonic_host.shell(
-                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
-            )
+            if _supports_zebra_nexthop(sonic_host):
+                logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
+                sonic_host.shell(
+                    'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(
+                        shlex.quote(zebra_nexthop))
+                )
+            else:
+                logger.info("Skipping zebra_nexthop restoration: installed DEVICE_METADATA YANG model "
+                            "does not support the zebra_nexthop leaf")
         if is_dut and not golden_override:
             _reapply_golden_link_training(sonic_host, golden_config_path)
         time.sleep(60)
