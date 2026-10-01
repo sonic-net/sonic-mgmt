@@ -1001,6 +1001,9 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
+  - dualtor/test_switchover_failure.py
   - dualtor_io/test_grpc_server_failure.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
