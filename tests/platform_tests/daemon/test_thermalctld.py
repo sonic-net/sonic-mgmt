@@ -596,7 +596,7 @@ def _thermalctld_check_expected_status(duthost, expected_status):
 
 def _thermalctld_check_restarted(duthost, pre_pid):
     _, pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
-    return pid > pre_pid
+    return pid != -1 and pid != pre_pid
 
 
 @pytest.fixture(scope="module")
@@ -646,8 +646,8 @@ def test_pmon_thermalctld_stop_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after restart but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-stop pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-stop pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
@@ -668,8 +668,8 @@ def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after SIGTERM but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-term pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-term pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
@@ -690,6 +690,6 @@ def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts,
     pytest_assert(post_status == expected_running_status,
                   "{} expected {} after SIGKILL but is {}".format(
                       THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
-    pytest_assert(post_pid > pre_pid,
-                  "Restarted {} pid {} should be greater than pre-kill pid {}".format(
+    pytest_assert(post_pid != pre_pid,
+                  "Restarted {} pid {} should differ from pre-kill pid {}".format(
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))

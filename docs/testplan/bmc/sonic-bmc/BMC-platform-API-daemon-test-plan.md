@@ -511,8 +511,8 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 **Test Steps**:
 1. Record pre-stop pid
 2. `stop_pmon_daemon(bmcctld, None)` — assert status becomes `STOPPED`, pid == -1
-3. `start_pmon_daemon(bmcctld)` — wait up to 120 s for new pid > pre-stop pid
-4. Assert post-restart status is `RUNNING` and pid incremented
+3. `start_pmon_daemon(bmcctld)` — wait up to 120 s for new pid != pre-stop pid
+4. Assert post-restart status is `RUNNING` and pid differs
 
 **Expected Result**: bmcctld stops and restarts with a new pid.
 
@@ -525,7 +525,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 **Test Steps**:
 1. Record pre-term pid
 2. `stop_pmon_daemon(bmcctld, "-15", pid)` — send SIGTERM
-3. Wait up to 120 s for supervisord to restart; assert new pid > pre-term pid and status `RUNNING`
+3. Wait up to 120 s for supervisord to restart; assert new pid != pre-term pid and status `RUNNING`
 
 **Expected Result**: bmcctld auto-restarts after SIGTERM.
 
@@ -538,7 +538,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 **Test Steps**:
 1. Record pre-kill pid
 2. `stop_pmon_daemon(bmcctld, "-9", pid)` — send SIGKILL
-3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+3. Wait up to 120 s for supervisord to restart; assert new pid != pre-kill pid and status `RUNNING`
 4. **Post-restart smoke** — verify bmcctld is functional again:
    - HSET `CONFIG_DB CHASSIS_MODULE|SWITCH-HOST admin_status` to its current value (no-op flip-restore)
    - Confirm syslog records the subscription-handler entry within 30 s (proves SubscriberStateTable callbacks reattached)
@@ -715,8 +715,8 @@ Both aspects are validated in a single test since they share the same data
 **Test Steps**:
 1. Record pre-stop pid
 2. `stop_pmon_daemon(thermalctld, None)` — assert status becomes `STOPPED`, pid == -1
-3. `start_pmon_daemon(thermalctld)` — wait up to 120 s for new pid > pre-stop pid
-4. Assert post-restart status is `RUNNING` and pid incremented
+3. `start_pmon_daemon(thermalctld)` — wait up to 120 s for new pid != pre-stop pid
+4. Assert post-restart status is `RUNNING` and pid differs
 
 **Expected Result**: thermalctld stops and restarts with a new pid.
 
@@ -729,7 +729,7 @@ Both aspects are validated in a single test since they share the same data
 **Test Steps**:
 1. Record pre-term pid
 2. `stop_pmon_daemon(thermalctld, "-15", pid)` — send SIGTERM
-3. Wait up to 120 s for supervisord to restart; assert new pid > pre-term pid and status `RUNNING`
+3. Wait up to 120 s for supervisord to restart; assert new pid != pre-term pid and status `RUNNING`
 
 **Expected Result**: thermalctld auto-restarts after SIGTERM.
 
@@ -742,7 +742,7 @@ Both aspects are validated in a single test since they share the same data
 **Test Steps**:
 1. Record pre-kill pid
 2. `stop_pmon_daemon(thermalctld, "-9", pid)` — send SIGKILL
-3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+3. Wait up to 120 s for supervisord to restart; assert new pid != pre-kill pid and status `RUNNING`
 4. **Post-restart smoke** — verify thermalctld is functional again:
    - Read `STATE_DB SYSTEM_LEAK_STATUS|system` — assert key/fields remain present after restart
      (timestamp may not advance without a leak-state transition)
