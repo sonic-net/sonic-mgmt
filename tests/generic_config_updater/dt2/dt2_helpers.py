@@ -209,7 +209,12 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
         })
     candidates.sort(key=lambda c: (c["neighbor_name"], c["neighbor_ip"]))
     rejected = []
+    seen = set()
     for candidate in candidates:
+        # One candidate per BGP_NEIGHBOR row; a neighbor with IPv4 and IPv6 sessions appears twice.
+        if candidate["neighbor_name"] in seen:
+            continue
+        seen.add(candidate["neighbor_name"])
         ctx = build_neighbor_ctx(candidate, config_facts, config_facts_localhost, mg_facts)
         if accept is None or accept(ctx):
             logger.info("Selected neighbor context for %s: %s", scenario["id"], ctx)
