@@ -11,6 +11,7 @@ import ipaddress
 import time
 import json
 
+from _pytest.outcomes import OutcomeException
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
@@ -305,6 +306,7 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
+    shutdown_complete = False
     try:
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
@@ -316,13 +318,14 @@ def duthost_shutdown_ebgp(duthost):
                   "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
                   .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                           orch_cpu_threshold))
-    except BaseException:
-        logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
-        try:
-            duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
-        except BaseException:
-            logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
-        raise
+        shutdown_complete = True
+    finally:
+        if not shutdown_complete:
+            logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
+            try:
+                duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+            except (Exception, OutcomeException):
+                logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
 
     return v4_routes_count, v6_routes_count
 
@@ -348,7 +351,7 @@ def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, ex
     """Restore eBGP without replacing an exception that is already in flight."""
     try:
         duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
-    except BaseException:
+    except (Exception, OutcomeException):
         if exc_type is None:
             raise
         logger.exception("Failed to restore eBGP on %s while handling %s", duthost.hostname, exc_type.__name__)

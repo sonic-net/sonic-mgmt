@@ -13,6 +13,7 @@ import yaml
 import six
 import re
 
+from _pytest.outcomes import OutcomeException
 import ptf.testutils as testutils
 import ptf.packet as packet
 from scapy.layers.l2 import Ether
@@ -512,7 +513,7 @@ def _remove_run_dir_on_exit(duthost, exc_type, exc, traceback):
     """Remove a fixture-owned run directory without masking an earlier failure."""
     try:
         duthost.file(path=DUT_RUN_DIR, state="absent")
-    except BaseException:
+    except (Exception, OutcomeException):
         if exc_type is None:
             raise
         logging.exception("Failed to remove Everflow run directory on %s while handling %s",

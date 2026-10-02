@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import Mock, call
 
 import pytest
+from _pytest.outcomes import OutcomeException
 
 
 COMMON_DIR = Path(__file__).resolve().parents[2]
@@ -80,6 +81,7 @@ def cleanup_namespace():
         "ExitStack": ExitStack,
         "partial": partial,
         "pytest": pytest,
+        "OutcomeException": OutcomeException,
         "logger": Mock(),
         "logging": Mock(),
         "wait_until": Mock(return_value=True),
@@ -188,6 +190,18 @@ def test_shutdown_command_or_probe_error_preserves_original_exception(cleanup_na
     assert namespace["logger"].exception.call_count == 2
 
 
+def test_shutdown_keyboard_interrupt_restores_before_propagating(cleanup_namespace):
+    """An operator interrupt still restores eBGP, but is never swallowed."""
+    namespace = cleanup_namespace
+    dut = _mock_dut("dut-1")
+    dut.command.side_effect = KeyboardInterrupt()
+
+    with pytest.raises(KeyboardInterrupt):
+        namespace["duthost_shutdown_ebgp"](dut)
+
+    namespace["duthost_startup_ebgp"].assert_called_once_with(dut, 100, 200)
+
+
 @pytest.mark.parametrize("error_type", [RuntimeError, pytest.fail.Exception])
 def test_restore_exit_helper_propagates_cleanup_failures(cleanup_namespace, error_type):
     """A restoration failure must fail teardown when there is no earlier exception."""
@@ -214,6 +228,16 @@ def test_restore_exit_helper_keeps_primary_failures(cleanup_namespace, primary_t
     assert namespace["restore_ebgp_on_exit"](dut, 100, 200, primary_type, primary, None) is False
     namespace["logger"].exception.assert_called_once_with(
         "Failed to restore eBGP on %s while handling %s", "dut-1", primary_type.__name__)
+
+
+def test_restore_exit_helper_does_not_swallow_keyboard_interrupt(cleanup_namespace):
+    """System-exiting cleanup signals must remain visible even with a primary failure."""
+    namespace = cleanup_namespace
+    dut = _mock_dut("dut-1")
+    namespace["duthost_startup_ebgp"].side_effect = KeyboardInterrupt()
+
+    with pytest.raises(KeyboardInterrupt):
+        namespace["restore_ebgp_on_exit"](dut, 100, 200, RuntimeError, RuntimeError("setup failed"), None)
 
 
 def test_shared_fixture_normal_teardown_restores_in_lifo_order(cleanup_namespace):
@@ -385,6 +409,16 @@ def test_everflow_directory_cleanup_attempts_all_steps_and_keeps_first_error(cle
     for dut in duthosts:
         dut.file.assert_any_call(path=RUN_DIR, state="absent")
     namespace["logging"].exception.assert_called_once()
+
+
+def test_everflow_directory_cleanup_does_not_swallow_keyboard_interrupt(cleanup_namespace):
+    """A system-exiting signal during cleanup must not be hidden by a primary failure."""
+    namespace = cleanup_namespace
+    dut = _mock_dut("dut-1")
+    dut.file.side_effect = KeyboardInterrupt()
+
+    with pytest.raises(KeyboardInterrupt):
+        namespace["_remove_run_dir_on_exit"](dut, RuntimeError, RuntimeError("setup failed"), None)
 
 
 def test_everflow_bgp_cleanup_error_wins_over_directory_cleanup_errors(cleanup_namespace):
