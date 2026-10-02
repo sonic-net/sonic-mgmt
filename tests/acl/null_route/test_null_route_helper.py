@@ -11,6 +11,7 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F401
 import ptf.testutils as testutils
+from tests.common.helpers.constants import PTF_TIMEOUT
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import get_upstream_neigh_type, get_neighbor_ptf_port_list, \
@@ -246,7 +247,7 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
     if expected_action == FORWARD:
-        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
+        testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=PTF_TIMEOUT)
     else:
         testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
 
