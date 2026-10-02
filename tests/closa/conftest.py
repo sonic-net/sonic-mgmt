@@ -40,6 +40,9 @@ LIFECYCLE_DISRUPTION_TESTS = (
 )
 
 LIFECYCLE_DISRUPTION_IGNORE_LOGS = [
+    # These BGP lifecycle tests do not validate SAI behavior. Match the same
+    # vendor SAI query noise ignored by container autorestart tests.
+    r".*ERR syncd[0-9]*#syncd.*SAI_API_UNSPECIFIED:sai_api_query.*",
     # Reloading iptables/TACACS can report different transport errors across
     # images (unreachable, disconnected, refused, or timeout). TACACS behavior
     # is outside the scope of these BGP lifecycle tests.
