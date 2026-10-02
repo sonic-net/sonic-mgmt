@@ -1111,6 +1111,15 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
 #######################################
+#####      device_ops_agent      #####
+#######################################
+device_ops_agent/test_device_ops_agent.py:
+  skip:
+    reason: "device-ops-agent container is not present on BMC, so these tests are not applicable."
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####         dhcp_relay        #####
 #######################################
 dhcp_relay:
