@@ -83,7 +83,21 @@ class DutHosts(dict):
 
     def __init__(self, dut):
         super().__init__({dut.hostname: dut})
-        self.frontend_nodes = [dut]
+
+    @property
+    def frontend_nodes(self):
+        """Derive frontend nodes from the mapping so dictionary equality remains complete."""
+        return list(self.values())
+
+
+def test_duthosts_frontend_nodes_track_mapping_values():
+    """The test helper exposes every mapped frontend DUT without hidden equality state."""
+    first = Mock(hostname="dut-1")
+    second = Mock(hostname="dut-2")
+    duthosts = DutHosts(first)
+    duthosts[second.hostname] = second
+
+    assert duthosts.frontend_nodes == [first, second]
 
 
 class Runtime:

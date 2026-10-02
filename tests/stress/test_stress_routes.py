@@ -33,6 +33,7 @@ def get_route_state(duthost, namespace):
                   "Invalid BGP command result in namespace {}: result_type={}.{}, stdout_type={}.{}, "
                   "result={}".format(namespace, type(result).__module__, type(result).__qualname__,
                                      type(stdout).__module__, type(stdout).__qualname__, result))
+    summary = None
     try:
         summary = json.loads(stdout)
     except ValueError as error:
