@@ -1,6 +1,7 @@
 """VDM availability field planning, STATE_DB reads, and validation."""
 
 import math
+import re
 from collections import defaultdict, namedtuple
 
 from tests.transceiver.attribute_parser.attribute_keys import VDM_ATTRIBUTES_KEY
@@ -102,10 +103,15 @@ def build_vdm_field_plan(
             if not attr_name.endswith(OPERATIONAL_SUFFIX):
                 continue
             quantity = attr_name[:-len(OPERATIONAL_SUFFIX)]
-            if not quantity.endswith("LANE_NUM"):
-                errors.append("{} has no LANE_NUM placeholder".format(attr_name))
-                continue
-            quantity = quantity[:-len("LANE_NUM")]
+            if quantity.endswith("LANE_NUM"):
+                quantity = quantity[:-len("LANE_NUM")]
+                explicit_lane = None
+            else:
+                match = re.fullmatch(r"(.+?)(\d+)", quantity)
+                if not match:
+                    errors.append("{} has no lane suffix".format(attr_name))
+                    continue
+                quantity, explicit_lane = match.group(1), int(match.group(2))
             if quantity in MEDIA_QUANTITIES:
                 lanes = lane_domains["media"]
             elif quantity in HOST_QUANTITIES:
@@ -115,6 +121,11 @@ def build_vdm_field_plan(
             else:
                 errors.append("unknown VDM attribute {}".format(attr_name))
                 continue
+            if explicit_lane is not None and explicit_lane not in lanes:
+                errors.append("{} targets inactive lane {}".format(attr_name, explicit_lane))
+                continue
+            if explicit_lane is not None:
+                lanes = [explicit_lane]
             for lane in lanes:
                 field = "{}{}".format(quantity, lane)
                 expected_fields[field] = VdmMappedField(attr_name, attr_value)

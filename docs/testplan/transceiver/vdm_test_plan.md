@@ -41,6 +41,8 @@ A `vdm.json` file is used to define the attributes for the VDM tests for the var
 
 **Note on unsupported observables:** If a module does not advertise a given VDM observable — or advertises it on only one side (e.g. some modules report `esnr_media_input` but not `esnr_host_input`) — omit the corresponding `_operational_range` attribute for that PN so presence/range checks do not run against a field the module never publishes.
 
+**Note on lane applicability:** Use `LANE_NUM` when an observable applies to every active lane/data path. If it applies only to specific lanes, replace `LANE_NUM` with each applicable lane number (for example, `laser_temperature_media1_operational_range`).
+
 The following table summarizes the attributes common to all CMIS-capable optics (grey and coherent/ZR). This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
 **Legend:** M = Mandatory, O = Optional. Mandatoriness for a given field on a given part number is the responsibility of whoever authors that `vdm.json` shard — grey and coherent/ZR optics advertise different observable sets, and no field here is universally advertised across all optics tested. If an author declares a field the optic doesn't actually advertise, the corresponding test failing is correct behavior: it surfaces an authoring error, not a false negative.
@@ -124,7 +126,7 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 
 2. **Base Field Extraction**: Remove the `_operational_range`/`_threshold_range` suffix to get the base field name
 
-3. **Lane Expansion Logic**: Every VDM attribute in this plan is lane- (or data-path-) indexed via the `LANE_NUM` placeholder — unlike DOM, there is no whole-module VDM field. Expand `LANE_NUM` across the module's active lanes/data-paths by replacing it with each actual lane number. For Data Path Monitors, "lane" refers to the first lane of the data path.
+3. **Lane Expansion Logic**: Every VDM attribute is lane- (or data-path-) indexed — unlike DOM, there is no whole-module VDM field. Expand `LANE_NUM` across the module's active lanes/data-paths. An explicit numeric suffix selects only that active lane/data path. For Data Path Monitors, "lane" refers to the first lane of the data path.
 
 4. **Special Field Mappings**: Apply any platform-specific field name mappings as needed
 
