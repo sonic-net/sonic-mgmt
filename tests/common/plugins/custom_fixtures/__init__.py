@@ -8,8 +8,8 @@ def pytest_collection_modifyitems(items):
         asic_marks = [mark for mark in item.iter_markers(name="asic")]
         if asic_marks:
             if 'check_dut_asic_type' in item.fixturenames:
-                # Already added
-                return
+                # This item already has the fixture; continue processing the remaining items.
+                continue
             for pos, name in enumerate(item.fixturenames):
                 if item._fixtureinfo.name2fixturedefs[name][0].scope == 'module':
                     break
