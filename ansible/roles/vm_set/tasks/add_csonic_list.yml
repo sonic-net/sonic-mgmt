@@ -8,6 +8,49 @@
   loop_control:
     loop_var: item
 
+- name: Validate cSONiC LAG backend
+  assert:
+    that:
+      - csonic_lag_backend in ['teamd', 'userspace_ovs']
+    fail_msg: >-
+      Unsupported csonic_lag_backend={{ csonic_lag_backend }};
+      expected teamd or userspace_ovs
+
+- name: Create temporary userspace OVS image build context
+  become: yes
+  tempfile:
+    state: directory
+    suffix: csonic-userspace-ovs
+  register: csonic_ovs_build_context
+  when: csonic_lag_backend == 'userspace_ovs'
+
+- name: Copy userspace OVS Dockerfile to VM host
+  become: yes
+  copy:
+    src: csonic-userspace-ovs.Dockerfile
+    dest: "{{ csonic_ovs_build_context.path }}/Dockerfile"
+    mode: '0644'
+  when: csonic_lag_backend == 'userspace_ovs'
+
+- name: Build cSONiC userspace OVS image
+  become: yes
+  docker_image:
+    name: "{{ csonic_userspace_ovs_image }}"
+    source: build
+    force_source: yes
+    build:
+      path: "{{ csonic_ovs_build_context.path }}"
+      args:
+        CSONIC_BASE_IMAGE: "{{ csonic_image }}"
+  when: csonic_lag_backend == 'userspace_ovs'
+
+- name: Remove temporary userspace OVS image build context
+  become: yes
+  file:
+    path: "{{ csonic_ovs_build_context.path }}"
+    state: absent
+  when: csonic_lag_backend == 'userspace_ovs'
+
 - name: Create VMs network
   become: yes
   vm_topology:
@@ -16,15 +59,25 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
 
-- name: Add OVS flow rules for VM bridges
-  become: yes
-  command: "ovs-ofctl add-flow br-{{ vm_item }}-{{ topology.VMs[vm_inv_to_topo[vm_item]].vm_offset }} action=normal"
-  loop: "{{ VM_targets }}"
-  loop_control:
-    loop_var: vm_item
-  failed_when: false
-
 - include_tasks: add_csonic.yml
   loop: "{{ VM_targets }}"
   loop_control:
     loop_var: vm_item
+
+- name: Install forwarding and LACP flows on cSONiC VM bridges
+  become: yes
+  script: >-
+    configure_csonic_bridge.py
+    --bridge br-{{ vm_item }}-{{ link_index }}
+    --neighbor-port {{ vm_item }}-t{{ link_index }}
+  loop: "{{ query('nested', VM_targets, range(0, max_fp_num | int) | list) }}"
+  loop_control:
+    loop_var: csonic_bridge_link
+  vars:
+    vm_item: "{{ csonic_bridge_link.0 }}"
+    link_index: "{{ csonic_bridge_link.1 }}"
+  register: csonic_bridge_flow
+  changed_when: "'changed=true' in csonic_bridge_flow.stdout"
+  when: >-
+    link_index | int <
+    (topology.VMs[vm_inv_to_topo[vm_item]].vlans | length)
