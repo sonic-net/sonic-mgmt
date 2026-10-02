@@ -48,6 +48,14 @@ parameters:
     type: string
     default: ""
 
+  - name: MGMT_COMMIT_HASH
+    type: string
+    default: ""
+
+  - name: REQUESTER
+    type: string
+    default: "Nightly Test"
+
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
@@ -159,6 +167,7 @@ steps:
       FEATURES_EXCLUDE: "${{ parameters.FEATURES_EXCLUDE }}, ptftests, acstests, saitests, scripts, k8s, sai_qualify"
       COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+      MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
       PTF_IMAGE_TAG: $(resolvedPTFImageTag)
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
@@ -180,6 +189,6 @@ steps:
       PARALLEL_MODES_FILE: ${{ parameters.PARALLEL_MODES_FILE }}
       TEST_PLAN_TYPE: "NIGHTLY"
       PLATFORM: "PHYSICAL"
-      REQUESTER: "Nightly Test"
+      REQUESTER: ${{ parameters.REQUESTER }}
       MIN_WORKER: ${{ parameters.MIN_WORKER }}
       MAX_WORKER: ${{ parameters.MAX_WORKER }}
