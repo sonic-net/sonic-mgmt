@@ -471,9 +471,11 @@ def _as_bool(value):
 
 def _testbed_duts(testbed):
     duts = testbed.get("dut", testbed.get("duts", []))
-    if not isinstance(duts, list):
-        return []
-    return duts
+    if isinstance(duts, list):
+        return duts
+    if isinstance(duts, dict):
+        return list(duts.values())
+    return []
 
 
 def _ineligible_reasons(testbed, requirements):

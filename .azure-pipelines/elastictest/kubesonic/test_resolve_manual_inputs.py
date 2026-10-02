@@ -156,6 +156,26 @@ class TestbedSelectionTests(unittest.TestCase):
         self.assertEqual(selected["topo"], "m0")
         self.assertEqual(count, 1)
 
+    def test_exact_testbed_accepts_keyed_dut_inventory(self):
+        selected, count = RESOLVER._select_testbed(
+            [
+                _testbed(
+                    "testbed-bjw-can-720dt-3",
+                    dut={
+                        "bjw-can-720dt-3": {
+                            "name": "bjw-can-720dt-3",
+                        }
+                    },
+                )
+            ],
+            "testbed-bjw-can-720dt-3",
+            self.requirements,
+            "0" * 40,
+        )
+
+        self.assertEqual(selected["name"], "testbed-bjw-can-720dt-3")
+        self.assertEqual(count, 1)
+
     def test_auto_excludes_nightly_locked_and_tagged_testbeds(self):
         selected, count = RESOLVER._select_testbed(
             [
