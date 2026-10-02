@@ -9,7 +9,9 @@ config_module_logging('sonic_kickstart')
 
 
 class EMatchNotFound(Exception):
-    pass
+    def __init__(self, console_output=None):
+        super(EMatchNotFound, self).__init__()
+        self.console_output = console_output
 
 
 class SerialSession(object):
@@ -32,7 +34,7 @@ class SerialSession(object):
 
         return
 
-    def pair(self, action, wait_for, timeout=60):
+    def pair(self, action, wait_for, timeout=60, capture_output=False):
         # lgtm [py/clear-text-logging-sensitive-data]
         logging.debug('output: %s' % action)
         logging.debug('match: %s' % ",".join(wait_for))
@@ -43,7 +45,7 @@ class SerialSession(object):
             logging.debug('Result of matching: %d %s %s' %
                           (index, str(match), text))
             if index == -1:
-                raise EMatchNotFound
+                raise EMatchNotFound(text if capture_output else None)
         else:
             index = 0
 
@@ -51,7 +53,8 @@ class SerialSession(object):
 
     def login(self, user, passwords):
         while True:
-            index = self.pair('\r', [r'login:', r'assword:'], 300)
+            index = self.pair(
+                '\r', [r'login:', r'assword:'], 300, capture_output=True)
             if index == 0:
                 break
 
@@ -127,6 +130,18 @@ def core(module):
     return {'kickstart_code': 0, 'changed': True, 'msg': 'Kickstart completed'}
 
 
+def format_console_tail(console_output, limit=4096):
+    if not console_output:
+        return ''
+
+    decoded = console_output.decode('utf-8', errors='replace')
+    printable = ''.join(
+        char if char in '\r\n\t' or 32 <= ord(char) < 127 else '?'
+        for char in decoded
+    )
+    return printable[-limit:]
+
+
 def main():
 
     module = AnsibleModule(argument_spec=dict(
@@ -145,9 +160,13 @@ def main():
     except EOFError:
         result = {'kickstart_code': -1, 'changed': False,
                   'msg': 'EOF during the chat'}
-    except EMatchNotFound:
+    except EMatchNotFound as e:
+        console_tail = format_console_tail(e.console_output)
+        msg = "Match for output isn't found"
+        if console_tail:
+            msg += "\nPre-login console tail:\n%s" % console_tail
         result = {'kickstart_code': -1, 'changed': False,
-                  'msg': "Match for output isn't found"}
+                  'msg': msg}
     except Exception as e:
         module.fail_json(msg=str(e))
 
