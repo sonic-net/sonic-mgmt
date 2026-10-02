@@ -1,5 +1,8 @@
 from tests.common.snappi_tests.common_helpers import get_pfcQueueGroupSize
 
+# Deprecated: use common_helpers.pfc_queue_group_size(), which additionally
+# auto-detects the size from the tgen port where supported (IxNetwork), and
+# falls back to this same override/default resolution otherwise.
 pfcQueueGroupSize = get_pfcQueueGroupSize(default=8)  # can have values 4 or 8
 pfcQueueValueDict = {0: 0,
                      1: 1,
