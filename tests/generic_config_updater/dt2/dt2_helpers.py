@@ -382,7 +382,7 @@ def verify_prefix_present(duthost, asic_index, target, neighbor_ctx, should_exis
     return not via_neighbor if target["ecmp"] else not route_body
 
 
-PROBE_FLOWS = 64
+PROBE_FLOWS = 256
 
 
 def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_ctx, ptf_dst_ports, dst_ip,
@@ -391,9 +391,11 @@ def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_c
     Send PROBE_FLOWS distinct TCP flows towards dst_ip from a PTF port of the upstream DUT that
     is not one of the neighbor's links, and count arrivals on the neighbor's PTF ports.
     With expect_traffic at least one flow must egress via the neighbor: the prefix may be ECMP
-    across several neighbors, so a single flow could legitimately hash elsewhere (64 flows over
-    a 3-way ECMP miss the neighbor with probability (2/3)^64). Flows differ in source IP and
-    TCP source port so they spread under both L3-only and L4 hashing, and carry TTL 2 so the
+    across many neighbors, so a single flow could legitimately hash elsewhere (256 flows over a
+    16-way ECMP miss the neighbor with probability (15/16)^256). Flows differ in source IP,
+    spread across the second and fourth octets (or two IPv6 groups) rather than consecutive
+    addresses, and in TCP source port, so they spread under both L3-only and L4 hashing, and
+    carry TTL 2 so the
     neighbor cannot forward them back into the DUT (test prefixes are often reachable from the
     neighbor via the DUT itself, which would loop each probe and inflate the count). Without
     expect_traffic no flow may egress via the neighbor. Retried with wait_until so the ASIC has
@@ -411,10 +413,10 @@ def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_c
 
     def build(flow):
         if ip_version == 4:
-            src_ip = str(ipaddress.ip_address("30.0.0.10") + flow)
+            src_ip = str(ipaddress.ip_address("30.0.0.10") + flow * 65537)
             return testutils.simple_tcp_packet(eth_src=src_mac, eth_dst=router_mac, ip_src=src_ip,
                                                ip_dst=dst_ip, ip_ttl=2, tcp_sport=10000 + flow, tcp_dport=80)
-        src_ip = str(ipaddress.ip_address("2001:db8::1") + flow)
+        src_ip = str(ipaddress.ip_address("2001:db8::1") + flow * ((1 << 64) + 1))
         return testutils.simple_tcpv6_packet(eth_src=src_mac, eth_dst=router_mac, ipv6_src=src_ip,
                                              ipv6_dst=dst_ip, ipv6_hlim=2, tcp_sport=10000 + flow, tcp_dport=80)
 
