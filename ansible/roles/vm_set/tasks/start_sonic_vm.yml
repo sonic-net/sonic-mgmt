@@ -35,6 +35,18 @@
   stat: path={{ disk_image }}
   register: file_stat
 
+- name: Check source EFI vars for {{ dut_name }}
+  stat:
+    path: "{{ src_disk_efi_vars }}"
+  register: src_disk_efi_vars_stat
+
+- name: Enable Secure Boot when EFI vars are available
+  set_fact:
+    secure_boot_enabled: true
+  when:
+    - secure_boot_enabled is not defined
+    - src_disk_efi_vars_stat.stat.exists
+
 - name: Check sonic EFI vars for {{ dut_name }}
   stat:
     path: "{{ efi_vars }}"
@@ -45,12 +57,6 @@
   stat:
     path: /usr/share/OVMF/OVMF_CODE_4M.secboot.fd
   register: secure_boot_firmware_stat
-  when: secure_boot_enabled | default(false) | bool
-
-- name: Check source EFI vars for {{ dut_name }}
-  stat:
-    path: "{{ src_disk_efi_vars }}"
-  register: src_disk_efi_vars_stat
   when: secure_boot_enabled | default(false) | bool
 
 - name: Validate Secure Boot artifacts for {{ dut_name }}
