@@ -6,11 +6,13 @@ import netaddr
 import copy
 import logging
 import os
+import re
 import tempfile
 
+from contextlib import contextmanager
 from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext, LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
@@ -34,6 +36,7 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
+CRM_THRESHOLD_LOG_TIMEOUT = CRM_UPDATE_TIME * 3
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -243,6 +246,114 @@ def get_acl_tbl_key(asichost):
     return acl_tbl_key
 
 
+@contextmanager
+def disable_swss_syslog_rate_limit(duthost, asichost):
+    """Prevent SWSS threshold messages from being dropped during CRM verification."""
+    swss_container = asichost.get_docker_name("swss")
+    config_file = "/etc/rsyslog.conf"
+
+    def restart_rsyslog():
+        duthost.shell(
+            "docker exec {} supervisorctl restart rsyslogd".format(swss_container)
+        )
+
+        def is_rsyslog_running():
+            status = duthost.shell(
+                "docker exec {} supervisorctl status rsyslogd".format(swss_container),
+                module_ignore_errors=True
+            )
+            return status.get("rc") == 0 and "RUNNING" in status.get("stdout", "")
+
+        pytest_assert(
+            wait_until(10, 1, 0, is_rsyslog_running),
+            "SWSS rsyslogd did not return to RUNNING state"
+        )
+
+    # Newer images configure imuxsock with RainerScript module() parameters,
+    # older ones (e.g. 202511) with the legacy $SystemLogRateLimitInterval directive.
+    rate_limit_syntaxes = [
+        (r'SysSock\.RateLimit\.Interval="([0-9]+)"',
+         r'SysSock\.RateLimit\.Interval=\"{}\"', r'SysSock.RateLimit.Interval=\"{}\"'),
+        (r'^\$SystemLogRateLimitInterval ([0-9]+)',
+         r'^\$SystemLogRateLimitInterval {}$', r'$SystemLogRateLimitInterval {}'),
+    ]
+
+    result = duthost.shell(
+        "docker exec {} cat {}".format(swss_container, config_file),
+        module_ignore_errors=True
+    )
+    interval_match = None
+    for search_regex, sed_match, sed_replace in rate_limit_syntaxes:
+        interval_match = re.search(search_regex, result.get("stdout", ""), re.MULTILINE)
+        if interval_match:
+            break
+    pytest_assert(
+        result.get("rc") == 0 and interval_match is not None,
+        "Failed to determine SWSS syslog rate-limit state"
+    )
+    original_interval = int(interval_match.group(1))
+    rate_limit_enabled = original_interval != 0
+    logger.info(
+        "SWSS syslog rate-limit interval is {} in container {}"
+        .format(original_interval, swss_container)
+    )
+
+    def set_interval(current, new):
+        duthost.shell(
+            "docker exec {} sed -i 's/{}/{}/' {}".format(
+                swss_container, sed_match.format(current), sed_replace.format(new), config_file
+            )
+        )
+        restart_rsyslog()
+
+    try:
+        if rate_limit_enabled:
+            set_interval(original_interval, 0)
+
+        yield
+    finally:
+        if rate_limit_enabled:
+            set_interval(0, original_interval)
+
+
+def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
+    """Apply CRM thresholds and wait for the expected syslog message."""
+    expect_regex = loganalyzer.expect_regex[0]
+
+    def has_expected_log(first_line):
+        result = duthost.shell(
+            "sudo tail -n +{} /var/log/syslog".format(first_line),
+            module_ignore_errors=True)
+        return re.search(expect_regex, result.get("stdout", "")) is not None
+
+    with DisableLogrotateCronContext(duthost):
+        marker = loganalyzer.init()
+        result = duthost.shell(
+            "sudo wc -l /var/log/syslog | awk '{print $1}'",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result.get("rc", 1) == 0 and result.get("stdout", "").strip().isdigit(),
+            "Failed to determine the current syslog position"
+        )
+        first_line = int(result["stdout"].strip()) + 1
+        asichost.command(cmd)
+        observed = wait_until(
+            CRM_THRESHOLD_LOG_TIMEOUT,
+            CRM_POLLING_INTERVAL,
+            CRM_POLLING_INTERVAL,
+            has_expected_log,
+            first_line
+        )
+
+        if not observed:
+            logger.warning(
+                "CRM threshold message was not observed within {} seconds"
+                .format(CRM_THRESHOLD_LOG_TIMEOUT)
+            )
+        loganalyzer.analyze(marker, fail=True)
+
+
 def verify_thresholds(duthost, asichost, **kwargs):
     """
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
@@ -290,10 +401,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
 
-        with loganalyzer:
-            asichost.command(cmd)
-            # Make sure CRM counters updated
-            time.sleep(CRM_UPDATE_TIME)
+        wait_for_threshold_log(loganalyzer, duthost, asichost, cmd)
 
 
 def get_crm_stats(cmd, duthost):
@@ -953,8 +1061,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
-                      crm_cmd=get_nexthop_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
+                          crm_cmd=get_nexthop_stats)
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
@@ -1044,8 +1153,9 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
-    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
-                      crm_cmd=get_neighbor_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
+                          crm_cmd=get_neighbor_stats)
 
 
 @pytest.mark.usefixtures('disable_route_checker')
@@ -1161,7 +1271,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
-    verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
 
 def recreate_acl_table(duthost, ports):
