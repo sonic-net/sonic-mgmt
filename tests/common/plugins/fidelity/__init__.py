@@ -139,7 +139,7 @@ def _resolve_vs_duthosts(request) -> List[Any]:
 
 def _snapshot_recs(hosts) -> Dict[Tuple[str, str], RecSnapshot]:
     """Map (hostname, rec_path) -> RecSnapshot."""
-    from tests.dash.sairedis_utils import sairedis_rec_paths
+    from tests.common.helpers.sairedis_utils import sairedis_rec_paths
 
     snaps = {}
     for host in hosts:
@@ -173,7 +173,7 @@ def _collect_changes(hosts, snaps):
     and reasons. If any path is UNRELIABLE and yields no usable text, overall
     status reflects the worst unreliable reason.
     """
-    from tests.dash.sairedis_utils import iter_changes, parse_sairedis_text
+    from tests.common.helpers.sairedis_utils import iter_changes, parse_sairedis_text
 
     all_changes = []
     statuses = []

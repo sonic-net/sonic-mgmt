@@ -15,14 +15,14 @@ import unittest
 from dataclasses import dataclass, field
 from typing import Dict
 
-# Import plugin modules by path — do NOT import tests.common / tests.dash packages
+# Import plugin modules by path — do NOT import tests.common package (pulls scapy)
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN_DIR = os.path.dirname(HERE)  # tests/common/plugins/fidelity
-# tests/dash (four levels up from unit_test/: fidelity -> plugins -> common -> tests)
-DASH_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "..", "..", "dash"))
+# tests/common/helpers (four levels up from unit_test/: fidelity -> plugins -> common)
+HELPERS_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "..", "helpers"))
 
 sys.path.insert(0, PLUGIN_DIR)
-sys.path.insert(0, DASH_DIR)
+sys.path.insert(0, HELPERS_DIR)
 
 import tier_engine  # noqa: E402
 import sairedis_utils  # noqa: E402
