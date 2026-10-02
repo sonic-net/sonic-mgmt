@@ -7,20 +7,28 @@ import os
 
 import pytest
 import requests
+import urllib3
 
 LOGGER = logging.getLogger(__name__)
 
 REST_PORT = int(os.getenv("SONIC_REST_PORT", "443"))
+# DUT REST server uses a self-signed certificate on lab/KVM testbeds.
+# Set SONIC_REST_CA_BUNDLE to a CA bundle path to enable server-cert verification.
+REST_VERIFY = os.getenv("SONIC_REST_CA_BUNDLE") or False
 SFLOW_TABLE = "SYSTEM_SFLOW|default"
 DROP_LIMIT_FIELD = "drop_monitor_limit"
+
+if REST_VERIFY is False:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class RestconfClient:
 
-    def __init__(self, host, port=REST_PORT, cert=None, auth=None):
+    def __init__(self, host, port=REST_PORT, cert=None, auth=None, verify=REST_VERIFY):
         self.base_url = f"https://{host}:{port}"
         self.cert = cert        # (client_cert_path, client_key_path) for mTLS
         self.auth = auth        # (user, password) for basic auth
+        self.verify = verify    # False (self-signed DUT cert) or path to CA bundle
         self.headers = {
             "Content-Type": "application/yang-data+json",
             "Accept": "application/yang-data+json",
@@ -36,7 +44,7 @@ class RestconfClient:
             data=data,
             cert=self.cert,
             auth=self.auth,
-            verify=True,
+            verify=self.verify,
             timeout=30,
         )
         LOGGER.info("RESTCONF <- %s %s", resp.status_code, resp.text)
