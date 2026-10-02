@@ -8,10 +8,8 @@
 !
 {% block system_init %}
 hostname {{ DEVICE_METADATA['localhost']['hostname'] }}
-password zebra
 log syslog informational
 log facility local4
-enable password zebra
 {% endblock system_init %}
 !
 {% if 'bgp_asn' in DEVICE_METADATA['localhost'] %}
