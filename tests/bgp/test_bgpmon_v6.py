@@ -97,18 +97,27 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     else:
         cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
 
-    if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
-        for lb4096 in lbs4096:
-            lb4096intf = ipaddress.ip_interface(lb4096)
-            if lb4096intf.ip.version == 6:
-                if "/" in lb4096:
-                    local_addr = lb4096.split("/")[0]
-                    break
-                else:
-                    local_addr = lb4096
-
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
+    # local_addr (IPv6): Loopback4096 on multi-ASIC, Loopback0 on single-ASIC (from minigraph)
+    local_addr = None
+    if duthost.is_multi_asic:
+        if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
+            lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
+            for lb4096 in lbs4096:
+                lb4096intf = ipaddress.ip_interface(lb4096)
+                if lb4096intf.ip.version == 6:
+                    if "/" in lb4096:
+                        local_addr = lb4096.split("/")[0]
+                        break
+                    else:
+                        local_addr = lb4096
+    else:
+        for lo_intf in mg_facts['minigraph_lo_interfaces']:
+            if ":" in lo_intf['addr']:
+                local_addr = lo_intf['addr']
+                break
+    pytest_assert(local_addr, "Failed to determine IPv6 local address for bgpmon")
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
