@@ -224,9 +224,21 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
     )
 
 
-def get_bgp_routes(duthost, asic_index, ip_version):
-    cmd = "show ip route bgp json" if ip_version == 4 else "show ipv6 route bgp json"
-    return run_json_cmd(duthost, vtysh_cmd(asic_index, cmd))
+def get_route(duthost, asic_index, prefix):
+    """
+    The RIB entry for exactly ``prefix`` (list of route bodies), or None when the prefix is
+    not in the RIB. Queried per prefix on purpose: dumping the whole BGP table as JSON on a
+    DUT with hundreds of thousands of routes takes long enough to starve zebra's FPM link.
+    """
+    ip_version = ipaddress.ip_network(prefix, strict=False).version
+    cmd = f"show {'ip' if ip_version == 4 else 'ipv6'} route {prefix} json"
+    out = duthost.shell(vtysh_cmd(asic_index, cmd), module_ignore_errors=True)
+    try:
+        routes = json.loads(out["stdout"].strip() or "{}")
+    except json.JSONDecodeError:
+        return None
+    # FRR answers a longest-match lookup; only an exact key means the prefix itself exists.
+    return routes.get(prefix) if isinstance(routes, dict) else None
 
 
 def get_received_prefixes(duthost, asic_index, neighbor_ip, ip_version):
@@ -290,8 +302,10 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
       prefix, dst_ip                 - the route and a host address inside it for probes
       ecmp                           - True when other neighbors share the forwarding path
       forwards_via_neighbor          - True when the FIB sends traffic out via this neighbor
-    Preference: a prefix forwarded exclusively via the neighbor, then an ECMP prefix that
-    includes it, then the default route when the neighbor is one of its paths (an inbound
+    Candidates are the prefixes accepted from the neighbor (shortest first, at most
+    MAX_PREFIX_LOOKUPS checked in the RIB). Preference: a prefix forwarded exclusively via the
+    neighbor, then an ECMP prefix that includes it, then the default route when the neighbor
+    is one of its paths (an inbound
     policy that accepts only the default from uplinks leaves nothing else), then a prefix
     merely received from it. The last case happens when the neighbor announces a third-party
     next hop that the DUT resolves through other links (typical for a LowerSpineRouter on the
@@ -310,26 +324,34 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
             return None
         return network
 
-    exclusive, ecmp = [], []
-    routes = get_bgp_routes(duthost, asic_index, ip_version)
-    for prefix, route_body in routes.items():
-        network = usable(prefix)
-        if network is None:
-            continue
-        nexthops = forwarding_nexthops(route_body)
+    # Candidates come from the neighbor's accepted routes (a per-neighbor table) and are
+    # classified one prefix at a time from the RIB; the whole BGP table is never dumped.
+    received = []
+    for ip in sorted(neighbor_ips):
+        for prefix in get_received_prefixes(duthost, asic_index, ip, ip_version):
+            network = usable(prefix)
+            if network is not None:
+                received.append((network.prefixlen, prefix, network))
+    received.sort()
+    ecmp_choice = None
+    for _, prefix, network in received[:MAX_PREFIX_LOOKUPS]:
+        nexthops = forwarding_nexthops(get_route(duthost, asic_index, prefix))
         if not nexthops or not (nexthops & neighbor_ips):
             continue
-        (exclusive if nexthops <= neighbor_ips else ecmp).append((network.prefixlen, prefix, network))
-    for candidates, is_ecmp in ((exclusive, False), (ecmp, True)):
-        if candidates:
-            _, prefix, network = sorted(candidates)[0]
-            logger.info("Using %s prefix %s forwarded via neighbor %s",
-                        "ECMP" if is_ecmp else "exclusive", prefix, neighbor_ctx["neighbor_name"])
-            return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": is_ecmp,
+        if nexthops <= neighbor_ips:
+            logger.info("Using exclusive prefix %s forwarded via neighbor %s", prefix, neighbor_ctx["neighbor_name"])
+            return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": False,
                     "forwards_via_neighbor": True}
+        if ecmp_choice is None:
+            ecmp_choice = (prefix, network)
+    if ecmp_choice:
+        prefix, network = ecmp_choice
+        logger.info("Using ECMP prefix %s forwarded via neighbor %s", prefix, neighbor_ctx["neighbor_name"])
+        return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": True,
+                "forwards_via_neighbor": True}
 
     default_prefix = "0.0.0.0/0" if ip_version == 4 else "::/0"
-    default_nexthops = forwarding_nexthops(routes.get(default_prefix))
+    default_nexthops = forwarding_nexthops(get_route(duthost, asic_index, default_prefix))
     if default_nexthops & neighbor_ips:
         dst_ip = default_route_probe_address(duthost, asic_index, ip_version)
         probe_note = (
@@ -341,14 +363,8 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
         return {"prefix": default_prefix, "dst_ip": dst_ip, "ecmp": not (default_nexthops <= neighbor_ips),
                 "forwards_via_neighbor": dst_ip is not None}
 
-    received = []
-    for ip in sorted(neighbor_ips):
-        for prefix in get_received_prefixes(duthost, asic_index, ip, ip_version):
-            network = usable(prefix)
-            if network is not None:
-                received.append((network.prefixlen, prefix, network))
     if received:
-        _, prefix, network = sorted(received)[0]
+        _, prefix, network = received[0]
         logger.warning(
             "No IPv%d prefix is forwarded via neighbor %s; using received prefix %s for BGP-table "
             "checks only, dataplane checks for this family are skipped.",
@@ -375,7 +391,7 @@ def verify_prefix_present(duthost, asic_index, target, neighbor_ctx, should_exis
         present = any(target["prefix"] in get_received_prefixes(duthost, asic_index, ip, ip_version)
                       for ip in neighbor_ips)
         return present == should_exist
-    route_body = get_bgp_routes(duthost, asic_index, ip_version).get(target["prefix"])
+    route_body = get_route(duthost, asic_index, target["prefix"])
     via_neighbor = bool(route_body) and bool(forwarding_nexthops(route_body) & neighbor_ips)
     if should_exist:
         return via_neighbor
@@ -383,6 +399,8 @@ def verify_prefix_present(duthost, asic_index, target, neighbor_ctx, should_exis
 
 
 PROBE_FLOWS = 256
+# Upper bound on per-prefix RIB lookups while looking for a prefix forwarded via the neighbor.
+MAX_PREFIX_LOOKUPS = 64
 
 
 def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_ctx, ptf_dst_ports, dst_ip,
