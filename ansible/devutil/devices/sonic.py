@@ -31,6 +31,18 @@ class SonicHosts(AnsibleHosts):
 
 def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
     try:
+        # Skip upgrade image on DPU hosts
+        target_hosts = []
+        for hostname in sonichosts.hostnames:
+            if "dpu" in hostname.lower():
+                logger.info("Skip upgrade image on DPU hosts: {}".format(hostname))
+            else:
+                target_hosts.append(hostname)
+
+        if len(target_hosts) == 0:
+            logger.info("No hosts to upgrade")
+            return True
+        
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
@@ -47,6 +59,19 @@ def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
             time.sleep(900)
         else:
             sonichosts.shell("reboot", module_attrs={"become": True, "async": 300, "poll": 0})
+            is_cisco8000_platform = False
+            for hostname in target_hosts:
+                cfg_facts = sonichosts.config_facts(host=hostname, source='running')[hostname]
+                hwsku = cfg_facts.get('ansible_facts', {}) \
+                    .get('DEVICE_METADATA', {}) \
+                    .get('localhost', {}) \
+                    .get('hwsku', 'unknown')
+                logger.info("Host {} has hwsku {}".format(hostname, hwsku))
+                if 'Cisco' in hwsku:
+                    is_cisco8000_platform = True
+            if is_cisco8000_platform:
+                logger.info("Sleep 600s after rebooting cisco-8000 device...")
+                time.sleep(600)
 
         return True
     except RunAnsibleModuleFailed as e:
