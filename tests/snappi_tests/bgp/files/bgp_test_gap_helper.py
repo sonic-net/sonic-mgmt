@@ -121,24 +121,21 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     temp_tg_port = tgen_ports
     for i in range(port_count):
         port = tgen_ports[i]
-        intf_config = (
-            f"sudo config interface ip remove {port['peer_port']} {port['peer_ip']}/{port['prefix']}\n"
-            f"sudo config interface ip remove {port['peer_port']} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
-        )
+        asic = duthost.get_port_asic_instance(port['peer_port'])
         logger.info(f"Removing IPs from {port['peer_port']}")
-        duthost.shell(intf_config)
+        asic.config_ip_intf(port['peer_port'], f"{port['peer_ip']}/{port['prefix']}", 'remove')
+        asic.config_ip_intf(port['peer_port'], f"{port['peer_ipv6']}/{port['ipv6_prefix']}", 'remove')
 
     for i in range(port_count):
         port = tgen_ports[i]
         idx = i + 1
-        portchannel_config = (
-            f"sudo config portchannel add PortChannel{idx} \n"
-            f"sudo config portchannel member add PortChannel{idx} {port['peer_port']}\n"
-            f"sudo config interface ip add PortChannel{idx} {port['peer_ip']}/{port['prefix']}\n"
-            f"sudo config interface ip add PortChannel{idx} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
-        )
+        asic = duthost.get_port_asic_instance(port['peer_port'])
+        portchannel = f"PortChannel{idx}"
         logger.info(f"Configuring {port['peer_port']} to PortChannel{idx}")
-        duthost.shell(portchannel_config)
+        asic.config_portchannel(portchannel, 'add')
+        asic.config_portchannel_member(portchannel, port['peer_port'], 'add')
+        asic.config_ip_intf(portchannel, f"{port['peer_ip']}/{port['prefix']}", 'add')
+        asic.config_ip_intf(portchannel, f"{port['peer_ipv6']}/{port['ipv6_prefix']}", 'add')
 
     duthost.command("sudo config save -y")
     # BGP Configuration
