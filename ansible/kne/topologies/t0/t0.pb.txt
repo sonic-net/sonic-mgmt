@@ -1,0 +1,152 @@
+# =============================================================================
+# SONiC T0 Topology for KNE — with PTF Integration
+#
+# Topology:
+#   1 × DUT    (SONiC VS as ToR, 36 meshnet interfaces)
+#   4 × T1     (SONiC VS as spine neighbors)
+#   1 × PTF    (Packet Test Framework container)
+#
+# DUT Port Layout:
+#   eth1–eth28   → PTF direct ports (server-facing)
+#   eth29–eth32  → T1 uplinks (spine neighbors)
+#   eth33–eth36  → PTF mirror ports (copies of uplink traffic)
+#
+# PTF Port Layout:
+#   eth1–eth28   → Direct ports (DUT server-facing ports)
+#   eth29–eth32  → Mirror ports (sniffing DUT ↔ T1 uplink traffic)
+#
+# =============================================================================
+
+name: "100"
+
+# ----- DUT: SONiC Virtual Switch acting as T0 ToR -----
+nodes: {
+  name: "dut"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"      value: "2" }
+    env: { key: "TOPO_ID"        value: "100" }
+    env: { key: "QEMU_RAM"       value: "4G" }
+    env: { key: "SERVER_PORTS"   value: "28" }
+    env: { key: "UPLINK_PORTS"   value: "4" }
+    env: { key: "MIRROR_ENABLED" value: "1" }
+  }
+}
+
+# ----- T1 Neighbors: SONiC VS acting as spine switches -----
+nodes: {
+  name: "t1-1"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "251" }
+    env: { key: "TOPO_ID"   value: "100" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+nodes: {
+  name: "t1-2"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "252" }
+    env: { key: "TOPO_ID"   value: "100" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+nodes: {
+  name: "t1-3"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "253" }
+    env: { key: "TOPO_ID"   value: "100" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+nodes: {
+  name: "t1-4"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "250" }
+    env: { key: "TOPO_ID"   value: "100" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+# ----- PTF: Packet Test Framework container -----
+nodes: {
+  name: "ptf"
+  vendor: HOST
+  config: {
+    image: "docker-ptf:latest"
+    env: { key: "SWITCH_ID"  value: "200" }
+    env: { key: "TOPO_ID"   value: "100" }
+  }
+}
+
+# =====================================================================
+# Links: DUT server-facing ports → PTF direct ports
+# DUT eth1–eth28  ↔  PTF eth1–eth28
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth1"  z_node: "ptf" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth2"  z_node: "ptf" z_int: "eth2" }
+links: { a_node: "dut" a_int: "eth3"  z_node: "ptf" z_int: "eth3" }
+links: { a_node: "dut" a_int: "eth4"  z_node: "ptf" z_int: "eth4" }
+links: { a_node: "dut" a_int: "eth5"  z_node: "ptf" z_int: "eth5" }
+links: { a_node: "dut" a_int: "eth6"  z_node: "ptf" z_int: "eth6" }
+links: { a_node: "dut" a_int: "eth7"  z_node: "ptf" z_int: "eth7" }
+links: { a_node: "dut" a_int: "eth8"  z_node: "ptf" z_int: "eth8" }
+links: { a_node: "dut" a_int: "eth9"  z_node: "ptf" z_int: "eth9" }
+links: { a_node: "dut" a_int: "eth10" z_node: "ptf" z_int: "eth10" }
+links: { a_node: "dut" a_int: "eth11" z_node: "ptf" z_int: "eth11" }
+links: { a_node: "dut" a_int: "eth12" z_node: "ptf" z_int: "eth12" }
+links: { a_node: "dut" a_int: "eth13" z_node: "ptf" z_int: "eth13" }
+links: { a_node: "dut" a_int: "eth14" z_node: "ptf" z_int: "eth14" }
+links: { a_node: "dut" a_int: "eth15" z_node: "ptf" z_int: "eth15" }
+links: { a_node: "dut" a_int: "eth16" z_node: "ptf" z_int: "eth16" }
+links: { a_node: "dut" a_int: "eth17" z_node: "ptf" z_int: "eth17" }
+links: { a_node: "dut" a_int: "eth18" z_node: "ptf" z_int: "eth18" }
+links: { a_node: "dut" a_int: "eth19" z_node: "ptf" z_int: "eth19" }
+links: { a_node: "dut" a_int: "eth20" z_node: "ptf" z_int: "eth20" }
+links: { a_node: "dut" a_int: "eth21" z_node: "ptf" z_int: "eth21" }
+links: { a_node: "dut" a_int: "eth22" z_node: "ptf" z_int: "eth22" }
+links: { a_node: "dut" a_int: "eth23" z_node: "ptf" z_int: "eth23" }
+links: { a_node: "dut" a_int: "eth24" z_node: "ptf" z_int: "eth24" }
+links: { a_node: "dut" a_int: "eth25" z_node: "ptf" z_int: "eth25" }
+links: { a_node: "dut" a_int: "eth26" z_node: "ptf" z_int: "eth26" }
+links: { a_node: "dut" a_int: "eth27" z_node: "ptf" z_int: "eth27" }
+links: { a_node: "dut" a_int: "eth28" z_node: "ptf" z_int: "eth28" }
+
+# =====================================================================
+# Links: DUT uplink ports → T1 neighbor spines
+# DUT eth29–eth32  ↔  T1-1 through T1-4 eth1
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth29" z_node: "t1-1" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth30" z_node: "t1-2" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth31" z_node: "t1-3" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth32" z_node: "t1-4" z_int: "eth1" }
+
+# =====================================================================
+# Links: DUT mirror ports → PTF injected ports
+# DUT eth33–eth36  ↔  PTF eth29–eth32
+# TC mirror rules inside the DUT pod copy uplink traffic to these
+# interfaces. PTF can sniff uplink traffic and inject packets.
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth33" z_node: "ptf" z_int: "eth29" }
+links: { a_node: "dut" a_int: "eth34" z_node: "ptf" z_int: "eth30" }
+links: { a_node: "dut" a_int: "eth35" z_node: "ptf" z_int: "eth31" }
+links: { a_node: "dut" a_int: "eth36" z_node: "ptf" z_int: "eth32" }
