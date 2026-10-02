@@ -166,9 +166,18 @@ def acl_setup(duthosts, rand_selected_dut, tbinfo, ptfadapter):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
 
-    # Pick up to 2 front-panel ports for table binding
-    front_ports = [i["name"] for i in mg_facts.get("minigraph_interfaces", [])
-                   if not i["name"].startswith("Loopback")][:2]
+    # Pick up to 2 standalone front-panel ports for table binding. Raw
+    # PortChannel members cannot also be bound as physical ACL ports.
+    portchannel_members = {
+        member
+        for portchannel in mg_facts.get("minigraph_portchannels", {}).values()
+        for member in portchannel.get("members", [])
+    }
+    front_ports = [
+        port
+        for port, _ in sorted(ptf_indices.items(), key=lambda item: item[1])
+        if port not in portchannel_members
+    ][:2]
     if not front_ports:
         pytest.skip("No front-panel ports available for ACL binding")
 
