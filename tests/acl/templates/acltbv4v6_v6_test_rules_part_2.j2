@@ -1,0 +1,605 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "{{ acl_table_name }}": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::6/128"
+                                    }
+                                }
+                            },
+                            "2": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 2
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800::1/128"
+                                    }
+                                }
+                            },
+                            "3": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 3
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c1:cb50::12/128"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 4
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "4621"
+                                    }
+                                }
+                            },
+                            "5": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 5
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 126
+                                    }
+                                }
+                            },
+                            "6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 6
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "tcp-flags": ["TCP_ACK", "TCP_PSH", "TCP_FIN", "TCP_SYN"]
+                                    }
+                                }
+                            },
+                            "7": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 7
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::4/128"
+                                    }
+                                }
+                            },
+                            "8": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 8
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::4/128"
+                                    }
+                                }
+                            },
+                            "9": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "4631"
+                                    }
+                                }
+                            },
+                            "12": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 12
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 58,
+                                        "source-ip-address": "60c0:a800::8/128"
+                                    }
+                                }
+                            },
+                            "13": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 13
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 17,
+                                        "source-ip-address": "60c0:a800::8/128"
+                                    }
+                                }
+                            },
+                            "14": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 14
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::3/128"
+                                    }
+                                }
+                            },
+                            "15": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 15
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800::9/128"
+                                    }
+                                }
+                            },
+                            "16": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 16
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c1:e2f0::13/128"
+                                    }
+                                }
+                            },
+                            "17": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 17
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "4721"
+                                    }
+                                }
+                            },
+                            "18": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 18
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 127
+                                    }
+                                }
+                            },
+                            "19": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 19
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "tcp-flags": ["TCP_RST", "TCP_URG"]
+                                    }
+                                }
+                            },
+                            "20": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 20
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::7/128"
+                                    }
+                                }
+                            },
+                            "21": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 21
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "60c0:a800::7/128"
+                                    }
+                                }
+                            },
+                            "22": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 22
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "4731"
+                                    }
+                                }
+                            },
+                            "25": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 25
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 58,
+                                        "source-ip-address": "60c0:a800::2/128"
+                                    }
+                                }
+                            },
+                            "26": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 26
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 17,
+                                        "source-ip-address": "60c0:a800::2/128"
+                                    }
+                                }
+                            },
+                            "27": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 27
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "179"
+                                    }
+                                }
+                            },
+                            "28": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 28
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "179"
+                                    }
+                                }
+                            },
+                            "29": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 29
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 58,
+                                        "source-ip-address": "60c0:a800::10/128"
+                                    }
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "type": 3,
+                                        "code": 1
+                                    }
+                                }
+                            },
+                            "32": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 32
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800:0:1::1/128"
+                                    }
+                                }
+                            },
+                            "33": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 33
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "20c0:a800:0:1::9/128"
+                                    }
+                                }
+                            },
+                            "34": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 34
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02:1000::6/128"
+                                    }
+                                }
+                            },
+                            "35": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 35
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": "ETHERTYPE_IPV6"
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02:1000::7/128"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
