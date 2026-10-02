@@ -74,12 +74,14 @@ class TrafficPorts(object):
         For T0 topology, the port list is built parsing the portchannel and vlan info and for T1,
         port list is constructed from the interface info
 
-        Both parse_intf_list() and parse_pc_list() spend their first entry on the Rx port and
-        only emit test ports from the second entry on, so a source with a single entry of the
-        tested address family yields no test ports at all. All-LAG topologies (t2_single_node_min
-        and similar, where every neighbour but one is reached over a Port-Channel) leave too few
-        bare routed interfaces, so pick whichever source can actually form a pair instead of
-        preferring minigraph_interfaces unconditionally.
+        parse_intf_list(), parse_pc_list(), and parse_vlan_sub_interface_list() spend their
+        first entry on the Rx port and only emit test ports from the second entry on, so a
+        source with a single entry of the tested address family yields no test ports at all.
+        Prefer whichever of routed interfaces, Port-Channels, or VLAN sub-interfaces can
+        actually form a pair instead of taking minigraph_interfaces whenever it is non-empty.
+        Topologies with fewer than two same-family bare routed interfaces (for example an
+        all-LAG T2, where neighbors are reached over Port-Channels) would previously take
+        the interface path and emit nothing.
         """
         routed_intfs = self._l3_addr_count('minigraph_interfaces')
         portchannel_intfs = self._l3_addr_count('minigraph_portchannel_interfaces')
