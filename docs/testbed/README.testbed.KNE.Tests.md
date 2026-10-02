@@ -35,7 +35,10 @@ For example, for T0:
 
 ```bash
 export TOPO_ID=100 TESTBED=kne-t0 INVENTORY=kne_vtb DUT=vlab-kne-01
+export SONIC_MGMT_SONIC_PASSWORD
 ```
+
+The KNE inventories read the DUT admin password from `SONIC_MGMT_SONIC_PASSWORD`.
 
 > **Note:** the KNE testbed files currently describe each topology at its template's default `TOPO_ID`, so use the IDs in this table. Running topologies with other IDs needs testbed files generated for those IDs; see [Known Limitations](#known-limitations).
 
