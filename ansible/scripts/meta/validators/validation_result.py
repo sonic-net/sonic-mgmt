@@ -300,6 +300,11 @@ def register_all_issues():
         'console', 'E3010', 'empty_optional_field', 'Console connection has empty optional field',
         ValidationSeverity.WARNING
     )
+    _def_issue(
+        'console', 'E3011', 'missing_direct_ssh_port',
+        'Console type is ssh_to_port but DirectSSHPort is not specified',
+        ValidationSeverity.ERROR
+    )
 
     # PDU Validator Issues (4000-4999)
     _def_issue(
