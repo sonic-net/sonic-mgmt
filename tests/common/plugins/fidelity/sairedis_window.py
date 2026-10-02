@@ -90,7 +90,7 @@ def rotation_index(active_path: str, candidate_path: str) -> int:
     prefix = active_path + "."
     if not candidate_path.startswith(prefix):
         return -1
-    suffix = candidate_path[len(prefix) :]
+    suffix = candidate_path[len(prefix):]
     # strip .gz
     if suffix.endswith(".gz"):
         suffix = suffix[: -len(".gz")]

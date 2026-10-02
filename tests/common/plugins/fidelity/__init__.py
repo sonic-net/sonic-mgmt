@@ -429,7 +429,9 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     run_score = (
         sum(r["score"] for r in scored) / float(len(scored)) if scored else None
     )
-    pct = lambda k: (100.0 * k / n_tests) if n_tests else 0.0
+
+    def pct(k):
+        return (100.0 * k / n_tests) if n_tests else 0.0
 
     for record in _results:
         score_s = (

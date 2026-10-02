@@ -17,7 +17,7 @@ fidelity varies:
 
 Mappings live in declarative [`tier.yml`](tier.yml). Unknown object types
 default to **tier 3** (`default:unknown`) and are logged so they can be audited
-later. This is fully experimental and primitive. The tier splitting needs to be worked on more. This would be a starting point for a way to produce a fidelity score for sonic-mgmt tests based on the SAI calls made during that test. 
+later. This is fully experimental and primitive. The tier splitting needs to be worked on more. This would be a starting point for a way to produce a fidelity score for sonic-mgmt tests based on the SAI calls made during that test.
 
 ## Score formula
 

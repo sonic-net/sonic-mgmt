@@ -117,7 +117,7 @@ def parse_topology(pb_txt_path: Path) -> tuple[str, list[dict]]:
             elif content[i] == "}":
                 depth -= 1
                 if depth == 0:
-                    block = content[start + 1 : i]
+                    block = content[start + 1:i]
                     break
 
         name = re.search(r'name:\s+"([^"]+)"', block)
@@ -315,7 +315,6 @@ def main() -> int:
 
             add_kind_route(mgmt_ip, pod_ip)
             update_pod_bridge(namespace, name, topo_id, mgmt_subnet, mgmt_gw)
-
 
         except Exception as exc:
             log(f"  [{name}] ERROR: {exc}")

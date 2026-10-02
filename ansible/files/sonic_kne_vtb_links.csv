@@ -1,5 +1,5 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
-vlab-kne-01,Ethernet112,VM0100,Ethernet0,40000,0,Access,off
-vlab-kne-01,Ethernet116,VM0101,Ethernet0,40000,0,Access,off
-vlab-kne-01,Ethernet120,VM0102,Ethernet0,40000,0,Access,off
-vlab-kne-01,Ethernet124,VM0103,Ethernet0,40000,0,Access,off
+vlab-kne-01,Ethernet112,VM0100,Ethernet0,40000,1,Access,off
+vlab-kne-01,Ethernet116,VM0101,Ethernet0,40000,2,Access,off
+vlab-kne-01,Ethernet120,VM0102,Ethernet0,40000,3,Access,off
+vlab-kne-01,Ethernet124,VM0103,Ethernet0,40000,4,Access,off

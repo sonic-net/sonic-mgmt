@@ -9,7 +9,12 @@ neighbor's management IP is derived from it (172.31.<TOPO_ID>.<SWITCH_ID>,
 using the pod named in neighbors.json), so the script works with any TOPO_ID.
 Interface, loopback, and BGP data come from neighbors.json next to this script.
 """
-import argparse, importlib.util, json, subprocess, sys, textwrap
+import argparse
+import importlib.util
+import json
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -45,6 +50,7 @@ missing = [n["pod"] for n in neigh if n["pod"] not in mgmt_by_pod]
 if missing:
     sys.exit(f"ERROR: neighbor pods not found in {args.topology}: {', '.join(missing)}")
 
+
 def ssh(ip, script):
     cmd = [
         "docker", "exec", "-i", "sonic-mgmt",
@@ -52,6 +58,7 @@ def ssh(ip, script):
         f"admin@{ip}", "bash", "-s",
     ]
     return subprocess.run(cmd, input=script, text=True, capture_output=True)
+
 
 ok = fail = 0
 for n in neigh:
