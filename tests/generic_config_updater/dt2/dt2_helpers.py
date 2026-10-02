@@ -119,11 +119,46 @@ def find_neighbor_ports(config_facts, neighbor_name):
     return ports
 
 
-def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenario):
+def build_neighbor_ctx(candidate, config_facts, config_facts_localhost, mg_facts):
+    """Complete a picker candidate with its ports, LAG membership and CONFIG_DB keys."""
+    alias_map = mg_facts["minigraph_port_name_to_alias_map"]
+    ctx = dict(candidate)
+    is_portchannel = ctx["port"].startswith("PortChannel")
+    if is_portchannel:
+        members = sorted(config_facts.get("PORTCHANNEL_MEMBER", {}).get(ctx["port"], {}).keys())
+        neighbor_ports = [ctx["port"]]
+        neighbor_ports_localhost = [ctx["port_localhost"]]
+    else:
+        members = list(ctx["all_ports"])
+        neighbor_ports = list(ctx["all_ports"])
+        neighbor_ports_localhost = [alias_map.get(p, p) for p in ctx["all_ports"]]
+    ctx["member_ports"] = members
+    ctx["neighbor_ports"] = neighbor_ports
+    ctx["neighbor_ports_localhost"] = neighbor_ports_localhost
+    ctx["is_portchannel"] = is_portchannel
+    # DEVICE_NEIGHBOR rows are keyed by the physical links even for a LAG neighbor.
+    ctx["device_neighbor_ports"] = list(ctx["all_ports"])
+    ctx["device_neighbor_ports_localhost"] = [alias_map.get(p, p) for p in ctx["all_ports"]]
+    # CONFIG_DB keys per neighbor IP, for expectations and GCU patch paths.
+    keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts)}
+    ctx["bgp_keys"] = {ip: keys_by_ip[ip] for ip in ctx["neighbor_ips"]}
+    localhost_keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts_localhost)}
+    ctx["localhost_neighbor_ips"] = [ip for ip in ctx["neighbor_ips"] if ip in localhost_keys_by_ip]
+    ctx["localhost_bgp_keys"] = {ip: localhost_keys_by_ip[ip] for ip in ctx["localhost_neighbor_ips"]}
+    ctx["bgp_af_keys"] = sorted(bgp_neighbor_af_rows(config_facts, ctx["neighbor_ips"]))
+    ctx["localhost_bgp_af_keys"] = sorted(bgp_neighbor_af_rows(config_facts_localhost, ctx["localhost_neighbor_ips"]))
+    return ctx
+
+
+def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenario, accept=None, accept_desc=None):
+    """
+    Select the neighbor for ``scenario``: the first candidate (sorted by name and IP) whose type,
+    eBGP-ness and, when given, ``accept(ctx)`` match. ``accept_desc`` names the extra requirement
+    in the skip message. Skips the test when no neighbor qualifies.
+    """
     local_asn = get_local_asn(config_facts, mg_facts)
     expected_types = set(scenario["device_types"])
     bgp_neighbors = bgp_neighbor_table(config_facts)
-    keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbors}
     alias_map = mg_facts["minigraph_port_name_to_alias_map"]
     ips_by_name = {}
     for key, cfg in bgp_neighbors.items():
@@ -172,42 +207,21 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
             "scenario_id": scenario["id"],
             "neighbor_role": scenario["neighbor_role"],
         })
-    if not candidates:
-        pytest.skip(
-            f"No BGP neighbor found for scenario {scenario['id']} "
-            f"(role={scenario['neighbor_role']}, "
-            f"device_types={sorted(expected_types)}, "
-            f"expect_ebgp={scenario['expect_ebgp']})",
-        )
     candidates.sort(key=lambda c: (c["neighbor_name"], c["neighbor_ip"]))
-    selected = candidates[0]
-    is_portchannel = selected["port"].startswith("PortChannel")
-    if is_portchannel:
-        members = sorted(config_facts.get("PORTCHANNEL_MEMBER", {}).get(selected["port"], {}).keys())
-        neighbor_ports = [selected["port"]]
-        neighbor_ports_localhost = [selected["port_localhost"]]
-    else:
-        members = list(selected["all_ports"])
-        neighbor_ports = list(selected["all_ports"])
-        neighbor_ports_localhost = [alias_map.get(p, p) for p in selected["all_ports"]]
-    selected["member_ports"] = members
-    selected["neighbor_ports"] = neighbor_ports
-    selected["neighbor_ports_localhost"] = neighbor_ports_localhost
-    selected["is_portchannel"] = is_portchannel
-    # DEVICE_NEIGHBOR rows are keyed by the physical links even for a LAG neighbor.
-    selected["device_neighbor_ports"] = list(selected["all_ports"])
-    selected["device_neighbor_ports_localhost"] = [alias_map.get(p, p) for p in selected["all_ports"]]
-    # CONFIG_DB keys per neighbor IP, for expectations and GCU patch paths.
-    selected["bgp_keys"] = {ip: keys_by_ip[ip] for ip in selected["neighbor_ips"]}
-    localhost_keys_by_ip = {bgp_key_ip(key): key for key in bgp_neighbor_table(config_facts_localhost)}
-    selected["localhost_neighbor_ips"] = [ip for ip in selected["neighbor_ips"] if ip in localhost_keys_by_ip]
-    selected["localhost_bgp_keys"] = {ip: localhost_keys_by_ip[ip] for ip in selected["localhost_neighbor_ips"]}
-    selected["bgp_af_keys"] = sorted(bgp_neighbor_af_rows(config_facts, selected["neighbor_ips"]))
-    selected["localhost_bgp_af_keys"] = sorted(
-        bgp_neighbor_af_rows(config_facts_localhost, selected["localhost_neighbor_ips"])
+    rejected = []
+    for candidate in candidates:
+        ctx = build_neighbor_ctx(candidate, config_facts, config_facts_localhost, mg_facts)
+        if accept is None or accept(ctx):
+            logger.info("Selected neighbor context for %s: %s", scenario["id"], ctx)
+            return ctx
+        rejected.append(f"{ctx['neighbor_name']} via {ctx['port']} (members {ctx['member_ports']})")
+    requirement = f"; additionally required: {accept_desc}" if accept_desc else ""
+    considered = f"; candidates rejected: {rejected}" if rejected else ""
+    pytest.skip(
+        f"No BGP neighbor found for scenario {scenario['id']} "
+        f"(role={scenario['neighbor_role']}, device_types={sorted(expected_types)}, "
+        f"expect_ebgp={scenario['expect_ebgp']}{requirement}{considered})",
     )
-    logger.info("Selected neighbor context for %s: %s", scenario["id"], selected)
-    return selected
 
 
 def get_bgp_routes(duthost, asic_index, ip_version):
@@ -246,6 +260,29 @@ def forwarding_nexthops(route_body):
     return result
 
 
+# Documentation / benchmark addresses that no realistic test topology announces, used as probe
+# destinations when the neighbor only contributes a path to the default route.
+DEFAULT_ROUTE_PROBE_ADDRESSES = {
+    4: ["198.18.0.1", "203.0.113.1", "192.0.2.1"],
+    6: ["3fff::1", "2001:db8:ffff:ffff::1"],
+}
+
+
+def default_route_probe_address(duthost, asic_index, ip_version):
+    """An address whose longest-match route on the DUT is the default route, or None."""
+    default_prefix = "0.0.0.0/0" if ip_version == 4 else "::/0"
+    for address in DEFAULT_ROUTE_PROBE_ADDRESSES[ip_version]:
+        cmd = f"show {'ip' if ip_version == 4 else 'ipv6'} route {address} json"
+        out = duthost.shell(vtysh_cmd(asic_index, cmd), module_ignore_errors=True)
+        try:
+            matched = json.loads(out["stdout"].strip() or "{}")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(matched, dict) and list(matched.keys()) == [default_prefix]:
+            return address
+    return None
+
+
 def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
     """
     Select a prefix for route and forwarding checks. Returns None when nothing qualifies
@@ -254,10 +291,12 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
       ecmp                           - True when other neighbors share the forwarding path
       forwards_via_neighbor          - True when the FIB sends traffic out via this neighbor
     Preference: a prefix forwarded exclusively via the neighbor, then an ECMP prefix that
-    includes it, then a prefix merely received from it. The last case happens when the
-    neighbor announces a third-party next hop that the DUT resolves through other links
-    (typical for a LowerSpineRouter on the single-node T2 topology): route presence is then
-    checked in the BGP table and the dataplane check is skipped.
+    includes it, then the default route when the neighbor is one of its paths (an inbound
+    policy that accepts only the default from uplinks leaves nothing else), then a prefix
+    merely received from it. The last case happens when the neighbor announces a third-party
+    next hop that the DUT resolves through other links (typical for a LowerSpineRouter on the
+    single-node T2 topology): route presence is then checked in the BGP table and the
+    dataplane check is skipped.
     """
     neighbor_ips = {ip for ip in neighbor_ctx["neighbor_ips"] if ipaddress.ip_address(ip).version == ip_version}
     too_narrow_prefixlen = 31 if ip_version == 4 else 127
@@ -272,7 +311,8 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
         return network
 
     exclusive, ecmp = [], []
-    for prefix, route_body in get_bgp_routes(duthost, asic_index, ip_version).items():
+    routes = get_bgp_routes(duthost, asic_index, ip_version)
+    for prefix, route_body in routes.items():
         network = usable(prefix)
         if network is None:
             continue
@@ -287,6 +327,19 @@ def pick_prefix_for_neighbor(duthost, asic_index, neighbor_ctx, ip_version):
                         "ECMP" if is_ecmp else "exclusive", prefix, neighbor_ctx["neighbor_name"])
             return {"prefix": prefix, "dst_ip": str(next(network.hosts())), "ecmp": is_ecmp,
                     "forwards_via_neighbor": True}
+
+    default_prefix = "0.0.0.0/0" if ip_version == 4 else "::/0"
+    default_nexthops = forwarding_nexthops(routes.get(default_prefix))
+    if default_nexthops & neighbor_ips:
+        dst_ip = default_route_probe_address(duthost, asic_index, ip_version)
+        probe_note = (
+            f" and probing {dst_ip}" if dst_ip
+            else ", no probe address resolves through it so the dataplane check is skipped"
+        )
+        logger.info("Neighbor %s only contributes a path to %s; checking its path on the default route%s",
+                    neighbor_ctx["neighbor_name"], default_prefix, probe_note)
+        return {"prefix": default_prefix, "dst_ip": dst_ip, "ecmp": not (default_nexthops <= neighbor_ips),
+                "forwards_via_neighbor": dst_ip is not None}
 
     received = []
     for ip in sorted(neighbor_ips):
