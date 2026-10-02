@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.dash_utils import apply_dash_configs, apply_swssconfig_file
 from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, verify_eni_counter, \
+    get_ct_aging_interval, set_ct_aging_interval, CT_AGING_TEST_INTERVAL, \
     eni_counter_setup, partition_supported_counters, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
 
 
@@ -43,7 +44,7 @@ def _get_interface_ip(duthost, interface):
 
 
 @pytest.fixture(scope="module")
-def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index, module_set_ct_aging):
     """Module-scoped equivalent of the shared ``set_vxlan_udp_sport_range`` fixture.
 
     Programs the DPU's VXLAN UDP source-port range / security once per module (instead of
@@ -69,7 +70,38 @@ def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 
 
 @pytest.fixture(scope="module")
-def module_setup_npu_dpu(duthost, dpuhosts, dpu_index, dash_pl_config, skip_config, skip_cleanup):
+def module_set_ct_aging(dpuhosts, dpu_index, skip_config, skip_cleanup):
+    """
+    Programs the DPU's CT aging interval. Performs config_reload as part of setup and teardown.
+
+    This fixture should come before others because it performs config_reloads,
+    which will wipe out config changes applied by earlier fixtures.
+    """
+    dpuhost = dpuhosts[dpu_index]
+    if not skip_config and 'bluefield' in dpuhost.facts['asic_type']:
+        original_tcp_aging = get_ct_aging_interval(dpuhost, use_udp=False)
+        original_udp_aging = get_ct_aging_interval(dpuhost, use_udp=True)
+        logger.info(f"Original CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
+
+        set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=False)
+        set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=True)
+        logger.info(f"Set CT aging intervals to {CT_AGING_TEST_INTERVAL}s, restarting syncd to apply")
+
+        config_reload(dpuhost, safe_reload=True)
+
+    yield
+
+    if not skip_config and not skip_cleanup and 'bluefield' in dpuhost.facts['asic_type']:
+        logger.info(f"Restoring CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
+        set_ct_aging_interval(dpuhost, original_tcp_aging, use_udp=False)
+        set_ct_aging_interval(dpuhost, original_udp_aging, use_udp=True)
+        config_reload(dpuhost, safe_reload=True)
+
+
+@pytest.fixture(scope="module")
+def module_setup_npu_dpu(
+    duthost, dpuhosts, dpu_index, dash_pl_config, skip_config, skip_cleanup, module_set_ct_aging
+):
     """Module-scoped equivalent of the shared ``setup_npu_dpu`` fixture.
 
     Programs the DPU loopback and the NPU static routes once per module (instead of per

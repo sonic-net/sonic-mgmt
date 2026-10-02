@@ -39,6 +39,11 @@
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
     card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
+    # See get_dut_port.yml for the rationale behind these two port_alias inputs.
+    include_internal: "{{ hostvars[dut_name]['card_type'] is defined
+      or hostvars[dut_name]['switch_type'] | default('') == 'voq' }}"
+    sort_by_index: "{{ hostvars[dut_name]['card_type'] is not defined
+      and hostvars[dut_name]['switch_type'] | default('') != 'voq' }}"
     asic_type: "{{ hostvars[dut_name].asic_type | default('') }}"
 
 - set_fact:
@@ -64,16 +69,6 @@
 - name: Copy sonic EFI vars for {{ dut_name }}
   copy: src={{ src_disk_efi_vars }} dest={{ efi_vars }} remote_src=True
   when: not file_stat.stat.exists and use_uefi
-
-- name: determine whether to include internal ports
-  set_fact:
-    include_internal: true
-  when: is_vs_chassis is defined and is_vs_chassis == true
-
-- name: determine whether to sort port_alias by index
-  set_fact:
-    sort_by_index: false
-  when: is_vs_chassis is defined and is_vs_chassis == true
 
 - name: Get DUT port alias
   port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}

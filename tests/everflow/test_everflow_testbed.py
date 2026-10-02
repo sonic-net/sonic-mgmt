@@ -98,7 +98,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "20.0.0.1"
     DEFAULT_DST_IP = "30.0.0.1"
-    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th5", "th4", "th3", "j2c+", "jr2"]
+    MIRROR_POLICER_UNSUPPORTED_ASIC_LIST = ["th6", "th5", "th4", "th3", "j2c+", "jr2"]
 
     @pytest.fixture(params=[DOWN_STREAM, UP_STREAM])
     def dest_port_type(self, setup_info, setup_mirror_session, tbinfo, request, erspan_ip_ver):        # noqa F811
@@ -257,7 +257,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(wait_until(30, 10, 0, everflow_utils.validate_mirror_session_up,
                                  remote_dut, setup_mirror_session["session_name"]))
 
-        request.getfixturevalue('setup_standby_ports_on_rand_unselected_tor_unconditionally')
+        request.getfixturevalue('setup_standby_ports_on_rand_unselected_tor_unconditionally_module')
         # Verify that mirrored traffic is sent along the route we installed
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
@@ -295,7 +295,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo, mux_config,      # noqa F811
                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally_module,  # noqa F811
                                        erspan_ip_ver):                                              # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature.
@@ -419,7 +419,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
                                           dest_port_type, ptfadapter, tbinfo, mux_config,       # noqa F811
                                           toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
-                                          setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                          setup_standby_ports_on_rand_unselected_tor_unconditionally_module,  # noqa F811
                                           erspan_ip_ver):                                              # noqa F811
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
@@ -501,7 +501,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
                                                   dest_port_type, ptfadapter, tbinfo, mux_config,       # noqa F811
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
-                                                  setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                                  setup_standby_ports_on_rand_unselected_tor_unconditionally_module,  # noqa F811
                                                   erspan_ip_ver):                                              # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
 
@@ -613,7 +613,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
                                                 dest_port_type, ptfadapter, tbinfo, mux_config,         # noqa F811
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
-                                                setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                                setup_standby_ports_on_rand_unselected_tor_unconditionally_module,  # noqa F811
                                                 erspan_ip_ver):                                              # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
 
@@ -740,7 +740,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             config_method,
             tbinfo,
             toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-            setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+            setup_standby_ports_on_rand_unselected_tor_unconditionally_module,  # noqa F811
             erspan_ip_ver                                                # noqa F811
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
@@ -853,10 +853,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                send_time=send_time,
                                tolerance=everflow_tolerance)
 
-            # Verify that packets dropped by policer do not increment TX_DROP counters
+            # Skip counter checks on ASICs that count policer-dropped packets as TX drops.
             mirror_port = get_mirror_port(everflow_dut, "TEST_POLICER_SESSION")
-            assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
-            assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
+            asic = everflow_dut.get_asic_name()
+            if asic not in {"th2", "td3"}:
+                assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
+                assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(everflow_dut, table_name, config_method)
@@ -873,7 +875,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                         setup_mirror_session,
                                         dest_port_type, ptfadapter, tbinfo, mux_config,  # noqa F811
                                         erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                                        setup_standby_ports_on_rand_unselected_tor_unconditionally):  # noqa F811
+                                        setup_standby_ports_on_rand_unselected_tor_unconditionally_module):  # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
         Background Traffic PKT1 IP in IP with same ports & macs but with dummy ips
@@ -1061,7 +1063,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_fwd_recircle_port_queue_check(self, setup_info, setup_mirror_session, # noqa F811
                                                     dest_port_type, ptfadapter, tbinfo,
                                        erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                       setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally_module):    # noqa F811
         """
         Verify basic forwarding scenario with mirror session config having specific queue for the Everflow feature.
         Make sure the mirrored packets are sent via the specific queue on recircle port

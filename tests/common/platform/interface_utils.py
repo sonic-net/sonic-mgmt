@@ -184,6 +184,9 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
+    # No front-panel interfaces to check (e.g. SONiC BMC has no front-panel ports)
+    if len(interfaces) == 0:
+        return True
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
@@ -235,7 +238,7 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 
     if asic_index is not None:
         # Check if the interfaces of this ASIC is present in conn_graph_facts
-        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        dev_conn = {port: dev_conn[port] for port in portmap if port in dev_conn}
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn
@@ -395,7 +398,8 @@ def is_first_subport(port, lport_to_first_subport):
 def get_xcvr_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of transceiver presence status for each interface.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are interface names and values are booleans indicating presence.
     """
     namespace = duthost.get_namespace_from_asic_id(asic_index)
@@ -411,7 +415,8 @@ def get_xcvr_presence_data(duthost, asic_index=None):
 def get_pport_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of physical port presence status for each physical port index.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
     """
     interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)

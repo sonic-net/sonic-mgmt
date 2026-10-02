@@ -152,3 +152,45 @@
   debug:
     msg: "{{ bgp_summary.stdout_lines }}"
   when: bgp_summary.stdout_lines is defined
+
+# lldpmgrd applies each port's LLDP port-id subtype override
+# (`lldpcli configure ports <port> lldp portidsubtype local <alias>`) so the
+# neighbor advertises its port alias (e.g. fortyGigE0/0), matching real SONiC.
+# On a freshly started docker-sonic-vs neighbor, lldpd can end up bound to its
+# control socket without a usable on-disk socket node, and lldpmgrd races ahead
+# of it, fails RETRY_LIMIT times and permanently gives up (FATAL). The port-id
+# then falls back to the global `ifname` subtype and the neighbor advertises the
+# SONiC interface name (Ethernet1) instead of the alias. Restart lldpd to
+# recreate the control socket, wait for it, then bounce lldpmgrd so it
+# re-applies the alias overrides deterministically.
+- name: Restart lldpd to recreate its control socket
+  become: yes
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    supervisorctl restart lldpd
+  delegate_to: "{{ VM_host[0] }}"
+  failed_when: false
+  changed_when: true
+
+- name: Wait for lldpd control socket to be ready
+  become: yes
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    test -S /run/lldpd.socket
+  delegate_to: "{{ VM_host[0] }}"
+  register: lldpd_socket
+  until: lldpd_socket.rc == 0
+  retries: 30
+  delay: 2
+  failed_when: false
+  changed_when: false
+
+- name: Restart lldpmgrd so port-id alias overrides are (re)applied
+  become: yes
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    supervisorctl restart lldpmgrd
+  delegate_to: "{{ VM_host[0] }}"
+  when: lldpd_socket.rc == 0
+  failed_when: false
+  changed_when: true
