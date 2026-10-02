@@ -73,6 +73,9 @@
   <features>
     <acpi/>
     <apic/>
+{% if secure_boot_enabled | default(false) | bool %}
+    <smm state='on'/>
+{% endif %}
   </features>
   <clock offset='utc'/>
   <on_poweroff>destroy</on_poweroff>
