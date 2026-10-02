@@ -205,7 +205,7 @@ jobs:
           KVM_BUILD_ID: ${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}
           KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
-          ADD_TOPO_PARAMS: "-e secure_boot_enabled=true"
+          ADD_TOPO_PARAMS: "-e use_uefi=true"
           SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "False"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:

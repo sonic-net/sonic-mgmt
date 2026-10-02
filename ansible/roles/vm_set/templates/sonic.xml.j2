@@ -77,6 +77,9 @@
   <features>
     <acpi/>
     <apic/>
+{% if use_uefi %}
+    <smm state='on'/>
+{% endif %}
   </features>
   <clock offset='utc'/>
   <on_poweroff>destroy</on_poweroff>
