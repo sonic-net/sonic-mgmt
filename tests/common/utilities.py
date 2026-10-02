@@ -1437,6 +1437,8 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except AuthenticationException:
         raise
     except Exception:
+        if ipv6_address == ipv4_address:
+            raise
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
 
