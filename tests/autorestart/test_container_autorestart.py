@@ -531,7 +531,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
         check_all_critical_processes_status, duthost
     )
 
+    disabled_containers = get_disabled_container_list(duthost)
+
     for feature_name in list(feature_autorestart_states.keys()):
+        if feature_name in disabled_containers:
+            continue
         if feature_name in duthost.DEFAULT_ASIC_SERVICES:
             for asic in duthost.asics:
                 service_name = asic.get_service_name(feature_name)
@@ -586,6 +590,11 @@ def is_process_running(duthost, container_name, program_name):
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    # Reset systemd's restart counter for all services so that cascade restarts
+    # from previous test cases don't cause start-limit-hit
+    # when testing dependent services like teamd.
+    duthost.shell("sudo systemctl reset-failed", module_ignore_errors=True)
+
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 

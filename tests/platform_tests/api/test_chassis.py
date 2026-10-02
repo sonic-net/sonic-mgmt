@@ -34,6 +34,7 @@ pytestmark = [
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
+PLATFORMS_WITHOUT_BASE_MAC_TLV = {'arm64-arista_goldfinch-r0', }
 
 # Chassis API tests that are not available/applicable on BMC topologies
 BMC_SKIPPED_CHASSIS_TESTS = {
@@ -115,6 +116,10 @@ class TestChassisApi(PlatformApiTestBase):
     #
     # Helper functions
     #
+    @staticmethod
+    def lacks_base_mac_tlv(duthost):
+        return duthost.facts.get('platform') in PLATFORMS_WITHOUT_BASE_MAC_TLV
+
     def compare_value_with_platform_facts(self, duthost, key, value):
         expected_value = None
 
@@ -243,11 +248,13 @@ class TestChassisApi(PlatformApiTestBase):
 
         MINIMUM_REQUIRED_TYPE_CODES_LIST = [
             ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER,
-            ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR,
             ONIE_TLVINFO_TYPE_CODE_CRC32
         ]
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        base_mac_tlv_missing = self.lacks_base_mac_tlv(duthost)
+        if not base_mac_tlv_missing:
+            MINIMUM_REQUIRED_TYPE_CODES_LIST.append(ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR)
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         # Convert all keys of syseeprom_info_dict into lower case
         syseeprom_info_dict = {k.lower(): v for k, v in list(syseeprom_info_dict.items())}
@@ -266,11 +273,11 @@ class TestChassisApi(PlatformApiTestBase):
         # Ensure that we were able to obtain the minimum required type codes
         pytest_assert(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list),
                       "Minimum required TlvInfo type codes not provided")
-
-        # Ensure the base MAC address is sane
-        base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
-        pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
-        pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
+        if not base_mac_tlv_missing:
+            # Ensure the base MAC address is sane
+            base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
+            pytest_assert(base_mac is not None, "Failed to retrieve base MAC address")
+            pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
 
         # Ensure the serial number is sane
         serial = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER]
@@ -282,6 +289,9 @@ class TestChassisApi(PlatformApiTestBase):
         expected_syseeprom_info_dict = {k.lower(): v for k, v in list(expected_syseeprom_info_dict.items())}
 
         for field in expected_syseeprom_info_dict:
+            if (base_mac_tlv_missing and field == ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR.lower()):
+                # Platform does not have a Base MAC TLV.
+                continue
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'"
                           .format(field, duthost.hostname))
 
@@ -446,6 +456,47 @@ class TestChassisApi(PlatformApiTestBase):
         for i in range(num_psus):
             psu = chassis.get_psu(platform_api_conn, i)
             self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
+        self.assert_expectations()
+
+    def test_pdbs(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        platform_expects_pdbs = (duthost.facts.get("chassis") and
+                                 duthost.facts["chassis"].get("pdbs"))
+        num_pdbs = None
+        try:
+            num_pdbs_raw = chassis.get_num_pdbs(platform_api_conn)
+            if num_pdbs_raw is None:
+                if platform_expects_pdbs:
+                    pytest.fail("get_num_pdbs returned None but platform.json has pdbs defined")
+                pytest.skip("get_num_pdbs API not supported on this platform")
+            num_pdbs = int(num_pdbs_raw)
+        except Exception:
+            if platform_expects_pdbs:
+                pytest.fail("num_pdbs is not an integer")
+            pytest.skip("get_num_pdbs API not supported on this platform")
+
+        if num_pdbs is None:
+            pytest.fail("num_pdbs should have been initialized")
+
+        if duthost.facts.get("chassis") and duthost.facts["chassis"].get("pdbs"):
+            expected_num_pdbs = len(duthost.facts["chassis"]["pdbs"])
+            pytest_assert(num_pdbs == expected_num_pdbs,
+                          f"Number of PDBs ({num_pdbs}) does not match expected number "
+                          f"({expected_num_pdbs})")
+        else:
+            pytest_assert(num_pdbs == 0,
+                          f"platform.json has no pdbs array but get_num_pdbs() returned {num_pdbs}")
+
+        if num_pdbs == 0:
+            pytest.skip("No PDBs found on device (PSU platform)")
+
+        pdb_list = chassis.get_all_pdbs(platform_api_conn)
+        pytest_assert(pdb_list is not None, "Failed to retrieve PDBs")
+        pytest_assert(isinstance(pdb_list, list) and len(pdb_list) == num_pdbs, "PDBs appear to be incorrect")
+
+        for i in range(num_pdbs):
+            single_pdb = chassis.get_pdb(platform_api_conn, i)
+            self.expect(single_pdb and single_pdb == pdb_list[i], f"PDB {i} is incorrect")
         self.assert_expectations()
 
     def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811

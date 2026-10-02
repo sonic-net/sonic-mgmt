@@ -39,6 +39,15 @@ def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
     return False
 
 
+def get_docker_started_at(duthost, name):
+    """Return the Docker container start timestamp, or empty on failure."""
+    result = duthost.shell(
+        r"docker inspect -f \{{\{{.State.StartedAt\}}\}} {}".format(name),
+        module_ignore_errors=True,
+    )
+    return (result.get("stdout") or "").strip()
+
+
 def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
     """
     @summary: This function checks if pmon uptime is at least the minimal_runtime
