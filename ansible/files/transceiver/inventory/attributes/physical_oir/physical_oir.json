@@ -15,7 +15,7 @@
             "physical_oir_timeout_min": 5,
             "simultaneous_oir": true,
             "physical_oir_stress_iteration": 2,
-            "hot_swap_ports_under_test": [[9, "CmisApi"], [11, "CmisApi"]]
+            "hot_swap_ports_under_test": [[9, "Sff8436Api"]]
         }
     }
 }
