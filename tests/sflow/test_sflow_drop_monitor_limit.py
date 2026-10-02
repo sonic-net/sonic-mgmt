@@ -1,5 +1,5 @@
 """
-Test cases for sFlow drop_monitor_limit (CLI).
+Test cases for sFlow drop_monitor_limit (YANG and CLI).
 
 Valid range:
     0       -> disable
@@ -10,7 +10,13 @@ Invalid:
     > 500
     non-numeric values
 
+YANG tests validate values directly against the installed SONiC YANG models
+with sonic_yang (no CONFIG_DB change). CLI tests use
+'config sflow drop-monitor-limit' and verify CONFIG_DB.
 """
+
+import json
+import shlex
 
 import pytest
 
@@ -24,6 +30,20 @@ CLI_CMD = "config sflow drop-monitor-limit"
 PLATFORM_UNSUPPORTED_MSG = "not supported on this platform"
 
 BASELINE_VALUE = 100
+
+# CLI error messages
+CLI_RANGE_ERROR_MSG = "Drop monitor limit must be between 1-500 (0 to disable)"
+CLI_TYPE_ERROR_MSG = "is not a valid integer"
+
+# YANG
+YANG_DIR = "/usr/local/yang-models"
+SFLOW_YANG_FILE = "{}/sonic-sflow.yang".format(YANG_DIR)
+YANG_ERROR_MSG_PREFIX = "sFlow packet drop monitor limit must be"
+YANG_OK_MARKER = "YANG_VALIDATION_OK"
+YANG_FAILED_MARKER = "YANG_VALIDATION_FAILED"
+YANG_LOGANALYZER_IGNORE = [
+    r".*ERR sonic_yang: Data Loading Failed.*",
+]
 
 
 # ------------------------------------------------------------------------------
@@ -89,6 +109,48 @@ def get_drop_limit_from_db(duthost, required=True):
         pytest.fail(
             "Invalid CONFIG_DB value for {}: {!r}".format(DROP_LIMIT_FIELD, value)
         )
+
+
+def run_drop_limit_yang_validation(duthost, value):
+    """
+    Validate drop_monitor_limit directly against the SONiC YANG models.
+
+    This does not modify CONFIG_DB. The equivalent CONFIG_DB structure passed
+    to SonicYang is:
+
+        {"SFLOW": {"global": {"drop_monitor_limit": "<value>"}}}
+
+    stdout contains:
+        YANG_VALIDATION_OK              -> accepted
+        YANG_VALIDATION_FAILED: <msg>   -> rejected by data validation
+
+    Import or model-load errors happen outside the try block and print
+    neither marker, so they cannot be mistaken for a YANG rejection.
+    """
+    config = {"SFLOW": {"global": {DROP_LIMIT_FIELD: str(value)}}}
+
+    script = (
+        "import json, sys\n"
+        "import sonic_yang\n"
+        "sy = sonic_yang.SonicYang({yang_dir!r}, print_log_enabled=False)\n"
+        "sy.loadYangModel()\n"
+        "try:\n"
+        "    sy.loadData(json.loads({cfg!r}))\n"
+        "except Exception as e:\n"
+        "    print({failed!r} + ': ' + str(e))\n"
+        "    sys.exit(1)\n"
+        "print({ok!r})\n"
+    ).format(
+        yang_dir=YANG_DIR,
+        cfg=json.dumps(config),
+        failed=YANG_FAILED_MARKER,
+        ok=YANG_OK_MARKER,
+    )
+
+    return duthost.shell(
+        "python3 -c {}".format(shlex.quote(script)),
+        module_ignore_errors=True,
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -167,8 +229,119 @@ def preserve_sflow_drop_limit(duthost):
     )
 
 
+@pytest.fixture
+def ignore_yang_validation_errors(duthost, loganalyzer):
+    """
+    Ignore the syslog ERR that sonic_yang logs for rejected data, since the
+    rejection is the expected result of the invalid-value YANG tests.
+    """
+    if loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(YANG_LOGANALYZER_IGNORE)
+
+
 # ------------------------------------------------------------------------------
-# Tests
+# YANG tests
+# ------------------------------------------------------------------------------
+def test_sflow_drop_monitor_limit_yang_schema(duthost):
+    """
+    Verify the installed sonic-sflow.yang defines drop_monitor_limit as:
+
+        leaf drop_monitor_limit {
+            type uint16 {
+                range "0|1..500" {
+                    error-message "sFlow packet drop monitor limit must be ...";
+                }
+            }
+        }
+    """
+    file_check = duthost.shell(
+        "test -f {}".format(shlex.quote(SFLOW_YANG_FILE)),
+        module_ignore_errors=True,
+    )
+    assert file_check["rc"] == 0, (
+        "{} does not exist on the DUT".format(SFLOW_YANG_FILE)
+    )
+
+    result = duthost.shell(
+        "grep -A12 -B2 'leaf {}' {}".format(DROP_LIMIT_FIELD, shlex.quote(SFLOW_YANG_FILE)),
+        module_ignore_errors=True,
+    )
+    assert result["rc"] == 0, (
+        "{} leaf is not present in {} "
+        "(provided by sonic-buildimage PR #24421): stdout={!r}, stderr={!r}".format(
+            DROP_LIMIT_FIELD,
+            SFLOW_YANG_FILE,
+            result.get("stdout", ""),
+            result.get("stderr", ""),
+        )
+    )
+
+    schema = result.get("stdout", "")
+    for expected in ("type uint16", 'range "0|1..500"', YANG_ERROR_MSG_PREFIX):
+        assert expected in schema, (
+            "YANG leaf {} does not contain {!r}: {!r}".format(DROP_LIMIT_FIELD, expected, schema)
+        )
+
+
+@pytest.mark.parametrize("value", [0, 1, 250, 500])
+def test_sflow_drop_monitor_limit_yang_valid(duthost, value):
+    """
+    Verify YANG accepts valid drop_monitor_limit values: 0, 1, 250, 500.
+    """
+    result = run_drop_limit_yang_validation(duthost, value)
+
+    assert result["rc"] == 0 and YANG_OK_MARKER in result.get("stdout", ""), (
+        "YANG rejected valid drop_monitor_limit value {}: "
+        "rc={}, stdout={!r}, stderr={!r}".format(
+            value,
+            result["rc"],
+            result.get("stdout", ""),
+            result.get("stderr", ""),
+        )
+    )
+
+
+@pytest.mark.parametrize("value", [-1, -10, 501, 999, 10000, 65535, 65536, "abc"])
+def test_sflow_drop_monitor_limit_yang_invalid(
+    ignore_yang_validation_errors,
+    duthost,
+    value,
+):
+    """
+    Verify YANG rejects invalid drop_monitor_limit values:
+        -1, -10, 65536    -> not a uint16
+        501, 999, 10000   -> outside range "0|1..500"
+        65535             -> valid uint16 but outside range "0|1..500"
+        abc               -> not an integer
+    """
+    result = run_drop_limit_yang_validation(duthost, value)
+    stdout = result.get("stdout", "")
+
+    assert result["rc"] != 0, (
+        "YANG unexpectedly accepted invalid drop_monitor_limit value {}: "
+        "stdout={!r}, stderr={!r}".format(value, stdout, result.get("stderr", ""))
+    )
+
+    # The rejection must come from data validation, not from an import or
+    # YANG model load error.
+    assert YANG_FAILED_MARKER in stdout, (
+        "Expected YANG validation failure for value {}, got something else "
+        "(import/model error?): rc={}, stdout={!r}, stderr={!r}".format(
+            value, result["rc"], stdout, result.get("stderr", "")
+        )
+    )
+
+    # In-type numbers above 500 must be rejected by the YANG range check.
+    if value in (501, 999, 10000, 65535):
+        assert YANG_ERROR_MSG_PREFIX in stdout, (
+            "Value {} was rejected, but not by the {} range check: stdout={!r}".format(
+                value, DROP_LIMIT_FIELD, stdout
+            )
+        )
+
+
+# ------------------------------------------------------------------------------
+# CLI tests
 # ------------------------------------------------------------------------------
 @pytest.mark.parametrize("value", [0, 1, 250, 500])
 def test_sflow_drop_monitor_limit_valid(
@@ -205,7 +378,7 @@ def test_sflow_drop_monitor_limit_valid(
     )
 
 
-@pytest.mark.parametrize("value", [-1, -10, 501, 999, "abc"])
+@pytest.mark.parametrize("value", [-1, -10, 501, 999, 10000, "abc"])
 def test_sflow_drop_monitor_limit_invalid(
     cli_sflow_drop_monitor_support,
     duthost,
@@ -217,7 +390,9 @@ def test_sflow_drop_monitor_limit_invalid(
 
     Steps:
         1. Set a known baseline value.
-        2. Apply the invalid value; CLI must fail.
+        2. Apply the invalid value; CLI must fail with the expected error:
+               numbers outside 0..500 -> range error
+               non-numeric            -> integer type error
         3. CONFIG_DB must still hold the baseline value.
     """
 
@@ -233,10 +408,11 @@ def test_sflow_drop_monitor_limit_invalid(
     baseline_value = get_drop_limit_from_db(duthost)
 
     result = run_drop_limit_cli(duthost, value)
-    output = "{}\n{}".format(
+    raw_output = "{}\n{}".format(
         result.get("stdout", ""),
         result.get("stderr", ""),
-    ).lower()
+    )
+    output = raw_output.lower()
 
     assert result["rc"] != 0, (
         "CLI unexpectedly accepted invalid drop-monitor-limit "
@@ -252,6 +428,14 @@ def test_sflow_drop_monitor_limit_invalid(
     assert "no such option" not in output, (
         "Value {} was parsed as a CLI option instead of being validated: "
         "{!r}".format(value, output)
+    )
+
+    # The CLI must report the expected validation error.
+    expected_error = CLI_TYPE_ERROR_MSG if value == "abc" else CLI_RANGE_ERROR_MSG
+    assert expected_error in raw_output, (
+        "Unexpected CLI error for invalid value {}: expected {!r} in {!r}".format(
+            value, expected_error, raw_output
+        )
     )
 
     # Invalid input must not modify the existing CONFIG_DB value.
