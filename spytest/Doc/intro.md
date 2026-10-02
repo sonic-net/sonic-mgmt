@@ -16,7 +16,7 @@
   - [Sample topology](#sample-topology)
 - [Traffic Generation](#traffic-generation)
   - [Ixia](#ixia)
-  - [Spirent](#spirent)
+  - [VIAVI](#viavi)
   - [HLTAPI](#hltapi)
   - [Scapy](#scapy)
 - [Execution Modes](#execution-modes)
@@ -55,6 +55,7 @@ v2.00 | May 01, 2023 | Ram Sasthri, Kristipati    | Added Table of Contents
 v2.10 | Jun 01, 2023 | Ram Sasthri, Kristipati    | Updates
 v2.11 | Jun 08, 2023 | Ram Sasthri, Kristipati    | Added test Suites Section
 v2.12 | Jun 09, 2023 | Ram Sasthri, Kristipati    | Added syslog patterns
+v2.13 | Aug 03, 2026 | VIAVI TestCenter Team      | Added VIAVI TestCenter Lab Server mode description
 
 ## Scope
 
@@ -103,7 +104,7 @@ Feature APIs can leverage these functions to facilitate device interactions and 
 
 ### TGen APIs
 
-The SPyTest framework utilizes HLTAPI (High-Level Traffic Application Programming Interface) to establish an interface with commercial traffic generators such as Ixia and Spirent, specifically for traffic generation purposes. By leveraging HLTAPI, SPyTest can seamlessly interact with these traffic generators, enabling the configuration and control of network traffic for testing scenarios.
+The SPyTest framework utilizes HLTAPI (High-Level Traffic Application Programming Interface) to establish an interface with commercial traffic generators such as Ixia and VIAVI, specifically for traffic generation purposes. By leveraging HLTAPI, SPyTest can seamlessly interact with these traffic generators, enabling the configuration and control of network traffic for testing scenarios.
 
 Additionally, SPyTest also provides an alternative implementation of the same API using SCAPY, a powerful packet manipulation library in Python. This SCAPY-based implementation is specifically designed to generate traffic within the PTF (Packet Test Framework) environment and is also applicable for testing virtual SONiC.
 
@@ -286,9 +287,14 @@ Each child of of this node represents single device, which can be DUT or TGen as
 
 * **properties** TGen properties
      * **type** Traffic Generator Type, Currently supported TGen types [ixia, stc, scapy]
-     * **version** Traffic Generator version. Supported versions are ixia 8.42 to 9.31, stc 4.91 and scapy 1.0 [scapy TGEN version is just a place holder and not used]
+     * **version** Traffic Generator version. Supported versions are ixia 8.42 to 9.31, stc 4.91 to 5.62 and scapy 1.0 [scapy TGEN version is just a place holder and not used]
      * **ip** Traffic Generator chassis IP address, Only IPv4 address is currently supported
      * **ix_server** This is only applicable for Ixia and it should point to IxNetwork Server IP Address, Only IPv4 address is currently supported.
+     * **lab_server_ip** This is only applicable for VIAVI TestCenter (STC) and it should point to the TestCenter Lab Server IP Address, Only IPv4 address is currently supported.
+     * **lab_server_username** This is only applicable for VIAVI TestCenter (STC) Lab Server mode. Username used to create/access the Lab Server session. Defaults to "test" if not specified.
+     * **lab_server_session_name** This is only applicable for VIAVI TestCenter (STC) Lab Server mode. Name of the session to create/use on the Lab Server. Defaults to "sonic" if not specified.
+     * **lab_server_existing_session** This is only applicable for VIAVI TestCenter (STC) Lab Server mode. Determines how an existing session with the same name is handled, e.g. "kill" to terminate it before creating a new one.
+     * **lab_server_cleanup_on_exit** This is only applicable for VIAVI TestCenter (STC) Lab Server mode. Determines whether the Lab Server session is cleaned up when the test run exits.
 
 The **topology** section gives interconnect details between DUTs as well as interconnect between each device with TGen. Each child of of this node represents a topology element and should be a DUT name from **devices** section. The interconnections are specified in **interfaces** child of each topology element. Each connected interface will have **EndDevice** and **EndPort** attributes representing the partner and its link.
 
@@ -296,21 +302,21 @@ The **topology** section gives interconnect details between DUTs as well as inte
 
 ![Image](tgen.jpg "icon")
 
-SPyTest supports the integration of Ixia and Spirent as third-party traffic generators. These traffic generators provide client libraries that enable communication with the underlying hardware.
+SPyTest supports the integration of Ixia and VIAVI as third-party traffic generators. These traffic generators provide client libraries that enable communication with the underlying hardware.
 
 ### Ixia
 
 For Ixia, SPyTest supports the IxNetwork Server mode. To utilize this mode, users need to set up an intermediate server to host the IxNetwork Server. The IxNetwork API server should be started on the server where the IxNetwork Server is installed. In the setup file, the IP address of the IxNetwork Server should be specified as "ix_server". SPyTest has been verified with IxNetwork versions ranging from 8.42 to 9.31. However, please note that there may be differences in the installation and launch procedures for different versions, so it is advisable to consult the Ixia documentation for more detailed instructions.
 
-### Spirent
+### VIAVI
 
-For Spirent, SPyTest supports the Spirent Testcenter client mode. SPyTest has been verified with Spirent versions 4.91.
+For VIAVI, SPyTest supports both the VIAVI TestCenter (STC) local mode and the Lab Server mode. In local mode, SPyTest connects directly to a locally installed VIAVI TestCenter application. Alternatively, users can set up an intermediate Lab Server to host TestCenter sessions remotely — in the setup file, this is configured via lab_server_ip (the Lab Server's address), along with optional lab_server_username, lab_server_session_name, lab_server_existing_session, and lab_server_cleanup_on_exit properties to control session handling. SPyTest has been verified with VIAVI TestCenter 4.91 to 5.62. Since setup and launch steps can vary across VIAVI TestCenter releases, refer to the VIAVI TestCenter documentation for the specific version in use to confirm the installation and Lab Server configuration details.
 
 ### HLTAPI
 
-All the HLTAPIs are exposed as wrapper functions in the format "tg_[HLTAPI]". There are few differences between Ixia and Spirent which are handled in these wrapper functions. As and when any new differences are identified, we should be able to add them easily in these wrapper functions.
+All the HLTAPIs are exposed as wrapper functions in the format "tg_[HLTAPI]". There are few differences between Ixia and VIAVI which are handled in these wrapper functions. As and when any new differences are identified, we should be able to add them easily in these wrapper functions.
 
-Users can refer to either the Ixia or Spirent HLTAPI reference guides and invoke the tg_[HLTAPI].
+Users can refer to either the Ixia or VIAVI HLTAPI reference guides and invoke the tg_[HLTAPI].
 
 ### Scapy
 
@@ -589,7 +595,7 @@ To illustrate, let's examine the topology requirements for the sanity suite.
 
  The "test_sanity_l2.py" module requires two devices connected with 4 links, with specific link requirements for each device and the traffic generator. The "test_sanity_l3.py" module also requires two devices connected with 1 link, with each device needing a link to the traffic generator. The "test_sanity_sys.py" module requires a single device.
 
- To verify the physical devices' topology and validate network connectivity, the option is available to use either Ixia or Spirent as the traffic generator. The latest supported versions for Ixia and Spirent are 9.31 and 4.91, respectively. These versions are recommended for optimal compatibility and performance.
+ To verify the physical devices' topology and validate network connectivity, the option is available to use either Ixia or VIAVI as the traffic generator. The latest supported versions for Ixia and VIAVI are 9.31 and 4.91, respectively. These versions are recommended for optimal compatibility and performance.
 
  Once the testbed file is created, below command can be used to execute sanity suite.
 
