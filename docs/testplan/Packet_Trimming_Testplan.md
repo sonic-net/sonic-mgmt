@@ -483,9 +483,9 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 5. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT to trigger trimming. 
-6. Capture egress packets and verfiy trimming works for traditional buffer model.
+6. Capture egress packets and verify trimming works for traditional buffer model.
 7. Update the `mode: dynamic` for `buffer_model`.
-8. Repeat step3-4 to verfiy trimming works for dynamic buffer model.
+8. Repeat step3-4 to verify trimming works for dynamic buffer model.
 9. Update packet trimming with asymmetric DSCP.
 10. Create egress queue congestion on both `Ethernet0` and `Ethernet4`.
 11. Send 1500B packets from PTF to DUT to trigger trimming on both `Ethernet0` and `Ethernet4`.
@@ -507,7 +507,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 4. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT `Ethernet0` to trigger trimming.
 5. Capture egress packets and verify the trimming works well on `Ethernet0`.
 6. Create `PortChannel1` and add member `Ethernet0`.
-7. Send packets to `PortChannel1` and verfiy trimming still works for `Ethernet0`.
+7. Send packets to `PortChannel1` and verify trimming still works for `Ethernet0`.
 
 ---
 
@@ -544,10 +544,10 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 4. Verify the packets are dropped (not trimmed).
 5. Verify ACL disable trim action counter increments.
 6. Send packets with src_ip `1.1.1.2` and `8000::3` (not matched ACL rule) to DUT and exceeding buffer threshold.
-7. Verfiy the packet is trimmed.
+7. Verify the packet is trimmed.
 8. Delete ACL rule.
 9. Send packets with src_ip `1.1.1.1` and `8000::2` to DUT and exceeding buffer threshold.
-10. Verfiy the packet is trimmed.
+10. Verify the packet is trimmed.
 
 ---
 
