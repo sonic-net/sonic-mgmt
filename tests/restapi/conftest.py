@@ -2,6 +2,7 @@ import logging
 import pytest
 import urllib3
 import ipaddress
+from datetime import datetime, timedelta, timezone
 from six.moves.urllib.parse import urlunparse
 
 from tests.common import config_reload
@@ -38,16 +39,43 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost, setup_logan
     local_command = "openssl genrsa -out restapiCA.key 2048"
     localhost.shell(local_command)
 
-    # Create Root cert
+    # Set up validity windows. Backdate notBefore by 1 month so clock skew between
+    # the test runner and the DUT does not cause a premature/expired cert error.
+    # OpenSSL 3.0 lacks the x509 -not_before option, so use 'openssl ca' with
+    # -startdate/-enddate to set explicit validity windows.
+    now = datetime.now(timezone.utc)
+    cert_not_before = (now - timedelta(days=30)).strftime("%Y%m%d%H%M%SZ")
+    ca_not_after = (now + timedelta(days=1825)).strftime("%Y%m%d%H%M%SZ")
+    cert_not_after = (now + timedelta(days=825)).strftime("%Y%m%d%H%M%SZ")
+    localhost.shell("mkdir -p restapi_newcerts && touch restapi_index.txt && echo 01 > restapi_serial")
+    ca_config = ("[ca]\\ndefault_ca = CA_default\\n"
+                 "[CA_default]\\ndatabase = restapi_index.txt\\nserial = restapi_serial\\n"
+                 "new_certs_dir = restapi_newcerts\\ndefault_md = sha256\\n"
+                 "policy = policy_any\\ncopy_extensions = none\\n"
+                 "[policy_any]\\ncommonName = supplied\\n"
+                 "[v3_ca]\\nbasicConstraints = critical,CA:TRUE\\n"
+                 "keyUsage = critical,keyCertSign,cRLSign\\nsubjectKeyIdentifier = hash\\n")
+    localhost.shell(f"printf '{ca_config}' > restapi_ca.cnf")
+
+    # Create Root CSR and self-sign it as the CA cert with a backdated notBefore.
     local_command = "openssl req \
-                        -x509 \
                         -new \
-                        -nodes \
                         -key restapiCA.key \
-                        -sha256 \
-                        -days 1825 \
                         -subj '/CN=test.restapi.sonic' \
-                        -out restapiCA.pem"
+                        -out restapiCA.csr"
+    localhost.shell(local_command)
+    local_command = f"openssl ca \
+                        -batch \
+                        -config restapi_ca.cnf \
+                        -selfsign \
+                        -keyfile restapiCA.key \
+                        -in restapiCA.csr \
+                        -out restapiCA.pem \
+                        -extensions v3_ca \
+                        -startdate {cert_not_before} \
+                        -enddate {ca_not_after} \
+                        -notext \
+                        -md sha256"
     localhost.shell(local_command)
 
     # Create server key
@@ -62,16 +90,19 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost, setup_logan
                         -out restapiserver.csr"
     localhost.shell(local_command)
 
-    # Sign server certificate
-    local_command = "openssl x509 \
-                        -req \
+    # Sign server certificate, reusing the backdated validity window and CA
+    # database set up for the CA certificate above.
+    local_command = f"openssl ca \
+                        -batch \
+                        -config restapi_ca.cnf \
+                        -cert restapiCA.pem \
+                        -keyfile restapiCA.key \
                         -in restapiserver.csr \
-                        -CA restapiCA.pem \
-                        -CAkey restapiCA.key \
-                        -CAcreateserial \
                         -out restapiserver.crt \
-                        -days 825 \
-                        -sha256"
+                        -startdate {cert_not_before} \
+                        -enddate {cert_not_after} \
+                        -notext \
+                        -md sha256"
     localhost.shell(local_command)
 
     # Create client key
@@ -86,16 +117,19 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost, setup_logan
                         -out restapiclient.csr"
     localhost.shell(local_command)
 
-    # Sign client certificate
-    local_command = "openssl x509 \
-                        -req \
+    # Sign client certificate, reusing the same backdated validity window and CA
+    # database set up for the CA certificate above.
+    local_command = f"openssl ca \
+                        -batch \
+                        -config restapi_ca.cnf \
+                        -cert restapiCA.pem \
+                        -keyfile restapiCA.key \
                         -in restapiclient.csr \
-                        -CA restapiCA.pem \
-                        -CAkey restapiCA.key \
-                        -CAcreateserial \
                         -out restapiclient.crt \
-                        -days 825 \
-                        -sha256"
+                        -startdate {cert_not_before} \
+                        -enddate {cert_not_after} \
+                        -notext \
+                        -md sha256"
     localhost.shell(local_command)
 
     # Copy CA certificate and server certificate over to the DUT
@@ -116,10 +150,14 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost, setup_logan
         # Perform a config load_minigraph to ensure config_db is not corrupted
         config_reload(duthost, config_source='minigraph')
         # Delete all created certs
-        local_command = "rm \
+        local_command = "rm -rf \
                             restapiCA.* \
                             restapiserver.* \
-                            restapiclient.*"
+                            restapiclient.* \
+                            restapi_ca.cnf \
+                            restapi_index.txt* \
+                            restapi_serial* \
+                            restapi_newcerts"
         localhost.shell(local_command)
 
 
@@ -144,7 +182,7 @@ def construct_url(duthosts, rand_one_dut_hostname):
             tup = ('https', netloc, path, '', '', '')
             endpoint = urlunparse(tup)
         except Exception:
-            logging.error("Invalid URL: "+endpoint)
+            logging.error("Invalid URL")
             return None
         return endpoint
     return get_endpoint
