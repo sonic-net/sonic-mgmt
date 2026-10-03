@@ -53,10 +53,11 @@ def configure_vxlan_global(duthost):
     yield
     if prev_vxlan_port:
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port), dutmac=prev_vxlan_router_mac)
-    else:
+    elif prev_vxlan_router_mac:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac)
         duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
-    if not prev_vxlan_router_mac:
+    else:
+        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
         duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
