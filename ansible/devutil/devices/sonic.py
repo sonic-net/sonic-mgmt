@@ -169,18 +169,22 @@ def patch_rsyslog(sonichosts):
     sonichosts.shell("systemctl restart rsyslog", module_attrs={"become": True})
 
 
+def wait_for_ssh(sonichosts, target_hosts=None):
+    # Use the configured connection plugin so IPv6 remains available when
+    # an IPv6-only configuration removes the inventory IPv4 address.
+    kwargs = {
+        "delay": 180,
+        "timeout": 600,
+        "module_attrs": {"changed_when": False},
+    }
+    if target_hosts:
+        kwargs["target_hosts"] = target_hosts
+    sonichosts.wait_for_connection(**kwargs)
+
+
 def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
     try:
-        for i in range(len(sonichosts.ips)):
-            localhost.wait_for(
-                host=sonichosts.ips[i],
-                port=22,
-                state="started",
-                search_regex="OpenSSH",
-                delay=180 if i == 0 else 0,
-                timeout=600,
-                module_attrs={"changed_when": False}
-            )
+        wait_for_ssh(sonichosts)
         localhost.pause(seconds=60, prompt="Wait for SONiC initialization")
 
         # NOTE: Clear Ansible cached facts to avoid using stale data
