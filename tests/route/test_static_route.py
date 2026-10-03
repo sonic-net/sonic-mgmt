@@ -746,6 +746,10 @@ def test_static_route_removal_after_config_reload(rand_selected_dut, rand_unsele
     3. After config reload, the route is no longer in the kernel routing table
     4. The route is no longer advertised to BGP neighbors
     """
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology; "
+                    "covered by test_static_route_removal_after_config_reload_ipv6")
+
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
