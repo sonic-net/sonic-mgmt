@@ -744,7 +744,7 @@ def test_po_update_with_higher_lagids(
         duthosts,
         enum_rand_one_per_hwsku_frontend_hostname,
         tbinfo,
-        ptfadapter,
+        request,
         reload_testbed_on_failed, localhost):
     """
     Test Port Channel Traffic with Higher LAG IDs:
@@ -764,6 +764,7 @@ def test_po_update_with_higher_lagids(
         # Skip the test if the setup is not T2 Chassis
         pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
 
+    ptfadapter = request.getfixturevalue("ptfadapter")
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     # Send initial data to the device
