@@ -1,0 +1,87 @@
+"""
+SAI thrift-based test for the VOQ Credit-WD-Del counter on SONiC broadcom-dnx devices.
+
+This test case verifies that the VOQ Credit-WD-Del counter increments as expected on
+a broadcom-dnx VOQ device. 
+"""
+
+import logging
+import pytest
+from tests.common.gu_utils import get_asic_name
+from tests.common.fixtures.duthost_utils import dut_qos_maps                               # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
+from .qos_sai_base import QosSaiBase
+
+logger = logging.getLogger(__name__)
+
+pytestmark = [
+    pytest.mark.topology('t2')
+]
+
+# Use a larger burst to overcome leakout before credit watchdog kicks in.
+# On some platforms tens of thousands of packets can egress after TX disable
+# due to headroom/credits; 100k is a conservative ceiling to ensure VOQ
+# backup across SKUs while keeping runtime reasonable.
+PKTS_NUM = 100000
+
+
+class TestVoqCreditWDCounter(QosSaiBase):
+    """TestVoqCreditWDCounter verifies the VOQ Credit-WD-Del counter on broadcom-dnx devices.
+
+    The test disables TX on a destination port via SAI thrift, sends traffic via PTF to
+    back up the VOQ, and waits for the credit watchdog to fire and increment Credit-WD-Del/pkts.
+    """
+
+    @pytest.fixture(scope="class", autouse=True)
+    def check_skip_voq_credit_wd_counter(self, get_src_dst_asic_and_duts):
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        if src_dut.facts.get('platform_asic') != 'broadcom-dnx':
+            pytest.skip("VOQ Credit-WD-Del counter test is only supported on broadcom-dnx ASIC")
+        asic_name = get_asic_name(src_dut).lower()
+        if src_dut.is_multi_asic:
+            pytest.skip("Multi-ASIC VOQ coverage is exercised in tests/voq/test_voq_counter.py")
+        if "q3d" not in asic_name:
+            pytest.skip("Skipping for non-Q3D single-ASIC VOQ testing")
+
+    def testVoqCreditWDCounter(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            duthosts, get_src_dst_asic_and_duts
+    ):
+        """
+        Test that the VOQ Credit-WD-Del counter increments on a broadcom-dnx device.
+
+        Args:
+            ptfhost (AnsibleHost): Packet Test Framework (PTF)
+            dutTestParams (Fixture, dict): DUT host test params
+            dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs,
+                test port IPs, and test ports
+            dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            duthosts: DUT hosts
+            get_src_dst_asic_and_duts: Source/destination ASIC and DUT info
+
+        Returns:
+            None
+
+        Raises:
+            RunAnsibleModuleFail if ptf test fails
+        """
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "dscp": 8,
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "packet_size": 1350,
+            "pkts_num": PKTS_NUM,
+            "dutInterfaces": dutConfig["dutInterfaces"],
+            "testPorts": dutConfig["testPorts"],
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.VoqCreditWDCounterTest",
+            testParams=testParams)
