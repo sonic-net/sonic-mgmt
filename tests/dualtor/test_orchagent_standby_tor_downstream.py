@@ -291,6 +291,39 @@ def test_standby_tor_downstream_loopback_route_readded(
     check_tunnel_balance(**params)
 
 
+@contextlib.contextmanager
+def stop_neighbor_advertisers(ptfhost, ip_version):
+    """Pause the PTF advertisers used by the mocked neighbor-removal test."""
+    def is_running(service):
+        result = ptfhost.shell("supervisorctl status {}".format(service), module_ignore_errors=True)
+        fields = result["stdout"].split()
+        if len(fields) >= 2 and fields[0] == service:
+            if result["rc"] == 0 and fields[1] == "RUNNING":
+                return True
+            if result["rc"] == 3 and fields[1] in ("STOPPED", "EXITED", "FATAL"):
+                return False
+        raise RuntimeError("Unable to determine {} state: {}".format(service, result))
+
+    def resume(service):
+        if not is_running(service):
+            ptfhost.shell("supervisorctl start {}".format(service))
+
+    # GARP service also sends periodic IPv6 Neighbor Advertisements through L2 sockets.
+    services = ["garp_service"]
+    if ip_version == "ipv6":
+        services.append("arp_responder")
+
+    for service in services:
+        pt_assert(is_running(service), "{} must be running before neighbor removal".format(service))
+
+    with contextlib.ExitStack() as stack:
+        for service in services:
+            # A failed stop can still have stopped the service; register rollback first.
+            stack.callback(resume, service)
+            ptfhost.shell("supervisorctl stop {}".format(service))
+        yield
+
+
 def test_standby_tor_remove_neighbor_downstream_standby(
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, rand_unselected_dut, tbinfo,
@@ -302,19 +335,6 @@ def test_standby_tor_remove_neighbor_downstream_standby(
     ToR, the packets sent to the server will be dropped(neither passed to the server
     or redirected to the active ToR).
     """
-
-    @contextlib.contextmanager
-    def stop_neighbor_advertiser(ptfhost, ip_version):
-        """Temporarily stop garp_service or arp_responder."""
-        if ip_version == "ipv4":
-            ptfhost.shell("supervisorctl stop garp_service")
-        else:
-            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
-        yield
-        if ip_version == "ipv4":
-            ptfhost.shell("supervisorctl start garp_service")
-        else:
-            ptfhost.shell("supervisorctl start arp_responder")
 
     tor = rand_selected_dut
     test_params = get_testbed_params()
@@ -337,14 +357,14 @@ def test_standby_tor_remove_neighbor_downstream_standby(
         existing=False, is_mocked=is_mocked_dualtor(tbinfo)
     )
     # for real dualtor testbed, leave the neighbor restoration to garp service
-    flush_neighbor_ct = flush_neighbor(tor, target_server, restore=is_t0_mocked_dualtor)
-    with crm_neighbor_checker(tor), stop_neighbor_advertiser(ptfhost, ip_version), \
+    flush_neighbor_ct = flush_neighbor(tor, target_server, restore=is_t0_mocked_dualtor(tbinfo))
+    with crm_neighbor_checker(tor, ip_version=ip_version), stop_neighbor_advertisers(ptfhost, ip_version), \
             flush_neighbor_ct, tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
     logging.info("send traffic to server %s after neighbor entry is restored", target_server)
     tunnel_monitor.existing = True
-    with crm_neighbor_checker(tor), tunnel_monitor:
+    with crm_neighbor_checker(tor, ip_version=ip_version), tunnel_monitor:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
 
