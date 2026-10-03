@@ -43,6 +43,21 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
 The `--confcutdir` option also prevents collection of parent package setup that
 imports Linux-only testbed utilities.
 
+### eBGP and Everflow cleanup regression
+
+`fixtures/unit_test_ebgp_cleanup.py` exercises the real shutdown and fixture
+functions via `ast`, without hardware or Ansible imports. It covers readiness and
+command failures, immediate restoration registration, reverse-order cleanup,
+secondary cleanup failures, pytest outcomes, unchanged topology selection, and
+preservation of pre-existing Everflow run directories. Only directories created
+by the fixture are removed; cleanup errors are logged when an earlier error is
+already in flight and otherwise fail teardown.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/fixtures/unit_test_ebgp_cleanup.py -v
+```
+
 ## Requirements
 
 - Python 3
