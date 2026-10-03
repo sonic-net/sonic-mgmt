@@ -169,6 +169,18 @@ everflow:
     conditions:
       - "asic_type in ['vpp']"
 
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dscp_mirroring:
+  skip:
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring:
+  skip:
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####           FIB               #####
 #######################################

@@ -238,8 +238,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
             # here folds that constant offset into the baseline so it cancels out.
             baseline_counts = everflow_utils.get_acl_rule_counts(duthost)
 
+            rule_filter = self._rule_survives_vpp_programming if duthost.facts["asic_type"] == "vpp" else None
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
-                                       config_method, rules=EVERFLOW_V6_RULES)
+                                       config_method, rules=EVERFLOW_V6_RULES,
+                                       rule_filter=rule_filter)
             self.apply_ip_type_rule(duthost, 6)
             # Wait for ACL rules to be programmed
             everflow_utils.wait_for_acl_rules_in_asic_db(duthost, baseline_counts)
@@ -271,6 +273,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     def acl_ip_version(self):
         return 6
+
+    @staticmethod
+    def _rule_survives_vpp_programming(rule):
+        # A rule whose every qualifier sonic-vpp ignores degenerates into match-all.
+        ignored = {"dscp"}
+        fields = {f for section in rule.get("qualifiers", {}).values() for f in section}
+        return not fields <= ignored
 
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                 everflow_direction, erspan_ip_ver):                                     # noqa F811
