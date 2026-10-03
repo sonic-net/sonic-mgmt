@@ -419,6 +419,62 @@ def config_interface_startup(duthost, port, namespace=None):
     return None
 
 
+def config_interface_transceiver_frequency(duthost, port, frequency, namespace=None):
+    """Run ``sudo config interface [-n <ns>] transceiver frequency <port> <frequency>``.
+
+    See :func:`config_interface_shutdown` for the namespace-placement note.
+    Returns ``None`` on success, or a short error string.
+    """
+    cmd = f"sudo config interface{_ns_flag(namespace)} transceiver frequency {port} {frequency}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def config_interface_transceiver_tx_power(duthost, port, tx_power, namespace=None):
+    """Run ``sudo config interface [-n <ns>] transceiver tx_power <port> [--] <tx_power>``.
+
+    A ``--`` separator precedes a negative ``tx_power`` so Click parses it as
+    a positional argument rather than an option, matching the CLI's own usage
+    note (``config interface transceiver tx_power Ethernet0 -- -11``). See
+    :func:`config_interface_shutdown` for the namespace-placement note.
+    Returns ``None`` on success, or a short error string.
+    """
+    value = f"-- {tx_power}" if tx_power < 0 else str(tx_power)
+    cmd = f"sudo config interface{_ns_flag(namespace)} transceiver tx_power {port} {value}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+_TX_DISABLE_PYCODE = (
+    "import sonic_platform.platform as P\n"
+    "ok = P.Platform().get_chassis().get_sfp({idx}).tx_disable({disable})\n"
+    "print('OK' if ok else 'FAILED')\n"
+)
+
+
+def set_tx_disable(duthost, physical_index, disable):
+    """Call the platform API's ``sfp.tx_disable(disable)`` for one module.
+
+    Mirrors the inline-python invocation pattern used by
+    :func:`issue_cdb_fw_abort` / :func:`get_module_cdb_abort_support_map` —
+    there is no ``sfputil`` subcommand for Tx disable, so this goes through
+    ``sonic_platform_base``'s ``sfp.tx_disable()`` directly.
+    Returns ``None`` on success (the API returned truthy), or a short error string.
+    """
+    pycode = _TX_DISABLE_PYCODE.format(idx=int(physical_index), disable=bool(disable))
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"tx_disable({disable}) failed with rc={result.get('rc')} ({_error_detail(result)})"
+    status = " ".join(result.get("stdout_lines") or []).strip()
+    if status != "OK":
+        return f"tx_disable({disable}) API returned falsy: {status or 'no output'}"
+    return None
+
+
 def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
     cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)
