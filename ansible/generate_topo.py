@@ -269,6 +269,21 @@ hw_port_cfg = {
                              "bt2": [27],
                          },
                          "panel_port_step": 1},
+    # t0-isolated backend with 960 x 200G downlinks + 16 x 800G uplinks on a dual TH6 / 2-ASIC device.
+    # Panel port -> role mapping (verified against the physical DUT `show interfaces status`):
+    #   * Uplinks (T1): front-panel etp1..8, 2x800G each -> 16 x 800G uplinks
+    #     (aliases etp1a..etp8b, Ethernet0..60; us_breakout=2 -> link ids 0..15).
+    #   * Downlinks (host ifs): cages 9..16, 120x200G each -> 960 x 200G downlinks
+    #     (aliases Eth9/1..Eth16/120, Ethernet64..1023; ds_breakout=120 -> link ids 16..975).
+    #   * Peers (PT0): front-panel etp17..18, 4x25G breakout each -> 8 x 25G peer links
+    #     (aliases etp17a..etp18d, Ethernet1024..1031; appended peer ports -> link ids 976..983).
+    # The 2-ASIC split is a property of the DUT HWSKU (num_asics: 2), not this flat
+    # port map. Invoke with `-c 16` (8 uplink + 8 downlink panel ports; peers appended).
+    'd960u16s8':        {"ds_breakout": 120, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [0, 1, 2, 3, 4, 5, 6, 7],
+                         "peer_ports": [16, 17, 18, 19, 20, 21, 22, 23],
+                         "skip_ports": [],
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
@@ -815,6 +830,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128 -l 'd32'  # 32 DL only
     - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 192 -l 'd32u32s2-mix'  # mix layout
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 32 -l 'd28u4'  # 28 DL + 4 UL
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 16 -l 'd960u16s8'  # 960 DL + 16 UL + 8 peer
     - ./generate_topo.py -r t1 -t t1-hub -c 28 -l 'd96u4'  # 96 backend DLs (60 BT0 + 32 BT1 + 4 BT2) + 4 T2 ULs
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
