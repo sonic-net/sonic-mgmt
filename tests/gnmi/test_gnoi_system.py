@@ -4,15 +4,17 @@ Integration tests for gNOI System service.
 Tests run with TLS by default. Opt-in to dual transport (TLS + UDS)
 via the parametrize decorator on individual tests.
 """
-import pytest
+
 import logging
+
+import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
 ]
 
 
