@@ -48,3 +48,13 @@ imports Linux-only testbed utilities.
 - Python 3
 - `pytest`
 - `unittest.mock` (built into Python standard library)
+
+## Latency metrics regressions
+
+These hardware-independent tests use the `unit_test_*.py` naming convention so
+they are not collected as topology-dependent integration tests:
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_latency_metrics.py -q
+```
