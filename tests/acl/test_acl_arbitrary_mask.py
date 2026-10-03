@@ -49,6 +49,11 @@ IPV4_SRC_MATCH_EXACT = "10.1.2.3"          # exact match
 IPV4_SRC_MATCH_ARBITRARY = "10.99.2.77"    # different octets, same masked value
 IPV4_SRC_NO_MATCH = "10.1.3.5"             # third octet differs → no match
 
+# Routes announced by the upstream neighbors in the standard t0/t1 testbeds.
+# Using topology-routable destinations avoids sending the packet back out of
+# its ingress port on t1-lag.
+IPV4_TEST_DST = "194.50.16.1"
+
 # Mask used for IPv6 tests: ffff::ffff
 IPV6_SRC_IP = "2001::1"
 IPV6_SRC_MASK = "ffff::ffff"
@@ -59,6 +64,7 @@ IPV6_DST_MASK = "ffff::ffff"
 IPV6_SRC_MATCH_EXACT = "2001::1"            # exact match
 IPV6_SRC_MATCH_ARBITRARY = "2001:dead::1"   # different middle groups, same masked value
 IPV6_SRC_NO_MATCH = "2002::1"              # first group differs → no match
+IPV6_TEST_DST = "20c1:d180::11"
 
 
 def _make_acl_config(front_ports):
@@ -159,9 +165,12 @@ def _find_asic_entry_with_field(duthost, sai_field, expected_value):
 
 
 @pytest.fixture(scope="module")
-def acl_setup(duthosts, rand_selected_dut, tbinfo, ptfadapter):
+def acl_setup(duthosts, rand_selected_dut, tbinfo, ptfadapter, core_dump_and_config_check):
     """Create ACL tables and rules; expose PTF port info; tear down on exit."""
     duthost = rand_selected_dut
+
+    if duthost.is_multi_asic:
+        pytest.skip("Arbitrary-mask ACL test does not support multi-ASIC namespaces")
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
@@ -358,7 +367,7 @@ class TestAclArbitraryMask:
     #   Non-matching: IP & 255.0.255.0 != 10.0.2.0  (e.g. 10.1.3.5)               → FORWARD
     # ------------------------------------------------------------------
 
-    def _build_ipv4_pkt(self, router_mac, src_ip, dst_ip="192.0.2.1"):
+    def _build_ipv4_pkt(self, router_mac, src_ip, dst_ip=IPV4_TEST_DST):
         return testutils.simple_tcp_packet(
             eth_dst=router_mac,
             ip_src=src_ip,
@@ -366,7 +375,7 @@ class TestAclArbitraryMask:
             ip_ttl=64
         )
 
-    def _build_ipv6_pkt(self, router_mac, src_ip, dst_ip="2001:db8:ff::1"):
+    def _build_ipv6_pkt(self, router_mac, src_ip, dst_ip=IPV6_TEST_DST):
         return testutils.simple_tcpv6_packet(
             eth_dst=router_mac,
             ipv6_src=src_ip,
