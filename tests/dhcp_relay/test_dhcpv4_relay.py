@@ -145,29 +145,25 @@ def frr_recovery_after_vrf_unbind(duthosts, rand_one_dut_hostname, loganalyzer):
         r".*ERR route_check.*Some routes are not set offloaded in FRR.*",
     ]
 
-    saved_ignore = None
     if la is not None:
-        saved_ignore = list(la.ignore_regex)
+        # LogAnalyzer is function-scoped and scans after this dependent fixture
+        # tears down, so keep the ignores on its per-test instance until then.
         la.ignore_regex.extend(transient_ignores)
 
     yield
 
-    try:
-        duthost.shell("sudo config bgp shutdown all", module_ignore_errors=True)
-        duthost.shell("sudo config bgp startup all", module_ignore_errors=True)
+    duthost.shell("sudo config bgp shutdown all", module_ignore_errors=True)
+    duthost.shell("sudo config bgp startup all", module_ignore_errors=True)
 
-        def _route_check_ok():
-            return duthost.shell(
-                "sudo /usr/local/bin/route_check.py",
-                module_ignore_errors=True)["rc"] == 0
+    def _route_check_ok():
+        return duthost.shell(
+            "sudo /usr/local/bin/route_check.py",
+            module_ignore_errors=True)["rc"] == 0
 
-        if not wait_until(180, 5, 0, _route_check_ok):
-            logger.warning(
-                "route_check did not converge within 180s after VRF unbind "
-                "BGP shutdown/startup; continuing teardown anyway")
-    finally:
-        if la is not None and saved_ignore is not None:
-            la.ignore_regex[:] = saved_ignore
+    if not wait_until(180, 5, 0, _route_check_ok):
+        logger.warning(
+            "route_check did not converge within 180s after VRF unbind "
+            "BGP shutdown/startup; continuing teardown anyway")
 
 
 @pytest.fixture(autouse=True)
