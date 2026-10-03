@@ -33,6 +33,7 @@
           't1-isolated-d510u2s2',
           't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
           't1-isolated-d56u2', 't1-isolated-v6-d56u2',
+          't1-d96u4',
           't2-isolated-d128s2' ]
     - &noVxlanTopos |
         topo_name in [
