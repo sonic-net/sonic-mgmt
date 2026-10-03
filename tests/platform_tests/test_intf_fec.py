@@ -4,7 +4,11 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
-from tests.common.platform.interface_utils import clear_interface_counters_and_wait, get_fec_eligible_interfaces
+from tests.common.platform.interface_utils import (
+    clear_interface_counters_and_wait,
+    get_fec_eligible_interfaces,
+    verify_fec_counters_not_diverging,
+)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -169,9 +173,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            fec_corr_int = int(fec_corr)
             fec_uncorr_int = int(fec_uncorr)
-            fec_symbol_err_int = int(fec_symbol_err)
         except ValueError:
             pytest.fail("FEC stat counters are not valid integers for interface {}, \
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
@@ -181,11 +183,6 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if fec_uncorr_int > 0:
             pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
                         .format(intf_name, fec_uncorr_int))
-
-        # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
-        if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
-            pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
-                        .format(fec_symbol_err_int, fec_corr_int, intf_name))
 
         if skip_ber_counters_test(intf):
             continue
@@ -200,6 +197,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("Pre-FEC and Post-FEC BER are not valid floats for interface {}, \
                     fec_pre_ber: {} fec_post_ber: {}"
                         .format(intf_name, fec_pre_ber, fec_post_ber))
+
+    # Check that fec_correctable and fec_symbol counters are not diverging
+    failing = verify_fec_counters_not_diverging(duthost, interfaces)
+    if failing:
+        pytest.fail("FEC correctable-symbol difference is positive and monotonically increasing \
+                    for interfaces: {}".format(failing))
 
 
 def get_fec_histogram(duthost, intf_name):
