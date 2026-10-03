@@ -51,6 +51,31 @@ speed_type = {
 }
 
 
+def _translate_ixnetwork_9_incrementing_pn(value):
+    if isinstance(value, dict):
+        if value.get("incrementingPn") is True and "packetCountPn" in value:
+            value.pop("incrementingPn")
+            logger.info("Removed unsupported IxNetwork 9.x incrementingPn selector")
+        for nested_value in value.values():
+            _translate_ixnetwork_9_incrementing_pn(nested_value)
+    elif isinstance(value, list):
+        for nested_value in value:
+            _translate_ixnetwork_9_incrementing_pn(nested_value)
+
+
+def _find_ixnetwork_config_values(value, field_name):
+    values = []
+    if isinstance(value, dict):
+        if field_name in value:
+            values.append(value[field_name])
+        for nested_value in value.values():
+            values.extend(_find_ixnetwork_config_values(nested_value, field_name))
+    elif isinstance(value, list):
+        for nested_value in value:
+            values.extend(_find_ixnetwork_config_values(nested_value, field_name))
+    return values
+
+
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
@@ -129,6 +154,22 @@ def snappi_api(snappi_api_serv_ip,
             api._username = snappi_api_serv_user
         if snappi_api_serv_password:
             api._password = snappi_api_serv_password
+
+        original_push_ixnetwork_config = api.ngpf._pushixnconfig
+
+        def push_ixnetwork_config():
+            build_number = str(api.assistant.Ixnetwork.Globals.BuildNumber)
+            if build_number.startswith("9."):
+                _translate_ixnetwork_9_incrementing_pn(api.ngpf._ixn_config)
+            logger.info(
+                "IxNetwork build %s serialized MACsec PN fields: packetCountPn=%s, incrementingPn=%s",
+                build_number,
+                _find_ixnetwork_config_values(api.ngpf._ixn_config, "packetCountPn"),
+                _find_ixnetwork_config_values(api.ngpf._ixn_config, "incrementingPn"),
+            )
+            return original_push_ixnetwork_config()
+
+        api.ngpf._pushixnconfig = push_ixnetwork_config
 
     yield api
 
@@ -1615,11 +1656,17 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             # Configure MACsec on DUT
             rawout = port['duthost'].command('show macsec {}'.format(port['peer_port']))['stdout']
             for line in rawout.split('\n'):
-                if 'profile' in line:
-                    profile_name = line.split()[1]
+                fields = line.split()
+                if len(fields) >= 2 and fields[0] == 'profile':
+                    profile_name = fields[1]
+                    logger.info('Disabling Macsec on {} before removing profile {}'.
+                                format(port['peer_port'], profile_name))
+                    disable_macsec_port(port['duthost'], port['peer_port'])
                     logger.info('Removing already configured Macsec profile {}'.format(profile_name))
                     delete_macsec_profile(port['duthost'], profile_name)
             macsec_profile_name = '256_XPN_SCI'
+            logger.info('Removing stale test Macsec profile {}'.format(macsec_profile_name))
+            delete_macsec_profile(port['duthost'], macsec_profile_name)
             cipher = all_values[macsec_profile_name]['cipher_suite']
             primary_cak = all_values[macsec_profile_name]['primary_cak']
             primary_ckn = all_values[macsec_profile_name]['primary_ckn']
@@ -1678,6 +1725,17 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             # Data plane Tx SC PN
             secy1_dataplane_txsc1 = secy1_crypto_engine_enc_only.secure_channels.add()
             secy1_dataplane_txsc1.tx_pn.choice = all_values['snappi']['tx_pn_choice']
+            if all_values['snappi']['tx_pn_choice'] == 'fixed_pn':
+                secy1_dataplane_txsc1.tx_pn.fixed.pn = all_values['snappi'].get('tx_pn_fixed_pn', 6)
+                secy1_dataplane_txsc1.tx_pn.fixed.xpn = all_values['snappi'].get('tx_pn_fixed_xpn', '06')
+            elif all_values['snappi']['tx_pn_choice'] == 'incrementing_pn':
+                tx_pn_count = all_values['snappi'].get('tx_pn_count', 25)
+                logger.info("Configuring incrementing MACsec Tx PN with count %s", tx_pn_count)
+                secy1_dataplane_txsc1.tx_pn.incrementing.count = tx_pn_count
+                secy1_dataplane_txsc1.tx_pn.incrementing.starting_pn = \
+                    all_values['snappi'].get('tx_pn_starting_pn', 10000)
+                secy1_dataplane_txsc1.tx_pn.incrementing.starting_xpn = \
+                    all_values['snappi'].get('tx_pn_starting_xpn', '01')
 
             ####################
             # MKA
@@ -1700,10 +1758,10 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             kay1_psk1.cak_value = all_values['snappi']['cak_value']
 
             kay1_psk1.start_offset_time.hh = 0
-            kay1_psk1.start_offset_time.mm = 22
+            kay1_psk1.start_offset_time.mm = 0
 
             kay1_psk1.end_offset_time.hh = 0
-            kay1_psk1.end_offset_time.hh = 0
+            kay1_psk1.end_offset_time.mm = 0
 
             # Rekey mode
             kay_rekey_mode = kay1.basic.rekey_mode
@@ -2567,6 +2625,8 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         yield (testbed_config, port_config_list, snappi_ports)
         logger.info('Snappi cleanup after test')
         setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
+        if "--snappi_macsec" in sys.argv:
+            cleanup_config(duthosts, snappi_ports)
     else:
         flatten_skeleton_parameter = request.param
         speed, category = flatten_skeleton_parameter.split("-")
@@ -2584,6 +2644,8 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         yield (testbed_config, port_config_list, snappi_ports)
         logger.info('Snappi cleanup after test')
         setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
+        if "--snappi_macsec" in sys.argv:
+            cleanup_config(duthosts, snappi_ports)
 
 
 def flatten_list(lst):
