@@ -221,6 +221,7 @@ def acl_setup(duthosts, rand_selected_dut, tbinfo, ptfadapter, core_dump_and_con
 
     setup_data = {
         "duthost": duthost,
+        "topo_type": tbinfo["topo"]["type"],
         "ptf_send_port": ptf_send_port,
         "all_ptf_ports": all_ptf_ports,
         "router_mac": duthost.facts["router_mac"],
@@ -235,6 +236,16 @@ def acl_setup(duthosts, rand_selected_dut, tbinfo, ptfadapter, core_dump_and_con
     for table in config["ACL_TABLE"].keys():
         duthost.shell(f'config acl delete table {table}', module_ignore_errors=True)
     duthost.shell(f"rm -f {dest_path}", module_ignore_errors=True)
+
+
+@pytest.fixture
+def arbitrary_mask_dataplane(acl_setup):
+    """Skip dataplane checks where an existing ingress DATAACL owns the t1 ports."""
+    if acl_setup["topo_type"] == "t1":
+        pytest.skip(
+            "t1 testbeds already bind an ingress DATAACL table to the selected ports; "
+            "verify arbitrary-mask programming through DB checks on t1"
+        )
 
 
 class TestAclArbitraryMask:
@@ -395,7 +406,7 @@ class TestAclArbitraryMask:
             exp.set_do_not_care_scapy(packet.IPv6, "hlim")
         return exp
 
-    def test_ptf_ipv4_src_exact_match_dropped(self, acl_setup, ptfadapter):
+    def test_ptf_ipv4_src_exact_match_dropped(self, acl_setup, ptfadapter, arbitrary_mask_dataplane):
         """Packet with SRC_IP exactly equal to the rule IP must be dropped."""
         router_mac = acl_setup["router_mac"]
         src_port = acl_setup["ptf_send_port"]
@@ -408,7 +419,7 @@ class TestAclArbitraryMask:
         testutils.send(ptfadapter, src_port, pkt)
         testutils.verify_no_packet_any(ptfadapter, exp, ports=all_ports)
 
-    def test_ptf_ipv4_src_arbitrary_match_dropped(self, acl_setup, ptfadapter):
+    def test_ptf_ipv4_src_arbitrary_match_dropped(self, acl_setup, ptfadapter, arbitrary_mask_dataplane):
         """Packet with SRC_IP that shares masked bits must also be dropped.
 
         10.99.2.77 & 255.0.255.0 = 10.0.2.0  ==  10.1.2.3 & 255.0.255.0  → match → DROP
@@ -424,7 +435,9 @@ class TestAclArbitraryMask:
         testutils.send(ptfadapter, src_port, pkt)
         testutils.verify_no_packet_any(ptfadapter, exp, ports=all_ports)
 
-    def test_ptf_ipv4_src_no_match_not_dropped_by_mask_rule(self, acl_setup, ptfadapter):
+    def test_ptf_ipv4_src_no_match_not_dropped_by_mask_rule(
+        self, acl_setup, ptfadapter, arbitrary_mask_dataplane
+    ):
         """Packet with SRC_IP that doesn't match the mask must NOT hit the mask rule.
 
         10.1.3.5 & 255.0.255.0 = 10.0.3.0  !=  10.0.2.0  → no match → counter unchanged
@@ -446,7 +459,7 @@ class TestAclArbitraryMask:
         pytest_assert(counter_after == counter_before,
                       f"Mask rule counter incremented unexpectedly: {counter_before} → {counter_after}")
 
-    def test_ptf_ipv6_src_exact_match_dropped(self, acl_setup, ptfadapter):
+    def test_ptf_ipv6_src_exact_match_dropped(self, acl_setup, ptfadapter, arbitrary_mask_dataplane):
         """IPv6 packet with SRC_IPV6 exactly equal to the rule IP must be dropped."""
         router_mac = acl_setup["router_mac"]
         src_port = acl_setup["ptf_send_port"]
@@ -459,7 +472,7 @@ class TestAclArbitraryMask:
         testutils.send(ptfadapter, src_port, pkt)
         testutils.verify_no_packet_any(ptfadapter, exp, ports=all_ports)
 
-    def test_ptf_ipv6_src_arbitrary_match_dropped(self, acl_setup, ptfadapter):
+    def test_ptf_ipv6_src_arbitrary_match_dropped(self, acl_setup, ptfadapter, arbitrary_mask_dataplane):
         """IPv6 packet sharing masked bits with the rule IP must be dropped.
 
         2001:dead::1 & ffff::ffff = 2001::1  ==  2001::1 & ffff::ffff  → match → DROP
@@ -475,7 +488,9 @@ class TestAclArbitraryMask:
         testutils.send(ptfadapter, src_port, pkt)
         testutils.verify_no_packet_any(ptfadapter, exp, ports=all_ports)
 
-    def test_ptf_ipv6_src_no_match_not_dropped_by_mask_rule(self, acl_setup, ptfadapter):
+    def test_ptf_ipv6_src_no_match_not_dropped_by_mask_rule(
+        self, acl_setup, ptfadapter, arbitrary_mask_dataplane
+    ):
         """IPv6 packet that doesn't match the mask must NOT hit the mask rule.
 
         2002::1 & ffff::ffff = 2002::1  !=  2001::1  → no match → counter unchanged
