@@ -28,6 +28,7 @@ from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
+    CAUSE_POWER_LOSS,
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
@@ -272,7 +273,10 @@ class TestBmcctldDaemon:
         # so force a clean down->up transition, then confirm it came back up with a
         # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
         recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
-        verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
+        # A hard power_off cuts module power, so the Switch-Host may report either the
+        # BMC power-down cause or "power loss (power cycle)" depending on platform.
+        verify_bmc_initiated_reboot(host, critical_pre_boot,
+                                    (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS))
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -336,7 +340,10 @@ class TestBmcctldDaemon:
             wait_host_on(host)
             pytest_assert(hget_status(on_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
+            # POWER_OFF is a hard power-down: the Switch-Host may report either the BMC
+            # power-down cause or "power loss (power cycle)" depending on platform.
+            verify_bmc_initiated_reboot(host, pre_boot,
+                                        (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS))
         finally:
             del_cmd(off_key, on_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -355,10 +362,11 @@ class TestBmcctldDaemon:
             pytest_assert(hget_status(on2_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on2_key)!r}")
             # Graceful path always falls back to power_off() if GNOI times out/fails,
-            # so accept either the graceful or the hard power-down cause.
+            # so accept the graceful, hard power-down, or power-loss cause.
             verify_bmc_initiated_reboot(
                 host, pre_boot,
-                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC,
+                 CAUSE_POWER_LOSS))
         finally:
             del_cmd(gs_key, on2_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -490,6 +498,12 @@ class TestBmcctldDaemon:
                 b_lines.extend(lines)
             journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
+
+            if re.search(r'STARTUP: Switch-Host already ONLINE', journal_b, re.IGNORECASE):
+                pytest.skip(
+                    "PDU restore powered the Switch-Host before bmcctld started; "
+                    "this topology cannot exercise the delayed power-on path"
+                )
 
             poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
