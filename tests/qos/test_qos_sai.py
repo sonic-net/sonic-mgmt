@@ -48,7 +48,7 @@ from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_li
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.cisco_data import get_voq_quant_thresholds_cisco
+from tests.common.cisco_data import get_voq_quant_thresholds_cisco, get_device_property
 
 logger = logging.getLogger(__name__)
 
@@ -759,7 +759,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts, skip_longlink
+            dutQosConfig, get_src_dst_asic_and_duts
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -782,6 +782,15 @@ class TestQosSai(QosSaiBase):
             pytest.skip(
                 "This test needs to be revisited later, for the case "
                 "where src and dst ASICs are different.")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            # This test is applicable for fair-voq (src_port) and split-voq (src_port_flow_hash).
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = src_dut.asic_instance()
+            asic_index = src_asic.asic_index if src_asic.get_asic_namespace() else None
+            voq_allocation_mode = get_device_property(src_dut, "voq_allocation_mode", asic_index)
+            if voq_allocation_mode not in ("src_port", "src_port_flow_hash"):
+                pytest.skip("LosslessVoq: requires fair-voq (src_port) or split-voq "
+                            "(src_port_flow_hash), found '{}'.".format(voq_allocation_mode))
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
@@ -1386,20 +1395,19 @@ class TestQosSai(QosSaiBase):
         """
         if not get_src_dst_asic_and_duts['single_asic_test']:
             pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
-        if "lossy_queue_voq_1" in LossyVoq:
-            if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
-                if get_src_dst_asic_and_duts['src_dut'].facts['platform'] != 'x86_64-88_lc0_36fh-r0':
-                    pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
-                                "doesn't support split-voq.")
-        elif "lossy_queue_voq_2" in LossyVoq:
-            if get_src_dst_asic_and_duts['src_dut'].facts['platform'] == 'x86_64-88_lc0_36fh-r0':
-                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
-                            "for x86_64-88_lc0_36fh-r0, with split-voq.")
-            if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
-                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
-                            "for split-voq.")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            # voq_1 is only valid in split-voq mode; voq_2 is only valid in non split-voq mode.
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = src_dut.asic_instance()
+            asic_index = src_asic.asic_index if src_asic.get_asic_namespace() else None
+            voq_allocation_mode = get_device_property(src_dut, "voq_allocation_mode", asic_index)
+            is_split_voq = voq_allocation_mode == "src_port_flow_hash"
+            if "lossy_queue_voq_1" in LossyVoq and not is_split_voq:
+                pytest.skip("LossyQueueVoq: lossy_queue_voq_1 requires split-voq "
+                            "(voq_allocation_mode=src_port_flow_hash), found '{}'.".format(voq_allocation_mode))
+            if "lossy_queue_voq_2" in LossyVoq and is_split_voq:
+                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 requires non split-voq "
+                            "(voq_allocation_mode!=src_port_flow_hash), found '{}'.".format(voq_allocation_mode))
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
@@ -1919,7 +1927,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
     ):
         """
             Test QoS SAI PG drop counter
@@ -1940,6 +1948,9 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
         else:
             qosConfig = dutQosConfig["param"]
+
+        if "skip" in qosConfig["pg_drop"]:
+            pytest.skip(qosConfig["pg_drop"]["skip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -2580,7 +2591,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueueVoqMultiSrc(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, skip_longlink
+            get_src_dst_asic_and_duts
     ):
         # NOTE: testQosSaiLossyQueueVoqMultiSrc[lossy_queue_voq_3] will be skipped for t2 cisco since it's multi-asic
         """
@@ -2599,6 +2610,15 @@ class TestQosSai(QosSaiBase):
         if not get_src_dst_asic_and_duts['single_asic_test']:
             pytest.skip("LossyQueueVoqMultiSrc: This test is skipped on multi-asic,"
                         "since same ingress backplane port will be used on egress asic.")
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            # This test is applicable for fair-voq (src_port) and split-voq (src_port_flow_hash).
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            src_asic = src_dut.asic_instance()
+            asic_index = src_asic.asic_index if src_asic.get_asic_namespace() else None
+            voq_allocation_mode = get_device_property(src_dut, "voq_allocation_mode", asic_index)
+            if voq_allocation_mode not in ("src_port", "src_port_flow_hash"):
+                pytest.skip("LossyQueueVoqMultiSrc: requires fair-voq (src_port) or split-voq "
+                            "(src_port_flow_hash), found '{}'.".format(voq_allocation_mode))
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         LossyVoq = "lossy_queue_voq_3"
         if LossyVoq in dutQosConfig["param"][portSpeedCableLength].keys():

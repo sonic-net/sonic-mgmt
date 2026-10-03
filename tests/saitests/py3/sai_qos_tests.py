@@ -5828,7 +5828,12 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # as all lossy packets are now mapped to single pg 0
                 # so we remove the strict equity check, and use upper bound
                 # check instead
-                assert (pg_shared_wm_res[pg] <= margin * cell_size)
+                # cisco-8000 uses fill_leakout_plus_one, which primes the queue with one
+                # extra packet, so allow for that packet's watermark (cell_size * cell_occupancy).
+                upper_bound = margin * cell_size
+                if 'cisco-8000' in asic_type:
+                    upper_bound += cell_size * cell_occupancy
+                assert (pg_shared_wm_res[pg] <= upper_bound)
 
             # send packet batch of fixed packet numbers to fill pg shared
             # first round sends only 1 packet
@@ -5842,6 +5847,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 pkts_num = 1 + margin
             fragment = 0
+            first_iteration = True
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
@@ -5850,10 +5856,16 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
+                # cisco-8000 already primed 1 pkt into the queue via fill_leakout_plus_one,
+                # so send one fewer packet on the first iteration while keeping expected_wm.
+                pkts_num_to_send = pkts_num
+                if first_iteration and 'cisco-8000' in asic_type:
+                    pkts_num_to_send = pkts_num - 1
+                first_iteration = False
                 print("pkts num to send: %d, total pkts: %d, pg shared: %d" %
-                      (pkts_num, expected_wm, total_shared), file=sys.stderr)
+                      (pkts_num_to_send, expected_wm, total_shared), file=sys.stderr)
 
-                send_packet(self, src_port_id, pkt, int(pkts_num))
+                send_packet(self, src_port_id, pkt, int(pkts_num_to_send))
                 time.sleep(8)
 
                 if (
