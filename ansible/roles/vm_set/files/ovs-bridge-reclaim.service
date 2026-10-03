@@ -1,0 +1,16 @@
+[Unit]
+Description=Reclaim orphaned OVS bridges left by previous testbed deployments
+Documentation=https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.OvsBridgeReclaim.md
+After=openvswitch-switch.service docker.service
+Wants=openvswitch-switch.service
+
+[Service]
+Type=oneshot
+# Reporting only. Add --apply once the dry-run output has been reviewed on
+# this host and the list of orphans looks correct.
+ExecStart=/usr/bin/python3 /opt/sonic-testbed/ovs_bridge_reclaim.py --json
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
