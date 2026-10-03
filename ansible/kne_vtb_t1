@@ -1,0 +1,123 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_1:
+    eos:
+      children:
+        vms_1:
+    servers:
+      vars:
+        topologies:
+          - t1
+      children:
+        server_1:
+    lab:
+      hosts:
+        vlab-kne-t1-01:
+    ptf:
+      hosts:
+        ptf-kne-t1-01:
+          ansible_host: 172.31.101.200
+          ansible_user: root
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_PTF_PASSWORD') }}"
+    sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
+        ansible_connection: multi_passwd_ssh
+        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+        ansible_become: yes
+        ansible_remote_tmp: /tmp/.ansible/tmp
+      hosts:
+        vlab-kne-t1-01:
+          ansible_host: 172.31.101.2
+          type: kvm
+          hwsku: Force10-S6000
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+          ansible_user: admin
+
+server_1:
+  vars:
+    host_var_file: host_vars/KNE-VSERV-01.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+vm_host_1:
+  hosts:
+    KNE-VSERV-01:
+      ansible_host: 127.0.0.1
+      ansible_user: root
+
+vms_1:
+  vars:
+    ansible_user: admin
+    ansible_password: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+    ansible_connection: multi_passwd_ssh
+    ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+    ansible_become: yes
+  hosts:
+    VM0100:
+      ansible_host: 172.31.101.10
+    VM0101:
+      ansible_host: 172.31.101.11
+    VM0102:
+      ansible_host: 172.31.101.12
+    VM0103:
+      ansible_host: 172.31.101.13
+    VM0104:
+      ansible_host: 172.31.101.14
+    VM0105:
+      ansible_host: 172.31.101.15
+    VM0106:
+      ansible_host: 172.31.101.16
+    VM0107:
+      ansible_host: 172.31.101.17
+    VM0108:
+      ansible_host: 172.31.101.18
+    VM0109:
+      ansible_host: 172.31.101.19
+    VM0110:
+      ansible_host: 172.31.101.20
+    VM0111:
+      ansible_host: 172.31.101.21
+    VM0112:
+      ansible_host: 172.31.101.22
+    VM0113:
+      ansible_host: 172.31.101.23
+    VM0114:
+      ansible_host: 172.31.101.24
+    VM0115:
+      ansible_host: 172.31.101.25
+    VM0116:
+      ansible_host: 172.31.101.26
+    VM0117:
+      ansible_host: 172.31.101.27
+    VM0118:
+      ansible_host: 172.31.101.28
+    VM0119:
+      ansible_host: 172.31.101.29
+    VM0120:
+      ansible_host: 172.31.101.30
+    VM0121:
+      ansible_host: 172.31.101.31
+    VM0122:
+      ansible_host: 172.31.101.32
+    VM0123:
+      ansible_host: 172.31.101.33
+    VM0124:
+      ansible_host: 172.31.101.34
+    VM0125:
+      ansible_host: 172.31.101.35
+    VM0126:
+      ansible_host: 172.31.101.36
+    VM0127:
+      ansible_host: 172.31.101.37
+    VM0128:
+      ansible_host: 172.31.101.38
+    VM0129:
+      ansible_host: 172.31.101.39
+    VM0130:
+      ansible_host: 172.31.101.40
+    VM0131:
+      ansible_host: 172.31.101.41

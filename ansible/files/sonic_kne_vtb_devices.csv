@@ -1,0 +1,6 @@
+Hostname,ManagementIp,HwSku,Type,Protocol,Os,AuthType
+vlab-kne-01,172.31.100.2/24,Force10-S6000,DevSonic,,sonic
+VM0100,172.31.100.251/24,Force10-S6000,VirtualRouter,,sonic
+VM0101,172.31.100.252/24,Force10-S6000,VirtualRouter,,sonic
+VM0102,172.31.100.253/24,Force10-S6000,VirtualRouter,,sonic
+VM0103,172.31.100.250/24,Force10-S6000,VirtualRouter,,sonic
