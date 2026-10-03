@@ -3281,11 +3281,10 @@ class QosSaiBase(QosBase):
         operates on src_port LAGs for Broadcom TH (7060CX), so there is no
         overlap on the affected platform.
 
-        Note on broadcom-dnx port mismatch: ``testQosSaiHeadroomPoolSize`` /
-        ``testQosSaiHeadroomPoolWatermark`` override ``hdrm_pool_size`` at
-        runtime on broadcom-dnx (non-q3d) platforms with a slice of
-        ``testPortIds``. We pre-emptively include the ``testPortIds`` candidate
-        pool below to cover that case. See issue #24236.
+        Only configured source ports are filtered. Destination ports are never
+        filtered because they do not contribute to the checked ingress-drop
+        counters. If LACP cannot be paused safely, source LAG members are left
+        unfiltered rather than risking a forwarding outage.
         """
         # Skip when neighbors are SONiC: this fixture's LACP-multiplier path is
         # EOS-only, and physical fanout config does not apply to KVM/virtual
@@ -3298,42 +3297,23 @@ class QosSaiBase(QosBase):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
 
-        # Resolve which DUT ports actually need protection from PTF test config.
-        # PTF sends from `hdrm_pool_size.src_port_ids` and `dst_port_id` from
-        # qos params, not from `dutConfig.testPorts.src_port_id`. Get the real
-        # list from dutQosConfig.
+        # Only source ingress counters are checked for environmental drops.
+        # Filtering the destination is unnecessary and can break a
+        # single-member destination LAG by suppressing its LACP packets.
         protected_port_ids = set()
         try:
             qos_param = dutQosConfig['param'].get(dutQosConfig['portSpeedCableLength'], {})
             hdrm = qos_param.get('hdrm_pool_size', {}) or {}
             for pid in hdrm.get('src_port_ids', []) or []:
                 protected_port_ids.add(int(pid))
-            if hdrm.get('dst_port_id') is not None:
-                protected_port_ids.add(int(hdrm['dst_port_id']))
         except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.warning("permit_only_test_traffic_on_fanout: "
                            "failed to read hdrm_pool_size from dutQosConfig: %s", str(e))
 
-        # On broadcom-dnx (non-q3d), the test method overrides hdrm_pool_size
-        # at runtime with a slice of testPortIds. Pre-include the candidate
-        # pool so the optimization covers that path too.
-        try:
-            src_dut_index = get_src_dst_asic_and_duts.get('src_dut_index', 0)
-            src_asic_index = get_src_dst_asic_and_duts.get('src_asic_index', 0)
-            test_port_ids = dutConfig.get('testPortIds', {}) or {}
-            runtime_candidates = (
-                test_port_ids.get(src_dut_index, {}).get(src_asic_index, []) or [])
-            for pid in runtime_candidates:
-                protected_port_ids.add(int(pid))
-        except (KeyError, TypeError, AttributeError, ValueError) as e:
-            logger.debug("permit_only_test_traffic_on_fanout: "
-                         "could not augment with testPortIds: %s", str(e))
-
         if not protected_port_ids:
-            # Fallback: protect all dutInterfaces
-            logger.info("permit_only_test_traffic_on_fanout: hdrm_pool_size "
-                        "src_port_ids not available; falling back to all dutInterfaces")
-            protected_port_ids = set(dutConfig.get('dutInterfaces', {}).keys())
+            logger.info("permit_only_test_traffic_on_fanout: no source ports to protect")
+            yield
+            return
 
         src_interfaces = [dutConfig['dutInterfaces'][idx]
                           for idx in sorted(protected_port_ids)
@@ -3376,9 +3356,20 @@ class QosSaiBase(QosBase):
                     "docker exec {} supervisorctl stop lacpd".format(teamd_docker),
                     module_ignore_errors=True)
                 if result.get('failed', False) or result.get('rc', 0) != 0:
+                    lag_members = {
+                        member
+                        for lag_name in lag_names
+                        for member in portchannels[lag_name].get('members', [])
+                    }
+                    src_interfaces = [
+                        interface for interface in src_interfaces
+                        if interface not in lag_members
+                    ]
                     logger.warning(
-                        "permit_only_test_traffic_on_fanout: lacpd stop may have "
-                        "failed (rc=%s), proceeding anyway", result.get('rc', '?'))
+                        "permit_only_test_traffic_on_fanout: failed to stop lacpd "
+                        "(rc=%s); leaving LAG source ports unfiltered: %s",
+                        result.get('rc', '?'), sorted(lag_members))
+                    lag_names = []
                 else:
                     lacpd_stopped = True
                 # Brief wait for any in-flight LACP PDU to drain
