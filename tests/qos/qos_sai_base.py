@@ -1753,11 +1753,92 @@ class QosSaiBase(QosBase):
                 a_asic.bgp_drop_rule(state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
+    def disable_mux_for_qos(
+        self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
+        toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+    ):
+        """Disable mux for dual-ToR QoS tests and restore it afterwards."""
+        is_dualtor = 'dualtor' in tbinfo['topo']['name']
+        if not is_dualtor:
+            yield
+            return
+
+        write_standby_file = "/usr/local/bin/write_standby.py"
+        write_standby_backup = "/usr/local/bin/write_standby.py.bkup"
+
+        def restore_write_standby():
+            lower_tor_host.shell(
+                "sudo cp {} {}".format(write_standby_backup, write_standby_file))
+            lower_tor_host.shell("sudo chmod +x {}".format(write_standby_file))
+            lower_tor_host.shell(
+                "sudo test -s {file} && sudo cmp -s {backup} {file}".format(
+                    file=write_standby_file, backup=write_standby_backup))
+            lower_tor_host.shell("sudo rm {}".format(write_standby_backup))
+
+        if active_standby_ports:
+            toggle_all_simulator_ports(LOWER_TOR, retries=3)
+            check_result = wait_until(
+                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+            validate_check_result(check_result, duthosts, get_mux_status)
+
+        # A previous interrupted run may have left a backup behind.
+        # Warn before overwriting it.
+        backup_check = lower_tor_host.shell(
+            "sudo test -e {}".format(write_standby_backup),
+            module_ignore_errors=True)
+        if backup_check["rc"] == 0:
+            logger.warning(
+                "Existing backup %s will be overwritten", write_standby_backup)
+        lower_tor_host.shell(
+            "sudo test -s {} && sudo test -x {}".format(
+                write_standby_file, write_standby_file))
+        lower_tor_host.shell(
+            "sudo cp {} {}".format(write_standby_file, write_standby_backup))
+
+        try:
+            # Disabling mux invokes write_standby.py. Use a valid no-op script
+            # so the hook succeeds without changing mux state.
+            lower_tor_host.shell(
+                "printf '#!/bin/sh\\nexit 0\\n' | sudo tee {} > /dev/null".format(
+                    write_standby_file))
+            lower_tor_host.shell("sudo chmod +x {}".format(write_standby_file))
+
+            upper_tor_host.shell('sudo config feature state mux disabled')
+            lower_tor_host.shell('sudo config feature state mux disabled')
+
+            yield
+        finally:
+            cleanup_errors = []
+            write_standby_restored = False
+            try:
+                restore_write_standby()
+                write_standby_restored = True
+            except Exception as e:
+                cleanup_errors.append("failed to restore {}: {}".format(write_standby_file, e))
+
+            if write_standby_restored:
+                try:
+                    lower_tor_host.shell('sudo config feature state mux enabled')
+                except Exception as e:
+                    cleanup_errors.append("failed to enable mux on lower ToR: {}".format(e))
+
+            try:
+                upper_tor_host.shell('sudo config feature state mux enabled')
+            except Exception as e:
+                cleanup_errors.append("failed to enable mux on upper ToR: {}".format(e))
+
+            if cleanup_errors:
+                raise RuntimeError("Dual-ToR QoS cleanup failed: {}".format(
+                    "; ".join(cleanup_errors)))
+
+            logger.info("Started mux container after dual-ToR test")
+
+    @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
-        swapSyncd_on_selected_duts,
-        enable_container_autorestart, disable_container_autorestart, get_mux_status,  # noqa: F811
-        tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+        swapSyncd_on_selected_duts, disable_mux_for_qos,
+        enable_container_autorestart, disable_container_autorestart,
+        tbinfo, upper_tor_host  # noqa: F811
     ):
         """
             Stop services and dockers(lldp, bgpd, etc.) on DUT host prior to test start
@@ -1819,28 +1900,6 @@ class QosSaiBase(QosBase):
             logger.info("Changed feature {} state to {}".format(feature, state))
 
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
-        is_dualtor_active_standby = is_dualtor and active_standby_ports
-        """ Stop mux container for dual ToR Active-Standby """
-        if is_dualtor:
-            if is_dualtor_active_standby:
-                toggle_all_simulator_ports(LOWER_TOR, retries=3)
-                check_result = wait_until(
-                    120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
-                validate_check_result(check_result, duthosts, get_mux_status)
-
-            file = "/usr/local/bin/write_standby.py"
-            backup_file = "/usr/local/bin/write_standby.py.bkup"
-            try:
-                lower_tor_host.shell("ls %s" % file)
-                lower_tor_host.shell("sudo cp {} {}".format(file, backup_file))
-                lower_tor_host.shell("sudo rm {}".format(file))
-                lower_tor_host.shell("sudo touch {}".format(file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "disabled")
-            updateFeatureState(lower_tor_host, "mux", "disabled")
 
         src_services = [
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
@@ -1890,20 +1949,6 @@ class QosSaiBase(QosBase):
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
 
             dst_dut.shell("sudo config bgp start all")
-
-        """ Start mux conatiner for dual ToR """
-        if is_dualtor:
-            try:
-                lower_tor_host.shell("ls %s" % backup_file)
-                lower_tor_host.shell("sudo cp {} {}".format(backup_file, file))
-                lower_tor_host.shell("sudo chmod +x {}".format(file))
-                lower_tor_host.shell("sudo rm {}".format(backup_file))
-            except Exception as e:
-                pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
-
-            updateFeatureState(upper_tor_host, "mux", "enabled")
-            updateFeatureState(lower_tor_host, "mux", "enabled")
-            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
