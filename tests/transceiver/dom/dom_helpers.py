@@ -15,7 +15,6 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
-    get_config_db_port_table,
     get_state_db_table,
     parse_numeric,
     resolve_port_namespace,
@@ -34,6 +33,7 @@ CONSISTENCY_MODE_PERCENT = "percent"
 LANE_NUM_PLACEHOLDER = "LANE_NUM"
 MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
+BreakoutLaneSelection = namedtuple("BreakoutLaneSelection", ("lanes_by_port", "active_lanes", "errors"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
 DomQuantitySpec = namedtuple(
     "DomQuantitySpec",
@@ -101,62 +101,62 @@ CONSISTENCY_MODES_BY_BASE = {
     for base_name, spec in DOM_QUANTITY_REGISTRY.items()
 }
 
-DOM_POLLING_ENABLED_VALUES = ("", "enabled")
-DOM_POLLING_DISABLED_VALUE = "disabled"
-
 DOM_RECOVERY_POLL_INTERVAL_SEC = 20
 
 
-def _active_media_lanes(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
-    """Return ``(active_lanes, errors)`` for a primary subport.
+def resolve_breakout_lanes(
+    primary_port,
+    port_attributes_dict,
+    lport_to_first_subport_mapping,
+    mask_key,
+):
+    """Return per-subport and unioned lanes for one breakout mask.
 
-    DOM sensor data for a breakout module is published only on the first/primary
-    subport, but that single entry carries all of the module's media lanes (one
-    per subport). A subport's own ``media_lane_count`` is therefore too small
-    (e.g. 1 on an 8x breakout), so LANE_NUM must expand over the whole module.
-    The module's active media lanes are the union of the per-subport
-    ``media_lane_mask`` across the breakout group; each set mask bit is an
-    absolute, 1-indexed media lane. Padded/unconfigured lanes are excluded, so
-    the caller only expects fields for lanes that actually carry a signal.
+    The module-wide active lane set is the union of ``mask_key`` across every
+    logical subport in the breakout group. Each set mask bit is an absolute,
+    1-indexed lane. ``lanes_by_port`` preserves each subport's lanes for callers
+    that need data-path anchors.
     """
     mapping = lport_to_first_subport_mapping or {}
     group = [sub for sub, first in mapping.items() if first == primary_port] or [primary_port]
 
-    mask_union = 0
+    lanes_by_port = {}
+    active_lanes = set()
     errors = []
     for subport in group:
         base_attrs = port_attributes_dict.get(subport, {}).get(BASE_ATTRIBUTES_KEY, {})
-        mask = base_attrs.get(MEDIA_LANE_MASK_KEY)
-        if mask is None:
+        raw_mask = base_attrs.get(mask_key)
+        if raw_mask is None:
             errors.append(
                 "{} missing {} in {}".format(
                     subport,
-                    MEDIA_LANE_MASK_KEY,
+                    mask_key,
                     BASE_ATTRIBUTES_KEY,
                 )
             )
             continue
         try:
-            mask_union |= int(str(mask), 16)
+            mask = int(str(raw_mask), 16)
         except (TypeError, ValueError):
             errors.append(
                 "{} has unparsable {} {!r} in {}".format(
                     subport,
-                    MEDIA_LANE_MASK_KEY,
-                    mask,
+                    mask_key,
+                    raw_mask,
                     BASE_ATTRIBUTES_KEY,
                 )
             )
+            continue
 
-    lanes = [bit + 1 for bit in range(mask_union.bit_length()) if mask_union & (1 << bit)]
-    logger.debug(
-        "%s active media lanes %s (breakout group %s, media_lane_mask union %#x)",
-        primary_port,
-        lanes,
-        sorted(group),
-        mask_union,
+        lanes = [bit + 1 for bit in range(mask.bit_length()) if mask & (1 << bit)]
+        lanes_by_port[subport] = lanes
+        active_lanes.update(lanes)
+
+    return BreakoutLaneSelection(
+        lanes_by_port=lanes_by_port,
+        active_lanes=sorted(active_lanes),
+        errors=errors,
     )
-    return lanes, errors
 
 
 def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lanes):
@@ -276,11 +276,15 @@ def build_dom_sensor_plan(port_attributes_dict, dom_primary_ports, lport_to_firs
     for port in dom_primary_ports:
         port_attrs = port_attributes_dict.get(port, {})
         dom_attrs = port_attrs.get(DOM_ATTRIBUTES_KEY, {})
-        active_media_lanes, lane_errors = _active_media_lanes(
-            port, port_attributes_dict, lport_to_first_subport_mapping
+        lane_selection = resolve_breakout_lanes(
+            port,
+            port_attributes_dict,
+            lport_to_first_subport_mapping,
+            MEDIA_LANE_MASK_KEY,
         )
+        active_media_lanes = lane_selection.active_lanes
         expected_fields = {}
-        errors = list(lane_errors)
+        errors = list(lane_selection.errors)
 
         for attr_name, attr_value in sorted(dom_attrs.items()):
             if not attr_name.endswith(OPERATIONAL_SUFFIX):
@@ -364,44 +368,6 @@ def build_dom_threshold_plan(port_attributes_dict, dom_primary_ports):
         )
 
     return plan_by_port
-
-
-def build_dom_polling_failures(duthost, dom_primary_ports):
-    """Return DOM polling prerequisite failures for configured DOM ports."""
-    failures = []
-    port_table = get_config_db_port_table(duthost)
-
-    for port in dom_primary_ports:
-        port_config = port_table.get(port)
-        if port_config is None:
-            failures.append("{} missing from CONFIG_DB PORT table".format(port))
-            continue
-        if not isinstance(port_config, dict):
-            failures.append(
-                "{} CONFIG_DB PORT entry has unexpected type {}".format(
-                    port,
-                    type(port_config).__name__,
-                )
-            )
-            continue
-
-        raw_value = port_config.get("dom_polling")
-        normalized = "" if raw_value is None else str(raw_value).strip().lower()
-
-        if normalized in DOM_POLLING_ENABLED_VALUES:
-            logger.debug(
-                "%s DOM polling is enabled: %s",
-                port,
-                raw_value if raw_value is not None else "<default-enabled>",
-            )
-            continue
-
-        if normalized == DOM_POLLING_DISABLED_VALUE:
-            failures.append("{} dom_polling is disabled".format(port))
-        else:
-            failures.append("{} dom_polling has unexpected value {!r}".format(port, raw_value))
-
-    return failures
 
 
 def format_optional_float(value):
