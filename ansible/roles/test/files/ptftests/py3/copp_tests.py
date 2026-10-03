@@ -191,9 +191,19 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
+        # Capture the window end here, right after the fixed drain sleep
+        window_end_time = datetime.datetime.now()
         recv_count = testutils.count_matched_packets_all_ports(
             self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
+
+        # Content-matched PPS: recv_count only counts packets that match the packet template
+        # we sent, so unlike the raw NN interface counter it is immune to unrelated background
+        # traffic sharing the same port.
+        content_matched_window_sec = (window_end_time - start_time).total_seconds()
+        self.content_matched_rx_pps = int(recv_count / content_matched_window_sec)
+        self.log("Content-matched RX PPS (recv_count/%.1fs): %d" % (
+            content_matched_window_sec, self.content_matched_rx_pps))
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
         nn_tx_count = int(post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
@@ -578,19 +588,34 @@ class UDLDTest(PolicyTest):
         self.log("UDLDTest")
         self.run_suite()
 
-    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc
-    # as its destination MAC address. eth_type is to indicate
-    # the length of the data in Ethernet 802.3 frame. pktlen
-    # = 117 = 103 (0x67) + 6 (dst MAC) + 6 (dst MAC) + 2 (len)
+    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc as its
+    # destination MAC address. Real UDLD (RFC/Cisco wire format) is
+    # not Ethernet-II: it is an 802.3 length-framed LLC/SNAP frame --
+    # LLC dsap=ssap=0xAA (SNAP), control=0x03, followed by a SNAP
+    # header carrying Cisco's OUI (00:00:0c) and protocol 0x0111
+    # (unidirectional_link_detection). Build that exact structure so
+    # this test exercises the DUT's real UDLD classification path
+    # rather than relying on a synthetic frame shape.
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
-        packet = testutils.simple_eth_packet(
-            pktlen=117,
-            eth_dst='01:00:0c:cc:cc:cc',
-            eth_src=src_mac,
-            eth_type=0x0067
-        )
+        pktlen = 117
+        # The 14th/15th wire bytes of a sub-0x1600 (802.3) frame are a
+        # *length* field, not an EtherType -- set it to the number of
+        # bytes following the Ethernet header so this is a
+        # standards-conformant 802.3 length-framed packet, matching
+        # scapy's own encoding when it builds a real 802.3 frame.
+        eth = scapy.Ether(dst='01:00:0c:cc:cc:cc', src=src_mac,
+                          type=pktlen - 14)
+        llc = scapy.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+        snap = scapy.SNAP(OUI=0x00000C, code=0x0111)
+        packet = eth / llc / snap
+
+        # Pad to the same 117-byte total length the previous
+        # synthetic frame used, so PPS/CIR accounting is unchanged.
+        pad_len = pktlen - len(packet)
+        if pad_len > 0:
+            packet = packet / (b"\x00" * pad_len)
 
         return packet
 
@@ -608,12 +633,15 @@ class BGPTest(PolicyTest):
 
     def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
             pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
+            ip_src=src_ip,
             ip_ttl=1,
             tcp_dport=179
         )
@@ -622,18 +650,28 @@ class BGPTest(PolicyTest):
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         self.log("")
+        # BGPTest sends real BGP traffic on testbeds that also run genuine live BGP
+        # sessions on the same port. The NN interface counter (rx_pps) counts that
+        # background BGP traffic alongside our own synthetic packets, inflating the
+        # measured rate. Use the content-matched count instead, which is immune to that
+        # contamination.
+        effective_rx_pps = getattr(self, "content_matched_rx_pps", rx_pps)
         if self.has_trap:
             self.log("Checking constraints (PolicyApplied):")
+            self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
-                 int(rx_pps),
+                 int(effective_rx_pps),
                  int(self.PPS_LIMIT_MAX),
-                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+                 str(self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
-                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
-        elif self.asic_type not in ['broadcom', 'marvell-teralynx']:
+            assert self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX, \
+                "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(
+                    effective_rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
+        elif self.asic_type not in ['broadcom', 'marvell-teralynx', 'vpp']:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
                 "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
@@ -645,16 +683,18 @@ class BGPTest(PolicyTest):
                 "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
         else:
             self.log("Checking constraints (DefaultPolicyApplied):")
+            self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
-                 int(rx_pps),
+                 int(effective_rx_pps),
                  int(self.PPS_LIMIT_MAX),
-                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+                 str(self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint " \
+            assert self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint " \
                 "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
-                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
+                    effective_rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=6000 for LACP
@@ -689,19 +729,21 @@ class SNMPTest(PolicyTest):  # FIXME: trapped as ip2me. mellanox should add supp
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_udp_packet(
             eth_dst=dst_mac,
-            ip_dst=dst_ip,
             eth_src=src_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
             udp_dport=161
         )
 
         return packet
 
 
-# SONIC config contains policer CIR=600 for SSH
 class SSHTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -754,12 +796,15 @@ class IP2METest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
             pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
+            ip_src=src_ip,
             ip_dst=dst_ip
         )
 
