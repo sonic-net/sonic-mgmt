@@ -44,12 +44,18 @@ class FakeConsoleCli:
 
     def __init__(self, timing_output=None):
         self.command = None
+        self.used_sendline = None
         self.expect_args = None
         self.timing_output = timing_output
         self.match = None
 
+    def send(self, command):
+        self.command = command
+        self.used_sendline = False
+
     def sendline(self, command):
         self.command = command
+        self.used_sendline = True
 
     def expect(self, pattern, timeout):
         self.expect_args = (pattern, timeout)
@@ -98,3 +104,32 @@ def test_send_command_timing_supports_large_input_check():
 
     assert connection.console_cli.command == "echo large-input | md5sum"
     assert "expected-md5" in output
+
+
+def test_write_channel_appends_newline_by_default():
+    """Preserve the command-oriented default used by console connections."""
+    connection = make_connection()
+
+    connection.write_channel("\x1b[A")
+
+    assert connection.console_cli.command == "\x1b[A"
+    assert connection.console_cli.used_sendline is True
+
+
+def test_write_channel_can_send_raw_data_without_appending_newline():
+    """Allow bootloader helpers to send key sequences without a newline."""
+    connection = make_connection()
+
+    connection.write_channel("\x1b[A", add_newline=False)
+
+    assert connection.console_cli.command == "\x1b[A"
+    assert connection.console_cli.used_sendline is False
+
+
+def test_read_until_pattern_supports_netmiko_timeout_argument():
+    """Honor the timeout supplied by console helper callers."""
+    connection = make_connection()
+
+    connection.read_until_pattern("GRUB menu", read_timeout=180)
+
+    assert connection.console_cli.expect_args == ("GRUB menu", 180)
