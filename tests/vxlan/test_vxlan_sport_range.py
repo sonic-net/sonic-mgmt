@@ -10,7 +10,6 @@ from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.vxlan.vnet_constants import DUT_VXLAN_RANGE_JSON
 
 logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -28,8 +27,6 @@ VNI = 10000
 PREFIX = "150.0.3.1/32"
 ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 
-DEFAULT_SOURCE_PORT = 32768
-SOURCE_PORT_MASK = 7
 NUM_FLOWS = 1000
 VXLAN_ROUTER_MAC = "aa:bb:cc:dd:ee:ff"
 
@@ -71,42 +68,15 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     return available_ports
 
 
-def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
-    """
-    Program the VXLAN switch config and source-port range into the
-    DUT via a single SWITCH_TABLE SET.
-    """
-    pytest_assert(
-        source_port & 0x7F == 0,
-        f"Source port base {source_port} is not aligned for mask 7 — "
-        f"lower 7 bits must be zero"
-    )
-
-    logger.info(f"Configuring VXLAN switch: port={vxlan_port}, "
-                f"sport base={source_port}, mask={SOURCE_PORT_MASK}")
-
-    switch_config = [{
-        "SWITCH_TABLE:switch": {
-            "vxlan_port": str(vxlan_port),
-            "vxlan_router_mac": VXLAN_ROUTER_MAC,
-            "vxlan_sport": str(source_port),
-            "vxlan_mask": str(SOURCE_PORT_MASK),
-        },
-        "OP": "SET",
-    }]
-
-    duthost.copy(content=json.dumps(switch_config, indent=4),
-                 dest=DUT_VXLAN_RANGE_JSON)
-    duthost.shell(
-        f"docker cp {DUT_VXLAN_RANGE_JSON} swss:/vxlan_range.json")
-    duthost.shell(
-        'docker exec swss sh -c "swssconfig /vxlan_range.json"')
-    time.sleep(3)
-
-
 def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
                                  config_facts, dut_indx, vxlan_port,
-                                 source_port):
+                                 source_port, source_port_mask):
+    pytest_assert(
+        source_port & ((1 << source_port_mask) - 1) == 0,
+        f"Source port base {source_port} is not aligned for mask {source_port_mask} — "
+        f"lower {source_port_mask} bits must be zero"
+    )
+
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -123,7 +93,11 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
 
-    configure_vxlan_source_port_range(duthost, vxlan_port, source_port)
+    logger.info(f"Configuring VXLAN switch: port={vxlan_port}, "
+                f"sport base={source_port}, mask={source_port_mask}")
+    ecmp_utils.configure_vxlan_switch(
+        duthost, vxlan_port=vxlan_port, dutmac=VXLAN_ROUTER_MAC,
+        vxlan_sport=source_port, vxlan_mask=source_port_mask)
 
     switch_table = duthost.shell(
         'redis-cli -n 0 hgetall "SWITCH_TABLE:switch"')["stdout"]
@@ -180,7 +154,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "vxlan_port": vxlan_port,
         "vni": VNI,
         "source_port": source_port,
-        "source_port_mask": SOURCE_PORT_MASK,
+        "source_port_mask": source_port_mask,
         "num_flows": NUM_FLOWS,
     }
 
@@ -197,7 +171,8 @@ def sport_range_setup_teardown(
     duthost = duthosts[rand_one_dut_hostname]
 
     vxlan_port = request.config.option.vxlan_port  # default is 4789 if not specified
-    source_port = request.config.option.udp_src_port or DEFAULT_SOURCE_PORT
+    source_port = request.config.option.vxlan_sport
+    source_port_mask = request.config.option.vxlan_mask
 
     try:
         cfg_facts = json.loads(
@@ -209,7 +184,7 @@ def sport_range_setup_teardown(
 
         setup_params = vxlan_setup_with_sport_range(
             duthost, ptfhost, tbinfo, cfg_facts, config_facts,
-            dut_indx, vxlan_port, source_port,
+            dut_indx, vxlan_port, source_port, source_port_mask,
         )
     except Exception as e:
         logger.error(f"Exception raised in setup: {repr(e)}")

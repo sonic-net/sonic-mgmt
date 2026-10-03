@@ -45,7 +45,7 @@ class VxlanSportRangeTest(BaseTest):
         self.source_port_mask = int(params.get("source_port_mask", 4))
 
         self.range_lower = self.source_port
-        self.range_upper = self.source_port | (0xFF >> (8 - self.source_port_mask))
+        self.range_upper = self.source_port | ((1 << self.source_port_mask) - 1)
         self.range_size = self.range_upper - self.range_lower + 1
 
         self.random_mac = "00:aa:bb:cc:dd:ee"
