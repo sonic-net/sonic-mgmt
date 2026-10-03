@@ -127,7 +127,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
-                  'tests.common.plugins.erspan_mirror')
+                  'tests.common.plugins.erspan_mirror',
+                  'tests.common.port_attributes.pytest_plugin')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
