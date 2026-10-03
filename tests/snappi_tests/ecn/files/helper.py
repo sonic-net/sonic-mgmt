@@ -576,8 +576,6 @@ def run_ecn_marking_port_toggle_test(
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         test_prio_list (list): priorities of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
@@ -714,11 +712,14 @@ def run_ecn_marking_test(api,
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         test_prio_list (list): priorities of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        test_flow_percent (list): per-priority offered load percentages
+        number_of_streams (int): number of streams to generate per traffic flow
+        input_port_same_asic (bool): whether ingress ports are on the same ASIC
+        input_port_same_dut (bool): whether ingress ports are on the same DUT
+        single_dut (bool): whether this is a single-DUT setup
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
@@ -982,11 +983,11 @@ def run_ecn_marking_ect_marked_pkts(
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         test_prio_list (list): priorities of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        supervisor_dut (obj): Supervisor DUT, if ECN check is required
+        is_bp_fabric_ecn_check_required (bool): Flag to indicate if BP/fabric ECN check is required
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
         N/A

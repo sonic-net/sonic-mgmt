@@ -63,7 +63,7 @@ class SnappiFanoutManager():
             u'device_info': {
                 u'HwSku': u'SNAPPI-tester',
                 u'ManagementGw': u'10.36.78.54',
-                u'ManagementIp': u'10.36.78.53/32',
+                u'mgmtip': u'10.36.78.53/32',
                 u'Type': u'DevSnappiChassis',
                 u'mgmtip': u'10.36.78.53'
             },
