@@ -171,16 +171,9 @@ def patch_rsyslog(sonichosts):
 
 def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
     try:
-        for i in range(len(sonichosts.ips)):
-            localhost.wait_for(
-                host=sonichosts.ips[i],
-                port=22,
-                state="started",
-                search_regex="OpenSSH",
-                delay=180 if i == 0 else 0,
-                timeout=600,
-                module_attrs={"changed_when": False}
-            )
+        # Use the inventory connection so multi_passwd_ssh can fall back to
+        # ansible_hostv6 when an IPv6-only DUT drops its IPv4 address.
+        sonichosts.wait_for_connection(delay=180, timeout=600)
         localhost.pause(seconds=60, prompt="Wait for SONiC initialization")
 
         # NOTE: Clear Ansible cached facts to avoid using stale data
