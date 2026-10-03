@@ -25,6 +25,10 @@ class SignalCleanup():
         signal.signal(signal.SIGTERM, self.sigHandler)
 
     def sigHandler(self, *args):
+        # `sudo pkill -f` delivers a second SIGTERM (relayed by the sudo parent)
+        # while this one is still clearing; re-entering would sys.exit() out of
+        # the cleanup and leave the port asserting PFC.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         self.fanoutPfcStorm.endAllPfcStorm()
 
         logger.debug(self.endMsg)
@@ -197,13 +201,14 @@ class FanoutPfcStorm():
         Stop the storm on every interface. Idempotent.
 
         Backpressure is dropped everywhere first, then the config is restored, rather
-        than doing both per interface.
+        than doing both per interface. The list is emptied only once both are done,
+        so a cleanup cut short is still retried by main()'s finally.
         '''
-        intfs, self.intfsEnabled = self.intfsEnabled, []
-        for intf in intfs:
+        for intf in list(self.intfsEnabled):
             self._clearPfcBackpressure(intf)
-        for intf in intfs:
+        for intf in list(self.intfsEnabled):
             self._restorePfcConfig(intf)
+        self.intfsEnabled = []
 
 
 def main():
