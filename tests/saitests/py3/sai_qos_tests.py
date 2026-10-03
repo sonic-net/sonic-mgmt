@@ -6455,6 +6455,13 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
+            elif platform_asic and platform_asic == "broadcom":
+                # Packets the egress path holds past the MMU while TX is
+                # disabled are released from the queue's accounting, so the
+                # fill below would read that much short of what was sent.
+                # Saturate that depth first, as PGSharedWatermarkTest does.
+                que_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min + pkts_num_egr_mem
+                send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
                 que_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
