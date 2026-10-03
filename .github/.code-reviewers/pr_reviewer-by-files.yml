@@ -931,9 +931,6 @@
   FengPan-Frank: 212
   bachalla: 172
   hdwhdw: 1250
-/tests/gnmi_e2e/:
-  hdwhdw: 11
-  opcoder0: 2
 /tests/gnxi/:
   hdwhdw: 51
 /tests/golden_config_infra/:
