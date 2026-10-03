@@ -1,3 +1,4 @@
+import base64
 import logging
 import random
 import shlex
@@ -332,21 +333,82 @@ def swss_up(request, test_result, **kwargs):
     return success_criteria_by_syslog(request, test_result, **{**kwargs, **extra_vars})
 
 
-def swss_create_switch(request, test_result, **kwargs):
-    start_mark = "create: request switch create with context 0"
-    if kwargs.get("log_read_mode") == "bounded":
-        extra_vars = {"syslog_start_mark": start_mark,
-                      "syslog_end_mark": "main: Create a switch, id:",
-                      "result_variable": "swss_create_switch_start_time"}
-        return success_criteria_by_bounded_syslog(request, test_result, **{**kwargs, **extra_vars})
+_SWSS_CREATE_SWITCH_WATCH = r'''
+import sys
+import time
 
-    end_mark = "main: Create a switch, id:"
-    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
-    end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
-    extra_vars = {"syslog_start_cmd": start_cmd,
-                  "syslog_end_cmd": end_cmd,
-                  "result_variable": "swss_create_switch_start_time"}
-    return success_criteria_by_syslog(request, test_result, **{**kwargs, **extra_vars})
+start_mark = "create: request switch create with context 0"
+end_mark = "main: Create a switch, id:"
+paths = ["/var/log/syslog"]
+deadline = time.time() + 900
+offsets = {}
+start_lines = []
+end_lines = []
+
+
+def new_text(path):
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, 2)
+            end = fh.tell()
+            start = offsets.get(path, end)
+            if end < start:
+                start = 0
+            fh.seek(start)
+            data = fh.read()
+            offsets[path] = fh.tell()
+            return data.decode("utf-8", "replace")
+    except FileNotFoundError:
+        return ""
+
+
+def matching(text, mark):
+    found = []
+    for line in text.splitlines():
+        if mark in line:
+            found.append(line)
+    return found
+
+
+while time.time() < deadline:
+    for path in paths:
+        text = new_text(path)
+        start_lines.extend(matching(text, start_mark))
+        end_lines.extend(matching(text, end_mark))
+    if start_lines and end_lines:
+        sys.stdout.write(start_lines[-1] + "\n")
+        sys.stdout.write(end_lines[-1] + "\n")
+        sys.exit(0)
+    time.sleep(10)
+sys.exit(1)
+'''
+
+
+def swss_create_switch(request, test_result, **kwargs):
+    duthost = request.getfixturevalue("duthost")
+    baseline_line = duthost.shell("tail -n 1 /var/log/syslog")["stdout"].strip()
+    baseline = _extract_timestamp(duthost, baseline_line)
+    payload = base64.b64encode(_SWSS_CREATE_SWITCH_WATCH.encode()).decode()
+    watch_cmd = "echo {} | base64 -d | python3".format(payload)
+    started = {"done": False}
+
+    @suppress_exception
+    def checker():
+        if started["done"]:
+            return False
+        started["done"] = True
+        stdout = duthost.shell(watch_cmd, module_ignore_errors=True)["stdout"].strip().splitlines()
+        if len(stdout) < 2:
+            return False
+        start_line, end_line = stdout[-2], stdout[-1]
+        start_ts = _extract_timestamp(duthost, start_line)
+        end_ts = _extract_timestamp(duthost, end_line)
+        if start_ts <= baseline or end_ts <= baseline or end_ts <= start_ts:
+            return False
+        delta = (end_ts - start_ts).total_seconds()
+        test_result["swss_create_switch_start_time"] = delta
+        return True
+    return checker
 
 
 def swss_create_switch_stats(passed_op_precheck, **kwargs):
