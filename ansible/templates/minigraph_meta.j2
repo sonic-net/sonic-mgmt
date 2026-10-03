@@ -197,6 +197,12 @@
             <a:Reference i:nil="true"/>
             <a:Value>{{ zebra_nexthop_value }}</a:Value>
           </a:DeviceProperty>
+{% if num_asics == 1 and macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo %}
+          <a:DeviceProperty>
+            <a:Name>MacSecProfile</a:Name>
+            <a:Value>PrimaryKey="{{ macsec_profile | default('MACSEC_PROFILE') }}" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>
+          </a:DeviceProperty>
+{% endif %}
         </a:Properties>
       </a:DeviceMetadata>
 {% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}
