@@ -157,6 +157,16 @@ class LinecardConsoleConn():
         )
         return output
 
+    def write_channel(self, data, add_newline=True):
+        if add_newline:
+            self.console_cli.sendline(data)
+        else:
+            self.console_cli.send(data)
+
+    def read_until_pattern(self, pattern, read_timeout=None):
+        timeout = read_timeout if read_timeout is not None else self.default_timeout
+        self.console_cli.expect(pattern, timeout=timeout)
+
     def disconnect(self):
         """
         Disconnect from the linecard console and close the SSH connection.
