@@ -4,9 +4,10 @@ import paramiko
 import time
 import pytest
 import logging
+import queue
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
-from tests.common.utilities import get_image_type
+from tests.common.utilities import get_image_type, wait_until
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
@@ -31,6 +32,11 @@ REMOVE_ROUTE = "sudo config route del prefix 2.2.3.4/32 nexthop vrf Vrf-RED 30.0
 ADD_PORTCHANNEL = "sudo config portchannel add PortChannel0010"
 REMOVE_PORTCHANNEL = "sudo config portchannel del PortChannel0010"
 
+VPP_COMMAND_TIMEOUT = 60
+VPP_COMMAND_SETTLE_TIME = 1
+VPP_HEALTH_RECOVERY_TIMEOUT = 180
+VPP_SETTLE_POLLS = 18
+
 done = False
 max_cpu = 0
 max_mem = 0
@@ -43,9 +49,106 @@ SETTLE_POLLS = 6           # how many readings to take while waiting for usage t
 SETTLE_INTERVAL = 5        # seconds to wait between those readings
 
 
+def _vpp_restore_command(commands):
+    if commands[0] == START_BGP_NBRS:
+        return commands[0]
+    return commands[1]
+
+
+def _vpp_control_plane_is_healthy(duthost, portchannels, bgp_neighbors):
+    for portchannel in portchannels:
+        result = duthost.shell(
+            "timeout 10 sudo docker exec teamd teamdctl {} state dump".format(
+                portchannel
+            ),
+            module_ignore_errors=True,
+        )
+        if result.get("rc", 1) != 0:
+            return False
+    return duthost.check_bgp_session_state_all_asics(bgp_neighbors)
+
+
+def _setup_vpp_stress(duthost, request):
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running"
+    )["ansible_facts"]
+    portchannels = sorted(config_facts.get("PORTCHANNEL", {}))
+    pytest_assert(portchannels, "No configured port channel available for stress")
+
+    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    ipv4_neighbors = sorted(
+        neighbor
+        for neighbors in bgp_neighbors.values()
+        for neighbor in neighbors
+        if ":" not in neighbor
+    )
+    pytest_assert(ipv4_neighbors, "No IPv4 BGP nexthop available for stress")
+
+    portchannel = portchannels[0]
+    nexthop = ipv4_neighbors[0]
+    command_pairs = [
+        (START_BGP_NBRS, STOP_BGP_NBRS),
+        (
+            "sudo config interface shutdown {}".format(portchannel),
+            "sudo config interface startup {}".format(portchannel),
+        ),
+        (CONFIGURE_ACL, REMOVE_ACL),
+        (
+            "sudo config route add prefix 2.2.3.4/32 nexthop {}".format(nexthop),
+            "sudo config route del prefix 2.2.3.4/32 nexthop {}".format(nexthop),
+        ),
+        (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL),
+    ]
+
+    duthost.host.options["variable_manager"].extra_vars.update(
+        {"acl_table_name": "DATAACL", "dualtor": False}
+    )
+    duthost.template(
+        src="acl/templates/acltb_test_rules.j2",
+        dest="/tmp/acl.json",
+        mode="0755",
+    )
+
+    harness_creds = request.getfixturevalue("creds")
+    return {
+        "bgp_neighbors": bgp_neighbors,
+        "command_pairs": command_pairs,
+        "portchannels": portchannels,
+        "username": harness_creds["sonicadmin_user"],
+        "password": harness_creds["sonicadmin_password"],
+    }
+
+
+def _teardown_vpp_stress(duthost, context):
+    duthost.file(path="/tmp/acl.json", state="absent")
+    for commands in reversed(context["command_pairs"]):
+        duthost.shell(
+            _vpp_restore_command(commands), module_ignore_errors=True
+        )
+
+    pytest_assert(
+        wait_until(
+            VPP_HEALTH_RECOVERY_TIMEOUT,
+            10,
+            0,
+            _vpp_control_plane_is_healthy,
+            duthost,
+            context["portchannels"],
+            context["bgp_neighbors"],
+        ),
+        "VPP teamd/BGP control plane did not recover after SSH stress",
+    )
+
+
 @pytest.fixture
-def setup_teardown(duthosts, rand_one_dut_hostname):
+def setup_teardown(duthosts, rand_one_dut_hostname, request):
     duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.facts["asic_type"] == "vpp":
+        context = _setup_vpp_stress(duthost, request)
+        yield context
+        _teardown_vpp_stress(duthost, context)
+        return
 
     # Ensure the DUT password matches DEFAULT_SSH_CONNECT_PARAMS
     creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
@@ -159,6 +262,77 @@ def work(dut_mgmt_ip, commands, baselines, username, password):
     ssh.close()
 
 
+def _run_vpp_command(ssh, command):
+    """Run one VPP churn command to completion and require success."""
+    start_time = time.time()
+    _, stdout, stderr = ssh.exec_command(
+        command, timeout=VPP_COMMAND_TIMEOUT
+    )
+    dispatch_duration = time.time() - start_time
+    stdout_lines = stdout.readlines()
+    stderr_lines = stderr.readlines()
+    exit_status = stdout.channel.recv_exit_status()
+
+    if exit_status != 0:
+        raise AssertionError(
+            "Command {!r} failed with rc={}: stdout={!r}, stderr={!r}".format(
+                command, exit_status, stdout_lines, stderr_lines
+            )
+        )
+    return dispatch_duration, time.time() - start_time
+
+
+def _get_vpp_baseline_times(ssh, command_pairs):
+    """Measure alternating VPP command pairs without leaving state behind."""
+    baseline_times = []
+    for commands in command_pairs:
+        totals = [0, 0]
+        for _ in range(5):
+            for command_ind, command in enumerate(commands):
+                _, completion_duration = _run_vpp_command(ssh, command)
+                totals[command_ind] += completion_duration
+                time.sleep(VPP_COMMAND_SETTLE_TIME)
+
+        restore_command = _vpp_restore_command(commands)
+        if restore_command != commands[-1]:
+            _run_vpp_command(ssh, restore_command)
+            time.sleep(VPP_COMMAND_SETTLE_TIME)
+
+        baseline_times.append(tuple(total / 5 for total in totals))
+    return baseline_times
+
+
+def _vpp_work(dut_mgmt_ip, commands, baselines, username, password, failures):
+    """Run the existing stress loop with VPP command-status reporting."""
+    command_ind = 0
+    last_completed_command = None
+    ssh = None
+    try:
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        while not done:
+            duration, _ = _run_vpp_command(ssh, commands[command_ind])
+            last_completed_command = commands[command_ind]
+            pytest_assert(
+                duration < 3 * baselines[command_ind],
+                "Command {} took more than 3 times as long as baseline".format(
+                    commands[command_ind]
+                ),
+            )
+            time.sleep(VPP_COMMAND_SETTLE_TIME)
+            command_ind += 1 if not command_ind else -1
+    except BaseException as error:
+        failures.put("{}: {}".format(commands, error))
+    finally:
+        restore_command = _vpp_restore_command(commands)
+        if ssh is not None and last_completed_command != restore_command:
+            try:
+                _run_vpp_command(ssh, restore_command)
+            except BaseException as error:
+                failures.put("rollback for {}: {}".format(commands, error))
+        if ssh is not None:
+            ssh.close()
+
+
 def _assert_usage_recovered(resource, baseline, peak, lowest):
     """Fail if a resource did not settle back near its pre-test baseline after the test.
 
@@ -185,7 +359,12 @@ def run_post_test_system_check(init_mem, init_cpu, duthost):
     actually recovered.
     """
     lowest_mem, lowest_cpu = 1.0, 1.0
-    for _ in range(SETTLE_POLLS):
+    settle_polls = (
+        VPP_SETTLE_POLLS
+        if duthost.facts["asic_type"] == "vpp"
+        else SETTLE_POLLS
+    )
+    for _ in range(settle_polls):
         time.sleep(SETTLE_INTERVAL)
         mem, cpu = get_system_stats(duthost)
         lowest_mem = min(lowest_mem, mem)
@@ -220,11 +399,16 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
 
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
+    is_vpp = duthost.facts["asic_type"] == "vpp"
 
     # Get SSH credentials from image type
-    creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
-    username = creds["username"]
-    password = creds["password"]
+    if is_vpp:
+        username = setup_teardown["username"]
+        password = setup_teardown["password"]
+    else:
+        creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+        username = creds["username"]
+        password = creds["password"]
 
     # Gets initial memory and CPU stats
     init_mem, init_cpu = get_system_stats(duthost)
@@ -233,18 +417,26 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     threads = []
 
     # Commands threads will be running on the DUT
-    command_pairs = [
-        (START_BGP_NBRS, STOP_BGP_NBRS),
-        (SHUTDOWN_INTERFACE, STARTUP_INTERFACE),
-        (CONFIGURE_ACL, REMOVE_ACL),
-        (ADD_ROUTE, REMOVE_ROUTE),
-        (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL)
-    ]
+    if is_vpp:
+        command_pairs = setup_teardown["command_pairs"]
+    else:
+        command_pairs = [
+            (START_BGP_NBRS, STOP_BGP_NBRS),
+            (SHUTDOWN_INTERFACE, STARTUP_INTERFACE),
+            (CONFIGURE_ACL, REMOVE_ACL),
+            (ADD_ROUTE, REMOVE_ROUTE),
+            (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL)
+        ]
+    worker_failures = queue.Queue()
 
     logging.info("Collecting baseline times for commands")
     ssh = start_SSH_connection(dut_mgmt_ip, username, password)
-    baseline_times = [tuple((get_baseline_time(ssh, com)
-                            for com in pair)) for pair in command_pairs]
+    if is_vpp:
+        baseline_times = _get_vpp_baseline_times(ssh, command_pairs)
+        ssh.close()
+    else:
+        baseline_times = [tuple((get_baseline_time(ssh, com)
+                                for com in pair)) for pair in command_pairs]
 
     logging.info("Starting system monitoring thread.")
     # Starts thread that will be monitoring cpu and memory usage
@@ -255,8 +447,26 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     logging.info("Starting SSH Connections and running commands")
     # Initiates threads
     for ind in range(len(command_pairs)):
-        new_thread = threading.Thread(target=work, args=(
-            dut_mgmt_ip, command_pairs[ind], baseline_times[ind], username, password,))
+        if is_vpp:
+            target = _vpp_work
+            args = (
+                dut_mgmt_ip,
+                command_pairs[ind],
+                baseline_times[ind],
+                username,
+                password,
+                worker_failures,
+            )
+        else:
+            target = work
+            args = (
+                dut_mgmt_ip,
+                command_pairs[ind],
+                baseline_times[ind],
+                username,
+                password,
+            )
+        new_thread = threading.Thread(target=target, args=args)
         new_thread.start()
         threads.append(new_thread)
 
@@ -266,8 +476,17 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     done = True
 
     logging.info("Stopping SSH Connections")
-    for t in threads:
-        t.join()
+    for thread in threads:
+        thread.join()
+
+    if is_vpp:
+        failures = []
+        while not worker_failures.empty():
+            failures.append(worker_failures.get())
+        pytest_assert(
+            not failures,
+            "VPP SSH stress worker failures: {}".format(failures),
+        )
 
     logging.info("Running post-test system check")
     # Get post-test cpu and memory stats (after waiting for stats to stabalize)
