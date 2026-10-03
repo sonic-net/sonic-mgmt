@@ -42,6 +42,8 @@ class HashTest(BaseTest):
     RELAXED_BALANCING_RANGE = 0.8
     RELAXED_BALANCING_RANGE_MAXTOPO = 1.5
     BALANCING_TEST_TIMES = 250
+    INGRESS_PORT_FLOWS = 3
+    INGRESS_PORT_ROUTES = 3
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
         'fib_info_files',
@@ -99,6 +101,19 @@ class HashTest(BaseTest):
             'balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get(
             'balancing_test_times', self.BALANCING_TEST_TIMES)
+        # A single 5-tuple can hide an ingress-dependent hash whenever both hash
+        # results happen to pick the same ECMP member, so the 'ingress-port'
+        # negative test sweeps several distinct flows.
+        self.ingress_port_flows = int(self.test_params.get(
+            'ingress_port_flows', self.INGRESS_PORT_FLOWS))
+        # One route only exercises the ports outside its own next hop group, so
+        # sweep up to this many routes until every ingress port has been covered.
+        self.ingress_port_routes = int(self.test_params.get(
+            'ingress_port_routes', self.INGRESS_PORT_ROUTES))
+        # Optionally pin the ingress ports (e.g. only the LT2/T3 facing ones)
+        # instead of sweeping every eligible port.
+        self.ingress_port_src_ports = [
+            int(port) for port in self.test_params.get('ingress_port_src_ports', [])]
         self.switch_type = self.test_params.get(
             'switch_type', self.DEFAULT_SWITCH_TYPE)
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
@@ -180,6 +195,10 @@ class HashTest(BaseTest):
         return filtered_ports
 
     def check_hash(self, hash_key):
+        if hash_key == 'ingress-port':
+            # Route selection is part of the coverage sweep, so it picks its own dst_ip.
+            self.check_ingress_port_hash()
+            return
         dst_ip = self.dst_ip_interval.get_random_ip()
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             dst_ip)
@@ -193,53 +212,120 @@ class HashTest(BaseTest):
                     dst_ip, exp_port_list))
                 assert False
         hit_count_map = {}
-        if hash_key == 'ingress-port':
-            # The 'ingress-port' key is not used in hash by design. We are doing negative test for 'ingress-port'.
-            # When 'ingress-port' is included in HASH_KEYS, the PTF test will try to inject same packet to different
-            # ingress ports and expect that they are forwarded from same egress port.
-            if self.topo_type == 'ft2':
-                # For FT2 topo, all the ports are connected to LT2
-                # So we can use any port as ingress port
-                port_list = self.src_ports
-            else:
-                port_list = self.get_ingress_ports(exp_port_lists, dst_ip)
-            for ingress_port in port_list:
-                print(ingress_port)
-                logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
-                             .format(hash_key, ingress_port, exp_port_lists, dst_ip))
-                (matched_port, _) = self.check_ip_route(
-                    hash_key, ingress_port, dst_ip, exp_port_lists)
-                hit_count_map[matched_port] = hit_count_map.get(
-                    matched_port, 0) + 1
-            logging.info("hit count map: {}".format(hit_count_map))
-            # if the packet from the ingress port could go to both ToRs(active-active dualtor), we should
-            # expect that the packets go to the same ToR has same egress port, so there should be two entries
-            # in the hit count map.
-            assert len(hit_count_map.keys()) == len(
-                self.ptf_test_port_map[str(ingress_port)]["target_dut"])
-        else:
-            for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
-                logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
-                             .format(hash_key, src_port, exp_port_lists, dst_ip))
-                (matched_port, _) = self.check_ip_route(
-                    hash_key, src_port, dst_ip, exp_port_lists)
-                hit_count_map[matched_port] = hit_count_map.get(
-                    matched_port, 0) + 1
-            logging.info("hash_key={}, hit count map: {}".format(
-                hash_key, hit_count_map))
-            for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+        for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
+            logging.info('Checking hash key {}, src_port={}, exp_ports={}, dst_ip={}'
+                         .format(hash_key, src_port, exp_port_lists, dst_ip))
+            (matched_port, _) = self.check_ip_route(
+                hash_key, src_port, dst_ip, exp_port_lists)
+            hit_count_map[matched_port] = hit_count_map.get(
+                matched_port, 0) + 1
+        logging.info("hash_key={}, hit count map: {}".format(
+            hash_key, hit_count_map))
+        for next_hop in next_hops:
+            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
-    def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists):
+    def _port_desc(self, ptf_port):
+        dut_port = self.ptf_test_port_map[str(ptf_port)].get('dut_port')
+        return '{}({})'.format(ptf_port, dut_port) if dut_port else str(ptf_port)
+
+    def _get_ingress_port_flow(self, flow_index, dst_ip):
+        '''
+        @summary: Build one flow that stays fixed across every ingress port.
+
+        ip_dst is pinned to the address the next hops were looked up with so the
+        packet really follows the route under test. Flow 0 keeps the historical
+        L4 ports, the others vary fields that feed the hash but not the lookup.
+        '''
+        flow = {'ip_dst': dst_ip}
+        if flow_index:
+            flow['ip_src'] = self.src_ip_interval.get_random_ip()
+            flow['sport'] = random.randint(0, 65535)
+            flow['dport'] = random.randint(0, 65535)
+        return flow
+
+    def _get_eligible_ingress_ports(self, exp_port_lists, dst_ip, target_ports):
+        if self.topo_type == 'ft2':
+            # For FT2 topo, all the ports are connected to LT2
+            # So we can use any port as ingress port
+            port_list = list(self.src_ports)
+        else:
+            port_list = self.get_ingress_ports(exp_port_lists, dst_ip)
+        return [port for port in port_list if port in target_ports]
+
+    def _sweep_ingress_ports(self, port_list, exp_port_lists, dst_ip):
+        # if the packet from the ingress port could go to both ToRs(active-active dualtor), we should
+        # expect that the packets go to the same ToR has same egress port, so there should be two
+        # entries in the hit count map.
+        expected_egress_count = max(
+            len(self.ptf_test_port_map[str(port)]['target_dut']) for port in port_list)
+        failures = []
+        for flow_index in range(self.ingress_port_flows):
+            flow = self._get_ingress_port_flow(flow_index, dst_ip)
+            hit_count_map = {}
+            egress_to_ingress = defaultdict(list)
+            # Walk the ports in a random order so that a systematic ingress->egress
+            # bias cannot be masked by always sweeping them in the same sequence.
+            for ingress_port in random.sample(port_list, len(port_list)):
+                logging.info('Checking hash key ingress-port, src_port={}, exp_ports={}, flow={}'
+                             .format(ingress_port, exp_port_lists, flow))
+                (matched_port, _) = self.check_ip_route(
+                    'ingress-port', ingress_port, dst_ip, exp_port_lists, flow=flow)
+                hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
+                egress_to_ingress[matched_port].append(ingress_port)
+            logging.info('flow={}, hit count map: {}'.format(flow, hit_count_map))
+            if len(hit_count_map.keys()) != expected_egress_count:
+                failures.append('flow={} reached {} egress ports, expected {}: {}'.format(
+                    flow, len(hit_count_map), expected_egress_count,
+                    {self._port_desc(egress): [self._port_desc(port) for port in sorted(ingress_ports)]
+                     for egress, ingress_ports in egress_to_ingress.items()}))
+        return failures
+
+    def check_ingress_port_hash(self):
+        '''
+        @summary: Negative test - the ingress port must not feed the ECMP hash.
+
+        The same flow injected on every eligible ingress port has to leave the DUT
+        on the same egress port. One route only exercises the ports outside its own
+        next hop group, so keep picking routes until every eligible ingress port has
+        been covered - a port that always sits in the egress set would otherwise
+        never be tested as an ingress port and could hide an ingress-dependent hash.
+        '''
+        target_ports = set(self.ingress_port_src_ports) or set(self.src_ports)
+        uncovered = set(target_ports)
+        failures = []
+        for _ in range(self.ingress_port_routes):
+            if not uncovered:
+                break
+            dst_ip = self.dst_ip_interval.get_random_ip()
+            src_port, exp_port_lists, _ = self.get_src_and_exp_ports(dst_ip)
+            if self.switch_type == 'chassis-packet':
+                exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
+            if any(len(exp_ports) <= 1 for exp_ports in exp_port_lists):
+                logging.warning('{} has a single nexthop {}, trying another route'.format(dst_ip, exp_port_lists))
+                continue
+            port_list = self._get_eligible_ingress_ports(exp_port_lists, dst_ip, target_ports)
+            if not port_list:
+                continue
+            uncovered -= set(port_list)
+            failures.extend(self._sweep_ingress_ports(port_list, exp_port_lists, dst_ip))
+        assert uncovered != target_ports, 'No eligible ingress port found in {} routes'.format(
+            self.ingress_port_routes)
+        if uncovered:
+            logging.warning('Never used as an ingress port because they stayed in the egress set: %s',
+                            [self._port_desc(port) for port in sorted(uncovered)])
+        assert not failures, (
+            'Egress port depends on the ingress port, so ingress context is leaking into the ECMP hash.\n'
+            + '\n'.join(failures))
+
+    def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists, flow=None):
         if ip_network(six.text_type(dst_ip)).version == 4:
             (matched_port, received) = self.check_ipv4_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, flow=flow)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, flow=flow)
         assert received
         logging.info("Received packet at " + str(matched_port))
-        self.dataplane.flush()
         time.sleep(0.02)
         return (matched_port, received)
 
@@ -276,7 +362,7 @@ class HashTest(BaseTest):
             logging.info(log)
         kwargs = {}
         if is_timeout:
-            kwargs["timeout"] = 10
+            kwargs["timeout"] = 1
         dst_ports = list(itertools.chain(*dst_port_lists))
         rcvd_port_index, rcvd_pkt = verify_packet_any_port(
             self, masked_exp_pkt, dst_ports, **kwargs)
@@ -369,7 +455,7 @@ class HashTest(BaseTest):
             exp_src_mac = self.ptf_test_port_map[str(
                 rcvd_port)]["target_src_mac"][0]
         actual_src_mac = scapy.Ether(rcvd_pkt).src
-        if str(exp_src_mac).lower() != str(actual_src_mac).lower():
+        if exp_src_mac != actual_src_mac:
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
@@ -397,8 +483,14 @@ class HashTest(BaseTest):
                 pkt['IPv6'].nh = ip_proto
                 exp_pkt['IPv6'].nh = ip_proto
 
+    def _apply_flow(self, flow, ip_src, ip_dst, sport, dport):
+        if not flow:
+            return ip_src, ip_dst, sport, dport
+        return (flow.get('ip_src', ip_src), flow.get('ip_dst', ip_dst),
+                flow.get('sport', sport), flow.get('dport', dport))
+
     def check_ipv4_route(self, hash_key, src_port, dst_port_lists, outer_sport=None, outer_dst_ip=None,
-                         outer_src_ip=None):
+                         outer_src_ip=None, flow=None):
         '''
         @summary: Check IPv4 route works.
         '''
@@ -408,6 +500,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        ip_src, ip_dst, sport, dport = self._apply_flow(flow, ip_src, ip_dst, sport, dport)
         outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
@@ -461,7 +554,7 @@ class HashTest(BaseTest):
             rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
 
-    def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip=None, outer_dst_ip=None):
+    def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip=None, outer_dst_ip=None, flow=None):
         '''
         @summary: Check IPv6 route works.
         '''
@@ -471,6 +564,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+        ip_src, ip_dst, sport, dport = self._apply_flow(flow, ip_src, ip_dst, sport, dport)
         outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
