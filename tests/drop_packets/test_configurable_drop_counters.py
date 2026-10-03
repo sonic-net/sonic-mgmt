@@ -35,7 +35,7 @@ from tests.common import config_reload
 
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 PACKET_COUNT = 1000
@@ -79,7 +79,9 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
             "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
-            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*"
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*",
+            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, "
+            "SAI_OBJECT_TYPE_NULL.*"
 
         ]
         duthost = duthosts[rand_one_dut_hostname]
@@ -320,8 +322,6 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     Returns: A Dictionary with the following information:
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if tbinfo["topo"]["type"] != "t0":
-        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -330,12 +330,16 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
                          in list(mgFacts["minigraph_ptf_indices"].items())
                          if k in list(mgFacts["minigraph_ports"].keys())}  # Trim inactive ports
 
-    vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
-                  for ifname
-                  in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
+    # T1/T2 fabric ports are pure L3 and have no VLAN, unlike T0.
+    vlan_ports = []
+    vlan_interface = {}
+    if mgFacts.get("minigraph_vlans"):
+        vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
+                      for ifname
+                      in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
 
-    vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
-    vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
+        vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
+        vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
 
     return {"physical_port_map": physical_port_map,
             "vlan_ports": vlan_ports,
@@ -424,11 +428,11 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    def _runner(counter_type, pkt, rx_port):
+    def _runner(counter_type, pkt, rx_port, count=PACKET_COUNT):
         duthost.command("sonic-clear dropcounters")
 
         logging.info("Sending traffic from ptf on port %s", rx_port)
-        _send_packets(duthost, ptfadapter, pkt, rx_port)
+        send_packets(duthost, ptfadapter, pkt, rx_port, count)
 
         def _check_drops():
             dst_port = testbed_params["physical_port_map"][rx_port]
@@ -437,8 +441,8 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                                              "TEST",
                                              dst_port)
             logging.info("Received %s drops on port %s, expected %s",
-                         recv_count, dst_port, PACKET_COUNT)
-            return recv_count == PACKET_COUNT
+                         recv_count, dst_port, count)
+            return recv_count == count
 
         pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
@@ -597,8 +601,8 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     return vlan_host_map
 
 
-def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
-                  count=PACKET_COUNT):
+def send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
+                 count):
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()
