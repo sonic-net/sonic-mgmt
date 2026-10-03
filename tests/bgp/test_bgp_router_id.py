@@ -182,41 +182,93 @@ def restart_bgp(duthost, enum_asic_index, tbinfo):
     wait_bgp_sessions(duthost, asic_index=enum_asic_index)
 
 
+@pytest.fixture(scope="module")
+def bgp_restart_state():
+    """Remember which DUT and ASIC combinations failed a BGP restart in this module.
+
+    The sanity check is module scoped, so a DUT wedged by a failed restart is not recovered
+    until the whole module has finished. Without this the remaining cases each pay the full
+    restart budget and the module is killed by the test timeout before it reports anything.
+    """
+    return {"wedged": set()}
+
+
+def skip_if_bgp_wedged(duthost, enum_asic_index, bgp_restart_state):
+    if (duthost.hostname, enum_asic_index) in bgp_restart_state["wedged"]:
+        pytest.skip("A BGP restart already failed for this ASIC, it is not in a usable state")
+
+
+def restart_bgp_tracked(duthost, enum_asic_index, tbinfo, bgp_restart_state, best_effort=False):
+    """Restart BGP and record the failure so the rest of the module can bail out cheaply.
+
+    During teardown use best_effort: CONFIG_DB has already been restored at that point, so if
+    BGP still does not come back there is nothing more the fixture can usefully do. Recovery is
+    left to the module scoped sanity check, whose config reload now succeeds because the
+    config is correct again.
+    """
+    try:
+        restart_bgp(duthost, enum_asic_index, tbinfo)
+    except (Exception, pytest.fail.Exception) as e:
+        bgp_restart_state["wedged"].add((duthost.hostname, enum_asic_index))
+        if not best_effort:
+            raise
+        logger.warning("BGP restart failed during teardown, leaving recovery to the sanity check: %s", e)
+
+
 @pytest.fixture()
-def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo,
+                                 bgp_restart_state):
     duthost = duthosts[enum_frontend_dut_hostname]
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                      .format(CUSTOMIZED_BGP_ROUTER_ID))
-    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
+    skip_if_bgp_wedged(duthost, enum_frontend_asic_index, bgp_restart_state)
+    try:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+        restart_bgp_tracked(duthost, enum_frontend_asic_index, tbinfo, bgp_restart_state)
 
-    yield
-
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
-    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
+        yield
+    finally:
+        # Restore CONFIG_DB even when setup failed, otherwise the DUT is left with the
+        # customized router id and the next test or the sanity recovery has to deal with it.
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+        if (duthost.hostname, enum_frontend_asic_index) in bgp_restart_state["wedged"]:
+            logger.warning("Not restarting BGP during teardown, a restart already failed in this module. "
+                           "CONFIG_DB has been restored so the sanity check can recover the DUT.")
+        else:
+            restart_bgp_tracked(duthost, enum_frontend_asic_index, tbinfo, bgp_restart_state, best_effort=True)
 
 
 @pytest.fixture(scope="function")
 def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip,
-                                          tbinfo):
+                                          tbinfo, bgp_restart_state):
     duthost = duthosts[enum_frontend_dut_hostname]
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                      .format(CUSTOMIZED_BGP_ROUTER_ID))
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
-                      module_ignore_errors=False)
-    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
+    skip_if_bgp_wedged(duthost, enum_frontend_asic_index, bgp_restart_state)
+    try:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
+                          module_ignore_errors=False)
+        restart_bgp_tracked(duthost, enum_frontend_asic_index, tbinfo, bgp_restart_state)
 
-    yield
-
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
-                      .format(loopback_ip))
-    restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
+        yield
+    finally:
+        # Loopback0 is removed as part of setup. If setup fails after that point the DUT is left
+        # without Loopback0 and is not recoverable by the sanity check, which wedges the module
+        # until the test timeout, so always put the config back. Loopback0 is restored first
+        # because it is the only one of the two whose absence blocks recovery.
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
+                          .format(loopback_ip))
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+        if (duthost.hostname, enum_frontend_asic_index) in bgp_restart_state["wedged"]:
+            logger.warning("Not restarting BGP during teardown, a restart already failed in this module. "
+                           "CONFIG_DB has been restored so the sanity check can recover the DUT.")
+        else:
+            restart_bgp_tracked(duthost, enum_frontend_asic_index, tbinfo, bgp_restart_state, best_effort=True)
 
 
 def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
