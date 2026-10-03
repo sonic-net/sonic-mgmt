@@ -6,7 +6,9 @@
 
 import time
 import logging
+import json
 import pytest
+from ipaddress import ip_network
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 import ptf.testutils as testutils
@@ -50,6 +52,33 @@ def _check_route_on_dut(duthost, route, prefix_type):
     vnet_cmd = f"show vnet routes all | grep -F '{route}'"
     vnet_result = duthost.shell(vnet_cmd, module_ignore_errors=True)
     return route in vnet_result.get('stdout', '')
+
+
+def _get_app_bgp_route_key(duthost, prefix):
+    """Find the competing BGP route, not the VNET route or a locally originated route."""
+    network = ip_network(prefix)
+    # fpmsyncd may omit the mask for a host route.
+    for suffix in (str(network), str(network.network_address)):
+        key = "ROUTE_TABLE:{}".format(suffix)
+        protocol = duthost.shell("sonic-db-cli APPL_DB HGET '{}' protocol".format(key))['stdout'].strip()
+        if protocol != 'bgp':
+            continue
+        nexthops = duthost.shell("sonic-db-cli APPL_DB HGET '{}' nexthop".format(key))['stdout'].strip()
+        if any(nh not in ('', '0.0.0.0', '::') for nh in nexthops.split(',')):
+            return key
+    return None
+
+
+def _get_asic_route_nexthops(duthost, prefix):
+    """Snapshot exact route keys (including VR) and next hops for a prefix."""
+    keys = duthost.shell(
+        "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*'".format(prefix))['stdout_lines']
+    routes = {}
+    for key in keys:
+        if json.loads(key.split(':', 2)[2])['dest'] == prefix:
+            routes[key] = duthost.shell(
+                "sonic-db-cli ASIC_DB HGET '{}' SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID".format(key))['stdout'].strip()
+    return routes
 
 
 prefix_offset = 19
@@ -287,7 +316,7 @@ def fixture_setUp(duthosts,
             vnet_name_prefix="Vnet_" + encap_type,
             scope="default",
             vni_base=10000,
-            advertise_prefix='true')
+            advertise_prefix=getattr(request, 'param', {}).get('advertise_prefix', 'true'))
         encap_type_data['vnet_vni_map'] = vnet_af_map[outer_layer_version]
     data[encap_type] = encap_type_data
 
@@ -541,10 +570,7 @@ class Test_VNET_BGP_route_Precedence():
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
                 # configure loopback with a host address within the network
-                if self.prefix_type == 'v4':
-                    loopback_ip = adv.rsplit('.', 1)[0] + '.1'
-                else:
-                    loopback_ip = adv.rstrip(':') + '::1'
+                loopback_ip = str(next(iter(ip_network('{}/{}'.format(adv, self.adv_mask)).hosts())))
                 cmds = ["configure",
                         "interface loopback 10",
                         "{} address {}/{}".format(type1, loopback_ip, self.adv_mask),
@@ -571,13 +597,10 @@ class Test_VNET_BGP_route_Precedence():
                 adv_pfx = routes_adv[vnet][prefix]
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
-                if self.prefix_type == 'v4':
-                    loopback_ip = adv_pfx.rsplit('.', 1)[0] + '.1'
-                else:
-                    loopback_ip = adv_pfx.rstrip(':') + '::1'
+                loopback_ip = str(next(iter(ip_network('{}/{}'.format(adv_pfx, self.adv_mask)).hosts())))
                 cmds = ["configure",
                         "interface loopback 10",
-                        "no {} address {}/{}".format(type1, loopback_ip, self.prefix_mask),
+                        "no {} address {}/{}".format(type1, loopback_ip, self.adv_mask),
                         "exit",
                         bgp_id_cmd,
                         "address-family {}".format(type),
@@ -772,6 +795,75 @@ class Test_VNET_BGP_route_Precedence():
                                          pkt=exp_pkt,
                                          ports=setup_vnet['ptf_dst_ports'],
                                          timeout=10)
+
+    @pytest.mark.parametrize('setUp', [{'advertise_prefix': 'false'}], indirect=True, ids=['no-advertisement'])
+    def test_vnet_route_before_bgp_with_early_bgp_removal(self, setUp, encap_type, duthost, request):
+        """Keep an active custom-monitored VNET host route across a later BGP add/withdraw."""
+        self.vxlan_test_setup = setUp
+        self.duthost = duthost
+        self.prefix_type = 'v4' if encap_type == 'v4_in_v4' else 'v6'
+        self.prefix_mask = 32 if self.prefix_type == 'v4' else 128
+        self.adv_mask = self.prefix_mask
+        routes_adv, routes = self.generate_vnet_routes(encap_type, 1, nhcount=1)
+        vnet = next(iter(routes))
+        address = next(iter(routes[vnet]))
+        prefix = '{}/{}'.format(address, self.prefix_mask)
+        tor = setUp['t0'][0]
+        monitor_keys = [
+            "'VNET_MONITOR_TABLE|{}|{}'".format(nh, prefix) for nh in routes[vnet][address]
+        ]
+        request.addfinalizer(
+            lambda: duthost.shell("sonic-db-cli STATE_DB DEL {}".format(' '.join(monitor_keys))))
+
+        py_assert(not _get_asic_route_nexthops(duthost, prefix), "Test prefix already exists in ASIC_DB")
+        py_assert(_get_app_bgp_route_key(duthost, prefix) is None, "Test prefix already has a BGP route")
+        # Disable local prefix advertisement so it cannot win BGP best-path selection.
+        self.add_monitored_vnet_route(routes, routes_adv, '', 'custom')
+        for nh in routes[vnet][address]:
+            monitor = "VNET_MONITOR_TABLE:{}:{}".format(nh, prefix)
+            py_assert(wait_until(
+                30, 2, 0, lambda: duthost.shell(
+                    "sonic-db-cli APPL_DB HGET '{}' packet_type".format(monitor))['stdout'].strip() == 'vxlan'),
+                "VNET monitor {} was not created".format(monitor))
+        self.update_monitors_state(routes, "Up")
+        py_assert(wait_until(30, 2, 0, _get_asic_route_nexthops, duthost, prefix),
+                  "VNET route {} was not installed in ASIC_DB".format(prefix))
+        self.wait_for_route_checks_pass()
+        expected_routes = _get_asic_route_nexthops(duthost, prefix)
+        py_assert(len(expected_routes) == 1 and all(nh and nh != 'oid:0x0' for nh in expected_routes.values()),
+                  "Expected one active VNET ASIC route with a next hop for {}".format(prefix))
+        self.verify_tunnel_route_with_traffic(setUp, duthost, encap_type, routes)
+
+        def verify_active_route(stage):
+            # APP_DB updates are asynchronous. Observe both stability and forwarding
+            # long enough for RouteOrch to consume the BGP operation.
+            deadline = time.monotonic() + 10
+            while True:
+                py_assert(_get_asic_route_nexthops(duthost, prefix) == expected_routes,
+                          "{} removed or changed the active VNET ASIC route".format(stage))
+                for key in monitor_keys:
+                    state = duthost.shell("sonic-db-cli STATE_DB HGET {} state".format(key))['stdout'].strip()
+                    py_assert(state == 'up', "VNET monitor changed state during {}".format(stage))
+                self.verify_tunnel_route_with_traffic(setUp, duthost, encap_type, routes)
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(1)
+
+        # Do not use wait_for_route_on_dut: the existing VNET route can satisfy it.
+        self.add_bgp_route_to_neighbor_tor(tor, routes, routes_adv)
+        py_assert(wait_until(30, 2, 0, _get_app_bgp_route_key, duthost, prefix),
+                  "Competing BGP route {} did not reach APP_DB".format(prefix))
+        bgp_key = _get_app_bgp_route_key(duthost, prefix)
+        py_assert(bgp_key is not None, "Competing BGP route disappeared before withdrawal")
+        self.wait_for_route_checks_pass()
+        verify_active_route("BGP addition")
+
+        self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
+        py_assert(wait_until(30, 2, 0, _check_redis_key_gone, duthost, 0, bgp_key),
+                  "Competing BGP route {} was not withdrawn from APP_DB".format(prefix))
+        # Keep VNET and its monitor Up; repairing either would hide sonic-swss#4910.
+        self.wait_for_route_checks_pass()
+        verify_active_route("BGP withdrawal")
 
     def test_vnet_route_after_bgp(self, setUp, encap_type, monitor_type, init_nh_state, duthost):
         '''
