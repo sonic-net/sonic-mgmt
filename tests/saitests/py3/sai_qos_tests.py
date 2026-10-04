@@ -1150,7 +1150,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type:
+        if 't2' in self.testbed_type and self.testbed_type != 't2-isolated-d128s2':
             src_is_multi_asic = self.test_params['src_is_multi_asic']
             dst_is_multi_asic = self.test_params['dst_is_multi_asic']
             dst_port_ips = [self.dst_port_ip, self.dst_port_2_ip, self.dst_port_3_ip]
