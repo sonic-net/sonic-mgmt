@@ -933,14 +933,14 @@ def pdu_reboot(pdu_controller):
         logging.warning("pdu_controller is None, skip PDU reboot")
         return False
     hostname = pdu_controller.dut_hostname
-    if not pdu_controller.turn_off_outlet():
+    turn_off_succeeded = pdu_controller.turn_off_outlet()
+    if not turn_off_succeeded:
         logging.error("Turn off the PDU outlets of {} failed".format(hostname))
-        return False
     time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
-    if not pdu_controller.turn_on_outlet():
+    turn_on_succeeded = pdu_controller.turn_on_outlet()
+    if not turn_on_succeeded:
         logging.error("Turn on the PDU outlets of {} failed".format(hostname))
-        return False
-    return True
+    return turn_off_succeeded and turn_on_succeeded
 
 
 def get_image_type(duthost):
