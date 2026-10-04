@@ -1304,6 +1304,7 @@ def test_multiasic_cacl_application(duthosts, tbinfo, enum_rand_one_per_hwsku_ho
         verify_nat_cacl(duthost, localhost, creds, docker_network, enum_frontend_asic_index)
 
 
+@pytest.mark.disable_memory_utilization
 def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv4
@@ -1345,6 +1346,7 @@ def test_cacl_scale_rules_ipv4(duthosts, enum_rand_one_per_hwsku_hostname, colle
                   .format(repr(unexpected_iptables_rules)))
 
 
+@pytest.mark.disable_memory_utilization
 def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignored_rules, clean_scale_rules):
     """
     Test case to ensure cover scale rules for control plan ACL for ipv6
