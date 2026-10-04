@@ -257,7 +257,6 @@ x86_64-nexthop_.*:
     valid_timeout: 10
     greater_timeout: 16777
     too_big_timeout: 16778
-    watchdog_punching_period_seconds: 60
 
 # Nexthop B27 BMC (Aspeed AST2700).  Uses the shared BMC watchdog defaults; see
 # the .bmc_watchdog_defaults anchor above for the rationale behind the values.
