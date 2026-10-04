@@ -1,16 +1,19 @@
 #! /usr/bin/env python3
 
 import logging
-import time
 import random
 import re
+import time
 
 from run_events_test import run_test
-from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS as MELLANOX_LOSSY_ONLY_HWSKUS
+
 from tests.common.broadcom_data import LOSSY_ONLY_HWSKUS as BROADCOM_LOSSY_ONLY_HWSKUS
-from tests.common.mellanox_data import NO_QOS_HWSKUS as MELLANOX_NO_QOS_HWSKUS
 from tests.common.broadcom_data import NO_QOS_HWSKUS as BROADCOM_NO_QOS_HWSKUS
-from tests.common.marvell_prestera_data import NO_QOS_HWSKUS as MARVELL_PRESTERA_NO_QOS_HWSKUS
+from tests.common.marvell_prestera_data import (
+    NO_QOS_HWSKUS as MARVELL_PRESTERA_NO_QOS_HWSKUS,
+)
+from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS as MELLANOX_LOSSY_ONLY_HWSKUS
+from tests.common.mellanox_data import NO_QOS_HWSKUS as MELLANOX_NO_QOS_HWSKUS
 from tests.common.nokia_data import NO_QOS_HWSKUS as NOKIA_NO_QOS_HWSKUS
 from tests.common.utilities import wait_until
 
@@ -36,8 +39,18 @@ WAIT_TIME = 3
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test swss events")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
-             "if_state.json", "sonic-events-swss:if-state", tag)
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        shutdown_interface,
+        "if_state.json",
+        "sonic-events-swss:if-state",
+        tag,
+    )
 
     asic_type = duthost.facts["asic_type"]
     if asic_type == "mellanox":
@@ -52,17 +65,37 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         skip_pfc_hwskus = []
 
     if duthost.facts["hwsku"] not in skip_pfc_hwskus:
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
-                 "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            generate_pfc_storm,
+            "pfc_storm.json",
+            "sonic-events-swss:pfc-storm",
+            tag,
+        )
 
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
-             "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag)
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        trigger_crm_threshold_exceeded,
+        "chk_crm_threshold.json",
+        "sonic-events-swss:chk_crm_threshold",
+        tag,
+    )
 
 
 def shutdown_interface(duthost, tbinfo):
     logger.info("Shutting down interface")
     interfaces = duthost.get_interfaces_status()
-    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    pattern = re.compile(r"^Ethernet[0-9]{1,2}$")
     interface_list = []
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
@@ -86,7 +119,7 @@ def shutdown_interface(duthost, tbinfo):
 def generate_pfc_storm(duthost, tbinfo):
     logger.info("Generating pfc storm")
     interfaces = duthost.get_interfaces_status()
-    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    pattern = re.compile(r"^Ethernet[0-9]{1,2}$")
     interface_list = []
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
@@ -95,14 +128,15 @@ def generate_pfc_storm(duthost, tbinfo):
     assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
 
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
-    duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
-                  format(queue_oid))
-    duthost.shell("pfcwd start --action drop {} {} --restoration-time {}".
-                  format(PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME))
+    duthost.shell('sonic-db-cli COUNTERS_DB HSET "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(queue_oid))
+    duthost.shell(
+        "pfcwd start --action drop {} {} --restoration-time {}".format(
+            PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME
+        )
+    )
     time.sleep(WAIT_TIME)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
-    duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
-                  format(queue_oid))
+    duthost.shell('sonic-db-cli COUNTERS_DB HDEL "COUNTERS:{}" "DEBUG_STORM"'.format(queue_oid))
 
 
 def trigger_crm_threshold_exceeded(duthost, tbinfo):
