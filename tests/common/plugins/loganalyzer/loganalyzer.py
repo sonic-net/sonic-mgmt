@@ -494,7 +494,6 @@ class LogAnalyzer:
 
         logging.debug("Analyze files {}".format(file_list))
         logging.debug('    match_regex="{}"'.format(match_messages_regex.pattern if match_messages_regex else ''))
-        logging.debug('    ignore_regex="{}"'.format(ignore_messages_regex.pattern if ignore_messages_regex else ''))
         logging.debug('    expect_regex="{}"'.format(expect_messages_regex.pattern if expect_messages_regex else ''))
         analyzer_parse_result = self.ansible_loganalyzer.analyze_file_list(
             file_list, match_messages_regex, ignore_messages_regex, expect_messages_regex,
