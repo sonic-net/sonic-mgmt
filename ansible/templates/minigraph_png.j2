@@ -1,18 +1,6 @@
 {# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
    Patterns in this list are matched as SUBSTRINGS against the DUT hwsku.
    See ansible/templates/minigraph_dpg.j2 for the full rationale. #}
-{% macro render_management_addresses(addresses) %}
-{% if 'ipv4' in addresses %}
-        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ addresses['ipv4'] }}</a:IPPrefix>
-        </ManagementAddress>
-{% endif %}
-{% if 'ipv6' in addresses %}
-        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ addresses['ipv6'] }}</a:IPPrefix>
-        </ManagementAddressV6>
-{% endif %}
-{% endmacro %}
 {% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
 {% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <PngDec>
@@ -161,11 +149,18 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
-{% if 'management_addresses' in dual_tor_facts %}
-{{ render_management_addresses(dual_tor_facts['management_addresses'][inventory_hostname]) }}
+{% if use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 %}
+{% set local_mgmt_ip = ansible_hostv6 %}
+{% else %}
+{% set local_mgmt_ip = original_ipv4_address | default(ansible_host) %}
+{% endif %}
+{% if ':' in local_mgmt_ip %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ local_mgmt_ip }}</a:IPPrefix>
+        </ManagementAddressV6>
 {% else %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+          <a:IPPrefix>{{ local_mgmt_ip }}</a:IPPrefix>
         </ManagementAddress>
 {% endif %}
 {% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
@@ -185,7 +180,20 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
-{{ render_management_addresses(dual_tor_facts['management_addresses'][neighbor_hostname]) }}
+{% if use_ipv6_mgmt|default(false)|bool and 'ip_v6' in dual_tor_facts['neighbor'] %}
+{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip_v6'] %}
+{% else %}
+{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip'] %}
+{% endif %}
+{% if ':' in neighbor_mgmt_ip %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ neighbor_mgmt_ip }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% else %}
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ neighbor_mgmt_ip }}</a:IPPrefix>
+        </ManagementAddress>
+{% endif %}
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}

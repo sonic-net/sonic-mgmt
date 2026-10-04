@@ -1,5 +1,4 @@
 from ansible.module_utils.basic import AnsibleModule
-import ipaddress
 import os
 import yaml
 import traceback
@@ -25,8 +24,7 @@ def load_topo_file(topo_name):
 
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config,
-                 use_ipv6_mgmt=False):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars = host_vars
@@ -34,44 +32,7 @@ class DualTorParser:
         self.port_alias = port_alias
         self.vlan_intfs = vlan_intfs
         self.vlan_config = vlan_config
-        self.use_ipv6_mgmt = use_ipv6_mgmt
         self.dual_tor_facts = {}
-
-    @staticmethod
-    def _get_management_address(host_vars, variable_names, version):
-        for variable_name in variable_names:
-            address = host_vars.get(variable_name)
-            if not address:
-                continue
-
-            try:
-                address_version = ipaddress.ip_interface(str(address)).version
-            except ValueError:
-                raise ValueError("Invalid management address in {}: {}".format(variable_name, address))
-
-            if address_version == version:
-                return str(address)
-
-        return None
-
-    def parse_management_addresses(self):
-        management_addresses = {}
-
-        for dut in self.testbed_facts['duts']:
-            dut_host_vars = self.host_vars[dut]
-            ipv4 = self._get_management_address(
-                dut_host_vars, ('original_ipv4_address', 'ansible_host'), 4)
-            ipv6 = self._get_management_address(
-                dut_host_vars, ('ansible_hostv6', 'ansible_host'), 6)
-
-            addresses = {}
-            if ipv4 and not self.use_ipv6_mgmt:
-                addresses['ipv4'] = ipv4
-            if ipv6:
-                addresses['ipv6'] = ipv6
-            management_addresses[dut] = addresses
-
-        self.dual_tor_facts['management_addresses'] = management_addresses
 
     def parse_neighbor_tor(self):
         '''
@@ -80,10 +41,15 @@ class DualTorParser:
         neighbor = {}
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
-        if 'hwsku' in self.host_vars[neighbor['hostname']]:
-            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
+        neighbor_host_vars = self.host_vars[neighbor['hostname']]
+        neighbor['ip'] = neighbor_host_vars.get('original_ipv4_address') or neighbor_host_vars['ansible_host']
+        if neighbor_host_vars.get('ansible_hostv6'):
+            neighbor['ip_v6'] = neighbor_host_vars['ansible_hostv6']
+
+        if 'hwsku' in neighbor_host_vars:
+            neighbor['hwsku'] = neighbor_host_vars['hwsku']
         else:
-            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['sonic_hwsku']
+            neighbor['hwsku'] = neighbor_host_vars['sonic_hwsku']
 
         self.dual_tor_facts['neighbor'] = neighbor
 
@@ -144,7 +110,6 @@ class DualTorParser:
         Gathers facts related to a dual ToR configuration
         '''
         if 'dualtor' in self.testbed_facts['topo']:
-            self.parse_management_addresses()
             self.parse_neighbor_tor()
             self.parse_tor_position()
             self.generate_cable_names()
@@ -164,7 +129,6 @@ def main():
             port_alias=dict(required=True, default=None, type='list'),
             vlan_intfs=dict(required=True, default=None, type='list'),
             vlan_config=dict(required=False, default=None, type='str'),
-            use_ipv6_mgmt=dict(required=False, default=False, type='bool'),
         ),
         supports_check_mode=True
     )
@@ -181,10 +145,9 @@ def main():
     port_alias = m_args['port_alias']
     vlan_intfs = m_args['vlan_intfs']
     vlan_config = m_args['vlan_config']
-    use_ipv6_mgmt = m_args['use_ipv6_mgmt']
     try:
         dual_tor_parser = DualTorParser(
-            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config, use_ipv6_mgmt)
+            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config)
         module.exit_json(
             ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception:

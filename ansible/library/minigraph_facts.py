@@ -148,7 +148,6 @@ def parse_asic_png(png, asic_name, hostname):
                 # don't shadow type()
                 d_type = None
                 mgmt_addr = None
-                mgmt_addr_v6 = None
                 hwsku = None
                 if str(QName(ns3, "type")) in device.attrib:
                     d_type = device.attrib[str(QName(ns3, "type"))]
@@ -160,16 +159,13 @@ def parse_asic_png(png, asic_name, hostname):
                     elif node.tag == str(QName(ns, "ManagementAddress")):
                         mgmt_addr = node.find(
                             str(QName(ns2, "IPPrefix"))).text.split('/')[0]
-                    elif node.tag == str(QName(ns, "ManagementAddressV6")):
-                        mgmt_addr_v6 = node.find(
-                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "Hostname")):
                         name = node.text
                     elif node.tag == str(QName(ns, "HwSku")):
                         hwsku = node.text
 
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type,
-                                 'mgmt_addr': mgmt_addr, 'mgmt_addr_v6': mgmt_addr_v6, 'hwsku': hwsku}
+                                 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
     for k, v in neighbors.items():
         v['namespace'] = asic_name
@@ -226,7 +222,6 @@ def parse_png(png, hname):
                 # don't shadow type()
                 d_type = None
                 mgmt_addr = None
-                mgmt_addr_v6 = None
                 hwsku = None
 
                 for node in device:
@@ -235,9 +230,6 @@ def parse_png(png, hname):
                             str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "ManagementAddress")):
                         mgmt_addr = node.find(
-                            str(QName(ns2, "IPPrefix"))).text.split('/')[0]
-                    elif node.tag == str(QName(ns, "ManagementAddressV6")):
-                        mgmt_addr_v6 = node.find(
                             str(QName(ns2, "IPPrefix"))).text.split('/')[0]
                     elif node.tag == str(QName(ns, "Hostname")):
                         name = node.text
@@ -253,7 +245,7 @@ def parse_png(png, hname):
                     d_type = device.attrib[str(QName(ns3, "type"))]
 
                 devices[name] = {'lo_addr': lo_addr, 'type': d_type,
-                                 'mgmt_addr': mgmt_addr, 'mgmt_addr_v6': mgmt_addr_v6, 'hwsku': hwsku}
+                                 'mgmt_addr': mgmt_addr, 'hwsku': hwsku}
 
         if child.tag == str(QName(ns, "DeviceInterfaceLinks")):
             for if_link in child.findall(str(QName(ns, 'DeviceLinkBase'))):
@@ -736,6 +728,7 @@ def parse_xml(filename, hostname, asic_name=None):
     global port_alias_to_name_map
     global port_name_to_alias_map
     global port_alias_asic_map
+    global port_alias_to_port_asic_alias_map
     global port_name_to_index_map
 
     port_alias_to_name_map, port_alias_asic_map, port_name_to_index_map = get_port_alias_to_name_map(

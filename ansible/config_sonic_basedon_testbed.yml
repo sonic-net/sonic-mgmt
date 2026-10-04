@@ -365,7 +365,6 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
       vlan_config: "{{ vlan_config | default(None) }}"
-      use_ipv6_mgmt: "{{ use_ipv6_mgmt | default(false) | bool }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
