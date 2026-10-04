@@ -1165,6 +1165,12 @@ device_ops_agent:
   skip:
     reason: "device_ops_agent is not deployed in nightly yet."
 
+device_ops_agent/test_device_ops_agent.py:
+  skip:
+    reason: "device-ops-agent container is not present on BMC, so these tests are not applicable."
+    conditions:
+      - "'bmc' in topo_type"
+
 #######################################
 #####         dhcp_relay        #####
 #######################################
@@ -5877,6 +5883,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_system_status.py::test_system_is_running:
+  skip:
+    reason: "watchdog-control can not load on kvm testbed, leaving the system in 'degraded' state so 'systemctl is-system-running' never returns 'running'."
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 system_health/test_watchdog.py::test_orchagent_watchdog:
   skip:

@@ -6,7 +6,7 @@ import sys
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from tests.telemetry.telemetry_utils import get_list_stdout
-from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
+from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 EVENTS_TESTS_PATH = "./telemetry/events"
@@ -57,8 +57,8 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="module")
 def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
     is_ipv6 = request.param
-    with setup_streaming_telemetry_context(is_ipv6, duthosts[enum_rand_one_per_hwsku_hostname],
-                                           localhost, ptfhost, gnxi_path) as result:
+    with setup_gnmi_streaming_context(is_ipv6, duthosts[enum_rand_one_per_hwsku_hostname],
+                                      localhost, ptfhost, gnxi_path) as result:
         yield result
 
 
