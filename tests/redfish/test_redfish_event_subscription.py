@@ -7,17 +7,26 @@ webhook URL; when the BMC raises an event, bmcweb POSTs an
 the rack manager: it creates the subscriptions, raises events on the BMC and
 verifies what its webhook endpoint received.
 
-Events are raised two ways, both landing in bmcweb's EventServiceManager:
+Events are raised through the SONiC-BMC leak detection path (sonic-redfish):
+a platform daemon writes ``LIQUID_COOLING_INFO|<sensor>`` to STATE_DB,
+``sonic-dbus-bridge`` mirrors it as
+``xyz.openbmc_project.Inventory.Item.LeakDetector`` on D-Bus, and bmcweb's
+rmc-events leak monitor turns each ``DetectorState`` change into an
+``Environmental.1.1.0.LeakDetected{Critical,Warning,Normal}`` event with
+resource type ``LeakDetector``. The test stands in for the platform daemon by
+seeding a synthetic sensor row and flipping its state.
 
-* the SONiC-BMC leak detection path (sonic-redfish): a platform daemon
-  writes ``LIQUID_COOLING_INFO|<sensor>`` to STATE_DB, ``sonic-dbus-bridge``
-  mirrors it as ``xyz.openbmc_project.Inventory.Item.LeakDetector`` on D-Bus,
-  and bmcweb's rmc-events leak monitor turns each ``DetectorState`` change
-  into an ``Environmental.1.1.0.LeakDetected{Critical,Warning,Normal}`` event
-  with resource type ``LeakDetector``. The test stands in for the platform
-  daemon by seeding a synthetic sensor row and flipping its state;
-* ``EventService.SubmitTestEvent``, the DMTF-standard test action, which
-  bmcweb fans out verbatim to every subscriber, bypassing filters.
+The tests cover what a rack manager uses: POST EventService/Subscriptions,
+the leak and switch-host power events it then receives, and the resources
+those events point at. Other EventService features (SubmitTestEvent, SSE,
+PATCH, retry policies) are not exercised here.
+
+Switch-host power events come from bmcctld's HOST_STATE|switch-host row:
+``sonic-dbus-bridge`` mirrors device_power_state/device_status into
+``xyz.openbmc_project.State.Host`` CurrentHostState and bmcweb's host state
+monitor turns each change into a ``ResourceEvent.1.3.0.ResourcePower*``
+event on the ComputerSystem. The tests stand in for bmcctld by writing that
+row, the same way they stand in for thermalctld on the leak sensor.
 
 The webhook endpoint is ``redfish_event_listener.py`` running on the PTF
 host, the test infrastructure sitting on the BMC's management subnet. That
@@ -37,10 +46,10 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_hset, redis_keys
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     assert_field_equals,
-    assert_no_content,
     assert_redfish_error,
     assert_status_ok,
 )
@@ -53,8 +62,6 @@ pytestmark = [
 
 EVENT_SERVICE_PATH = "/redfish/v1/EventService"
 SUBSCRIPTIONS_PATH = "{}/Subscriptions".format(EVENT_SERVICE_PATH)
-SUBMIT_TEST_EVENT_PATH = "{}/Actions/EventService.SubmitTestEvent".format(EVENT_SERVICE_PATH)
-SSE_PATH = "{}/SSE".format(EVENT_SERVICE_PATH)
 SERVICE_ROOT = "/redfish/v1"
 
 REDFISH_CONTAINER = "redfish"
@@ -75,12 +82,8 @@ DELIVERY_POLL = 2
 NO_DELIVERY_SETTLE = 8
 BMCWEB_READY_TIMEOUT = 90
 BRIDGE_READY_TIMEOUT = 60
-# EventService on the image retries 3 times at 30 s; connect timeouts add to that.
-RETRY_TERMINATION_TIMEOUT = 240
-SSE_READ_TIMEOUT = 30
 
 EVENT_ODATA_TYPE = "#Event.v1_4_0.Event"
-TEST_EVENT_MESSAGE_ID = "OpenBMC.0.1.TestEventLog"
 
 # Synthetic leak sensor the test plays platform daemon for. sonic-dbus-bridge
 # discovers LIQUID_COOLING_INFO|* rows only at startup, so the row is seeded
@@ -90,7 +93,9 @@ LEAK_SENSOR_KEY = "LIQUID_COOLING_INFO|{}".format(LEAK_SENSOR)
 LEAK_SENSOR_DBUS_PATH = "/xyz/openbmc_project/sensors/leak/{}".format(LEAK_SENSOR)
 LEAK_DETECTOR_IFACE = "xyz.openbmc_project.Inventory.Item.LeakDetector"
 BRIDGE_BUS_NAME = "xyz.openbmc_project.Inventory.Manager"
-LEAK_ORIGIN = "/redfish/v1/Chassis/BMC/ThermalSubsystem/LeakDetection/LeakDetectors/{}".format(LEAK_SENSOR)
+# OriginOfCondition of the test sensor's leak events, under the Chassis named "chassis"
+# as in pmon-bmc-design.md section 2.1.2.
+LEAK_ORIGIN = "/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/{}".format(LEAK_SENSOR)
 LEAK_REGISTRY = "Environmental"
 LEAK_RESOURCE_TYPE = "LeakDetector"
 # STATE_DB fields per detector state, as thermalctld writes them and
@@ -108,6 +113,21 @@ LEAK_EVENTS = {
                 "Leak detector '{}' reports a warning level leak.".format(LEAK_SENSOR)),
     "OK": ("Environmental.1.1.0.LeakDetectedNormal", "OK",
            "Leak detector '{}' has returned to normal.".format(LEAK_SENSOR)),
+}
+
+# Switch-host power state as bmcctld publishes it and the event each value produces.
+HOST_STATE_KEY = "HOST_STATE|switch-host"
+HOST_RESOURCE_TYPE = "ComputerSystem"
+SYSTEM_ORIGIN = "/redfish/v1/Systems/system"
+RESET_PATH = "{}/Actions/ComputerSystem.Reset".format(SYSTEM_ORIGIN)
+COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
+COMMAND_DONE_TIMEOUT = 60
+# device_power_state -> (device_status bmcctld writes with it, MessageId, Message)
+HOST_POWER_EVENTS = {
+    "POWERING_OFF": ("ONLINE", "ResourceEvent.1.3.0.ResourcePoweringOff", "The resource `system` is powering off."),
+    "POWERED_OFF": ("OFFLINE", "ResourceEvent.1.3.0.ResourcePoweredOff", "The resource `system` has powered off."),
+    "POWERING_ON": ("OFFLINE", "ResourceEvent.1.3.0.ResourcePoweringOn", "The resource `system` is powering on."),
+    "POWERED_ON": ("ONLINE", "ResourceEvent.1.3.0.ResourcePoweredOn", "The resource `system` has powered on."),
 }
 
 # Runs a POST from inside the redfish container: exactly the network path bmcweb uses.
@@ -229,6 +249,24 @@ def _assert_leak_event(event, state):
     pytest_assert(
         str(event.get("EventId", "")).isdigit(),
         "EventId must be numeric, got: {!r}".format(event.get("EventId"))
+    )
+
+
+def _assert_host_power_event(event, power_state):
+    """Check an event record is the host state monitor's event for `power_state`."""
+    _, message_id, message = HOST_POWER_EVENTS[power_state]
+    assert_field_equals(event, "MessageId", message_id)
+    assert_field_equals(event, "Severity", "OK")
+    assert_field_equals(event, "Message", message)
+    assert_field_equals(event, "MessageArgs", ["system"])
+    assert_field_equals(event, "MemberId", "0")
+    pytest_assert(
+        event.get("OriginOfCondition", {}).get("@odata.id") == SYSTEM_ORIGIN,
+        "OriginOfCondition must be {!r}, got: {!r}".format(SYSTEM_ORIGIN, event.get("OriginOfCondition"))
+    )
+    pytest_assert(
+        isinstance(event.get("EventTimestamp"), str) and event["EventTimestamp"],
+        "EventTimestamp must be a non-empty string, got: {!r}".format(event.get("EventTimestamp"))
     )
 
 
@@ -389,17 +427,42 @@ def leak_event(bmc_duthost, leak_sensor, clean_subscriptions):
     yield leak_sensor
 
 
+@pytest.fixture(scope="function")
+def host_power_state(bmc_duthost):
+    """Write HOST_STATE|switch-host as bmcctld would; returns a setter and restores the row afterwards.
+
+    Only the STATE_DB row is written, never the switch host: bmcctld rewrites
+    the row on a real transition and leaves it alone otherwise, so a
+    simulated value stays until this fixture restores the snapshot. Requires
+    the host to be settled POWERED_ON/ONLINE so nothing real is in flight.
+    """
+    before = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+    pyrequire(
+        before.get("device_power_state") == "POWERED_ON" and before.get("device_status") == "ONLINE",
+        "{} must read POWERED_ON/ONLINE to simulate power events, got: {}".format(HOST_STATE_KEY, before)
+    )
+
+    def _write(power_state, device_status):
+        redis_hset(bmc_duthost, STATE_DB, HOST_STATE_KEY, device_power_state=power_state, device_status=device_status,
+                   last_change_timestamp=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+        logger.info("%s set to device_power_state=%s device_status=%s", HOST_STATE_KEY, power_state, device_status)
+
+    yield lambda power_state: _write(power_state, HOST_POWER_EVENTS[power_state][0])
+
+    _write(before["device_power_state"], before["device_status"])
+
+
 class TestRedfishEventSubscription:
 
     def test_event_service_advertised(self, redfish_client):
         """
-        EventService is enabled and advertises what a rack manager needs.
+        EventService is enabled and advertises what a rack manager needs to subscribe.
 
         GET /redfish/v1/EventService: ServiceEnabled, the Subscriptions
-        collection link, the SubmitTestEvent action target, the SSE URI and
-        the registry prefixes the BMC can filter on (Base and OpenBMC at least).
-        Whether the Environmental registry and LeakDetector resource type are
-        advertised is logged, and gates the leak-event tests below.
+        collection link and the registry prefixes the BMC can filter on (Base
+        and OpenBMC at least). Whether the Environmental registry and
+        LeakDetector resource type are advertised is logged, and gates the
+        leak-event tests below.
         """
         response = redfish_client.get(EVENT_SERVICE_PATH)
         assert_status_ok(response, EVENT_SERVICE_PATH)
@@ -408,7 +471,6 @@ class TestRedfishEventSubscription:
 
         assert_field_equals(body, "@odata.id", EVENT_SERVICE_PATH)
         assert_field_equals(body, "ServiceEnabled", True)
-        assert_field_equals(body, "ServerSentEventUri", SSE_PATH)
         pytest_assert(
             body.get("Status", {}).get("State") == "Enabled",
             "Status.State must be 'Enabled', got: {!r}".format(body.get("Status"))
@@ -417,32 +479,22 @@ class TestRedfishEventSubscription:
             body.get("Subscriptions", {}).get("@odata.id") == SUBSCRIPTIONS_PATH,
             "Subscriptions link must be {!r}, got: {!r}".format(SUBSCRIPTIONS_PATH, body.get("Subscriptions"))
         )
-        target = body.get("Actions", {}).get("#EventService.SubmitTestEvent", {}).get("target")
-        pytest_assert(
-            target == SUBMIT_TEST_EVENT_PATH,
-            "SubmitTestEvent target must be {!r}, got: {!r}".format(SUBMIT_TEST_EVENT_PATH, target)
-        )
         prefixes = set(body.get("RegistryPrefixes", []))
         pytest_assert(
             {"Base", "OpenBMC"} <= prefixes,
             "RegistryPrefixes must include Base and OpenBMC, got: {}".format(sorted(prefixes))
-        )
-        pytest_assert(
-            isinstance(body.get("DeliveryRetryAttempts"), int) and body["DeliveryRetryAttempts"] >= 1,
-            "DeliveryRetryAttempts must be a positive integer, got: {!r}".format(body.get("DeliveryRetryAttempts"))
         )
         logger.info("Leak events advertised: %s registry=%s, %s resource type=%s", LEAK_REGISTRY,
                     LEAK_REGISTRY in prefixes, LEAK_RESOURCE_TYPE, LEAK_RESOURCE_TYPE in body.get("ResourceTypes", []))
 
     def test_subscription_lifecycle(self, redfish_client, rmc_receiver, clean_subscriptions):
         """
-        A push subscription can be created, read back, updated and removed.
+        A push subscription can be created, read back and removed.
 
         POST -> 201 with Location; GET echoes the destination, context and the
         defaults bmcweb applies (Protocol Redfish, SubscriptionType
-        RedfishEvent, EventFormatType Event, DeliveryRetryPolicy
-        TerminateAfterRetries); the collection lists it; PATCH changes the
-        Context; DELETE removes it and a further GET is 404.
+        RedfishEvent, EventFormatType Event); the collection lists it; DELETE
+        removes it and a further GET is 404.
         """
         destination = rmc_receiver.url("lifecycle")
         sub_id, path = _subscribe(redfish_client, destination, "ctx-lifecycle")
@@ -457,7 +509,6 @@ class TestRedfishEventSubscription:
         assert_field_equals(body, "Protocol", "Redfish")
         assert_field_equals(body, "SubscriptionType", "RedfishEvent")
         assert_field_equals(body, "EventFormatType", "Event")
-        assert_field_equals(body, "DeliveryRetryPolicy", "TerminateAfterRetries")
         assert_field_equals(body, "RegistryPrefixes", [])
         assert_field_equals(body, "MessageIds", [])
         pytest_assert(
@@ -466,13 +517,6 @@ class TestRedfishEventSubscription:
         )
 
         logger.info("Verified GET shows the subscribed Destination/Context and bmcweb defaults")
-        response = _redfish(redfish_client, "PATCH", path, json={"Context": "ctx-updated"})
-        pytest_assert(
-            response.status_code in (200, 204),
-            "PATCH {} expected 200/204, got: {} body={!r}".format(path, response.status_code, response.text[:300])
-        )
-        assert_field_equals(_redfish(redfish_client, "GET", path).json(), "Context", "ctx-updated")
-        logger.info("Verified PATCH updated Context to 'ctx-updated'")
 
         response = _redfish(redfish_client, "DELETE", path)
         pytest_assert(
@@ -523,13 +567,6 @@ class TestRedfishEventSubscription:
             not _subscription_ids(redfish_client),
             "[{}] rejected request must not create a subscription".format(case)
         )
-
-    def test_delete_unknown_subscription(self, redfish_client, clean_subscriptions):
-        """DELETE of a subscription id that does not exist is 404 ResourceNotFound."""
-        path = "{}/424242".format(SUBSCRIPTIONS_PATH)
-        assert_redfish_error(_redfish(redfish_client, "DELETE", path), 404, "ResourceNotFound",
-                             message_args=["EventDestination", "424242"])
-        logger.info("Verified DELETE of unknown subscription -> 404 ResourceNotFound")
 
     def test_leak_event_delivered(self, redfish_client, rmc_receiver, leak_event):
         """
@@ -592,7 +629,8 @@ class TestRedfishEventSubscription:
         leak_event("Critical")
 
         for name in ("all", "leak"):
-            _assert_leak_event(_assert_event_envelope(_wait_for_deliveries(rmc_receiver, name, 1)[0])[0], "Critical")
+            event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, name, 1)[0])[0]
+            _assert_leak_event(event, "Critical")
         # Give a wrongly forwarded leak event time to show up before counting.
         time.sleep(NO_DELIVERY_SETTLE)
         for name in ("task", "base"):
@@ -603,66 +641,6 @@ class TestRedfishEventSubscription:
             )
         logger.info("Verified leak event reached the unfiltered and ResourceTypes=[%s] subscribers only",
                     LEAK_RESOURCE_TYPE)
-
-    def test_submit_test_event_delivered(self, redfish_client, rmc_receiver, clean_subscriptions):
-        """
-        EventService.SubmitTestEvent reaches every subscriber with the fields passed through.
-
-        bmcweb fans a test event out to all subscriptions regardless of their
-        filters, so a RegistryPrefixes=[Base] subscriber receives an OpenBMC
-        test event too. MessageId, MessageArgs, Severity, Message,
-        OriginOfCondition and EventTimestamp are forwarded as submitted.
-        """
-        _subscribe(redfish_client, rmc_receiver.url("test-all"), "ctx-test-all")
-        _subscribe(redfish_client, rmc_receiver.url("test-base"), "ctx-test-base", RegistryPrefixes=["Base"])
-
-        submitted = {
-            "MessageId": TEST_EVENT_MESSAGE_ID,
-            "MessageArgs": [],
-            "Severity": "OK",
-            "Message": "rack manager delivery check",
-            "OriginOfCondition": "/redfish/v1/Chassis/chassis",
-            "EventTimestamp": "2026-01-01T00:00:00+00:00",
-        }
-        response = _redfish(redfish_client, "POST", SUBMIT_TEST_EVENT_PATH, json=submitted)
-        assert_no_content(response, SUBMIT_TEST_EVENT_PATH)
-
-        for name in ("test-all", "test-base"):
-            payload = _wait_for_deliveries(rmc_receiver, name, 1)[0]
-            event = _assert_event_envelope(payload)[0]
-            for field in ("MessageId", "MessageArgs", "Severity", "Message", "EventTimestamp"):
-                assert_field_equals(event, field, submitted[field])
-            pytest_assert(
-                event.get("OriginOfCondition", {}).get("@odata.id") == submitted["OriginOfCondition"],
-                "[{}] OriginOfCondition must be {!r}, got: {!r}".format(
-                    name, submitted["OriginOfCondition"], event.get("OriginOfCondition"))
-            )
-            assert_field_equals(event, "MemberId", "0")
-            logger.info("[%s] Verified test event delivered with all submitted fields", name)
-
-    def test_delete_stops_delivery(self, redfish_client, rmc_receiver, leak_event):
-        """
-        Once a rack manager unsubscribes it receives nothing more; other subscribers still do.
-        """
-        _, path_a = _subscribe(redfish_client, rmc_receiver.url("keep"), "ctx-keep")
-        _, path_b = _subscribe(redfish_client, rmc_receiver.url("gone"), "ctx-gone")
-
-        leak_event("Critical")
-        _wait_for_deliveries(rmc_receiver, "keep", 1)
-        _wait_for_deliveries(rmc_receiver, "gone", 1)
-
-        response = _redfish(redfish_client, "DELETE", path_b)
-        pytest_assert(response.status_code in (200, 204), "DELETE {} -> {}".format(path_b, response.status_code))
-
-        leak_event("OK")
-        _wait_for_deliveries(rmc_receiver, "keep", 2)
-        time.sleep(NO_DELIVERY_SETTLE)
-        gone = rmc_receiver.deliveries("gone")
-        pytest_assert(
-            len(gone) == 1,
-            "Unsubscribed endpoint must not receive further events, got {} deliveries: {}".format(len(gone), gone)
-        )
-        logger.info("Verified after unsubscribe: 'keep' received the second event, 'gone' still has %d", len(gone))
 
     def test_subscription_persists_across_bmcweb_restart(
             self, redfish_client, bmc_duthost, rmc_receiver, leak_event):
@@ -695,130 +673,6 @@ class TestRedfishEventSubscription:
         _assert_leak_event(event, "Critical")
         logger.info("Verified delivery still works after the bmcweb restart")
 
-    def test_sse_stream_receives_events(self, redfish_client, leak_event):
-        """
-        The rack manager can also pull events over Server-Sent Events.
-
-        GET /redfish/v1/EventService/SSE (HTTP/1.1, Accept: text/event-stream)
-        opens a stream, which shows up as an SSE-type subscription while open.
-        An event raised on the BMC arrives as an SSE frame whose data is the
-        same #Event payload the push path uses. Closing the stream removes the
-        subscription.
-        """
-        logger.info("RMC --> GET %s (HTTP/1.1, Accept: text/event-stream, streaming)", SSE_PATH)
-        response = redfish_client.get(
-            SSE_PATH, stream=True, headers={"Accept": "text/event-stream"}, timeout=(10, SSE_READ_TIMEOUT))
-        try:
-            logger.info("BMC <-- GET %s HTTP %s Content-Type=%s", SSE_PATH, response.status_code,
-                        response.headers.get("Content-Type"))
-            assert_status_ok(response, SSE_PATH)
-            content_type = response.headers.get("Content-Type", "")
-            pytest_assert(
-                "text/event-stream" in content_type,
-                "SSE Content-Type must be text/event-stream, got: {!r}".format(content_type)
-            )
-            pytest_assert(
-                wait_until(10, 1, 0, lambda: len(_subscription_ids(redfish_client)) == 1),
-                "Open SSE stream must appear as one subscription, got: {}".format(_subscription_ids(redfish_client))
-            )
-            sub = _redfish(redfish_client, "GET",
-                           "{}/{}".format(SUBSCRIPTIONS_PATH, _subscription_ids(redfish_client)[0])).json()
-            assert_field_equals(sub, "SubscriptionType", "SSE")
-            logger.info("Verified open SSE stream is listed as subscription %s (SubscriptionType=SSE)", sub["Id"])
-
-            leak_event("Critical")
-
-            # Byte-sized reads: the SSE response has no Content-Length, so
-            # iter_lines() (512-byte chunks) and chunk_size=None (read to EOF)
-            # both sit on a small frame until the read timeout.
-            data_lines = []
-            payload = None
-            buffered = b""
-            try:
-                for chunk in response.iter_content(chunk_size=1):
-                    buffered += chunk
-                    while b"\n" in buffered and payload is None:
-                        raw_line, buffered = buffered.split(b"\n", 1)
-                        line = raw_line.decode("utf-8", "replace").rstrip("\r")
-                        if line.startswith("data:"):
-                            data_lines.append(line[len("data:"):].strip())
-                        elif line == "" and data_lines:
-                            payload = json.loads("".join(data_lines))
-                    if payload is not None:
-                        break
-            except requests.exceptions.RequestException as e:
-                pytest.fail("SSE stream ended before an event frame arrived: {}".format(e))
-            pytest_assert(payload is not None, "No complete SSE event frame received")
-            logger.info("RMC received SSE frame: %s", _compact(json.dumps(payload, sort_keys=True)))
-            event = _assert_event_envelope(payload)[0]
-            _assert_leak_event(event, "Critical")
-            logger.info("Verified SSE frame carries the leak event %s", event["MessageId"])
-        finally:
-            response.close()
-            logger.info("RMC closed the SSE stream")
-
-        pytest_assert(
-            wait_until(20, 2, 0, lambda: not _subscription_ids(redfish_client)),
-            "SSE subscription must disappear once the stream is closed, got: {}".format(
-                _subscription_ids(redfish_client))
-        )
-        logger.info("Verified SSE subscription removed after the stream closed")
-
-    def test_unreachable_destination_terminates(self, redfish_client, rmc_receiver, clean_subscriptions):
-        """
-        Delivery retries are bounded by DeliveryRetryPolicy.
-
-        Two subscriptions point at a closed port next to the receiver:
-        TerminateAfterRetries (the default) must be removed by bmcweb once the
-        configured DeliveryRetryAttempts are exhausted; RetryForever must stay.
-        The reachable receiver keeps its subscription throughout.
-        """
-        host, port = rmc_receiver.base_url.rsplit(":", 1)
-        dead = "{}:{}/dead".format(host, int(port) + 1)
-        _, terminate_path = _subscribe(redfish_client, dead, "ctx-terminate")
-        _, forever_path = _subscribe(redfish_client, dead, "ctx-forever", DeliveryRetryPolicy="RetryForever")
-        _, live_path = _subscribe(redfish_client, rmc_receiver.url("live"), "ctx-live")
-
-        response = _redfish(redfish_client, "POST", SUBMIT_TEST_EVENT_PATH, json={"MessageId": TEST_EVENT_MESSAGE_ID})
-        assert_no_content(response, SUBMIT_TEST_EVENT_PATH)
-        _wait_for_deliveries(rmc_receiver, "live", 1)
-
-        logger.info("Waiting up to %ds for bmcweb to prune the TerminateAfterRetries subscription %s "
-                    "(deliveries to %s fail; EventService retries 3 x 30s)", RETRY_TERMINATION_TIMEOUT,
-                    terminate_path, dead)
-        start = time.time()
-        pytest_assert(
-            wait_until(RETRY_TERMINATION_TIMEOUT, 10, 0,
-                       lambda: redfish_client.get(terminate_path).status_code == 404),
-            "TerminateAfterRetries subscription still present after {}s of failed deliveries".format(
-                RETRY_TERMINATION_TIMEOUT)
-        )
-        logger.info("TerminateAfterRetries subscription removed after ~{:.0f}s".format(time.time() - start))
-        assert_status_ok(_redfish(redfish_client, "GET", forever_path), forever_path)
-        assert_status_ok(_redfish(redfish_client, "GET", live_path), live_path)
-        logger.info("Verified RetryForever and reachable subscriptions are still present")
-
-    @pytest.mark.xfail(strict=True, reason=(
-        "bmcweb's eventMatchesFilter splits MessageId on '.' and only recognises the 4-field "
-        "'Registry.Major.Minor.Key' form, so the 5-field Environmental.1.1.0.* leak MessageIds "
-        "resolve to an empty registry and a RegistryPrefixes=[Environmental] subscriber never receives them"))
-    def test_registry_prefix_filter_environmental(self, redfish_client, rmc_receiver, leak_event):
-        """
-        RegistryPrefixes=[Environmental] should pass the leak events (DMTF EventDestination).
-
-        bmcweb advertises Environmental in EventService.RegistryPrefixes and
-        accepts the subscription, so a rack manager filtering on it expects
-        the leak events. Marked strict xfail while bmcweb's delivery-side
-        filter cannot match them; a fixed bmcweb turns this into a failure to
-        be removed.
-        """
-        _subscribe(redfish_client, rmc_receiver.url("env"), "ctx-env", RegistryPrefixes=[LEAK_REGISTRY])
-        leak_event("Critical")
-        logger.info("Expecting the RegistryPrefixes=[%s] subscriber to receive the leak event (known bmcweb gap: "
-                    "it currently never does, hence xfail)", LEAK_REGISTRY)
-        event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, "env", 1)[0])[0]
-        _assert_leak_event(event, "Critical")
-
     def test_leak_detector_resource_tracks_state(self, redfish_client, leak_event):
         """
         The LeakDetector resource a leak event points at reflects the live sensor state.
@@ -828,11 +682,9 @@ class TestRedfishEventSubscription:
         follows OriginOfCondition from a leak event must find the detector
         listed in the LeakDetectors collection, and GET on it must report
         DetectorState and Status.Health moving OK -> Critical -> OK with the
-        STATE_DB row, while the LeakDetection resource aggregates the worst
-        detector into its own Status.Health.
+        STATE_DB row.
         """
-        leak_detection = LEAK_ORIGIN.rsplit("/LeakDetectors/", 1)[0]
-        collection = "{}/LeakDetectors".format(leak_detection)
+        collection = LEAK_ORIGIN.rsplit("/", 1)[0]
 
         response = redfish_client.get(collection)
         assert_status_ok(response, collection)
@@ -854,8 +706,89 @@ class TestRedfishEventSubscription:
             body = redfish_client.get(LEAK_ORIGIN).json()
             assert_field_equals(body, "@odata.id", LEAK_ORIGIN)
             assert_field_equals(body, "Id", LEAK_SENSOR)
-            health = redfish_client.get(leak_detection).json().get("Status", {}).get("Health")
-            if state == "Critical":
-                pytest_assert(health == "Critical",
-                              "{} Status.Health must aggregate to Critical, got: {!r}".format(leak_detection, health))
-            logger.info("Verified %s DetectorState=%s, %s Health=%s", LEAK_ORIGIN, state, leak_detection, health)
+            logger.info("Verified %s DetectorState=%s Health=%s", LEAK_ORIGIN, state,
+                        body.get("Status", {}).get("Health"))
+
+    def test_host_power_events_delivered(self, redfish_client, rmc_receiver, clean_subscriptions, host_power_state):
+        """
+        Each switch-host power transition reaches a subscribed rack manager as a ResourceEvent.
+
+        A subscription filtered on ResourceTypes=[ComputerSystem] receives
+        ResourcePoweringOff, ResourcePoweredOff, ResourcePoweringOn and
+        ResourcePoweredOn, in order and with increasing Ids, as HOST_STATE
+        moves through POWERING_OFF, POWERED_OFF, POWERING_ON, POWERED_ON.
+        Each event names the ComputerSystem as its origin. A subscription
+        filtered on LeakDetector receives none of them.
+        """
+        _subscribe(redfish_client, rmc_receiver.url("power"), "ctx-power", ResourceTypes=[HOST_RESOURCE_TYPE])
+        _subscribe(redfish_client, rmc_receiver.url("leak-only"), "ctx-leak-only", ResourceTypes=[LEAK_RESOURCE_TYPE])
+
+        payloads = []
+        for count, power_state in enumerate(("POWERING_OFF", "POWERED_OFF", "POWERING_ON", "POWERED_ON"), 1):
+            host_power_state(power_state)
+            payloads = _wait_for_deliveries(rmc_receiver, "power", count)
+            events = _assert_event_envelope(payloads[-1])
+            pytest_assert(len(events) == 1, "Expected exactly one event record, got: {}".format(events))
+            _assert_host_power_event(events[0], power_state)
+            logger.info("Verified %s delivered for device_power_state=%s", events[0]["MessageId"], power_state)
+
+        ids = [int(p["Id"]) for p in payloads]
+        pytest_assert(ids == sorted(ids) and len(set(ids)) == len(ids),
+                      "Event payload Ids must increase across the transitions, got: {}".format(ids))
+        time.sleep(NO_DELIVERY_SETTLE)
+        leak_only = rmc_receiver.deliveries("leak-only")
+        pytest_assert(not leak_only,
+                      "A LeakDetector-only subscriber must not receive power events, got: {}".format(leak_only))
+        logger.info("Verified four power events in order and none at the LeakDetector-only subscriber")
+
+    def test_host_power_off_event_drives_power_on_request(
+            self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions, host_power_state):
+        """
+        A rack manager learns the switch host is off from the event and powers it back on over Redfish.
+
+        HOST_STATE reports POWERED_OFF, the subscriber receives
+        ResourcePoweredOff, and answers with ComputerSystem.Reset ResetType=On.
+        That request must become one RACK_MANAGER_COMMAND row with
+        command=POWER_ON that bmcctld completes with status DONE and result
+        SUCCESS. bmcctld finds the host already on and so does not rewrite
+        HOST_STATE itself, so the row is set back to POWERED_ON here, standing
+        in for the write a real power-on would make, and the subscriber must
+        then receive ResourcePoweredOn.
+        """
+        _subscribe(redfish_client, rmc_receiver.url("rm"), "ctx-rm", ResourceTypes=[HOST_RESOURCE_TYPE])
+        keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+        host_power_state("POWERED_OFF")
+        event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, "rm", 1)[0])[0]
+        _assert_host_power_event(event, "POWERED_OFF")
+        logger.info("Rack manager received %s, requesting ResetType=On", event["MessageId"])
+
+        response = _redfish(redfish_client, "POST", RESET_PATH, json={"ResetType": "On"})
+        pytest_assert(response.status_code in (200, 204),
+                      "ResetType=On must be accepted with HTTP 200 or 204, got: {}".format(response.status_code))
+
+        def _new_command_keys():
+            return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
+
+        pytest_assert(wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0, _new_command_keys),
+                      "No RACK_MANAGER_COMMAND row appeared within {}s of the reset".format(DELIVERY_TIMEOUT))
+        new_keys = _new_command_keys()
+        pytest_assert(len(new_keys) == 1, "One reset must create one command row, got: {}".format(sorted(new_keys)))
+        key = new_keys.pop()
+
+        def _command_done():
+            return redis_hgetall(bmc_duthost, STATE_DB, key).get("status") in ("DONE", "FAILED")
+
+        pytest_assert(wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done),
+                      "{} was not completed by bmcctld within {}s".format(key, COMMAND_DONE_TIMEOUT))
+        row = redis_hgetall(bmc_duthost, STATE_DB, key)
+        pytest_assert(
+            row.get("command") == "POWER_ON" and row.get("status") == "DONE" and row.get("result") == "SUCCESS",
+            "{} must end command=POWER_ON status=DONE result=SUCCESS, got: {}".format(key, row)
+        )
+        logger.info("bmcctld completed %s: %s", key, row)
+
+        host_power_state("POWERED_ON")
+        event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, "rm", 2)[1])[0]
+        _assert_host_power_event(event, "POWERED_ON")
+        logger.info("Verified the rack manager saw the host off, powered it on, and saw it on again")

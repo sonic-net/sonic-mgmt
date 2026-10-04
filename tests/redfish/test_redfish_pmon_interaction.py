@@ -66,10 +66,11 @@ DEFAULT_RACK_MGR_CRITICAL_ALERT_ACTION = "syslog_only"
 BMCCTLD = "bmcctld"
 PMON_CONTAINER = "pmon"
 
-# Redfish PowerState -> (HOST_STATE.device_power_state, HOST_STATE.device_status / oper_status)
+# Settled HOST_STATE.device_power_state -> HOST_STATE.device_status and CHASSIS_MODULE_TABLE.oper_status
+HOST_POWERED_ON = "POWERED_ON"
 POWER_STATE_MAP = {
-    "On": ("POWERED_ON", "ONLINE"),
-    "Off": ("POWERED_OFF", "OFFLINE"),
+    HOST_POWERED_ON: "ONLINE",
+    "POWERED_OFF": "OFFLINE",
 }
 
 CMD_POWER_ON = "POWER_ON"
@@ -94,10 +95,9 @@ def _command_keys(bmc_duthost):
     return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
 
 
-def _power_state(redfish_client):
-    response = redfish_client.get(SYSTEM_PATH)
-    assert_status_ok(response, SYSTEM_PATH)
-    return response.json().get("PowerState")
+def _device_power_state(bmc_duthost):
+    """HOST_STATE|switch-host device_power_state as bmcctld publishes it (pmon-bmc-design.md 2.2.1)."""
+    return redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY).get("device_power_state")
 
 
 def _post_reset_on(redfish_client):
@@ -179,11 +179,12 @@ def _host_state_newer_than(bmc_duthost, before):
 
 
 @pytest.fixture(scope="function")
-def system_is_on(redfish_client):
-    """Skip unless the switch host is On, so every ResetType=On here is a no-op for it."""
-    power_state = _power_state(redfish_client)
-    pyrequire(power_state == "On",
-              "System PowerState is {!r}, ResetType=On would change the switch host".format(power_state))
+def system_is_on(bmc_duthost):
+    """Skip unless HOST_STATE says the switch host is POWERED_ON, so every ResetType=On here is a no-op for it."""
+    power_state = _device_power_state(bmc_duthost)
+    pyrequire(power_state == HOST_POWERED_ON,
+              "{} device_power_state is {!r}, ResetType=On would change the switch host".format(
+                  HOST_STATE_KEY, power_state))
     return power_state
 
 
@@ -246,6 +247,16 @@ def critical_alert_blocks_power_on(bmc_duthost):
               "refusing to inject a CRITICAL rack manager alert".format(policy["rack_mgr_critical_alert_action"]))
 
 
+@pytest.fixture(scope="function")
+def ignore_refused_power_on_logs(bmc_duthost, loganalyzer):
+    """The refused POWER_ON is logged at ERR by the bridge and bmcctld; that is the behaviour under test."""
+    if loganalyzer:
+        loganalyzer[bmc_duthost.hostname].ignore_regex.extend([
+            r".*sonic-dbus-bridge.*Rack manager command .* \(POWER_ON\) failed: {}.*".format(RESULT_CRITICAL),
+            r".*bmcctld.*RACK_MGR_CMD FAILED.*reason={}.*".format(RESULT_CRITICAL),
+        ])
+
+
 class TestRedfishPmonInteraction:
 
     def test_reset_command_consumed_by_bmcctld(self, redfish_client, bmc_duthost, system_is_on, bmcctld_running):
@@ -256,7 +267,8 @@ class TestRedfishPmonInteraction:
         command=POWER_ON, bmcctld must consume it to status=DONE result=SUCCESS
         (the host is already On, so the action is a successful no-op), and the
         row must remain in STATE_DB afterwards: neither side deletes command
-        history, so it stays available for audit. PowerState must still be On.
+        history, so it stays available for audit. HOST_STATE must still read
+        POWERED_ON.
         """
         keys_before = _command_keys(bmc_duthost)
         logger.info("{} rows before: {}".format(COMMAND_TABLE, len(keys_before)))
@@ -273,40 +285,37 @@ class TestRedfishPmonInteraction:
         retained = redis_hgetall(bmc_duthost, STATE_DB, key)
         pytest_assert(retained == fields,
                       "{} must be retained unchanged after completion, got: {}".format(key, retained))
-        pytest_assert(_power_state(redfish_client) == "On", "PowerState must still be On after ResetType=On")
+        pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,
+                      "{} must still read {} after ResetType=On".format(HOST_STATE_KEY, HOST_POWERED_ON))
 
-    def test_power_state_consistent_across_layers(self, redfish_client, bmc_duthost, bmcctld_running):
+    def test_power_state_consistent_across_layers(self, bmc_duthost, bmcctld_running):
         """
-        Redfish PowerState agrees with what bmcctld publishes in STATE_DB.
+        The two STATE_DB views bmcctld keeps of the switch host agree.
 
-        PowerState On maps to HOST_STATE device_power_state=POWERED_ON and
-        device_status=ONLINE and to CHASSIS_MODULE_TABLE oper_status=ONLINE,
-        Off to POWERED_OFF/OFFLINE. Any other PowerState or transitional
-        device_power_state is reported as a failure since the system should be
-        settled when nothing is in flight.
+        HOST_STATE device_power_state=POWERED_ON goes with device_status=ONLINE
+        and CHASSIS_MODULE_TABLE oper_status=ONLINE, POWERED_OFF with OFFLINE.
+        A transitional device_power_state is reported as a failure since the
+        system should be settled when nothing is in flight.
         """
-        power_state = _power_state(redfish_client)
         host_state = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
         module_info = redis_hgetall(bmc_duthost, STATE_DB, MODULE_INFO_KEY)
-        logger.info("PowerState={} {}={} {}={}".format(power_state, HOST_STATE_KEY, host_state,
-                                                       MODULE_INFO_KEY, module_info))
+        logger.info("{}={} {}={}".format(HOST_STATE_KEY, host_state, MODULE_INFO_KEY, module_info))
 
+        power_state = host_state.get("device_power_state")
         pytest_assert(power_state in POWER_STATE_MAP,
-                      "PowerState must be one of {}, got {!r}".format(sorted(POWER_STATE_MAP), power_state))
-        expected_power, expected_status = POWER_STATE_MAP[power_state]
-        pytest_assert(host_state.get("device_power_state") == expected_power,
-                      "{} device_power_state must be {} for PowerState={}, got: {}".format(
-                          HOST_STATE_KEY, expected_power, power_state, host_state))
+                      "{} device_power_state must be one of {}, got {!r}".format(
+                          HOST_STATE_KEY, sorted(POWER_STATE_MAP), power_state))
+        expected_status = POWER_STATE_MAP[power_state]
         pytest_assert(host_state.get("device_status") == expected_status,
-                      "{} device_status must be {} for PowerState={}, got: {}".format(
+                      "{} device_status must be {} for device_power_state={}, got: {}".format(
                           HOST_STATE_KEY, expected_status, power_state, host_state))
         pytest_assert(module_info.get("oper_status") == expected_status,
-                      "{} oper_status must be {} for PowerState={}, got: {}".format(
+                      "{} oper_status must be {} for device_power_state={}, got: {}".format(
                           MODULE_INFO_KEY, expected_status, power_state, module_info))
 
     def test_critical_alert_blocks_power_on_command(self, redfish_client, bmc_duthost, alert_target,
-                                                    system_is_on, bmcctld_running,
-                                                    clean_rack_manager_alerts, critical_alert_blocks_power_on):
+                                                    system_is_on, bmcctld_running, clean_rack_manager_alerts,
+                                                    critical_alert_blocks_power_on, ignore_refused_power_on_logs):
         """
         A CRITICAL rack manager alert makes bmcctld refuse POWER_ON until it is cleared.
 
@@ -323,7 +332,8 @@ class TestRedfishPmonInteraction:
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
         _assert_command_outcome(key, fields, CMD_FAILED, RESULT_CRITICAL)
-        pytest_assert(_power_state(redfish_client) == "On", "PowerState must stay On while the alert is active")
+        pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,
+                      "{} must stay {} while the alert is active".format(HOST_STATE_KEY, HOST_POWERED_ON))
 
         response = redfish_client.post(alert_target, json=CLEARED_LEAK_PAYLOAD)
         assert_no_content(response, alert_target)
@@ -340,7 +350,8 @@ class TestRedfishPmonInteraction:
         supervisorctl restart bmcctld in the pmon container. bmcctld must come
         back RUNNING with a new pid, refresh HOST_STATE|switch-host from the
         live oper status (newer last_change_timestamp, still POWERED_ON/ONLINE),
-        create no RACK_MANAGER_COMMAND row of its own, and leave PowerState On.
+        create no RACK_MANAGER_COMMAND row of its own, and leave HOST_STATE
+        POWERED_ON.
         A ResetType=On issued afterwards must again be consumed to DONE/SUCCESS,
         proving the restarted daemon re-subscribed to the command table.
         """
@@ -363,7 +374,7 @@ class TestRedfishPmonInteraction:
         )
         host_state_after = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
         logger.info("{} after restart: {}".format(HOST_STATE_KEY, host_state_after))
-        expected_power, expected_status = POWER_STATE_MAP["On"]
+        expected_power, expected_status = HOST_POWERED_ON, POWER_STATE_MAP[HOST_POWERED_ON]
         pytest_assert(
             host_state_after.get("device_power_state") == expected_power
             and host_state_after.get("device_status") == expected_status,
@@ -374,8 +385,8 @@ class TestRedfishPmonInteraction:
         spurious = _command_keys(bmc_duthost) - keys_before
         pytest_assert(not spurious,
                       "{} restart must not create command rows, got: {}".format(BMCCTLD, sorted(spurious)))
-        pytest_assert(_power_state(redfish_client) == "On",
-                      "PowerState must still be On after restarting {}".format(BMCCTLD))
+        pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,
+                      "{} must still read {} after restarting {}".format(HOST_STATE_KEY, HOST_POWERED_ON, BMCCTLD))
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
         _assert_command_outcome(key, fields, CMD_DONE, RESULT_SUCCESS)

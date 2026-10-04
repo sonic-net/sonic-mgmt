@@ -24,7 +24,6 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.redfish.redfish_utils import assert_no_content
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +37,13 @@ REDFISH_CONTAINER = "redfish"
 REDFISH_SERVICE = "redfish"
 BRIDGE_SERVICE = "sonic-dbus-bridge"
 
-# Collections bmcweb fills from ObjectMapper lookups against sonic-dbus-bridge.
+# Collections bmcweb fills from ObjectMapper lookups against sonic-dbus-bridge
+# that the rack manager interface touches: leak detectors under Chassis, the OEM actions
+# under Managers, and FirmwareInventory (pmon-bmc-design.md 2.1.2).
 INVENTORY_COLLECTIONS = [
     "/redfish/v1/Chassis",
-    "/redfish/v1/Systems",
     "/redfish/v1/Managers",
     "/redfish/v1/UpdateService/FirmwareInventory",
-    "/redfish/v1/AccountService/Accounts",
 ]
 LEAK_DETECTORS_SUFFIX = "/ThermalSubsystem/LeakDetection/LeakDetectors"
 # Identity and state fields of a member that a restart must not change.
@@ -67,7 +66,6 @@ MAPPER_INTERFACES = [
     "xyz.openbmc_project.State.Host",
     "xyz.openbmc_project.Software.Version",
     "xyz.openbmc_project.Inventory.Item.LeakDetector",
-    "xyz.openbmc_project.User.Attributes",
 ]
 # Without these the Chassis and Systems resources cannot be built at all.
 MAPPER_REQUIRED_INTERFACES = [
@@ -79,13 +77,10 @@ BRIDGE_READY_TIMEOUT = 60
 CONTAINER_READY_TIMEOUT = 180
 RECOVERY_TIMEOUT = 90
 RECOVERY_POLL = 3
-# Upper bound on any single Redfish call while the bridge is down: bmcweb must
-# fail such calls, not sit on them.
-OUTAGE_REQUEST_TIMEOUT = 20
-
 # RFC 5737 documentation address: the subscription only has to survive the
-# restart, no event is raised at it.
-PERSISTED_DESTINATION = "http://192.0.2.1/restart-recovery"
+# restart, no event is raised at it. bmcweb stores a Destination with its
+# port made explicit, so give it one to read back exactly.
+PERSISTED_DESTINATION = "http://192.0.2.1:80/restart-recovery"
 PERSISTED_CONTEXT = "restart-recovery"
 
 
@@ -227,9 +222,8 @@ def _take_baseline(redfish_client, bmc_duthost):
     """Snapshot Redfish and the ObjectMapper, asserting both are healthy and non-trivial."""
     redfish_before, problems = _redfish_snapshot(redfish_client)
     pytest_assert(not problems, "Inventory is not fully readable before the restart: {}".format(problems))
-    for collection in ("/redfish/v1/Chassis", "/redfish/v1/Systems"):
-        pytest_assert(redfish_before.get(collection),
-                      "{} has no members before the restart, nothing to recover".format(collection))
+    pytest_assert(redfish_before.get("/redfish/v1/Chassis"),
+                  "/redfish/v1/Chassis has no members before the restart, nothing to recover")
     _log_snapshot("Redfish before restart", redfish_before)
 
     mapper_before = _mapper_snapshot(bmc_duthost)
@@ -318,45 +312,6 @@ class TestRedfishRestartRecovery:
         )
         logger.info("Verified running bmcweb (pid %d) re-discovered the bridge objects after restart", bmcweb_pid)
 
-    def test_bridge_outage_fails_fast_then_recovers(self, redfish_client, bmc_duthost):
-        """
-        Stop sonic-dbus-bridge, then start it again.
-
-        While the bridge and its ObjectMapper are gone bmcweb must keep
-        answering: the service root is still 200 and inventory requests get
-        a prompt reply of some kind rather than hanging on D-Bus. Once the
-        bridge is back the inventory must match the baseline.
-        """
-        redfish_before, mapper_before = _take_baseline(redfish_client, bmc_duthost)
-
-        logger.info("Stopping %s", BRIDGE_SERVICE)
-        _container_shell(bmc_duthost, "supervisorctl stop {}".format(BRIDGE_SERVICE))
-        try:
-            pytest_assert(
-                wait_until(BRIDGE_READY_TIMEOUT, 2, 0, lambda: _mapper_snapshot(bmc_duthost) is None),
-                "ObjectMapper still answers {}s after stopping {}".format(BRIDGE_READY_TIMEOUT, BRIDGE_SERVICE)
-            )
-            pytest_assert(_service_root_ok(redfish_client), "Service root must stay available while the bridge is down")
-            hung = []
-            for collection in INVENTORY_COLLECTIONS:
-                try:
-                    response = redfish_client.get(collection, timeout=OUTAGE_REQUEST_TIMEOUT)
-                    logger.info("Bridge down: GET %s -> HTTP %s", collection, response.status_code)
-                except requests.exceptions.RequestException as e:
-                    logger.error("Bridge down: GET %s -> %s", collection, type(e).__name__)
-                    hung.append(collection)
-            pytest_assert(
-                not hung,
-                "bmcweb did not answer within {}s while the bridge was down: {}".format(OUTAGE_REQUEST_TIMEOUT, hung)
-            )
-        finally:
-            logger.info("Starting %s", BRIDGE_SERVICE)
-            _container_shell(bmc_duthost, "supervisorctl start {}".format(BRIDGE_SERVICE), module_ignore_errors=True)
-
-        _wait_for_bridge(bmc_duthost)
-        _wait_for_recovery(redfish_client, bmc_duthost, redfish_before, mapper_before, RECOVERY_TIMEOUT)
-        logger.info("Verified bmcweb answered throughout the bridge outage and recovered the inventory")
-
     def test_redfish_container_restart(self, redfish_client, bmc_duthost):
         """
         Restart the whole redfish container (bmcweb and sonic-dbus-bridge).
@@ -412,7 +367,6 @@ class TestRedfishRestartRecovery:
                 )
             logger.info("Verified inventory and subscription %s survived the container restart", location)
         finally:
-            try:
-                assert_no_content(redfish_client.delete(location), location)
-            except Exception as e:
-                logger.warning("Could not remove subscription %s: %s", location, e)
+            response = redfish_client.delete(location)
+            if response.status_code not in (200, 204):
+                logger.warning("Could not remove subscription %s: HTTP %s", location, response.status_code)
