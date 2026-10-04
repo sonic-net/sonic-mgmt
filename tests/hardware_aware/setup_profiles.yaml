@@ -1,0 +1,729 @@
+version: hardware-aware-setup-profiles/v0.1
+description: >
+  Human-readable setup profiles for hardware-aware pre-run deselection.
+  A setup profile records the current platform, topology, run options,
+  feature flags, and resource availability used by skip rules.
+
+parameter_schema:
+  run.options.include_long_tests:
+    type: boolean
+    description: Whether long tests were explicitly enabled for this run.
+    example: false
+  environment.is_sim:
+    type: boolean
+    description: Whether the run is using a simulated DUT environment.
+    example: false
+  environment.is_vxr:
+    type: boolean
+    description: Whether the run is using a VXR virtual test environment.
+    example: false
+  topology.type:
+    type: string
+    description: High-level topology family.
+    example: t0
+  topology.name:
+    type: string
+    description: Concrete topology name passed to the run.
+    example: t0-64
+  topology.available_tags:
+    type: list[string]
+    description: Topology tags considered available for pytest.mark.topology matching.
+    example:
+      - t0
+      - t0-64
+  topology.identifiers:
+    type: list[string]
+    description: Topology names or aliases used by skip rules.
+    example:
+      - t0
+      - t0-64
+  topology.is_dualtor:
+    type: boolean
+    description: Whether the run is on a dualtor topology.
+    example: false
+  topology.is_isolated_v6:
+    type: boolean
+    description: Whether the run uses an isolated IPv6-only topology.
+    example: false
+  topology.is_storage_backend:
+    type: boolean
+    description: Whether the topology is a storage backend topology.
+    example: false
+  topology.is_tgen:
+    type: boolean
+    description: Whether the topology has traffic generator support for tgen/ixia/nut tests.
+    example: false
+  topology.is_t0_backend:
+    type: boolean
+    description: Whether the topology is a T0 backend topology.
+    example: false
+  topology.is_t2:
+    type: boolean
+    description: Whether the run is on a T2 topology.
+    example: false
+  topology.multi_dut.supported:
+    type: boolean
+    description: Whether multi-DUT parametrized tests are supported.
+    example: false
+  topology.single_dut_multi_asic.supported:
+    type: boolean
+    description: Whether single-DUT multi-ASIC parametrized tests are supported.
+    example: false
+  topology.fanout.explicit_support:
+    type: boolean
+    description: Whether tests requiring explicit fanout support can run.
+    example: false
+  topology.rif_members.available:
+    type: boolean
+    description: Whether rif_members parameters are available.
+    example: false
+  topology.vlan_members.drop_counter_supported:
+    type: boolean
+    description: Whether drop counter tests support vlan_members parameters.
+    example: false
+  platform.vendor_family:
+    type: string
+    description: Optional broad vendor grouping. Prefer SONiC facts such as platform.asic_type when possible.
+    example: cisco
+  platform.asic_type:
+    type: string
+    description: SONiC ASIC type from show platform summary, not the hardware chip name.
+    example: cisco-8000
+  platform.platform_family:
+    type: string
+    description: Platform family after platform alias decoding.
+    example: cisco-8000
+  platform.sonic_platform:
+    type: string
+    description: SONiC platform string from duthost.facts["platform"].
+    example: x86_64-8122_64ehf_o-r0
+  platform.platform:
+    type: string
+    description: Compatibility alias for the SONiC platform string used by some source skips.
+    example: x86_64-8122_64ehf_o-r0
+  platform.platform_asic:
+    type: string
+    description: Finer ASIC family from duthost facts when available.
+    example: cisco-8000
+  platform.pid:
+    type: string
+    description: External hardware PID or model identifier.
+    example: 8122-64EHF-O
+  platform.chip:
+    type: string
+    description: Hardware chip generation used for chip-level grouping.
+    example: G200
+  platform.hwsku:
+    type: string|null
+    description: Optional SONiC HwSKU from duthost.facts["hwsku"].
+    example: null
+  platform.hbm:
+    type: boolean|null
+    description: Whether the platform has HBM, when known.
+    example: false
+  platform.speed:
+    type: string|null
+    description: Platform aggregate speed from hardware identity data.
+    example: 51.2T
+  platform.configuration:
+    type: string|null
+    description: Port configuration from hardware identity data.
+    example: 64x800G
+  platform.sonic_support_roles:
+    type: list[string]
+    description: SONiC roles listed for the platform, when known.
+    example:
+      - BT0
+      - BT1
+  platform.identifiers:
+    type: list[string]
+    description: External platform identifiers available to skip rules. Internal aliases are resolved separately.
+    example:
+      - x86_64-8122_64ehf_o-r0
+      - 8122-64EHF-O
+      - G200
+  platform.is_multi_asic:
+    type: boolean
+    description: Whether the DUT is a multi-ASIC system.
+    example: false
+  platform.is_smartswitch:
+    type: boolean
+    description: Whether the DUT is a SmartSwitch platform.
+    example: false
+  platform.is_dpu:
+    type: boolean
+    description: Whether the DUT is a DPU node.
+    example: false
+  platform.is_modular_chassis:
+    type: boolean
+    description: Whether the DUT is a modular chassis.
+    example: false
+  platform.chassis.modules.available:
+    type: boolean
+    description: Whether chassis module APIs report at least one module.
+    example: false
+  platform.chassis.status_led.controllable:
+    type: boolean
+    description: Whether chassis status LED can be controlled by platform APIs.
+    example: false
+  platform.role:
+    type: string|null
+    description: Optional chassis role such as LC/RP when relevant.
+    example: null
+  image.os_version:
+    type: string|null
+    description: SONiC image branch or release used by image-gated skips.
+    example: 202505c
+  image.kernel_version:
+    type: string|null
+    description: DUT kernel version when image-age skips apply.
+    example: null
+  features.acl.ipv6.supported:
+    type: boolean
+    description: Whether IPv6 ACL tests are supported.
+    example: false
+  features.bgp.idf_isolation.supported:
+    type: boolean
+    description: Whether BGP IDF isolation is supported by the image.
+    example: false
+  features.bgp.tsa_persistence.supported:
+    type: boolean
+    description: Whether startup TSA/TSB persistence is supported by the image.
+    example: false
+  features.console_switch.enabled:
+    type: boolean
+    description: Whether console switch tests are enabled for the DUT.
+    example: false
+  features.dhcp_relay.enabled:
+    type: boolean
+    description: Whether DHCP relay is enabled for the run.
+    example: true
+  features.eventd.enabled:
+    type: boolean
+    description: Whether eventd is enabled on the system.
+    example: true
+  features.everflow.cross_direction_acl_mirroring.supported:
+    type: boolean
+    description: Whether cross-direction ACL mirroring is supported.
+    example: false
+  features.everflow.ipv6_erspan_cli.supported:
+    type: boolean
+    description: Whether CLI-based IPv6 ERSPAN mirror session creation is supported.
+    example: false
+  features.macsec.enabled:
+    type: boolean
+    description: Whether MACsec tests are applicable.
+    example: false
+  features.nat.enabled:
+    type: boolean
+    description: Whether NAT feature tests are enabled.
+    example: false
+  features.sflow.enabled:
+    type: boolean
+    description: Whether sFlow feature tests are enabled.
+    example: false
+  resources.tgen_port_info.available:
+    type: boolean
+    description: Whether tgen_port_info parameters are available.
+    example: false
+  resources.psu.minimum_count_2.available:
+    type: boolean
+    description: Whether the DUT has at least two healthy PSUs for PSU on/off testing.
+    example: false
+  resources.python_saithrift_package_url.available:
+    type: boolean
+    description: Whether --py_saithrift_url is available for pretest PTF setup.
+    example: false
+  resources.sensor_mocker.available:
+    type: boolean
+    description: Whether platform sensor mockers are available for fan and thermal tests.
+    example: false
+  resources.counterpoll_cpu_usage_program.available:
+    type: boolean
+    description: Whether a vendor-specific program is defined for counterpoll CPU usage checks.
+    example: false
+  test.platform_or_asic.supported:
+    type: boolean
+    description: Generic flag for tests whose source says this platform or ASIC is unsupported.
+    example: false
+  run.neighbor_type:
+    type: string|null
+    description: Neighbor type passed to the run, such as sonic or eos.
+    example: sonic
+  run.uses_topology_filter:
+    type: boolean
+    description: Whether run_tests.sh passes --topology.
+    example: true
+  run.uses_asic_filter:
+    type: boolean
+    description: Whether pytest is invoked with --asic.
+    example: false
+  run.enable_macsec:
+    type: boolean|null
+    description: Whether the MACsec run option is enabled.
+    example: false
+
+platform_catalog:
+  x86_64-8102_64h_o-r0:
+    description: External/canonical identity for the Cisco internal Matilda-64 platform.
+    sonic_platform: x86_64-8102_64h_o-r0
+    pid: 8102-64H-O
+    chip: Q200
+    hbm: false
+    speed: 6.4T
+    configuration: 64x100G
+    sonic_support_roles:
+      - T0
+      - T1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8102-64H-O
+    internal_aliases:
+      - matilda
+      - Matilda-64
+      - m64
+      - mth64
+
+  x86_64-8101_32fh_o-r0:
+    description: External/canonical identity for the Cisco internal Churchill Mono platform.
+    sonic_platform: x86_64-8101_32fh_o-r0
+    pid: 8101-32FH-O
+    chip: Q200
+    hbm: false
+    speed: 12.8T
+    configuration: 32x400G
+    sonic_support_roles:
+      - T1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8101-32FH-O
+    internal_aliases:
+      - churchill-mono
+      - Churchill Mono
+
+  x86_64-8201_32fh_o-r0:
+    description: External/canonical identity for the Cisco internal Churchill HBM platform.
+    sonic_platform: x86_64-8201_32fh_o-r0
+    pid: 8201-32FH-O
+    chip: Q200
+    hbm: true
+    speed: 12.8T
+    configuration: 32x400G
+    sonic_support_roles:
+      - T1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8201-32FH-O
+    internal_aliases:
+      - churchill-hbm
+      - Churchill HBM
+
+  x86_64-8111_32eh_o-r0:
+    description: External/canonical identity for the Cisco internal Crocodile platform.
+    sonic_platform: x86_64-8111_32eh_o-r0
+    pid: 8111-32EH-O
+    chip: G100
+    hbm: false
+    speed: 25.6T
+    configuration: 32x800G
+    sonic_support_roles:
+      - BT0
+      - BT1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8111-32EH-O
+    internal_aliases:
+      - crocodile
+      - Crocodile
+
+  x86_64-8122_64eh_o-r0:
+    description: External/canonical identity for the Cisco internal Lightning platform.
+    sonic_platform: x86_64-8122_64eh_o-r0
+    pid: 8122-64EH-O
+    chip: G200
+    hbm: false
+    speed: 51.2T
+    configuration: 64x800G
+    sonic_support_roles:
+      - BT0
+      - BT1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8122-64EH-O
+    internal_aliases:
+      - lightning
+      - Lightning
+
+  x86_64-8122_64ehf_o-r0:
+    description: External/canonical identity for the Cisco internal Superbolt platform.
+    sonic_platform: x86_64-8122_64ehf_o-r0
+    pid: 8122-64EHF-O
+    chip: G200
+    hbm: false
+    speed: 51.2T
+    configuration: 64x800G
+    sonic_support_roles:
+      - BT0
+      - BT1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8122-64EHF-O
+    internal_aliases:
+      - superbolt
+      - Superbolt
+
+  x86_64-8102_28fh_dpu_o-r0:
+    description: External/canonical identity for the Cisco internal Mt. Fuji platform.
+    sonic_platform: x86_64-8102_28fh_dpu_o-r0
+    pid: 8102-28FH-DPU-O
+    chip: Q200 + DPU
+    hbm: false
+    speed: 12.8T
+    configuration: 28x400G
+    sonic_support_roles:
+      - T1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8102-28FH-DPU-O
+    internal_aliases:
+      - mt-fuji
+      - Mt. Fuji
+
+  8524-64EH-O:
+    description: External identity for the Cisco internal McKenzie platform. SONiC platform string is not confirmed here.
+    pid: 8524-64EH-O
+    chip: G200
+    hbm: false
+    speed: 51.2T
+    configuration: 64x800G
+    sonic_support_roles: []
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    internal_aliases:
+      - mckenzie
+      - McKenzie
+
+  8800-LC-48H:
+    description: External identity for the Cisco internal Gauntlet platform. SONiC platform string is not confirmed here.
+    pid: 8800-LC-48H
+    chip: Q100
+    hbm: true
+    speed: 4.8T
+    configuration: 48x100G
+    hwsku: Cisco-8800-LC-48H-C48
+    sonic_support_roles:
+      - T2
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    internal_aliases:
+      - gauntlet
+      - Gauntlet
+
+  x86_64-88_lc0_36fh_m-r0:
+    description: External/canonical identity for the Cisco internal Vanguard platform.
+    sonic_platform: x86_64-88_lc0_36fh_m-r0
+    pid: 88-LC0-36FH-M
+    chip: Q200
+    hbm: true
+    speed: 14.4T
+    configuration: 36x400G
+    hwsku: Cisco-88-LC0-36FH-M-O36
+    sonic_support_roles:
+      - T2
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 88-LC0-36FH-M
+      - x86_64-88_lc0_36fh_mo-r0
+    internal_aliases:
+      - vanguard
+      - Vanguard
+
+  x86_64-88_lc0_36fh-r0:
+    description: External/canonical identity for the Cisco internal Lancer platform.
+    sonic_platform: x86_64-88_lc0_36fh-r0
+    pid: 88-LC0-36FH
+    chip: Q200
+    hbm: true
+    speed: 14.4T
+    configuration: 36x400G
+    hwsku: Cisco-88-LC0-36FH-O36
+    sonic_support_roles:
+      - T2
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 88-LC0-36FH
+      - x86_64-88_lc0_36fh_o-r0
+    internal_aliases:
+      - lancer
+      - Lancer
+
+  FAS1000-32D:
+    description: External identity for Carib, rebranded from Churchill Mono. SONiC platform string is not confirmed here.
+    pid: FAS1000-32D
+    chip: Q200
+    hbm: false
+    speed: 12.8T
+    configuration: 32x400G
+    sonic_support_roles:
+      - T1
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    internal_aliases:
+      - carib
+      - Carib
+
+  FAS1000-60L4D:
+    description: External identity for Siren. SONiC platform string is not confirmed here.
+    pid: FAS1000-60L4D
+    chip: Q200
+    hbm: false
+    speed: 12.8T
+    configuration: 64x50G + 4x400G
+    sonic_support_roles:
+      - T0
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    internal_aliases:
+      - siren
+      - Siren
+
+  x86_64-8101_32fh_o_c01-r0:
+    description: External/canonical identity for the Cisco internal Tornado platform.
+    sonic_platform: x86_64-8101_32fh_o_c01-r0
+    pid: 8101-32FH-C01
+    chip: Q200
+    hbm: false
+    speed: 12.8T
+    configuration: 32x400G
+    sonic_support_roles:
+      - T0
+    vendor_family: cisco
+    asic_type: cisco-8000
+    platform_family: cisco-8000
+    aliases:
+      - 8101-32FH-C01
+    internal_aliases:
+      - tornado
+      - Tornado
+
+setups:
+  _template:
+    description: Copy this profile when adding a new setup.
+    metadata:
+      platform: null
+      sonic_platform: null
+      pid: null
+      chip: null
+      hwsku: null
+      hbm: null
+      speed: null
+      configuration: null
+      sonic_support_roles: []
+      vendor_family: null
+      asic_type: null
+      platform_family: null
+      topology: null
+      branch: null
+    parameters:
+      run.options.include_long_tests: null
+      environment.is_sim: null
+      environment.is_vxr: null
+      topology.type: null
+      topology.name: null
+      topology.available_tags: []
+      topology.identifiers: []
+      topology.is_dualtor: null
+      topology.is_isolated_v6: null
+      topology.is_storage_backend: null
+      topology.is_tgen: null
+      topology.is_t0_backend: null
+      topology.is_t2: null
+      topology.multi_dut.supported: null
+      topology.single_dut_multi_asic.supported: null
+      topology.fanout.explicit_support: null
+      topology.rif_members.available: null
+      topology.vlan_members.drop_counter_supported: null
+      platform.sonic_platform: null
+      platform.platform: null
+      platform.platform_asic: null
+      platform.pid: null
+      platform.chip: null
+      platform.hwsku: null
+      platform.hbm: null
+      platform.speed: null
+      platform.configuration: null
+      platform.sonic_support_roles: []
+      platform.vendor_family: null
+      platform.asic_type: null
+      platform.platform_family: null
+      platform.identifiers: []
+      platform.is_multi_asic: null
+      platform.is_smartswitch: null
+      platform.is_dpu: null
+      platform.is_modular_chassis: null
+      platform.chassis.modules.available: null
+      platform.chassis.status_led.controllable: null
+      platform.role: null
+      image.os_version: null
+      image.kernel_version: null
+      features.acl.ipv6.supported: null
+      features.bgp.idf_isolation.supported: null
+      features.bgp.tsa_persistence.supported: null
+      features.console_switch.enabled: null
+      features.dhcp_relay.enabled: null
+      features.eventd.enabled: null
+      features.everflow.cross_direction_acl_mirroring.supported: null
+      features.everflow.ipv6_erspan_cli.supported: null
+      features.macsec.enabled: null
+      features.nat.enabled: null
+      features.sflow.enabled: null
+      resources.tgen_port_info.available: null
+      resources.psu.minimum_count_2.available: null
+      resources.python_saithrift_package_url.available: null
+      resources.sensor_mocker.available: null
+      resources.counterpoll_cpu_usage_program.available: null
+      test.platform_or_asic.supported: null
+      run.neighbor_type: null
+      run.uses_topology_filter: true
+      run.uses_asic_filter: false
+      run.enable_macsec: null
+
+  x86_64-8122_64ehf_o-r0:t0:
+    aliases:
+      - superbolt:t0
+      - 8122-64EHF-O:t0
+    description: Cisco 8000 T0 setup seeded from the internal Superbolt T0 report.
+    metadata:
+      platform: x86_64-8122_64ehf_o-r0
+      topology: t0
+    parameters:
+      run.options.include_long_tests: false
+      topology.type: t0
+      topology.name: t0
+      topology.available_tags:
+        - t0
+        - t0-m6-28
+      topology.identifiers:
+        - t0
+        - t0-m6-28
+      topology.is_dualtor: false
+      topology.is_isolated_v6: false
+      topology.is_storage_backend: false
+      topology.is_tgen: false
+      topology.is_t0_backend: false
+      topology.is_t2: false
+      topology.multi_dut.supported: false
+      topology.single_dut_multi_asic.supported: false
+      topology.fanout.explicit_support: false
+      topology.rif_members.available: false
+      platform.platform: x86_64-8122_64ehf_o-r0
+      platform.platform_asic: cisco-8000
+      platform.is_multi_asic: false
+      platform.is_smartswitch: false
+      platform.is_dpu: false
+      platform.role: null
+      image.os_version: 202505c
+      image.kernel_version: null
+      features.bgp.idf_isolation.supported: false
+      features.bgp.tsa_persistence.supported: false
+      features.console_switch.enabled: false
+      features.dhcp_relay.enabled: true
+      features.eventd.enabled: true
+      features.everflow.cross_direction_acl_mirroring.supported: false
+      features.macsec.enabled: false
+      features.nat.enabled: false
+      resources.tgen_port_info.available: false
+      resources.python_saithrift_package_url.available: false
+      test.platform_or_asic.supported: false
+      run.neighbor_type: sonic
+      run.uses_topology_filter: true
+      run.uses_asic_filter: false
+      run.enable_macsec: false
+
+  x86_64-8102_64h_o-r0:t0-64:
+    aliases:
+      - matilda:t0-64
+      - matilda-64:t0-64
+      - mth64:t0-64
+      - m64:t0-64
+      - 8102-64H-O:t0-64
+    description: Cisco 8000 T0-64 setup seeded from the Matilda/M64 report.
+    metadata:
+      platform: x86_64-8102_64h_o-r0
+      topology: t0-64
+    parameters:
+      run.options.include_long_tests: false
+      environment.is_sim: false
+      environment.is_vxr: false
+      topology.type: t0
+      topology.name: t0-64
+      topology.available_tags:
+        - t0
+        - t0-64
+      topology.identifiers:
+        - t0
+        - t0-64
+      topology.is_dualtor: false
+      topology.is_isolated_v6: false
+      topology.is_storage_backend: false
+      topology.is_tgen: false
+      topology.is_t0_backend: false
+      topology.is_t2: false
+      topology.multi_dut.supported: false
+      topology.single_dut_multi_asic.supported: false
+      topology.fanout.explicit_support: false
+      topology.rif_members.available: false
+      topology.vlan_members.drop_counter_supported: false
+      platform.platform: x86_64-8102_64h_o-r0
+      platform.platform_asic: cisco-8000
+      platform.is_multi_asic: false
+      platform.is_smartswitch: false
+      platform.is_dpu: false
+      platform.is_modular_chassis: false
+      platform.chassis.modules.available: false
+      platform.chassis.status_led.controllable: null
+      platform.role: null
+      image.os_version: 202405c
+      image.kernel_version: null
+      features.acl.ipv6.supported: false
+      features.bgp.idf_isolation.supported: false
+      features.bgp.tsa_persistence.supported: false
+      features.console_switch.enabled: false
+      features.dhcp_relay.enabled: true
+      features.eventd.enabled: true
+      features.everflow.cross_direction_acl_mirroring.supported: false
+      features.everflow.ipv6_erspan_cli.supported: false
+      features.macsec.enabled: false
+      features.nat.enabled: false
+      features.sflow.enabled: false
+      resources.psu.minimum_count_2.available: null
+      resources.python_saithrift_package_url.available: false
+      resources.sensor_mocker.available: false
+      resources.counterpoll_cpu_usage_program.available: false
+      test.platform_or_asic.supported: false
+      run.neighbor_type: sonic
+      run.uses_topology_filter: true
+      run.uses_asic_filter: false
+      run.enable_macsec: false
