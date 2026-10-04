@@ -5,10 +5,6 @@ import logging
 import re
 import tempfile
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.platform.device_utils import get_current_sonic_version, overwrite_script_to_backup_logs, \
-    get_kexec_time, analyze_log_file, analyze_sairedis_rec, _parse_timestamp, get_data_plane_report, \
-    get_report_summary, verify_mac_jumping, verify_required_events, LOGS_ON_TMPFS_PLATFORMS
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from .args.sfp_utils_args import add_limited_sfp_ports_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
@@ -20,6 +16,7 @@ from tests.common.platform.interface_utils import get_ports_with_flat_memory
 logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
