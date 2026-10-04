@@ -118,6 +118,47 @@ stages:
       name: DetectChanges
       displayName: "Check changed files under the GoBGP shim and speaker manager"
 
+  - job: detect_dual_tor_management_changes
+    displayName: "Detect dual-ToR management metadata changes"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+
+        TARGET_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
+        TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+        MANAGEMENT_PATHS=(
+          "ansible/config_sonic_basedon_testbed.yml"
+          "ansible/library/dual_tor_facts.py"
+          "ansible/library/minigraph_facts.py"
+          "ansible/library/test_dual_tor_management.py"
+          "ansible/templates/minigraph_png.j2"
+        )
+
+        CHANGED="true"
+
+        if git fetch origin "${TARGET_BRANCH}" --depth=1 &&
+           BASE_COMMIT=$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null) &&
+           CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD -- "${MANAGEMENT_PATHS[@]}" | tr '\n' ' '); then
+          if [[ -n "${CHANGED_FILES}" ]]; then
+            echo "Detected dual-ToR management metadata changes: ${CHANGED_FILES}"
+          else
+            CHANGED="false"
+            echo "No dual-ToR management metadata changes detected"
+          fi
+        else
+          echo "Cannot diff against origin/${TARGET_BRANCH}; running the tests"
+        fi
+
+        echo "##vso[task.setvariable variable=DUAL_TOR_MANAGEMENT_CHANGED;isOutput=true]${CHANGED}"
+      name: DetectChanges
+      displayName: "Check dual-ToR management metadata files"
+
   - job: static_analysis
     displayName: "Static Analysis"
     timeoutInMinutes: 10
@@ -223,6 +264,36 @@ stages:
         set -euo pipefail
         python -m pytest ansible/roles/vm_set/files/gobgp/tests -q -rs
       displayName: "Run GoBGP shim and speaker manager unit tests"
+
+
+- stage: Dual_Tor_Management_Unit_Tests
+  displayName: "Dual-ToR Management Metadata Unit Tests"
+  dependsOn: Pre_test
+  condition: >-
+    and(
+      succeeded(),
+      not(canceled()),
+      eq(dependencies.Pre_test.outputs['detect_dual_tor_management_changes.DetectChanges.DUAL_TOR_MANAGEMENT_CHANGED'], 'true')
+    )
+  jobs:
+  - job: run_dual_tor_management_unit_tests
+    displayName: "Run dual-ToR management metadata unit tests"
+    timeoutInMinutes: 15
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+        sudo uv pip install --system pytest jinja2 lxml pyyaml
+      displayName: "Install unit test dependencies"
+
+    - script: |
+        set -euo pipefail
+        python -m pytest --noconftest ansible/library/test_dual_tor_management.py -q
+      displayName: "Run dual-ToR management metadata unit tests"
 
 
 - stage: Test

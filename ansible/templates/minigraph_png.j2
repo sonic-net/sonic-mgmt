@@ -1,6 +1,18 @@
 {# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
    Patterns in this list are matched as SUBSTRINGS against the DUT hwsku.
    See ansible/templates/minigraph_dpg.j2 for the full rationale. #}
+{% macro render_management_addresses(addresses) %}
+{% if 'ipv4' in addresses %}
+        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ addresses['ipv4'] }}</a:IPPrefix>
+        </ManagementAddress>
+{% endif %}
+{% if 'ipv6' in addresses %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ addresses['ipv6'] }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% endif %}
+{% endmacro %}
 {% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
 {% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <PngDec>
@@ -149,9 +161,13 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
+{% if 'management_addresses' in dual_tor_facts %}
+{{ render_management_addresses(dual_tor_facts['management_addresses'][inventory_hostname]) }}
+{% else %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
 {% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
 	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
 {% endif %}
@@ -169,9 +185,7 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
-        <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
-        </ManagementAddress>
+{{ render_management_addresses(dual_tor_facts['management_addresses'][neighbor_hostname]) }}
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
