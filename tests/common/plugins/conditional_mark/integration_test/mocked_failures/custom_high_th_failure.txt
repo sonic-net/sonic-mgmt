@@ -1,0 +1,1 @@
+BGP session did not establish within timeout. Neighbor 10.0.0.1 stuck in Active state after 180 seconds.

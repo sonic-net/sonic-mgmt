@@ -1,0 +1,1 @@
+PFC watchdog timer accuracy test failed. Real detection time is greater than configured PFC storm detection time. Detected: 520ms, Expected max: 400ms.
