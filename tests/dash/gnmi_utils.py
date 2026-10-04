@@ -180,6 +180,7 @@ def apply_gnmi_cert(duthost, ptfhost):
     dut_command += "--server_crt %s%s " % (env.gnmi_cert_path, env.gnmi_server_cert)
     dut_command += "--server_key %s%s " % (env.gnmi_cert_path, env.gnmi_server_key)
     dut_command += "--ca_crt %s%s " % (env.gnmi_cert_path, env.gnmi_ca_cert)
+    dut_command += "--client_auth none "
     if env.enable_zmq:
         dut_command += " -zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
