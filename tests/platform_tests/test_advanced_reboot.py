@@ -8,7 +8,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa: F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa: F401
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot      # noqa: F401
-from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST, should_skip_lag_sad_cases
 from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: F401
 from tests.common.platform.device_utils import verify_dut_health  # noqa: F401
 from tests.common.platform.device_utils import advanceboot_neighbor_restore  # noqa: F401
@@ -194,6 +194,8 @@ def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts,
 
     sad_preboot_list, sad_inboot_list = get_sad_case_list(
         duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
+    if should_skip_lag_sad_cases(duthost, tbinfo, sad_case_type, sad_preboot_list):
+        pytest.skip("LAG sad cases require portchannels, not available on this topology")
     advancedReboot.runRebootTestcase(
         prebootList=sad_preboot_list,
         inbootList=sad_inboot_list
