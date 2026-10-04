@@ -311,3 +311,36 @@ sensors_checks:
         temp: [ ]
       psu_skips: { }
       sensor_skip_per_version: { }
+    "322285":
+      alarms:
+        fan:
+          - dps460-i2c-*-*/fan1/fan1_alarm
+          - dps460-i2c-*-*/fan1/fan1_fault
+        power:
+          - dps460-i2c-*-*/vin/in1_alarm
+          - dps460-i2c-*-*/vout1/in2_lcrit_alarm
+          - dps460-i2c-*-*/pin/power1_alarm
+          - dps460-i2c-*-*/pout1/power2_max_alarm
+          - dps460-i2c-*-*/iin/curr1_max_alarm
+          - dps460-i2c-*-*/iin/curr1_crit_alarm
+          - dps460-i2c-*-*/iout1/curr2_max_alarm
+          - dps460-i2c-*-*/iout1/curr2_crit_alarm
+        temp:
+          - dps460-i2c-*-*/temp1/temp1_max_alarm
+          - dps460-i2c-*-*/temp2/temp2_max_alarm
+          - dps460-i2c-*-*/temp3/temp3_max_alarm
+      compares:
+        power: [ ]
+        temp:
+          - - dps460-i2c-*-*/temp1/temp1_input
+            - dps460-i2c-*-*/temp1/temp1_max
+          - - dps460-i2c-*-*/temp2/temp2_input
+            - dps460-i2c-*-*/temp2/temp2_max
+          - - dps460-i2c-*-*/temp3/temp3_input
+            - dps460-i2c-*-*/temp3/temp3_max
+      non_zero:
+        fan: [ ]
+        power: [ ]
+        temp: [ ]
+      psu_skips: { }
+      sensor_skip_per_version: { }
