@@ -307,8 +307,14 @@ def get_phy_intfs_to_test_per_asic(duthost,
                                      conn_graph_facts,
                                      enum_frontend_asic_index)
     if limited_ports and len(portmap) > PARTIAL_INTERFACES_MAX_COUNT:
-        # Take first PARTIAL_INTERFACES_MAX_COUNT interfaces from portmap if there are more
-        partial_interfaces = list(portmap.keys())[:PARTIAL_INTERFACES_MAX_COUNT]
+        # Take first PARTIAL_INTERFACES_MAX_COUNT interfaces (natsorted so cut is sequential).
+        # At most the last physical port is incomplete truncated; drop it using the same phy index
+        partial_interfaces = natsorted(portmap.keys())[:PARTIAL_INTERFACES_MAX_COUNT]
+        physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=list(portmap.keys()))
+        last_phy = physical_port_idx_map[partial_interfaces[-1]]
+        last_phy_logicals = [lintf for lintf, phy in physical_port_idx_map.items() if phy == last_phy]
+        if not set(last_phy_logicals).issubset(partial_interfaces):
+            partial_interfaces = [lintf for lintf in partial_interfaces if lintf not in last_phy_logicals]
         dev_conn = {k: dev_conn[k] for k in partial_interfaces if k in dev_conn}
     physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=dev_conn)
     phy_intfs_to_test_per_asic = {}
