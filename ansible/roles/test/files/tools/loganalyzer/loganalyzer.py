@@ -27,11 +27,13 @@ import sys
 import getopt
 import re
 import os
+import subprocess
 import os.path
 import csv
 import time
 import logging
 import logging.handlers
+import gzip
 from datetime import datetime
 
 # ---------------------------------------------------------------------
@@ -93,6 +95,20 @@ class AnsibleLogAnalyzer:
     def init_sys_logger(self):
         logger = logging.getLogger('LogAnalyzer')
         logger.setLevel(logging.DEBUG)
+        # 'LogAnalyzer' is a named (shared) logger, so repeated calls would
+        # otherwise keep appending SysLogHandlers. That would make a single
+        # logger.info(marker) fan out through every accumulated handler and
+        # write duplicate marker lines to /var/log/syslog on retries, which
+        # analyze_file() rejects with err_duplicate_start/end_marker. Remove
+        # and close any previously attached handlers so exactly one datagram
+        # is emitted per info() call.
+        for existing in list(logger.handlers):
+            logger.removeHandler(existing)
+            try:
+                existing.close()
+            except Exception:
+                # Keep logger setup working if a detached handler cannot close.
+                pass
         handler = logging.handlers.SysLogHandler(address='/dev/log')
         logger.addHandler(handler)
         return logger
@@ -184,10 +200,24 @@ class AnsibleLogAnalyzer:
             file.write('\n')
             file.flush()
 
-    def place_marker_to_syslog(self, marker):
+    def place_marker_to_syslog(self, marker, flush=True):
         '''
         @summary: Place marker into '/dev/log'.
-        @param marker: Marker to be placed into syslog.
+
+        Writes to '/dev/log' use a datagram socket (SysLogHandler). When rsyslog
+        is overloaded the socket buffer can fill and the datagram is silently
+        dropped, so the marker never reaches /var/log/syslog. Rather than
+        emitting duplicate copies of the marker (which would produce duplicate
+        start/end marker lines and make analyze_file() fail with
+        err_duplicate_start_marker / err_duplicate_end_marker), delivery is made
+        reliable by the caller: place_marker() verifies the marker actually
+        landed in /var/log/syslog and re-emits it only when it did not appear.
+
+        @param marker:  Marker to be placed into syslog.
+        @param flush:   When True, flush rsyslog's queues before writing. The
+                        retry path in place_marker() performs its own flush and
+                        re-check before re-emitting (to avoid duplicating a
+                        merely-delayed marker), so it passes flush=False here.
 
         Flush rsyslog's internal queues *before* writing the marker so that
         the reload (which briefly closes and reopens log files) does not race
@@ -198,7 +228,8 @@ class AnsibleLogAnalyzer:
 
         # Flush any previously buffered messages first, so the reload
         # does not interfere with the marker we are about to write.
-        self.flush_rsyslogd()
+        if flush:
+            self.flush_rsyslogd()
 
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
@@ -209,62 +240,393 @@ class AnsibleLogAnalyzer:
         # can cause the marker message to be dropped (see #23562).
         time.sleep(2)
 
-    def wait_for_marker(self, marker, timeout=120, polling_interval=10):
+    def _grep_stream_for_marker(self, file_obj, marker):
+        '''
+        @summary: Check whether marker appears from file_obj's current read
+        position onward, using grep -F instead of a Python line-by-line scan
+        so marker detection stays reliable when the log file is large or
+        growing quickly under heavy rsyslog load.
+        '''
+        result = subprocess.run(
+            ['grep', '-Fq', '--', marker],
+            stdin=file_obj,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
+        return result.returncode == 0
+
+    def is_marker_in_syslog(self, marker, start_pos=0, start_identity=None):
+        '''
+        @summary: Single, non-blocking, rotation-aware scan for the marker. It
+                  does not sleep (unlike wait_for_marker()); it is used by the
+                  retry path to detect a marker that a prior rsyslog flush may
+                  have just made visible, so we can avoid emitting a duplicate
+                  marker line.
+
+                  /var/log/syslog is scanned from ``start_pos`` onward. Markers
+                  with the same run_id/prefix from an earlier invocation may
+                  already exist in syslog (pytest markers use only second-level
+                  timestamp precision and callers may pass stable prefixes);
+                  bounding the scan to bytes written after this placement began
+                  ensures we only match a marker that the current call emitted,
+                  never a stale one.
+
+                  If a rotation is detected (inode change vs ``start_identity``,
+                  or the current file being smaller than ``start_pos``), the
+                  just-rotated /var/log/syslog.1 is also scanned -- bounded to
+                  ``start_pos`` -- because a delayed marker from a previous
+                  attempt may have landed in the renamed file, or in the fresh
+                  syslog at an offset below the old size. This mirrors
+                  wait_for_marker()'s rotation handling so the pre-retry
+                  duplicate check does not miss such a marker and re-emit a
+                  duplicate in the overload-plus-rotation case.
+        @param marker:         Marker to look for.
+        @param start_pos:      Byte offset in /var/log/syslog to start from.
+        @param start_identity: (st_dev, st_ino) of /var/log/syslog captured
+                               before the marker was emitted, used to detect a
+                               rotation. When None, rotation is inferred only
+                               from the file shrinking below ``start_pos``.
+        @return: True if the marker is present at/after start_pos, else False.
+        '''
+        syslog_file = "/var/log/syslog"
+        max_rotated_files = 9
+        rotated = False
+        if os.path.exists(syslog_file):
+            try:
+                with open(syslog_file, 'r') as fp:
+                    try:
+                        fst = os.fstat(fp.fileno())
+                        cur_identity = (fst.st_dev, fst.st_ino)
+                        cur_size = fst.st_size
+                    except (IOError, OSError):
+                        cur_identity = None
+                        cur_size = None
+                    identity_changed = (
+                        cur_identity is not None and start_identity is not None
+                        and cur_identity != start_identity)
+                    shrank_past_start = (
+                        cur_size is not None and start_pos
+                        and cur_size < start_pos)
+                    rotated = identity_changed or shrank_past_start
+                    # After a rotation the current file is fresh, so scan it
+                    # from the top; otherwise resume from start_pos.
+                    if start_pos and not rotated:
+                        try:
+                            fp.seek(start_pos)
+                        except (IOError, OSError):
+                            return False
+                    if self._grep_stream_for_marker(fp, marker):
+                        return True
+            except (IOError, OSError):
+                return False
+        # If rotated, the marker may have moved into rotated files. Scan them bounded
+        # to start_pos so pre-placement (stale) bytes are never matched.
+        if rotated:
+            for i in range(1, max_rotated_files + 1):
+                rotated_syslog_file = "{}.{}".format(syslog_file, i)
+                # Check for both uncompressed and compressed versions
+                files_to_check = [rotated_syslog_file]
+                if i > 1:
+                    # Files beyond syslog.1 are typically compressed
+                    files_to_check.append("{}.gz".format(rotated_syslog_file))
+
+                for file_path in files_to_check:
+                    if os.path.exists(file_path):
+                        try:
+                            # Use gzip.open for .gz files, regular open for others
+                            if file_path.endswith('.gz'):
+                                file_handle = gzip.open(file_path, 'rt')
+                            else:
+                                file_handle = open(file_path, 'r')
+
+                            with file_handle as rfp:
+                                if start_pos:
+                                    try:
+                                        rfp.seek(start_pos)
+                                    except (IOError, OSError):
+                                        continue
+                                if file_path.endswith('.gz'):
+                                    for logs in rfp:
+                                        if marker in logs:
+                                            return True
+                                elif self._grep_stream_for_marker(rfp, marker):
+                                    return True
+                        except (IOError, OSError):
+                            continue
+        return False
+
+    def wait_for_marker(self, marker, timeout=120, polling_interval=2,
+                        start_pos=0, start_identity=None):
         '''
         @summary: Wait the marker to appear in the /var/log/syslog file
         @param marker:         Marker to be placed into log files.
         @param timeout:        Maximum time in seconds to wait till Marker in /var/log/syslog
         @param polling_interval:  Polling interval during the wait
+        @param start_pos:      Byte offset in /var/log/syslog at which this
+                               placement began. Only content written at/after
+                               this offset is considered, so a stale marker with
+                               the same run_id/prefix left by an earlier
+                               invocation is never matched. syslog.1 is only
+                               searched once a rotation is detected, because
+                               before rotation any match in syslog.1 would
+                               necessarily be stale; and that syslog.1 scan is
+                               itself bounded to this same start_pos, since
+                               syslog.1 is the rotated original file and our
+                               marker can only appear at/after where we began.
+        @param start_identity: (st_dev, st_ino) of /var/log/syslog captured by
+                               the caller *before* emitting the marker. Passing
+                               it in is essential: place_marker_to_syslog()
+                               sleeps ~2s after writing, and if logrotate runs
+                               in that window the marker moves to syslog.1 before
+                               this method is even entered. Seeding the baseline
+                               identity from before the write lets us still
+                               observe that inode change (or fall back to the
+                               start_pos > current size heuristic) and search
+                               syslog.1. When None, the identity is sampled at
+                               entry (best effort).
         '''
 
         wait_time = 0
-        last_check_pos = 0
+        # Resume scanning /var/log/syslog from where this placement began so we
+        # skip pre-existing (stale) markers.
+        last_check_pos = start_pos
         syslog_file = "/var/log/syslog"
-        prev_syslog_file = "/var/log/syslog.1"
+        max_rotated_files = 9
+        # Track the syslog file identity (device, inode) so we can detect a
+        # rotation reliably. Size shrinkage alone is not a dependable signal:
+        # after logrotate creates a fresh syslog it can grow back past
+        # last_check_pos before the next poll, which would hide the rotation.
+        # When the inode changes we know the previous file (now syslog.1) must
+        # be searched and the scan of the new file restarted from the top. The
+        # baseline is taken from the caller (pre-write) when provided so a
+        # rotation that happened during the post-write sleep is not missed.
+        if start_identity is not None:
+            prev_identity = start_identity
+        else:
+            try:
+                st = os.stat(syslog_file)
+                prev_identity = (st.st_dev, st.st_ino)
+            except (IOError, OSError):
+                prev_identity = None
+        # Once a rotation is observed, keep scanning /var/log/syslog.1 for the
+        # rest of the wait. rsyslog may still be draining to the old (now
+        # renamed) file descriptor and append this marker to syslog.1 several
+        # polls after the inode change was first seen; a per-iteration flag
+        # would stop looking there after that single poll and miss it, causing
+        # a false failure and a duplicate re-emit on retry.
+        rotation_seen = False
         while wait_time <= timeout:
             # look for marker in syslog file
             if os.path.exists(syslog_file):
                 with open(syslog_file, 'r') as fp:
+                    try:
+                        fst = os.fstat(fp.fileno())
+                        cur_identity = (fst.st_dev, fst.st_ino)
+                        cur_size = fst.st_size
+                    except (IOError, OSError):
+                        cur_identity = None
+                        cur_size = None
+                    identity_changed = (
+                        cur_identity is not None and prev_identity is not None
+                        and cur_identity != prev_identity)
+                    # If our starting offset is already past the end of the
+                    # current file, the file we began watching was replaced by a
+                    # smaller/fresh one (rotation) even if the inode read raced.
+                    shrank_past_start = (
+                        cur_size is not None and start_pos
+                        and cur_size < start_pos)
+                    if identity_changed or shrank_past_start:
+                        # syslog was rotated while we waited (or during the
+                        # post-write sleep). The marker we care about may have
+                        # moved into syslog.1; restart from the top of the fresh
+                        # file and allow a syslog.1 search below. Latch the
+                        # rotation so syslog.1 keeps being scanned for the rest
+                        # of the wait, not just this single poll.
+                        rotation_seen = True
+                        last_check_pos = 0
+                    if cur_identity is not None:
+                        prev_identity = cur_identity
                     # resume from last search position
                     if last_check_pos:
                         fp.seek(last_check_pos)
                     # check if marker in the file
-                    for logs in fp:
-                        if marker in logs:
-                            return True
+                    if self._grep_stream_for_marker(fp, marker):
+                        return True
                     # record last search position
                     last_check_pos = fp.tell()
 
-            # logs might get rotated while waiting for marker
-            # look for marker in syslog.1 file
-            if os.path.exists(prev_syslog_file):
-                with open(prev_syslog_file, 'r') as pfp:
-                    # check if marker in the file
-                    for logs in pfp:
-                        if marker in logs:
-                            return True
+            # Logs might get rotated while waiting for marker.
+            # Search all rotated syslog files (syslog.1 through syslog.9).
+            # This handles cases where logrotate ran between marker write
+            # and marker search, pushing the marker into older rotated files.
+            # Files beyond syslog.1 are typically compressed (syslog.2.gz, etc).
+            if rotation_seen:
+                for i in range(1, max_rotated_files + 1):
+                    rotated_syslog_file = "{}.{}".format(syslog_file, i)
+                    # Check for both uncompressed and compressed versions
+                    files_to_check = [rotated_syslog_file]
+                    if i > 1:
+                        # Files beyond syslog.1 are typically compressed
+                        files_to_check.append("{}.gz".format(rotated_syslog_file))
+
+                    for file_path in files_to_check:
+                        if os.path.exists(file_path):
+                            try:
+                                # Use gzip.open for .gz files, regular open for others
+                                if file_path.endswith('.gz'):
+                                    file_handle = gzip.open(file_path, 'rt')
+                                else:
+                                    file_handle = open(file_path, 'r')
+
+                                with file_handle as rfp:
+                                    # rotated file is the just-rotated original /var/log/syslog that
+                                    # we began watching at ``start_pos``. Our marker, if it made
+                                    # it there, was appended at/after ``start_pos`` (it was
+                                    # written after we sampled that offset), so bound the scan to
+                                    # ``start_pos``. This prevents matching a stale marker with
+                                    # the same run_id/prefix that existed *before* this placement
+                                    # began -- exactly the pre-rotation bytes the raw scan would
+                                    # otherwise falsely accept. Seek unconditionally: if the file
+                                    # is smaller than ``start_pos`` (it is not our original file,
+                                    # or was truncated) the seek lands past EOF and iteration
+                                    # yields no lines, which is the safe outcome (we keep waiting
+                                    # / re-emit rather than trust a stale match). Never fall back
+                                    # to scanning from offset 0, which would read stale lines.
+                                    safe_to_scan = True
+                                    if start_pos:
+                                        try:
+                                            rfp.seek(start_pos)
+                                        except (IOError, OSError):
+                                            # Could not position the scan safely; skip this file
+                                            # this round rather than risk matching stale bytes.
+                                            safe_to_scan = False
+                                    # check if marker in the file
+                                    if safe_to_scan:
+                                        if file_path.endswith('.gz'):
+                                            found = any(marker in logs for logs in rfp)
+                                        else:
+                                            found = self._grep_stream_for_marker(rfp, marker)
+                                        if found:
+                                            self.print_diagnostic_message(
+                                                'Found marker {} in rotated file {}'
+                                                .format(marker, file_path)
+                                            )
+                                            return True
+                            except (IOError, OSError, EOFError, UnicodeDecodeError) as e:
+                                # File might be compressed or deleted during rotation
+                                self.print_diagnostic_message(
+                                    'Could not read {}: {}'
+                                    .format(file_path, str(e))
+                                )
+                                continue
             time.sleep(polling_interval)
             wait_time += polling_interval
 
         return False
 
-    def place_marker(self, log_file_list, marker, wait_for_marker=False):
+    def place_marker(self, log_file_list, marker, wait_for_marker=False,
+                     write_attempts=3, marker_timeout=160):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
-        @param log_file_list : List of file paths, to be applied with marker.
-        @param marker:         Marker to be placed into log files.
+        @param log_file_list :   List of file paths, to be applied with marker.
+        @param marker:           Marker to be placed into log files.
+        @param wait_for_marker:  When True, verify the marker actually reached
+                                 /var/log/syslog and re-emit it (with backoff)
+                                 until it appears or write_attempts is exhausted.
+                                 This guards against silent drops when rsyslog is
+                                 overloaded on the DUT.
+        @param write_attempts:   Max number of write+verify cycles when
+                                 wait_for_marker is True. Exactly one marker is
+                                 emitted per cycle, so at most one marker line is
+                                 written on the successful attempt -- this avoids
+                                 duplicate start/end markers that would make
+                                 analyze_file() fail.
+        @param marker_timeout:   Overall time budget (seconds) shared across all
+                                 write attempts when wait_for_marker is True.
+                                 Callers run this under parallel_run(timeout=180)
+                                 (see analyzer_add_marker), so the per-attempt
+                                 The first attempt waits up to 120 seconds, as
+                                 the previous single-write path did; remaining
+                                 time is shared across retries. Must stay below
+                                 the caller's parallel_run timeout.
         '''
 
         for log_file in log_file_list:
             self.place_marker_to_file(log_file, marker)
 
-        self.place_marker_to_syslog(marker)
-        if wait_for_marker:
-            if self.wait_for_marker(marker) is False:
-                raise RuntimeError(
-                    "cannot find marker {} in /var/log/syslog".format(marker))
+        if not wait_for_marker:
+            self.place_marker_to_syslog(marker)
+            return
 
-        return
+        # Overload-resilient path: write, verify it landed in syslog, and
+        # re-emit if it didn't. Writing to the datagram /dev/log socket can be
+        # silently dropped, so a single write is not reliable. Only one marker
+        # is emitted per attempt and we stop as soon as it is observed, keeping
+        # exactly one marker line in syslog under normal conditions.
+        #
+        # Record where syslog ends before we emit anything. Both the pre-write
+        # duplicate check and the post-write verify are bounded to this offset
+        # so a same run_id/prefix marker from an earlier invocation (markers
+        # have second-level precision and can use stable prefixes) is never
+        # matched -- otherwise we would skip writing the current start/end
+        # marker and bound analysis to a stale window. Capture the file
+        # identity too: place_marker_to_syslog() sleeps ~2s after writing, and a
+        # logrotate in that window would otherwise be invisible to
+        # wait_for_marker() (its baseline would already be the new file).
+        try:
+            _st = os.stat("/var/log/syslog")
+            syslog_start_pos = _st.st_size
+            syslog_start_identity = (_st.st_dev, _st.st_ino)
+        except (IOError, OSError):
+            syslog_start_pos = 0
+            syslog_start_identity = None
+
+        attempts = max(1, write_attempts)
+        # Give the first write the legacy 120-second window before retrying:
+        # rsyslog may delay a datagram rather than drop it. Reserve retry time
+        # from the overall budget so retries still fit within parallel_run.
+        if attempts == 1:
+            attempt_timeouts = [marker_timeout]
+        else:
+            retry_timeout = max(
+                10, (marker_timeout - 120) // (attempts - 1))
+            first_timeout = min(
+                120, max(10, marker_timeout - retry_timeout * (attempts - 1)))
+            retry_timeout = max(
+                10, (marker_timeout - first_timeout) // (attempts - 1))
+            attempt_timeouts = [first_timeout] + [retry_timeout] * (attempts - 1)
+        polling_interval = min(5, min(attempt_timeouts))
+
+        for attempt, attempt_timeout in enumerate(attempt_timeouts, start=1):
+            # Flush rsyslog first, then re-check before (re-)emitting. A
+            # datagram from a previous attempt may have been merely delayed
+            # inside rsyslog rather than dropped; the flush can push it out to
+            # /var/log/syslog. Detecting it here avoids emitting a second
+            # identical marker, which analyze_file() would reject as a
+            # duplicate start/end marker. The scan is bounded to bytes written
+            # after syslog_start_pos so stale markers are never matched, and it
+            # is a non-blocking single scan so it adds no wait on the common
+            # path. It is also rotation-aware (syslog_start_identity): if a
+            # logrotate happened after the offset was captured, a delayed
+            # marker may now be in the fresh syslog below the old size or in
+            # syslog.1, and this check follows it there so we do not re-emit a
+            # duplicate.
+            self.flush_rsyslogd()
+            if self.is_marker_in_syslog(marker, start_pos=syslog_start_pos,
+                                        start_identity=syslog_start_identity):
+                return
+            self.place_marker_to_syslog(marker, flush=False)
+            if self.wait_for_marker(marker, timeout=attempt_timeout,
+                                    polling_interval=polling_interval,
+                                    start_pos=syslog_start_pos,
+                                    start_identity=syslog_start_identity):
+                return
+            self.print_diagnostic_message(
+                "marker {} not found in syslog after attempt {}/{}, retrying"
+                .format(marker, attempt, attempts))
+
+        raise RuntimeError(
+            "cannot find marker {} in /var/log/syslog after {} attempts"
+            .format(marker, attempts))
     # ---------------------------------------------------------------------
 
     def error_to_regx(self, error_string):
@@ -829,7 +1191,7 @@ def main(argv):
 
     result = {}
     if action == "init":
-        analyzer.place_marker(log_file_list, analyzer.create_start_marker())
+        analyzer.place_marker(log_file_list, analyzer.create_start_marker(), wait_for_marker=True)
         return 0
     elif action == "analyze":
         match_file_list = match_files_in.split(tokenizer)
