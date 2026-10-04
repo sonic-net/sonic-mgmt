@@ -385,6 +385,8 @@ r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SD
 # cause=10 (SDK thread issue) or cause=12 (SDK watchdog).
 r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health check: dev_id \[\d+\], SDK thread \[.*\] TID \[.*\] does not respond.*"
 r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health-Check: dev_id \[\d+\], cause=\d+ \['(?:SDK thread issue|SDK watchdog)'\] - stopping further device monitoring.*"
+# killall -w sx_sdk fails due to a missing package. The SDK process goes down anyway as part of syncd shutdown.
+r, ".* ERR syncd#SDK: \[SAI_SWITCH\.ERR\].*mlnx_sai_close_sdk: killall -w sx_sdk failed\..*"
 
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
