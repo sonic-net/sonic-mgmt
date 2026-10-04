@@ -1,5 +1,9 @@
+import ast
 import logging
+import re
 import pytest
+
+from typing import Any, Dict, List, Tuple, TypedDict
 
 from collections import namedtuple, Counter
 from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa: F401
@@ -13,6 +17,24 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+CLI_TO_COUNTER_POLL_STAT_TYPE = {
+    cli_type: stat_type for stat_type, cli_type in CounterpollConstants.COUNTERPOLL_MAPPING.items()
+}
+MIN_MONITOR_SECONDS = 60
+MIN_POLL_CYCLES = 3
+# Keep the TIME_STAMP-change second and this many seconds before it (poll CPU is before the stamp update).
+POLL_CPU_LOOKBACK_SEC = 2
+SDK_API_SNIFFER_SCRIPT = "platform_tests/mellanox/files/sdk_api_sniffer.py"
+SDK_API_SNIFFER_CONTAINER_PATH = "/sdk_api_sniffer.py"
+SDK_API_SNIFFER_MODE_RE = re.compile(r"^(?:PREV_)?MODE_NAME=(?P<mode>\w+)$", re.MULTILINE)
+
+
+class CpuMemoryPollSample(TypedDict):
+    """One-second sample of process CPU, COUNTERS:TIME_STAMP, and system memory."""
+    cpu: float
+    stamp: str
+    used_percent: float
 
 
 def is_asan_image(duthost):
@@ -135,15 +157,67 @@ def disable_pfcwd(rand_selected_dut):
     duthost.shell('pfcwd start_default')
 
 
+def _run_sdk_api_sniffer_script(duthost, args):
+    """Copy sdk_api_sniffer.py into syncd and run it; return stdout."""
+    duthost.copy(src=SDK_API_SNIFFER_SCRIPT, dest="/tmp/sdk_api_sniffer.py")
+    duthost.command("docker cp /tmp/sdk_api_sniffer.py syncd:{}".format(
+        SDK_API_SNIFFER_CONTAINER_PATH))
+    result = duthost.command(
+        "docker exec syncd python3 {} {}".format(SDK_API_SNIFFER_CONTAINER_PATH, args))
+    duthost.command("docker exec syncd rm -f {}".format(SDK_API_SNIFFER_CONTAINER_PATH))
+    duthost.command("rm -f /tmp/sdk_api_sniffer.py", module_ignore_errors=True)
+    return result["stdout"]
+
+
+def _parse_sdk_api_sniffer_mode_name(stdout):
+    match = SDK_API_SNIFFER_MODE_RE.search(stdout)
+    return match.group("mode") if match else None
+
+
+@pytest.fixture
+def disable_sdk_api_sniffer(rand_selected_dut):
+    """Disable SDK API sniffer during counterpoll CPU sampling, then restore it.
+
+    Cyclic sniffer pcap rotation starts sxSnifferGzip inside sx_sdk and can spike
+    process CPU unrelated to flex-counter work. Same syncd + python_sdk_api pattern
+    as configure_packet_aging / packets_aging.py.
+    """
+    duthost = rand_selected_dut
+    if not is_mellanox_device(duthost):
+        yield
+        return
+
+    previous_mode = None
+    try:
+        stdout = _run_sdk_api_sniffer_script(duthost, "disable")
+        previous_mode = _parse_sdk_api_sniffer_mode_name(stdout)
+        logging.info("SDK API sniffer disable output: %s", stdout.strip())
+    except Exception as err:
+        logging.warning(
+            "Failed to disable SDK API sniffer; continuing without it: %s", err)
+
+    yield
+
+    if previous_mode in ("cyclic", "linear"):
+        try:
+            stdout = _run_sdk_api_sniffer_script(
+                duthost, "enable --mode {}".format(previous_mode))
+            logging.info("SDK API sniffer restore output: %s", stdout.strip())
+        except Exception as err:
+            logging.warning("Failed to restore SDK API sniffer: %s", err)
+
+
 def test_cpu_memory_usage_counterpoll(rand_selected_dut,
                                       setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa: F811
-                                      counterpoll_cpu_threshold, disable_pfcwd):
+                                      counterpoll_cpu_threshold, disable_pfcwd,
+                                      disable_sdk_api_sniffer):
     """Check DUT memory usage and process cpu usage are within threshold.
+    Disable SDK API sniffer so pcap gzip rotation does not inflate sx_sdk CPU
     Disable all counterpoll types except tested one
-    Collect memory and CPUs usage for 60 secs
+    Collect memory and CPUs usage for multiple poll cycles
     Compare the memory usage with the memory threshold
     Compare the average cpu usage with the cpu threshold for the specified progress
-    Restore counterpolls status
+    Restore counterpolls status and SDK API sniffer
     """
     duthost = rand_selected_dut
     program_to_check = get_manufacturer_program_to_check(duthost)
@@ -155,25 +229,32 @@ def test_cpu_memory_usage_counterpoll(rand_selected_dut,
 
     MonitResult = namedtuple('MonitResult', ['processes', 'memory'])
     disable_all_counterpoll_type_except_tested(duthost, counterpoll_type)
-    monit_results = duthost.monit_process(
-        iterations=60, delay_interval=1)['monit_results']
-    poll_interval = CounterpollConstants.COUNTERPOLL_INTERVAL[counterpoll_type] // 1000
+    poll_interval_sec = get_effective_poll_interval_seconds(duthost, counterpoll_type)
+    monitor_seconds = max(MIN_MONITOR_SECONDS, MIN_POLL_CYCLES * poll_interval_sec)
+    stamp_field = get_flex_counter_time_stamp_field(duthost, counterpoll_type)
+    samples = collect_cpu_memory_and_poll_stamps(
+        duthost, program_to_check, stamp_field, monitor_seconds)
 
     outstanding_mem_polls = {}
-    outstanding_procs = {}
-    outstanding_procs_counter = Counter()
 
-    cpu_usage_program_to_check = []
-
-    prepare_ram_cpu_usage_results(MonitResult, counterpoll_cpu_usage_threshold, memory_threshold,
-                                  monit_results, outstanding_mem_polls, outstanding_procs,
-                                  outstanding_procs_counter, program_to_check, cpu_usage_program_to_check)
+    cpu_usage_program_to_check = [sample['cpu'] for sample in samples]
+    for i, sample in enumerate(samples):
+        logging.debug("------ Iteration %d ------", i)
+        monit_result = MonitResult([], {'used_percent': sample['used_percent']})
+        check_memory(i, memory_threshold, monit_result, outstanding_mem_polls)
 
     log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type)
 
-    cpu_usage_average = caculate_cpu_usge_average_value(extract_valid_cpu_usage_data(
-        cpu_usage_program_to_check, poll_interval), cpu_usage_program_to_check)
-    logging.info("Average cpu_usage is {}".format(cpu_usage_average))
+    cpu_in_stamp_windows, poll_count = get_cpu_samples_in_poll_stamp_windows(
+        cpu_usage_program_to_check, [sample['stamp'] for sample in samples])
+    pytest_assert(
+        poll_count >= MIN_POLL_CYCLES,
+        "Expected at least {} {} polls (TIME_STAMP updates); observed {}".format(
+            MIN_POLL_CYCLES, counterpoll_type, poll_count))
+    cpu_usage_average = sum(cpu_in_stamp_windows) / len(cpu_in_stamp_windows)
+    logging.info(
+        "Average cpu_usage is {} (poll interval {}s, monitor {}s)".format(
+            cpu_usage_average, poll_interval_sec, monitor_seconds))
     assert cpu_usage_average < counterpoll_cpu_usage_threshold, \
         "cpu_usage_average of {} exceeds the cpu threshold:{}"\
         .format(program_to_check, counterpoll_cpu_usage_threshold)
@@ -192,65 +273,106 @@ def get_manufacturer_program_to_check(duthost):
         return CounterpollConstants.SX_SDK
 
 
-def prepare_ram_cpu_usage_results(MonitResult, cpu_threshold, memory_threshold, monit_results, outstanding_mem_polls,
-                                  outstanding_procs, outstanding_procs_counter, program_to_check,
-                                  program_to_check_cpu_usage):
-    for i, monit_result in enumerate(MonitResult(*_) for _ in monit_results):
-        logging.debug("------ Iteration %d ------", i)
-        check_memory(i, memory_threshold, monit_result, outstanding_mem_polls)
-        for proc in monit_result.processes:
-            update_cpu_usage_desired_program(
-                proc, program_to_check, program_to_check_cpu_usage)
+def get_effective_poll_interval_seconds(duthost, counterpoll_type):
+    """Return the DUT's configured counterpoll interval in seconds.
 
-
-def extract_valid_cpu_usage_data(program_to_check_cpu_usage, poll_interval):
+    Reads `counterpoll show` via `get_counter_poll_status()` instead of assuming
+    the hardcoded 10s default. Interval is at least 1s.
     """
-    This method it to extract the valid cpu usage data according to the poll_interval
-    1. Find the index for the max one for every poll interval,
-    2. Discard the data if the index is on the edge(0 o the length of program_to_check_cpu_usage -1)
-    3. If the index is closed in the neighbour interval, only keep the former one
-    4. Return all indexes
-    For example:
-    poll_interval = 10
-    7, 1, 0, 1, 0, 1, 5, 1, 1,2, 0, 1, 0, 1, 0, 6, 1, 1, 1,2
-    return [15]
-    0, 1, 0, 1, 0, 1, 0, 1, 0, 8, 7, 1, 0, 1, 0, 6, 1, 1, 1,2
-    return [9]
+    stat_type = CLI_TO_COUNTER_POLL_STAT_TYPE[counterpoll_type]
+    poll_interval_ms = duthost.get_counter_poll_status()[stat_type]['interval']
+    poll_interval_sec = max(1, poll_interval_ms // 1000)
+    logging.info(
+        "Using effective counterpoll interval for %s: %sms (%ss)",
+        counterpoll_type, poll_interval_ms, poll_interval_sec)
+    return poll_interval_sec
+
+
+def get_flex_counter_time_stamp_field(duthost, counterpoll_type: str) -> str:
+    """Return the COUNTERS:TIME_STAMP hash field for this counterpoll group.
+
+    The hash is updated when a flex-counter poll for that group finishes. Field
+    names start with ``{STAT_TYPE}_STAT`` (e.g. PORT_BUFFER_DROP_STAT_...).
+    Fails the test if no matching field exists.
     """
-    valid_cpu_usage_center_index_list = []
-    poll_number = len(program_to_check_cpu_usage) // poll_interval
-
-    def find_max_cpu_usage(cpu_usage_list, poll_times):
-        max_cpu_usage = cpu_usage_list[0]
-        max_cpu_usage_index = 0
-        for i, cpu_usage in enumerate(cpu_usage_list):
-            if cpu_usage > max_cpu_usage:
-                max_cpu_usage = cpu_usage
-                max_cpu_usage_index = i
-        return [max_cpu_usage, max_cpu_usage_index + poll_times * poll_interval]
-
-    for i in range(0, poll_number):
-        max_cpu_usage, max_cpu_usage_index = find_max_cpu_usage(
-            program_to_check_cpu_usage[poll_interval * i:poll_interval * (i + 1)], i)
-        if max_cpu_usage_index == 0 or max_cpu_usage_index == len(program_to_check_cpu_usage) - 1:
-            logging.info("The data is on the edge:{}, discard it ".format(
-                max_cpu_usage_index))
-        else:
-            if valid_cpu_usage_center_index_list and valid_cpu_usage_center_index_list[-1] + 1 == max_cpu_usage_index:
-                continue
-            valid_cpu_usage_center_index_list.append(max_cpu_usage_index)
-
-    return valid_cpu_usage_center_index_list
+    prefix = CLI_TO_COUNTER_POLL_STAT_TYPE[counterpoll_type] + "_STAT"
+    output = duthost.shell("sonic-db-cli COUNTERS_DB HGETALL COUNTERS:TIME_STAMP")["stdout"]
+    # sonic-db-cli prints HGETALL as a Python dict, e.g.
+    # {'PORT_BUFFER_DROP_STAT_Port_Counter_time_stamp': '75157997853692',
+    #  'QUEUE_STAT_COUNTER_Queue_Counter_time_stamp': '75172715360322', ...}
+    try:
+        stamp_fields = ast.literal_eval(output.strip())
+    except (SyntaxError, ValueError):
+        pytest.fail("Could not parse COUNTERS:TIME_STAMP as a dict: {}".format(output))
+    for field_name in stamp_fields:
+        if field_name.startswith(prefix):
+            logging.info("Using COUNTERS:TIME_STAMP field %s", field_name)
+            return field_name
+    pytest.fail(
+        "No COUNTERS:TIME_STAMP field starting with {} in {}".format(prefix, list(stamp_fields)))
 
 
-def caculate_cpu_usge_average_value(valid_cpu_usage_center_index_list, program_to_check_cpu_usage):
-    len_valid_cpu_usage = len(valid_cpu_usage_center_index_list)
-    cpu_usage_average = 0.0
-    for i in valid_cpu_usage_center_index_list:
-        cpu_usage_average += sum(program_to_check_cpu_usage[i - 1: i + 2])
-        logging.info("cpu usage center index:{}: cpu usage:{}".format(
-            i, program_to_check_cpu_usage[i - 1:i + 2]))
-    return cpu_usage_average / len_valid_cpu_usage / 3.0 if len_valid_cpu_usage != 0 else 0
+def get_program_cpu_percent(processes: List[Dict[str, Any]], program_to_check: str) -> float:
+    """Return `cpu_percent` for `program_to_check` from a monit process list, or 0.0."""
+    for proc in processes:
+        if proc['name'] == program_to_check:
+            return proc['cpu_percent']
+    return 0.0
+
+
+def collect_cpu_memory_and_poll_stamps(
+        duthost, program_to_check: str, stamp_field: str,
+        iterations: int) -> List[CpuMemoryPollSample]:
+    """Collect one CpuMemoryPollSample per second for `iterations` seconds.
+
+    Each sample records process CPU, system memory used_percent, and the
+    COUNTERS:TIME_STAMP value so later analysis can tell which seconds overlap
+    a flex-counter poll (stamp is written at the end of the poll).
+    """
+    stamp_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:TIME_STAMP {}".format(stamp_field)
+    samples = []
+    for i in range(iterations):
+        processes, memory = duthost.monit_process(
+            iterations=1, delay_interval=1)['monit_results'][0]
+        stamp = duthost.shell(stamp_cmd)['stdout'].strip()
+        samples.append({
+            'cpu': get_program_cpu_percent(processes, program_to_check),
+            'stamp': stamp,
+            'used_percent': memory['used_percent'],
+        })
+        logging.debug(
+            "Sample %d: cpu=%s stamp=%s mem=%s",
+            i, samples[-1]['cpu'], stamp, samples[-1]['used_percent'])
+    return samples
+
+
+def get_cpu_samples_in_poll_stamp_windows(
+        cpu_usage: List[float], stamps: List[str],
+        lookback: int = POLL_CPU_LOOKBACK_SEC) -> Tuple[List[float], int]:
+    """Return flattened CPU samples in COUNTERS:TIME_STAMP-change windows, and poll count.
+
+    A stamp change at index i means a poll just finished. That second plus
+    `lookback` seconds before it are kept (poll CPU is before the stamp write).
+    Overlapping windows contribute each sample once.
+    """
+    kept_indices = []
+    seen = set()
+    poll_count = 0
+    for i in range(1, len(stamps)):
+        if stamps[i] and stamps[i] != stamps[i - 1]:
+            poll_count += 1
+            window_start = max(0, i - lookback)
+            window_end = i + 1
+            window_indices = list(range(window_start, window_end))
+            logging.info(
+                "Poll stamp window [%s:%s]: %s",
+                window_start, window_end,
+                [cpu_usage[j] for j in window_indices])
+            for sample_index in window_indices:
+                if sample_index not in seen:
+                    seen.add(sample_index)
+                    kept_indices.append(sample_index)
+    return [cpu_usage[i] for i in kept_indices], poll_count
 
 
 def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter, proc):
@@ -259,12 +381,6 @@ def check_cpu_usage(cpu_threshold, outstanding_procs, outstanding_procs_counter,
                       proc['name'], proc['pid'], proc['cpu_percent'], cpu_threshold)
         outstanding_procs[proc['pid']] = proc.get('cmdline', proc['name'])
         outstanding_procs_counter[proc['pid']] += 1
-
-
-def update_cpu_usage_desired_program(proc, program_to_check, program_to_check_cpu_usage):
-    if program_to_check:
-        if proc['name'] == program_to_check:
-            program_to_check_cpu_usage.append(proc['cpu_percent'])
 
 
 def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
