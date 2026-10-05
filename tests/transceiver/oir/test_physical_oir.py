@@ -85,14 +85,20 @@ def _capture_recovery_baseline(duthost, port_attributes_dict,
 
 
 def _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, watermark, wait_sec,
-                    expected_flap_increment=1):
-    """TC1 expected results for the ports whose module was just removed."""
+                    up_lports=None):
+    """TC1 expected results for the ports whose module was just removed.
+
+    Only ``up_lports`` (default: all of ``lports``) had a link to lose, so only
+    their flap count must move.
+    """
+    up_lports = lports if up_lports is None else up_lports
     failures = wait_ports_oper_status(duthost, lports, "down", wait_sec)
     failures += oir_helpers.verify_presence_clis(duthost, lports, present=False)
     failures += oir_helpers.verify_state_tables_removed(duthost, lports, wait_sec)
     failures += oir_helpers.verify_other_ports_up(duthost, port_attributes_dict, lports)
     failures += oir_helpers.verify_flap_count_increment(
-        duthost, lports, flap_baseline, expected_increment=expected_flap_increment)
+        duthost, lports, flap_baseline,
+        expected_increment={port: int(port in up_lports) for port in lports})
     failures += oir_helpers.verify_no_kernel_errors(duthost, watermark)
     return failures
 
@@ -349,10 +355,11 @@ def test_physical_oir_stress(
         pytest.fail("Physical OIR stress (TC4) failures:\n  - " + "\n  - ".join(all_failures))
 
 
-def _remove_module(request, duthost, port_attributes_dict, pport, lports, action, link_up=True):
+def _remove_module(request, duthost, port_attributes_dict, pport, lports, action, up_lports=None):
     """TC5/TC6 steps 1 and 3: remove the module in ``pport`` and run the TC1 checks.
 
-    Only a port that was linked up has a link to lose, so only then must it flap.
+    Only the lanes in ``up_lports`` (default: every lane) have a link to lose, so
+    only they must flap.
     """
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, _ = _bulk_waits(port_attributes_dict, lports)
@@ -361,15 +368,16 @@ def _remove_module(request, duthost, port_attributes_dict, pport, lports, action
     failures = oir_helpers.perform_oir(request, duthost, oir_attrs, [pport], present=False, action=action)
     return failures or _verify_removal(
         duthost, port_attributes_dict, lports, flap_baseline, watermark, shutdown_wait,
-        expected_flap_increment=int(link_up))
+        up_lports=up_lports)
 
 
 def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_first_subport_mapping,
                            conn, pport, lports, original_api, original_serial, expected_class):
     """TC5/TC6 step 2: insert a different module of ``expected_class``.
 
-    Returns ``(failures, link_up)``.  A TC6 module the platform builds no XcvrApi
-    for is unsupported, so the port must still look like an empty cage (TC1).
+    Returns ``(failures, up_lports)``, the lanes the module brought up.  A TC6
+    module the platform builds no XcvrApi for is unsupported, so the port must
+    still look like an empty cage (TC1).
     """
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
@@ -379,13 +387,13 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
         request, f"INSERT a DIFFERENT transceiver of XcvrApi class {expected_class}",
         [pport], oir_attrs["physical_oir_timeout_min"])
     if error:
-        return [error], False
+        return [error], []
     startup_deadline = time.monotonic() + startup_wait
 
     api, serial = oir_helpers.read_xcvr_api(conn, pport, startup_wait)
     if api is None and expected_class != original_api["__class__"]:
         return _verify_removal(duthost, port_attributes_dict, lports, flap_baseline, watermark,
-                               shutdown_wait, expected_flap_increment=0), False
+                               shutdown_wait, up_lports=[]), []
 
     # The swapped-in module need not suit the port's configuration, so its CMIS
     # state machine is not required to reach READY.
@@ -401,9 +409,9 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
     elif api["object_id"] == original_api["object_id"]:
         failures.append(f"XcvrApi object id {api['object_id']} is the original module's")
 
-    # Let the module link up, if it can, so step 3 knows whether removing it is a flap.
-    link_up = not wait_ports_oper_status(duthost, lports, "up", _remaining_wait(startup_deadline))
-    return failures, link_up
+    # Let the module link up, if it can, so step 3 knows which lanes have a link to lose.
+    wait_ports_oper_status(duthost, lports, "up", _remaining_wait(startup_deadline))
+    return failures, oir_helpers.get_oper_up_ports(duthost, lports)
 
 
 def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_mapping,
@@ -428,13 +436,13 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
     failures = _remove_module(
         request, duthost, port_attributes_dict, pport, lports,
         f"REMOVE the original transceiver (serial {original_serial})")
-    swap_failures, link_up = _insert_swapped_module(
+    swap_failures, up_lports = _insert_swapped_module(
         request, duthost, port_attributes_dict, lport_to_first_subport_mapping, conn, pport, lports,
         original_api, original_serial, xcvr_api_class or original_api["__class__"])
     failures += swap_failures
     failures += _remove_module(
         request, duthost, port_attributes_dict, pport, lports, "REMOVE the swapped-in transceiver",
-        link_up=link_up)
+        up_lports=up_lports)
 
     # Step 4: re-insert the original module; the TC2 checks apply.
     health_baseline = capture_baseline(duthost)

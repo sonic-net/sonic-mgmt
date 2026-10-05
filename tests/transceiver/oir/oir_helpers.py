@@ -63,6 +63,9 @@ TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
 STATUS_SW_REMOVED = {"cmis_state": "REMOVED", "status": "0", "error": "N/A"}
 STATUS_SW_READY = {"cmis_state": "READY", "status": "1", "error": "N/A"}
+# xcvrd's write on an insertion event, whatever the CMIS state machine then does.
+# The table outlives a removal, so this, not its presence, shows a new module.
+STATUS_SW_INSERTED = {"status": "1", "error": "N/A"}
 # Published by every module.  DOM / PM / VDM and the flag tables are module
 # dependent (a non-DOM DAC publishes none of them), so they are required only
 # when the pre-removal baseline shows the module published them.
@@ -268,7 +271,8 @@ def verify_state_tables_removed(duthost, lports, wait_sec):
 
 
 def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tables=None, ready=True):
-    """The per-module tables are republished and, if ``ready``, ``TRANSCEIVER_STATUS_SW`` is READY.
+    """The per-module tables are republished and ``TRANSCEIVER_STATUS_SW`` shows the
+    module inserted and, if ``ready``, READY.
 
     ``parents`` are the first sub-ports of the modules under test — the keys the
     per-module tables are published under.  ``baseline_tables`` is the
@@ -288,8 +292,7 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
                 failures.append(
                     f"{port}: STATE_DB table(s) not republished after insertion: {', '.join(missing)}"
                 )
-            if ready:
-                failures += _check_status_sw(duthost, port, STATUS_SW_READY)
+            failures += _check_status_sw(duthost, port, STATUS_SW_READY if ready else STATUS_SW_INSERTED)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
@@ -338,9 +341,10 @@ def read_xcvr_api(conn, pport, wait_sec=0):
     """Return ``(xcvr_api, serial)`` of the module in ``pport`` via the platform API server.
 
     ``xcvr_api`` is the server's ``{"__class__", "object_id", ...}`` view of the
-    XcvrApi cached by its long-lived Sfp object, or ``None`` if the platform builds
-    none within ``wait_sec``.  The cache is left alone, so across a hot swap the
-    XcvrApi only changes if the platform itself refreshes it.
+    XcvrApi of its long-lived Sfp object, or ``None`` if the platform builds none
+    within ``wait_sec``.  xcvrd drops its cached XcvrApi on every removal event;
+    the server's Sfp objects never see those events, so the XcvrApi is rebuilt
+    here for the module now in the cage.
     """
     sfp.sfp_api(conn, pport, "refresh_xcvr_api")
     wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: sfp.sfp_api(conn, pport, "get_xcvr_api") is not None)
@@ -363,15 +367,17 @@ def get_other_ports_flap_counts(duthost, port_attributes_dict, affected_lports):
 
 
 def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1):
-    """Verify each port's APPL_DB ``flap_count`` moved by ``expected_increment``."""
+    """Verify each port's APPL_DB ``flap_count`` moved by ``expected_increment``,
+    one increment for every port or a ``{port: increment}`` mapping."""
     failures = []
     current = get_flap_counts(duthost, lports)
     for port in lports:
+        expected = expected_increment[port] if isinstance(expected_increment, dict) else expected_increment
         before, after = baseline.get(port), current.get(port)
         if before is None or after is None:
             failures.append(f"{port}: flap_count not published (before={before!r}, after={after!r})")
-        elif int(after) - int(before) != expected_increment:
-            failures.append(f"{port}: flap_count {before}->{after}, expected +{expected_increment}")
+        elif int(after) - int(before) != expected:
+            failures.append(f"{port}: flap_count {before}->{after}, expected +{expected}")
     return failures
 
 
@@ -397,6 +403,12 @@ def verify_no_link_flap(duthost, port_attributes_dict, lports,
             duthost, monitored_lports, sentinels, elapsed_sec=monitor_sec)
         failures += [result["details"] for result in results.values() if not result["passed"]]
     return failures
+
+
+def get_oper_up_ports(duthost, lports):
+    """Return the ``lports`` that are oper up."""
+    intf_status = get_dut_interfaces_status(duthost)
+    return [port for port in lports if (intf_status.get(port) or {}).get("oper") == "up"]
 
 
 def verify_other_ports_up(duthost, port_attributes_dict, affected_lports):
