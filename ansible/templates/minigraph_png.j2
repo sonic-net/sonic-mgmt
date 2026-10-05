@@ -158,10 +158,15 @@
         <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>{{ local_mgmt_ip }}</a:IPPrefix>
         </ManagementAddressV6>
-{% else %}
+{% elif not (use_ipv6_mgmt|default(false)|bool) %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>{{ local_mgmt_ip }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
+{% if ansible_hostv6|default('') and not (local_mgmt_ip | ansible.utils.ipv6) %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ ansible_hostv6 }}</a:IPPrefix>
+        </ManagementAddressV6>
 {% endif %}
 {% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
 	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
@@ -181,7 +186,7 @@
         </AddressV6>
 {% endif %}
 {% if use_ipv6_mgmt|default(false)|bool %}
-{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip_v6'] | default(dual_tor_facts['neighbor']['ip'], true) %}
+{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip_v6'] | default(dual_tor_facts['neighbor']['ip'] | default(''), true) %}
 {% else %}
 {% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip'] %}
 {% endif %}
@@ -189,10 +194,15 @@
         <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>{{ neighbor_mgmt_ip }}</a:IPPrefix>
         </ManagementAddressV6>
-{% else %}
+{% elif neighbor_mgmt_ip %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
           <a:IPPrefix>{{ neighbor_mgmt_ip }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
+{% if dual_tor_facts['neighbor']['ip_v6']|default('') and not (neighbor_mgmt_ip | ansible.utils.ipv6) %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip_v6'] }}</a:IPPrefix>
+        </ManagementAddressV6>
 {% endif %}
       </Device>
 {% endif %}
