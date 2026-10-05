@@ -86,7 +86,7 @@ def resolve_lldp_peer_aliases(peer_host, connections, namespaces=None):
         result = peer_host.command(argv=[
             "python3", "-c",
             "import json; from sonic_py_common import multi_asic; "
-            "print(json.dumps(multi_asic.get_front_end_namespaces()))",
+            + "print(json.dumps(multi_asic.get_front_end_namespaces()))",
         ])
         namespaces = json.loads(result["stdout"])
     if (not isinstance(namespaces, list) or not namespaces
