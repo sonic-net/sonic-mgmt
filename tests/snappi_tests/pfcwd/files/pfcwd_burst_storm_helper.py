@@ -65,10 +65,8 @@ def run_pfcwd_burst_storm_test(api,
                   if not low_rate or egress_duthost.is_multi_asic else None)
 
     start_pfcwd(egress_duthost, asic_value)
-    if low_rate:
-        enable_packet_aging(egress_duthost, asic_value)
-    else:
-        enable_packet_aging(egress_duthost)
+    enable_packet_aging(egress_duthost, asic_value if low_rate else None)
+    if not low_rate:
         start_pfcwd(ingress_duthost, tx_port['asic_value'])
         enable_packet_aging(ingress_duthost)
 
