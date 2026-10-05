@@ -949,6 +949,12 @@ def run_traffic(duthost,
                 time.sleep(1)
                 attempts += 1
         else:
+            flow_stat_view = api._ixnetwork.Statistics.View.find(Caption='Flow Statistics')
+            if flow_stat_view:
+                flow_stat_view.Page.PageSize = 1000
+                logger.info("Flow Statistics page size set to {}".format(flow_stat_view.Page.PageSize))
+            else:
+                logger.warning("'Flow Statistics' view not found, page size not changed")
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
             transmit_states = [
                 int(float(metric['Tx Frame Rate']))
@@ -956,7 +962,7 @@ def run_traffic(duthost,
                 if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
                 and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
             ]
-            if list(set(transmit_states)) != [0]:   # Issue encountered, workaround is != instead of ==
+            if all(state == 0 for state in transmit_states) == 0:
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
