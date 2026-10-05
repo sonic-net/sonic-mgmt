@@ -901,13 +901,6 @@
           - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
           - use_ipv6_mgmt|default(false)|bool
 
-      - name: Switch ansible_host after pre-golden minigraph load
-        set_fact:
-          ansible_host: "{{ target_mgmt_ipv6 }}"
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - use_ipv6_mgmt|default(false)|bool
-
       - name: Wait for pre-golden minigraph load to complete
         become: true
         async_status:
@@ -920,6 +913,7 @@
           - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
           - use_ipv6_mgmt|default(false)|bool
 
+      # Keep ansible_host canonical; multi_passwd_ssh owns transport fallback for later remote tasks.
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
         shell: |
@@ -1078,11 +1072,7 @@
           timeout: 600
         changed_when: false
 
-      - name: Switch ansible_host to IPv6 after minigraph load (for subsequent tasks)
-        set_fact:
-          ansible_host: "{{ target_mgmt_ipv6 }}"
-        when: use_ipv6_mgmt|default(false)|bool
-
+      # Keep ansible_host canonical after the explicit transition as well.
       - name: Validate breakout config params
         assert:
           that:
