@@ -481,6 +481,7 @@ bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
     conditions_logical_operator: and
+    conditions:
       - "is_multi_asic==True"
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
@@ -1108,6 +1109,15 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/21090"
       - "release in ['202012', '202205', '202305', '202311']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+
+#######################################
+#####      device_ops_agent      #####
+#######################################
+device_ops_agent/test_device_ops_agent.py:
+  skip:
+    reason: "device-ops-agent container is not present on BMC, so these tests are not applicable."
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####         dhcp_relay        #####
@@ -3761,11 +3771,20 @@ kubesonic/test_k8s_join_disjoin.py:
       - "branch in ['master']"
       - "asic_type in ['vs']"
 
+#######################################
+#####            layer1           #####
+#######################################
 layer1/:
   skip:
     reason: 'Layer 1 tests require physical port interfaces, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+layer1/test_fec_error.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
 
 #######################################
 #####           lldp              #####
@@ -5669,6 +5688,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_system_status.py::test_system_is_running:
+  skip:
+    reason: "watchdog-control can not load on kvm testbed, leaving the system in 'degraded' state so 'systemctl is-system-running' never returns 'running'."
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 system_health/test_watchdog.py::test_orchagent_watchdog:
   skip:

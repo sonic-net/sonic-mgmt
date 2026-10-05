@@ -39,6 +39,53 @@ GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
 
 
+def log_system_checks_state(duthost, stage=""):
+    """Log a snapshot of the DUT's systemd state for debugging.
+
+    Off by default — callers invoke this explicitly when they want a
+    one-shot picture of what systemd is doing on the DUT (e.g. after a
+    wait_until on config_system_checks_passed times out). Works on any
+    SONiC DUT, not BMC-specific.
+    """
+    stage_label = " ({})".format(stage) if stage else ""
+    try:
+        state = duthost.shell(
+            "systemctl is-system-running", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: is-system-running=%s",
+            stage_label, (state.get("stdout") or "").strip(),
+        )
+        failed = duthost.shell(
+            "systemctl list-units --state=failed --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: failed units: %s",
+            stage_label, failed.get("stdout_lines"),
+        )
+        jobs = duthost.shell(
+            "systemctl list-jobs --no-legend", module_ignore_errors=True
+        )
+        logging.info(
+            "system-checks diag%s: pending jobs: %s",
+            stage_label, jobs.get("stdout_lines"),
+        )
+        activating = duthost.shell(
+            "systemctl list-units --state=activating --no-legend",
+            module_ignore_errors=True,
+        )
+        logging.info(
+            "system-checks diag%s: activating units: %s",
+            stage_label, activating.get("stdout_lines"),
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.warning(
+            "system-checks diag%s: failed to collect systemd state: %s",
+            stage_label, e,
+        )
+
+
 def config_system_checks_passed(duthost, delayed_services=[]):
     logging.info("Checking if system is running")
     out = duthost.shell("systemctl is-system-running", module_ignore_errors=True)
