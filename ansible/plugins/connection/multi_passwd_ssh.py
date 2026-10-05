@@ -165,17 +165,11 @@ def _password_retry(func):
             except KeyError:
                 hostv6 = None
 
-            err_msg = getattr(e, "message", "") or str(e)
-            # A censored failure reaches here only after all IPv4 passwords were tried.
-            # Its hidden cause may be connectivity, so allow the same retries on IPv6.
-            ipv6_fallback_eligible = (
-                CONNECTION_TIMEOUT_ERR_FLAG1 in err_msg
-                or CONNECTION_TIMEOUT_ERR_FLAG2 in err_msg
-                or NO_LOG_CENSORED_FLAG in err_msg
-            )
+            ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
+                                    (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message) or self._play_context.no_log
 
             try_ipv6_addr = orig_host != hostv6 and (not isinstance(e, AnsibleAuthenticationFailure)) and \
-                ipv6_fallback_eligible and hostv6
+                ipv4_addr_unavailable and hostv6
             if not try_ipv6_addr:
                 raise e
             _change_host(self, hostv6, *args)
