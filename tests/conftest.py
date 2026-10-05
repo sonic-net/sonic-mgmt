@@ -127,7 +127,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
-                  'tests.common.plugins.erspan_mirror')
+                  'tests.common.plugins.erspan_mirror',
+                  'tests.common.port_attributes.pytest_plugin')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -3797,12 +3798,24 @@ def setup_pfc_test(
 
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
+    if not test_ports:
+        pytest.skip(
+            "setup_pfc_test: no test ports could be built on {} (topology {}, {}): the DUT needs "
+            "at least two routed interfaces, two Port-Channels, or two VLAN sub-interfaces "
+            "carrying an {} address".format(
+                duthost.hostname, topo, ip_version, ip_version))
 
     # In T1 topology update test ports by removing inactive ports
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
         )
+        if not test_ports:
+            pytest.fail(
+                "setup_pfc_test: no active IP interfaces remain on {} after filtering "
+                "inactive ports (topology {}, {}). Check link/BGP state.".format(
+                    duthost.hostname, topo, ip_version))
+
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 

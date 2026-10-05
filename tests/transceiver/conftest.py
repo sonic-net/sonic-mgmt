@@ -9,16 +9,14 @@ from tests.common.platform.interface_utils import (
     get_lport_to_first_subport_mapping,
 )
 
-# Import attribute parser components
-from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader
-from tests.transceiver.attribute_parser.attribute_manager import AttributeManager
+# Import common port attributes builder (reusable across test packages)
+from tests.common.port_attributes import build_port_attributes_dict
+
 from tests.transceiver.attribute_parser.template_validator import STATUS_FULLY, STATUS_PARTIAL, TemplateValidator
 from tests.transceiver.attribute_parser.exceptions import DutInfoError, AttributeMergeError, TemplateValidationError
 from tests.transceiver.attribute_parser.utils import format_kv_block
 from tests.transceiver.attribute_parser.paths import (
-    REL_ATTR_DIR,
     REL_DEPLOYMENT_TEMPLATES_FILE,
-    get_repo_root,
 )
 
 # Shared prerequisite + health-check primitives (also called from reportable test cases).
@@ -37,8 +35,6 @@ from tests.transceiver.common.health_checks import (
 )
 
 logger = logging.getLogger(__name__)
-
-REPO_ROOT = get_repo_root()
 
 # Session-wide health-check event log, consumed by pytest_terminal_summary.
 # Category conftest files import this list and pass it to
@@ -249,43 +245,19 @@ def _load_port_attributes(request, ansible_root, duthost):
             dut_name,
         )
 
-    logger.info(
-        "Building transceiver base port attributes for DUT '%s'",
-        dut_name,
-    )
     try:
-        base_dict = DutInfoLoader(ansible_root).build_base_port_attributes(
-            dut_name,
+        merged = build_port_attributes_dict(
+            ansible_root,
+            duthost,
+            validate_templates=False,
+            categories=None,
+            missing_category_ok=False,
         )
     except DutInfoError as error:
         return (
             None,
             "failed loading base port attributes: {}".format(error),
             False,
-        )
-
-    if not base_dict:
-        return (
-            None,
-            "no ports found for DUT '{}' in dut_info.json".format(dut_name),
-            True,
-        )
-
-    attr_dir = os.path.join(ansible_root, REL_ATTR_DIR)
-    if not os.path.isdir(attr_dir):
-        return None, "attributes directory {} is absent".format(attr_dir), True
-
-    logger.info(
-        "Merging category attributes for DUT %s from %s",
-        dut_name,
-        attr_dir,
-    )
-    try:
-        merged = AttributeManager(
-            ansible_root,
-            base_dict,
-        ).build_port_attributes(
-            dut_name, platform or '', hwsku or ''
         )
     except AttributeMergeError as error:
         return (
