@@ -76,15 +76,6 @@
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
 
-    # Keep the canonical inventory primary for pre-transition connections.
-    # The DUT will be configured with the inventory IPv6 address through the minigraph.
-    - name: Set management subnet mask for IPv6-only mode
-      set_fact:
-        mgmt_subnet_mask_length: 64
-      when:
-        - use_ipv6_mgmt is defined
-        - use_ipv6_mgmt|bool == true
-
     - name: Debug IPv6-only management configuration
       debug:
         msg: |
