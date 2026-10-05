@@ -875,7 +875,6 @@
         register: preload_minigraph_result_ipv6
         async: 300
         poll: 0
-        ignore_errors: true
         when:
           - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
           - use_ipv6_mgmt|default(false)|bool
@@ -905,6 +904,18 @@
       - name: Switch ansible_host after pre-golden minigraph load
         set_fact:
           ansible_host: "{{ target_mgmt_ipv6 }}"
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - use_ipv6_mgmt|default(false)|bool
+
+      - name: Wait for pre-golden minigraph load to complete
+        become: true
+        async_status:
+          jid: "{{ preload_minigraph_result_ipv6.ansible_job_id }}"
+        register: preload_minigraph_poll_ipv6
+        until: preload_minigraph_poll_ipv6.finished
+        retries: 60
+        delay: 5
         when:
           - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
           - use_ipv6_mgmt|default(false)|bool
