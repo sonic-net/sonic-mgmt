@@ -18,7 +18,7 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
-                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
+                                             SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
                                              ACL_TABLE_NAME,
@@ -33,7 +33,12 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
                                              MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
                                              SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN,
-                                             TRIMMING_COUNTER_INTERVAL,
+                                             TRIMMING_COUNTER_INTERVAL, DEFAULT_DSCP, WARM_REBOOT_SCRIPT_NAME,
+                                             WARM_REBOOT_SCRIPT_PATH, WARM_REBOOT_SENDER_LOG,
+                                             WARM_REBOOT_CAPTURE_LOG, WARM_REBOOT_REPORT_FILE,
+                                             WARM_REBOOT_PACKET_RATE, WARM_REBOOT_PACKET_SIZE,
+                                             WARM_REBOOT_CAPTURE_SNAP_LEN, WARM_REBOOT_CAPTURE_BUFFER_SIZE,
+                                             WARM_REBOOT_CAPTURE_START_WAIT, WARM_REBOOT_ANALYZER_WAIT,
                                              QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -412,6 +417,14 @@ def create_blocking_scheduler(duthost):
 
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
+
+    pytest_assert(
+        wait_until(
+            60, 5, 0, get_scheduler_oid_by_attributes, duthost,
+            type=SCHEDULER_TYPE, weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR
+        ),
+        f"Blocking scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME} was not programmed in ASIC_DB"
+    )
 
 
 def delete_blocking_scheduler(duthost):
@@ -2240,10 +2253,12 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
     router_mac = duthost.facts["router_mac"]
 
+    packet_count = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for srv6_packet in SRV6_PACKETS:
         logger.info('-------------------------------------------------------------------------')
         logger.info(f'SRv6 tunnel decapsulation mode: {dscp_mode}')
-        logger.info(f'Send {PACKET_COUNT} SRv6 packets with action: {srv6_packet["action"]}')
+        logger.info(f'Send {packet_count} SRv6 packets with action: {srv6_packet["action"]}')
         logger.info(f'Pkt Src MAC: {DUMMY_MAC}')
         logger.info(f'Pkt Dst MAC: {router_mac}')
         if srv6_packet['action'] == SRV6_UN:
@@ -2313,7 +2328,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
         ptfadapter.dataplane.flush()
 
         logger.info(f"Send SRv6 packet(s) from PTF port {ingress_port['ptf_id']} to upstream")
-        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=PACKET_COUNT)
+        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=packet_count)
 
         logger.info('SRv6 packet format:\n ---------------------------')
         logger.info(f'{dump_packet_detail(srv6_pkt)}\n---------------------------')
@@ -2581,16 +2596,116 @@ def reboot_dut(duthost, localhost, reboot_type):
     Args:
         duthost: DUT host object
         localhost: localhost object
-        reboot_type: Type of reboot to perform. Options: 'reload' or 'cold'
+        reboot_type: Type of reboot to perform. Options: 'reload', 'cold' or 'warm'
     """
     # Perform the selected reboot
     if reboot_type == "reload":
         logger.info('Performing config reload')
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    else:  # cold reboot
-        logger.info('Performing cold reboot')
+    else:  # cold or warm reboot
+        logger.info(f'Performing {reboot_type} reboot')
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+
+def start_warm_reboot_traffic(ptfhost, ingress_port, egress_port, router_mac, duration):
+    """
+    Start a continuous sequence numbered stream on the PTF host.
+
+    The stream is sent with DEFAULT_DSCP, so that it lands on the blocked egress queue and every
+    packet is trimmed. Each packet carries an incrementing counter at the beginning of the payload,
+    so the counter survives the trimming and the trimmed copies can be checked for sequence gaps.
+
+    Args:
+        ptfhost: PTF host object
+        ingress_port (dict): Ingress port
+        egress_port (dict): Egress port
+        router_mac (str): Router MAC address of the DUT
+        duration (int): How long to keep sending the traffic, in seconds
+    """
+    script_src = os.path.join(os.path.dirname(__file__), "files", WARM_REBOOT_SCRIPT_NAME)
+    ptfhost.copy(src=script_src, dest=WARM_REBOOT_SCRIPT_PATH)
+
+    # Fall back to IPv6 for the v6 only topologies, where the egress port has no IPv4 address
+    dst_ip = egress_port['ipv4'] or egress_port['ipv6']
+    cmd = (f"nohup python3 {WARM_REBOOT_SCRIPT_PATH} send eth{ingress_port['ptf_id']} "
+           f"{router_mac} {dst_ip} {DEFAULT_DSCP} {WARM_REBOOT_PACKET_RATE} "
+           f"{duration} {WARM_REBOOT_PACKET_SIZE} > {WARM_REBOOT_SENDER_LOG} 2>&1 &")
+    ptfhost.shell(cmd)
+
+    logger.info(f"Started sequence numbered traffic on the PTF host: {cmd}")
+
+
+def start_warm_reboot_capture(ptfhost, egress_port):
+    """
+    Start capturing the packets forwarded by the DUT on the PTF host, and pipe the capture into the
+    analyzer, so that no large pcap file has to be stored on the PTF host or copied back.
+
+    The filter matches the already decremented TTL, so that only the packets routed by the DUT are
+    captured, and not the packets that the traffic generator puts on the wire. All the interfaces
+    are captured because the egress port can be a PortChannel and the traffic can be hashed to any
+    of its members.
+
+    Args:
+        ptfhost: PTF host object
+        egress_port (dict): Egress port
+    """
+    # Fall back to IPv6 for the v6 only topologies, where the egress port has no IPv4 address
+    dst_ip = egress_port['ipv4'] or egress_port['ipv6']
+    # The hop limit sits at ip6[7] in IPv6 and the TTL sits at ip[8] in IPv4
+    ttl_filter = f"ip6[7] == {DEFAULT_TTL - 1}" if ':' in dst_ip else f"ip[8] == {DEFAULT_TTL - 1}"
+    capture_filter = f"udp and dst host {dst_ip} and {ttl_filter}"
+    tcpdump_cmd = (f"tcpdump -i any -s {WARM_REBOOT_CAPTURE_SNAP_LEN} -B {WARM_REBOOT_CAPTURE_BUFFER_SIZE} "
+                   f"-U -w - '{capture_filter}' 2> {WARM_REBOOT_CAPTURE_LOG}")
+    analyzer_cmd = f"python3 {WARM_REBOOT_SCRIPT_PATH} analyze > {WARM_REBOOT_REPORT_FILE}"
+    cmd = f"nohup sh -c \"{tcpdump_cmd} | {analyzer_cmd}\" > /dev/null 2>&1 &"
+    ptfhost.shell(cmd)
+
+    # Let tcpdump open its capture socket before the measurement starts
+    time.sleep(WARM_REBOOT_CAPTURE_START_WAIT)
+    logger.info(f"Started trimmed packet capture on the PTF host: {cmd}")
+
+
+def stop_warm_reboot_traffic(ptfhost):
+    """
+    Stop the traffic and the capture started on the PTF host.
+
+    Args:
+        ptfhost: PTF host object
+    """
+    ptfhost.shell(f"pkill -f '{WARM_REBOOT_SCRIPT_NAME} send'", module_ignore_errors=True)
+    ptfhost.shell("pkill -SIGINT tcpdump", module_ignore_errors=True)
+
+
+def collect_warm_reboot_loss_report(ptfhost):
+    """
+    Stop the capture and the traffic on the PTF host, and return the trimmed packet loss report.
+
+    Args:
+        ptfhost: PTF host object
+
+    Returns:
+        dict: Loss report with the trimmed and untrimmed packet counts, the detected sequence gaps
+              and the number of packets that the kernel dropped while capturing
+    """
+    # SIGINT makes tcpdump flush its buffers and close the pipe, so that the analyzer reports
+    ptfhost.shell("pkill -SIGINT tcpdump", module_ignore_errors=True)
+    time.sleep(WARM_REBOOT_ANALYZER_WAIT)
+    stop_warm_reboot_traffic(ptfhost)
+
+    capture_log = ptfhost.shell(f"cat {WARM_REBOOT_CAPTURE_LOG}", module_ignore_errors=True)['stdout']
+    sender_log = ptfhost.shell(f"cat {WARM_REBOOT_SENDER_LOG}", module_ignore_errors=True)['stdout']
+    logger.info(f"Capture log on the PTF host: {capture_log}")
+    logger.info(f"Traffic generator log on the PTF host: {sender_log}")
+
+    loss_report = json.loads(ptfhost.shell(f"cat {WARM_REBOOT_REPORT_FILE}")['stdout'])
+    # The packets dropped by the kernel look exactly like the packets lost by the DUT, so report
+    # them as well to tell an unreliable capture apart from a real trimming disruption
+    kernel_drops = re.search(r"(\d+) packets dropped by kernel", capture_log)
+    loss_report['kernel_drops'] = int(kernel_drops.group(1)) if kernel_drops else 0
+    logger.info(f"Trimmed packet loss report: {loss_report}")
+
+    return loss_report
 
 
 def configure_tc_to_dscp_map(duthost, egress_ports):
@@ -2726,6 +2841,8 @@ def verify_trimmed_packet(
     if len(egress_ports) == 2:
         dscp_list.append(recv_pkt_dscp_port2)
 
+    num_verify_packets = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for egress_port, dscp in zip(egress_ports, dscp_list):
         logger.info(f"Verifying packet trimming for egress port {egress_port['name']} with DSCP {dscp}")
         verify_packet_trimming(
@@ -2739,12 +2856,12 @@ def verify_trimmed_packet(
             recv_pkt_size=recv_pkt_size,
             recv_pkt_dscp=dscp,
             expect_packets=expect_packets,
-            packet_count=PACKET_COUNT
+            packet_count=num_verify_packets
         )
 
 
 def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pkt_size, send_pkt_dscp, recv_pkt_size,
-                         recv_pkt_dscp, packet_count=PACKET_COUNT, timeout=5, expect_packets=True):
+                         recv_pkt_dscp, packet_count, timeout=5, expect_packets=True):
     """
     Verify normal packet transmission and reception.
 

@@ -5,6 +5,7 @@ import os
 import jinja2
 import glob
 import re
+import shlex
 import yaml
 import pytest
 from tests.common.helpers.assertions import pytest_assert
@@ -256,7 +257,37 @@ def get_group_program_info(duthost, container_name, group_name):
     return group_program_info
 
 
-def get_program_info(duthost, container_name, program_name):
+def get_container_processes(duthost, container_name, program_name):
+    """Return matching host PIDs and command lines from one container."""
+    result = duthost.shell("docker top {} -eo pid,args".format(container_name))
+    processes = []
+    for line in result["stdout_lines"][1:]:
+        pid, command = line.split(None, 1)
+        if os.path.basename(command.split()[0]) == program_name:
+            processes.append((int(pid), command))
+    return processes
+
+
+def kill_container_processes(duthost, processes):
+    """Kill exact host PIDs previously discovered through docker top."""
+    if processes:
+        pids = " ".join(str(pid) for pid, _ in processes)
+        duthost.shell("sudo kill -9 {} || true".format(pids))
+
+
+def start_container_process(duthost, container_name, command):
+    """Start one detached unmanaged process inside a container."""
+    duthost.shell(
+        "docker exec -d {} sh -c {}".format(
+            container_name,
+            shlex.quote(command),
+        )
+    )
+
+
+def get_program_info(
+    duthost, container_name, program_name, include_uptime=False
+):
     """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
@@ -264,26 +295,39 @@ def get_program_info(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
+        include_uptime: When True, also return the uptime field supervisorctl
+            reports for a RUNNING program (e.g. "0:12:34", or "37 days,
+            17:55:12" past the first day). Defaults to False so existing
+            callers keep unpacking a 2-tuple unchanged.
 
     Return:
-        Program running status and its pid.
+        Program running status and its pid. When include_uptime is True, a
+        third value (uptime string, or None if not RUNNING) is also returned.
     """
     program_status = None
     program_pid = -1
+    program_uptime = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+            fields = program_info.split()
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
+                if "uptime" in fields:
+                    program_uptime = " ".join(
+                        fields[fields.index("uptime") + 1:]
+                    )
             break
 
     if program_pid != -1:
         logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
+    if include_uptime:
+        return program_status, program_pid, program_uptime
     return program_status, program_pid
 
 
@@ -302,23 +346,22 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
 
 def get_disabled_container_list(duthost):
-    """Gets the container/service names which are disabled.
+    """Gets disabled container/service names and features without containers.
 
     Args:
         duthost: Host DUT.
 
     Return:
-        A list includes the names of disabled containers/services
+        Names to exclude from container checks.
     """
-    disabled_containers = []
+    # frr_bmp controls BMP inside bgp; it never owns a Docker container.
+    disabled_containers = ["frr_bmp"]
 
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
     for container_name, status in list(container_status.items()):
-        if "disabled" in status:
-            disabled_containers.append(container_name)
-        if "enabled" in status and container_name == "frr_bmp":
+        if "disabled" in status and container_name not in disabled_containers:
             disabled_containers.append(container_name)
     return disabled_containers
 
@@ -951,7 +994,11 @@ def get_random_reload_type(duthost):
     :return: a random reload type
     """
     reload_types = ["reload", "cold", "fast", "warm"]
-    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+    if duthost.is_bmc():
+        # BMC does not support fast reboot and warm reboot
+        logger.info("BMC does not support fast reboot and warm reboot, keep only reload and cold")
+        reload_types = ["reload", "cold"]
+    elif is_mellanox_device(duthost) and not is_issu_enabled(duthost):
         logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
         reload_types.remove("warm")
     reboot_type = random.choice(reload_types)

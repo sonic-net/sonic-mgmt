@@ -48,6 +48,8 @@ class SnappiTestParams():
                                no reboot is performed. (default: None)
             localhost (pytest fixture): localhost handle
             flow_name_prio_map (dict): A mapping of flow names to their corresponding Priority values.
+            flow_name_stats_identity_map (dict): A mapping of flow names to their
+                (Tx Port, Rx Port, PGID) statistics identities.
             num_tx_links (Optional[int]): number of transmission links from Ixia chassis. If provided, this will
                 be used to configure the testbed for the specified number of links.
             num_rx_links (Optional[int]): number of reception links from Ixia chassis. If provided, this will
@@ -75,6 +77,10 @@ class SnappiTestParams():
         self.reboot_type = None
         self.localhost = None
         self.flow_name_prio_map = {}
+        self.flow_name_stats_identity_map = {}
         self.num_tx_links: Optional[int] = 1
         self.num_rx_links: Optional[int] = 1
         self.tx_dscp_values: Optional[list[int]] = []
+        # Stop the data flows (only) after in-flight stats, so a flow held under a
+        # continuous pause storm reaches 'stopped' instead of timing out the wait loop.
+        self.stop_data_flows_before_final_stats: bool = False

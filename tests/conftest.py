@@ -56,6 +56,7 @@ from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
     is_pfcwd_hw_recovery_enabled
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -103,8 +104,8 @@ cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -126,7 +127,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
-                  'tests.common.plugins.erspan_mirror')
+                  'tests.common.plugins.erspan_mirror',
+                  'tests.common.port_attributes.pytest_plugin')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -1336,6 +1338,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
@@ -2110,14 +2116,16 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 # Create tuple of dut and asic index
                 if "features" in meta[a_dut]:
                     for a_feature in list(meta[a_dut]["features"].keys()):
-                        if a_feature not in skip_feature_list:
+                        if a_feature not in skip_feature_list \
+                                and "disabled" not in meta[a_dut]["features"][a_feature]:
                             tuple_list.append((a_dut, a_asic, a_feature))
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
             if "features" in meta[a_dut]:
                 for a_feature in list(meta[a_dut]["features"].keys()):
-                    if a_feature not in skip_feature_list:
+                    if a_feature not in skip_feature_list \
+                            and "disabled" not in meta[a_dut]["features"][a_feature]:
                         tuple_list.append((a_dut, None, a_feature))
             else:
                 tuple_list.append((a_dut, None, None))
@@ -3790,12 +3798,24 @@ def setup_pfc_test(
 
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
+    if not test_ports:
+        pytest.skip(
+            "setup_pfc_test: no test ports could be built on {} (topology {}, {}): the DUT needs "
+            "at least two routed interfaces, two Port-Channels, or two VLAN sub-interfaces "
+            "carrying an {} address".format(
+                duthost.hostname, topo, ip_version, ip_version))
 
     # In T1 topology update test ports by removing inactive ports
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
         )
+        if not test_ports:
+            pytest.fail(
+                "setup_pfc_test: no active IP interfaces remain on {} after filtering "
+                "inactive ports (topology {}, {}). Check link/BGP state.".format(
+                    duthost.hostname, topo, ip_version))
+
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -4036,7 +4056,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url, vmhost):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4193,7 +4213,8 @@ def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):
         mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
                                                                         duthosts,
                                                                         mux_server_url,
-                                                                        tbinfo)
+                                                                        tbinfo,
+                                                                        vmhost)
 
     if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
         logger.info("Set all mux ports to manual mode on all ToRs")
