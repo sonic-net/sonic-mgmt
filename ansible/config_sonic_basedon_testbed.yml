@@ -865,7 +865,49 @@
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - not (use_ipv6_mgmt|default(false)|bool)
+
+      - name: Apply minigraph prior to generating golden_config_db.json (IPv6 transition)
+        become: true
+        shell: config load_minigraph -y
+        register: preload_minigraph_result_ipv6
+        async: 300
+        poll: 0
+        ignore_errors: true
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - use_ipv6_mgmt|default(false)|bool
+
+      - name: Pause briefly to allow pre-golden minigraph load to start (IPv6 transition)
+        pause:
+          seconds: 5
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - use_ipv6_mgmt|default(false)|bool
+
+      - name: Wait for IPv6 target after pre-golden minigraph load
+        become: false
+        local_action: wait_for
+        args:
+          host: "{{ target_mgmt_ipv6 }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - use_ipv6_mgmt|default(false)|bool
+
+      - name: Switch ansible_host after pre-golden minigraph load
+        set_fact:
+          ansible_host: "{{ target_mgmt_ipv6 }}"
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - use_ipv6_mgmt|default(false)|bool
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
