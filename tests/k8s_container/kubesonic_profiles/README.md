@@ -1,9 +1,9 @@
-# KubeSonic manual test profiles
+# KubeSonic test profiles
 
-Use these profiles to run a `k8s_container` test from an active
-`sonic-mgmt-int` pull request on an eligible physical testbed.
+Profiles are version-controlled test recipes. They define test selectors,
+structured pytest options, and compatible physical-testbed requirements.
 
-## Queue a run
+## Queue a manual run
 
 Run the `kubesonic.manual` pipeline from its default `internal` branch:
 
@@ -17,6 +17,26 @@ The pipeline resolves the pull request to an immutable commit. For `auto`, it
 reads the current Elastictest inventory, excludes unavailable or reserved
 testbeds, selects one matching the profile, and derives the topology from that
 testbed.
+
+## Join the nightly run
+
+The `kubesonic.nightly` pipeline runs `nightly-default.json` from the exact
+scheduled `internal` commit. The profile initially contains the
+canary-validated gNMI golden selector and options. The scheduled default is
+`testbed-bjw-can-720dt-3`; a manual run may provide another exact eligible
+testbed that satisfies the same profile requirements.
+
+Compatible Kubernetes-container tests can piggyback on the same physical run
+by adding their selectors and structured options to `nightly-default.json`.
+Every addition requires a reviewed profile change. The launcher YAML does not
+need to change.
+
+Keep one aggregate profile only while every included test is compatible with
+the same topology, testbed-name prefixes, DUT count, installed-image policy,
+preparation, pretest, posttest, restart-PTF, teardown, and release behavior.
+The job keeps test-case retries at zero and stops on failure. Do not weaken the
+requirements to admit an incompatible test. A test that needs a different
+physical boundary requires a separately reviewed profile and scheduled job.
 
 ## Add a profile
 

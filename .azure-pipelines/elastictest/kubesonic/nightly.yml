@@ -1,0 +1,106 @@
+name: KubeSonic_nightly_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 4 * * 1,3,5"
+    displayName: "KubeSonic nightly Mon-Wed-Fri"
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "testbed-bjw-can-720dt-3"
+    displayName: "Exact eligible physical one-DUT testbed name"
+
+stages:
+  - stage: Test
+    jobs:
+      - job: KubeSonic_nightly
+        displayName: "KubeSonic nightly by Elastictest"
+        timeoutInMinutes: 720
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        variables:
+          - group: SONiC-Elastictest
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            sparseCheckoutDirectories: .azure-pipelines
+
+          - script: |
+              if command -v az >/dev/null 2>&1; then
+                echo "Azure CLI is available"
+                exit 0
+              fi
+
+              sudo apt-get -o DPkg::Lock::Timeout=600 update
+              sudo apt-get -o DPkg::Lock::Timeout=600 -y install \
+                apt-transport-https ca-certificates curl gnupg lsb-release
+              sudo mkdir -p /etc/apt/keyrings
+              curl -sLS https://packages.microsoft.com/keys/microsoft.asc |
+                gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft.gpg >/dev/null
+              sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
+              echo "Types: deb
+              URIs: https://packages.microsoft.com/repos/azure-cli/
+              Suites: $(lsb_release -cs)
+              Components: main
+              Architectures: $(dpkg --print-architecture)
+              Signed-by: /etc/apt/keyrings/microsoft.gpg" |
+                sudo tee /etc/apt/sources.list.d/azure-cli.sources
+              sudo apt-get -o DPkg::Lock::Timeout=600 update
+              sudo apt-get -o DPkg::Lock::Timeout=600 -y install azure-cli
+            displayName: "Ensure Azure CLI"
+
+          - script: python3 .azure-pipelines/elastictest/kubesonic/resolve_nightly_inputs.py
+            displayName: "Resolve KubeSonic nightly profile"
+            env:
+              PIPELINE_REF: $(Build.SourceBranch)
+              SOURCE_COMMIT: $(Build.SourceVersion)
+              TEST_CONFIG: "nightly-default"
+              TESTBED: ${{ parameters.TESTBED_NAME }}
+              AZURE_DEVOPS_TOKEN: $(System.AccessToken)
+              SYSTEM_COLLECTION_URI: $(System.CollectionUri)
+              SYSTEM_TEAM_PROJECT_ID: $(System.TeamProjectId)
+              BUILD_REPOSITORY_ID: $(Build.Repository.ID)
+              ELASTICTEST_MSAL_CLIENT_ID: $(ELASTICTEST_MSAL_CLIENT_ID)
+              SONIC_AUTOMATION_UMI: $(SONIC_AUTOMATION_UMI)
+
+          - template: ../../run-test-nightly-elastictest-template.yml
+            parameters:
+              TESTBED_NAME: $(resolvedTestbedName)
+              MIN_WORKER: "1"
+              MAX_WORKER: "1"
+              LOCK_WAIT_TIMEOUT_SECONDS: "7200"
+              IMAGE_URL: ""
+              MGMT_BRANCH: internal
+              MGMT_COMMIT_HASH: $(resolvedSourceCommit)
+              REQUESTER: "KubeSonic nightly $(Build.BuildId)"
+              SCRIPTS: $(resolvedTestScripts)
+              FEATURES: " "
+              SCRIPTS_EXCLUDE: " "
+              FEATURES_EXCLUDE: " "
+              COMMON_EXTRA_PARAMS: "--topology=$(resolvedTopology),any --unresettable_xcvr_types=SFP --allow_recover"
+              SPECIFIC_PARAM: '$(resolvedSpecificParam)'
+              AFFINITY: "[]"
+              MAX_RUN_TEST_MINUTES: 720
+              RETRY_TIMES: "0"
+              RETRY_CASES_INCLUDE: " "
+              RETRY_CASES_EXCLUDE: " "
+              STOP_ON_FAILURE: "True"
+              ENABLE_PARALLEL_RUN: "False"
+              SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "True"
+              DEPLOY_MG_EXTRA_PARAMS: ""
+              SKIP_RESTART_PTF: false
