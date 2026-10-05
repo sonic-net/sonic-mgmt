@@ -1,5 +1,8 @@
 import logging
+import time
 from contextlib import contextmanager
+
+import pytest
 
 from tests.common.platform.interface_utils import (
     get_physical_to_logical_port_mapping,
@@ -11,7 +14,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, dmesg_helpers, scenario_ops
-from tests.transceiver.common.db_helpers import resolve_port_namespace
+from tests.transceiver.common.db_helpers import get_db_hash_field, resolve_port_namespace
 from tests.transceiver.common.health_checks import capture_baseline
 from tests.transceiver.common.verification import (
     assert_no_flap_since,
@@ -204,9 +207,8 @@ def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
                                          lport_to_first_subport_mapping):
     """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
 
-    Leaves polling enabled. ``dom_polling_disabled_on_ports`` re-enables only the ports
-    it disabled, so a port that was already disabled before that context manager ran is
-    left enabled here rather than restored.
+    Leaves polling enabled and requires a publication newer than the snapshot
+    taken here, even when the operation runner already restored polling.
     """
     baseline_sensor_data, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
     if read_errors:
@@ -237,10 +239,7 @@ def verify_standard_port_recovery(duthost, port_attributes_dict, ports, link_up_
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
     )
-    return [
-        outcome["details"] for outcome in result["per_port"].values()
-        if not outcome["passed"]
-    ]
+    return [result["details"]] if not result["passed"] else []
 
 
 def perform_firmware_download(duthost, port, port_context, metadata_map,
@@ -803,13 +802,58 @@ def restore_module_to_original(duthost, port, port_context, metadata_map):
     return failures
 
 
+@contextmanager
+def dom_polling_disabled_on_ports(duthost, port_attributes_dict, ports):
+    """Disable polling only around CDB work, yielding restoration failures.
+
+    Restore only ports changed by this context, including on exceptions or
+    interruption. Ports already disabled retain their prior state.
+    """
+    sleep_sec = 0
+    disabled_ports = []
+    restoration_failures = []
+    try:
+        for port in ports:
+            cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+            sleep_sec = max(sleep_sec, cdb_attrs["sleep_after_dom_disable_sec"])
+            namespace = resolve_port_namespace(duthost, port)
+            dom_polling, err = get_db_hash_field(
+                duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
+            )
+            if err:
+                pytest.fail(f"Failed to read dom_polling for {port}: {err}")
+            if dom_polling == "disabled":
+                logger.debug("Port %s: DOM polling already disabled", port)
+                continue
+            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
+            if err:
+                pytest.fail(f"Failed to disable DOM polling: {err}")
+            disabled_ports.append((port, namespace))
+        if disabled_ports:
+            logger.info("Disabled DOM polling on %d port(s); waiting %ds", len(disabled_ports), sleep_sec)
+            time.sleep(sleep_sec)
+        yield restoration_failures
+    finally:
+        for port, namespace in disabled_ports:
+            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
+            if err:
+                detail = f"Failed to re-enable DOM polling on {port}: {err}"
+                restoration_failures.append(detail)
+                logger.warning("%s", detail)
+        restored_count = len(disabled_ports) - len(restoration_failures)
+        if restored_count:
+            logger.info("Re-enabled DOM polling on %d port(s)", restored_count)
+
+
 def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_pport,
                      metadata_map, per_port_fn, lport_to_first_subport_mapping=None,
                      prefetch=None, verify_post_operation=False):
     """Invoke ``per_port_fn`` on every qualifying CDB firmware port and aggregate failures.
 
-    ``prefetch(duthost, qualifying_ports, lport_to_pport)`` runs once before the
-    loop and its result is exposed as ``port_context["prefetched"]``.
+    DOM polling is disabled only around ``prefetch`` and the per-port operations,
+    then restored before post-operation verification. ``prefetch(duthost,
+    qualifying_ports, lport_to_pport)`` runs once before the loop and its result
+    is exposed as ``port_context["prefetched"]``.
 
     ``verify_post_operation`` runs the Standard Port Recovery and Verification
     Procedure over every sub-port of the modules under test both before and
@@ -822,7 +866,6 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
         raise ValueError("lport_to_first_subport_mapping is required when verify_post_operation is set")
 
     pport_to_lport = get_physical_to_logical_port_mapping(lport_to_pport)
-    prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
     all_failures = []
 
     if verify_post_operation and qualifying_ports:
@@ -844,22 +887,25 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
         if pre_failures:
             return [f"pre-operation: {failure}" for failure in pre_failures], len(qualifying_ports)
 
-    for port in qualifying_ports:
-        base_attrs = port_attributes_dict[port].get(BASE_ATTRIBUTES_KEY, {})
-        vendor = base_attrs.get("normalized_vendor_name")
-        pn = base_attrs.get("normalized_vendor_pn")
-        physical_index = lport_to_pport.get(port)
-        if physical_index is None:
-            all_failures.append(f"{port}: could not resolve physical port index")
-            continue
-        port_context = {
-            "cdb_attrs": port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {}),
-            "system_attrs": port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}),
-            "vendor": vendor, "pn": pn, "physical_index": physical_index,
-            "subports": pport_to_lport.get(physical_index, [port]),
-            "prefetched": prefetched,
-        }
-        all_failures += [f"{port}: {f}" for f in per_port_fn(duthost, port, port_context, metadata_map)]
+    with dom_polling_disabled_on_ports(duthost, port_attributes_dict, qualifying_ports) as restoration_failures:
+        prefetched = prefetch(duthost, qualifying_ports, lport_to_pport) if prefetch else None
+        for port in qualifying_ports:
+            base_attrs = port_attributes_dict[port].get(BASE_ATTRIBUTES_KEY, {})
+            vendor = base_attrs.get("normalized_vendor_name")
+            pn = base_attrs.get("normalized_vendor_pn")
+            physical_index = lport_to_pport.get(port)
+            if physical_index is None:
+                all_failures.append(f"{port}: could not resolve physical port index")
+                continue
+            port_context = {
+                "cdb_attrs": port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {}),
+                "system_attrs": port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}),
+                "vendor": vendor, "pn": pn, "physical_index": physical_index,
+                "subports": pport_to_lport.get(physical_index, [port]),
+                "prefetched": prefetched,
+            }
+            all_failures += [f"{port}: {f}" for f in per_port_fn(duthost, port, port_context, metadata_map)]
+    all_failures += restoration_failures
 
     if verify_post_operation and qualifying_ports and not all_failures:
         all_failures += verify_static_eeprom_unchanged(

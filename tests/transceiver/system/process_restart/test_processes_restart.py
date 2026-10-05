@@ -102,13 +102,19 @@ def _process_restart_tester(
 
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
+    flap_count_baseline = None
 
     logger.info("Recording link states and uptime for %d port(s)", len(ports))
     link_check = check_links_up(duthost, port_attributes_dict)
     if not link_check["passed"]:
+        failures.append(f"[pre-restart] {link_check['details']}")
         logger.warning("Validation on Start FAILED: some ports are down")
     else:
         flap_sentinels = capture_flap_sentinels(duthost, ports)
+        flap_count_baseline = {
+            port: sentinel[0]
+            for port, sentinel in flap_sentinels.items()
+        }
         for port in ports:
             last_up_time = flap_sentinels[port][1]
             logger.info(
@@ -169,6 +175,11 @@ def _process_restart_tester(
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         expected_pid_changes=expected_pid_changes,
+        flap_count_baseline=flap_count_baseline,
+        assert_no_flap_across_op=(
+            process_name in ("xcvrd", "pmon")
+            and flap_count_baseline is not None
+        ),
     )
     if not result["passed"]:
         failures.append(f"[post-restart] {result['details']}")

@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 def test_firmware_upgrade_distinct_version(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Upgrade every qualifying module to the fully distinct firmware version."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -31,7 +30,6 @@ def test_firmware_upgrade_distinct_version(
 def test_firmware_upgrade_stress(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify repeated full firmware upgrades succeed without drift."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -50,7 +48,6 @@ def test_firmware_upgrade_stress(
 def test_firmware_upgrade_from_old_gold(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Downgrade to the old gold firmware, then upgrade to the current gold."""
     old_gold_firmware_ports = [

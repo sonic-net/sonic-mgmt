@@ -4,6 +4,10 @@ import logging
 import warnings
 from pathlib import Path
 
+from ansible.errors import AnsibleError
+
+from tests.common.devices.base import AnsibleHostBase
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
 from tests.common.platform.interface_utils import (
     get_physical_port_indices,
     get_lport_to_first_subport_mapping,
@@ -12,6 +16,7 @@ from tests.common.platform.interface_utils import (
 # Import attribute parser components
 from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader
 from tests.transceiver.attribute_parser.attribute_manager import AttributeManager
+from tests.transceiver.attribute_parser.attribute_keys import SYSTEM_ATTRIBUTES_KEY
 from tests.transceiver.attribute_parser.template_validator import STATUS_FULLY, STATUS_PARTIAL, TemplateValidator
 from tests.transceiver.attribute_parser.exceptions import DutInfoError, AttributeMergeError, TemplateValidationError
 from tests.transceiver.attribute_parser.utils import format_kv_block
@@ -35,6 +40,7 @@ from tests.transceiver.common.health_checks import (
     run_pre_check,
     verify_health,
 )
+from tests.transceiver.common.topology import resolve_lldp_peer_aliases, resolve_peer_connections
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +335,42 @@ def port_attributes_dict(request, ansible_root, duthost):
             pytest.skip(error)
         pytest.fail(error)
     return attributes
+
+
+@pytest.fixture(scope='session')
+def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict):
+    """Map ports to expected LLDP identities and per-port resolution errors.
+
+    Load the graph through its shared loader because the conn_graph_facts
+    fixture is module-scoped. Batch local graph lookups and peer alias reads
+    by ASIC. Peers with LLDP enabled must be accessible through inventory,
+    but need not be selected as testbed DUTs. Cabling and port/alias mappings
+    must stay fixed for the session.
+    """
+    graph = get_graph_facts(duthost, localhost, [duthost.hostname])
+    connections = resolve_peer_connections(duthost, graph, port_attributes_dict)
+    ports_by_peer = {}
+    for port, (peer, error) in connections.items():
+        if error is None and port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get("verify_lldp_on_link_up"):
+            ports_by_peer.setdefault(peer.device, {})[port] = peer
+
+    hosts = {host.hostname: host for host in duthosts}
+    hosts[duthost.hostname] = duthost
+    for device, peer_connections in ports_by_peer.items():
+        try:
+            peer_host = hosts.get(device)
+            namespaces = None
+            if peer_host is None:
+                peer_host = AnsibleHostBase(ansible_adhoc, device)
+            else:
+                namespaces = peer_host.get_frontend_asic_namespace_list()
+            connections.update(resolve_lldp_peer_aliases(peer_host, peer_connections, namespaces=namespaces))
+        except (pytest.fail.Exception, AnsibleError, KeyError, ValueError) as error:
+            detail = f"LLDP peer {device} alias resolution failed: {error}"
+            logger.warning("%s", detail)
+            for port in peer_connections:
+                connections[port] = None, detail
+    return connections
 
 
 def _build_port_attributes_loader(

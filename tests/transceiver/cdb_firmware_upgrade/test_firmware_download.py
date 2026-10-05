@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 def test_firmware_download(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Download firmware to the target bank and verify every qualifying module."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -30,7 +29,6 @@ def test_firmware_download(
 def test_firmware_download_post_reset(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify a downloaded firmware image survives a transceiver reset."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -49,7 +47,6 @@ def test_firmware_download_post_reset(
 def test_firmware_download_low_power(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify firmware downloads succeed while the module is in low-power mode."""
     low_power_ports = [
@@ -75,7 +72,6 @@ def test_firmware_download_low_power(
 def test_firmware_download_admin_down(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify firmware downloads succeed while the port is admin-down."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -94,7 +90,6 @@ def test_firmware_download_admin_down(
 def test_firmware_download_zero_filled_binary(
     duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify a zero-filled firmware image is rejected and leaves the banks untouched."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -113,7 +108,6 @@ def test_firmware_download_zero_filled_binary(
 def test_firmware_download_corrupted_binary(
     duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify a firmware image with a corrupted payload is rejected."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -132,7 +126,6 @@ def test_firmware_download_corrupted_binary(
 def test_firmware_download_interruption_and_recovery(
     duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
 ):
     """Verify every interrupted download is aborted and followed by a clean download."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
