@@ -43,8 +43,8 @@ class DualTorParser:
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
         neighbor_host_vars = self.host_vars[neighbor['hostname']]
         neighbor['ip'] = neighbor_host_vars['ansible_host']
-        if neighbor_host_vars.get('target_mgmt_ipv6'):
-            neighbor['target_mgmt_ipv6'] = neighbor_host_vars['target_mgmt_ipv6']
+        if neighbor_host_vars.get('ansible_hostv6'):
+            neighbor['ip_v6'] = neighbor_host_vars['ansible_hostv6']
 
         if 'hwsku' in neighbor_host_vars:
             neighbor['hwsku'] = neighbor_host_vars['hwsku']

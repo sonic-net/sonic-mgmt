@@ -51,7 +51,7 @@
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% set inventory_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
 {% if use_ipv6_mgmt|default(false)|bool %}
-{% set effective_mgmt_ipv6 = target_mgmt_ipv6 %}
+{% set effective_mgmt_ipv6 = ansible_hostv6 | default(ansible_host, true) %}
 {% elif inventory_host_is_ipv6 %}
 {% set effective_mgmt_ipv6 = ansible_host %}
 {% elif ansible_hostv6 is defined and (ansible_hostv6 | ansible.utils.ipv6) %}

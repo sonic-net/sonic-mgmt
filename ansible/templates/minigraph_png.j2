@@ -150,7 +150,7 @@
         </AddressV6>
 {% endif %}
 {% if use_ipv6_mgmt|default(false)|bool %}
-{% set local_mgmt_ip = target_mgmt_ipv6 %}
+{% set local_mgmt_ip = ansible_hostv6 | default(ansible_host, true) %}
 {% else %}
 {% set local_mgmt_ip = ansible_host %}
 {% endif %}
@@ -181,7 +181,7 @@
         </AddressV6>
 {% endif %}
 {% if use_ipv6_mgmt|default(false)|bool %}
-{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['target_mgmt_ipv6'] %}
+{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip_v6'] | default(dual_tor_facts['neighbor']['ip'], true) %}
 {% else %}
 {% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip'] %}
 {% endif %}

@@ -51,27 +51,6 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
-    - name: Resolve requested IPv6-only management target
-      set_fact:
-        target_mgmt_ipv6: >-
-          {{
-            ansible_hostv6
-            if (ansible_hostv6 | default('') | ansible.utils.ipv6)
-            else ansible_host
-            if (ansible_host | default('') | ansible.utils.ipv6)
-            else ''
-          }}
-      when: use_ipv6_mgmt|default(false)|bool
-
-    - name: Validate requested IPv6-only management target
-      assert:
-        that:
-          - (target_mgmt_ipv6 | ansible.utils.ipv6) is not false
-        fail_msg: >-
-          IPv6-only management mode requested for {{ inventory_hostname }},
-          but neither ansible_hostv6 nor ansible_host contains a valid IPv6 address
-      when: use_ipv6_mgmt|default(false)|bool
-
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
       include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
@@ -98,7 +77,7 @@
         - use_ipv6_mgmt|bool == true
 
     # Keep the canonical inventory primary for pre-transition connections.
-    # The DUT will be configured with the resolved IPv6 target through the minigraph.
+    # The DUT will be configured with the inventory IPv6 address through the minigraph.
     - name: Set management subnet mask for IPv6-only mode
       set_fact:
         mgmt_subnet_mask_length: 64
@@ -110,7 +89,7 @@
       debug:
         msg: |
           IPv6-only management mode requested for {{ inventory_hostname }}
-          Target management IP: {{ target_mgmt_ipv6 }}
+          Target management IP: {{ ansible_hostv6 | default(ansible_host, true) }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -890,7 +869,7 @@
         become: false
         local_action: wait_for
         args:
-          host: "{{ target_mgmt_ipv6 }}"
+          host: "{{ ansible_hostv6 | default(ansible_host, true) }}"
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
@@ -1064,7 +1043,9 @@
           # When use_ipv6_mgmt is true, wait on IPv6 address
           # Normal mode intentionally waits only on canonical ansible_host:
           # transport fallback must not hide a failure to restore the requested primary address.
-          host: "{{ target_mgmt_ipv6 if use_ipv6_mgmt|default(false)|bool else ansible_host }}"
+          host: >-
+            {{ (ansible_hostv6 | default(ansible_host, true))
+               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
