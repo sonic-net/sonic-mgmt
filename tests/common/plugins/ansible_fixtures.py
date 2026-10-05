@@ -1,6 +1,17 @@
 """ This module provides few pytest-ansible fixtures overridden """
 import pytest
-from pytest_ansible.host_manager import get_host_manager
+try:
+    from pytest_ansible.host_manager.utils import get_host_manager  # pytest_ansible 25.8.0
+except ImportError:
+    from pytest_ansible.host_manager import get_host_manager        # pytest_ansible 4.0
+
+try:
+    # Initialize ansible plugin loader to avoid issues with ansbile-core 2.18
+    from ansible.plugins.loader import init_plugin_loader
+    init_plugin_loader()
+except ImportError:
+    # Nothing need to do for ansible-core 2.13
+    pass
 
 
 # Here we override ansible_adhoc fixture from pytest-ansible plugin to overcome

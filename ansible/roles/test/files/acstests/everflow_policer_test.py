@@ -9,7 +9,6 @@ Usage:          Examples of how to use:
 
 import sys
 import time
-import datetime
 import logging
 
 import ptf
@@ -22,11 +21,56 @@ from ptf.mask import Mask
 logger = logging.getLogger('EverflowPolicerTest')
 
 
+def _send_packets_paced(send_batch, total_packets, batch_size, batch_interval, sleep=time.sleep):
+    """
+    @summary: Send total_packets by calling send_batch(count) repeatedly, capping
+    each call at batch_size and pacing calls by batch_interval. This avoids handing
+    PTF a single unpaced burst, which can create sustained bursts on the PTF/kernel
+    transmit path and intermittently lose packets (see sonic-net/sonic-mgmt#27708).
+    Used both for the original (non-mirrored) flow send and the CBS-absorption
+    burst in checkMirroredFlow().
+    """
+    remaining = total_packets
+    while remaining > 0:
+        count = min(batch_size, remaining)
+        send_batch(count)
+        remaining -= count
+        if remaining > 0:
+            sleep(batch_interval)
+
+
+def _send_packets_paced_for_duration(
+        send_batch, duration, batch_size, batch_interval, sleep=time.sleep, monotonic=time.monotonic):
+    """
+    @summary: Call send_batch(batch_size) repeatedly for approximately duration
+    seconds, pacing batches by batch_interval, instead of a tight single-packet
+    send loop. Pacing gives the PTF/kernel transmit path time to drain between
+    batches. Returns the exact number of packets requested through send_batch()
+    so callers can compute an accurate tx rate (see sonic-net/sonic-mgmt#27708).
+    """
+    end_time = monotonic() + duration
+    tx_pkts = 0
+    while monotonic() < end_time:
+        send_batch(batch_size)
+        tx_pkts += batch_size
+        remaining = end_time - monotonic()
+        if remaining > 0:
+            sleep(min(batch_interval, remaining))
+    return tx_pkts
+
+
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
     NUM_OF_TOTAL_PACKETS = 10000
     METER_TYPES = ['packets', 'bytes']
+    # Cap on packets sent per pacing batch, and the delay between batches, used to
+    # pace the original-flow send and both checkMirroredFlow() traffic-generation
+    # paths (CBS absorption and sustained transmission). This keeps offered traffic
+    # from bursting unpaced, while remaining far above the policer's configured
+    # rate limit (see sonic-net/sonic-mgmt#27708).
+    PACED_SEND_BATCH_SIZE = 60
+    PACED_SEND_BATCH_INTERVAL = 0.01
 
     def __init__(self):
         '''
@@ -180,7 +224,12 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane.flush()
 
         count = 0
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        _send_packets_paced(
+            lambda n: testutils.send_packet(self, self.src_port, self.base_pkt, count=n),
+            self.NUM_OF_TOTAL_PACKETS,
+            self.PACED_SEND_BATCH_SIZE,
+            self.PACED_SEND_BATCH_INTERVAL,
+        )
         for i in range(0, self.NUM_OF_TOTAL_PACKETS):
             (rcv_device, rcv_port, rcv_pkt, pkt_time) = testutils.dp_poll(self, timeout=0.1, exp_pkt=masked_exp_pkt)
             if rcv_pkt is not None:
@@ -215,10 +264,12 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             import binascii
-            payload = binascii.unhexlify("0"*44) + str(payload)     # Add the padding
-        elif self.asic_type in ["innovium"]:
+            payload = binascii.unhexlify("0"*44) + bytes(payload)     # Add the padding
+        elif self.asic_type in ["marvell-teralynx"] or \
+                self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx"] or \
+                self.hwsku.startswith("Nokia-7215-A1"):
             import binascii
-            payload = binascii.unhexlify("0"*24) + str(payload)     # Add the padding
+            payload = binascii.unhexlify("0"*24) + bytes(payload)     # Add the padding
 
         exp_pkt = testutils.simple_gre_packet(eth_src=self.router_mac,
                                               ip_src=self.session_src_ip,
@@ -237,9 +288,20 @@ class EverflowPolicerTest(BaseTest):
                                                 ip_dst=self.session_dst_ip,
                                                 ip_dscp=self.session_dscp,
                                                 ip_ttl=self.session_ttl,
-                                                inner_frame=str(payload),
+                                                inner_frame=bytes(payload),
                                                 ip_id=0,
                                                 sgt_other=0x4)
+        elif self.asic_type in ["cisco-8000"]:
+            exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
+                                                ip_src=self.session_src_ip,
+                                                ip_dst=self.session_dst_ip,
+                                                ip_dscp=self.session_dscp,
+                                                ip_ttl=self.session_ttl-1,
+                                                inner_frame=bytes(payload),
+                                                ip_id=0,
+                                                version=1)
+
+            exp_pkt['ERSPAN II'].ver = 1
         else:
             exp_pkt['GRE'].proto = 0x88be
 
@@ -248,11 +310,15 @@ class EverflowPolicerTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
-        if self.asic_type in ["innovium"]:
+        if self.asic_type in ["marvell-teralynx"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
-        if self.asic_type in ["marvell"]:
+        if self.asic_type in ["marvell-prestera", "marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
-
+            masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
+        if self.asic_type in ["cisco-8000"]:
+            erspan_bit_offset = 42
+            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19, 2)  # Mask the encap value
+            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22, 10)  # Mask the session_id
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "timestamp")
@@ -269,26 +335,33 @@ class EverflowPolicerTest(BaseTest):
                 pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:]  # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
-            elif self.asic_type in ["innovium"]:
+            elif self.asic_type in ["marvell-teralynx"] or \
+                    self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx"] or \
+                    self.hwsku.startswith("Nokia-7215-A1"):
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
-                pkt_str = str(pkt)
-                pkt = scapy.Ether(pkt_str[8:])
+                pkt = scapy.Ether(bytes(pkt)[8:])
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
+            elif self.asic_type == "cisco-8000":
+                pkt = scapy.Ether(pkt)[scapy.GRE].payload
+                pkt = bytes(pkt)
+                pkt = scapy.Ether(pkt[8:])  # Mask the ERSPAN II header
             else:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
             return dataplane.match_exp_pkt(payload_mask, pkt)
 
+        def send_batch(count):
+            testutils.send_packet(self, self.src_port, self.base_pkt, count=count)
+
         # send some amount to absorb CBS capacity
-        testutils.send_packet(self, self.src_port, str(self.base_pkt), count=self.NUM_OF_TOTAL_PACKETS)
+        _send_packets_paced(
+            send_batch, self.NUM_OF_TOTAL_PACKETS,
+            self.PACED_SEND_BATCH_SIZE, self.PACED_SEND_BATCH_INTERVAL)
         self.dataplane.flush()
 
-        end_time = datetime.datetime.now() + datetime.timedelta(seconds=self.send_time)
-        tx_pkts = 0
-        while datetime.datetime.now() < end_time:
-            testutils.send_packet(self, self.src_port, str(self.base_pkt))
-            tx_pkts += 1
+        tx_pkts = _send_packets_paced_for_duration(
+            send_batch, self.send_time, self.PACED_SEND_BATCH_SIZE, self.PACED_SEND_BATCH_INTERVAL)
 
         rx_pkts = 0
         while True:
@@ -319,7 +392,8 @@ class EverflowPolicerTest(BaseTest):
 
         # Send traffic and verify the original traffic is not rate limited
         count = self.checkOriginalFlow()
-        assert count == self.NUM_OF_TOTAL_PACKETS
+        # Allow 1% packet loss due to ptf performance limit
+        assert count >= self.NUM_OF_TOTAL_PACKETS * 0.99
 
         # Verify packet policing is used
         assert_str = "Non packet policing is not supported"

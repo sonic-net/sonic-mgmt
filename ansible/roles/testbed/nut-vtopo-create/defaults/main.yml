@@ -1,0 +1,22 @@
+---
+# Default Docker images (TG container only)
+vnut_ptf_image: "docker-ptf:latest"
+
+# Naming prefix for TG Docker containers
+vnut_container_prefix: "net"
+
+# KVM VM settings
+vnut_vm_memory_gb: 4
+vnut_vm_vcpus: 2
+vnut_sonic_vm_storage: "{{ ansible_env.HOME }}/sonic-vm"
+vnut_sonic_vs_image: "{{ vnut_sonic_vm_storage }}/images/sonic-vs.img"
+vnut_vm_disk_dir: "{{ vnut_sonic_vm_storage }}/disks"
+vnut_vm_serial_port_base: 9100
+
+# Front-panel MTU
+vnut_fp_mtu: 9100
+
+# Management network
+mgmt_bridge: "vnut_mgmt"
+mgmt_gw: "10.250.0.1"
+mgmt_prefixlen: "24"

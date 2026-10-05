@@ -2,12 +2,14 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
-                                                utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+    utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa: F401
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -15,14 +17,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-DHCP_RELAY_TIMEOUT = 120
-DHCP_RELAY_INTERVAL = 10
 SETUP_ENV_CP = "test_setup_checkpoint"
 CONFIG_ADD_DEFAULT = "config_add_default"
 
 
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa F811
+def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa: F811
     """ Add two new vlan for test
 
     If added vlan_id is 108 and 109, it will add a dict as below
@@ -47,15 +47,6 @@ def first_avai_vlan_port(rand_selected_dut, tbinfo):
 
     logger.error("No vlan port member ready for test")
     pytest_assert(False, "No vlan port member ready for test")
-
-
-def ensure_dhcp_relay_running(duthost):
-    if not duthost.is_service_fully_started('dhcp_relay'):
-        duthost.shell('sudo systemctl start dhcp_relay')
-        pytest_assert(
-            duthost.is_service_fully_started('dhcp_relay'),
-            "dhcp_relay service is not running before test dhcp servers"
-        )
 
 
 def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port):
@@ -107,16 +98,14 @@ def default_setup(duthost, vlan_intfs_list):
     # Generate 4 dhcp servers for each new created vlan
     for vlan in vlan_intfs_list:
         expected_content_dict[vlan] = []
+        cmds.append('sonic-db-cli CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
+                    .format(vlan, ",".join(["192.0.{}.{}".format(vlan, i) for i in range(1, 5)])))
         for i in range(1, 5):
-            cmds.append('config vlan dhcp_relay add {} 192.0.{}.{}'.format(vlan, vlan, i))
             expected_content_dict[vlan].append('192.0.{}.{}'.format(vlan, i))
 
     duthost.shell_cmds(cmds=cmds)
 
-    pytest_assert(
-        duthost.is_service_fully_started('dhcp_relay'),
-        "dhcp_relay service is not running during setup"
-    )
+    restart_dhcp_service(duthost, ['isc'])
 
     logger.info("default setup expected_content_dict {}".format(expected_content_dict))
     for vlanid in expected_content_dict:
@@ -148,7 +137,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
 
     # --------------------- Setup -----------------------
     create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
-    ensure_dhcp_relay_running(duthost)
 
     default_setup(duthost, vlan_intfs_list)
 
@@ -185,31 +173,6 @@ def vlan_intfs_list(vlan_intfs_dict):
     return [key for key, value in list(vlan_intfs_dict.items()) if not value['orig']]
 
 
-def ensure_dhcp_server_up(duthost):
-    """Wait till dhcp-relay server is setup
-
-    Sample output
-    admin@vlab-01:~$ docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay
-    dhcp-relay:isc-dhcpv4-relay-Vlan100    RUNNING   pid 72, uptime 0:00:09
-    dhcp-relay:isc-dhcpv4-relay-Vlan1000   RUNNING   pid 73, uptime 0:00:09
-
-    """
-    def _dhcp_server_up():
-        cmds = 'docker exec dhcp_relay supervisorctl status | grep ^dhcp-relay'
-        output = duthost.shell(cmds)
-        pytest_assert(
-            not output['rc'],
-            "'{}' is not running successfully".format(cmds)
-        )
-
-        return 'RUNNING' in output['stdout']
-
-    pytest_assert(
-        wait_until(DHCP_RELAY_TIMEOUT, DHCP_RELAY_INTERVAL, 0, _dhcp_server_up),
-        "The dhcp relay server is not running"
-    )
-
-
 def dhcp_severs_by_vlanid(duthost, vlanid):
     """Get pid and then only output the related dhcp server info for that pid
 
@@ -243,7 +206,6 @@ def dhcp_severs_by_vlanid(duthost, vlanid):
 
 
 def expect_res_success_by_vlanid(duthost, vlanid, expected_content_list, unexpected_content_list):
-    ensure_dhcp_server_up(duthost)
     output = dhcp_severs_by_vlanid(duthost, vlanid)
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -257,6 +219,9 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
             "op": "remove",
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/5"
         }]
+    dhcp_rm_nonexist_json = format_json_patch_for_multiasic(duthost=rand_selected_dut,
+                                                            json_data=dhcp_rm_nonexist_json,
+                                                            is_asic_specific=True)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -277,6 +242,7 @@ def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/0",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".1"
         }]
+    dhcp_add_exist_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_add_exist_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -316,6 +282,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/4",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".5"
         }]
+    dhcp_add_rm_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_add_rm_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -323,10 +290,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
     try:
         output = apply_patch(rand_selected_dut, json_data=dhcp_add_rm_json, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
-        pytest_assert(
-            rand_selected_dut.is_service_fully_started('dhcp_relay'),
-            "dhcp_relay service is not running"
-        )
+        wait_dhcp_relay_ready(rand_selected_dut, ['isc'])
 
         expected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".5"]
         unexpected_content_list = ["192.0." + str(vlan_intfs_list[1]) + ".4"]
@@ -360,6 +324,7 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
             "path": "/VLAN/Vlan" + str(vlan_intfs_list[0]) + "/dhcp_servers/0",
             "value": "192.0." + str(vlan_intfs_list[0]) + ".8"
         }]
+    dhcp_replace_json = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=dhcp_replace_json)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
@@ -367,10 +332,7 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
     try:
         output = apply_patch(rand_selected_dut, json_data=dhcp_replace_json, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
-        pytest_assert(
-            rand_selected_dut.is_service_fully_started('dhcp_relay'),
-            "dhcp_relay service is not running"
-        )
+        wait_dhcp_relay_ready(rand_selected_dut, ['isc'])
 
         expected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".8"]
         unexpected_content_list = ["192.0." + str(vlan_intfs_list[0]) + ".1"]

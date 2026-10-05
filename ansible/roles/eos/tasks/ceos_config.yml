@@ -20,9 +20,7 @@
 
 - name: cleanup previous ceos mount dir
   become: yes
-  file:
-    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
-    state: absent
+  command: rm -rf /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
   delegate_to: "{{ VM_host[0] }}"
 
 - name: create directory for ceos config
@@ -32,8 +30,47 @@
     state: directory
   delegate_to: "{{ VM_host[0] }}"
 
+- name: Copy macsec profile json to dut
+  copy: src=../../../../tests/common/macsec/profile.json
+        dest=/tmp/profile.json
+  become: true
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Get the macsec profile data from profile_name
+  get_macsec_profile:
+    macsec_profile: "{{ macsec_profile }}"
+    vm_type: "{{ vm_type }}"
+  register: profile_raw
+  become: true
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Flatten profile data into a flat structure
+  set_fact:
+    profile: "{{ profile_raw.profile }}"
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
 - name: update startup-config
   become: yes
   template: src="{{ base_topo }}-{{ props.swrole }}.j2"
             dest="/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
   delegate_to: "{{ VM_host[0] }}"
+
+# Converged-only: append a stock-compat backplane shim (untagged VLAN 1 path,
+# Vlan1 SVI in the prime peer's VRF carrying its bp_interface IP, and BGP
+# network advertisement of that subnet). Keeps the existing t0-leaf.j2 /
+# t1-lag-*.j2 templates untouched. Skipped on stock topologies and on
+# converged hosts that have no bp_interface (e.g. servers).
+- name: append converged backplane stock-compat shim to startup-config
+  become: yes
+  blockinfile:
+    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
+    marker: "! {mark} CONVERGED BACKPLANE STOCK-COMPAT SHIM"
+    block: "{{ lookup('template', 'ceos_bp_compat.j2') }}"
+    insertbefore: EOF
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - topo_is_multi_vrf | default(false) | bool
+    - configuration[hostname]['bp_interface'] is defined

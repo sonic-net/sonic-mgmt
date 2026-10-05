@@ -1,0 +1,20 @@
+{
+  "DASH_HA_SCOPE_CONFIG_TABLE": {
+    "vdpu0_0:haset0_0": {
+      "version": "1.0",
+      "owner": "switch",
+      "disabled": "false",
+      "ha_set_id": "haset0_0",
+      "desired_ha_state": "active",
+      "approved_pending_operation_ids": ""
+    },
+    "vdpu1_0:haset0_0": {
+      "version": "1.0",
+      "owner": "switch",
+      "disabled": "false",
+      "ha_set_id": "haset0_0",
+      "desired_ha_state": "standalone",
+      "approved_pending_operation_ids": ""
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 import subprocess
 import re
+import time
 
 from sonic_py_common.logger import Logger
 from swsscommon.swsscommon import ConfigDBConnector
@@ -119,6 +120,10 @@ def stop_traditional_buffer_model(config_db):
     # Stop the buffermgrd
     # We don't stop the buffermgrd at the beginning
     # because we need it to remove tables from APPL_DB while their counter part are removed from CONFIG_DB
+
+    # Before stopping buffermgrd, need to make sure buffermgrd is running,
+    # otherwise it might cause some side-effect timing issue
+    check_buffermgrd_is_running()
     command = 'docker exec swss supervisorctl stop buffermgrd'
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
     _, err = proc.communicate()
@@ -129,6 +134,28 @@ def stop_traditional_buffer_model(config_db):
     logger.log_notice("Daemon buffermgrd has been stopped")
 
     return lossless_pgs
+
+
+def check_buffermgrd_is_running():
+    cmd_get_buffermgrd_status = "docker exec swss supervisorctl status buffermgrd"
+    max_try_times = 10
+    try_times = 0
+    while try_times < max_try_times:
+        try_times += 1
+        proc = subprocess.Popen(cmd_get_buffermgrd_status, shell=True, stdout=subprocess.PIPE)
+        output, err = proc.communicate()
+        if err:
+            logger.log_notice("try_times:{}. Failed to check buffermgrd status: {}".format(try_times, err))
+        else:
+            if "RUNNING" in output.decode('utf-8'):
+                logger.log_notice("Daemon buffermgrd is running")
+                return True
+            else:
+                logger.log_notice("try_times:{}. Daemon buffermgrd is not running".format(try_times))
+        time.sleep(2)
+
+    logger.log_notice("Daemon buffermgrd is not running, after checking {} times".format(max_try_times))
+    exit(1)
 
 
 def start_dynamic_buffer_model(config_db, lossless_pgs, metadata):
@@ -218,7 +245,7 @@ config_db.db_connect('CONFIG_DB')
 
 # Don't enable dynamic buffer calculation if it is not a default SKU
 metadata = config_db.get_entry('DEVICE_METADATA', 'localhost')
-if 'ACS-MSN' not in metadata['hwsku']:
+if 'ACS-MSN' not in metadata['hwsku'] and 'ACS-SN' not in metadata['hwsku']:
     print("Don't enable dynamic buffer calculation for non-default SKUs")
     exit(0)
 

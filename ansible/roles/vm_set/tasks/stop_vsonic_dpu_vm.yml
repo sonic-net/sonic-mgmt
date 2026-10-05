@@ -1,0 +1,23 @@
+- set_fact:
+    dpu_vm_storage_location: "{{ home_path }}/veos-vm"
+    when: dpu_vm_storage_location is not defined
+
+- set_fact:
+    disk_image: "{{ dpu_vm_storage_location }}/disks/vsonic_{{ dpu_name }}.img"
+
+- name: Destroy vm {{ dpu_name }}
+  virt: name={{ dpu_name }}
+        state=destroyed
+        uri=qemu:///system
+  when: dpu_name in vm_list_running.list_vms or dpu_name in vm_list_paused.list_vms
+  become: yes
+
+- name: Undefine vm {{ dpu_name }}
+  virt: name={{ dpu_name }}
+        command=undefine
+        uri=qemu:///system
+  when: dpu_name in vm_list_defined.list_vms
+  become: yes
+
+- name: Remove sonic disk image for {{ dpu_name }}
+  file: path={{ disk_image }} state=absent

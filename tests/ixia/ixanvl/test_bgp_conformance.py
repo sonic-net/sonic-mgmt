@@ -2,10 +2,13 @@ import logging
 import paramiko
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from scp import SCPClient
 
-pytestmark = [pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.disable_loganalyzer
+]
 
 
 @pytest.fixture()

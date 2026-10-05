@@ -1,15 +1,18 @@
+import json
 import logging
 import ptf.packet as scapy
 import pytest
 import random
+import re
 
 from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import capture_and_check_packet_on_dut
 
 pytestmark = [
-    pytest.mark.topology('mx')
+    pytest.mark.topology("t0", "m0", 'mx', "m1")
 ]
 
 ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST = "DHCPV6_PKT_RECV_TEST"
@@ -27,7 +30,8 @@ DHCPV6_UDP_SERVER_PORT = 547
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_dhcp_relay_feature_state(duthost):
+def check_dhcp_relay_feature_state(rand_selected_dut):
+    duthost = rand_selected_dut
     features_state, _ = duthost.get_feature_status()
     if "enabled" not in features_state.get(DHCP_RELAY_FEATRUE_NAME, ""):
         pytest.skip('dhcp relay feature is not enabled, skip the test')
@@ -36,15 +40,91 @@ def check_dhcp_relay_feature_state(duthost):
 class Dhcpv6PktRecvBase:
 
     @pytest.fixture(scope="class")
-    def setup_teardown(self, duthost, tbinfo):
-        ptf_indices = tbinfo['topo']['properties']['topology']['host_interfaces']
+    def setup_teardown(self, rand_selected_dut, tbinfo):
+        duthost = rand_selected_dut
+
+        # Remove DATAACL table to free TCAM resources
+        TABLE_NAME = "DATAACL"
+        data_acl_table = None
+        data_acl_rules = None
+
+        # Save both table and rules
+        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+        try:
+            acl_tables = json.loads(output)
+            if TABLE_NAME in acl_tables:
+                data_acl_table = {TABLE_NAME: acl_tables[TABLE_NAME]}
+        except ValueError:
+            pass
+
+        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_RULE\"")['stdout']
+        try:
+            acl_rules = json.loads(output)
+            data_acl_rules = {k: v for k, v in acl_rules.items() if k.startswith(TABLE_NAME + "|")}
+        except ValueError:
+            pass
+
+        if data_acl_table is not None:
+            logging.info("Removing ACL table {} to free TCAM resources".format(TABLE_NAME))
+            duthost.shell(cmd="config acl remove table {}".format(TABLE_NAME))
+
+        dut_index = str(tbinfo['duts_map'][duthost.hostname])
+        disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
+        host_interfaces = [intf for intf in tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
+                           if intf not in disabled_host_interfaces]
+        ptf_indices = self.parse_ptf_indices(host_interfaces, dut_index)
         dut_intf_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+
         yield ptf_indices, dut_intf_ptf_index
 
-    def test_dhcpv6_multicast_recv(self, duthost, ptfadapter, setup_teardown):
+        # Restore DATAACL table and rules if they were removed
+        if data_acl_table is not None:
+            # Restore table
+            data_acl = {'ACL_TABLE': data_acl_table}
+            if data_acl_rules:
+                data_acl['ACL_RULE'] = data_acl_rules
+            cmd = 'sonic-cfggen -a \'{}\' -w'.format(json.dumps(data_acl))
+            logging.info("Restoring ACL table {} with {} rules".format(TABLE_NAME,
+                                                                       len(data_acl_rules) if data_acl_rules
+                                                                       else 0))
+            duthost.shell(cmd)
+            # Verify restoration worked by checking for a specific rule
+            if data_acl_rules:
+                verify_cmd = "sonic-cfggen -d --var-json \"ACL_RULE\" | grep -q 'DATAACL'"
+                result = duthost.shell(verify_cmd, module_ignore_errors=True)
+                if result['rc'] == 0:
+                    logging.info("ACL rules successfully restored")
+                else:
+                    logging.warning("ACL rule restoration may have failed")
+
+    def parse_ptf_indices(self, host_interfaces, dut_index):
+        indices = list()
+        for _ports in host_interfaces:
+            # Example: ['0', '1', '2']
+            # Example: ['0.0,1.0', '0.1,1.1', '0.2,1.2', ... ]
+            # Example: ['0.0@0,1.0@0', '0.1@1,1.1@1', '0.2@2,1.2@2', ... ]
+            for port in str(_ports).split(','):
+                m = re.match(r"(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
+                m1, m2, m3 = m.groups()
+                if m3:
+                    # Format: <dut_index>.<port_index>@<ptf_index>
+                    indices.append(int(m3)) if m1 == dut_index else None
+                elif m2:
+                    # Format: <dut_index>.<port_index>
+                    indices.append(int(m2)) if m1 == dut_index else None
+                else:
+                    # Format: <port_index>
+                    indices.append(int(m1))
+        return indices
+
+    def test_dhcpv6_multicast_recv(self, rand_selected_dut,
+                                   toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                   setup_standby_ports_on_rand_unselected_tor,
+                                   ptfadapter, setup_teardown):
         """
         Test the DUT can receive DHCPv6 multicast packet
         """
+        duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_index = random.choice(ptf_indices)
         intf, ptf_port_id = [(intf, id) for intf, id in dut_intf_ptf_index.items() if id == ptf_index][0]
@@ -76,7 +156,8 @@ class TestDhcpv6WithEmptyAclTable(Dhcpv6PktRecvBase):
     Test the DUT with empty ACL table
     """
     @pytest.fixture(scope="class", autouse=True)
-    def setup_teardown_acl(self, duthost, setup_teardown):
+    def setup_teardown_acl(self, rand_selected_dut, setup_teardown):
+        duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_intfs = [intf for intf, index in dut_intf_ptf_index.items() if index in ptf_indices]
         acl_table_name = ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST
@@ -98,7 +179,8 @@ class TestDhcpv6WithMulticastAccpectAcl(Dhcpv6PktRecvBase):
     The drop all rule is added by default for L3V6 table type by acl-loader
     """
     @pytest.fixture(scope="class", autouse=True)
-    def setup_teardown_acl(self, duthost, setup_teardown):
+    def setup_teardown_acl(self, rand_selected_dut, setup_teardown):
+        duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_intfs = [intf for intf, index in dut_intf_ptf_index.items() if index in ptf_indices]
         acl_table_name = ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST
@@ -113,4 +195,5 @@ class TestDhcpv6WithMulticastAccpectAcl(Dhcpv6PktRecvBase):
 
         yield
 
+        duthost.shell("acl-loader delete {}".format(acl_table_name))
         duthost.remove_acl_table(acl_table_name)

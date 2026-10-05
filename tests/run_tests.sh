@@ -7,11 +7,14 @@ function show_help_and_exit()
     echo "    -h -?          : get this help"
     echo "    -a <True|False>: specify if auto-recover is allowed (default: True)"
     echo "    -b <master_id> : specify name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}"
+    echo "    -B             : run BSL test suite"
     echo "    -c <testcases> : specify test cases to execute (default: none, executed all matched)"
+    echo "    -C <filter>    : specify test case name filter, e.g. 'garp or unicast' (default: none)"
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
     echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
+    echo "    -H <dpu name>  : specify comma-separated DPU names (default: none)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -22,12 +25,19 @@ function show_help_and_exit()
     echo "    -O             : run tests in input order rather than alphabetical order"
     echo "    -p <path>      : specify log path (default: logs)"
     echo "    -q <n>         : test will stop after <n> failures (default: not stop on failure)"
+    echo "    -R <n>         : repeat test up to <n> times, stop on first failure (default: 1)"
     echo "    -r             : retain individual file log for suceeded tests (default: remove)"
     echo "    -s <tests>     : specify list of tests to skip (default: none)"
     echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
+    echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
+    echo "    -6             : IPv6-only management mode (use IPv6 for DUT mgmt connectivity)"
+    echo "    -M             : run all 4 prober_type x neighbor_mode MUX_CABLE combos (dualtor/dualtor_io only)"
+    echo ""
+    echo "    environment variables:"
+    echo "    ANSIBLE_PARENT_DIR_OVERRIDE : root holding the 'ansible' directory (default: repo root)"
 
     exit $1
 }
@@ -71,9 +81,19 @@ function validate_parameters()
         RET=2
     fi
 
-    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} ]]; then
-        echo "Neither TOPOLOGY (-t) nor test case list (-c) is set.."
+    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
+        echo "Neither TOPOLOGY (-t) nor test case list (-c) nor test case list file (-F) is set.."
         RET=3
+    fi
+
+    if [[ ${TEST_CASES} && ${TEST_CASES_FILE} ]]; then
+        echo "Specified both a test case list (-c) and a test case list file (-F).."
+        RET=4
+    fi
+
+    if [[ -z ${DPU_NAME} ]]; then
+        echo "DPU name (-H) is not set.."
+        RET=5
     fi
 
     if [[ ${RET} != 0 ]]; then
@@ -84,42 +104,51 @@ function validate_parameters()
 function setup_environment()
 {
     SCRIPT=$0
+    PYTEST_EXEC="python3 -m pytest"
     FULL_PATH=$(realpath ${SCRIPT})
     SCRIPT_PATH=$(dirname ${FULL_PATH})
     BASE_PATH=$(dirname ${SCRIPT_PATH})
+    # Root that holds the 'ansible' directory. Defaults to this repo checkout; set
+    # ANSIBLE_PARENT_DIR_OVERRIDE when the ansible tree lives somewhere else.
+    ANSIBLE_PARENT_DIR=${ANSIBLE_PARENT_DIR_OVERRIDE:-${BASE_PATH}}
     LOG_PATH="logs"
 
     AUTO_RECOVER="True"
     BYPASS_UTIL="False"
+    BSL="False"
     CLI_LOG_LEVEL='warning'
     EXTRA_PARAMETERS=""
     FILE_LOG_LEVEL='debug'
     INCLUDE_FOLDERS=""
-    INVENTORY="${BASE_PATH}/ansible/lab,${BASE_PATH}/ansible/veos"
+    INVENTORY="${ANSIBLE_PARENT_DIR}/ansible/lab,${ANSIBLE_PARENT_DIR}/ansible/veos"
     KUBE_MASTER_ID="unset"
     OMIT_FILE_LOG="False"
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
-    TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
+    TESTBED_FILE="${ANSIBLE_PARENT_DIR}/ansible/testbed.yaml"
     TEST_CASES=""
+    TEST_FILTER=""
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
+    REPEAT_COUNT=1
+    DPU_NAME="None"
+    NO_CLEAR_CACHE="False"
+    IPV6_ONLY_MGMT="False"
+    MUX_COMBO_MODE="False"
 
-    export ANSIBLE_CONFIG=${BASE_PATH}/ansible
-    export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
-    export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
-    export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
-    export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+    export ANSIBLE_CONFIG=${ANSIBLE_PARENT_DIR}/ansible
+    export ANSIBLE_LIBRARY=${ANSIBLE_PARENT_DIR}/ansible/library/
+    export ANSIBLE_CONNECTION_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/plugins/connection
+    export ANSIBLE_CLICONF_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/cliconf_plugins
+    export ANSIBLE_TERMINAL_PLUGINS=${ANSIBLE_PARENT_DIR}/ansible/terminal_plugins
 
     # Kill pytest and ansible-playbook process
     pkill --signal 9 pytest
     pkill --signal 9 ansible-playbook
     # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
     pkill --signal 9 -f "^ssh.*/\.ansible"
-
-    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()
@@ -130,18 +159,22 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignore_files=("test_pretest.py" "test_posttest.py")
-    ignore_conditions=""
-    for file in "${ignore_files[@]}"; do
-        ignore_conditions+=('!' -name "$file" -a)
-    done
-    ignore_conditions[${#ignore_conditions[@]}-1]=''
-
     ignores=$(python3 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
-    if [[ -z ${TEST_CASES} ]]; then
+    if [[ -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
-        all_scripts=$(find ./ -name 'test_*.py' ${ignore_conditions[@]} | sed s:^./:: | grep -vE "^(${ignores})")
+        all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+        ignore_files=("test_pretest.py" "test_posttest.py")
+        for ((i=${#all_scripts[@]}-1; i>=0; i--)); do
+            # Check if the current element is in the sub array
+            if [[ " ${ignore_files[@]} " =~ " ${all_scripts[i]} " ]]; then
+                # Remove the element from the main array
+                unset 'all_scripts[i]'
+            fi
+        done
     else
+        if [[ ${TEST_CASES_FILE} ]]; then
+            TEST_CASES="${TEST_CASES} $(cat ${TEST_CASES_FILE} | tr '\n' ' ')"
+        fi
         # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
         all_scripts=""
         for test_script in ${TEST_CASES}; do
@@ -168,8 +201,10 @@ function setup_test_options()
         show_help_and_exit 1
     fi
 
-    PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
+    PYTEST_COMMON_OPTS="-c pytest.ini \
+                      --inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
+                      --dpu-pattern ${DPU_NAME} \
                       --testbed ${TESTBED_NAME} \
                       --testbed_file ${TESTBED_FILE} \
                       --log-cli-level ${CLI_LOG_LEVEL} \
@@ -184,6 +219,10 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
     fi
 
+    if [[ x"${IPV6_ONLY_MGMT}" == x"True" ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ipv6_only_mgmt"
+    fi
+
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
         if [[ $skip == *"::"* ]]; then
             PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
@@ -191,6 +230,13 @@ function setup_test_options()
             PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
         fi
     done
+
+    # The filter expression may contain spaces, e.g. "not garp". Keep it in an array so that it is
+    # passed to pytest as a single argument instead of being split into multiple words.
+    PYTEST_FILTER_OPTS=()
+    if [[ ! -z $TEST_FILTER ]]; then
+        PYTEST_FILTER_OPTS=(-k "${TEST_FILTER}")
+    fi
 
     if [[ -d ${LOG_PATH} ]]; then
         rm -rf ${LOG_PATH}
@@ -228,10 +274,12 @@ function run_debug_tests()
     echo "FULL_PATH:             ${FULL_PATH}"
     echo "SCRIPT_PATH:           ${SCRIPT_PATH}"
     echo "BASE_PATH:             ${BASE_PATH}"
+    echo "ANSIBLE_PARENT_DIR:    ${ANSIBLE_PARENT_DIR}"
 
     echo "ANSIBLE_CONFIG:        ${ANSIBLE_CONFIG}"
     echo "ANSIBLE_LIBRARY:       ${ANSIBLE_LIBRARY}"
     echo "AUTO_RECOVER:          ${AUTO_RECOVER}"
+    echo "BSL:                   ${BSL}"
     echo "BYPASS_UTIL:           ${BYPASS_UTIL}"
     echo "CLI_LOG_LEVEL:         ${CLI_LOG_LEVEL}"
     echo "EXTRA_PARAMETERS:      ${EXTRA_PARAMETERS}"
@@ -244,8 +292,11 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_CASES_FILE:       ${TEST_CASES_FILE}"
+    echo "TEST_FILTER:           ${TEST_FILTER}"
     echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
+    echo "REPEAT_COUNT:          ${REPEAT_COUNT}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
     echo "TESTBED_FILE:          ${TESTBED_FILE}"
     echo "TEST_LOGGING_OPTIONS:  ${TEST_LOGGING_OPTIONS}"
@@ -253,8 +304,21 @@ function run_debug_tests()
     echo "PRET_LOGGING_OPTIONS:  ${PRET_LOGGING_OPTIONS}"
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
+    echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
+    echo "MUX_COMBO_MODE:        ${MUX_COMBO_MODE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
+}
+
+function clear_cache()
+{
+    if [[ x"${NO_CLEAR_CACHE}" == x"True" ]]; then
+        echo "=== Skipping cache clear ==="
+        return
+    fi
+
+    echo "=== Clearing pytest cache ==="
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 # Extra parameters for pre/post test stage
@@ -265,28 +329,31 @@ function pre_post_extra_params()
     # It aims to verify common test cases work as expected under macsec links.
     # At pre/post test stage, enabling macsec only wastes time and is not needed.
     params=${params//--enable_macsec/}
+    if [[ x"${BSL}" == x"True" ]]; then
+        params="${params} --ignore=bgp --skip_sanity"
+    fi
     echo $params
 }
 
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    echo Running: python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-    python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
+    echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
 function run_individual_tests()
@@ -307,8 +374,8 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
         ret_code=$?
 
         # Clear pytest cache for the first run
@@ -333,6 +400,12 @@ function run_individual_tests()
                 return ${ret_code}
             fi
 
+            # rc 16 means ptfhost is unreachable
+            if [ ${ret_code} -eq 16 ]; then
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -344,10 +417,84 @@ function run_individual_tests()
     return ${EXIT_CODE}
 }
 
+function run_bsl_tests()
+{
+    echo "=== Running BSL tests ==="
+    echo Running: python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+}
+
+function run_mux_combo_tests()
+{
+    # Run dualtor/dualtor_io suites for all 4 prober_type x neighbor_mode combos.
+    # Each combination gets its own full pytest invocation so the session-scoped
+    # fixture apply_mux_cable_combo in tests/common/dualtor/mux_cable_config.py
+    # picks up --prober_type and --neighbor_mode and applies them before tests.
+
+    MUX_COMBOS=(
+        "hardware,host-route"
+        "hardware,prefix-route"
+        "software,host-route"
+        "software,prefix-route"
+    )
+
+    COMBO_RC=0
+
+    for combo in "${MUX_COMBOS[@]}"; do
+        IFS=',' read -r PROBER_TYPE NEIGHBOR_MODE <<< "$combo"
+        echo "============================================================"
+        echo "=== MUX COMBO: prober_type=${PROBER_TYPE}, neighbor_mode=${NEIGHBOR_MODE} ==="
+        echo "============================================================"
+
+        COMBO_EXTRA="${EXTRA_PARAMETERS} --prober_type ${PROBER_TYPE} --neighbor_mode ${NEIGHBOR_MODE}"
+
+        if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
+            COMBO_LOG_DIR="${LOG_PATH}/mux_combo_${PROBER_TYPE}_${NEIGHBOR_MODE}"
+            mkdir -p ${COMBO_LOG_DIR}
+            COMBO_LOGGING="--junit-xml=${COMBO_LOG_DIR}/tr.xml --log-file=${COMBO_LOG_DIR}/test.log"
+        else
+            COMBO_LOGGING=""
+        fi
+
+        echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ret_code=$?
+
+        if [ ${ret_code} -ne 0 ]; then
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} failed with rc=${ret_code} ==="
+            COMBO_RC=1
+        else
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} passed ==="
+        fi
+    done
+
+    return ${COMBO_RC}
+}
+
 setup_environment
 
+for arg in "$@"; do
+    if [[ "$arg" == "--enable-debug" ]]; then
+        if [[ -z $SONIC_MGMT_DEBUG_PORT ]]; then
+            echo "*********************************[WARNING]*********************************"
+            echo "This container was not setup with --enable-debug option. Please re-setup this container with --enable-debug option"
+            echo "Please re-run without '--enable-debug' option to continue."
+            echo "*********************************[WARNING]*********************************"
+            exit 1
+        fi
 
-while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+        if [[ "$arg" != "${@: -1}" ]]; then
+            echo "Please put '--enable-debug' as the last option of your './run_tests.sh' command to avoid conflicts with pytest and run_tests options"
+            echo "Example: ./run_tests.sh ... --enable-debug"
+            exit 1
+        fi
+
+        PYTEST_EXEC="python3 -m debugpy --listen 0.0.0.0:$SONIC_MGMT_DEBUG_PORT --wait-for-client -m pytest"
+        set -- "${@/$arg/}" # remove this option so getopts can process the rest
+    fi
+done
+
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rR:s:S:t:uxw6" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -359,11 +506,20 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             KUBE_MASTER_ID=${OPTARG}
             SKIP_FOLDERS=${SKIP_FOLDERS//k8s/}
             ;;
+        B )
+	    BSL="True"
+	    ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
+        C )
+            TEST_FILTER="${TEST_FILTER} ${OPTARG}"
+            ;;
         d )
             DUT_NAME=${OPTARG}
+            ;;
+        H )
+            DPU_NAME=${OPTARG}
             ;;
         e )
             EXTRA_PARAMETERS="${EXTRA_PARAMETERS} ${OPTARG}"
@@ -373,6 +529,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         f )
             TESTBED_FILE=${OPTARG}
+            ;;
+        F )
+            TEST_CASES_FILE="${OPTARG}"
             ;;
         i )
             INVENTORY=${OPTARG}
@@ -388,6 +547,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         m )
             TEST_METHOD=${OPTARG}
+            ;;
+        M )
+            MUX_COMBO_MODE="True"
             ;;
         n )
             TESTBED_NAME=${OPTARG}
@@ -407,6 +569,13 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         r )
             RETAIN_SUCCESS_LOG="True"
             ;;
+        R )
+            if [[ ! ${OPTARG} =~ ^[1-9][0-9]*$ ]]; then
+                echo "Repeat count (-R) must be a positive integer: ${OPTARG}"
+                show_help_and_exit 6
+            fi
+            REPEAT_COUNT=${OPTARG}
+            ;;
         s )
             SKIP_SCRIPTS="${SKIP_SCRIPTS} ${OPTARG}"
             ;;
@@ -419,12 +588,19 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         u )
             BYPASS_UTIL="True"
             ;;
+        w )
+            NO_CLEAR_CACHE="True"
+            ;;
         x )
             set -x
+            ;;
+        6 )
+            IPV6_ONLY_MGMT="True"
             ;;
     esac
 done
 
+clear_cache
 get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
@@ -447,7 +623,23 @@ if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
 fi
 
 RC=0
-run_${TEST_METHOD}_tests || RC=$?
+
+for (( _iter=1; _iter<=REPEAT_COUNT; _iter++ )); do
+    if [[ ${REPEAT_COUNT} -gt 1 ]]; then
+        echo "=== Iteration ${_iter} of ${REPEAT_COUNT} ==="
+    fi
+    if [[ x"${BSL}" == x"True" ]]; then
+        run_bsl_tests || RC=$?
+    elif [[ x"${MUX_COMBO_MODE}" == x"True" ]]; then
+        run_mux_combo_tests || RC=$?
+    else
+        run_${TEST_METHOD}_tests || RC=$?
+    fi
+    if [[ ${RC} -ne 0 ]]; then
+        echo "=== Failed on iteration ${_iter} of ${REPEAT_COUNT} ==="
+        break
+    fi
+done
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut

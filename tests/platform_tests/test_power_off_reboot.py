@@ -1,12 +1,15 @@
 import logging
+import re
 import pytest
 
-from tests.common.reboot import wait_for_startup, REBOOT_TYPE_POWEROFF
+from tests.common.reboot import REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, reboot_ctrl_dict, wait_for_startup, \
+    REBOOT_TYPE_POWEROFF
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
-from tests.platform_tests.test_reboot import check_interfaces_and_services,\
+from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
+from tests.platform_tests.test_reboot import check_interfaces_and_services, \
     reboot_and_check
-from tests.common.utilities import get_plt_reboot_ctrl
+from tests.common.utilities import get_plt_reboot_ctrl, wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -15,14 +18,18 @@ pytestmark = [
 
 INTERFACE_WAIT_TIME = 300
 
+DPU_STATUS_TIMEOUT = 360
+DPU_STATUS_INTERVAL = 30
+
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_supervisor_dut_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global INTERFACE_WAIT_TIME
+    duthost = duthosts[enum_supervisor_dut_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         INTERFACE_WAIT_TIME = plt_reboot_ctrl.get('timeout', 300)
@@ -33,10 +40,13 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname, conn_graph_facts, xc
     duthost = duthosts[enum_supervisor_dut_hostname]
     yield
 
-    logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
-    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    logging.info(
+        "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
+    interfaces = conn_graph_facts.get(
+        "device_conn", {}).get(duthost.hostname, {})
     check_critical_processes(duthost, watch_secs=10)
-    check_interfaces_and_services(duthost, interfaces, xcvr_skip_list, INTERFACE_WAIT_TIME)
+    check_interfaces_and_services(
+        duthost, interfaces, xcvr_skip_list, INTERFACE_WAIT_TIME)
 
 
 def _power_off_reboot_helper(kwargs, power_on_event=None):
@@ -69,8 +79,86 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     power_on_event.clear()
 
 
+@pytest.fixture
+def adjust_reboot_cause_sequence():
+    """
+    TODO: Fix this workaround
+    By removing the key and readding it, we make sure that the key will append at the end of the list. Therefore modify
+    the sequence of to fix https://github.com/sonic-net/sonic-mgmt/pull/18488
+
+    After this, we add back REBOOT_TYPE_POWEROFF so that it will appear at the end default
+    """
+    heartbeat_loss_reboot = reboot_ctrl_dict.pop(
+        REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS)
+    reboot_ctrl_dict[REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS] = heartbeat_loss_reboot
+
+    yield
+
+    reboot_type_poweroff = reboot_ctrl_dict.pop(REBOOT_TYPE_POWEROFF)
+    reboot_ctrl_dict[REBOOT_TYPE_POWEROFF] = reboot_type_poweroff
+
+
+def _get_dpu_module_status(duthost):
+    """
+    @summary: Return the admin/oper status of every DPU module as reported by
+              'show chassis modules status'.
+    @param duthost: NPU (switch) host object
+    @return: dict keyed by DPU name, e.g.
+             {"DPU0": {"admin": "down", "oper": "offline"}, ...}
+    """
+    rows = duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+    dpu_status = {}
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        if "oper-status" not in row or "admin-status" not in row:
+            logging.warning("Skipping unexpected chassis module status row: %s", row)
+            continue
+        dpu_status[name] = {
+            "admin": row["admin-status"].strip().lower(),
+            "oper": row["oper-status"].strip().lower(),
+        }
+    return dpu_status
+
+
+def _dpu_status_matches(duthost, expected_status):
+    """
+    @summary: Return True when every DPU's admin/oper status equals expected_status.
+    """
+    current_status = _get_dpu_module_status(duthost)
+    for dpu_name, expected in expected_status.items():
+        current = current_status.get(dpu_name)
+        if current != expected:
+            logging.info("DPU %s status is %s, waiting for %s", dpu_name, current, expected)
+            return False
+    return True
+
+
+def verify_dpu_status_consistency(duthost, expected_status):
+    """
+    @summary: Assert that all DPU admin/oper statuses returned to their
+              pre-power-off values after a power-cycle.
+
+    On a SmartSwitch the DPUs lose power together with the NPU, so once the NPU
+    is back their admin state must be unchanged and their oper state must return
+    to what it was before the power-off (Offline in dark mode, Online in lit
+    mode). The DPUs may still be booting when the NPU is already up (lit mode),
+    so poll until they settle.
+
+    @param duthost: NPU (switch) host object
+    @param expected_status: DPU status snapshot captured before the power-off
+    """
+    pytest_assert(
+        wait_until(DPU_STATUS_TIMEOUT, DPU_STATUS_INTERVAL, 0,
+                   _dpu_status_matches, duthost, expected_status),
+        "DPU admin/oper status is not consistent after power-off reboot. "
+        "Expected {}, got {}".format(expected_status, _get_dpu_module_status(duthost))
+    )
+
+
 def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
-                          xcvr_skip_list, get_pdu_controller, power_off_delay):
+                          xcvr_skip_list, get_pdu_controller, power_off_delay, adjust_reboot_cause_sequence):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object
@@ -81,21 +169,39 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    UNSUPPORTED_ASIC_TYPE = ["cisco-8000"]
-    if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
-        pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform"
-                    .format(duthost.facts["asic_type"]))
     pdu_ctrl = get_pdu_controller(duthost)
     if pdu_ctrl is None:
-        pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+        pytest.skip(
+            "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
+    # Fail fast with a clear reason when a PDU is configured for one of the DUT's
+    # PSUs but the PDU could not be reached (typically an SNMP timeout). Without
+    # this check, the test would silently power-cycle only the reachable PSU and
+    # later fail with the misleading "DUT did not shutdown" message.
+    if hasattr(pdu_ctrl, "get_unreachable_psus"):
+        unreachable_psus = pdu_ctrl.get_unreachable_psus()
+        if unreachable_psus:
+            pytest.fail(
+                "PDU is not accessible for DUT {} PSU(s) {}. The configured peer "
+                "PDU(s) {} could not be initialized (most likely SNMP is not "
+                "reachable or the credentials are wrong). Power-off reboot cannot "
+                "guarantee a full power loss while any PSU remains powered, so "
+                "the test is failing early instead of reporting the misleading "
+                "'DUT did not shutdown' error. Please verify the PDU "
+                "reachability and re-run.".format(
+                    duthost.hostname,
+                    list(unreachable_psus.keys()),
+                    unreachable_psus,
+                )
+            )
     is_chassis = duthost.get_facts().get("modular_chassis")
     if is_chassis and duthost.is_supervisor_node():
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
         power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
-    # If PDU supports returning output_watts, making sure that all outlets has power.
-    no_power = [item for item in all_outlets if int(item.get('output_watts', '1')) == 0]
-    pytest_assert(not no_power, "Not all outlets have power output: {}".format(no_power))
+    pytest_assert(all_outlets, "No outlets found for {}".format(duthost.hostname))
+
+    # If PDU supports returning output_watts, making sure that all PSUs has power.
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -103,23 +209,52 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
-    if all_outlets:
-        power_on_seq_list = [[item] for item in all_outlets]
+    for psu, pdus in psu_to_pdus.items():
+        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
+                      0 for pdu in pdus), "PSU {} is not getting power".format(psu))
+        if not is_chassis:
+            power_on_seq_list.append(pdus)
+    # Append all_outlets unless it would duplicate the single existing entry
+    # For chassis the list is empty here, so all_outlets becomes the only entry
+    if len(power_on_seq_list) != 1:
         power_on_seq_list.append(all_outlets)
-
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     poweroff_reboot_kwargs = {"dut": duthost}
+    poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+    poweroff_reboot_kwargs["all_outlets"] = all_outlets
+    poweroff_reboot_kwargs["delay_time"] = power_off_delay
+
+    # On a SmartSwitch the on-board DPUs lose power together with the NPU during a
+    # power-off. Snapshot their admin/oper status beforehand so we can assert it is
+    # unchanged after every power-cycle (e.g. DPUs stay down/offline in dark mode).
+    is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
+    dpu_status_before = {}
+    if is_smartswitch:
+        dpu_status_before = _get_dpu_module_status(duthost)
+        pytest_assert(
+            dpu_status_before,
+            "Failed to read any DPU module status before power-off reboot; "
+            "'show chassis modules status' returned no DPU entries. Cannot verify "
+            "post-reboot DPU consistency."
+        )
+        logging.info("SmartSwitch DPU admin/oper status before power-off reboot: %s", dpu_status_before)
 
     try:
+        duthosts_arg = duthosts if is_chassis else None
+
         for power_on_seq in power_on_seq_list:
-            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-            poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-            poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
-                             xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                             _power_off_reboot_helper, poweroff_reboot_kwargs)
+            reboot_and_check(
+                localhost, duthost, conn_graph_facts.get(
+                    "device_conn", {}).get(duthost.hostname, {}),
+                xcvr_skip_list, REBOOT_TYPE_POWEROFF,
+                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts_arg)
+
+            if is_smartswitch:
+                logging.info("Verifying DPU admin/oper status consistency after power-off reboot")
+                verify_dpu_status_consistency(duthost, dpu_status_before)
+
     except Exception as e:
         logging.debug("Restore power after test failure")
         for outlet in all_outlets:

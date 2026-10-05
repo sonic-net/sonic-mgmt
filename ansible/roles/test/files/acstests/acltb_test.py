@@ -14,7 +14,7 @@ Usage:
         dst_ip_tor='172.16.1.0';dst_ip_tor_forwarded='172.16.2.0';dst_ip_tor_blocked='172.16.3.0';
         dst_ip_spine='192.168.0.0';dst_ip_spine_forwarded='192.168.0.16';dst_ip_spine_blocked='192.168.0.17'"
 '''
-from __future__ import print_function
+
 
 import logging
 
@@ -409,7 +409,7 @@ class AclTest(BaseTest):
                          self.tor_ports,
                          "spine->tor")
 
-        failed_cases = filter(lambda r: not r['result'], self.test_results)
+        failed_cases = [r for r in self.test_results if not r['result']]
         if len(failed_cases) == 0:
             print('!!!! All test cases passed! !!!!')
         assert (len(failed_cases) == 0), "TEST FAILED. Failed test cases: " + str(failed_cases)

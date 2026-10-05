@@ -158,10 +158,14 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     Returns:
         None
     """
-    yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+    yield
+
+    logger.info("--- Start Pfcwd--")
+    duthost.command("pfcwd start_default")
 
 
 @pytest.mark.usefixtures('cfg_setup')
@@ -308,6 +312,7 @@ class TestPfcConfig(object):
 
 
 @pytest.mark.usefixtures('mg_cfg_setup')
+@pytest.mark.disable_memory_utilization
 class TestDefaultPfcConfig(object):
     def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -320,7 +325,11 @@ class TestDefaultPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_reload(duthost, config_source='minigraph')
+        # For smartswitch, dhcp_server and dhcp_relay are disabled after the reload.
+        # We can safely ignore them as they are not critical to the test.
+        safe_reload_ignored_dockers = ['dhcp_server', 'dhcp_relay']
+        config_reload(duthost, config_source='minigraph', safe_reload=True,
+                      safe_reload_ignored_dockers=safe_reload_ignored_dockers)
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')

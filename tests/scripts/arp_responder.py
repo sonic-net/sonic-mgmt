@@ -5,12 +5,24 @@ import os.path
 from collections import defaultdict
 import logging
 import scapy.all as scapy
+import ipaddress
+scapy.MTU = 1280
+scapy.conf.use_pcap = True
+# Callers: Expect to wait 10-15 seconds here, as scapy reinitializes everything to use libpcap
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+
+
+# Canonical default config path for the arp_responder helper. Kept in lock-step
+# with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG; we don't
+# import that here because this script is distributed to and executed inside
+# the PTF container, where the sonic-mgmt test tree is not on sys.path.
+DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
 
 
 class ARPResponder(object):
     ARP_OP_REQUEST = 1
     ip_sets = {}
+    sockets = {}
 
     @staticmethod
     def action(packet):
@@ -47,7 +59,7 @@ class ARPResponder(object):
         for vlan_id in vlan_list:
             arp_reply = ARPResponder.generate_arp_reply(ARPResponder.ip_sets[interface][request_ip],
                                                         remote_mac, request_ip, remote_ip, vlan_id)
-            scapy.sendp(arp_reply, iface=interface)
+            scapy.sendp(arp_reply, socket=ARPResponder.sockets[interface])
 
     @staticmethod
     def reply_to_ndp(data):
@@ -63,7 +75,7 @@ class ARPResponder(object):
 
         ndp_reply = ARPResponder.generate_neigh_adv(ARPResponder.ip_sets[interface][request_ip],
                                                     remote_mac, request_ip, remote_ip)
-        scapy.sendp(ndp_reply, iface=interface)
+        scapy.sendp(ndp_reply, socket=ARPResponder.sockets[interface])
 
     @staticmethod
     def generate_arp_reply(local_mac, remote_mac, local_ip, remote_ip, vlan_id):
@@ -87,7 +99,7 @@ class ARPResponder(object):
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf',
-                        default='/tmp/from_t1.json', help='path to json file with configuration')
+                        default=DEFAULT_CONFIG_PATH, help='path to json file with configuration')
     parser.add_argument('--extended', '-e', action='store_true',
                         dest='extended', default=False, help='enable extended mode')
     args = parser.parse_args()
@@ -107,13 +119,14 @@ def main():
 
     # generate ip_sets. every ip address will have it's own uniq mac address
     ip_sets = {}
+    sockets = {}
+    inverse_sockets = {}
     for iface, ip_dict in list(data.items()):
         vlan = None
         iface = str(iface)
         if iface.find('@') != -1:
             iface, vlan = iface.split('@')
-            vlan_tag = format(int(vlan), 'x')
-            vlan_tag = vlan_tag.zfill(4)
+            vlan_tag = int(vlan)
         if iface not in ip_sets:
             ip_sets[iface] = defaultdict(list)
         if args.extended:
@@ -123,11 +136,40 @@ def main():
             for ip in ip_dict:
                 ip_sets[iface][str(ip)] = scapy.get_if_hwaddr(iface)
         if vlan is not None:
-            ip_sets[iface]['vlan'].append(binascii.unhexlify(vlan_tag))
+            ip_sets[iface]['vlan'].append(vlan_tag)
+
+    for iface in ip_sets:
+        arp_filter_entries = []
+        icmp_filter_entries = []
+        for ip in ip_sets[iface]:
+            if ip == 'vlan':
+                continue
+            ip_address = ipaddress.ip_address(ip)
+            if ip_address.version == 4:
+                arp_filter_entries.append(f'arp[24:4] = 0x{int.from_bytes(ip_address.packed, "big"):0x}')  # noqa: E231
+            else:
+                ipv6_address_integer = int.from_bytes(ip_address.packed, "big")
+                # libpcap on Buster doesn't support looking into ICMPv6 header directly, so look from the IPv6 header
+                # instead. When the PTF container is upgraded to Bullseye or newer, then the commented filter syntax
+                # below can be used instead.
+                #
+                # icmp_filter_entries.append(f'icmp6[20:4] = 0x{ipv6_address_integer & 0xffffffff:0x}')  # noqa: E231
+                icmp_filter_entries.append(f'ip6[60:4] = 0x{ipv6_address_integer & 0xffffffff:0x}')  # noqa: E231
+        if len(arp_filter_entries) > 0 and len(icmp_filter_entries) > 0:
+            pcap_filter = f"(arp and ({' or '.join(arp_filter_entries)})) or " + \
+                f"(icmp6 and ({' or '.join(icmp_filter_entries)}))"
+        elif len(arp_filter_entries) > 0:
+            pcap_filter = f"arp and ({' or '.join(arp_filter_entries)})"
+        elif len(icmp_filter_entries) > 0:
+            pcap_filter = f"icmp6 and ({' or '.join(icmp_filter_entries)})"
+
+        sockets[iface] = scapy.conf.L2socket(iface=iface, filter=pcap_filter)
+        inverse_sockets[sockets[iface]] = iface
 
     ARPResponder.ip_sets = ip_sets
+    ARPResponder.sockets = sockets
 
-    scapy.sniff(prn=ARPResponder.action, filter="arp or icmp6", iface=list(ip_sets.keys()), store=False)
+    scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
 
 
 if __name__ == '__main__':

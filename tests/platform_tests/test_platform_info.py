@@ -11,21 +11,30 @@ import pytest
 
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
-from .thermal_control_test_helper import ThermalPolicyFileContext,\
-    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
-    mocker_factory, disable_thermal_policy  # noqa F401
+from tests.platform_tests.cli.util import get_skip_mod_list
+from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
+from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext, \
+    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
+    disable_thermal_policy  # noqa: F401
+from tests.common.helpers.pdb_mocker import create_pdb_mocker
+from tests.common.fixtures.duthost_utils import is_support_pdb, check_pdb_support  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_PSUSTATUS_JSON = "{} --json".format(CMD_PLATFORM_PSUSTATUS)
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
+
+PDU_WAIT_TIME = 20
+MODULAR_CHASSIS_PDU_WAIT_TIME = 60
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -68,10 +77,23 @@ SKIP_ERROR_LOG_PSU_ABSENCE = [
     '.*ERR pmon#psud:.*Fail to read model number: No key PN_VPD_FIELD in.*',
     '.*ERR pmon#psud:.*Fail to read serial number: No key SN_VPD_FIELD in.*',
     '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*',
-    r'.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*']
+    r'.*ERR pmon#psud(\[\d+\])?: (PSU absence warning: )?PSU \d+ is not present\..*',
+    r'.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*',
+    r'.*ERR pmon#thermalctld: Failed to read from file \/var\/run\/hw-management\/thermal\/.*FileNotFoundError.*',
+    r'.*ERR pmon#thermalctld: Failed to read from file.*\/var\/run\/hw-management\/thermal\/psu.*ValueError.*',
+    r'.*PSU power thresholds become invalid: threshold (\d+\.\d+|N/A) critical threshold N/A.*',
+    r'.*ERR pmon#sensord: Error getting sensor data: pmbus\/#\d: Can\'t read',
+    r'.*ERR pmon#sensord: Error getting sensor data: dps\d+\/#\d: Kernel interface error']
+
+SKIP_ERROR_LOG_PDB_ABSENCE = [
+    r'.*ERR pmon#psud.*PDB.*not present.*',
+    r'.*ERR pmon#psud.*PDB.*out of power.*',
+    r'.*ERR pmon#psud.*Failed to read.*PDB.*',
+    r'.*WARNING pmon#psud.*PDB.*absence.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
 SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
+SKIP_ERROR_LOG_PDB_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
 
 
 def check_sensord_status(ans_host):
@@ -108,6 +130,21 @@ def stop_pmon_sensord_task(ans_host):
         logging.info("sensord stopped successfully")
 
 
+def start_pmon_sensord_task(duthost):
+    sensord_running_status, sensord_pid = check_sensord_status(duthost)
+    if not sensord_running_status:
+        duthost.command("docker exec pmon supervisorctl restart lm-sensors")
+        time.sleep(3)
+        sensord_running_status, sensord_pid = check_sensord_status(duthost)
+        if sensord_running_status:
+            logging.info("sensord task started, pid = {}".format(sensord_pid))
+        else:
+            logging.error("Failed to start sensord task.")
+    else:
+        logging.info("sensord is running, pid = {}".format(sensord_pid))
+    return sensord_running_status, sensord_pid
+
+
 @pytest.fixture(scope="module")
 def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -138,7 +175,8 @@ def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="function")
 def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus',
+                              request=request)
     loganalyzer.load_common_config()
 
     ignore_list = request.param
@@ -173,7 +211,8 @@ def get_healthy_psu_num(duthost):
     """
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
-    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+    psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
+    assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
@@ -189,6 +228,9 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
     @summary: Vendor specific psu status check
     """
     if dut.facts["asic_type"] in ["mellanox"]:
+        if get_power_status_line_type(psu_status_line) != "PSU":
+            return
+
         from .mellanox.check_sysfs import check_psu_sysfs
 
         psu_match = psu_line_pattern.match(psu_status_line)
@@ -198,29 +240,56 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
         check_psu_sysfs(dut, psu_id, psu_status)
 
 
-def turn_all_outlets_on(pdu_ctrl):
-    all_outlet_status = pdu_ctrl.get_outlet_status()
-    pytest_require(all_outlet_status and len(all_outlet_status) >= 2,
-                   'Skip the test, cannot to get at least 2 outlet status: {}'.format(all_outlet_status))
-    for outlet in all_outlet_status:
-        if not outlet["outlet_on"]:
-            pdu_ctrl.turn_on_outlet(outlet)
-            time.sleep(5)
-    time.sleep(5)
+def get_power_status_line_type(psu_status_line):
+    """
+    @summary: Return the device type for a shared psustatus CLI row.
+    """
+    return "PDB" if psu_status_line.lstrip().startswith("PDB") else "PSU"
+
+
+def get_psu_name_and_check_skip(psu_identifier, skip_psu_list):
+    """
+    @summary: Convert PSU identifier to standardized name and check if it should be skipped
+    @param psu_identifier: Raw PSU identifier from platform (e.g., "1", "psu1", "psutray0.psu0")
+    @param skip_psu_list: List of PSU names to skip
+    @return: Tuple of (psu_name, should_skip)
+    """
+    # Handle different PSU identifier formats:
+    # 1. "psu1" - already contains psu prefix
+    # 2. "1" - just a number, needs PSU prefix
+    # 3. "psutray0.psu0" - complex format with psu in it
+    if 'psu' in psu_identifier.lower():
+        psu_name = psu_identifier
+    else:
+        psu_name = "PSU {}".format(psu_identifier)
+
+    # Check if PSU should be skipped (case-insensitive comparison)
+    should_skip = any(psu_name.lower() == skip_psu.lower() for skip_psu in skip_psu_list)
+    logging.info(f"PSU name '{psu_name}' should be skipped: {should_skip}")
+
+    return psu_name, should_skip
 
 
 def check_all_psu_on(dut, psu_test_results):
     """
-        @summary: check all PSUs are in 'OK' status.
+        @summary: Check that all non-skipped PSUs are in 'OK' status.
         @param dut: dut host instance.
         @param psu_test_results: dictionary of all PSU names, values are not important.
+        @return: True if all non-skipped PSUs are on (no powered off PSUs), otherwise False.
     """
     power_off_psu_list = []
+
+    # Get list of PSUs to skip from inventory configuration
+    skip_psu_list = get_skip_mod_list(dut, ['psus'])
 
     if "201811" in dut.os_version or "201911" in dut.os_version:
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             fields = line.split()
+            # Skip PSUs that are in the skip list
+            if fields[1] in skip_psu_list:
+                logging.info("Skip PSU {} as it is in skip list".format(fields[1]))
+                continue
             if " ".join(fields[2:]) != 'NOT PRESENT':
                 psu_test_results[fields[1]] = line
             if " ".join(fields[2:]) == "NOT OK":
@@ -230,31 +299,39 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
+            if psu_info["name"] in skip_psu_list:
+                logging.info("Skip PSU {} as it is in skip list".format(psu_info["name"]))
+                continue
             if psu_info["status"] != 'NOT PRESENT':
                 psu_test_results[psu_info['name']] = psu_info
             if psu_info["status"] == "NOT OK":
-                power_off_psu_list.append(psu_info["index"])
+                power_off_psu_list.append(psu_info["name"])
 
     if power_off_psu_list:
-        logging.warn('Powered off PSUs: {}'.format(power_off_psu_list))
+        logging.warning('Powered off PSUs: {}'.format(power_off_psu_list))
 
+    # Return True if all PSUs are on (no powered off PSUs), otherwise False
     return len(power_off_psu_list) == 0
 
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
-def test_turn_on_off_psu_and_check_psustatus(duthosts,
+def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_hostname,
                                              get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
-    duthost = get_sup_node_or_random_node(duthosts)
+    is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if is_modular_chassis and not duthosts[enum_rand_one_per_hwsku_hostname].is_supervisor_node():
+        pytest.skip("Skip the PSU check test on Line card on modular chassis")
 
+    duthost = get_sup_node_or_random_node(duthosts)
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    pytest_require(
-        psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
+    if psu_num is not None:
+        pytest_require(
+            psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
     pdu_ctrl = get_pdu_controller(duthost)
@@ -263,7 +340,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     logging.info(
         "To avoid DUT being shutdown, need to turn on PSUs that are not powered")
-    turn_all_outlets_on(pdu_ctrl)
+    turn_on_all_outlets(pdu_ctrl)
 
     logging.info("Initialize test results")
     psu_test_results = {}
@@ -272,7 +349,12 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
     pytest_assert(
         len(list(psu_test_results.keys())) == psu_num,
-        "In consistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
+        "Inconsistent PSU number output by '%s' and '%s'" % (CMD_PLATFORM_PSUSTATUS, "sudo psuutil numpsus"))
+
+    # Increase pdu_wait_time for modular chassis
+    pdu_wait_time = PDU_WAIT_TIME
+    if is_modular_chassis:
+        pdu_wait_time = MODULAR_CHASSIS_PDU_WAIT_TIME
 
     logging.info("Start testing turn off/on PSUs")
     all_outlet_status = pdu_ctrl.get_outlet_status()
@@ -282,49 +364,107 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         all_outlet_status = all_outlet_status[0:-2]
         logging.info(
             "DUT is MgmtTsToR, the last 2 outlets are reserved for Console Switch and are not visible from DUT.")
-    for outlet in all_outlet_status:
-        psu_under_test = None
-        if outlet['outlet_on'] is False:
-            continue
 
-        logging.info("Turn off outlet {}".format(outlet))
-        pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(10)
+    # Group outlets/PDUs by PSU and toggle PDUs by PSU
+    psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
+    # Safety check: there must be at least 2 distinct PDU outlets across all PSUs, so that
+    # turning one PSU's outlet off still leaves another PSU powered. If every PSU hangs off
+    # a single shared outlet (e.g. both PSUs of a 2-PSU DUT on one outlet, as seen when the
+    # PDU connection graph maps PSU1 and PSU2 to the same outlet), turning it off removes
+    # all power from the DUT and reboots it
+    distinct_outlets = set()
+    for outlets in psu_to_pdus.values():
+        for outlet in outlets:
+            distinct_outlets.add("{}/{}".format(outlet.get('pdu_name'), outlet.get('outlet_id')))
+    if len(distinct_outlets) < 2:
+        logging.warning(
+            "All PSUs on %s share a single PDU outlet %s; turning it off would power off the "
+            "whole DUT. Please fix the PDU cabling/connection graph so each PSU has its own "
+            "outlet.", duthost.hostname, sorted(distinct_outlets))
+    pytest_require(
+        len(distinct_outlets) >= 2,
+        "Skip the test: all PSUs on {} share PDU outlet(s) {}; toggling would power off the "
+        "whole DUT.".format(duthost.hostname, sorted(distinct_outlets)))
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            psu_match = psu_line_pattern.match(line)
-            pytest_assert(psu_match, "Unexpected PSU status output")
-            # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
-            if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
-                psu_under_test = psu_match.group(1)
-            check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
-        pytest_assert(psu_under_test is not None, "No PSU is turned off")
+    # Get list of PSUs to skip from inventory configuration
+    skip_psu_list = get_skip_mod_list(duthost, ['psus'])
+    logging.info(f"PSUs to skip during PDU testing: {skip_psu_list}")
+    logging.info(f"PSUs to check: {psu_to_pdus.keys()}")
 
-        logging.info("Turn on outlet {}".format(outlet))
-        pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(10)
+    try:
+        for psu in psu_to_pdus.keys():
+            logging.info(f"Checking PSU identifier: {psu}")
+            # Skip PSUs that are in the skip list
+            if psu in skip_psu_list:
+                logging.info(f"Skipping PSU {psu} as it's in the skip list")
+                continue
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            psu_match = psu_line_pattern.match(line)
-            pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(1) == psu_under_test:
-                pytest_assert(psu_match.group(2) == "OK",
-                              "Unexpected PSU status after turned it on")
-            check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+            outlets = psu_to_pdus[psu]
+            psu_under_test = None
 
-        psu_test_results[psu_under_test] = True
+            logging.info("Turning off {} PDUs connected to {}".format(len(outlets), psu))
+            for outlet in outlets:
+                pdu_ctrl.turn_off_outlet(outlet)
+            time.sleep(pdu_wait_time)
+
+            # Check that PSU is turned off
+            cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
+
+            for line in cli_psu_status["stdout_lines"][2:]:
+                if get_power_status_line_type(line) != "PSU":
+                    continue
+                psu_match = psu_line_pattern.match(line)
+                pytest_assert(psu_match, "Unexpected PSU status output")
+                # Skip PSUs that are in the skip list
+                psu_name, should_skip = get_psu_name_and_check_skip(psu_match.group(1), skip_psu_list)
+                if should_skip:
+                    logging.info(f"Skipping PSU {psu_name} as it's in the skip list")
+                    continue
+                # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
+                if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
+                    psu_under_test = psu_match.group(1)
+                check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+            pytest_assert(psu_under_test is not None, "No PSU is turned off")
+
+            for outlet in outlets:
+                logging.info("Turn on outlet {}".format(outlet))
+                pdu_ctrl.turn_on_outlet(outlet)
+            time.sleep(pdu_wait_time)
+
+            cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
+            for line in cli_psu_status["stdout_lines"][2:]:
+                if get_power_status_line_type(line) != "PSU":
+                    continue
+                psu_match = psu_line_pattern.match(line)
+                pytest_assert(psu_match, "Unexpected PSU status output")
+                # Skip PSUs that are in the skip list
+                psu_name, should_skip = get_psu_name_and_check_skip(psu_match.group(1), skip_psu_list)
+                # Skip PSUs that are in the skip list when checking status
+                if should_skip:
+                    logging.info(f"Skipping PSU {psu_name} as it's in the skip list")
+                    continue
+                if psu_match.group(1) == psu_under_test:
+                    pytest_assert(psu_match.group(2) == "OK",
+                                  "Unexpected PSU status after turned it on")
+                check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
+
+            psu_test_results[psu_under_test] = True
+    finally:
+        turn_on_all_outlets(pdu_ctrl)
 
     for psu in psu_test_results:
-        pytest_assert(psu_test_results[psu],
-                      "Test psu status of PSU %s failed" % psu)
+        pytest_assert(
+            psu_test_results[psu],
+            "Test psu status failed for PSU '{}'. Observed status: {}".format(
+                psu, psu_test_results[psu] if psu_test_results[psu] is not True else "OK"
+            )
+        )
 
 
 @pytest.mark.disable_loganalyzer
 def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
                                         suspend_and_resume_hw_tc_on_mellanox_device,
-                                        mocker_factory, disable_thermal_policy):  # noqa F811
+                                        mocker_factory, disable_thermal_policy):  # noqa: F811
     """
     @summary: Check output of 'show platform fan'.
     """
@@ -346,7 +486,7 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
                                           suspend_and_resume_hw_tc_on_mellanox_device,
-                                          mocker_factory, ignore_particular_error_log):  # noqa F811
+                                          mocker_factory, ignore_particular_error_log):  # noqa: F811
     """
     @summary: Check output of 'show platform temperature'
     """
@@ -398,13 +538,17 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
     loganalyzer = LogAnalyzer(ansible_host=duthost,
                               marker_prefix='thermal_control')
     loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    # For kvm testbed, we will not restart the deamon `thermal`
+    # So we will not get the syslog as expected.
+    if duthost.facts["asic_type"] == "vs":
+        return
     with loganalyzer:
         with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
 
 
 @pytest.mark.disable_loganalyzer
-def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):  # noqa F811
+def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory):  # noqa: F811
     """
     @summary: Make FAN absence, over speed and under speed, check logs and LED color.
     """
@@ -503,3 +647,77 @@ def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             single_fan_mocker.mock_normal_speed()
             check_cli_output_with_mocker(
                 duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+
+
+@pytest.mark.disable_loganalyzer
+def test_pdb_error_status_and_log(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Mock PDB power status error via sysfs, verify CLI status, then restore.
+    PDB is not removable, so mock sysfs power status is used.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pdb_support(duthost):
+        pytest.skip("No PDB support on this platform, skip the case")
+    device_mocker = create_pdb_mocker(duthost)
+    if device_mocker is None:
+        pytest.skip("No PDB mocker defined for this platform")
+    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+
+    try:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pdb_error')
+        loganalyzer.expect_regex = [r'.*PDB.*out of power.*']
+        loganalyzer.ignore_regex = [p for p in SKIP_ERROR_LOG_PDB_ABSENCE if 'out of power' not in p]
+        marker = loganalyzer.init()
+
+        # Step 1: Mock PDB power status bad
+        mock_result, pdb_name = device_mocker.mock_pdb_status(False)
+        if not mock_result:
+            pytest.skip("Platform does not support PDB status mock, skipping")
+
+        logging.info(f'Mocked PDB power error for {pdb_name}, waiting for effect...')
+        time.sleep(PDU_WAIT_TIME)
+
+        # Step 2: Check CLI shows the PDB error
+        psu_status_output = duthost.command(CMD_PLATFORM_PSUSTATUS, module_ignore_errors=True)
+        pytest_assert(psu_status_output['rc'] == 0,
+                      f"Run command '{CMD_PLATFORM_PSUSTATUS}' failed")
+
+        pdb_found_error = False
+        for line in psu_status_output["stdout_lines"][2:]:
+            match = psu_line_pattern.match(line)
+            if match and line.lstrip().startswith("PDB") and match.group(1).strip() in (pdb_name, pdb_name.split()[-1]):
+                status = match.group(2)
+                if status in ("NOT OK", "NOT PRESENT", "WARNING"):
+                    pdb_found_error = True
+                    logging.info(f"PDB {pdb_name} shows error status: {status}")
+                break
+
+        pytest_assert(pdb_found_error,
+                      f"Expected PDB {pdb_name} to show error status after mock power failure")
+
+        # Step 3: Restore PDB power status
+        mock_result, pdb_name = device_mocker.mock_pdb_status(True)
+        logging.info(f'Restored PDB power for {pdb_name}, waiting for recovery...')
+        time.sleep(PDU_WAIT_TIME)
+
+        # Step 4: Verify PDB status recovers to OK
+        psu_status_output = duthost.command(CMD_PLATFORM_PSUSTATUS, module_ignore_errors=True)
+        pytest_assert(psu_status_output['rc'] == 0,
+                      f"Run command '{CMD_PLATFORM_PSUSTATUS}' failed")
+
+        pdb_recovered = False
+        for line in psu_status_output["stdout_lines"][2:]:
+            match = psu_line_pattern.match(line)
+            if match and line.lstrip().startswith("PDB") and match.group(1).strip() in (pdb_name, pdb_name.split()[-1]):
+                status = match.group(2)
+                if status == "OK":
+                    pdb_recovered = True
+                    logging.info(f"PDB {pdb_name} recovered to OK status")
+                break
+
+        pytest_assert(pdb_recovered,
+                      f"Expected PDB {pdb_name} to recover to OK status after restoring power")
+
+        loganalyzer.analyze(marker)
+    finally:
+        device_mocker.deinit()

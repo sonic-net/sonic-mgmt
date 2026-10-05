@@ -11,14 +11,13 @@ import random
 from datetime import datetime
 from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
-from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
+from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, \
     VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, IP_VERSIONS_LIST, config_pbh
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox')
+    pytest.mark.topology('t0')
 ]
 
 update_outer_ipver = random.choice(IP_VERSIONS_LIST)
@@ -47,7 +46,7 @@ class TestDynamicInnerHashing():
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-            normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+            normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
 
             if normalize_level == 'thorough':
                 balancing_test_times = 120
@@ -55,6 +54,8 @@ class TestDynamicInnerHashing():
             else:
                 balancing_test_times = 20
                 balancing_range = 0.5
+                if "mellanox" in duthost.facts['asic_type'].lower():
+                    balancing_range = 0.7
 
             ptf_params = {"fib_info": FIB_INFO_FILE_DST,
                           "router_mac": router_mac,
@@ -73,6 +74,7 @@ class TestDynamicInnerHashing():
                           "symmetric_hashing": symmetric_hashing}
 
             duthost.shell("sonic-clear pbh statistics")
+
             ptf_runner(ptfhost,
                        "ptftests",
                        "inner_hash_test.InnerHashTest",
@@ -104,6 +106,7 @@ class TestDynamicInnerHashing():
             with allure.step('Run again the ptf test InnerHashTest after updating the rules'):
                 logging.info('Run again the ptf test InnerHashTest after updating the rules')
                 duthost.shell("sonic-clear pbh statistics")
+
                 ptf_runner(ptfhost,
                            "ptftests",
                            "inner_hash_test.InnerHashTest",

@@ -171,6 +171,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_interfaces_status](sonichost_methods/get_interfaces_status.md) - Get interfaces status on the DUT and parse the result into a dict.
 
+- [show_ipv6_interfaces](sonichost_methods/show_ipv6_interfaces.md) - Retrieve information about IPv6 interfaces and parse the result into a dict.
+
 - [get_intf_link_local_ipv6_addr](sonichost_methods/get_intf_link_local_ipv6_addr.md) - Get the link local ipv6 address of the interface
 
 - [get_ip_route_info](sonichost_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.

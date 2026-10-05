@@ -40,6 +40,13 @@ acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded[ipv6-egress-up
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithPortToggle::test_icmp_match_forwarded[ipv6-ingress-uplink->downlink-default-Vlan1000]:
+  xfail:
+    reason: "Test issue on isolated-v6 topos"
+    conditions:
+      - "'isolated-v6' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18077
+
 acl/test_acl.py::TestAclWithPortToggle::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
     reason: "Egress issue in Nokia"
@@ -250,12 +257,22 @@ acl/test_acl.py::TestAclWithPortToggle::test_udp_source_ip_match_dropped[ipv6-eg
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
 
+acl/test_acl.py::TestAclWithReboot:
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds, or for isolated-v6 topology"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
+
 acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -263,6 +280,10 @@ acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplin
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -270,6 +291,10 @@ acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplin
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -277,6 +302,10 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -284,6 +313,10 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -291,6 +324,17 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-egress-uplink
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
+
+acl/test_acl.py::TestAclWithReboot::test_icmp_match_forwarded[ipv6-ingress-uplink->downlink-default-Vlan1000]:
+  xfail:
+    reason: "Test issue on isolated-v6 topos"
+    conditions:
+      - "'isolated-v6' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18077
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -298,6 +342,10 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -305,6 +353,10 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -312,6 +364,10 @@ acl/test_acl.py::TestAclWithReboot::test_icmp_source_ip_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -319,6 +375,10 @@ acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -326,6 +386,10 @@ acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -333,6 +397,10 @@ acl/test_acl.py::TestAclWithReboot::test_ip_proto_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -340,6 +408,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -347,6 +419,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -354,6 +430,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -361,6 +441,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -368,7 +452,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
-
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -376,6 +463,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_dport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -383,6 +474,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -390,6 +485,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -397,6 +496,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_match_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -404,6 +507,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -411,6 +518,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -418,6 +529,10 @@ acl/test_acl.py::TestAclWithReboot::test_l4_sport_range_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -425,6 +540,10 @@ acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -432,6 +551,10 @@ acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -439,6 +562,10 @@ acl/test_acl.py::TestAclWithReboot::test_rules_priority_dropped[ipv6-egress-upli
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -446,6 +573,10 @@ acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-upl
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -453,12 +584,21 @@ acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-upl
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
+
 acl/test_acl.py::TestAclWithReboot::test_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
     reason: "Egress issue in Nokia"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -466,6 +606,10 @@ acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-upl
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -473,6 +617,10 @@ acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-upl
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -480,6 +628,10 @@ acl/test_acl.py::TestAclWithReboot::test_tcp_flags_match_dropped[ipv6-egress-upl
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -487,6 +639,10 @@ acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan1000]:
   xfail:
@@ -494,7 +650,10 @@ acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
-
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress-uplink->downlink-m0_vlan_scenario-Vlan2000]:
   xfail:
@@ -502,6 +661,10 @@ acl/test_acl.py::TestAclWithReboot::test_udp_source_ip_match_dropped[ipv6-egress
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+  skip:
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions:
+      - "topo_type in ['t1'] and asic_type in ['vs']"
 
 acl/test_acl.py::TestBasicAcl::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -545,6 +708,13 @@ acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded[ipv6-egress-uplink->dow
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestBasicAcl::test_icmp_match_forwarded[ipv6-ingress-uplink->downlink-default-Vlan1000]:
+  xfail:
+    reason: "Test issue on isolated-v6 topos"
+    conditions:
+      - "'isolated-v6' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18077
 
 acl/test_acl.py::TestBasicAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
@@ -801,6 +971,13 @@ acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded[ipv6-egress-uplin
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_acl.py::TestIncrementalAcl::test_icmp_match_forwarded[ipv6-ingress-uplink->downlink-default-Vlan1000]:
+  xfail:
+    reason: "Test issue on isolated-v6 topos"
+    conditions:
+      - "'isolated-v6' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/18077
 
 acl/test_acl.py::TestIncrementalAcl::test_icmp_source_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:

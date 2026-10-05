@@ -1,61 +1,48 @@
 import os
 import pytest
-import http.client
 
+from tests.common.helpers.platform_api import psu
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
-IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+IP6TABLES_DELETE_RULE_CMD = 'ip6tables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
+# Upper bound on how many copies of the rule we try to remove. start_platform_api_service
+# is function scoped and re-adds the rule every time the server is unreachable, so a server
+# that dies part way through a module can leave more than one copy behind.
+MAX_RULE_DELETE_ATTEMPTS = 10
 
 
-@pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+def _remove_server_port_rules(duthost):
+    """
+    Remove every copy of the port 8000 ACCEPT rule this test run may have added.
 
-    res = localhost.wait_for(host=dut_ip,
-                             port=SERVER_PORT,
-                             state='started',
-                             delay=1,
-                             timeout=10,
-                             module_ignore_errors=True)
-    if res['failed'] is True:
+    start_platform_api_service adds either the IPv4 or the IPv6 rule depending on the
+    management address family, never both, so one of these deletes is expected to be a
+    no-op. "iptables -D" removes a single matching rule, so keep deleting until there is
+    nothing left to remove.
 
-        res = duthost.command('docker exec -i pmon python3 -c "import sonic_platform"', module_ignore_errors=True)
-        py3_platform_api_available = not res['failed']
+    Errors are ignored throughout: after a reboot test the DUT has power cycled and the
+    rule is already gone, which is not a failure.
+    """
+    for delete_cmd in (IPTABLES_DELETE_RULE_CMD, IP6TABLES_DELETE_RULE_CMD):
+        for _ in range(MAX_RULE_DELETE_ATTEMPTS):
+            result = duthost.command(delete_cmd, module_ignore_errors=True)
+            # Default to non-zero so anything that does not report an rc, such as an
+            # unreachable host, stops the loop instead of raising KeyError.
+            if result.get('rc', 1) != 0:
+                break
 
-        supervisor_conf = [
-            '[program:platform_api_server]',
-            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
-                                                                                     else '2', SERVER_PORT),
-            'autostart=True',
-            'autorestart=True',
-            'stdout_logfile=syslog',
-            'stderr_logfile=syslog',
-        ]
-        dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
-        pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
-        duthost.copy(content='\n'.join(supervisor_conf), dest=dest_path)
-        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
-        src_path = os.path.join('common', 'helpers', 'platform_api', 'scripts', SERVER_FILE)
-        dest_path = os.path.join(os.sep, 'tmp', SERVER_FILE)
-        pmon_path = os.path.join(os.sep, 'opt', SERVER_FILE)
-        duthost.copy(src=src_path, dest=dest_path)
-        duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
-
-        # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        duthost.command(IPTABLES_PREPEND_RULE_CMD)
-
-        # Reload the supervisor config and Start the HTTP server
-        duthost.command('docker exec -i pmon supervisorctl reread')
-        duthost.command('docker exec -i pmon supervisorctl update')
-
-        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
-        assert res['failed'] is False
+def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa: F811
+    name = psu.get_name(platform_api_conn, psu_num)
+    if name in psu_skip_list:
+        logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))
+        return True
+    return False
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -64,6 +51,13 @@ def stop_platform_api_service(duthosts):
         yield
     finally:
         for duthost in duthosts:
+            # Remove the port 8000 rules first. The checks below can raise, for example when
+            # pmon is not running and the supervisorctl status output is empty, and the rules
+            # have to come off regardless or they leak into the rest of the session and trip a
+            # later cacl run. Nothing after this point needs the port: the remaining commands
+            # all go over SSH via "docker exec".
+            _remove_server_port_rules(duthost)
+
             # Stop the server and remove our supervisor config changes
             pmon_path_supervisor = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
             pmon_path_script = os.path.join(os.sep, 'opt', SERVER_FILE)
@@ -71,8 +65,13 @@ def stop_platform_api_service(duthosts):
             # Check if platform_api_server running in the pmon docker and only then stop it. Else we would fail,
             # and not stop on other DUT's
             out = duthost.shell('docker exec pmon supervisorctl status platform_api_server',
-                                module_ignore_errors=True)['stdout_lines']
-            platform_api_service_state = [line.strip().split()[1] for line in out][0]
+                                module_ignore_errors=True)
+
+            # ensure pmon is still up
+            if out.get('stderr_lines') and "Error response from daemon" in out['stderr_lines']:
+                pytest.fail(f"pmon is not running after tests {out['stderr_lines']}")
+
+            platform_api_service_state = [line.strip().split()[1] for line in out['stdout_lines']][0]
             if platform_api_service_state == 'RUNNING':
                 duthost.command('docker exec -i pmon supervisorctl stop platform_api_server')
                 duthost.command('docker exec -i pmon rm -f {}'.format(pmon_path_supervisor))
@@ -80,27 +79,18 @@ def stop_platform_api_service(duthosts):
                 duthost.command('docker exec -i pmon supervisorctl reread')
                 duthost.command('docker exec -i pmon supervisorctl update')
 
-                # We ignore errors here because after a reboot test, the DUT will have power-cycled and will
-                # no longer have the rule we added in the start_platform_api_service fixture, even if the
-                # platform_api_server is running.
-                duthost.command(IPTABLES_DELETE_RULE_CMD, module_ignore_errors=True)
-
-
-@pytest.fixture(scope='function')
-def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
-
-    conn = http.client.HTTPConnection(dut_ip, SERVER_PORT)
-    try:
-        yield conn
-    finally:
-        conn.close()
-
 
 @pytest.fixture(autouse=True)
 def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # The BMC runs a minimal sonic_platform plugin, so the "API not implemented"
+    # pmon warning scan is not meaningful. Skipping the LogAnalyzer init/analyze
+    # also avoids a per-test ansible copy to the DUT, which stalls the whole api
+    # suite if the BMC mgmt channel becomes unreachable mid-run.
+    if duthost.is_bmc():
+        yield
+        return
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="platformapi_test")
     marker = loganalyzer.init()

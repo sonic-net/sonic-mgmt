@@ -1,0 +1,7 @@
+{
+    "DNS_NAMESERVER": {
+        {% for dns_server in dns_servers %}
+            "{{ dns_server }}":{}{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    }
+}

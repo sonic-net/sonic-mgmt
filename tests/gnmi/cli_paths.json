@@ -1,0 +1,18 @@
+{
+	"reboot-cause": {
+		"setup":           "reboot_device",
+		"setup_fixtures":  ["duthost", "localhost"],
+		"setup_args":      [],
+		"verify":          "check_reboot_cause",
+		"verify_fixtures": ["duthost"],
+		"verify_args":     []
+	},
+	"reboot-cause/history": {
+		"setup":           "reboot_device",
+		"setup_fixtures":  ["duthost", "localhost"],
+		"setup_args":      [],
+		"verify":          "check_reboot_cause_history",
+		"verify_fixtures": ["duthost"],
+		"verify_args":     []
+	}
+}

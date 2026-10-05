@@ -1,0 +1,31 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: "0.0.0.0:4318"
+
+exporters:
+  influxdb:
+    endpoint: http://{{ ptf_ip }}:{{ influxdb_port }}
+    org: ""
+    bucket: {{ influxdb_bucket }}
+    token: ""
+    timeout: 10s
+    retry_on_failure:
+      enabled: false
+    sending_queue:
+      enabled: false
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 10
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [influxdb]

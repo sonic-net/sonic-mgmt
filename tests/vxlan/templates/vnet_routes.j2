@@ -2,7 +2,7 @@
 {%- for vnet in vnet_id_list %}
 {%- for routes in vnet_route_list %}
 {%- set route_list = vnet + '_route_list' %}
-{%- if routes.keys()[0] == route_list %}
+{%- if route_list in routes %}
 {%- for key,entries in routes.items() %}
 {%- for route in entries %}
     {
@@ -44,7 +44,7 @@
 {%- for vnet in vnet_id_list %}
 {%- for routes in vnet_local_routes %}
 {%- set route_list = vnet + '_route_list' %}
-{%- if routes.keys()[0] == route_list %}
+{%- if route_list in routes %}
 {%- for key,entries in routes.items() %}
 {%- for route in entries %}
     {
@@ -63,7 +63,7 @@
 {%- for vnet in vnet_id_list %}
 {%- for routes in vnet_subnet_routes %}
 {%- set route_list = vnet + '_route_list' %}
-{%- if routes.keys()[0] == route_list %}
+{%- if route_list in routes %}
 {%- for key,entries in routes.items() %}
 {%- for route in entries %}
     {
@@ -107,6 +107,11 @@
 {%- if key == vnet_intf.vnet %}
     {
        "VNET_ROUTE_TABLE:{{ peer }}:{{ vlan_intf_ip }}.0/24": {
+{%- for nbr in vnet_nbr_list %}
+{%- if vnet_intf.ifname == nbr.ifname %}
+           "nexthop": "{{ nbr.ip }}",
+{%- endif %}
+{%- endfor %}
            "ifname": "Vlan{{ vlan_intf.vlan_id  }}"
        },
        "OP": "{{ op }}"

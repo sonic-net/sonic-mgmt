@@ -1,10 +1,12 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -12,9 +14,9 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-SYSLOG_DUMMY_IPV4_SERVER = "10.0.0.5"
+SYSLOG_DUMMY_IPV4_SERVER = "10.11.0.5"
 SYSLOG_DUMMY_IPV6_SERVER = "cc98:2008::1"
-REPLACE_SYSLOG_SERVER_v4 = "10.0.0.6"
+REPLACE_SYSLOG_SERVER_v4 = "10.11.0.6"
 REPLACE_SYSLOG_SERVER_v6 = "cc98:2008::2"
 
 
@@ -112,7 +114,7 @@ def syslog_server_tc1_add_init(duthost):
     admin@vlab-01:~$ show runningconfiguration syslog
     Syslog Servers
     ----------------
-    [10.0.0.5]
+    [10.11.0.5]
     [cc98:2008::1]
     """
     json_patch = [
@@ -125,6 +127,7 @@ def syslog_server_tc1_add_init(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -147,7 +150,7 @@ def syslog_server_tc1_add_duplicate(duthost):
     admin@vlab-01:~$ show runningconfiguration syslog
     Syslog Servers
     ----------------
-    [10.0.0.5]
+    [10.11.0.5]
     [cc98:2008::1]
     """
     json_patch = [
@@ -162,6 +165,7 @@ def syslog_server_tc1_add_duplicate(duthost):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -182,14 +186,14 @@ def syslog_server_tc1_xfail(duthost):
 
     ("add", "-badhostname", "cc98:2008::1"),   ADD Invalid hostname
     ("add", "goodhostname", "cc98:2008::xyz"), ADD Invalid IPv6 address
-    ("remove", "10.0.0.6", "cc98:2008:1"),     REMOVE Unexist IPv4 address
+    ("remove", "10.11.0.6", "cc98:2008:1"),     REMOVE Unexist IPv4 address
     ("remove", "goodhostname", "cc98:2008::2") REMOVE Unexist IPv6 address
     """
     xfail_input = [
         ("add", "-badhostname", "cc98:2008::1"),
         ("add", "goodhostname", "cc98:2008::xyz"),
-        ("remove", "10.0.0.6", "cc98:2008:1"),
-        ("remove", "10.0.0.5", "cc98:2008::2")
+        ("remove", "10.11.0.6", "cc98:2008:1"),
+        ("remove", "10.11.0.5", "cc98:2008::2")
     ]
 
     for op, dummy_syslog_server_hostname, dummy_syslog_server_v6 in xfail_input:
@@ -205,6 +209,7 @@ def syslog_server_tc1_xfail(duthost):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -222,7 +227,7 @@ def syslog_server_tc1_replace(duthost):
     admin@vlab-01:~$ show runningconfiguration syslog
     Syslog Servers
     ----------------
-    [10.0.0.6]
+    [10.11.0.6]
     [cc98:2008::2]
     """
     json_patch = [
@@ -245,6 +250,7 @@ def syslog_server_tc1_replace(duthost):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -276,6 +282,7 @@ def syslog_server_tc1_remove(duthost):
             "path": "/SYSLOG_SERVER"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -291,12 +298,27 @@ def syslog_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
+def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts, loganalyzer):
     """ Test syslog server config from clean config
     """
+    # Adding/removing syslog servers may cause rsyslog omrelp to attempt connections to
+    # unreachable peers, which logs ERR messages that are expected and harmless here.
+    if loganalyzer:
+        ignoreRegex = [
+            r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
+            r".*omrelp\[.*\]: error 'server closed relp session, session broken', object .* - action may not work as intended.*",  # noqa: E501
+            r".*omrelp\[.*\]: error 'error waiting on required session state, session broken', object .* - action may not work as intended.*",  # noqa: E501
+        ]
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(ignoreRegex)
+
     syslog_config_cleanup(rand_selected_dut, cfg_facts)
     syslog_server_tc1_add_init(rand_selected_dut)
     syslog_server_tc1_add_duplicate(rand_selected_dut)
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
+
+    # Adding a sleep of 5 seconds to avoid syslog_server_tc1_replace & syslog_server_tc1_remove triggering too close
+    # This would avoid systemd kill core_uploader.service since it was restarted more than 5 times within 10 second time
+    # window
+    time.sleep(5)
     syslog_server_tc1_remove(rand_selected_dut)

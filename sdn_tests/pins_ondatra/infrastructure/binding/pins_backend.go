@@ -1,0 +1,236 @@
+// Package pinsbackend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
+package pinsbackend
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"flag"
+
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	log "github.com/golang/glog"
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ondatra/binding"
+	"github.com/openconfig/ondatra/binding/introspect"
+	opb "github.com/openconfig/ondatra/proto"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"os"
+	"time"
+)
+
+var insecureMode = flag.Bool("use_binding_insecure_mode", true, "set the flag if the server doesn't support gRPC mTLS.")
+
+// Backend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
+type Backend struct {
+	configs  map[string]*tls.Config
+	insecure bool // use insecure mode to dial to the gRPC server
+}
+
+// New creates a backend object.
+func New() *Backend {
+	return &Backend{configs: map[string]*tls.Config{}, insecure: *insecureMode}
+}
+
+// registerGRPCTLS caches grpc TLS certificates for the given serverName.
+func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName string) error {
+	if serverName == "" {
+		return fmt.Errorf("serverName is empty")
+	}
+
+	// Load certificate of the CA who signed server's certificate.
+	file, err := bazel.Runfile("ondatra/certs/ca_crt.pem")
+	if err != nil {
+		return err
+	}
+	pemServerCA, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(pemServerCA) {
+		return fmt.Errorf("failed to add server CA's certificate")
+	}
+	// Load client's certificate and private key
+	clientCert, err := tls.LoadX509KeyPair("ondatra/certs/client_crt.pem", "ondatra/certs/client_key.pem")
+	if err != nil {
+		return err
+	}
+
+	for _, serviceInfo := range grpc.Info {
+		b.configs[serviceInfo.Addr] = &tls.Config{
+			Certificates: []tls.Certificate{clientCert},
+			RootCAs:      certPool,
+			ServerName:   serverName,
+			MinVersion:  tls.VersionTLS13,
+		}
+	}
+
+	return nil
+}
+
+
+// ReserveTopology returns topology containing reserved DUT and ATE devices.
+func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration) (*bindingbackend.ReservedTopology, error) {
+	// Fill in the Dut and Control device details.
+	dut := "192.168.0.1"     // sample dut address.
+	control := "192.168.0.2" // sample control address.
+	log.InfoContextf(ctx, "testbed Dut:%s Control switch:%s", dut, control)
+
+	grpcPort := "9339"
+	p4rtPort := "9559"
+	dutGRPCInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, grpcPort)}
+	dutP4RTInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, p4rtPort)}
+	controlGRPCInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", control, grpcPort)}
+	controlP4RTInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", control, p4rtPort)}
+
+	// Modify the reservation based on your topology.
+	r := &bindingbackend.ReservedTopology{
+		ID: "PINS Reservation",
+		DUTs: []*bindingbackend.DUTDevice{{
+			Device: &bindingbackend.Device{
+				ID:   "DUT",
+				Name: dut,
+				PortMap: map[string]*binding.Port{
+					"port1":  {Name: "Ethernet0"},
+					"port2":  {Name: "Ethernet4"},
+					"port3":  {Name: "Ethernet8"},
+					"port4":  {Name: "Ethernet12"},
+					"port5":  {Name: "Ethernet16"},
+					"port6":  {Name: "Ethernet20"},
+					"port7":  {Name: "Ethernet24"},
+					"port8":  {Name: "Ethernet28"},
+					"port9":  {Name: "Ethernet32"},
+					"port10": {Name: "Ethernet36"},
+					"port11": {Name: "Ethernet40"},
+					"port12": {Name: "Ethernet44"},
+					"port13": {Name: "Ethernet48"},
+					"port14": {Name: "Ethernet52"},
+					"port15": {Name: "Ethernet56"},
+					"port16": {Name: "Ethernet60"},
+					"port17": {Name: "Ethernet64"},
+					"port18": {Name: "Ethernet68"},
+					"port19": {Name: "Ethernet72"},
+					"port20": {Name: "Ethernet76"},
+				},
+			},
+			GRPC: bindingbackend.GRPCServices{
+				Info: map[introspect.Service]bindingbackend.ServiceInfo{
+					introspect.GNMI: dutGRPCInfo,
+					introspect.GNOI: dutGRPCInfo,
+					introspect.GNSI: dutGRPCInfo,
+					introspect.P4RT: dutP4RTInfo,
+				},
+			}},
+			{
+				Device: &bindingbackend.Device{
+					ID:   "CONTROL",
+					Name: control,
+					PortMap: map[string]*binding.Port{
+						"port1":  {Name: "Ethernet0"},
+						"port2":  {Name: "Ethernet4"},
+						"port3":  {Name: "Ethernet8"},
+						"port4":  {Name: "Ethernet12"},
+						"port5":  {Name: "Ethernet16"},
+						"port6":  {Name: "Ethernet20"},
+						"port7":  {Name: "Ethernet24"},
+						"port8":  {Name: "Ethernet28"},
+						"port9":  {Name: "Ethernet32"},
+						"port10": {Name: "Ethernet36"},
+						"port11": {Name: "Ethernet40"},
+						"port12": {Name: "Ethernet44"},
+						"port13": {Name: "Ethernet48"},
+						"port14": {Name: "Ethernet52"},
+						"port15": {Name: "Ethernet56"},
+						"port16": {Name: "Ethernet60"},
+						"port17": {Name: "Ethernet64"},
+						"port18": {Name: "Ethernet68"},
+						"port19": {Name: "Ethernet72"},
+						"port20": {Name: "Ethernet76"},
+					},
+				},
+				GRPC: bindingbackend.GRPCServices{
+					Info: map[introspect.Service]bindingbackend.ServiceInfo{
+						introspect.GNMI: controlGRPCInfo,
+						introspect.GNOI: controlGRPCInfo,
+						introspect.GNSI: controlGRPCInfo,
+						introspect.P4RT: controlP4RTInfo,
+					},
+				}},
+		}}
+	if b.insecure {
+		log.WarningContextf(ctx, "Using insecure mode to dial gRPC.")
+		return r, nil
+	}
+
+        if b.insecure {
+		log.WarningContextf(ctx, "Using insecure mode to dial gRPC.")
+		return r, nil
+	}
+
+	for _, dut := range r.DUTs {
+		if err := b.registerGRPCTLS(&dut.GRPC, dut.Name); err != nil {
+			return nil, err
+		}
+	}
+
+	return r, nil
+}
+
+// Release releases the reserved devices, called during teardown.
+func (b *Backend) Release(ctx context.Context) error {
+	return nil
+}
+
+func (b *Backend) authDialOpts(addr string) ([]grpc.DialOption, error) {
+	if b.insecure {
+		return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+	}
+
+    tlsConfig, ok := b.configs[addr]
+    if !ok {
+        return nil, fmt.Errorf("failed to find TLS config for %s", addr)
+    }
+	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, nil
+}
+
+// DialGRPC connects to grpc service and returns the opened grpc client for use.
+func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	authOpts, err := b.authDialOpts(addr)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, authOpts...)
+
+	conn, err := grpc.DialContext(ctx, addr, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
+	}
+	return conn, nil
+}
+
+// DialConsole returns a StreamClient for the DUT.
+func (b *Backend) DialConsole(ctx context.Context, dut *binding.AbstractDUT) (binding.ConsoleClient, error) {
+	return nil, fmt.Errorf("unimplemented function")
+}
+
+// GNMIClient wraps the grpc connection under gnmi client.
+func (b *Backend) GNMIClient(ctx context.Context, dut *binding.AbstractDUT, conn *grpc.ClientConn) (gpb.GNMIClient, error) {
+	if conn == nil {
+		return nil, fmt.Errorf("conn is nil")
+	}
+	if dut == nil {
+		return nil, fmt.Errorf("dut is nil")
+	}
+	return gpb.NewGNMIClient(conn), nil
+}
+
+// Close closes backend's internal objects.
+func (b *Backend) Close() error {
+	b.configs = nil
+	return nil
+}

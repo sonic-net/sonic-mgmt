@@ -11,38 +11,33 @@
 - name: Start mux simulator
   block:
 
-  - name: Set default Flask version
-    set_fact:
-      flask_version: "1.1.2"
-      werkzeug_version: "1.0.1"
-      python_command: "python"
-
-  - name: Use newer Flask version for pip3
+  - name: Set Flask and Werkzeug versions
     set_fact:
       flask_version: "2.3.3"
-      python_command: "python3"
-    when: pip_executable == "pip3"
-
-  - name: Use newer Werkzeug version for pip3
-    set_fact:
       werkzeug_version: "2.3.7"
-      python_command: "python3"
-    when: pip_executable == "pip3"
 
-  - name: Install flask
-    pip: name=flask version={{ flask_version }} state=forcereinstall executable={{ pip_executable }}
+  - name: Check installed Flask and Werkzeug versions
+    command: >-
+      {{ sonic_testbed_venv }}/bin/python -c
+      "import flask, werkzeug; print(flask.__version__); print(werkzeug.__version__)"
+    register: flask_versions
+    changed_when: false
+    failed_when: false
+
+  - name: Install Flask and Werkzeug in venv
+    command: >-
+      uv pip install
+      --python {{ sonic_testbed_venv }}/bin/python
+      flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-
-  - name: Install werkzeug
-    pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
+    when: flask_versions.rc != 0
+          or flask_versions.stdout_lines != [flask_version, werkzeug_version]
 
   - name: Copy the mux simulator to test server
     copy:
       src: mux_simulator.py
-      dest: "{{ abs_root_path }}"
+      dest: "{{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py"
       mode: 0755
 
   - name: Generate mux-simulator systemd service file

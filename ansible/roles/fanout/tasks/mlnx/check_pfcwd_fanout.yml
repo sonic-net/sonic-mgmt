@@ -10,6 +10,10 @@
   register: output
   args:
     login: "{{ switch_login['MLNX-OS'] }}"
+    enable: no
+  retries: 5
+  delay: 5
+  until: output.stdout is defined and 'pfc_storm' in output.stdout
 
 - set_fact:
     dockers_installed: "{{output.stdout|search(\"pfc_storm\")}}"

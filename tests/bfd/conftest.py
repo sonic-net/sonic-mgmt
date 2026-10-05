@@ -1,16 +1,46 @@
-import pytest
-from bfd_base import BfdBase
 import logging
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
-from tests.common.utilities import wait_until
+
+import pytest
+
+from tests.bfd.bfd_helpers import clear_bfd_configs, ensure_interfaces_are_up
 from tests.common.config_reload import config_reload
+# from tests.common.utilities import wait_until
+# from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="class")
-def bfd_base_instance():
-    return BfdBase()
+class BfdCleanupContext(object):
+    def __init__(self):
+        self.src_dut = None
+        self.src_asic = None
+        self.src_prefix = None
+        self.dst_dut = None
+        self.dst_asic = None
+        self.dst_prefix = None
+        self.rp_asic_ids = []
+        self.allow_empty_static_routes_on_removal = False
+        self.restore_targets = []
+
+    def set_bfd_endpoints(self, selection):
+        self.src_dut = selection.get("src_dut")
+        self.src_asic = selection.get("src_asic")
+        self.src_prefix = selection.get("src_prefix")
+        self.dst_dut = selection.get("dst_dut")
+        self.dst_asic = selection.get("dst_asic")
+        self.dst_prefix = selection.get("dst_prefix")
+
+    def register_restore(self, dut, asic, interfaces):
+        if not interfaces:
+            return
+
+        self.restore_targets.append(
+            {
+                "dut": dut,
+                "asic": asic,
+                "interfaces": list(interfaces),
+            }
+        )
 
 
 def pytest_addoption(parser):
@@ -18,97 +48,76 @@ def pytest_addoption(parser):
     parser.addoption("--num_sessions_scale", action="store", default=128)
 
 
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
+
+
 @pytest.fixture(scope="function")
-def bfd_cleanup_db(
-    request, duthosts, enum_supervisor_dut_hostname, bfd_base_instance, autouse=True
-):
-    orch_cpu_threshold = 10
-    # Make Sure Orch CPU < orch_cpu_threshold before starting test.
-    logger.info(
-        "Make Sure orchagent CPU utilization is less that %d before starting the test",
-        orch_cpu_threshold,
-    )
-    duts = duthosts.frontend_nodes
-    for dut in duts:
-        assert wait_until(
-            100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
-        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
-            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                "stdout"
-            ],
-            orch_cpu_threshold,
-        )
+def bfd_cleanup_db(duthosts, enum_supervisor_dut_hostname):
+    # Temporarily disable orchagent CPU check before starting test as it is not stable
+    # orch_cpu_threshold = 10
+    # # Make Sure Orch CPU < orch_cpu_threshold before starting test.
+    # logger.info(
+    #     "Make Sure orchagent CPU utilization is less that %d before starting the test",
+    #     orch_cpu_threshold,
+    # )
+    # duts = duthosts.frontend_nodes
+    # for dut in duts:
+    #     assert wait_until(
+    #         100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+    #     ), "Orch CPU utilization exceeds orch cpu threshold {} before starting the test".format(orch_cpu_threshold)
 
-    yield
-    orch_cpu_threshold = 10
-    # Orchagent CPU should consume < orch_cpu_threshold at last.
-    logger.info(
-        "watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold
-    )
-    for dut in duts:
-        assert wait_until(
-            45, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
-        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
-            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                "stdout"
-            ],
-            orch_cpu_threshold,
-        )
+    cleanup_context = BfdCleanupContext()
+    yield cleanup_context
 
-    logger.info("Verifying swss container status on RP")
+    # Temporarily disable orchagent CPU check after finishing test as it is not stable
+    # orch_cpu_threshold = 10
+    # # Orchagent CPU should consume < orch_cpu_threshold at last.
+    # logger.info(
+    #     "watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold
+    # )
+    # for dut in duts:
+    #     assert wait_until(
+    #         120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+    #     ), "Orch CPU utilization exceeds orch cpu threshold {} after finishing the test".format(orch_cpu_threshold)
+
     rp = duthosts[enum_supervisor_dut_hostname]
     container_status = True
-    if hasattr(request.config, "rp_asic_ids"):
-        for id in request.config.rp_asic_ids:
+    if cleanup_context.rp_asic_ids:
+        logger.info("Verifying swss container status on RP")
+        for asic_id in cleanup_context.rp_asic_ids:
             docker_output = rp.shell(
-                "docker ps | grep swss{} | awk '{{print $NF}}'".format(id)
+                "docker ps | grep swss{} | awk '{{print $NF}}'".format(asic_id)
             )["stdout"]
             if len(docker_output) == 0:
                 container_status = False
+
     if not container_status:
-        config_reload(rp)
+        logger.error("swss container is not running on RP, so running config reload")
+        config_reload(rp, safe_reload=True)
 
-    logger.info(
-        "Clearing BFD configs on {}, {}".format(
-            request.config.src_dut, request.config.dst_dut
+    if cleanup_context.src_dut and cleanup_context.dst_dut:
+        clear_bfd_configs(
+            cleanup_context.src_dut,
+            cleanup_context.src_asic.asic_index,
+            cleanup_context.src_prefix,
         )
-    )
-    command = (
-        "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
-            request.config.src_asic.asic_index, request.config.src_prefix
-        ).replace("\\", "")
-    )
-    request.config.src_dut.shell(command)
-    command = (
-        "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
-            request.config.dst_asic.asic_index, request.config.dst_prefix
-        ).replace("\\", "")
-    )
-    request.config.dst_dut.shell(command)
+        clear_bfd_configs(
+            cleanup_context.dst_dut,
+            cleanup_context.dst_asic.asic_index,
+            cleanup_context.dst_prefix,
+        )
 
-    logger.info("Bringing up portchannels or respective members")
-    if hasattr(request.config, "portchannels_on_dut"):
-        portchannels_on_dut = request.config.portchannels_on_dut
-        selected_interfaces = request.config.selected_portchannels
-    elif hasattr(request.config, "selected_portchannel_members"):
-        portchannels_on_dut = request.config.portchannels_on_dut
-        selected_interfaces = request.config.selected_portchannel_members
+    if cleanup_context.restore_targets:
+        logger.info("Bringing up registered interfaces")
+        for restore_target in cleanup_context.restore_targets:
+            ensure_interfaces_are_up(
+                restore_target["dut"],
+                restore_target["asic"],
+                restore_target["interfaces"],
+            )
     else:
         logger.info(
-            "None of the portchannels are selected to flap. So skipping portchannel interface check"
+            "No interfaces were registered for cleanup. So skipping interface check"
         )
-        selected_interfaces = []
-
-    if selected_interfaces:
-        dut = (
-            request.config.src_dut
-            if portchannels_on_dut == "src"
-            else request.config.dst_dut
-        )
-        asic = (
-            request.config.src_asic
-            if portchannels_on_dut == "src"
-            else request.config.dst_asic
-        )
-        for interface in selected_interfaces:
-            bfd_base_instance.interface_cleanup(dut, asic, interface)

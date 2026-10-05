@@ -20,7 +20,8 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.device_type('physical')
 ]
 
 expected_running_status = "RUNNING"
@@ -28,6 +29,7 @@ expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
 daemon_name = "chassisd"
+daemon_dut_hostname_fixture = "enum_rand_one_per_hwsku_hostname"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
@@ -58,15 +60,6 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture
-def check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
-
-
 def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
@@ -85,7 +78,7 @@ def collect_data(duthost):
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    data_dict = {'keys': keys, 'data': dev_data}
+    data_dict = {'keys': sorted(keys), 'data': dev_data}
     return OrderedDict(sorted(data_dict.items()))
 
 

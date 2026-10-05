@@ -106,7 +106,6 @@ class TestBasicMpls:
         exp_pkt['Ethernet'].remove_payload()
         exp_pkt /= pkt1
         exp_pkt = mask.Mask(exp_pkt)
-        exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
         exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
@@ -198,7 +197,7 @@ class TestBasicMpls:
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, src_pid, pkt)
         try:
-            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[dst_pid])
+            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_pid)
             logger.info(res)
         except Exception as e:
             self.teardown_labels(setup)
@@ -222,7 +221,7 @@ class TestBasicMpls:
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, src_pid, pkt)
         try:
-            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[dst_pid])
+            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_pid)
             logger.info(res)
         except Exception as e:
             self.teardown_labels(setup)
@@ -245,7 +244,7 @@ class TestBasicMpls:
         pkt1 = epkt['IP']
         epkt['Ethernet'].type = 0x8847
         epkt['Ethernet'].remove_payload()
-        mp = MPLS(label=1000002, s=1, ttl=255)          # noqa F821
+        mp = MPLS(label=1000002, s=1, ttl=255)          # noqa: F821
         mp.remove_payload()
         epkt /= mp
         epkt /= pkt1
@@ -255,7 +254,7 @@ class TestBasicMpls:
         testutils.send(ptfadapter, src_pid, pkt)
 
         try:
-            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[dst_pid])
+            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_pid)
             logger.info(res)
         except Exception as e:
             self.teardown_labels(setup)
@@ -280,7 +279,7 @@ class TestBasicMpls:
         testutils.send(ptfadapter, src_pid, pkt)
 
         try:
-            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=[dst_pid])
+            res = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_pid)
             logger.info(res)
         except Exception as e:
             self.teardown_labels(setup)

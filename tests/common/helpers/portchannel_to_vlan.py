@@ -4,15 +4,16 @@ import collections
 import ipaddress
 import time
 import sys
-from netaddr import valid_ipv4
+from netaddr import valid_ipv4, valid_ipv6
+import logging
 
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
-from tests.common.checkpoint import create_checkpoint, rollback
+from tests.common.helpers.backend_acl import bind_acl_table
+from tests.common.config_reload import config_reload
 from tests.common.utilities import check_skip_release
 
 
@@ -20,7 +21,7 @@ from tests.common.utilities import check_skip_release
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 PTF_LAG_NAME = "bond1"
@@ -97,18 +98,16 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
 
     lag_port_list = []
     port_list_idx = 0
-    port_list = list(dut_ports[ATTR_PORT_BEHIND_LAG].values())
     # Add ports to port channel
-    for port_list_idx in range(0, len(dut_ports[ATTR_PORT_BEHIND_LAG])):
-        port_name = port_list[port_list_idx]
+    for port_id, port_name in dut_ports[ATTR_PORT_BEHIND_LAG].items():
+        logging.info("add member for port id {} port name {}".format(port_id, port_name))
         duthost.del_member_from_vlan(src_vlan_id, port_name)
         duthost.shell("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
         lag_port_list.append(port_name)
         port_list_idx += 1
-    port_list = list(dut_ports[ATTR_PORT_NO_TEST].values())
     # Remove ports from vlan
-    for port_list_idx in range(0, len(dut_ports[ATTR_PORT_NO_TEST])):
-        port_name = port_list[port_list_idx]
+    for port_id, port_name in dut_ports[ATTR_PORT_NO_TEST].items():
+        logging.info("delete member from vlan for port id {} port name {}".format(port_id, port_name))
         duthost.del_member_from_vlan(src_vlan_id, port_name)
 
     duthost.shell("config vlan add {}".format(vlan["id"]))
@@ -191,12 +190,23 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict):
     for port_name, _ in list(src_vlan_members.items()):
         port_id = port_index_map[port_name]
         if len(dut_ports[ATTR_PORT_BEHIND_LAG]) < number_of_lag_member:
-            dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
-        elif len(dut_ports[ATTR_PORT_TEST]) < number_of_test_ports:
+            if len(dut_ports[ATTR_PORT_BEHIND_LAG]) == 0:
+                dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
+                continue
+            # Get the speed of the current port
+            port_speed = cfg_facts["PORT"][port_name]['speed']
+            # Only choose same speed for the ports in a same lag
+            first_port_name = list(dut_ports[ATTR_PORT_BEHIND_LAG].values())[0]
+            first_port_speed = cfg_facts["PORT"][first_port_name]['speed']
+            # Only add same speed ports into portchannel, otherwise adding member will fail
+            if len(dut_ports[ATTR_PORT_BEHIND_LAG]) > 0 and port_speed == first_port_speed:
+                dut_ports[ATTR_PORT_BEHIND_LAG][port_id] = port_name
+                continue
+        if len(dut_ports[ATTR_PORT_TEST]) < number_of_test_ports:
             dut_ports[ATTR_PORT_TEST][port_id] = port_name
         else:
             dut_ports[ATTR_PORT_NO_TEST][port_id] = port_name
-
+    logging.info("dut_ports:{}".format(dut_ports))
     ptf_ports = {
         ATTR_PORT_BEHIND_LAG: {},
     }
@@ -259,7 +269,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
     return src_vlan_id
 
 
-def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list): # noqa F811
+def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):    # noqa: F811
     """
     Read running config facts and get vlan ports list
 
@@ -284,27 +294,43 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
         vlanid = v['vlanid']
         if 'VLAN_INTERFACE' not in cfg_facts:
             break
+        ip = None
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
-            # address could be IPV6 and IPV4, only need IPV4 here
+            # address could be IPV6 and IPV4, prefer IPV4 but accept IPV6
             if addr and valid_ipv4(addr.split('/')[0]):
                 ip = addr
                 break
-        else:
+        # If no IPv4 found, look for IPv6
+        if ip is None:
+            for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
+                if addr and valid_ipv6(addr.split('/')[0]):
+                    ip = addr
+                    break
+        # Skip this VLAN if neither IPv4 nor IPv6 found
+        if ip is None:
             continue
         if k not in vlan_members:
             continue
+        # Determine IP version
+        ip_version = 'ipv4' if valid_ipv4(ip.split('/')[0]) else 'ipv6'
         for port in vlan_members[k]:
             if 'tagging_mode' not in vlan_members[k][port]:
                 continue
             mode = vlan_members[k][port]['tagging_mode']
-            config_ports_vlan[port].append({'vlanid': int(vlanid), 'ip': ip, 'tagging_mode': mode})
+            config_ports_vlan[port].append({
+                'vlanid': int(vlanid),
+                'ip': ip,
+                'ip_version': ip_version,
+                'tagging_mode': mode
+            })
 
     if config_portchannels:
         for po in config_portchannels:
             vlan_port = {
                 'dev': po,
                 'port_index': [config_port_indices[member] for member in list(config_portchannels[po].keys())],
-                'permit_vlanid': []
+                'permit_vlanid': [],
+                'ip_version': None
             }
             if po in config_ports_vlan:
                 vlan_port['pvid'] = 0
@@ -314,6 +340,9 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
                     if vlan['tagging_mode'] == 'untagged':
                         vlan_port['pvid'] = vlan['vlanid']
                     vlan_port['permit_vlanid'].append(vlan['vlanid'])
+                    # Store IP version (use the first one found)
+                    if vlan_port['ip_version'] is None and 'ip_version' in vlan:
+                        vlan_port['ip_version'] = vlan['ip_version']
             if 'pvid' in vlan_port:
                 vlan_ports_list.append(vlan_port)
 
@@ -321,7 +350,8 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
         vlan_port = {
             'dev': port,
             'port_index': [config_port_indices[port]],
-            'permit_vlanid': []
+            'permit_vlanid': [],
+            'ip_version': None
         }
         if port in config_ports_vlan:
             vlan_port['pvid'] = 0
@@ -331,6 +361,9 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
                 if vlan['tagging_mode'] == 'untagged':
                     vlan_port['pvid'] = vlan['vlanid']
                 vlan_port['permit_vlanid'].append(vlan['vlanid'])
+                # Store IP version (use the first one found)
+                if vlan_port['ip_version'] is None and 'ip_version' in vlan:
+                    vlan_port['ip_version'] = vlan['ip_version']
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
 
@@ -344,7 +377,7 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):        # noqa F811
+def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):        # noqa: F811
     vlan_intfs_dict = utils_vlan_intfs_dict_orig
     # For t0 topo, will add VLAN for test.
     # Need to make sure vlan id is unique, and avoid vlan ip network overlapping.
@@ -361,7 +394,7 @@ def acl_rule_cleanup(duthost, tbinfo):
     """Cleanup all the existing DATAACL rules"""
     # remove all rules under the ACL_RULE table
     if "t0-backend" in tbinfo["topo"]["name"]:
-        duthost.shell('acl-loader delete')
+        duthost.shell('acl-loader delete DATAACL')
 
     yield
 
@@ -375,16 +408,15 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
     yield
 
     if "t0-backend" in tbinfo["topo"]["name"]:
-        duthost.command('config acl remove table DATAACL')
         # rebind with new set of ports
         bind_acl_table(duthost, tbinfo)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
-               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
+                  ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa: F811
 
-    if "dualtor" in tbinfo["topo"]["name"]:
+    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
         return
 
@@ -401,8 +433,9 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
                 pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
-                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
+            if not (asic_type in ["broadcom", "mellanox", "cisco-8000", "marvell", "marvell-teralynx"] or platform in
+                    ["armhf-nokia_ixs7215_52x-r0", "arm64-nokia_ixs7215_52xb-r0"]):
+                pytest.skip("Not supported on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -410,18 +443,37 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
         return
+    ptf_lag_map = None
     # --------------------- Setup -----------------------
     try:
-        create_checkpoint(duthost, SETUP_ENV_CP)
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
 
         vp_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
         populate_fdb(ptfadapter, vp_list, vlan_intfs_dict)
-        bind_acl_table(duthost, tbinfo)
-        apply_acl_rules(duthost, tbinfo)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
     finally:
-        rollback(duthost, SETUP_ENV_CP)
-        ptf_teardown(ptfhost, ptf_lag_map)
+        config_reload(duthost, safe_reload=True)
+        if ptf_lag_map is not None:
+            ptf_teardown(ptfhost, ptf_lag_map)
+
+
+def has_portchannels(duthosts, rand_one_dut_hostname):
+    """
+    Check if the ansible_facts contain non-empty portchannel interfaces and portchannels.
+
+    Args:
+        duthosts: A dictionary that maps DUT hostnames to DUT instances.
+        rand_one_dut_hostname: A random hostname belonging to one of the DUT instances.
+    Returns:
+        bool: True if the ansible_facts contain non-empty portchannel interfaces and portchannels, False otherwise.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    # Retrieve the configuration facts from the DUT
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # Check if the portchannel interfaces list or portchannels dictionary is empty
+    if not cfg_facts.get("minigraph_portchannel_interfaces", []) or not cfg_facts.get("minigraph_portchannels", {}):
+        return False
+
+    return True

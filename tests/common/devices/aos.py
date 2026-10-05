@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pathlib
 
 from tests.common.devices.base import AnsibleHostBase
 import re
@@ -31,7 +32,9 @@ class AosHost(AnsibleHostBase):
 
     def _exec_jinja_template(self, task_name, jinja_template):
         inventory = 'lab'
-        ansible_root = '../ansible/'
+        ansible_root = str(pathlib.Path(os.getenv(
+            "ANSIBLE_CONFIG", pathlib.Path(__file__).joinpath("../../../ansible"))).resolve()) + "/"
+
         playbook_name = 'accton_os_cmd_exec.yml'
         jinja_name = 'accton_os_cmd_exec.j2'
         playbook_text = '- hosts: {}\n'.format(self.hostname) + \
@@ -167,6 +170,16 @@ class AosHost(AnsibleHostBase):
                 lines=['speed {}'.format(speed)],
                 parents='interface %s' % interface_name)
         return not self._has_cli_cmd_failed(out)
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support for AOS device when access to
+        AOS fanout becomes available.
+
+        Return False always. If AOS device is found as a
+        fanout the pretest will fail until this check is implemented.
+        """
+        return False
 
 
 def speed_gb_to_mb(speed):

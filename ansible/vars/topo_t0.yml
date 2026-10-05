@@ -51,6 +51,8 @@ topology:
         - 31
       vm_offset: 3
   DUT:
+    autoneg_interfaces:
+      intfs: [7, 8, 9, 10]
     vlan_configs:
       default_vlan_config: one_vlan_a
       one_vlan_a:

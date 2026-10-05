@@ -1,0 +1,31 @@
+---
+- name: Wait for DUT devices to become reachable via SSH
+  become: false
+  local_action: wait_for
+  args:
+    host: "{{ item.ManagementIp.split('/')[0] }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH_[\\w\\.]+ Debian"
+    delay: 10
+    timeout: 600
+  changed_when: false
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+
+- name: Wait for all monit services to be healthy on DUT devices
+  ansible.builtin.shell: >
+    sshpass -p {{ sonicadmin_password }} ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+    {{ sonicadmin_user }}@{{ item.ManagementIp.split('/')[0] }}
+    "sudo monit summary | grep -v 'OK\|Running\|Monit\|^$\|Status\|---' | wc -l"
+  no_log: true
+  delegate_to: localhost
+  register: monit_result
+  until: monit_result.rc == 0 and monit_result.stdout | trim == '0'
+  retries: 60
+  delay: 10
+  changed_when: false
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"

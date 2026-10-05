@@ -1,5 +1,5 @@
-import ptf.packet as scapy  # noqa F401
-import ptf.dataplane as dataplane   # noqa F401
+import ptf.packet as scapy  # noqa: F401
+import ptf.dataplane as dataplane   # noqa: F401
 import acs_base_test
 import ptf.testutils as testutils
 from ptf.testutils import send

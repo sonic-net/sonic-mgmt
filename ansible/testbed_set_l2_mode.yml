@@ -37,8 +37,8 @@
       dest: /etc/sonic/config_db.json
     become: yes
 
-  - name: Execute cli "config reload -y" to apply new config_db.json
-    shell: config reload -y
+  - name: Execute cli "config reload -y -f" to apply new config_db.json
+    shell: config reload -y -f
     become: yes
 
   - name: Wait for switch to become reachable again

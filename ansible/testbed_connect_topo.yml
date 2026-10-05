@@ -5,7 +5,7 @@
   pre_tasks:
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"
-    when: "{{ play_hosts|length }} != 1"
+    when: play_hosts|length != 1
 
   - name: Check that variable vm_set_name is defined
     fail: msg="Define vm_set_name variable with -e vm_set_name=something"
@@ -33,6 +33,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - name: Check if it is a known topology
     fail: msg="Unknown topology {{ topo }}"
@@ -58,4 +61,4 @@
     when: duts_name.split(',')|length > 1
 
   roles:
-    - { role: vm_set, action: 'add_topo', when external_port is not defined }
+    - { role: vm_set, vm_set_action: 'add_topo', when external_port is not defined }

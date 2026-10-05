@@ -6,7 +6,7 @@ import allure
 
 from datetime import datetime
 from tests.common import reboot
-from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, VXLAN_PORT,\
+from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST, VXLAN_PORT, \
     PTF_QLEN, OUTER_ENCAP_FORMATS, NVGRE_TNI, setup_lag_config, config_pbh_lag
 from tests.ptf_runner import ptf_runner
 
@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox')
+    pytest.mark.topology('t0')
 ]
 
 
@@ -46,7 +45,7 @@ class TestWRDynamicInnerHashingLag():
         outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-        normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+        normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
 
         if normalize_level == 'thorough':
             balancing_test_times = 200

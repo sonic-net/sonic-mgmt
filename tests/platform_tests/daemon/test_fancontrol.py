@@ -28,6 +28,7 @@ expected_stopped_status = "STOPPED"
 expected_exited_status = "EXITED"
 
 daemon_name = "fancontrol"
+daemon_dut_hostname_fixture = "enum_supervisor_dut_hostname"
 
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
@@ -35,16 +36,16 @@ SIG_KILL = "-9"
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {} {}".format(daemon_name, duthost.facts["platform"], duthost.os_version))
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def teardown_module(duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
     yield
 
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -56,20 +57,11 @@ def teardown_module(duthosts, rand_one_dut_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture()
-def check_daemon_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
-
-
-def test_pmon_fancontrol_running_status(duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_running_status(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: This test case is to check fancontrol status on dut
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
     pytest_assert(daemon_status == expected_running_status,
@@ -79,11 +71,11 @@ def test_pmon_fancontrol_running_status(duthosts, rand_one_dut_hostname):
                   "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
 
 
-def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, enum_supervisor_dut_hostname):
     """
     @summary: This test case is to check the fancontrol stopped and restarted status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
@@ -111,11 +103,11 @@ def test_pmon_fancontrol_stop_and_start_status(check_daemon_status, duthosts, ra
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_fancontrol_term_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_term_and_start_status(check_daemon_status, duthosts, enum_supervisor_dut_hostname):
     """
     @summary: This test case is to check the fancontrol terminated and restarted status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
@@ -143,11 +135,11 @@ def test_pmon_fancontrol_term_and_start_status(check_daemon_status, duthosts, ra
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
 
-def test_pmon_fancontrol_kill_and_start_status(check_daemon_status, duthosts, rand_one_dut_hostname):
+def test_pmon_fancontrol_kill_and_start_status(check_daemon_status, duthosts, enum_supervisor_dut_hostname):
     """
     @summary: This test case is to check the fancontrol killed unexpectedly (automatically restarted) status
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_supervisor_dut_hostname]
     pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 

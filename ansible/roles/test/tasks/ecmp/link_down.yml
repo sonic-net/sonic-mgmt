@@ -43,11 +43,11 @@
 
     - set_fact:
         config_cmd: ifconfig -a | grep -A 1 "lo0" | tail -1 | xargs | cut -d" " -f2 | cut -d":" -f2
-      when: "{{ ipv6 }} == False"
+      when: not (ipv6 | bool)
 
     - set_fact:
         config_cmd: ifconfig -a | grep -A 2 "lo0" | tail -1 | xargs | cut -d" " -f3 | cut -d"/" -f1
-      when: "{{ ipv6 }} == True"
+      when: ipv6 | bool
 
     - name: Ping destination VM from host VM.
       shell: "{{ config_cmd }}"
@@ -71,11 +71,11 @@
 
     - set_fact:
         ping_cmd: ping -n -i 0.004 {{ loopback_ip.stdout }} -c 30000 | grep "received" | cut -d"," -f2 | xargs | cut -d" " -f1
-      when: "{{ ipv6 }} == False"
+      when: not (ipv6 | bool)
 
     - set_fact:
         ping_cmd: ping6 {{ loopback_ip.stdout }} -i 0.004 -c 30000 | grep "received" | cut -d"," -f2 | xargs | cut -d" " -f1
-      when: "{{ ipv6 }} == True"
+      when: ipv6 | bool
 
     - name: Ping destination VM from host VM.
       shell: "{{ ping_cmd }}"

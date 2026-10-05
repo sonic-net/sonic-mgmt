@@ -5,9 +5,55 @@ This script contains re-usable functions for checking status of critical service
 """
 import logging
 import time
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+
+logger = logging.getLogger(__name__)
+
+
+def check_docker_uptime_minutes(duthost, name, minimal_runtime=6):
+    """
+    @summary: This function checks if the named docker's uptime is at least the minimal_runtime
+    @return: True if the docker has been running at least the minimal_runtime, False for otherwise
+    """
+    result = duthost.command("docker ps --filter name=^/{}$ --format '{{{{.Status}}}}'".format(name),
+                             _uses_shell=True, module_ignore_errors=True)
+    if result["stdout"]:
+        match = re.search(r'Up (\d+) (minutes|hours|days|weeks|months)', result["stdout"])
+        if match:
+            if match.group(2) == "hours":
+                return int(match.group(1))*60 >= minimal_runtime
+            elif match.group(2) == "days":
+                return int(match.group(1))*24*60 >= minimal_runtime
+            elif match.group(2) == "weeks":
+                return int(match.group(1))*7*24*60 >= minimal_runtime
+            elif match.group(2) == "months":
+                return int(match.group(1))*30*24*60 >= minimal_runtime
+            else:
+                return int(match.group(1)) >= minimal_runtime
+        match = re.search(r'Up About an hour', result["stdout"])
+        if match:
+            return 60 >= minimal_runtime
+    return False
+
+
+def get_docker_started_at(duthost, name):
+    """Return the Docker container start timestamp, or empty on failure."""
+    result = duthost.shell(
+        r"docker inspect -f \{{\{{.State.StartedAt\}}\}} {}".format(name),
+        module_ignore_errors=True,
+    )
+    return (result.get("stdout") or "").strip()
+
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    return check_docker_uptime_minutes(duthost, "pmon", minimal_runtime=minimal_runtime)
 
 
 def reset_timeout(duthost):
@@ -28,8 +74,12 @@ def reset_timeout(duthost):
 
 def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
-    for k, v in list(processes_status.items()):
-        if v['status'] is False or len(v['exited_critical_process']) > 0:
+    for container_name, processes in list(processes_status.items()):
+        if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+            logger.info("The status of checking process in container '{}' is: {}"
+                        .format(container_name, processes["status"]))
+            logger.info("The processes not running in container '{}' are: '{}'"
+                        .format(container_name, processes["exited_critical_process"]))
             return False, processes_status
 
     return True, processes_status
@@ -57,16 +107,18 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, timeout=None):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
+    @param timeout: customized timeout value in seconds. If specified, it overwrites the value from inventory file.
     """
-    timeout = reset_timeout(dut)
-    # No matter what we set in inventory file, we always set sup timeout to 900
-    # because most SUPs have 10+ dockers that need to come up
-    if dut.is_supervisor_node():
-        timeout = 900
+    if timeout is None:
+        timeout = reset_timeout(dut)
+        # No matter what we set in inventory file, we always set sup timeout to 900
+        # because most SUPs have 10+ dockers that need to come up
+        if dut.is_supervisor_node():
+            timeout = 900
     logging.info("Wait until all critical processes are healthy in {} sec"
                  .format(timeout))
     pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),

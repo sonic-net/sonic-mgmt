@@ -8,9 +8,13 @@ import glob
 import re
 import yaml
 import jinja2
+
+from functools import lru_cache
+
 from tests.common.connections.console_host import ConsoleHost
 from paramiko.ssh_exception import AuthenticationException
 from constants import RC_SSH_FAILED, RC_PASSWORD_FAILED
+from tests.common.utilities import update_console_creds
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -23,6 +27,7 @@ if ansible_path not in sys.path:
 logger = logging.getLogger(__name__)
 
 
+@lru_cache
 def creds_on_dut(sonichost):
     groups = sonichost.im.get_host(sonichost.hostname).get_vars()['group_names']
     groups.append("fanout")
@@ -61,12 +66,13 @@ def creds_on_dut(sonichost):
         "public_docker_registry_host"
     ]
 
-    hostvars = sonichost.vm.get_vars(
-        host=sonichost.im.get_hosts(pattern='sonic')[0])
+    hostvars = sonichost.vm._hostvars[sonichost.hostname]
 
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
+
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
 
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
@@ -83,11 +89,11 @@ def creds_on_dut(sonichost):
 
 def get_console_info(sonichost, conn_graph_facts):
     console_host = conn_graph_facts['device_console_info'][sonichost.hostname]['ManagementIp']
+    auth_type = conn_graph_facts['device_console_info'][sonichost.hostname].get('AuthType', "")
     console_port = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['type']
-    console_username = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['proxy']
 
-    return console_host, console_port, console_type, console_username
+    return console_host, console_port, console_type, auth_type
 
 
 def get_ssh_info(sonichost):
@@ -100,8 +106,8 @@ def get_ssh_info(sonichost):
     return sonic_username, sonic_password, sonic_ip
 
 
-def duthost_console(sonichost, conn_graph_facts, localhost):
-    console_host, console_port, console_type, console_username = get_console_info(sonichost, conn_graph_facts)
+def duthost_console(sonichost, conn_graph_facts):
+    console_host, console_port, console_type, auth_type = get_console_info(sonichost, conn_graph_facts)
     console_type = "console_" + console_type
     if "/" in console_host:
         console_host = console_host.split("/")[0]
@@ -110,13 +116,14 @@ def duthost_console(sonichost, conn_graph_facts, localhost):
     sonicadmin_alt_password = sonichost.vm.get_vars(
         host=sonichost.im.get_hosts(pattern='sonic')[0]).get("ansible_altpassword")
     creds = creds_on_dut(sonichost)
+    update_console_creds(creds, auth_type)
 
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,
                        console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
                        sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
+                       console_username=creds['console_user'][console_type],
                        console_password=creds['console_password'][console_type])
 
     return host

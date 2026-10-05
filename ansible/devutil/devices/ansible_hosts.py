@@ -35,6 +35,7 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
+from ansible.vars.hostvars import HostVars
 from ansible.playbook.play import Play
 
 from ansible.plugins.callback import CallbackBase
@@ -52,6 +53,83 @@ try:
     task_result._IGNORE = ("skipped", )
 except Exception as e:
     logging.error("Hack for https://github.com/ansible/pytest-ansible/issues/47 failed: {}".format(repr(e)))
+
+try:
+    # Initialize ansible plugin loader to avoid issues with ansbile-core 2.18
+    from ansible.plugins.loader import init_plugin_loader
+    init_plugin_loader()
+except ImportError:
+    # Nothing need to do for ansible-core 2.13
+    pass
+
+
+try:
+    # Initialize ansible plugin loader to avoid issues with ansbile-core 2.18
+    from ansible.plugins.loader import init_plugin_loader
+    init_plugin_loader()
+except ImportError:
+    # Nothing need to do for ansible-core 2.13
+    pass
+
+
+# ansible-core 2.19 removed the ``stdout_callback`` kwarg from
+# ``TaskQueueManager.__init__`` and replaced it with ``stdout_callback_name``
+# (a plugin-loader name string). Passing a ``CallbackBase`` instance through
+# the constructor is no longer supported. Detect the available API once so we
+# can branch on it at TQM construction time.
+_TQM_INIT_PARAMS = inspect.signature(TaskQueueManager.__init__).parameters
+_TQM_ACCEPTS_STDOUT_CALLBACK = "stdout_callback" in _TQM_INIT_PARAMS
+
+
+def _build_tqm(inventory_manager, variable_manager, loader, passwords, callback, forks):
+    """Construct a ``TaskQueueManager`` wired up to ``callback`` on any
+    supported ansible-core version.
+
+    On ansible-core < 2.19 we use the legacy ``stdout_callback`` kwarg.
+
+    On ansible-core >= 2.19 the kwarg has been removed, so we construct the
+    TQM without it and then pre-populate ``_callback_plugins`` with our
+    ``CallbackBase`` instance. ``TaskQueueManager.load_callbacks()``
+    short-circuits when that list is already non-empty, and
+    ``send_callback()`` dispatches over the same list, so events still flow
+    into our collector.
+    """
+    if _TQM_ACCEPTS_STDOUT_CALLBACK:
+        return TaskQueueManager(
+            inventory=inventory_manager,
+            variable_manager=variable_manager,
+            loader=loader,
+            passwords=passwords,
+            stdout_callback=callback,
+            forks=forks,
+        )
+
+    tqm = TaskQueueManager(
+        inventory=inventory_manager,
+        variable_manager=variable_manager,
+        loader=loader,
+        passwords=passwords,
+        forks=forks,
+    )
+
+    # ansible-core 2.19's ``send_callback()`` reads
+    # ``callback._implemented_callback_methods``, populated by this helper on
+    # ``CallbackBase``. The plugin loader normally calls it for us; do it by
+    # hand for our hand-instantiated collector.
+    init_methods = getattr(callback, "_init_callback_methods", None)
+    if callable(init_methods):
+        init_methods()
+
+    # ``set_options()`` on a hand-instantiated callback can fail because the
+    # plugin loader normally sets ``_load_name`` / ``plugin_type``. Our
+    # collectors do not read plugin options, so a failure here is non-fatal.
+    try:
+        callback.set_options()
+    except Exception:  # noqa: E722 - non-fatal; plugin loader normally configures this
+        pass
+
+    tqm._callback_plugins = [callback]
+    return tqm
 
 
 class UnsupportedAnsibleModule(Exception):
@@ -238,6 +316,12 @@ class AnsibleHostsBase(object):
         else:
             self.vm = VariableManager(loader=self.loader, inventory=self.im)
 
+        # Trigger ansible to load and render host variables
+        # After this operation, self.vm._hostvars will be populated with content
+        # self.vm._hostvars["example_hostname"] will return all variables visible by "example_hostname"
+        # The best part is that if the variable is a template, it is automatically rendered with correct data type
+        HostVars(inventory=self.im, variable_manager=self.vm, loader=self.loader)
+
         self.options = {
             "forks": 6,
             "connection": "smart",
@@ -351,13 +435,13 @@ class AnsibleHostsBase(object):
             else:
                 callback = ResultCollector()
 
-            tqm = TaskQueueManager(
-                inventory=inventory_manager,
-                variable_manager=variable_manager,
-                loader=loader,
-                passwords=passwords,
-                stdout_callback=callback,
-                forks=options.get("forks")
+            tqm = _build_tqm(
+                inventory_manager,
+                variable_manager,
+                loader,
+                passwords,
+                callback,
+                options.get("forks"),
             )
             tqm.run(play)
             return callback.results
@@ -734,6 +818,7 @@ class AnsibleHostsBase(object):
                 }
         """
         caller_info = kwargs.pop("caller_info", None)
+        target_hosts = kwargs.pop("target_hosts", None)
         if not caller_info:
             previous_frame = inspect.currentframe().f_back
             caller_info = inspect.getframeinfo(previous_frame)
@@ -756,7 +841,10 @@ class AnsibleHostsBase(object):
         self._log_modules(caller_info, module_info, verbosity)
 
         task = self.build_task(**module_info)
-        results = self.run_tasks(self.host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
+        host_pattern = self.host_pattern
+        if target_hosts:
+            host_pattern = target_hosts
+        results = self.run_tasks(host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
 
         self._log_results(caller_info, module_info, results, verbosity)
         self._check_results(caller_info, module_info, results, module_ignore_errors, verbosity)

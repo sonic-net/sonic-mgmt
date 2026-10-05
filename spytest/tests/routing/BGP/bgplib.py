@@ -29,7 +29,7 @@ static_rt_info = SpyTestDict()
 fixed_nw_info = SpyTestDict()
 tg_connected_routers = []
 as_info = SpyTestDict()
-bgp_password = 'Test_127'
+bgp_password = 'Test_127'  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Test placeholder password")]
 underlay_info = SpyTestDict()
 
 

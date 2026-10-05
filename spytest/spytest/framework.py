@@ -3932,6 +3932,9 @@ class WorkArea(object):
         profile = profile or self.cfg.config_profile
         profile = profile or "na"
         return profile.lower()
+    
+    def get_console(self, dut):
+        return self._context._tb.get_console(dut)
 
     def get_device_type(self, dut):
         return self._context._tb.get_device_type(dut)

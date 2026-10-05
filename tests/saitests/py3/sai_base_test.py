@@ -31,7 +31,9 @@ from paramiko.ssh_exception import BadHostKeyException, AuthenticationException,
 interface_to_front_mapping = {}
 
 from switch import (sai_thrift_port_tx_enable,      # noqa E402
-                    sai_thrift_port_tx_disable)
+                    sai_thrift_port_tx_disable,
+                    sai_thrift_credit_wd_enable,
+                    sai_thrift_credit_wd_disable)
 
 DATA_PLANE_QUEUE_LIST = ["0", "1", "2", "3", "4", "5", "6", "7"]
 DEFAULT_QUEUE_SCHEDULER_CONFIG = {"0": "scheduler.0",
@@ -42,6 +44,7 @@ DEFAULT_QUEUE_SCHEDULER_CONFIG = {"0": "scheduler.0",
                                   "5": "scheduler.0",
                                   "6": "scheduler.0",
                                   "7": ""}
+BLOCK_DATA_PLANE_SCHEDULER_NAME = 'scheduler.block_data_plane'
 
 
 class ThriftInterface(BaseTest):
@@ -189,50 +192,34 @@ class ThriftInterface(BaseTest):
         else:
             sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
-            # need to enable watchdog on the source asic using cint script
-            cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog enable\"".format(self.src_asic_index)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
-                                                            self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            cmd)
-            if retValue != 0 or 'Success rv = 0' not in stdOut[1]:
-                # Retry credit-wd command max 3 times on failure
-                while count < 3:
+            # need to enable watchdog on the source asic
+            # max 3 retries
+            while count < 3:
+                retValue = sai_thrift_credit_wd_enable(self.src_client)
+                if retValue == 0:
+                    break
+                else:
                     print("Retrying credit_wd_enable")
-                    time.sleep(5)
-                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
-                                                                    self.test_params['dut_username'],
-                                                                    self.test_params['dut_password'],
-                                                                    cmd)
-                    if stdOut and 'Success rv = 0' in stdOut[1]:
-                        break
-                    count += 1
-            assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0,\
-                "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
+                    time.sleep(1)
+                count += 1
+            assert retValue == 0, "enable wd failed on asic '{}' on '{}' with error '{}'".format(
+                self.src_asic_index, self.src_server_ip, retValue)
 
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst', disable_port_by_block_queue=True):
         count = 0
         if self.platform_asic and self.platform_asic == "broadcom-dnx":
-            # need to enable watchdog on the source asic using cint script
-            cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog disable\"".format(self.src_asic_index)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
-                                                            self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            cmd)
-            if retValue != 0 or 'Success rv = 0' not in stdOut[1]:
-                # Retry credit-wd command max 3 times on failure
-                while count < 3:
-                    print("Retrying credit_wd_enable")
-                    time.sleep(5)
-                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
-                                                                    self.test_params['dut_username'],
-                                                                    self.test_params['dut_password'],
-                                                                    cmd)
-                    if stdOut and 'Success rv = 0' in stdOut[1]:
-                        break
-                    count += 1
-            assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0, \
-                "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
+            # need to disable watchdog on the source asic
+            # max 3 retries
+            while count < 3:
+                retValue = sai_thrift_credit_wd_disable(self.src_client)
+                if retValue == 0:
+                    break
+                else:
+                    print("Retrying credit_wd_disable")
+                    time.sleep(1)
+                count += 1
+            assert retValue == 0, "disable wd failed on asic '{}' on '{}' with error '{}'".format(
+                self.src_asic_index, self.src_server_ip, retValue)
 
         if asic_type == 'mellanox' and disable_port_by_block_queue:
             self.disable_mellanox_egress_data_plane(port_list)
@@ -252,16 +239,16 @@ class ThriftInterface(BaseTest):
             dut_port = self.get_dut_port(ptf_port)
             dut_port_list.append(dut_port)
         self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(dut_port_list)
-        block_data_plane_scheduler_name = 'scheduler.block_data_plane'
         cmd_set_block_data_plane_scheduler = \
-            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{block_data_plane_scheduler_name}" "type" DWRR "weight" 15 "pir" 1'
+            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" ' \
+            '"type" DWRR "weight" 15 "cir" 1 "pir" 1'
 
         self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
                              cmd_set_block_data_plane_scheduler)
         for dut_port in dut_port_list:
             for q in DATA_PLANE_QUEUE_LIST:
                 cmd_block_q = \
-                    f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {block_data_plane_scheduler_name}"
+                    f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'], self.test_params['dut_password'], cmd_block_q)
 
@@ -290,6 +277,20 @@ class ThriftInterface(BaseTest):
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'],
                     self.test_params['dut_password'], cmd_recover_q_scheduler_config)
+        self.remove_block_data_plan_scheduler()
+
+    def remove_block_data_plan_scheduler(self):
+        get_block_data_plane_scheduler_name = \
+            f"sonic-db-cli CONFIG_DB keys 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
+        scheduler_name, _, _ = self.exec_cmd_on_dut(self.server,
+                                                    self.test_params['dut_username'],
+                                                    self.test_params['dut_password'],
+                                                    get_block_data_plane_scheduler_name)
+        if isinstance(scheduler_name, list) and BLOCK_DATA_PLANE_SCHEDULER_NAME in scheduler_name[0]:
+            cmd_del_block_data_plane_scheduler = \
+                f'sonic-db-cli CONFIG_DB del "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}"'
+            self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                                 cmd_del_block_data_plane_scheduler)
 
 
 class ThriftInterfaceDataPlane(ThriftInterface):

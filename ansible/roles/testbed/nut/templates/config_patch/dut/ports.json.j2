@@ -1,0 +1,17 @@
+{%- for port, link in conn.items() %}
+{%- if link.fec_disable %}
+{%- set fec = "none" %}
+{%- else %}
+{%- set fec = "rs" %}
+{%- endif %}
+{%- if 'autoneg' in link %}
+{%- set autoneg = link.autoneg %}
+{%- else %}
+{%- set autoneg = "off" %}
+{%- endif %}
+{ "op": "add", "path": "/PORT/{{ port }}/admin_status", "value": "up" },
+{ "op": "add", "path": "/PORT/{{ port }}/fec", "value": "{{ fec }}" },
+{ "op": "add", "path": "/PORT/{{ port }}/speed", "value": "{{ link.speed }}" },
+{ "op": "add", "path": "/PORT/{{ port }}/autoneg", "value": "{{ autoneg }}" },
+{ "op": "add", "path": "/PORT/{{ port }}/description", "value": "Link to {{ link.peerdevice }} {{ link.peerport }}" },
+{% endfor %}

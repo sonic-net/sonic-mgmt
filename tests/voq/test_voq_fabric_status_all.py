@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 # This test checks the fabric link status.
@@ -38,7 +38,7 @@ def refData(duthosts):
         fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
         f = open("voq/fabric_data/{}".format(fileName))
         pytest_assert(f, "Need to update expected data for {}".format(fileName))
-        referenceData[slot] = yaml.load(f)
+        referenceData[slot] = yaml.safe_load(f)
     return referenceData
 
 

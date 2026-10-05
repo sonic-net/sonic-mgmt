@@ -1,9 +1,12 @@
-import sys
 import logging
+import sys
 
 from tests.common.devices.multi_asic import MultiAsicSonicHost
+from tests.common.helpers.parallel_utils import is_initial_checks_active
 
 logger = logging.getLogger(__name__)
+NON_INITIAL_CHECKS_STAGE = "non_initial_checks"
+INITIAL_CHECKS_STAGE = "initial_checks"
 
 
 class DutHosts(object):
@@ -16,9 +19,9 @@ class DutHosts(object):
     """
     class _Nodes(list):
         """ Internal class representing a list of MultiAsicSonicHosts """
-        def _run_on_nodes(self, *module_args, **complex_args):
+        def _run_on_nodes(self, module, *module_args, **complex_args):
             """ Delegate the call to each of the nodes, return the results in a dict."""
-            return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
+            return {node.hostname: getattr(node, module)(*module_args, **complex_args) for node in self}
 
         def __getattr__(self, attr):
             """ To support calling ansible modules on a list of MultiAsicSonicHost
@@ -29,8 +32,9 @@ class DutHosts(object):
                a dictionary with key being the MultiAsicSonicHost's hostname,
                and value being the output of ansible module on that MultiAsicSonicHost
             """
-            self.attr = attr
-            return self._run_on_nodes
+            def _run_on_nodes_wrapper(*module_args, **complex_args):
+                return self._run_on_nodes(attr, *module_args, **complex_args)
+            return _run_on_nodes_wrapper
 
         def __eq__(self, o):
             """ To support eq operator on the DUTs (nodes) in the testbed """
@@ -44,7 +48,7 @@ class DutHosts(object):
             """ To support hash operator on the DUTs (nodes) in the testbed """
             return list.__hash__()
 
-    def __init__(self, ansible_adhoc, tbinfo, duts):
+    def __init__(self, ansible_adhoc, tbinfo, request, duts, target_hostname=None, is_parallel_leader=False):
         """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
 
         Args:
@@ -56,15 +60,110 @@ class DutHosts(object):
         """
         self.ansible_adhoc = ansible_adhoc
         self.tbinfo = tbinfo
+        self.request = request
         self.duts = duts
-        self.__initialize_nodes()
+        self.is_parallel_run = target_hostname is not None
+        # Initialize _nodes to None to avoid recursion in __getattr__
+        self._nodes = None
+        self._nodes_for_parallel = None
+        self._supervisor_nodes = None
+        self._frontend_nodes = None
+
+        # TODO: Initialize the nodes in parallel using multi-threads?
+        if self.is_parallel_run:
+            self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
+            self.target_hostname = target_hostname
+            self.is_parallel_leader = is_parallel_leader
+            self.__initialize_nodes_for_parallel()
+        else:
+            self.__initialize_nodes()
+
+    def __initialize_nodes_for_parallel(self):
+        if self.is_parallel_leader:
+            self._nodes_for_parallel_initial_checks = self._Nodes([
+                MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                ) for hostname in self.tbinfo["duts"]
+            ])
+
+            self._nodes_for_parallel_tests = self._Nodes([
+                node for node in self._nodes_for_parallel_initial_checks if node.hostname == self.target_hostname
+            ])
+        else:
+            self._nodes_for_parallel_initial_checks = None
+            self._nodes_for_parallel_tests = self._Nodes([
+                MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    self.target_hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                )
+            ])
+
+        self._nodes_for_parallel = (
+            self._nodes_for_parallel_initial_checks if self.is_parallel_leader else self._nodes_for_parallel_tests
+        )
+
+        self._supervisor_nodes = self._Nodes([
+            node for node in self._nodes_for_parallel if node.is_supervisor_node()
+        ])
+
+        self._frontend_nodes = self._Nodes([
+            node for node in self._nodes_for_parallel if node.is_frontend_node()
+        ])
 
     def __initialize_nodes(self):
-        # TODO: Initialize the nodes in parallel using multi-threads?
-        self.nodes = self._Nodes([MultiAsicSonicHost(self.ansible_adhoc, hostname, self, self.tbinfo['topo']['type'])
-                                  for hostname in self.tbinfo["duts"] if hostname in self.duts])
-        self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
-        self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
+        self._nodes = self._Nodes([
+            MultiAsicSonicHost(
+                self.ansible_adhoc,
+                hostname,
+                self,
+                self.tbinfo['topo']['type'],
+            ) for hostname in self.tbinfo["duts"] if hostname in self.duts
+        ])
+
+        self._supervisor_nodes = self._Nodes([node for node in self._nodes if node.is_supervisor_node()])
+        self._frontend_nodes = self._Nodes([node for node in self._nodes if node.is_frontend_node()])
+
+    def __should_reinit_when_parallel(self):
+        return (
+            self.is_parallel_leader and (
+                self.parallel_run_stage == INITIAL_CHECKS_STAGE and not is_initial_checks_active(self.request) or
+                self.parallel_run_stage == NON_INITIAL_CHECKS_STAGE and is_initial_checks_active(self.request)
+            )
+        )
+
+    def __reinit_nodes_for_parallel(self):
+        if is_initial_checks_active(self.request):
+            self.parallel_run_stage = INITIAL_CHECKS_STAGE
+            self._nodes_for_parallel = self._nodes_for_parallel_initial_checks
+        else:
+            self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
+            self._nodes_for_parallel = self._nodes_for_parallel_tests
+
+        self._supervisor_nodes = self._Nodes([node for node in self._nodes_for_parallel if node.is_supervisor_node()])
+        self._frontend_nodes = self._Nodes([node for node in self._nodes_for_parallel if node.is_frontend_node()])
+
+    @property
+    def nodes(self):
+        if self.is_parallel_run:
+            if self.__should_reinit_when_parallel():
+                self.__reinit_nodes_for_parallel()
+
+            return self._nodes_for_parallel
+        else:
+            return self._nodes
+
+    @property
+    def supervisor_nodes(self):
+        return self._supervisor_nodes
+
+    @property
+    def frontend_nodes(self):
+        return self._frontend_nodes
 
     def __getitem__(self, index):
         """To support operations like duthosts[0] and duthost['sonic1_hostname']
@@ -79,10 +178,10 @@ class DutHosts(object):
         Returns:
             [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
         """
-        unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
-        if type(index) == int:
+        unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa: F821
+        if isinstance(index, int) and not isinstance(index, bool):
             return self.nodes[index]
-        elif type(index) in [str, unicode_type]:
+        elif type(index) in [str, unicode_type] or isinstance(index, str):
             for node in self.nodes:
                 if node.hostname == index:
                     return node

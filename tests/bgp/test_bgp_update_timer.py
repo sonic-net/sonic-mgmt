@@ -1,36 +1,47 @@
 """Check how fast FRR or QUAGGA will send updates to neighbors."""
-import contextlib
+
 import ipaddress
 import logging
 import os
 import pytest
-import tempfile
 import time
 import six
 
-from scapy.all import sniff, IP
+from datetime import datetime
+from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+
+from tests.bgp.bgp_helpers import (
+        capture_bgp_packages_to_file,
+        fetch_and_delete_pcap_file,
+        is_neighbor_sessions_established,
+        check_routes_presence
+)
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa F401
-from tests.common.dualtor.mux_simulator_control import mux_server_url                   # noqa F401
-from tests.common.dualtor.mux_simulator_control import \
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m               # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa:F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa:F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa:F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa:F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m    # noqa:F401 E501
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology("any", "t1-multi-asic"),
 ]
 
 PEER_COUNT = 2
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
-local_pcap_file_template = "%s_dump.pcap"
+# Route-map and prefix-list names used to restrict outbound routes
+# to ExaBGP neighbors so the DUT does not flood them with the full
+# routing table (see https://github.com/sonic-net/sonic-mgmt/issues/22391)
+TEST_ROUTES_PREFIX_LIST = "PL_BGP_UPDATE_TEST"
+TEST_ROUTES_ROUTE_MAP = "RM_BGP_UPDATE_TEST"
 ANNOUNCED_SUBNETS = [
     "10.10.100.0/27",
     "10.10.100.32/27",
@@ -38,71 +49,96 @@ ANNOUNCED_SUBNETS = [
     "10.10.100.96/27",
     "10.10.100.128/27",
 ]
+ANNOUNCED_SUBNETS_V6 = [
+    "fc00:10::/64",
+    "fc00:11::/64",
+    "fc00:12::/64",
+    "fc00:13::/64",
+    "fc00:14::/64",
+]
 NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
-TCPDUMP_WAIT_TIMEOUT = 20
 
 
-def is_tcpdump_running(duthost, cmd):
-    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
-    if cmd in duthost.shell(check_cmd)['stdout']:
-        return True
-    return False
+def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
+    """Apply an outbound route-map to ExaBGP neighbors so the DUT only
+    advertises the test prefixes (10.10.100.0/24 or fc00:10::/28) instead
+    of the full routing table.  Without this, ExaBGP sessions flap on
+    topologies where the test neighbors share routed interfaces with real
+    BGP peers (e.g. M0 L3 scenario).
 
-
-@contextlib.contextmanager
-def log_bgp_updates(duthost, iface, save_path, ns):
-    """Capture bgp packets to file."""
-    if iface == "any":
-        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
-        # defaults to writing in that format when listening on any interface. Therefore,
-        # have it use LINUX_SLL (Linux cooked) instead.
-        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    See: https://github.com/sonic-net/sonic-mgmt/issues/22391
+    """
+    if is_v6:
+        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/28 block)
+        prefix_match = "fc00:10::/28 le 64"
     else:
-        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
-    stop_pcap = "sudo pkill -f '%s%s'" % (
-        duthost.asic_instance_from_namespace(ns).ns_arg,
-        start_pcap,
-    )
-    start_pcap_cmd = "nohup {}{} &".format(
-        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
-    )
-    duthost.shell(start_pcap_cmd)
-    # wait until tcpdump process created
-    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
-        pytest.fail("Could not start tcpdump")
-    # sleep and wait for tcpdump ready to sniff packets
-    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+        prefix_match = "10.10.100.0/24 le 32"
 
-    try:
-        yield
-    finally:
-        duthost.shell(stop_pcap, module_ignore_errors=True)
+    pfx_kw = "ipv6" if is_v6 else "ip"
+    vtysh_cmds = [
+        "configure terminal",
+        "{} prefix-list {} seq 10 permit {}".format(pfx_kw, TEST_ROUTES_PREFIX_LIST, prefix_match),
+        "route-map {} permit 10".format(TEST_ROUTES_ROUTE_MAP),
+        "match {} address prefix-list {}".format(pfx_kw, TEST_ROUTES_PREFIX_LIST),
+        "exit",
+        "route-map {} deny 20".format(TEST_ROUTES_ROUTE_MAP),
+        "exit",
+        "router bgp {}".format(dut_asn),
+        "address-family {} unicast".format("ipv6" if is_v6 else "ipv4"),
+    ]
+    for ip in neighbor_ips:
+        vtysh_cmds.append("neighbor {} route-map {} out".format(ip, TEST_ROUTES_ROUTE_MAP))
+    vtysh_cmds.append("exit")  # exit address-family
+    vtysh_cmds.append("exit")  # exit router bgp
+
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+    duthost.shell(cmd)
+
+    # Soft-reset outbound so the filter takes effect immediately.
+    # Note: FRR vtysh syntax differs between v4 and v6:
+    #   v4: clear ip bgp <neighbor> soft out
+    #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
+    clear_af = "bgp ipv6" if is_v6 else "ip bgp"
+    for ip in neighbor_ips:
+        cmd = "vtysh -c 'clear {} {} soft out'".format(clear_af, ip)
+        cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+        duthost.shell(cmd)
 
 
-@pytest.fixture
-def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """Return True if current bgp is using Quagga."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
-    return "Quagga" in show_res["stdout"]
+def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
+    """Remove the outbound route-map and prefix-list added by
+    _apply_outbound_route_filter."""
+    vtysh_cmds = [
+        "configure terminal",
+        "router bgp {}".format(dut_asn),
+        "address-family {} unicast".format("ipv6" if is_v6 else "ipv4"),
+    ]
+    for ip in neighbor_ips:
+        vtysh_cmds.append("no neighbor {} route-map {} out".format(ip, TEST_ROUTES_ROUTE_MAP))
+    vtysh_cmds.append("exit")  # exit address-family
+    vtysh_cmds.append("exit")  # exit router bgp
+    vtysh_cmds.append("no route-map {}".format(TEST_ROUTES_ROUTE_MAP))
+    vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
+
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+    duthost.shell(cmd, module_ignore_errors=True)
 
 
 @pytest.fixture
 def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current SONiC version runs with suppress enabled in FRR."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    suppress_enabled = ('bgp suppress-fib-pending' in duthost.shell('show runningconfiguration bgp')['stdout'])
+    suppress_enabled = (
+        "bgp suppress-fib-pending"
+        in duthost.shell("show runningconfiguration bgp")["stdout"]
+    )
     return suppress_enabled
-
-
-@pytest.fixture
-def is_dualtor(tbinfo):
-    return "dualtor" in tbinfo["topo"]["name"]
 
 
 @pytest.fixture
@@ -137,14 +173,43 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
 
     dut_type = ""
     for k, v in list(mg_facts["minigraph_devices"].items()):
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type == "UpperSpineRouter" and confed_asn is not None:
+        # On confederation-based UT2 topologies the UpperSpineRouter peers with
+        # AZNGHub neighbors using the confederation ASN, not the per-DUT ASN.
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
+        neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure an external BGP neighbor
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["LowerMgmtAggregator"]:
+        neigh_type = "MgmtSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperMgmtAggregator"]:
+        neigh_type = "LowerMgmtAggregator"
+        if confed_asn is not None:
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
@@ -180,6 +245,9 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         ),
         BGPNeighbor(
             duthost,
@@ -194,30 +262,41 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         ),
     )
 
-    yield bgp_neighbors
+    # Clear TSA maintenance mode if active. On platforms with startup_tsa_tsb
+    # service enabled, config_reload (from setup_interfaces) restarts swss which
+    # triggers TSA with a 15-minute TSB timer. This causes test failures because
+    # the DUT only advertises loopback routes while in TSA mode.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/23336
+    tsa_status = duthost.shell("TSC", module_ignore_errors=True)['stdout']
+    if 'maintenance' in tsa_status.lower():
+        logging.info("DUT is in TSA maintenance mode, running TSB to clear it")
+        duthost.shell("TSB")
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: 'maintenance' not in
+                       duthost.shell("TSC", module_ignore_errors=True)['stdout'].lower()),
+            "DUT did not exit TSA maintenance mode after TSB"
+        )
 
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [{
-        "DEVICE_METADATA": {
-            "localhost": {
-                "suppress-fib-pending": "disabled"
-            }
-        }
-    }]
-    delete_running_config(delete_tacacs_json, duthost)
+    yield bgp_neighbors, use_vtysh
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
+def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo,
+              duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     class _C(object):
         """Dummy class to save test constants."""
 
         pass
 
     _constants = _C()
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_vs_platform = duthost.facts.get("asic_type") == "vs"
     if is_quagga:
         _constants.sleep_interval = 40
         _constants.update_interval_threshold = 20
@@ -225,15 +304,25 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
         _constants.sleep_interval = 5
         if not has_suppress_feature:
             _constants.update_interval_threshold = 1
+        elif is_vs_platform:
+            # KVM/VS platforms have higher latency due to virtual
+            # switching; use a relaxed threshold to reduce flakiness
+            _constants.update_interval_threshold = 5
         else:
-            _constants.update_interval_threshold = 2
+            _constants.update_interval_threshold = 2.5
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
-    for subnet in ANNOUNCED_SUBNETS:
-        _constants.routes.append(
-            {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
-        )
+    if is_ipv6_only_topology(tbinfo):
+        for subnet in ANNOUNCED_SUBNETS_V6:
+            _constants.routes.append(
+                {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
+            )
+    else:
+        for subnet in ANNOUNCED_SUBNETS:
+            _constants.routes.append(
+                {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
+            )
 
     log_file = pytestconfig.getoption("log_file", None)
     if log_file:
@@ -244,73 +333,82 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
     return _constants
 
 
-def bgp_update_packets(pcap_file):
+def bgp_update_packets(pcap_file, is_v6_topo):
     """Get bgp update packets from pcap file."""
+    ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
+        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
     )
     return packets
 
 
-def match_bgp_update(packet, src_ip, dst_ip, action, route):
+def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
     """Check if the bgp update packet matches."""
-    if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
+    ip_ver = IPv6 if is_v6_topo else IP
+    if not (packet[ip_ver].src == src_ip and packet[ip_ver].dst == dst_ip):
         return False
     subnet = ipaddress.ip_network(six.u(route["prefix"]))
 
     # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
     # address the compatibility issue of scapy versions.
-    if hasattr(bgp, "BGPNLRI_IPv4"):
+    if hasattr(bgp, "BGPNLRI_IPv4") and subnet.version == 4:
         _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
+    elif hasattr(bgp, "BGPNLRI_IPv6") and subnet.version == 6:
+        _route = bgp.BGPNLRI_IPv6(prefix=str(subnet))
     else:
         _route = (subnet.prefixlen, str(subnet.network_address))
     bgp_fields = packet[bgp.BGPUpdate].fields
     if action == "announce":
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        path_attr_valid = False
-        if "tp_len" in bgp_fields:
-            path_attr_valid = bgp_fields["tp_len"] > 0
-        elif "path_attr_len" in bgp_fields:
-            path_attr_valid = bgp_fields["path_attr_len"] > 0
-        return path_attr_valid and _route in bgp_fields["nlri"]
+        if is_v6_topo:
+            path_attr_valid = False
+            if "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            if path_attr_valid:
+                for attr in bgp_fields.get("path_attr", []):
+                    if getattr(attr, 'type_code', None) == 14:  # MP_REACH_NLRI
+                        return _route in getattr(attr.attribute, 'nlri', [])
+            return False
+        else:
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            path_attr_valid = False
+            if "tp_len" in bgp_fields:
+                path_attr_valid = bgp_fields["tp_len"] > 0
+            elif "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            return path_attr_valid and _route in bgp_fields["nlri"]
     elif action == "withdraw":
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        withdrawn_len_valid = False
-        if "withdrawn_len" in bgp_fields:
-            withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
-        elif "withdrawn_routes_len" in bgp_fields:
-            withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
+        if is_v6_topo:
+            path_attr_valid = False
+            if "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            if path_attr_valid:
+                for attr in bgp_fields.get("path_attr", []):
+                    if getattr(attr, 'type_code', None) == 15:  # MP_UNREACH_NLRI
+                        afi_safi_specific = getattr(attr.attribute, 'afi_safi_specific', None)
+                        return _route in getattr(afi_safi_specific, 'withdrawn_routes', [])
+            return False
+        else:
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_len_valid = False
+            if "withdrawn_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
+            elif "withdrawn_routes_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
 
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        withdrawn_route_valid = False
-        if "withdrawn" in bgp_fields:
-            withdrawn_route_valid = _route in bgp_fields["withdrawn"]
-        elif "withdrawn_routes" in bgp_fields:
-            withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_route_valid = False
+            if "withdrawn" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+            elif "withdrawn_routes" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
 
-        return withdrawn_len_valid and withdrawn_route_valid
+            return withdrawn_len_valid and withdrawn_route_valid
     else:
         return False
-
-
-def is_neighbor_sessions_established(duthost, neighbors):
-    is_established = True
-
-    # handle both multi-sic and single-asic
-    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
-        "ansible_facts"
-    ]
-    for neighbor in neighbors:
-        is_established &= (
-            neighbor.ip in bgp_facts["bgp_neighbors"]
-            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
-        )
-
-    return is_established
 
 
 def test_bgp_update_timer_single_route(
@@ -319,15 +417,22 @@ def test_bgp_update_timer_single_route(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
-    validate_active_active_dualtor_setup                                        # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
+    validate_active_active_dualtor_setup,  # noqa:F811
+    tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    n0, n1 = common_setup_teardown
+    (n0, n1), _ = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
+        bgp_neighbor_cmd_tmpl = (
+            "show bgp ipv6 neighbors {} received-routes"
+            if is_v6_topo
+            else "show ip bgp neighbors {} received-routes"
+        )
 
         # ensure new sessions are ready
         if not wait_until(
@@ -338,41 +443,54 @@ def test_bgp_update_timer_single_route(
         ):
             pytest.fail("Could not establish bgp sessions")
 
+        # Restrict outbound routes to ExaBGP neighbors to only allow test
+        # prefixes, preventing the DUT from flooding them with the full
+        # routing table which causes session flapping (issue #22391)
+        _apply_outbound_route_filter(
+            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+        )
+
         announce_intervals = []
         withdraw_intervals = []
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
-            with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
+            with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                asichost = duthost.asic_instance_from_namespace(n0.namespace)
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
+                check_routes_presence(res, route["prefix"])
                 n0.withdraw_route(route)
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
+                check_routes_presence(res, route["prefix"])
                 time.sleep(constants.sleep_interval)
 
-            if constants.log_dir:
-                local_pcap_filename = os.path.join(constants.log_dir,
-                                                   local_pcap_file_template % request.node.name)
-            else:
-                local_pcap_file = tempfile.NamedTemporaryFile()
-                local_pcap_filename = local_pcap_file.name
-            duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
-            duthost.file(path=bgp_pcap, state="absent")
-            bgp_updates = bgp_update_packets(local_pcap_filename)
+            local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
+            bgp_updates = bgp_update_packets(local_pcap_filename, is_v6_topo)
 
             announce_from_n0_to_dut = []
             announce_from_dut_to_n1 = []
             withdraw_from_n0_to_dut = []
             withdraw_from_dut_to_n1 = []
             for bgp_update in bgp_updates:
-                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "announce", route):
+                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "announce", route, is_v6_topo):
                     announce_from_n0_to_dut.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "announce", route):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "announce", route, is_v6_topo):
                     announce_from_dut_to_n1.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "withdraw", route):
+                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "withdraw", route, is_v6_topo):
                     withdraw_from_n0_to_dut.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route, is_v6_topo):
                     withdraw_from_dut_to_n1.append(bgp_update)
 
             err_msg = "no bgp update %s route %s from %s to %s"
@@ -412,8 +530,13 @@ def test_bgp_update_timer_single_route(
             pytest.fail(err_msg % ("withdraw", constants.update_interval_threshold))
 
     finally:
+        # Stop ExaBGP sessions first so they're gone before we re-open the
+        # full-table flood window by removing the outbound filter.
         n0.stop_session()
         n1.stop_session()
+        _remove_outbound_route_filter(
+            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+        )
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
 
@@ -424,12 +547,14 @@ def test_bgp_update_timer_session_down(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
-    validate_active_active_dualtor_setup                                        # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
+    validate_active_active_dualtor_setup,  # noqa:F811
+    tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    n0, n1 = common_setup_teardown
+    (n0, n1), use_vtysh = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -443,6 +568,13 @@ def test_bgp_update_timer_session_down(
         ):
             pytest.fail("Could not establish bgp sessions")
 
+        # Restrict outbound routes to ExaBGP neighbors to only allow test
+        # prefixes, preventing the DUT from flooding them with the full
+        # routing table which causes session flapping (issue #22391)
+        _apply_outbound_route_filter(
+            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+        )
+
         withdraw_intervals = []
         for _, route in enumerate(constants.routes):
             withdraw_intervals.append(-1)
@@ -453,32 +585,49 @@ def test_bgp_update_timer_session_down(
                 pytest.fail("announce route %s from n0 to dut failed" % route["prefix"])
         # close bgp session n0, monitor withdraw info from dut to n1
         bgp_pcap = BGP_DOWN_LOG_TMPL
-        with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
-            duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
-            current_time = time.time()
+
+        def _shutdown_bgp_session():
+            """Shutdown bgp session on dut."""
+            if use_vtysh:
+                dut_asn = n0.peer_asn
+                neigh_ip = n0.ip
+                cmd = (
+                    "vtysh "
+                    "-c 'configure terminal' "
+                    f"-c 'router bgp {dut_asn}' "
+                    f"-c 'neighbor {neigh_ip} shutdown' ")
+                cmd = duthost.get_vtysh_cmd_for_namespace(cmd, n0.namespace)
+            else:
+                cmd = "config bgp shutdown neighbor {}".format(n0.name)
+
+            return duthost.shell(cmd)
+
+        with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+            result = _shutdown_bgp_session()
+            bgp_shutdown_time = datetime.strptime(result['end'], "%Y-%m-%d %H:%M:%S.%f").timestamp()
             time.sleep(constants.sleep_interval)
 
-        if constants.log_dir:
-            local_pcap_filename = os.path.join(constants.log_dir,
-                                               local_pcap_file_template % request.node.name)
-        else:
-            local_pcap_file = tempfile.NamedTemporaryFile()
-            local_pcap_filename = local_pcap_file.name
-        duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
-        duthost.file(path=bgp_pcap, state="absent")
-        bgp_updates = bgp_update_packets(local_pcap_filename)
+        local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
+        bgp_updates = bgp_update_packets(local_pcap_filename, is_v6_topo)
 
         for bgp_update in bgp_updates:
-            logging.debug("bgp update packet, capture time %s, packet details:\n%s",
-                          bgp_update.time, bgp_update.show(dump=True))
+            logging.debug(
+                "bgp update packet, capture time %s, packet details:\n%s",
+                bgp_update.time,
+                bgp_update.show(dump=True),
+            )
             for i, route in enumerate(constants.routes):
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
-                    withdraw_intervals[i] = bgp_update.time - current_time
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route, is_v6_topo):
+                    withdraw_intervals[i] = bgp_update.time - bgp_shutdown_time
 
         for i, route in enumerate(constants.routes):
             if withdraw_intervals[i] >= constants.update_interval_threshold:
                 cmd_dut_time = duthost.shell("date +%s.%6N", module_ignore_errors=True)
-                logging.debug("timer: DUT {} local {}".format(cmd_dut_time.get('stdout', None), time.time()))
+                logging.debug(
+                    "timer: DUT {} local {}".format(
+                        cmd_dut_time.get("stdout", None), time.time()
+                    )
+                )
 
                 pytest.fail(
                     "withdraw route %s updates interval %d exceeds threshold %d"
@@ -492,7 +641,12 @@ def test_bgp_update_timer_session_down(
                 pytest.fail("withdraw updates route %s not found" % (route))
 
     finally:
+        # Stop ExaBGP sessions first so they're gone before we re-open the
+        # full-table flood window by removing the outbound filter.
         n0.stop_session()
         n1.stop_session()
+        _remove_outbound_route_filter(
+            duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
+        )
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])

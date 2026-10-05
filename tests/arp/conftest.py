@@ -10,9 +10,8 @@ from .arp_utils import collect_info, get_po
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_require as pt_require
-from tests.common.utilities import wait
+from tests.common.utilities import wait, increment_ipv6_addr, increment_ipv4_addr
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
                       ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
@@ -25,14 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts):
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 
@@ -51,7 +52,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope='module')
-def get_function_conpleteness_level(pytestconfig):
+def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
 
 
@@ -72,11 +73,19 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     po2 = None
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
+    is_isolated_topo = 'isolated' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+        elif is_isolated_topo:
+            upstream_intfs = mg_facts['minigraph_interfaces']
+            intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
@@ -146,13 +155,15 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
         intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
     yield intf1, intf2, intf1_indice, intf2_indice
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
 
     if tbinfo['topo']['type'] != 't0':
         if po1:
@@ -182,7 +193,10 @@ def garp_enabled(rand_selected_dut, config_facts):
     Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
     Also checks the kernel `arp_accept` value to see if the
-    attempt was successful.
+    attempt was successful. The expectation is that arp_accept value should be
+    set to 2 (i.e, create new entries only if the source IP address is in the
+    same subnet as the address configured on the interface - available in
+    5.19 linux kernel and newer)
 
     During teardown, restores the original `grat_arp` value in
     CONFIG_DB
@@ -215,7 +229,7 @@ def garp_enabled(rand_selected_dut, config_facts):
             arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
             arp_accept_vals.append(arp_accept_res['stdout'])
 
-    yield all(int(val) == 1 for val in arp_accept_vals)
+    yield all(int(val) == 2 for val in arp_accept_vals)
 
     garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
@@ -273,7 +287,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -305,6 +319,10 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
         logger.info("Enabled proxy ARP for Vlan{}".format(vid))
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
+
+    if 'ipv6' in request.node.name:
+        # Allow time for ndppd to reset and startup
+        time.sleep(30)
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 
@@ -347,6 +365,12 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         break
 
     if ip_version == 'v4':
+        # VPP software dataplane does not pad ARP replies to Ethernet minimum frame size
+        # and in kvm there is no hardware NIC to pad either
+        platform_name = duthost.facts.get('platform', '')
+        no_padding = duthost.facts.get('asic_type') == 'vpp' and 'kvm' in platform_name
+        exp_pktlen = 42 if no_padding else 60
+
         tgt_addr = increment_ipv4_addr(src_addr_v4)
         out_pkt = testutils.simple_arp_packet(
                                 eth_dst='ff:ff:ff:ff:ff:ff',
@@ -357,6 +381,7 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
                                 hw_snd=ptf_intf_mac
                             )
         exp_pkt = testutils.simple_arp_packet(
+                                pktlen=exp_pktlen,
                                 eth_dst=ptf_intf_mac,
                                 eth_src=dut_mac,
                                 ip_snd=tgt_addr,

@@ -17,6 +17,7 @@
 ### Objective
 The purpose is to test functionality of BFD echo-mode on the SONIC switch DUT, closely resembling production environment. The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no BFD configurations. It is also assumed that neighboring devices are all SONiC devices.
 
+
 ### Scope
 - Test BFD Echo-Mode on SONiC DUT and neighboring devices
 
@@ -44,16 +45,13 @@ The test assumes all standard configurations, such as BGP neighborship, are pre-
 
 ## Test
 
-## Existing Test cases
-
-### Test case # 1 – BFD Basic
-
 #### Test objective
 Verify that BFD neighborship is established and BFD peers are sharing BFD peer information to each other.
 #### Test steps
 * Establish BFD session between BFD Peers.
 * Enable BFD protocol on BFD peer interfaces.
 * Verify BFD peer information.
+
 ### Test case # 2 – BFD Scale
 
 #### Test objective
@@ -78,7 +76,6 @@ To validate BFD session establishment, state transitions (Up, Down, AdminDown), 
 
 
 ### Test case # 3 – BFD Multihop
-
 #### Test objective
 To validate BFD session establishment, state transitions (Up, Down, AdminDown), suspension, and scale testing with various scenarios including IPv4 and IPv6 addresses, single-hop, and multi-hop configurations, along with queue counter verification for BFD traffic.
 #### Test steps
@@ -98,7 +95,6 @@ To validate BFD session establishment, state transitions (Up, Down, AdminDown), 
    * Release IP addresses assigned earlier.
    * Stop BFD on the testing tool or platform.
 ## New Test cases
-
 ### Test case # 4 – BFD Echo Mode
 
 #### Test objective
