@@ -277,9 +277,12 @@ hw_port_cfg = {
     #     (aliases Eth9/1..Eth16/120, Ethernet64..1023; ds_breakout=120 -> link ids 16..975).
     #   * Peers (PT0): front-panel etp17..18, 4x25G breakout each -> 8 x 25G peer links
     #     (aliases etp17a..etp18d, Ethernet1024..1031; appended peer ports -> link ids 976..983).
-    # The 2-ASIC split is a property of the DUT HWSKU (num_asics: 2), not this flat
-    # port map. Invoke with `-c 16` (8 uplink + 8 downlink panel ports; peers appended).
+    # This is a 2-ASIC device (num_asics: 2). Consecutive downlink cages alternate ASIC
+    # (cage 9 -> asic0, cage 10 -> asic1, ...), so the host interfaces are grouped into
+    # per-ASIC VLANs (a VLAN cannot span ASIC namespaces on multi-ASIC SONiC).
+    # Invoke with `-c 16` (8 uplink + 8 downlink panel ports; peers appended).
     'd960u16s8':        {"ds_breakout": 120, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         "num_asics": 2,
                          "uplink_ports": [0, 1, 2, 3, 4, 5, 6, 7],
                          "peer_ports": [16, 17, 18, 19, 20, 21, 22, 23],
                          "skip_ports": [],
@@ -403,11 +406,12 @@ class VM:
 
 class HostInterface:
     """ Class to represent a host interface in the topology """
-    def __init__(self, port_id: int):
+    def __init__(self, port_id: int, asic: int = 0):
         self.port_id = port_id
+        self.asic = asic
 
     def __repr__(self):
-        return f"HostInterface(port_id={self.port_id})"
+        return f"HostInterface(port_id={self.port_id}, asic={self.asic})"
 
 
 class Vlan:
@@ -429,25 +433,38 @@ class Vlan:
 
 class VlanGroup:
     """ Class to represent a group of VLANs in the topology """
-    def __init__(self, name: str, vlan_count: int, hostifs: List[HostInterface], v4_prefix: str, v6_prefix: str):
+    def __init__(self, name: str, vlan_count: int, hostifs: List[HostInterface], v4_prefix: str, v6_prefix: str,
+                 num_asics: int = 1):
         self.name = name
         self.vlans = []
 
-        # Split host if into the number of VLANs
-        hostif_count_per_vlan = len(hostifs) // vlan_count
-        hostif_groups = [
-            hostifs[i*hostif_count_per_vlan:(i+1)*hostif_count_per_vlan] for i in range(vlan_count)]
-
         v4_prefix = IPv4Network(v4_prefix)
         v6_prefix = IPv6Network(v6_prefix)
-        for vlan_index in range(len(hostif_groups)):
-            vlan = Vlan(1000 + vlan_index * 100,
-                        hostif_groups[vlan_index], v4_prefix, v6_prefix)
-            self.vlans.append(vlan)
 
-            # Move to next subnet based on the prefix length
-            v4_prefix.network_address += 2**(32 - v4_prefix.prefixlen)
-            v6_prefix.network_address += 2**96
+        # On multi-ASIC devices a VLAN cannot span ASIC namespaces, so the host
+        # interfaces are first partitioned per ASIC and then each ASIC's interfaces
+        # are split into vlan_count VLANs. On single-ASIC devices this collapses to
+        # the original behavior (one partition holding all host interfaces).
+        vlan_global_index = 0
+        for asic in range(num_asics):
+            asic_hostifs = [hostif for hostif in hostifs if hostif.asic == asic]
+            if len(asic_hostifs) == 0:
+                continue
+
+            # Split the ASIC's host interfaces into the number of VLANs
+            hostif_count_per_vlan = len(asic_hostifs) // vlan_count
+            hostif_groups = [
+                asic_hostifs[i*hostif_count_per_vlan:(i+1)*hostif_count_per_vlan] for i in range(vlan_count)]
+
+            for hostif_group in hostif_groups:
+                vlan = Vlan(1000 + vlan_global_index * 100,
+                            hostif_group, v4_prefix, v6_prefix)
+                self.vlans.append(vlan)
+                vlan_global_index += 1
+
+                # Move to next subnet based on the prefix length
+                v4_prefix.network_address += 2**(32 - v4_prefix.prefixlen)
+                v6_prefix.network_address += 2**96
 
 
 def generate_topo_link_based(role: str,
@@ -607,6 +624,16 @@ def generate_topo(role: str,
     tornum = 1
     link_id_start = 0
 
+    # Map each downlink panel port to an ASIC. On multi-ASIC devices, consecutive
+    # downlink cages alternate ASIC, so the host interfaces can be grouped into
+    # per-ASIC VLANs (a VLAN cannot span ASIC namespaces on multi-ASIC SONiC).
+    num_asics = port_cfg.get("num_asics", 1)
+    all_panel_ports = list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports
+    downlink_panel_ports = [p for p in all_panel_ports
+                            if p not in uplink_ports and p not in peer_ports
+                            and p not in skip_ports and p not in port_cfg.get("fabric_ports", [])]
+    panel_port_asic = {p: idx % num_asics for idx, p in enumerate(downlink_panel_ports)}
+
     for panel_port_id in list(range(0, panel_port_count, port_cfg['panel_port_step'])) + peer_ports:
         vm_role_cfg = None
         link_step = 1
@@ -717,24 +744,24 @@ def generate_topo(role: str,
                 if ((link_id - link_id_start) % link_step == 0
                         and panel_port_id not in skip_ports
                         and link_id not in port_cfg.get("skip_links", [])):
-                    hostif = HostInterface(link_id)
+                    hostif = HostInterface(link_id, asic=panel_port_asic.get(panel_port_id, 0))
                     downlinkif_list.append(hostif)
                 elif (panel_port_id in skip_ports) or (link_id in port_cfg.get("skip_links", [])):
-                    hostif = HostInterface(link_id)
+                    hostif = HostInterface(link_id, asic=panel_port_asic.get(panel_port_id, 0))
                     disabled_hostif_list.append(hostif)
         link_id_start = link_id_end
 
     return vm_list, downlinkif_list, uplinkif_list, disabled_hostif_list
 
 
-def generate_vlan_groups(hostif_list: List[HostInterface]) -> List[VlanGroup]:
+def generate_vlan_groups(hostif_list: List[HostInterface], num_asics: int = 1) -> List[VlanGroup]:
     if len(hostif_list) == 0:
         return []
 
     vlan_groups = []
     for vlan_group_cfg in vlan_group_cfgs:
         vlan_group = VlanGroup(vlan_group_cfg["name"], vlan_group_cfg["vlan_count"], hostif_list,
-                               vlan_group_cfg["v4_prefix"], vlan_group_cfg["v6_prefix"])
+                               vlan_group_cfg["v4_prefix"], vlan_group_cfg["v6_prefix"], num_asics)
         vlan_groups.append(vlan_group)
 
     return vlan_groups
@@ -848,7 +875,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
         generate_topo(role, port_count, uplink_ports, peer_ports, skip_ports, link_cfg)
     vlan_group_list = []
     if role == "t0":
-        vlan_group_list = generate_vlan_groups(downlinkif_list)
+        vlan_group_list = generate_vlan_groups(downlinkif_list, hw_port_cfg[link_cfg].get("num_asics", 1))
     file_content = generate_topo_file(
         role, f"templates/topo_{template}.j2", vm_list, downlinkif_list, disabled_hostif_list, vlan_group_list)
     write_topo_file(role, keyword, len(downlinkif_list), len(uplinkif_list),
