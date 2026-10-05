@@ -9,6 +9,7 @@ import logging
 import json
 import ipaddress
 import ast
+import os
 import random
 
 from tests.common.config_reload import config_reload
@@ -27,6 +28,13 @@ _PTF_NN_AGENT_URL = (
 _PTF_AFPACKET_URL = (
     "https://raw.githubusercontent.com/p4lang/ptf"
     "/{}/src/ptf/afpacket.py".format(_PTF_COMMIT))
+
+_NN_AGENT_BUNDLE = os.path.join(
+    os.path.dirname(__file__), "files", "copp-nn-agent-bundle-amd64.tar.gz")
+_NN_AGENT_BUNDLE_DUT = "/tmp/copp-nn-agent-bundle-amd64.tar.gz"
+_NN_AGENT_BUNDLE_SYNCD = "/tmp/copp-nn-agent-bundle-amd64.tar.gz"
+_NN_AGENT_BUNDLE_DIR = "/tmp/copp-nn-agent-bundle"
+_NN_AGENT_BUNDLE_ABIS = {"cp311", "cp313"}
 
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
 _APP_DB_COPP_CONFIG = ":/etc/swss/config.d/00-copp.config.json"
@@ -238,30 +246,99 @@ def restore_syncd(dut, nn_target_namespace):
     asichost.delete_container(syncd_docker_name)
 
 
-def _install_nano_bookworm(dut, creds, syncd_docker_name):
-    output = dut.command("docker exec {} bash -c '[ -d /usr/include/nanomsg ] || \
-        echo copp'".format(syncd_docker_name))
+def _nn_agent_runtime_ready(dut, syncd_docker_name):
+    """Return whether syncd already has a usable DUT-side PTF NN agent."""
+    cmd = (
+        "docker exec {} bash -c '"
+        "python3 -c \"import nnpy; nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)\" "
+        "&& test -f /opt/ptf_nn_agent.py "
+        "&& test -f /opt/ptf/afpacket.py'"
+    ).format(syncd_docker_name)
+    return dut.command(cmd, module_ignore_errors=True)["rc"] == 0
 
-    if output["stdout"] == "copp":
-        http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
-        https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-        # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
-        cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
-                mkdir -p /var/tmp_build \
-                && rm -rf /var/lib/apt/lists/* \
-                && apt-get update \
-                && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
-                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
-                && rm -rf /var/tmp_build \
-                && mkdir -p /opt && cd /opt && wget {3} \
-                && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
-                && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                python3-setuptools wget \
-                " '''.format(http_proxy, https_proxy, syncd_docker_name,
-                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
-        dut.command(cmd)
+
+def _offline_nn_agent_bundle_supported(dut, syncd_docker_name):
+    architecture = dut.command(
+        "docker exec {} dpkg --print-architecture".format(syncd_docker_name)
+    )["stdout"].strip()
+    python_abi = dut.command(
+        (
+            "docker exec {} python3 -c 'import sys; "
+            "print(\"cp{{}}{{}}\".format(sys.version_info.major, "
+            "sys.version_info.minor))'"
+        ).format(syncd_docker_name)
+    )["stdout"].strip()
+    return architecture == "amd64" and python_abi in _NN_AGENT_BUNDLE_ABIS
+
+
+def _install_offline_nn_agent_bundle(dut, syncd_docker_name):
+    """Stage the NN-agent runtime without syncd network access."""
+    dut.copy(src=_NN_AGENT_BUNDLE, dest=_NN_AGENT_BUNDLE_DUT)
+    try:
+        dut.command("docker cp {} {}:{}".format(
+            _NN_AGENT_BUNDLE_DUT, syncd_docker_name, _NN_AGENT_BUNDLE_SYNCD))
+        dut.command(
+            "docker exec {} bash -c 'rm -rf {} "
+            "&& tar -xzf {} -C /tmp "
+            "&& {}/install.sh'".format(
+                syncd_docker_name,
+                _NN_AGENT_BUNDLE_DIR,
+                _NN_AGENT_BUNDLE_SYNCD,
+                _NN_AGENT_BUNDLE_DIR,
+            )
+        )
+    finally:
+        dut.command(
+            "rm -f {}".format(_NN_AGENT_BUNDLE_DUT),
+            module_ignore_errors=True,
+        )
+        dut.command(
+            "docker exec {} rm -rf {} {}".format(
+                syncd_docker_name,
+                _NN_AGENT_BUNDLE_SYNCD,
+                _NN_AGENT_BUNDLE_DIR,
+            ),
+            module_ignore_errors=True,
+        )
+
+    if not _nn_agent_runtime_ready(dut, syncd_docker_name):
+        raise RuntimeError(
+            "Offline CoPP NN-agent installation did not produce a usable "
+            "runtime"
+        )
+
+
+def _install_nano_bookworm(dut, creds, syncd_docker_name):
+    if _nn_agent_runtime_ready(dut, syncd_docker_name):
+        return
+
+    if _offline_nn_agent_bundle_supported(dut, syncd_docker_name):
+        _install_offline_nn_agent_bundle(dut, syncd_docker_name)
+        return
+
+    logging.warning(
+        "The offline CoPP NN-agent bundle does not support this syncd "
+        "architecture/Python ABI; falling back to the legacy network installer"
+    )
+    http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+    https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+    # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
+    cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
+            mkdir -p /var/tmp_build \
+            && rm -rf /var/lib/apt/lists/* \
+            && apt-get update \
+            && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
+            python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
+            && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
+            && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
+            && rm -rf /var/tmp_build \
+            && mkdir -p /opt && cd /opt && wget {3} \
+            && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+            && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
+            python3-setuptools wget \
+            " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                         _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
+    dut.command(cmd)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):
