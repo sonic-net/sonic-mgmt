@@ -21,8 +21,8 @@ The test:
      addresses would fail for an unrelated reason regardless of sshd's
      bind state).
   5. Removes `listen_addresses` and confirms both IPv4/IPv6 wildcard
-     listening is restored, including the previously-omitted VLAN address
-     (again via `ss`, not a live connection attempt).
+     listening is restored (via `ss`), which implicitly covers the
+     previously-omitted VLAN address too.
   6. Always restores the original SSH_SERVER configuration in a `finally`
      block, even if an assertion fails, so the DUT is never left
      inaccessible. The management address is always part of the configured
@@ -230,7 +230,10 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
     pytest_assert(omit_address not in bound_addrs,
                   "sshd is unexpectedly still bound to the omitted VLAN address {}".format(omit_address))
 
-    # Remove listen_addresses entirely and confirm both wildcards are restored.
+    # Remove listen_addresses entirely and confirm both wildcards are
+    # restored. A wildcard bind is reported by `ss` as "0.0.0.0"/"::", not
+    # as every assigned address, so this implicitly covers the previously
+    # omitted VLAN address too.
     logger.info("Removing listen_addresses to confirm wildcard listeners are restored")
     _delete_listen_addresses(duthost)
     pytest_assert(
@@ -238,11 +241,3 @@ def test_ssh_listen_addresses(duthosts, rand_one_dut_hostname, creds, restore_ss
                    _sshd_bindings_match, duthost, ["0.0.0.0", "::"]),
         "sshd did not restore the IPv4/IPv6 wildcard listeners after removing listen_addresses"
     )
-
-    # Confirm sshd is bound to the previously omitted VLAN address again now
-    # that it's back to wildcard listening (proves the earlier check
-    # reflected sshd's bind state, not a routing/ACL artifact) - again via
-    # `ss`, not a live connection attempt (see comment above).
-    bound_addrs = _sshd_bound_addrs(duthost)
-    pytest_assert(omit_address in bound_addrs,
-                  "sshd is unexpectedly not bound to {} after restoring wildcard listeners".format(omit_address))
