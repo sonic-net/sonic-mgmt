@@ -33,4 +33,3 @@ Returns dictionary with data on capabilities of switch. The dictionary hierarchy
             - `MIRRORV6` - Whether ipv6 mirroring is enabled
             - `MIRROR` - Whether ipv4 mirroring is enabled
             - `ACL_ACTION|PACKET_ACTION` - String listing packet actions for acls (comma separated)
-            - `ACL_ACTION|FLOW_OP` - String listing Flow operations for acls (comma separated)
