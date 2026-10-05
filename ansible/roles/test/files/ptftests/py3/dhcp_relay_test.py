@@ -81,8 +81,12 @@ class DataplaneBaseTest(BaseTest):
    (ptf --test-dir ptftests dhcp_relay_test.DHCPTest --platform remote -t "hostname=\"str-s6000-acs-12\";
     client_port_index=\"1\"; client_iface_alias=\"fortyGigE0/4\"; leaf_port_indices=\"[29, 31, 28, 30]\";
     num_dhcp_servers=\"48\"; server_ip=\"192.0.0.1\"; relay_iface_ip=\"192.168.0.1\";
-    relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\""
+    relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\";
+    host_mac=\"<DUT-router-MAC>\""
     --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre)
+
+ For sonic-relay-agent, host_mac is required. Replace <DUT-router-MAC> with the
+ DUT's DEVICE_METADATA|localhost mac value, not its VLAN-interface or uplink MAC.
 
  The above command is configured to test with the following configuration:
   - VLAN IP of DuT is 192.168.0.1, MAC address is ec:f4:bb:fe:88:0a
@@ -178,6 +182,9 @@ class DHCPTest(DataplaneBaseTest):
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
 
         self.uplink_mac = self.test_params['uplink_mac']
+        self.host_mac = self.test_params.get('host_mac')
+        if self.relay_agent == "sonic-relay-agent" and not self.host_mac:
+            raise ValueError("host_mac is required for sonic-relay-agent")
 
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
@@ -208,12 +215,11 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
-        remote_id_string = (
-            self.uplink_mac
-            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
-            else self.relay_iface_mac
-        )
+        # ISC uses the receiving VLAN-interface MAC; SONiC uses the configured
+        # host/base MAC in both single- and dual-ToR modes.
+        remote_id_string = self.relay_iface_mac
+        if self.relay_agent == "sonic-relay-agent":
+            remote_id_string = self.host_mac
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
