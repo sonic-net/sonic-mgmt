@@ -152,7 +152,7 @@
 {% if use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 %}
 {% set local_mgmt_ip = ansible_hostv6 %}
 {% else %}
-{% set local_mgmt_ip = original_ipv4_address | default(ansible_host) %}
+{% set local_mgmt_ip = ansible_host %}
 {% endif %}
 {% if ':' in local_mgmt_ip %}
         <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
@@ -180,7 +180,7 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
-{% if use_ipv6_mgmt|default(false)|bool and 'ip_v6' in dual_tor_facts['neighbor'] %}
+{% if use_ipv6_mgmt|default(false)|bool %}
 {% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip_v6'] %}
 {% else %}
 {% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip'] %}

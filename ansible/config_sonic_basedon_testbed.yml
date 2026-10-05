@@ -35,37 +35,6 @@
   gather_facts: no
   tasks:
 
-  # Auto-detect if DUT is IPv6-only by trying to connect
-  # This must run BEFORE any task that connects to the DUT
-  # Save original IPv4 address before potentially switching
-  - name: Save original IPv4 address from inventory
-    set_fact:
-      original_ipv4_address: "{{ ansible_host }}"
-    when:
-      - ansible_host is defined
-      - "':' not in ansible_host"
-
-  - name: Try to connect using IPv4 address (pre-task check)
-    wait_for:
-      host: "{{ ansible_host }}"
-      port: 22
-      timeout: 10
-    delegate_to: localhost
-    ignore_errors: true
-    register: ipv4_reachable_precheck
-    when:
-      - "':' not in ansible_host"
-
-  - name: Switch to IPv6 if IPv4 is not reachable and IPv6 is available (pre-task)
-    set_fact:
-      ansible_host: "{{ ansible_hostv6 }}"
-      dut_was_ipv6_only: true
-    when:
-      - ipv4_reachable_precheck is defined
-      - ipv4_reachable_precheck.failed|default(false)
-      - ansible_hostv6 is defined
-      - ansible_hostv6 != ''
-
   - block:
     - name: set default testbed file
       set_fact:
@@ -82,9 +51,13 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
-    - name: Debug connection mode
-      debug:
-        msg: "Connecting to {{ inventory_hostname }} via {{ ansible_host }} (was IPv6-only: {{ dut_was_ipv6_only|default(false) }}, original IPv4: {{ original_ipv4_address|default('N/A') }})"
+    - name: Validate requested IPv6-only management address
+      assert:
+        that:
+          - ansible_hostv6 | default('') | string | length > 0
+          - "':' in (ansible_hostv6 | default(''))"
+        fail_msg: "IPv6-only management mode requested for {{ inventory_hostname }} but ansible_hostv6 is missing or invalid"
+      when: use_ipv6_mgmt|default(false)|bool
 
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
@@ -126,7 +99,7 @@
       debug:
         msg: |
           IPv6-only management mode enabled for {{ inventory_hostname }}
-          Management IP: {{ ansible_host }}
+          Management IP: {{ target_mgmt_ip }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -1031,8 +1004,8 @@
         local_action: wait_for
         args:
           # When use_ipv6_mgmt is true, wait on IPv6 address
-          # When use_ipv6_mgmt is false/undefined, wait on IPv4 (original_ipv4_address if we auto-switched to IPv6, otherwise ansible_host)
-          host: "{{ ansible_hostv6 if (use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 != '') else (original_ipv4_address if original_ipv4_address is defined else ansible_host) }}"
+          # Otherwise wait on the canonical inventory address
+          host: "{{ ansible_hostv6 if use_ipv6_mgmt|default(false)|bool else ansible_host }}"
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
