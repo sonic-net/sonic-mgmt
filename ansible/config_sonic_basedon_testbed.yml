@@ -51,12 +51,25 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
-    - name: Validate requested IPv6-only management address
+    - name: Resolve requested IPv6-only management target
+      set_fact:
+        target_mgmt_ipv6: >-
+          {{
+            ansible_hostv6
+            if (ansible_hostv6 | default('') | ansible.utils.ipv6)
+            else ansible_host
+            if (ansible_host | default('') | ansible.utils.ipv6)
+            else ''
+          }}
+      when: use_ipv6_mgmt|default(false)|bool
+
+    - name: Validate requested IPv6-only management target
       assert:
         that:
-          - ansible_hostv6 | default('') | string | length > 0
-          - "':' in (ansible_hostv6 | default(''))"
-        fail_msg: "IPv6-only management mode requested for {{ inventory_hostname }} but ansible_hostv6 is missing or invalid"
+          - target_mgmt_ipv6 | ansible.utils.ipv6
+        fail_msg: >-
+          IPv6-only management mode requested for {{ inventory_hostname }},
+          but neither ansible_hostv6 nor ansible_host contains a valid IPv6 address
       when: use_ipv6_mgmt|default(false)|bool
 
     # IPv6-only management network configuration loading
@@ -84,22 +97,20 @@
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
 
-    # DO NOT override ansible_host here - we need to use IPv4 to connect initially
-    # The DUT will be configured with IPv6 management through the minigraph
-    - name: Set management IP configuration for IPv6-only mode
+    # Keep the canonical inventory primary for pre-transition connections.
+    # The DUT will be configured with the resolved IPv6 target through the minigraph.
+    - name: Set management subnet mask for IPv6-only mode
       set_fact:
-        target_mgmt_ip: "{{ ansible_hostv6 }}"
         mgmt_subnet_mask_length: 64
       when:
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
-        - ansible_hostv6 is defined
 
     - name: Debug IPv6-only management configuration
       debug:
         msg: |
-          IPv6-only management mode enabled for {{ inventory_hostname }}
-          Management IP: {{ target_mgmt_ip }}
+          IPv6-only management mode requested for {{ inventory_hostname }}
+          Target management IP: {{ target_mgmt_ipv6 }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -1004,8 +1015,9 @@
         local_action: wait_for
         args:
           # When use_ipv6_mgmt is true, wait on IPv6 address
-          # Otherwise wait on the canonical inventory address
-          host: "{{ ansible_hostv6 if use_ipv6_mgmt|default(false)|bool else ansible_host }}"
+          # Normal mode intentionally waits only on canonical ansible_host:
+          # transport fallback must not hide a failure to restore the requested primary address.
+          host: "{{ target_mgmt_ipv6 if use_ipv6_mgmt|default(false)|bool else ansible_host }}"
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
@@ -1015,11 +1027,8 @@
 
       - name: Switch ansible_host to IPv6 after minigraph load (for subsequent tasks)
         set_fact:
-          ansible_host: "{{ ansible_hostv6 }}"
-        when:
-          - use_ipv6_mgmt|default(false)|bool
-          - ansible_hostv6 is defined
-          - ansible_hostv6 != ''
+          ansible_host: "{{ target_mgmt_ipv6 }}"
+        when: use_ipv6_mgmt|default(false)|bool
 
       - name: Validate breakout config params
         assert:

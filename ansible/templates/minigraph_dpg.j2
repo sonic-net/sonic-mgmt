@@ -77,8 +77,16 @@
       <LoopbackIPInterfaces i:nil="true" />
 {% endif %}
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% set inventory_host_is_ipv6 = ansible_host is defined and ':' in ansible_host %}
-{% set inventory_hostv6 = ansible_hostv6 if ansible_hostv6 is defined and ansible_hostv6 else (ansible_host if inventory_host_is_ipv6 else 'fc00:2::32') %}
+{% set inventory_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
+{% if use_ipv6_mgmt|default(false)|bool %}
+{% set effective_mgmt_ipv6 = target_mgmt_ipv6 %}
+{% elif inventory_host_is_ipv6 %}
+{% set effective_mgmt_ipv6 = ansible_host %}
+{% elif ansible_hostv6 is defined and (ansible_hostv6 | ansible.utils.ipv6) %}
+{% set effective_mgmt_ipv6 = ansible_hostv6 %}
+{% else %}
+{% set effective_mgmt_ipv6 = 'fc00:2::32' %}
+{% endif %}
 {% if (use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool) and not inventory_host_is_ipv6 %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
@@ -93,9 +101,9 @@
           <Name>{% if use_ipv6_mgmt is defined and use_ipv6_mgmt|bool %}HostIP{% else %}V6HostIP{% endif %}</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ inventory_hostv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+            <b:IPPrefix>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ inventory_hostv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+          <a:PrefixStr>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
