@@ -51,35 +51,28 @@ def run_pfcwd_burst_storm_test(api,
     if low_rate:
         pytest_assert(snappi_extra_params is not None,
                       'Snappi port selection is required for low-rate test')
-        rx_port, tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[:2]
-        rx_port_id = rx_port['port_id']
-        tx_port_id = tx_port['port_id']
-        egress_duthost = rx_port['duthost']
-        ingress_duthost = tx_port['duthost']
-        asic_value = (rx_port['asic_value']
-                      if egress_duthost.is_multi_asic else None)
-        start_pfcwd(egress_duthost, asic_value)
-        enable_packet_aging(egress_duthost, asic_value)
-        timers = get_pfcwd_timers(egress_duthost, rx_port['peer_port'], asic_value)
     else:
         if snappi_extra_params is None:
             snappi_extra_params = SnappiTestParams()
 
-        # Traffic flow: TGEN -> ingress DUT -> egress DUT -> TGEN
-        rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-        rx_port_id = rx_port["port_id"]
-        egress_duthost = rx_port['duthost']
+    # Traffic flow: TGEN -> ingress DUT -> egress DUT -> TGEN
+    rx_port, tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[:2]
+    rx_port_id = rx_port['port_id']
+    tx_port_id = tx_port['port_id']
+    egress_duthost = rx_port['duthost']
+    ingress_duthost = tx_port['duthost']
+    asic_value = (rx_port['asic_value']
+                  if not low_rate or egress_duthost.is_multi_asic else None)
 
-        tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
-        tx_port_id = tx_port["port_id"]
-        ingress_duthost = tx_port['duthost']
-
-        start_pfcwd(egress_duthost, rx_port['asic_value'])
+    start_pfcwd(egress_duthost, asic_value)
+    if low_rate:
+        enable_packet_aging(egress_duthost, asic_value)
+    else:
         enable_packet_aging(egress_duthost)
         start_pfcwd(ingress_duthost, tx_port['asic_value'])
         enable_packet_aging(ingress_duthost)
 
-        timers = get_pfcwd_timers(egress_duthost, rx_port['peer_port'], rx_port['asic_value'])
+    timers = get_pfcwd_timers(egress_duthost, rx_port['peer_port'], asic_value)
 
     poll_interval_sec = timers['poll_interval']
     detect_time_sec = timers['detection_time']
