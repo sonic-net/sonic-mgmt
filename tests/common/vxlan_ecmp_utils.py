@@ -10,7 +10,7 @@ import json
 import re
 import time
 import logging
-from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_address, ip_interface, IPv4Address, IPv6Address
 
 Logger = logging.getLogger(__name__)
 
@@ -125,6 +125,57 @@ class Ecmp_Utils(object):
         raise RuntimeError(
             "Couldnot find the {} loopback address"
             "for the DUT:{} from minigraph.".format(af, duthost.hostname))
+
+    def get_ingress_src_ip(self, minigraph_data, ingress_intf, af):
+        '''
+            Return a topology-derived source IP for a packet received on an
+            Ethernet interface. The returned address is a remote address with
+            a connected route on the DUT.
+
+            For a routed Ethernet or PortChannel, use the configured peer
+            address. For a VLAN member, select a non-local host address from
+            the VLAN subnet.
+        '''
+        if af not in self.IP_TYPE:
+            raise ValueError("Unsupported address family: {}".format(af))
+
+        logical_intfs = {ingress_intf}
+        for portchannel, portchannel_data in minigraph_data.get('minigraph_portchannels', {}).items():
+            if ingress_intf in portchannel_data.get('members', []):
+                logical_intfs.add(portchannel)
+
+        local_addresses = set()
+        for intf_group in ('minigraph_interfaces', 'minigraph_portchannel_interfaces',
+                           'minigraph_vlan_interfaces', 'minigraph_lo_interfaces'):
+            for intf in minigraph_data.get(intf_group, []):
+                addr = intf.get('addr')
+                if addr:
+                    local_addresses.add(ip_interface(str(addr)).ip)
+
+        routed_intfs = minigraph_data.get('minigraph_interfaces', []) + \
+            minigraph_data.get('minigraph_portchannel_interfaces', [])
+        for intf in routed_intfs:
+            peer_addr = intf.get('peer_addr')
+            peer_ip = ip_address(peer_addr) if peer_addr else None
+            if intf.get('attachto') in logical_intfs and peer_addr and \
+                    isinstance(peer_ip, self.IP_TYPE[af]) and peer_ip not in local_addresses:
+                return peer_addr
+
+        vlan_intfs = {
+            vlan for vlan, vlan_data in minigraph_data.get('minigraph_vlans', {}).items()
+            if logical_intfs.intersection(vlan_data.get('members', []))
+        }
+        for intf in minigraph_data.get('minigraph_vlan_interfaces', []):
+            if intf.get('attachto') not in vlan_intfs:
+                continue
+            interface = ip_interface("{}/{}".format(intf['addr'], intf['prefixlen']))
+            if not isinstance(interface.ip, self.IP_TYPE[af]):
+                continue
+            for host in interface.network.hosts():
+                if host not in local_addresses:
+                    return str(host)
+
+        return None
 
     def select_required_interfaces(
             self, duthost, number_of_required_interfaces, minigraph_data, af, topo="T1"):

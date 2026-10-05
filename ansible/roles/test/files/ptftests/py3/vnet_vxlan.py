@@ -335,7 +335,7 @@ class VNET(BaseTest):
                 "arp_responder state is not RUNNING! Output: %s" % output[0].decode())
 
     def tearDown(self):
-        if self.vxlan_enabled:
+        if self.vxlan_enabled or self.test_params.get("is_vpp"):
             self.cmd(["supervisorctl", "stop", "arp_responder"])
 
         json.dump(self.packets, open("/tmp/vnet_pkts.json", 'w'))
@@ -504,6 +504,8 @@ class VNET(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
             if isinstance(ip_address(test['host']), IPv4Address):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                if self.test_params.get("is_vpp"):
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
@@ -516,6 +518,9 @@ class VNET(BaseTest):
             if not self.routes_removed:
                 status, received_pkt = verify_packet_any_port(
                     self, masked_exp_pkt, self.net_ports)
+                if self.test_params.get("is_vpp") and isinstance(ip_address(test['host']), IPv4Address):
+                    flags = int(scapy.Ether(received_pkt)[scapy.IP].flags)
+                    assert flags in (0, 2), "Unexpected outer IPv4 flags: {}".format(flags)
                 if self.vxlan_srcport_range_enabled:
                     scapy_pkt = scapy.Ether(received_pkt)
                     upper_bound = self.vxlan_srcport | (

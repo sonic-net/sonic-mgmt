@@ -5974,18 +5974,18 @@ vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv6-outer_ipv4]:
 
 vxlan/test_vnet_route_leak.py:
   skip:
-    reason: "Test skipped due to issue #8374"
+    reason: "Test skipped due to issue #8374 on non-VPP platforms"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+      - "asic_type not in ['vpp'] and https://github.com/sonic-net/sonic-mgmt/issues/8374"
 
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "1. Enable tests only for: mellanox, barefoot and marvell-teralynx
-             2. Test skipped due to issue #8374"
+    reason: "1. Enable tests only for: mellanox, barefoot, vs, marvell-teralynx and vpp
+             2. Test skipped due to issue #8374 on non-VPP platforms"
     conditions_logical_operator: OR
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot', 'vs', 'marvell-teralynx']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+      - "asic_type not in ['mellanox', 'barefoot', 'vs', 'marvell-teralynx', 'vpp']"
+      - "asic_type not in ['vpp'] and https://github.com/sonic-net/sonic-mgmt/issues/8374"
 
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
