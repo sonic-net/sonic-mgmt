@@ -325,7 +325,10 @@ class DHCPTest(DataplaneBaseTest):
             # Combine the new sub-options for relay
             relay_option82 = circuit_id + remote_id
 
-            discover_packet[scapy.Ether].dst = self.uplink_mac
+            # The packet ingresses on a VLAN member port and is routed to Loopback0, so it must carry the
+            # router MAC of the receiving interface. On dual-ToR the VLAN MAC is shared by both ToRs and
+            # differs from the switch base MAC used on the uplinks.
+            discover_packet[scapy.Ether].dst = self.relay_iface_mac if self.dual_tor else self.uplink_mac
             discover_packet[scapy.IP].src = self.client_ip
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
             discover_packet[scapy.BOOTP].hops = self.max_hop_count if self.max_hop_count == self.MAX_HOP_COUNT else 1
