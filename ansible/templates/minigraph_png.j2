@@ -177,16 +177,14 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
-{% set neighbor_mgmt_ip = dual_tor_facts['neighbor']['ip'] %}
-{% if not (use_ipv6_mgmt|default(false)|bool) and not (neighbor_mgmt_ip | ansible.utils.ipv6) %}
+{% if not (use_ipv6_mgmt|default(false)|bool) and 'ip' in dual_tor_facts['neighbor'] %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ neighbor_mgmt_ip }}</a:IPPrefix>
+          <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
         </ManagementAddress>
 {% endif %}
-{% set neighbor_mgmt_ipv6 = neighbor_mgmt_ip if (neighbor_mgmt_ip | ansible.utils.ipv6) else dual_tor_facts['neighbor']['ip_v6'] | default('') %}
-{% if neighbor_mgmt_ipv6 %}
+{% if 'ip_v6' in dual_tor_facts['neighbor'] %}
         <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ neighbor_mgmt_ipv6 }}</a:IPPrefix>
+          <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip_v6'] }}</a:IPPrefix>
         </ManagementAddressV6>
 {% endif %}
       </Device>

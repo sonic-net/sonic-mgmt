@@ -1,4 +1,5 @@
 from ansible.module_utils.basic import AnsibleModule
+import ipaddress
 import os
 import yaml
 import traceback
@@ -37,13 +38,19 @@ class DualTorParser:
     def parse_neighbor_tor(self):
         '''
         Parses information about the other ToR in a dual ToR pair
+        Management addresses use optional IPv4 ip and IPv6 ip_v6 fields.
         '''
         neighbor = {}
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
-        neighbor['ip'] = self.host_vars[neighbor['hostname']]['ansible_host']
-        if self.host_vars[neighbor['hostname']].get('ansible_hostv6'):
-            neighbor['ip_v6'] = self.host_vars[neighbor['hostname']]['ansible_hostv6']
+        neighbor_ip = self.host_vars[neighbor['hostname']]['ansible_host']
+        if ipaddress.ip_address(neighbor_ip).version == 6:
+            neighbor['ip_v6'] = neighbor_ip
+        else:
+            neighbor['ip'] = neighbor_ip
+            if self.host_vars[neighbor['hostname']].get('ansible_hostv6'):
+                ipaddress.IPv6Address(self.host_vars[neighbor['hostname']]['ansible_hostv6'])
+                neighbor['ip_v6'] = self.host_vars[neighbor['hostname']]['ansible_hostv6']
         if 'hwsku' in self.host_vars[neighbor['hostname']]:
             neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
         else:
