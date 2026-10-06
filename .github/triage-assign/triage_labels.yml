@@ -4,6 +4,9 @@
 # Every pull request gets `assignments_per_pr` labels of the form
 # "<label_prefix><company name>", picked at random from the companies listed
 # below, excluding the company the PR author belongs to.
+#
+# On top of those, it gets each label under `topic_labels` (at the bottom)
+# whose keywords appear in its title or changed file paths.
 
 label_prefix: "triage-"
 assignments_per_pr: 2

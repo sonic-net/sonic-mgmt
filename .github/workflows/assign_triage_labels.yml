@@ -43,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Empty for the scheduled/manual runs, which scan open PRs instead.
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          TRIAGE_CONFIG_PATH: .github/triage-assign/companies.yml
+          TRIAGE_CONFIG_PATH: .github/triage-assign/triage_labels.yml
           SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '0' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
 

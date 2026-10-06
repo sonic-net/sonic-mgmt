@@ -1,7 +1,7 @@
 """Assign per-company triage labels to pull requests.
 
 Each pull request is labelled with `assignments_per_pr` company labels drawn at
-random from the companies configured in companies.yml, excluding the company
+random from the companies configured in triage_labels.yml, excluding the company
 the PR author belongs to.
 
 The draw is seeded from the repository name and the PR number, so it needs no
@@ -9,7 +9,7 @@ persistent state: the same PR always yields the same companies, which makes the
 backstop scan idempotent, while the distribution across PRs stays even.
 
 Author company is resolved in this order:
-  1. the `overrides` map in companies.yml
+  1. the `overrides` map in triage_labels.yml
   2. sii_author_predict.csv from sonic-net/sonic-tsc (best effort; that
      repository is public, so this needs no credentials)
   3. a username suffix heuristic (e.g. "someone-arista" -> Arista)
@@ -46,7 +46,7 @@ GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_REPOSITORY = os.environ["GITHUB_REPOSITORY"]
 PR_NUMBER = os.environ.get("PR_NUMBER", "").strip()
 
-CONFIG_PATH = os.environ.get("TRIAGE_CONFIG_PATH", ".github/triage-assign/companies.yml")
+CONFIG_PATH = os.environ.get("TRIAGE_CONFIG_PATH", ".github/triage-assign/triage_labels.yml")
 AUTHOR_MAP_URL = os.environ.get(
     "AUTHOR_MAP_URL",
     "https://raw.githubusercontent.com/sonic-net/sonic-tsc/master/sii_author_predict.csv",
@@ -122,7 +122,7 @@ def load_author_map(config: dict) -> dict[str, str]:
     A handful of authors appear more than once with conflicting organizations;
     the row with the highest Score wins, and each such conflict is reported on
     stderr so the CSV can be corrected upstream. Organizations listed under
-    `unknown_organizations` in companies.yml (the CSV's "Others" bucket) mean
+    `unknown_organizations` in triage_labels.yml (the CSV's "Others" bucket) mean
     "not known", not "not one of these companies", so they are dropped here and
     left to the suffix heuristic.
 
