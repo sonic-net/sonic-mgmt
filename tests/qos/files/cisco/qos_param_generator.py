@@ -47,10 +47,25 @@ class QosParamCisco(object):
     # buffer), not the full buffer, so the queue watermark test uses this cell/packet size.
     # Its margin comes from the VOQ threshold quantization (see hbm_voq_wmk_margin).
     HBM_Q_WMK_AVG_CELL_BYTES = 6144
+    # gb max pause/drop is scaled down by ~7.48% to cover the SQ statistical accounting
+    # inaccuracy, keeping the SQ counter from exceeding the SMS queue depth.
+    GB_SQ_ACCOUNTING_FRACTION = 0.0748125
+    # Experimental minimum extra backplane headroom bytes occupied while the peer reacts to
+    # the PFC pause. This is the floor of headroom usage added on top of the backplane PFC
+    # packets to form the egress-memory floor, so the source queue does not start filling
+    # before the pipe is full. Converted to packets via the packet size.
+    EGR_MEM_HEADROOM_MIN_FILL_BYTES = 40768
+    # Ethernet inter-frame gap added per packet on the wire.
+    ETHERNET_IFG_BYTES = 20
+    # On cross-asic (topo-t2) paths the backplane port on the ingress ASIC is not deterministic:
+    # flows may share one backplane port or spread across several, so the xon test needs a larger
+    # dismiss margin to absorb that variability.
+    T2_XON_DISMISS_PFC_PKTS = 23
 
     LOG_PREFIX = "QosParamCisco: "
 
-    def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength):
+    def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength,
+                 egr_mem_buffer_configs=None):
         '''
         Initialize parameters all tests will use
         '''
@@ -108,6 +123,10 @@ class QosParamCisco(object):
             if lossless_use_hbm or lossy_use_hbm:
                 self.dram_max_pds_in_a_pack = get_dram_max_pds_in_a_pack(self.duthost, asic_index)
         # topo-t2 autogen is only supported on gb; other asics fall back to qos.yaml.
+        self.topo = topo
+        # Backplane (200G/1m) buffer configs of the egress ASIC and fabric/RP asic0, used to
+        # generate egress memory on cross-asic paths; they live on those ASICs, not src_asic.
+        self.egr_mem_buffer_configs = egr_mem_buffer_configs
         self.supports_autogen = dutAsic in asic_params and \
             (topo == "topo-any" or (topo == "topo-t2" and dutAsic == "gb"))
         if self.supports_autogen:
@@ -122,6 +141,8 @@ class QosParamCisco(object):
              self.lossless_pause_tuning_pkts,
              self.lossless_drop_tuning_pkts) = asic_params[dutAsic]
             lossy_max_queue_depth = max_queue_depth
+            # SMS queue depth (pre-HBM override); used to cap the backplane PFC pause.
+            self.sms_max_queue_depth = max_queue_depth
             self.lossy_buffer_size = self.buffer_size
             self.lossy_packet_size = self.preferred_packet_size
             self.sms_buffer_size = self.buffer_size
@@ -170,7 +191,7 @@ class QosParamCisco(object):
                 pre_pad_pause = attempted_pause
             else:
                 self.lossy_drop_bytes = lossy_max_queue_depth
-                max_drop = max_queue_depth * (1 - 0.0748125)
+                max_drop = max_queue_depth * (1 - self.GB_SQ_ACCOUNTING_FRACTION)
                 max_pause = int(max_drop - int(lossless_prof["xoff"]))
                 self.log("Max pause thr bytes:       {}".format(max_pause))
                 pre_pad_pause = min(attempted_pause, max_pause)
@@ -384,6 +405,7 @@ class QosParamCisco(object):
             return self.qos_params
         self.__define_pfc_xoff_limit()
         self.__define_pfc_xon_limit()
+        self.__define_egr_mem()
         self.__define_pg_shared_watermark()
         self.__define_buffer_pool_watermark()
         self.__define_q_shared_watermark()
@@ -594,17 +616,90 @@ class QosParamCisco(object):
             return
         packet_size = self.preferred_packet_size
         packet_buffs = self.get_buffer_occupancy(packet_size)
+        trig_pfc = self.pause_thr // self.buffer_size // packet_buffs
+        # topo-t2 xon triggers at the full pause count with a larger dismiss margin to absorb
+        # non-deterministic backplane port selection on the ingress ASIC; single-asic paths
+        # trigger one packet below with a minimal dismiss margin.
+        if self.topo == "topo-t2":
+            xon_trig_pfc = trig_pfc
+            dismiss_pfc = self.T2_XON_DISMISS_PFC_PKTS
+        else:
+            xon_trig_pfc = trig_pfc - 1
+            dismiss_pfc = 2
         for param_i, dscp_pg in [(1, 3), (2, 4)]:
             params = {"dscp": dscp_pg,
                       "ecn": 1,
                       "pg": dscp_pg,
-                      "pkts_num_trig_pfc": (self.pause_thr // self.buffer_size // packet_buffs) - 1,
+                      "pkts_num_trig_pfc": xon_trig_pfc,
                       "pkts_num_hysteresis": self.hysteresis_bytes // self.buffer_size // packet_buffs,
-                      "pkts_num_dismiss_pfc": 2,
+                      "pkts_num_dismiss_pfc": dismiss_pfc,
                       "packet_size": packet_size}
             if self.dutAsic in ["gr2", "gr2x"]:
                 params["pkts_num_margin"] = 6
             self.write_params("xon_{}".format(param_i), params)
+
+    def __backplane_pfc_pkts(self, bufferConfig, lossless_use_hbm=False):
+        # Packets needed to reach the PFC pause threshold of a 200G/1m backplane port on a
+        # given ASIC, following the same gb pause logic as the constructor: the attempted
+        # threshold (alpha * ingress pool, or static_th) is capped by the gb max pause and
+        # padded with the pause tuning packets. bufferConfig is that ASIC's BUFFER_POOL/
+        # BUFFER_PROFILE.
+        if not bufferConfig:
+            return None
+        prof = bufferConfig.get("BUFFER_PROFILE", {}).get("pg_lossless_200000_1m_profile")
+        if prof is None:
+            return None
+        if "dynamic_th" in prof:
+            pool_ref = prof.get("pool", "ingress_lossless_pool")
+            pool_name = pool_ref.strip("[]").split("|")[-1]
+            pool = bufferConfig.get("BUFFER_POOL", {}).get(pool_name)
+            if pool is None:
+                return None
+            alpha = 2 ** int(prof["dynamic_th"])
+            attempted_pause = alpha * int(pool["size"])
+        elif "static_th" in prof:
+            attempted_pause = int(prof["static_th"])
+        else:
+            return None
+        if lossless_use_hbm:
+            # Backplane lossless PG lives in HBM, so the SMS queue depth does not cap the pause.
+            pre_pad_pause = attempted_pause
+        else:
+            max_pause = int(self.sms_max_queue_depth * (1 - self.GB_SQ_ACCOUNTING_FRACTION) -
+                            int(prof["xoff"]))
+            pre_pad_pause = min(attempted_pause, max_pause)
+        packet_buffs = self.get_buffer_occupancy(self.preferred_packet_size)
+        pause_thr = pre_pad_pause + (self.lossless_pause_tuning_pkts * packet_buffs * self.buffer_size)
+        return int(pause_thr // self.buffer_size // packet_buffs)
+
+    def __define_egr_mem(self):
+        # Egress memory only exists on cross-asic (topo-t2) paths that traverse the backplane.
+        if self.topo != "topo-t2":
+            return
+        # The backplane pause logic (max pause cap, tuning pad) is gb-specific.
+        if self.dutAsic != "gb":
+            return
+        if not self.should_autogen(["pkts_num_egr_mem"]):
+            return
+        if not self.egr_mem_buffer_configs:
+            return
+        # A fabric-crossing packet fills a 200G/1m backplane ingress port on the egress ASIC
+        # (dst_asic) and on the fabric ASIC (RP asic0) before the source queue fills. The
+        # egress memory is the packets to trigger PFC on both; it is based on the egress ASIC
+        # geometry, so a single value covers both short-short and short-long paths.
+        egress_cfg = self.egr_mem_buffer_configs.get("egress") or {}
+        fabric_cfg = self.egr_mem_buffer_configs.get("fabric") or {}
+        egress_pfc_pkts = self.__backplane_pfc_pkts(egress_cfg.get("bufferConfig"),
+                                                    egress_cfg.get("lossless_use_hbm", False))
+        fabric_pfc_pkts = self.__backplane_pfc_pkts(fabric_cfg.get("bufferConfig"),
+                                                    fabric_cfg.get("lossless_use_hbm", False))
+        if egress_pfc_pkts is None or fabric_pfc_pkts is None:
+            return
+        # Minimum headroom usage (experimental); convert this floor to packets via the egress
+        # fill packet size and add it to the backplane PFC packets to get the egress-memory floor.
+        headroom_pkts = self.EGR_MEM_HEADROOM_MIN_FILL_BYTES // (self.preferred_packet_size + self.ETHERNET_IFG_BYTES)
+        egr_mem = egress_pfc_pkts + fabric_pfc_pkts + headroom_pkts
+        self.write_params("pkts_num_egr_mem", egr_mem)
 
     def __define_pg_shared_watermark(self):
         common_params = {"ecn": 1,
@@ -923,6 +1018,7 @@ class QosParamCisco(object):
                       "pkts_num_trig_pfc": pkts_num_trig_pfc,
                       "pkts_num_trig_ingr_drp": pkts_num_trig_ingr_drp,
                       "pkts_num_margin": margin,
+                      "cell_size": self.buffer_size,
                       "iterations": 100}
             self.write_params("pg_drop", params)
 

@@ -6868,16 +6868,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         print("buf_pool_roid: 0x%lx" % (buf_pool_roid), file=sys.stderr)
 
         buffer_pool_wm_base = 0
-        if 'cisco-8000' in asic_type:
-            # Some small amount of memory is always occupied
-            # We use dst client for cisco 8000.
-            client_to_use = self.dst_client
-            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
-            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
-                client_to_use, buf_pool_roid)
-        else:
-            client_to_use = self.src_client
-        print("Initial watermark: {}".format(buffer_pool_wm_base))
+        client_to_use = self.src_client
 
         # Prepare TCP packet data
         tos = dscp << 2
@@ -6916,6 +6907,13 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_tos=tos,
                                     ip_ttl=ttl)
 
+        if 'cisco-8000' in asic_type:
+            # Some small amount of memory is always occupied
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
+            buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, buf_pool_roid)
+        print("Initial watermark: {}".format(buffer_pool_wm_base))
+
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -6935,10 +6933,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         if 'extra_cap_margin' in self.test_params:
             extra_cap_margin = int(self.test_params['extra_cap_margin'])
 
+        # For cisco-8000 cross-asic, some packets stay in egress memory and don't show up in
+        # the ingress buffer pool; fill it first so the src-side watermark is accurate.
+        pkts_num_egr_mem = 0
+        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+
         # Adjust the methodology to enable TX for each incremental watermark value test
         # To this end, send the total # of packets instead of the incremental amount
         # to refill the buffer to the exepected level
         pkts_num_to_send = 0
+        # Egress-fill residual in the buffer pool, captured once and reused.
+        egr_mem_wm = 0
+        egr_mem_wm_captured = False
         # send packets
         try:
             # send packets to fill min but not trek into shared pool
@@ -6993,9 +7000,21 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
                 pkts_num_to_send += pkts_num
+                lower_bound_wm = (expected_wm - lower_bound_margin) * cell_size
+                upper_bound_wm = (expected_wm + upper_bound_margin) * cell_size
                 if 'cisco-8000' in asic_type:
                     fill_leakout_plus_one(
-                        self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                        self, src_port_id, dst_port_id, pkt, queue, asic_type, pkts_num_egr_mem)
+                    if pkts_num_egr_mem:
+                        # Egress memory fill adds a constant residual to the pool that can't be
+                        # cleared while tx is disabled; capture it on the first iteration only, since
+                        # later iterations also hold prior test traffic that is not egress memory.
+                        if not egr_mem_wm_captured:
+                            egr_mem_wm = sai_thrift_read_buffer_pool_watermark(
+                                client_to_use, buf_pool_roid) - buffer_pool_wm_base
+                            egr_mem_wm_captured = True
+                        lower_bound_wm += egr_mem_wm
+                        upper_bound_wm += egr_mem_wm
                     send_packet(self, src_port_id, pkt, pkts_num_to_send - 1)
                 else:
                     send_packet(self, src_port_id, pkt, pkts_num_to_send)
@@ -7004,27 +7023,31 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
                     client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print(
-                      "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d"
+                      "lower bound: %d, actual value: %d, upper bound: %d"
                       % (
-                          lower_bound_margin,
-                          (expected_wm - lower_bound_margin) * cell_size,
+                          lower_bound_wm,
                           buffer_pool_wm,
-                          upper_bound_margin,
-                          (expected_wm + upper_bound_margin) * cell_size,
+                          upper_bound_wm,
                       ),
                       file=sys.stderr,
                 )
-                assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
-                assert ((expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm)
+                assert (buffer_pool_wm <= upper_bound_wm)
+                assert (lower_bound_wm <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
 
             # overflow the shared pool
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
             pkts_num_to_send += pkts_num
+            lower_bound_wm = (expected_wm - lower_bound_margin) * cell_size
+            upper_bound_wm = (expected_wm + extra_cap_margin) * cell_size
             if 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                    self, src_port_id, dst_port_id, pkt, queue, asic_type, pkts_num_egr_mem)
+                if pkts_num_egr_mem:
+                    # Egress residual was already captured in the loop above; reuse it.
+                    lower_bound_wm += egr_mem_wm
+                    upper_bound_wm += egr_mem_wm
                 send_packet(self, src_port_id, pkt, pkts_num_to_send - 1)
             else:
                 send_packet(self, src_port_id, pkt, pkts_num_to_send)
@@ -7045,10 +7068,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
                 pkts_num, (expected_wm * cell_size), buffer_pool_wm), file=sys.stderr)
             assert (expected_wm == total_shared)
-            assert ((expected_wm - lower_bound_margin)
-                    * cell_size <= buffer_pool_wm)
-            assert (buffer_pool_wm <= (
-                expected_wm + extra_cap_margin) * cell_size)
+            assert (lower_bound_wm <= buffer_pool_wm)
+            assert (buffer_pool_wm <= upper_bound_wm)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])

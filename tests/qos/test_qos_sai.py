@@ -433,14 +433,6 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
-        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
-                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
-            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
-                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
-            else:
-                pytest.skip(
-                    "pkts_num_egr_mem_short_long is missing in yaml file ")
-
         if "pkts_num_margin" in list(qosConfig[xoffProfile].keys()):
             testParams["pkts_num_margin"] = qosConfig[xoffProfile]["pkts_num_margin"]
 
@@ -726,14 +718,6 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
-
-        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
-                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
-            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
-                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
-            else:
-                pytest.skip(
-                    "pkts_num_egr_mem_short_long is missing in yaml file ")
 
         if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
             testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
@@ -1215,6 +1199,12 @@ class TestQosSai(QosSaiBase):
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
             buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
         elif "wm_buf_pool_lossy" in bufPool:
+            # The lossy egress buffer pool to be tested is on the ingress asic; when src/dst are on
+            # different asics, disabling tx on the egress port won't hold packets in the ingress asic.
+            if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and \
+                    not get_src_dst_asic_and_duts['single_asic_test']:
+                pytest.skip("Skip buffer pool watermark lossy test on cisco-8000 cross-asic: "
+                            "tx-disabled egress port won't keep lossy packets in the ingress asic")
             baseQosConfig = dutQosConfig["param"]
             qosConfig = baseQosConfig.get(portSpeedCableLength, baseQosConfig)
             try:
@@ -1237,6 +1227,7 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_egr_mem": dutQosConfig["param"][portSpeedCableLength].get("pkts_num_egr_mem", 0),
             "pkts_num_fill_min": fillMin,
             "pkts_num_fill_shared": triggerDrop - 1,
             "buf_pool_roid": buf_pool_roid,
@@ -1837,14 +1828,6 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
-
-        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
-                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
-            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
-                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
-            else:
-                pytest.skip(
-                    "PGSharedWatermark: pkts_num_egr_mem_short_long is missing in yaml file ")
 
         # For J2C+ we need the internal header size in calculating the shared watermarks
         if "internal_hdr_size" in list(qosConfig.keys()):

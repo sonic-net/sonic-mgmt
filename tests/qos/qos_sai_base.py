@@ -17,7 +17,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
+from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command, \
+    get_device_property
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import (upper_tor_host,  # noqa: F401
                                                  lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled)
@@ -2148,13 +2149,43 @@ class QosSaiBase(QosBase):
             if dutTopo not in qosConfigs['qos_params'][dutAsic]:
                 qosConfigs['qos_params'][dutAsic][dutTopo] = {}
 
+            # On cross-asic (topo-t2) paths the 200G/1m backplane profile used to size egress
+            # memory lives on the egress ASIC (dst_asic) and the fabric/RP asic0, not src_asic.
+            egr_mem_buffer_configs = None
+            if dutTopo == "topo-t2":
+                dst_dut = get_src_dst_asic_and_duts['dst_dut']
+                dst_asic = get_src_dst_asic_and_duts['dst_asic']
+                pytest_assert(duthosts.supervisor_nodes,
+                              "No accessible supervisor node to read the fabric (RP asic0) "
+                              "backplane buffer config required to generate pkts_num_egr_mem")
+                rp_dut = duthosts.supervisor_nodes[0]
+                rp_asic = rp_dut.asics[0]
+
+                def _lossless_use_hbm(dut, asic):
+                    # When an ASIC offloads lossless to HBM, its backplane lossless PG lives in
+                    # HBM rather than SMS, so its PFC pause is not bounded by the SMS queue depth.
+                    asic_index = asic.asic_index if asic.get_asic_namespace() else None
+                    return get_device_property(dut, "lossless_use_hbm", asic_index) == "True"
+
+                egr_mem_buffer_configs = {
+                    "egress": {
+                        "bufferConfig": dutBufferConfig(dst_dut, dst_asic),
+                        "lossless_use_hbm": _lossless_use_hbm(dst_dut, dst_asic),
+                    },
+                    "fabric": {
+                        "bufferConfig": dutBufferConfig(rp_dut, rp_asic),
+                        "lossless_use_hbm": _lossless_use_hbm(rp_dut, rp_asic),
+                    },
+                }
+
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
                       dutAsic,
                       dutTopo,
                       bufferConfig,
-                      portSpeedCableLength)
+                      portSpeedCableLength,
+                      egr_mem_buffer_configs)
 
             qosParams = qpm.run()
         elif dutAsic == 'vs':
@@ -2967,22 +2998,6 @@ class QosSaiBase(QosBase):
 
         return mapping
 
-    @pytest.fixture(autouse=False)
-    def skip_400g_longlink(
-            self,
-            get_src_dst_asic_and_duts,
-            dutQosConfig):
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
-        if not m:
-            raise RuntimeError(
-                "Format error in portSpeedCableLength:{}".
-                format(portSpeedCableLength))
-        speed = int(m.group(1))
-        cable_length = int(m.group(2))
-        if speed >= 400000 and cable_length >= 120000:
-            pytest.skip("PGDrop test is not supported for 400G longlink.")
-
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
@@ -3153,16 +3168,6 @@ class QosSaiBase(QosBase):
         configRoutePrefix(True)
         yield combined_ips_map
         configRoutePrefix(False)
-
-    @pytest.fixture(scope="function", autouse=False)
-    def skip_longlink(self, dutQosConfig):
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        match = re.search("_([0-9]*)m", portSpeedCableLength)
-        if match and int(match.group(1)) > 2000:
-            pytest.skip(
-                "This test is skipped for longlink.")
-        yield
-        return
 
     @pytest.fixture(scope="class", autouse=False)
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
