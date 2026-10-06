@@ -23,6 +23,28 @@ def _load_runtime_config():
 RUNTIME_CONFIG = _load_runtime_config()
 
 
+def test_refreshes_core_inventory_after_runtime_readiness_window():
+    snapshots = iter([
+        ["existing.core", "early.core"],
+        ["existing.core", "late.core"],
+    ])
+
+    current, new = RUNTIME_CONFIG.refresh_core_dump_inventory(
+        ["existing.core"],
+        lambda: next(snapshots),
+    )
+    assert current == ["existing.core", "early.core"]
+    assert new == ["early.core"]
+
+    current, new = RUNTIME_CONFIG.refresh_core_dump_inventory(
+        ["existing.core"],
+        lambda: next(snapshots),
+        new,
+    )
+    assert current == ["existing.core", "late.core"]
+    assert new == ["early.core", "late.core"]
+
+
 def test_selects_only_runtime_managed_entries():
     config = {
         "LOGGER": {

@@ -75,7 +75,10 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
-from tests.common.helpers.runtime_config import get_unrestored_runtime_managed_entries_by_context
+from tests.common.helpers.runtime_config import (
+    get_unrestored_runtime_managed_entries_by_context,
+    refresh_core_dump_inventory,
+)
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -3297,6 +3300,22 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                         )
                 return running_config
 
+            def collect_core_dumps(dut):
+                if "20191130" in dut.os_version:
+                    return dut.shell(
+                        'ls /var/core/ | grep -v python || true'
+                    )['stdout'].split()
+                return dut.shell('ls /var/core/')['stdout'].split()
+
+            def update_core_dump_inventory(dut):
+                cur_cores, detected_cores = refresh_core_dump_inventory(
+                    duts_data[dut.hostname]["pre_core_dumps"],
+                    lambda: collect_core_dumps(dut),
+                    new_core_dumps.get(dut.hostname),
+                )
+                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
+                new_core_dumps[dut.hostname] = detected_cores
+
             def collect_after_test(dut):
                 inconsistent_config[dut.hostname] = {}
                 pre_only_config[dut.hostname] = {}
@@ -3308,15 +3327,7 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 dut.shell("df -h")
 
                 logger.info("Collecting core dumps after test on {}".format(dut.hostname))
-                if "20191130" in dut.os_version:
-                    cur_cores = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
-                else:
-                    cur_cores = dut.shell('ls /var/core/')['stdout'].split()
-                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
-
-                cur_core_dumps_set = set(duts_data[dut.hostname]["cur_core_dumps"])
-                pre_core_dumps_set = set(duts_data[dut.hostname]["pre_core_dumps"])
-                new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
+                update_core_dump_inventory(dut)
 
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
                 duts_data[dut.hostname]["cur_running_config"] = collect_running_config(dut)
@@ -3370,6 +3381,10 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
                     executor.submit(wait_for_runtime_managed_config, duthost)
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(update_core_dump_inventory, duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:

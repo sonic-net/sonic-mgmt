@@ -1,6 +1,17 @@
 RUNTIME_REFRESH_FIELD = "require_manual_refresh"
 
 
+def refresh_core_dump_inventory(
+    pre_core_dumps,
+    collect_core_dumps,
+    existing_new_core_dumps=None,
+):
+    current_core_dumps = collect_core_dumps()
+    new_core_dumps = set(existing_new_core_dumps or [])
+    new_core_dumps.update(set(current_core_dumps) - set(pre_core_dumps))
+    return current_core_dumps, sorted(new_core_dumps)
+
+
 def get_runtime_managed_entries(config, table_name="LOGGER"):
     table = config.get(table_name, {})
     if not isinstance(table, dict):
