@@ -32,8 +32,10 @@ _PTF_AFPACKET_URL = (
 _NN_AGENT_BUNDLE = os.path.join(
     os.path.dirname(__file__), "files", "copp-nn-agent-bundle-amd64.tar.gz")
 _NN_AGENT_BUNDLE_DUT = "/tmp/copp-nn-agent-bundle-amd64.tar.gz"
-_NN_AGENT_BUNDLE_SYNCD = "/tmp/copp-nn-agent-bundle-amd64.tar.gz"
-_NN_AGENT_BUNDLE_DIR = "/tmp/copp-nn-agent-bundle"
+# Docker cp into a container's mounted /tmp writes outside the runtime-visible
+# mount, which can also be noexec. Stage at the root and extract under /opt.
+_NN_AGENT_BUNDLE_SYNCD = "/copp-nn-agent-bundle-amd64.tar.gz"
+_NN_AGENT_BUNDLE_DIR = "/opt/copp-nn-agent-bundle"
 _NN_AGENT_BUNDLE_ABIS = {"cp311", "cp313"}
 
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
@@ -278,10 +280,12 @@ def _install_offline_nn_agent_bundle(dut, syncd_docker_name):
         dut.command("docker cp {} {}:{}".format(
             _NN_AGENT_BUNDLE_DUT, syncd_docker_name, _NN_AGENT_BUNDLE_SYNCD))
         dut.command(
-            "docker exec {} bash -c 'rm -rf {} "
-            "&& tar -xzf {} -C /tmp "
+            "docker exec {} bash -c 'test -s {} "
+            "&& rm -rf {} "
+            "&& tar -xzf {} -C /opt "
             "&& {}/install.sh'".format(
                 syncd_docker_name,
+                _NN_AGENT_BUNDLE_SYNCD,
                 _NN_AGENT_BUNDLE_DIR,
                 _NN_AGENT_BUNDLE_SYNCD,
                 _NN_AGENT_BUNDLE_DIR,
