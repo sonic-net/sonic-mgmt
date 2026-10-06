@@ -1386,9 +1386,14 @@ def test_scale_acl_rule(setUp, request):
                     )
                     break
 
-        # Wait a moment for counters to update after testing
-        time.sleep(20)
-        # Get ACL counters after testing
+        # Poll for counters to settle instead of a fixed sleep - orchagent's counter flush can
+        # plausibly take longer than a fixed guess under load at thousands of rules.
+        def check_counter_increments(duthost):
+            counters = get_acl_counters(duthost, ACL_TABLE_NAME)
+            incremented = sum(1 for name, before in counter_before.items() if counters.get(name, 0) > before)
+            return incremented >= successful_tests
+
+        wait_until(20 + test_rule_count // 50, 2, 0, check_counter_increments, duthost)
         counter_after = get_acl_counters(duthost, ACL_TABLE_NAME)
         # Analyze counter increments
         counter_increment_successes = 0
