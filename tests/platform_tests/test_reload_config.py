@@ -23,9 +23,6 @@ from tests.common.config_reload import (
 BMC_SYSTEM_CHECK_TIMEOUT = 600
 SYSTEM_CHECK_TIMEOUT = 360
 SYSTEM_CHECK_WARN_THRESHOLD = 300
-DEFAULT_CONFIG_RELOAD_TIMEOUT = 120
-NOKIA_7215_CONFIG_RELOAD_TIMEOUT = 300
-NOKIA_7215_HWSKUS = {"Nokia-M0-7215", "Nokia-7215"}
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -191,12 +188,6 @@ def check_redis_db_status(duthost):
     return True
 
 
-def get_config_reload_timeout(hwsku):
-    if hwsku in NOKIA_7215_HWSKUS:
-        return NOKIA_7215_CONFIG_RELOAD_TIMEOUT
-    return DEFAULT_CONFIG_RELOAD_TIMEOUT
-
-
 def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
     start_time = time.time()
     _, res = duthost.shell("sudo config reload -y",
@@ -230,7 +221,9 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hwsku = duthost.facts["hwsku"]
 
-    config_reload_timeout = get_config_reload_timeout(hwsku)
+    config_reload_timeout = 120
+    if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
+        config_reload_timeout = 300
 
     if not config_force_option_supported(duthost):
         return
