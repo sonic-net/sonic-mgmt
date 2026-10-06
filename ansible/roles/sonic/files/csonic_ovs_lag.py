@@ -145,7 +145,7 @@ def ovs_portchannel(name, members, mtu, min_links):
         "--", "--id=@bond", "create", "Port",
         "name={}-bond".format(name),
         "interfaces={}".format(",".join(interface_refs)),
-        "lacp=active", "bond_mode=balance-slb",
+        "lacp=active", "bond_mode=balance-tcp",
         "other_config:lacp-time=fast",
         "other_config:min-links={}".format(min_links),
         "--", "add", "Bridge", name, "ports", "@bond",
