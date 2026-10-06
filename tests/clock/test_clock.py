@@ -22,11 +22,12 @@ class ClockConsts:
     DATE = "date"
     TIME = "time"
     TIMEZONE = "timezone"
-
+    
     TEST_TIMEZONE = "Asia/Jerusalem"
     TIME_MARGIN = 6
     TIME_MARGIN_MODULAR = 16
     RANDOM_NUM = 6
+    NTP_SERVER_IP = '10.230.70.8'
 
     # sonic commands
     CMD_SHOW_CLOCK = "show clock"
@@ -456,3 +457,33 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
                         actual=datetime_after,
                         allowed_margin=time_margin
                     )
+
+
+def test_config_ntp(duthosts, init_timezone):
+    """ 
+    @summary:
+        Check that 'config ntp' commands work correctly
+
+        Steps:
+        1. Add a new valid NTP server
+        2. Verify NTP server added
+        3. Delete the added NTP server
+        4. Verify NTP server deleted
+    """
+    with allure.step(f'Add the NTP server {ClockConsts.NTP_SERVER_IP}'):
+        output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, ClockConsts.NTP_SERVER_IP)
+
+    with allure.step('Verify command success'):
+        assert output == ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ClockConsts.NTP_SERVER_IP), \
+            f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(ClockConsts.NTP_SERVER_IP)}"'
+
+    with allure.step(f'Verify NTP server {ClockConsts.NTP_SERVER_IP} added'):
+        ntp_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_NTP)
+        assert ClockConsts.NTP_SERVER_IP in ntp_output, f'Expected: "{ClockConsts.NTP_SERVER_IP}" in "{ntp_output}"'
+
+    with allure.step(f'Delete the NTP server {ClockConsts.NTP_SERVER_IP}'):
+        output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_DEL, ClockConsts.NTP_SERVER_IP)
+
+    with allure.step('Verify command success'):
+        assert output == ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ClockConsts.NTP_SERVER_IP), \
+            f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(ClockConsts.NTP_SERVER_IP)}"'
