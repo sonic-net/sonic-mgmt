@@ -64,11 +64,13 @@ stages:
               if [[ $merge_rc -eq 12 ]]; then
                 head_commit=$(git rev-parse github/${{ parameters.GITHUB_BRANCH }})
                 client="$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)"
-                payload=$(python3 -c 'import json, sys; print(json.dumps({"name": "code_conflict", "repo": sys.argv[1], "branch": sys.argv[2], "commit": sys.argv[3], "client": sys.argv[4]}))' \
+                payload=$(python3 -c 'import json, sys; print(json.dumps({"name": "code_conflict", "repo": sys.argv[1], "branch": sys.argv[2], "commit": sys.argv[3], "client": sys.argv[4], "upstream_repo": sys.argv[5], "upstream_branch": sys.argv[6]}))' \
                   "sonic-mgmt-int" \
                   "${{ parameters.LOCAL_BRANCH }}" \
                   "$head_commit" \
-                  "$client")
+                  "$client" \
+                  "sonic-net/sonic-mgmt" \
+                  "${{ parameters.GITHUB_BRANCH }}")
 
                 set +x
                 cert_pfx="$(mktemp -t cert.XXXXXX.pfx)"
