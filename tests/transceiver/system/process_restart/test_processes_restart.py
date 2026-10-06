@@ -67,14 +67,14 @@ _DEFAULT_RESTART_SETTLE_SEC = {
 
 def _process_restart_tester(
         duthost, port_attributes_dict, expected_pid_changes,
-        lport_to_first_subport_mapping, process_name):
+        lport_to_first_subport_mapping, process_name, *, port_peers):
     """
         Generic process restart tester, used for:
         xcvrd, pmon, swss, and syncd
 
     Restarts ``process_name`` and runs Standard Port Recovery and
-    Verification across all ports. The processes differ in a few ways
-    that are branched on below:
+    Verification across all ports, including peer identity on LLDP-enabled
+    ports. The processes differ in a few ways that are branched on below:
 
       * xcvrd is restarted as a pmon-supervised daemon (supervisorctl
         stop/start); pmon, swss, and syncd are restarted as system
@@ -102,7 +102,7 @@ def _process_restart_tester(
 
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
-    flap_count_baseline = None
+    pre_operation_sentinels = None
 
     logger.info("Recording link states and uptime for %d port(s)", len(ports))
     link_check = check_links_up(duthost, port_attributes_dict)
@@ -110,13 +110,9 @@ def _process_restart_tester(
         failures.append(f"[pre-restart] {link_check['details']}")
         logger.warning("Validation on Start FAILED: some ports are down")
     else:
-        flap_sentinels = capture_flap_sentinels(duthost, ports)
-        flap_count_baseline = {
-            port: sentinel[0]
-            for port, sentinel in flap_sentinels.items()
-        }
+        pre_operation_sentinels = capture_flap_sentinels(duthost, ports)
         for port in ports:
-            last_up_time = flap_sentinels[port][1]
+            last_up_time = pre_operation_sentinels[port][1]
             logger.info(
                 "Recording initial link uptime: %s: %s", port, last_up_time
             )
@@ -175,11 +171,12 @@ def _process_restart_tester(
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         expected_pid_changes=expected_pid_changes,
-        flap_count_baseline=flap_count_baseline,
-        assert_no_flap_across_op=(
-            process_name in ("xcvrd", "pmon")
-            and flap_count_baseline is not None
+        pre_operation_sentinels=(
+            pre_operation_sentinels
+            if process_name in ("xcvrd", "pmon")
+            else None
         ),
+        port_peers=port_peers,
     )
     if not result["passed"]:
         failures.append(f"[post-restart] {result['details']}")
@@ -199,7 +196,7 @@ def _process_restart_tester(
 def _process_crash_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, container_name, program_name,
-        kill_signal="-9"):
+        kill_signal="-9", *, port_peers):
     """
         Generic process crash tester.
 
@@ -244,6 +241,7 @@ def _process_crash_tester(
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         expected_pid_changes=expected_pid_changes,
+        port_peers=port_peers,
     )
     if not result["passed"]:
         failures.append(f"[post-crash] {result['details']}")
@@ -262,7 +260,7 @@ def _process_crash_tester(
 @pytest.mark.disable_loganalyzer
 def test_system_xcvrd_restart(
     duthost, port_attributes_dict, expected_pid_changes,
-    lport_to_first_subport_mapping,
+    lport_to_first_subport_mapping, port_peers,
 ):
     """
     Restart xcvrd and verify all ports recover cleanly
@@ -270,13 +268,14 @@ def test_system_xcvrd_restart(
     _process_restart_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, "xcvrd",
+        port_peers=port_peers,
     )
 
 
 @pytest.mark.disable_loganalyzer
 def test_system_pmon_restart(
     duthost, port_attributes_dict, expected_pid_changes,
-    lport_to_first_subport_mapping,
+    lport_to_first_subport_mapping, port_peers,
 ):
     """
     Restart pmon and verify all ports recover cleanly
@@ -284,13 +283,14 @@ def test_system_pmon_restart(
     _process_restart_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, "pmon",
+        port_peers=port_peers,
     )
 
 
 @pytest.mark.disable_loganalyzer
 def test_system_swss_restart(
     duthost, port_attributes_dict, expected_pid_changes,
-    lport_to_first_subport_mapping,
+    lport_to_first_subport_mapping, port_peers,
 ):
     """
     Restart swss and verify all ports recover cleanly
@@ -298,13 +298,14 @@ def test_system_swss_restart(
     _process_restart_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, "swss",
+        port_peers=port_peers,
     )
 
 
 @pytest.mark.disable_loganalyzer
 def test_system_syncd_restart(
     duthost, port_attributes_dict, expected_pid_changes,
-    lport_to_first_subport_mapping,
+    lport_to_first_subport_mapping, port_peers,
 ):
     """
     Restart syncd and verify all ports recover cleanly
@@ -312,13 +313,14 @@ def test_system_syncd_restart(
     _process_restart_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, "syncd",
+        port_peers=port_peers,
     )
 
 
 @pytest.mark.disable_loganalyzer
 def test_system_xcvrd_crash_recovery(
     duthost, port_attributes_dict, expected_pid_changes,
-    lport_to_first_subport_mapping,
+    lport_to_first_subport_mapping, port_peers,
 ):
     """
     Inject an xcvrd crash and verify automatic restart and port recovery
@@ -326,4 +328,5 @@ def test_system_xcvrd_crash_recovery(
     _process_crash_tester(
         duthost, port_attributes_dict, expected_pid_changes,
         lport_to_first_subport_mapping, "pmon", "xcvrd",
+        port_peers=port_peers,
     )

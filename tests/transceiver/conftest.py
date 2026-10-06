@@ -311,7 +311,7 @@ def port_attributes_dict(request, ansible_root, duthost):
 
 @pytest.fixture(scope='session')
 def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict):
-    """Map ports to expected LLDP identities and per-port resolution errors.
+    """Map LLDP-enabled ports to expected identities and resolution errors.
 
     Load the graph through its shared loader because the conn_graph_facts
     fixture is module-scoped. Batch local graph lookups and peer alias reads
@@ -319,11 +319,17 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
     but need not be selected as testbed DUTs. Cabling and port/alias mappings
     must stay fixed for the session.
     """
+    lldp_ports = [
+        port for port, attrs in port_attributes_dict.items()
+        if attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get("verify_lldp_on_link_up", True)
+    ]
+    if not lldp_ports:
+        return {}
     graph = get_graph_facts(duthost, localhost, [duthost.hostname])
-    connections = resolve_peer_connections(duthost, graph, port_attributes_dict)
+    connections = resolve_peer_connections(duthost, graph, lldp_ports)
     ports_by_peer = {}
     for port, (peer, error) in connections.items():
-        if error is None and port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get("verify_lldp_on_link_up"):
+        if error is None:
             ports_by_peer.setdefault(peer.device, {})[port] = peer
 
     hosts = {host.hostname: host for host in duthosts}

@@ -195,9 +195,9 @@ def assert_no_flap_since(
             :func:`capture_flap_sentinels`.
         elapsed_sec: optional, for the details message only.
         current_sentinels: optional snapshot from :func:`capture_flap_sentinels`;
-            captured here when omitted. Counters, when present in either
-            snapshot, must be valid and unchanged. When absent from both,
-            stability is verified using the available timestamps only.
+            captured here when omitted. Both snapshots must contain valid,
+            nonnegative, unchanged flap counters. Link timestamps must also
+            remain unchanged; there is no timestamp-only fallback.
 
     Returns:
         dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
@@ -210,48 +210,45 @@ def assert_no_flap_since(
 
     if current_sentinels is None:
         current_sentinels = capture_flap_sentinels(duthost, ports)
-    count_results = check_flap_counts_unchanged(
-        duthost, ports,
-        {port: values[0] for port, values in sentinels.items()},
-        current_sentinels=current_sentinels,
-    )
     per_port = {}
     for port in ports:
         baseline_flap, baseline_up, baseline_down = sentinels.get(port, (None, None, None))
         current_flap, current_up, current_down = current_sentinels.get(port, (None, None, None))
-        count_failed = (
-            (baseline_flap is not None or current_flap is not None)
-            and not count_results[port]["passed"]
-        )
+        try:
+            before_count = int(str(baseline_flap))
+            after_count = int(str(current_flap))
+            valid = before_count >= 0 and after_count >= 0
+        except (TypeError, ValueError):
+            valid = False
 
-        if baseline_flap is None and baseline_up is None and baseline_down is None:
+        if not valid:
+            passed = False
             details = (
-                f"{port}: no flap_count/last_up_time/last_down_time sentinel captured - "
-                "cannot verify stability (schema mismatch or partial publish)"
+                f"{port}: missing or invalid flap_count baseline/current "
+                f"({baseline_flap!r}->{current_flap!r}) - cannot verify stability during {window_desc}"
             )
-            logger.warning("Stability check FAILED: %s", details)
-            per_port[port] = {"passed": False, "details": details}
         elif (
-            count_failed
+            before_count != after_count
             or current_up != baseline_up
             or current_down != baseline_down
         ):
+            passed = False
             details = (
                 f"{port}: stability verification failed during {window_desc} "
                 f"(flap_count {baseline_flap}->{current_flap}, "
                 f"last_up_time {baseline_up}->{current_up}, "
                 f"last_down_time {baseline_down}->{current_down})"
             )
-            logger.warning("Stability check FAILED: %s", details)
-            per_port[port] = {"passed": False, "details": details}
         else:
+            passed = True
             details = (
                 f"{port}: stable for {window_desc} "
                 f"(flap_count={current_flap}, last_up_time={current_up}, "
                 f"last_down_time={current_down})"
             )
-            logger.info("Stability check PASSED: %s", details)
-            per_port[port] = {"passed": True, "details": details}
+        logger.log(logging.INFO if passed else logging.WARNING,
+                   "Stability check %s: %s", "PASSED" if passed else "FAILED", details)
+        per_port[port] = {"passed": passed, "details": details}
     return per_port
 
 
@@ -259,44 +256,6 @@ def assert_no_flap_since(
 # Standard Port Recovery and Verification Procedure
 # (see docs/testplan/transceiver/system_test_plan.md)
 # ──────────────────────────────────────────────────────────────────────
-
-
-def check_flap_counts_unchanged(duthost, ports, baseline, *, current_sentinels=None):
-    """Compare APPL_DB flap counters with baseline values.
-
-    ``baseline`` maps logical ports to integer counts or decimal strings.
-    Missing or invalid baseline/current counters fail verification. Callers
-    must not compare across operations that rebuild APPL_DB.
-    ``current_sentinels`` is an optional :func:`capture_flap_sentinels`
-    snapshot; when omitted, a fresh snapshot is captured here.
-    Returns ``{port: {'passed': bool, 'details': str}}``.
-    """
-    if current_sentinels is None:
-        current_sentinels = capture_flap_sentinels(duthost, ports)
-    per_port = {}
-    for port in ports:
-        before = baseline.get(port) if baseline is not None else None
-        after = current_sentinels.get(port, (None, None, None))[0]
-        try:
-            before_count = int(str(before))
-            after_count = int(str(after))
-            valid = before_count >= 0 and after_count >= 0
-        except (TypeError, ValueError):
-            valid = False
-        if not valid:
-            passed = False
-            details = (
-                f"{port}: missing or invalid flap_count baseline/current "
-                f"({before!r}->{after!r}) - cannot verify unchanged flap count"
-            )
-        else:
-            passed = before_count == after_count
-            details = (
-                f"{port}: flap_count {'unchanged' if passed else 'changed'} "
-                f"since baseline ({before_count}->{after_count})"
-            )
-        per_port[port] = {"passed": passed, "details": details}
-    return per_port
 
 
 def _wait_for_fresh_cmis_status(duthost, requests_by_ns, deadline):
@@ -491,11 +450,10 @@ def check_cmis_state(
 def standard_port_recovery_and_verification(
     duthost, ports, port_attributes_dict, link_up_timeout_sec, health_baseline,
     lport_to_first_subport_mapping,
+    *, port_peers,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
     expected_pid_changes=None,
-    flap_count_baseline=None,
-    assert_no_flap_across_op=False,
-    *, port_peers=None,
+    pre_operation_sentinels=None,
 ):
     """Run the Standard Port Recovery and Verification Procedure on a
     batch of ports (link status, flap/stability, LLDP, CMIS state,
@@ -519,19 +477,18 @@ def standard_port_recovery_and_verification(
             (seconds) for the stability sub-check.
         expected_pid_changes: set of monitored process names whose PID is
             expected to differ from ``health_baseline`` in the health check.
-        flap_count_baseline: dict of ``{port: flap_count}`` (integers or
-            decimal strings), required for each linked-up port when
-            ``assert_no_flap_across_op`` is True. Obtain counts from the
-            first element of each :func:`capture_flap_sentinels` value.
-        assert_no_flap_across_op: whether to additionally assert no flap
-            occurred across the whole operation (only valid where the link
-            stays up and the flap counter survives, e.g. xcvrd/pmon restart).
-        port_peers: optional session-scoped map of local ports to
+        pre_operation_sentinels: snapshot from :func:`capture_flap_sentinels`
+            taken before the operation for every requested port. Supplying it
+            additionally verifies unchanged counters and link timestamps
+            across the operation. Only supply it where the link stays up and
+            the counters survive, e.g. xcvrd/pmon restart or firmware download.
+        port_peers: session-scoped map of local ports to
             ``(PeerConnection, error)`` from the fixture of the same name.
-            Supplying it enables LLDP device/port identity validation, using
-            peer aliases resolved by the fixture. Include expected peers even
-            when links stay down; resolution errors or missing entries fail
-            the affected ports. Omit for presence-only LLDP verification.
+            Enables LLDP device/port identity validation using peer aliases
+            resolved by the fixture. Include expected peers even when links
+            stay down; resolution errors or missing entries fail the affected
+            ports only if LLDP verification is enabled (the default).
+            LLDP-disabled ports do not require peer entries.
     Returns:
         dict: ``{'passed': bool, 'per_port':
         {port: {'passed': bool, 'details': str}}, 'details': str,
@@ -557,7 +514,8 @@ def standard_port_recovery_and_verification(
     logger.info(
         "Standard Port Recovery starting: %d ports, link/health budget=%ss, "
         "stability window=%ss, no-flap across operation=%s",
-        len(ports), link_up_timeout_sec, stability_window_sec, assert_no_flap_across_op,
+        len(ports), link_up_timeout_sec, stability_window_sec,
+        pre_operation_sentinels is not None,
     )
     recovery_started_at = duthost.get_now_time(utc_timezone=True) if ports else None
     # ``None`` on single-ASIC -> no ``-n`` flag.
@@ -584,13 +542,18 @@ def standard_port_recovery_and_verification(
                 record_failure(check, port, result["details"], result.get("failure_reason"))
 
     expected_peers = {}
-    if port_peers is not None:
-        for port in ports:
-            peer, error = port_peers.get(port, (None, "missing port_peers entry"))
-            if error is not None:
-                record_failure("peer resolution", port, f"peer resolution: {error}", error)
-            else:
-                expected_peers[port] = peer
+    for port in ports:
+        system_attrs = port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {})
+        if not system_attrs.get("verify_lldp_on_link_up", True):
+            continue
+        peer, error = port_peers.get(port, (None, "missing port_peers entry"))
+        if error is not None:
+            record_failure("peer resolution", port, f"peer resolution: {error}", error)
+        elif peer is None or not peer.device or not peer.port:
+            reason = f"incomplete peer identity: {peer!r}"
+            record_failure("peer resolution", port, f"peer resolution: {reason}", reason)
+        else:
+            expected_peers[port] = peer
 
     link_poll_t0 = time.monotonic()
     link_check_dict = wait_until_links_up(
@@ -632,7 +595,7 @@ def standard_port_recovery_and_verification(
         attrs = port_attributes_dict[port]
         try:
             system_attrs = attrs[SYSTEM_ATTRIBUTES_KEY]
-            if system_attrs["verify_lldp_on_link_up"]:
+            if system_attrs["verify_lldp_on_link_up"] and port in expected_peers:
                 lldp_port_timeouts[port] = system_attrs["lldp_neighbor_wait_sec"]
         except KeyError as error:
             reason = f"missing required attribute {error}"
@@ -652,7 +615,7 @@ def standard_port_recovery_and_verification(
     if lldp_port_timeouts:
         record_results("LLDP", check_lldp_neighbors_present(
             duthost, lldp_port_timeouts, namespaces=namespaces,
-            expected_peers=expected_peers if port_peers is not None else None,
+            expected_peers=expected_peers,
             started_at=lldp_started_at,
         ))
     if cmis_port_timeouts:
@@ -719,9 +682,9 @@ def standard_port_recovery_and_verification(
             sum(not result["passed"] for result in stability_results.values()),
         )
         record_results("stability", stability_results)
-        if assert_no_flap_across_op:
-            flap_results = check_flap_counts_unchanged(
-                duthost, up_ports, flap_count_baseline,
+        if pre_operation_sentinels is not None:
+            flap_results = assert_no_flap_since(
+                duthost, up_ports, pre_operation_sentinels,
                 current_sentinels=current_sentinels,
             )
             logger.debug(
