@@ -995,51 +995,50 @@ def test_ecmp_group_member_flap(
     # Add them to filtered_ports
     filtered_ports.extend(ptf_ports_to_filter)
 
-    try:
-        logging.info("Shutting down interface {}".format(flap_config["interface"]))
-        flap_config["asic"].shutdown_interface(flap_config["interface"])
+    logging.info("Shutting down interface {}".format(flap_config["interface"]))
+    flap_config["asic"].shutdown_interface(flap_config["interface"])
 
-        # --- Re-run the PTF test after member down ---
-        logging.info("Verifying ECMP behavior after member down.")
-        down_fib_files = wait_for_ecmp_state(
-            duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request, flap_config, up=False
-        )
-        member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
-                                ipv4, ipv6, timestamp)
-        logging.info("PTF log file: {}".format(member_down_log_file))
+    # --- Re-run the PTF test after member down ---
+    logging.info("Verifying ECMP behavior after member down.")
+    down_fib_files = wait_for_ecmp_state(
+        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request, flap_config, up=False
+    )
+    member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
+                            ipv4, ipv6, timestamp)
+    logging.info("PTF log file: {}".format(member_down_log_file))
 
-        ptf_runner(
-            ptfhost,
-            "ptftests",
-            "fib_test.FibTest",
-            platform_dir="ptftests",
-            params={
-                "fib_info_files": down_fib_files[:3],
-                "ptf_test_port_map": ptf_test_port_map_active_active(
-                    ptfhost, updated_tbinfo, duthosts, mux_server_url,
-                    duts_running_config_facts, duts_minigraph_facts,
-                    mux_status_from_nic_simulator()
-                ),
-                "ipv4": ipv4,
-                "ipv6": ipv6,
-                "testbed_mtu": mtu,
-                "test_balancing": test_balancing,
-                "ignore_ttl": ignore_ttl,
-                "single_fib_for_duts": single_fib_for_duts,
-                "switch_type": switch_type,
-                "asic_type": asic_type,
-                "skip_src_ports": filtered_ports,
-                "topo_name": updated_tbinfo['topo']['name'],
-                "topo_type": updated_tbinfo['topo']['type'],
-            },
-            log_file=member_down_log_file,
-            qlen=PTF_QLEN,
-            socket_recv_size=16384,
-            is_python3=True
-        )
-    finally:
-        logging.info("Enabling interface {}".format(flap_config["interface"]))
-        flap_config["asic"].startup_interface(flap_config["interface"])
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "fib_test.FibTest",
+        platform_dir="ptftests",
+        params={
+            "fib_info_files": down_fib_files[:3],
+            "ptf_test_port_map": ptf_test_port_map_active_active(
+                ptfhost, updated_tbinfo, duthosts, mux_server_url,
+                duts_running_config_facts, duts_minigraph_facts,
+                mux_status_from_nic_simulator()
+            ),
+            "ipv4": ipv4,
+            "ipv6": ipv6,
+            "testbed_mtu": mtu,
+            "test_balancing": test_balancing,
+            "ignore_ttl": ignore_ttl,
+            "single_fib_for_duts": single_fib_for_duts,
+            "switch_type": switch_type,
+            "asic_type": asic_type,
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
+        },
+        log_file=member_down_log_file,
+        qlen=PTF_QLEN,
+        socket_recv_size=16384,
+        is_python3=True
+    )
+
+    logging.info("Enabling interface {}".format(flap_config["interface"]))
+    flap_config["asic"].startup_interface(flap_config["interface"])
 
     # Remove the PTF ports that were added earlier
     for ptf_port in ptf_ports_to_filter:
