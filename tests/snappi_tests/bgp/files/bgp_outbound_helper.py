@@ -1485,18 +1485,19 @@ def flap_fanout_ports(fanout_ip_port_mapping, creds, state):
         try:
             ssh.connect(fanout_ip, port=22, username=username, password=password)
             if state == 'down':
+                # ONE-SHOT: fire all shutdowns in parallel (background + wait) so the
+                # DUT sees a near-simultaneous blackout instead of a rolling multi-second
+                # sequential shutdown that inflates/destabilizes convergence timing.
+                cmd = ' '.join('sudo config interface shutdown {} &'.format(p) for p in req_ports) + ' wait'
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                stdout.channel.recv_exit_status()
                 for port_name in req_ports:
-                    time.sleep(0.05)
-                    stdin, stdout, stderr = ssh.exec_command(f'sudo config interface shutdown {port_name}')
-                    # Wait for command to complete
-                    stdout.channel.recv_exit_status()
                     logger.info('Shutting down {}'.format(port_name))
             elif state == 'up':
+                cmd = ' '.join('sudo config interface startup {} &'.format(p) for p in req_ports) + ' wait'
+                stdin, stdout, stderr = ssh.exec_command(cmd)
+                stdout.channel.recv_exit_status()
                 for port_name in req_ports:
-                    time.sleep(0.05)
-                    stdin, stdout, stderr = ssh.exec_command(f'sudo config interface startup {port_name}')
-                    # Wait for command to complete
-                    stdout.channel.recv_exit_status()
                     logger.info('Starting up {}'.format(port_name))
         finally:
             ssh.close()
