@@ -554,6 +554,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     else:
         ebgp_shutdown_duthosts.append(duthost)
 
+    # The previous post-yield cleanup was skipped when setup failed before yield.
     with ExitStack() as cleanup:
         for dut_host in ebgp_shutdown_duthosts:
             if dut_host.file(path=DUT_RUN_DIR, state="directory")["changed"]:

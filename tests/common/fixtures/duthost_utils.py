@@ -306,6 +306,8 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
+    # Fixture teardown is unavailable when setup fails before yield, so this
+    # helper must restore its own partially applied shutdown.
     shutdown_complete = False
     try:
         # Shutdown all eBGP neighbors
@@ -361,6 +363,7 @@ def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, ex
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     """Restore every quiesced DUT even if a later DUT fails during setup."""
+    # ExitStack also unwinds setup failures that occur before the fixture yields.
     with ExitStack() as cleanup:
         for duthost in duthosts.frontend_nodes:
             v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
