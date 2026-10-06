@@ -8,6 +8,23 @@ from tests.common.helpers.assertions import pytest_assert
 
 BMC_TEST_CA_NAME = "SONiC BMC Test CA"
 
+# HOST_STATE|switch-host device_power_state values bmcctld leaves once an action
+# has completed, with the device_status each goes with (pmon-bmc-design.md DB
+# schema). The value names the last action, so whether the host is on follows
+# from device_status, which is how sonic-dbus-bridge resolves it as well.
+HOST_FINAL_POWER_STATES = {
+    "POWERED_ON": "ONLINE",
+    "POWER_CYCLE": "ONLINE",
+    "POWERED_OFF": "OFFLINE",
+    "GRACEFUL_SHUTDOWN": "OFFLINE",
+}
+
+
+def host_is_settled_on(host_state):
+    """True when HOST_STATE|switch-host shows the switch host on with no action in flight."""
+    power_state = host_state.get("device_power_state")
+    return HOST_FINAL_POWER_STATES.get(power_state) == "ONLINE" and host_state.get("device_status") == "ONLINE"
+
 
 def redfish_url(bmc_ip, path):
     """Build a full https URL for a Redfish path on the BMC."""

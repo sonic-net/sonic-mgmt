@@ -29,7 +29,7 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.redfish.redfish_utils import assert_status_ok
+from tests.redfish.redfish_utils import assert_status_ok, host_is_settled_on
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,6 @@ TRANSITION_ON = "xyz.openbmc_project.State.Host.Transition.On"
 # host side keeps for the switch host's power state.
 COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
 HOST_STATE_KEY = "HOST_STATE|switch-host"
-HOST_POWERED_ON = "POWERED_ON"
 STATE_DB_INDEX = 6
 
 POLLERS = 4
@@ -194,19 +193,19 @@ class TestRedfishConcurrency:
         """
         ResetType=On requests while several pollers walk the inventory.
 
-        HOST_STATE must already say the switch host is POWERED_ON so the
+        HOST_STATE must already show the switch host settled on so the
         resets are no-ops for it and only exercise the request path. Every
         poll must be answered 200 with the same members as before, every
         reset must be accepted and turn into a RequestedHostTransition on
         D-Bus and a RACK_MANAGER_COMMAND row in STATE_DB, HOST_STATE must
-        read POWERED_ON again afterwards and neither bmcweb nor the bridge
-        may restart.
+        show the host on and unchanged afterwards and neither bmcweb nor the
+        bridge may restart.
         """
         host_state_before = _state_db_hgetall(bmc_duthost, HOST_STATE_KEY)
         logger.info("%s before: %s", HOST_STATE_KEY, host_state_before)
-        if host_state_before.get("device_power_state") != HOST_POWERED_ON:
-            pytest.skip("{} device_power_state is {!r}, ResetType=On would change the switch host".format(
-                HOST_STATE_KEY, host_state_before.get("device_power_state")))
+        if not host_is_settled_on(host_state_before):
+            pytest.skip("{} is {}, ResetType=On would change the switch host".format(
+                HOST_STATE_KEY, host_state_before))
         pids_before = _running_pids(bmc_duthost)
 
         baseline = {}
@@ -292,12 +291,12 @@ class TestRedfishConcurrency:
         )
         logger.info("STATE_DB received %d RACK_MANAGER_COMMAND rows: %s", len(rows), rows)
 
-        def _host_powered_on():
-            return _state_db_hgetall(bmc_duthost, HOST_STATE_KEY).get("device_power_state") == HOST_POWERED_ON
+        def _host_settled_on():
+            return host_is_settled_on(_state_db_hgetall(bmc_duthost, HOST_STATE_KEY))
 
-        pytest_assert(wait_until(COMMAND_ROW_TIMEOUT, 2, 0, _host_powered_on),
-                      "{} device_power_state did not read {} again within {}s".format(
-                          HOST_STATE_KEY, HOST_POWERED_ON, COMMAND_ROW_TIMEOUT))
+        pytest_assert(wait_until(COMMAND_ROW_TIMEOUT, 2, 0, _host_settled_on),
+                      "{} did not show the switch host settled on again within {}s".format(
+                          HOST_STATE_KEY, COMMAND_ROW_TIMEOUT))
         host_state_after = _state_db_hgetall(bmc_duthost, HOST_STATE_KEY)
         logger.info("%s after: %s", HOST_STATE_KEY, host_state_after)
         if host_state_before:

@@ -37,7 +37,12 @@ from tests.common.helpers.sonic_db import (
     redis_keys,
 )
 from tests.common.utilities import wait_until
-from tests.redfish.redfish_utils import assert_no_content, assert_status_ok
+from tests.redfish.redfish_utils import (
+    HOST_FINAL_POWER_STATES,
+    assert_no_content,
+    assert_status_ok,
+    host_is_settled_on,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +71,8 @@ DEFAULT_RACK_MGR_CRITICAL_ALERT_ACTION = "syslog_only"
 BMCCTLD = "bmcctld"
 PMON_CONTAINER = "pmon"
 
-# Settled HOST_STATE.device_power_state -> HOST_STATE.device_status and CHASSIS_MODULE_TABLE.oper_status
+# bmcctld rewrites HOST_STATE from the live oper status when it starts, so a restart settles on this value.
 HOST_POWERED_ON = "POWERED_ON"
-POWER_STATE_MAP = {
-    HOST_POWERED_ON: "ONLINE",
-    "POWERED_OFF": "OFFLINE",
-}
 
 CMD_POWER_ON = "POWER_ON"
 CMD_DONE = "DONE"
@@ -180,12 +181,11 @@ def _host_state_newer_than(bmc_duthost, before):
 
 @pytest.fixture(scope="function")
 def system_is_on(bmc_duthost):
-    """Skip unless HOST_STATE says the switch host is POWERED_ON, so every ResetType=On here is a no-op for it."""
-    power_state = _device_power_state(bmc_duthost)
-    pyrequire(power_state == HOST_POWERED_ON,
-              "{} device_power_state is {!r}, ResetType=On would change the switch host".format(
-                  HOST_STATE_KEY, power_state))
-    return power_state
+    """Skip unless HOST_STATE shows the switch host settled on, so every ResetType=On here is a no-op for it."""
+    host_state = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+    pyrequire(host_is_settled_on(host_state),
+              "{} is {}, ResetType=On would change the switch host".format(HOST_STATE_KEY, host_state))
+    return host_state.get("device_power_state")
 
 
 @pytest.fixture(scope="function")
@@ -267,8 +267,8 @@ class TestRedfishPmonInteraction:
         command=POWER_ON, bmcctld must consume it to status=DONE result=SUCCESS
         (the host is already On, so the action is a successful no-op), and the
         row must remain in STATE_DB afterwards: neither side deletes command
-        history, so it stays available for audit. HOST_STATE must still read
-        POWERED_ON.
+        history, so it stays available for audit. HOST_STATE must be left
+        unchanged.
         """
         keys_before = _command_keys(bmc_duthost)
         logger.info("{} rows before: {}".format(COMMAND_TABLE, len(keys_before)))
@@ -285,15 +285,17 @@ class TestRedfishPmonInteraction:
         retained = redis_hgetall(bmc_duthost, STATE_DB, key)
         pytest_assert(retained == fields,
                       "{} must be retained unchanged after completion, got: {}".format(key, retained))
-        pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,
-                      "{} must still read {} after ResetType=On".format(HOST_STATE_KEY, HOST_POWERED_ON))
+        pytest_assert(_device_power_state(bmc_duthost) == system_is_on,
+                      "{} must still read {} after ResetType=On".format(HOST_STATE_KEY, system_is_on))
 
     def test_power_state_consistent_across_layers(self, bmc_duthost, bmcctld_running):
         """
         The two STATE_DB views bmcctld keeps of the switch host agree.
 
-        HOST_STATE device_power_state=POWERED_ON goes with device_status=ONLINE
-        and CHASSIS_MODULE_TABLE oper_status=ONLINE, POWERED_OFF with OFFLINE.
+        device_power_state names the last completed action, POWERED_ON or
+        POWER_CYCLE for a host that is on and POWERED_OFF or GRACEFUL_SHUTDOWN
+        for one that is off (pmon-bmc-design.md DB schema). device_status and
+        CHASSIS_MODULE_TABLE oper_status must read ONLINE or OFFLINE to match.
         A transitional device_power_state is reported as a failure since the
         system should be settled when nothing is in flight.
         """
@@ -302,10 +304,10 @@ class TestRedfishPmonInteraction:
         logger.info("{}={} {}={}".format(HOST_STATE_KEY, host_state, MODULE_INFO_KEY, module_info))
 
         power_state = host_state.get("device_power_state")
-        pytest_assert(power_state in POWER_STATE_MAP,
+        pytest_assert(power_state in HOST_FINAL_POWER_STATES,
                       "{} device_power_state must be one of {}, got {!r}".format(
-                          HOST_STATE_KEY, sorted(POWER_STATE_MAP), power_state))
-        expected_status = POWER_STATE_MAP[power_state]
+                          HOST_STATE_KEY, sorted(HOST_FINAL_POWER_STATES), power_state))
+        expected_status = HOST_FINAL_POWER_STATES[power_state]
         pytest_assert(host_state.get("device_status") == expected_status,
                       "{} device_status must be {} for device_power_state={}, got: {}".format(
                           HOST_STATE_KEY, expected_status, power_state, host_state))
@@ -332,8 +334,8 @@ class TestRedfishPmonInteraction:
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
         _assert_command_outcome(key, fields, CMD_FAILED, RESULT_CRITICAL)
-        pytest_assert(_device_power_state(bmc_duthost) == HOST_POWERED_ON,
-                      "{} must stay {} while the alert is active".format(HOST_STATE_KEY, HOST_POWERED_ON))
+        pytest_assert(_device_power_state(bmc_duthost) == system_is_on,
+                      "{} must stay {} while the alert is active".format(HOST_STATE_KEY, system_is_on))
 
         response = redfish_client.post(alert_target, json=CLEARED_LEAK_PAYLOAD)
         assert_no_content(response, alert_target)
@@ -374,7 +376,7 @@ class TestRedfishPmonInteraction:
         )
         host_state_after = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
         logger.info("{} after restart: {}".format(HOST_STATE_KEY, host_state_after))
-        expected_power, expected_status = HOST_POWERED_ON, POWER_STATE_MAP[HOST_POWERED_ON]
+        expected_power, expected_status = HOST_POWERED_ON, HOST_FINAL_POWER_STATES[HOST_POWERED_ON]
         pytest_assert(
             host_state_after.get("device_power_state") == expected_power
             and host_state_after.get("device_status") == expected_status,

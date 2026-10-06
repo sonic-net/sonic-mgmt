@@ -52,6 +52,7 @@ from tests.redfish.redfish_utils import (
     assert_field_equals,
     assert_redfish_error,
     assert_status_ok,
+    host_is_settled_on,
 )
 
 logger = logging.getLogger(__name__)
@@ -434,13 +435,12 @@ def host_power_state(bmc_duthost):
     Only the STATE_DB row is written, never the switch host: bmcctld rewrites
     the row on a real transition and leaves it alone otherwise, so a
     simulated value stays until this fixture restores the snapshot. Requires
-    the host to be settled POWERED_ON/ONLINE so nothing real is in flight.
+    the host to be settled on so nothing real is in flight.
     """
     before = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
-    pyrequire(
-        before.get("device_power_state") == "POWERED_ON" and before.get("device_status") == "ONLINE",
-        "{} must read POWERED_ON/ONLINE to simulate power events, got: {}".format(HOST_STATE_KEY, before)
-    )
+    pyrequire(host_is_settled_on(before),
+              "{} must show the switch host settled on to simulate power events, got: {}".format(
+                  HOST_STATE_KEY, before))
 
     def _write(power_state, device_status):
         redis_hset(bmc_duthost, STATE_DB, HOST_STATE_KEY, device_power_state=power_state, device_status=device_status,
