@@ -2,10 +2,17 @@
 
 import logging
 import time
+
+from event_utils import (
+    add_test_watchdog_timeout_service,
+    backup_monit_config,
+    customize_monit_config,
+    delete_test_watchdog_timeout_service,
+    restore_monit_config,
+    trigger_logger,
+)
 from run_events_test import run_test
-from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
-from event_utils import add_test_watchdog_timeout_service, delete_test_watchdog_timeout_service
-from event_utils import trigger_logger
+
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until
 
@@ -15,41 +22,139 @@ tag = "sonic-events-host"
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test host events")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
-             "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, kill_critical_process,
-             "process_exited_unexpectedly.json", "sonic-events-host:process-exited-unexpectedly",
-             tag, False)
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        trigger_kernel_event,
+        "event_kernel.json",
+        "sonic-events-host:event-kernel",
+        tag,
+        False,
+    )
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        kill_critical_process,
+        "process_exited_unexpectedly.json",
+        "sonic-events-host:process-exited-unexpectedly",
+        tag,
+        False,
+    )
     backup_monit_config(duthost)
     customize_monit_config(
         duthost,
         [
             "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-            "> 0.1% for 1 times within 5 cycles then alert repeat every 1 cycles"
-        ]
+            "> 0.1% for 1 times within 5 cycles then alert repeat every 1 cycles",
+        ],
     )
     try:
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
-                 "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
-                 "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
-                 "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
-                 "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag,
-                 start_listen_first=True)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
-                 "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
-                 "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            None,
+            "memory_usage.json",
+            "sonic-events-host:memory-usage",
+            tag,
+            False,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            None,
+            "disk_usage.json",
+            "sonic-events-host:disk-usage",
+            tag,
+            False,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            None,
+            "cpu_usage.json",
+            "sonic-events-host:cpu-usage",
+            tag,
+            False,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            trigger_mem_threshold_exceeded_alert,
+            "mem_threshold_exceeded.json",
+            "sonic-events-host:mem-threshold-exceeded",
+            tag,
+            start_listen_first=True,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            restart_container,
+            "event_stopped_ctr.json",
+            "sonic-events-host:event-stopped-ctr",
+            tag,
+            False,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            stop_container,
+            "event_down_ctr.json",
+            "sonic-events-host:event-down-ctr",
+            tag,
+            False,
+        )
     finally:
         restore_monit_config(duthost)
     add_test_watchdog_timeout_service(duthost)
     try:
         # We need to alot flat 60 seconds for watchdog timeout to fire since the timer is set to 60\
         # With a base limit of 30 seconds, we will use 90 seconds
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
-                 "watchdog_timeout.json", "sonic-events-host:watchdog-timeout", tag, False, 90)
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            None,
+            "watchdog_timeout.json",
+            "sonic-events-host:watchdog-timeout",
+            tag,
+            False,
+            90,
+        )
     finally:
         delete_test_watchdog_timeout_service(duthost)
 
@@ -109,14 +214,14 @@ def stop_container(duthost, tbinfo):
 
     duthost.shell("config feature autorestart {} disabled".format(container))
     duthost.shell("docker stop {}".format(container))
-    output = duthost.shell("sonic-db-cli STATE_DB hget \"FEATURE|{}\" \"container_id\"".format(container))['stdout']
+    output = duthost.shell('sonic-db-cli STATE_DB hget "FEATURE|{}" "container_id"'.format(container))["stdout"]
     if output:
-        duthost.shell("sonic-db-cli STATE_DB hset \"FEATURE|{}\" \"container_id\" \"\"".format(container))
+        duthost.shell('sonic-db-cli STATE_DB hset "FEATURE|{}" "container_id" ""'.format(container))
 
     time.sleep(30)  # Wait 30 seconds for container_checker to fire event
 
     if output:
-        duthost.shell("sonic-db-cli STATE_DB hset \"FEATURE|{}\" \"container_id\" {}".format(container, output))
+        duthost.shell('sonic-db-cli STATE_DB hset "FEATURE|{}" "container_id" {}'.format(container, output))
 
     duthost.shell("config feature autorestart {} enabled".format(container))
     duthost.shell("systemctl restart {}".format(container))
@@ -128,7 +233,7 @@ def kill_critical_process(duthost, tbinfo):
     assert pid != "", "No available process for testing"
 
     change_autorestart = False
-    autorestart = duthost.shell("show feature autorestart {}".format(container))['stdout_lines']
+    autorestart = duthost.shell("show feature autorestart {}".format(container))["stdout_lines"]
     if "disabled" in str(autorestart):
         change_autorestart = True
         duthost.shell("config feature autorestart {} enabled".format(container))

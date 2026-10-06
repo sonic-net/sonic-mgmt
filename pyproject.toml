@@ -26,7 +26,7 @@ check-conditional-mark-sort = 'pre_commit_hooks.check_conditional_mark_sort:main
 
 [tool.black]
 line-length = 120
-include = '^tests/common2/.*\.py$'
+include = '^(tests/common2|tests/gnmi)/.*\.py$'
 extend-exclude = '''
 (
   \.git
