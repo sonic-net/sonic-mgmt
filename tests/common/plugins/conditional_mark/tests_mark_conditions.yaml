@@ -5764,6 +5764,12 @@ test_pretest.py::test_disable_rsyslog_rate_limit:
     conditions:
       - "asic_type in ['vs']"
 
+test_pretest.py::test_recover_admin_up_offline_dpu_modules:
+  skip:
+    reason: "SmartSwitch DPU module recovery is not applicable to KVM testbeds"
+    conditions:
+      - "asic_type in ['vs', 'vpp']"
+
 #######################################
 #####         vs_chassis          #####
 #######################################
