@@ -6,9 +6,15 @@ An issue counts as linked when GitHub lists it in the pull request's
 Development sidebar. These are the issues GitHub shows as linked on the issue
 page, and closes when the PR merges.
 
-For every such issue that is open and in this repository, the script:
-  * adds the TRIAGED_LABEL label (default "Triaged"), and
-  * assigns the issue to the pull request author.
+For every such issue that is open, in this repository and not yet labelled
+TRIAGED_LABEL (default "Triaged"), the script:
+  * adds the TRIAGED_LABEL label, and
+  * assigns the issue to the pull request author or, when GitHub will not let
+    them be assigned (they are not a sonic-net member or collaborator), posts a
+    comment on the issue mentioning them instead.
+
+Issues that already carry the label are left alone, which also keeps the
+hourly scan from repeating itself.
 
 GitHub fires no workflow event when an issue is linked, so the workflow runs
 when a PR is opened, reopened or edited (which covers closing keywords added to
@@ -90,6 +96,30 @@ def rest_post(path: str, body: dict) -> dict:
     return response.json()
 
 
+def can_be_assigned(issue_number: int, login: str) -> bool:
+    """Whether GitHub allows `login` to be assigned to this issue.
+
+    Assignees are limited to sonic-net members, repository collaborators and
+    people who have commented on the issue. Assigning anyone else does not
+    fail: GitHub drops them and still returns 201, hence the explicit check.
+    """
+    response = requests.get(
+        f"{API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/assignees/{login}", headers=HEADERS, timeout=30
+    )
+    if response.status_code == 404:
+        return False
+    response.raise_for_status()
+    return True
+
+
+def unassignable_comment(pr_number: int, login: str) -> str:
+    return (
+        f"@{login} is working on this issue in #{pr_number}.\n\n"
+        "GitHub does not allow this issue to be assigned to them automatically (assignees must be "
+        "members of the sonic-net organization or collaborators on this repository)."
+    )
+
+
 def triage_issues(pull_request: dict) -> int:
     """Triage the issues `pull_request` is linked to. Returns how many were changed."""
     number = pull_request["number"]
@@ -97,7 +127,7 @@ def triage_issues(pull_request: dict) -> int:
     login = author.get("login", "")
     # Bots (dependabot, mssonicbld's cherry-picks, ...) cannot be assigned
     # issues; still label what they fix.
-    assignable = bool(login) and author.get("__typename") == "User"
+    is_user = bool(login) and author.get("__typename") == "User"
 
     changed = 0
     for issue in pull_request["closingIssuesReferences"]["nodes"]:
@@ -109,38 +139,37 @@ def triage_issues(pull_request: dict) -> int:
             continue
         if issue["state"] != "OPEN":
             continue
-
-        labels = {label["name"] for label in issue["labels"]["nodes"]}
-        assignees = {assignee["login"].lower() for assignee in issue["assignees"]["nodes"]}
-        add_label = TRIAGED_LABEL not in labels
-        add_assignee = assignable and login.lower() not in assignees
-        if not add_label and not add_assignee:
+        if TRIAGED_LABEL in {label["name"] for label in issue["labels"]["nodes"]}:
             continue
 
-        actions = []
-        if add_label:
-            actions.append(f"label '{TRIAGED_LABEL}'")
-        if add_assignee:
+        issue_number = issue["number"]
+        assignees = {assignee["login"].lower() for assignee in issue["assignees"]["nodes"]}
+        assign = is_user and login.lower() not in assignees and can_be_assigned(issue_number, login)
+        comment = is_user and login.lower() not in assignees and not assign
+
+        actions = [f"label '{TRIAGED_LABEL}'"]
+        if assign:
             actions.append(f"assign @{login}")
-        print(f"PR #{number} links issue #{issue['number']}: {', '.join(actions)}.")
+        if comment:
+            actions.append(f"comment for @{login} (cannot be assigned)")
+        print(f"PR #{number} links issue #{issue_number}: {', '.join(actions)}.")
         changed += 1
         if DRY_RUN:
             continue
 
-        issue_path = f"/repos/{GITHUB_REPOSITORY}/issues/{issue['number']}"
-        if add_label:
-            rest_post(f"{issue_path}/labels", {"labels": [TRIAGED_LABEL]})
-        if add_assignee:
-            # GitHub silently drops assignees who cannot be assigned here
-            # (outside contributors who have not commented on the issue), so
-            # check the result rather than trusting the 201.
+        issue_path = f"/repos/{GITHUB_REPOSITORY}/issues/{issue_number}"
+        if assign:
             result = rest_post(f"{issue_path}/assignees", {"assignees": [login]})
+            # Checked above, but GitHub drops an unassignable user silently
+            # rather than failing, so fall back to the comment if it did.
             if login.lower() not in {assignee["login"].lower() for assignee in result.get("assignees", [])}:
-                print(
-                    f"WARNING: GitHub did not assign issue #{issue['number']} to @{login} "
-                    "(probably not an assignable user in this repository).",
-                    file=sys.stderr,
-                )
+                print(f"WARNING: GitHub did not assign issue #{issue_number} to @{login}.", file=sys.stderr)
+                comment = True
+        if comment:
+            rest_post(f"{issue_path}/comments", {"body": unassignable_comment(number, login)})
+        # Labelled last: the label is what marks the issue as handled, so a
+        # failure above leaves it to be retried by the next run.
+        rest_post(f"{issue_path}/labels", {"labels": [TRIAGED_LABEL]})
     return changed
 
 
