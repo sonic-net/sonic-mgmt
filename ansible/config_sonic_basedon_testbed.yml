@@ -51,6 +51,16 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
+    - name: Require a supplied IPv6 address for IPv6-only deployment
+      assert:
+        that:
+          - >-
+            (hostvars[item].ansible_host | ansible.utils.ipv6) is not false or
+            (hostvars[item].ansible_hostv6 | default('') | ansible.utils.ipv6) is not false
+        fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ item }}"
+      loop: "{{ testbed_facts['duts'] }}"
+      when: use_ipv6_mgmt|default(false)|bool
+
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
       include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
@@ -80,7 +90,7 @@
       debug:
         msg: |
           IPv6-only management mode requested for {{ inventory_hostname }}
-          Target management IP: {{ ansible_hostv6 | default(ansible_host, true) }}
+          Target management IP: {{ ansible_host if (ansible_host | ansible.utils.ipv6) else ansible_hostv6 }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -319,7 +329,6 @@
       port_alias: "{{ port_alias }}"
       vlan_intfs: "{{ vlan_intfs }}"
       vlan_config: "{{ vlan_config | default(None) }}"
-      use_ipv6_mgmt: "{{ use_ipv6_mgmt | default(false) | bool }}"
     delegate_to: localhost
     when: "'dualtor' in topo or 'cable' in topo"
 
@@ -834,57 +843,38 @@
       # t2_single_node golden_config needs port_config from generated minigraph so
       # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
-        become: true
-        shell: config load_minigraph -y
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - not (use_ipv6_mgmt|default(false)|bool)
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+        block:
+          - name: Load minigraph before golden generation
+            become: true
+            shell: config load_minigraph -y
+            register: preload_minigraph_result
+            async: "{{ 300 if use_ipv6_mgmt|default(false)|bool else 0 }}"
+            poll: "{{ 0 if use_ipv6_mgmt|default(false)|bool else 15 }}"
 
-      - name: Apply minigraph prior to generating golden_config_db.json (IPv6 transition)
-        become: true
-        shell: config load_minigraph -y
-        register: preload_minigraph_result_ipv6
-        async: 300
-        poll: 0
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - use_ipv6_mgmt|default(false)|bool
+          - name: Wait for IPv6 management after pre-golden minigraph load
+            become: false
+            local_action: wait_for
+            args:
+              host: "{{ ansible_host if (ansible_host | ansible.utils.ipv6) else ansible_hostv6 }}"
+              port: 22
+              state: started
+              search_regex: "OpenSSH_[\\w\\.]+ Debian"
+              delay: 15
+              timeout: 600
+            changed_when: false
+            when: use_ipv6_mgmt|default(false)|bool
 
-      - name: Pause briefly to allow pre-golden minigraph load to start (IPv6 transition)
-        pause:
-          seconds: 5
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - use_ipv6_mgmt|default(false)|bool
+          - name: Wait for pre-golden minigraph load to complete
+            become: true
+            async_status:
+              jid: "{{ preload_minigraph_result.ansible_job_id }}"
+            register: preload_minigraph_poll
+            until: preload_minigraph_poll.finished
+            retries: 60
+            delay: 5
+            when: use_ipv6_mgmt|default(false)|bool
 
-      - name: Wait for IPv6 target after pre-golden minigraph load
-        become: false
-        local_action: wait_for
-        args:
-          host: "{{ ansible_hostv6 | default(ansible_host, true) }}"
-          port: 22
-          state: started
-          search_regex: "OpenSSH_[\\w\\.]+ Debian"
-          delay: 10
-          timeout: 600
-        changed_when: false
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - use_ipv6_mgmt|default(false)|bool
-
-      - name: Wait for pre-golden minigraph load to complete
-        become: true
-        async_status:
-          jid: "{{ preload_minigraph_result_ipv6.ansible_job_id }}"
-        register: preload_minigraph_poll_ipv6
-        until: preload_minigraph_poll_ipv6.finished
-        retries: 60
-        delay: 5
-        when:
-          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-          - use_ipv6_mgmt|default(false)|bool
-
-      # Keep ansible_host canonical; multi_passwd_ssh owns transport fallback for later remote tasks.
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
         shell: |
@@ -1032,12 +1022,10 @@
         become: false
         local_action: wait_for
         args:
-          # When use_ipv6_mgmt is true, wait on IPv6 address
-          # Normal mode intentionally waits only on canonical ansible_host:
-          # transport fallback must not hide a failure to restore the requested primary address.
           host: >-
-            {{ (ansible_hostv6 | default(ansible_host, true))
-               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
+            {{ ansible_hostv6
+               if use_ipv6_mgmt|default(false)|bool and not (ansible_host | ansible.utils.ipv6)
+               else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
@@ -1045,7 +1033,6 @@
           timeout: 600
         changed_when: false
 
-      # Keep ansible_host canonical after the explicit transition as well.
       - name: Validate breakout config params
         assert:
           that:

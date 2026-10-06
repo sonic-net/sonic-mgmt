@@ -50,15 +50,7 @@
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% set inventory_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
-{% if use_ipv6_mgmt|default(false)|bool %}
-{% set effective_mgmt_ipv6 = ansible_hostv6 | default(ansible_host, true) %}
-{% elif inventory_host_is_ipv6 %}
-{% set effective_mgmt_ipv6 = ansible_host %}
-{% elif ansible_hostv6 is defined and (ansible_hostv6 | ansible.utils.ipv6) %}
-{% set effective_mgmt_ipv6 = ansible_hostv6 %}
-{% else %}
-{% set effective_mgmt_ipv6 = 'fc00:2::32' %}
-{% endif %}
+{% set effective_mgmt_ipv6 = ansible_host if inventory_host_is_ipv6 else ansible_hostv6 | default('fc00:2::32', true) %}
 {% if (use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool) and not inventory_host_is_ipv6 %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
@@ -70,7 +62,7 @@
         </a:ManagementIPInterface>
 {% endif %}
         <a:ManagementIPInterface>
-          <Name>{% if use_ipv6_mgmt is defined and use_ipv6_mgmt|bool %}HostIP{% else %}V6HostIP{% endif %}</Name>
+          <Name>{% if use_ipv6_mgmt|default(false)|bool or inventory_host_is_ipv6 %}HostIP{% else %}V6HostIP{% endif %}</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
             <b:IPPrefix>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>

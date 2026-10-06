@@ -1,5 +1,4 @@
 from ansible.module_utils.basic import AnsibleModule
-import ipaddress
 import os
 import yaml
 import traceback
@@ -25,8 +24,7 @@ def load_topo_file(topo_name):
 
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config,
-                 use_ipv6_mgmt=False):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars = host_vars
@@ -34,7 +32,6 @@ class DualTorParser:
         self.port_alias = port_alias
         self.vlan_intfs = vlan_intfs
         self.vlan_config = vlan_config
-        self.use_ipv6_mgmt = use_ipv6_mgmt
         self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
@@ -44,21 +41,13 @@ class DualTorParser:
         neighbor = {}
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
-        neighbor_host_vars = self.host_vars[neighbor['hostname']]
-        neighbor_ip = neighbor_host_vars['ansible_host']
-        if not self.use_ipv6_mgmt or ipaddress.ip_address(neighbor_ip).version == 6:
-            neighbor['ip'] = neighbor_ip
-        if neighbor_host_vars.get('ansible_hostv6'):
-            ipaddress.IPv6Address(neighbor_host_vars['ansible_hostv6'])
-            neighbor['ip_v6'] = neighbor_host_vars['ansible_hostv6']
-        if self.use_ipv6_mgmt and not (neighbor.get('ip') or neighbor.get('ip_v6')):
-            raise ValueError("IPv6-only management requested but peer {} has no IPv6 address".format(
-                neighbor['hostname']))
-
-        if 'hwsku' in neighbor_host_vars:
-            neighbor['hwsku'] = neighbor_host_vars['hwsku']
+        neighbor['ip'] = self.host_vars[neighbor['hostname']]['ansible_host']
+        if self.host_vars[neighbor['hostname']].get('ansible_hostv6'):
+            neighbor['ip_v6'] = self.host_vars[neighbor['hostname']]['ansible_hostv6']
+        if 'hwsku' in self.host_vars[neighbor['hostname']]:
+            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
         else:
-            neighbor['hwsku'] = neighbor_host_vars['sonic_hwsku']
+            neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['sonic_hwsku']
 
         self.dual_tor_facts['neighbor'] = neighbor
 
@@ -138,7 +127,6 @@ def main():
             port_alias=dict(required=True, default=None, type='list'),
             vlan_intfs=dict(required=True, default=None, type='list'),
             vlan_config=dict(required=False, default=None, type='str'),
-            use_ipv6_mgmt=dict(required=False, default=False, type='bool'),
         ),
         supports_check_mode=True
     )
@@ -157,8 +145,7 @@ def main():
     vlan_config = m_args['vlan_config']
     try:
         dual_tor_parser = DualTorParser(
-            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config,
-            use_ipv6_mgmt=m_args['use_ipv6_mgmt'])
+            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config)
         module.exit_json(
             ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception:
