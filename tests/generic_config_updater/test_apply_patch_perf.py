@@ -95,7 +95,11 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     # (binding ACL tables to LAG member ports causes orchagent ERR logs
     # which trigger loganalyzer failures)
     output = duthost.shell("sonic-cfggen -d --var-json PORT")
-    ports = json.loads(output['stdout'])
+    # Devices with no PORT table at all (e.g. a BMC) return empty stdout, so fall
+    # through to the admin-up port check below rather than failing to parse.
+    ports = {}
+    if output['rc'] == 0 and output['stdout'].strip():
+        ports = json.loads(output['stdout'])
 
     pc_output = duthost.shell("sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
                               module_ignore_errors=True)

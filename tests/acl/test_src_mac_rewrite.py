@@ -11,15 +11,14 @@ import logging
 import pytest
 import json
 import ipaddress
-from datetime import datetime
-from scapy.all import Ether, IP, UDP
 from tests.common.helpers.assertions import pytest_assert
-from ptf import testutils
-from ptf.testutils import dp_poll, send_packet
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.common.plugins.test_completeness import CompletenessLevel
+import ptf.testutils as testutils
+import ptf.packet as scapy
+from ptf.mask import Mask
 
 ecmp_utils = Ecmp_Utils()
 
@@ -37,22 +36,26 @@ ACL_COUNTERS_UPDATE_INTERVAL = 10
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 ACL_REMOVE_RULES_FILE = "acl_rules_del.json"
-ACL_RULES_FILE = 'acl_config.json'
 TMP_DIR = '/tmp'
 CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 
 # VXLAN/VNET configuration constants
 PTF_VTEP_IP = "100.0.1.10"  # PTF VTEP endpoint IP
-DUT_VTEP_IP = "10.1.0.32"   # DUT VTEP IP
 VXLAN_UDP_PORT = 4789       # Standard VXLAN UDP port
-VXLAN_VNI = 10000           # VXLAN Network Identifier
-RANDOM_MAC = "00:aa:bb:cc:dd:ee"  # Random MAC for outer Ethernet dst
-VNET_NAME = "Vnet1"
-VNET_ROUTE_DST_IP = "150.0.3.1"
-VNET_ROUTE_PREFIX = "{}/32".format(VNET_ROUTE_DST_IP)
+VXLAN_VNI = 10000           # Primary VXLAN Network Identifier
+UNPROVISIONED_VNI = 30000   # VNI intentionally not provisioned; used to test the VNI-mismatch (no-rewrite) case
+VNET_PRIMARY_NAME = "Vnet-0"          # Primary VNET name (ecmp_utils default naming)
+VNET_PRIMARY_ROUTE_IP = "150.0.3.1"   # Primary VNET route destination IP
+VNET_PRIMARY_ROUTE_PREFIX = f"{VNET_PRIMARY_ROUTE_IP}/32"
+VNET_INGRESS_IP = "201.0.0.1/24"      # Routed IP on the VNET ingress interface
+# Tunnel MAC the ASIC uses as inner eth_dst on VNET encap; must be DISTINCT from the system
+# router_mac or Cisco-8000 ignores it. Matches the other VNET tests (test_vxlan_vnet_bgp_subintf).
+VXLAN_ROUTER_MAC = "00:12:34:56:78:9a"
 
 ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
+ACL_RULE_PRIORITY = "1000"  # All ACL rules in this module use the same priority
+ACL_RULES_FILE = 'acl_config.json'  # Bulk ACL rule config file used by the scale test
 
 # Scale test rule count per completeness level. One packet is sent per rule, so the runtime
 # grows linearly with the count; 'thorough' targets the maximum hardware capacity.
@@ -63,15 +66,127 @@ SCALE_RULE_COUNT_LEVEL_MAP = {
     "thorough": 9000
 }
 
-# IP range for scale testing
+# IP range used for scale testing
 SCALE_IP_BASE = "201.0.0.0"
 SCALE_IP_PREFIX = 16
+# Arbitrary MAC used as the pre-rewrite inner source MAC for scale test packets. VNET L3 routing
+# rebuilds the inner Ethernet header regardless of the injected value, so it need not be unique.
+SCALE_TEST_ORIG_MAC = "00:11:22:33:44:55"
+
+
+def _check_acl_rule_active(duthost, table_name, rule_name):
+    result = duthost.show_and_parse(f'show acl rule {table_name} {rule_name}')
+    return any(entry.get('status', '').lower() == 'active' for entry in result)
+
+
+def _check_acl_rule_absent(duthost, table_name, rule_name):
+    result = duthost.show_and_parse(f'show acl rule {table_name} {rule_name}')
+    return len(result) == 0
+
+
+def _check_acl_table_present(duthost, table_name):
+    result = duthost.show_and_parse(f'show acl table {table_name}')
+    return any(entry.get('name') == table_name and entry.get('status', '').lower() == 'active' for entry in result)
+
+
+def _check_acl_table_absent(duthost, table_name):
+    result = duthost.show_and_parse(f'show acl table {table_name}')
+    return not any(entry.get('name') == table_name for entry in result)
+
+
+def _check_acl_table_type_in_config_db(duthost, type_name):
+    result = duthost.shell(f'redis-cli -n 4 KEYS "ACL_TABLE_TYPE|{type_name}"')["stdout"]
+    return type_name in result
+
+
+def _check_acl_counter_updated(dut, tbl, rule, prev):
+    result = dut.show_and_parse('aclshow -a')
+    for entry in result:
+        if entry.get('table name') == tbl and entry.get('rule name') == rule:
+            try:
+                return int(entry.get('packets count', 0)) > prev
+            except ValueError:
+                return False
+    return False
+
+
+def _vnet_route_state_db_key(vnet, prefix):
+    return "VNET_ROUTE_TUNNEL_TABLE|{}|{}".format(vnet, prefix)
+
+
+def _check_vnet_route(duthost, vnet=VNET_PRIMARY_NAME, prefix=VNET_PRIMARY_ROUTE_PREFIX):
+    result = duthost.shell(
+        "redis-cli -n 6 HGET '{}' 'state'".format(_vnet_route_state_db_key(vnet, prefix)),
+        module_ignore_errors=True
+    )["stdout"]
+    return result.strip().lower() == "active"
+
+
+def _check_vxlan_tunnel_config(duthost, tunnel_name):
+    result = duthost.show_and_parse('show vxlan tunnel')
+    return any(entry.get('vxlan tunnel name') == tunnel_name for entry in result)
+
+
+def _get_vxlan_tunnel_src_ip(duthost, tunnel_name):
+    """Fetch the VXLAN tunnel's source IP via CLI ('show vxlan tunnel' has a 'source ip' column)."""
+    result = duthost.show_and_parse('show vxlan tunnel')
+    for entry in result:
+        if entry.get('vxlan tunnel name') == tunnel_name:
+            return entry.get('source ip', '').strip()
+    return None
+
+
+def _check_vxlan_switch_config(duthost):
+    result = duthost.shell('redis-cli -n 0 KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
+    return "SWITCH_TABLE:switch" in result.get("stdout", "")
+
+
+def _select_vnet_ingress_port(mg_facts, cfg_facts):
+    """Pick a server-facing VLAN-member port (guaranteed PTF-connected) to repurpose as the
+    VNET ingress. It is removed from its VLAN and rebound as a routed VNET interface so the
+    DUT VXLAN-encapsulates traffic entering it. Returns (port_name, vlan_id, ptf_index) or
+    (None, None, None) if none is available.
+    """
+    port_indices = mg_facts["minigraph_ptf_indices"]
+    for vlan_name, members in cfg_facts.get("VLAN_MEMBER", {}).items():
+        for member in members.keys():
+            if member in port_indices:
+                vlan_id = "".join(ch for ch in vlan_name if ch.isdigit())
+                return member, vlan_id, port_indices[member]
+    return None, None, None
+
+
+def setup_vnet_ingress_datapath(duthost, ingress_port, vlan_id):
+    """Detach the ingress port from its VLAN and bind it into the VNET as a routed L3 port so
+    packets entering it are VNET-routed and VXLAN-encapsulated toward the tunnel endpoint
+    (reachable via the default route). Reverted by the config_db backup restore during cleanup.
+    """
+    duthost.shell(f"config vlan member del {vlan_id} {ingress_port}", module_ignore_errors=True)
+    intf_config = {
+        "INTERFACE": {
+            ingress_port: {"vnet_name": VNET_PRIMARY_NAME},
+            f"{ingress_port}|{VNET_INGRESS_IP}": {},
+        }
+    }
+    apply_config_chunk(duthost, intf_config, "vnet_ingress_intf")
+    duthost.shell(f"config interface startup {ingress_port}", module_ignore_errors=True)
+
+
+def generate_mac_address(index):
+    """
+    Generate a unique unicast MAC address from an index. Encodes the index across the last two
+    octets (up to 65535 distinct values) so it also supports the large rule counts used by the
+    scale test (up to SCALE_RULE_COUNT_LEVEL_MAP['thorough']).
+    """
+    if index >= 0x10000:
+        raise ValueError(f"Index {index} exceeds the 65535 addresses encodable in the last two MAC octets")
+
+    return f"aa:bb:cc:dd:{(index >> 8) & 0xff:02x}:{index & 0xff:02x}"
 
 
 def generate_ip_address(index, base_ip="10.0.0.0", prefix=16):
     """
     Generate an IP address from a base network using an index.
-
     """
     network = ipaddress.IPv4Network(f"{base_ip}/{prefix}", strict=False)
     # Ensure we don't exceed the network size
@@ -83,33 +198,18 @@ def generate_ip_address(index, base_ip="10.0.0.0", prefix=16):
     return str(network.network_address + (index + 1))
 
 
-def generate_mac_address(index):
-    """
-    Generate a unique unicast MAC address from an index for scale testing.
-
-    """
-    if index >= 0x10000:
-        raise ValueError(f"Index {index} exceeds the 65535 addresses encodable in the last two MAC octets")
-
-    return f"aa:bb:cc:dd:{(index >> 8) & 0xff:02x}:{index & 0xff:02x}"
-
-
 @pytest.fixture(name="setUp", scope="module")
-def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
+def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     if 'dualtor' in tbinfo['topo']['name']:
         pytest.skip("test_src_mac_rewrite does not support dualtor topology - "
                     "VXLAN tunnel config does not propagate to APP_DB on dualtor")
 
     data = {}
 
-    # Basic setup
     data['duthost'] = rand_selected_dut
-    data['tbinfo'] = tbinfo
     data['ptfadapter'] = ptfadapter
 
-    # Get minigraph facts
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    data['mg_facts'] = mg_facts
 
     # Extract Loopback0 IP
     loopback0_ips = mg_facts["minigraph_lo_interfaces"]
@@ -124,7 +224,6 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
 
     data['loopback_src_ip'] = loopback_src_ip
 
-    # Get CONFIG_DB facts for more robust port selection
     cfg_facts = rand_selected_dut.get_running_config_facts()
 
     # Get topology info for PTF port availability
@@ -138,47 +237,29 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
     pc_members = cfg_facts.get("PORTCHANNEL_MEMBER", {})
     port_indexes = mg_facts["minigraph_ptf_indices"]
 
-    # Extract available PTF ports from PortChannel members
-    egress_ptf_if = []
-    for pc_name, members_dict in pc_members.items():
+    # PortChannel (uplink) members are the RECEIVE ports: the encapsulated packet egresses
+    # one of the uplinks (default route to the tunnel endpoint is ECMP-hashed across them).
+    receive_ptf_ports = []
+    for members_dict in pc_members.values():
         for member in members_dict.keys():
             if member in port_indexes:
                 ptf_index = port_indexes[member]
                 if ptf_index in ptf_ports_available_in_topo:
-                    egress_ptf_if.append(ptf_index)
+                    receive_ptf_ports.append(ptf_index)
 
-    if not egress_ptf_if:
-        pytest.fail("No PortChannel member PTF ports found")
+    if not receive_ptf_ports:
+        pytest.fail("No PortChannel member PTF ports found for receiving encapsulated packets")
 
-    # Use first available port as send port, all ports as receive ports
-    send_ptf_port = egress_ptf_if[0]
-    expected_ptf_ports = egress_ptf_if
+    # Repurpose a server-facing VLAN-member port (PTF-connected) as the VNET ingress.
+    ingress_port_name, ingress_vlan_id, ingress_ptf_port = _select_vnet_ingress_port(mg_facts, cfg_facts)
+    if not ingress_port_name:
+        pytest.fail("Could not find a VLAN-member port to repurpose as the VNET ingress")
 
-    # Find the interface name and PortChannel for the send port
-    send_port_name = None
-    selected_pc = None
-    for pc_name, members_dict in pc_members.items():
-        for member in members_dict.keys():
-            if member in port_indexes and port_indexes[member] == send_ptf_port:
-                send_port_name = member
-                selected_pc = pc_name
-                break
-        if send_port_name:
-            break
-
-    if not send_port_name or not selected_pc:
-        pytest.fail("Could not determine send port interface name or PortChannel")
-
-    data['ptf_send_port'] = send_ptf_port
-    data['ptf_exp_ports'] = expected_ptf_ports
-    data['test_port_1'] = send_port_name
-    data['test_port_2'] = selected_pc
-
-    bind_ports = []
-    for pc_name, pc_data in mg_facts.get("minigraph_portchannels", {}).items():
-        bind_ports.append(pc_name)
-
-    data['bind_ports'] = bind_ports
+    data['ptf_port_1'] = ingress_ptf_port
+    data['ptf_port_2'] = receive_ptf_ports
+    data['vnet_ingress_port'] = ingress_port_name
+    data['vnet_ingress_vlan'] = ingress_vlan_id
+    data['bind_ports'] = list(pc_members.keys())
 
     # Test scenarios using consistent configuration
     data['test_scenarios'] = {
@@ -191,98 +272,84 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
             'original_mac': generate_mac_address(4),
             'first_modified_mac': generate_mac_address(5),
             'second_modified_mac': generate_mac_address(6)
+        },
+        'multi_vni_test': {
+            'original_mac': generate_mac_address(7),
+            'first_modified_mac': generate_mac_address(8),
+            'second_modified_mac': generate_mac_address(9),
+            'third_modified_mac': generate_mac_address(10)
         }
     }
 
-    # VXLAN/VNET configuration values
     data['vxlan_tunnel_name'] = "tunnel_v4"
-    data['ptf_vtep_ip'] = PTF_VTEP_IP
-    data['dut_vtep_ip'] = DUT_VTEP_IP
-
-    # MAC addresses for packet crafting
-    data['outer_src_mac'] = ptfadapter.dataplane.get_mac(0, send_ptf_port)
-    data['outer_dst_mac'] = rand_selected_dut.facts['router_mac']
 
     # Create configuration backup before making any changes
     backup_config(rand_selected_dut)
+
+    # Register cleanup as a finalizer (instead of a separate tearDown fixture that
+    # depends on setUp) so it still runs even if setUp fails partway through below.
+    # Otherwise a mid-setup failure leaves the DUT with unclean/invalid CONFIG_DB
+    # that then fails pre-test YANG validation on subsequent runs.
+    request.addfinalizer(lambda: cleanup_test_configuration(rand_selected_dut, data['vxlan_tunnel_name']))
 
     # Configure VXLAN/VNET infrastructure once for all test scenarios
     create_vxlan_vnet_config(
         duthost=rand_selected_dut,
         tunnel_name=data['vxlan_tunnel_name'],
         src_ip=data['loopback_src_ip'],
-        portchannel_name=selected_pc,
-        router_mac=rand_selected_dut.facts['router_mac'],
-        asic_type=rand_selected_dut.facts.get('asic_type')
     )
 
-    def _check_vnet_route(duthost):
-        output = duthost.shell("show vnet route all")["stdout"]
-        return VNET_ROUTE_PREFIX in output and VNET_NAME in output
+    # Verify VNET was created and wait for its route to be active (confirms orchagent programmed it)
+    vnet_list = rand_selected_dut.show_and_parse('show vnet brief')
+    pytest_assert(any(entry.get('vnet name') == VNET_PRIMARY_NAME for entry in vnet_list),
+                  f"{VNET_PRIMARY_NAME} not found in 'show vnet brief' output")
 
-    # Wait for configuration to be applied
-    if not wait_until(30, 5, 5, _check_vnet_route, rand_selected_dut):
-        pytest.fail("VNET route not found in 'show vnet route all'")
+    # Wait for VNET route to be active in STATE_DB (confirms orchagent programmed it)
+    if not wait_until(60, 5, 5, _check_vnet_route, rand_selected_dut):
+        vnet_route_state = rand_selected_dut.shell(
+            "redis-cli -n 6 HGETALL '{}'".format(
+                _vnet_route_state_db_key(VNET_PRIMARY_NAME, VNET_PRIMARY_ROUTE_PREFIX)
+            ),
+            module_ignore_errors=True
+        )["stdout"]
+        logger.error("STATE_DB VNET route entry:\n%s", vnet_route_state)
+        pytest.fail(f"VNET route for {VNET_PRIMARY_ROUTE_PREFIX} is not active in STATE_DB")
+
+    # Bind the ingress interface into the VNET so the DUT VXLAN-encapsulates ingress traffic
+    # (without this the packet is plain-routed and the ACL never matches).
+    setup_vnet_ingress_datapath(rand_selected_dut, data['vnet_ingress_port'], data['vnet_ingress_vlan'])
 
     return data
 
 
-@pytest.fixture(name="tearDown", scope="module", autouse=True)
-def fixture_tearDown(setUp):
-    yield  # This allows tests to run first
-
-    try:
-        duthost = setUp['duthost']
-        vxlan_tunnel_name = setUp['vxlan_tunnel_name']
-        cleanup_test_configuration(duthost, vxlan_tunnel_name)
-        logger.info("Module tearDown completed successfully")
-    except Exception as e:
-        logger.error(f"Module tearDown failed: {e}")
-        # Don't raise the exception since tests may have passed
-
-
-def get_acl_counter(duthost, table_name, rule_name, prev_count=0, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
-    def _check_acl_counter_updated(dut, tbl, rule, prev):
-        result = dut.show_and_parse('aclshow -a')
-        for entry in result:
-            if entry.get('table name') == tbl and entry.get('rule name') == rule:
-                return int(entry.get('packets count', 0)) > prev
-        return False
-
-    # Wait for orchagent to update the ACL counters past prev_count
+def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL, prev_count=0):
+    # Wait for orchagent to update the ACL counters
     if timeout > 0:
         wait_until(timeout, 2, 0, _check_acl_counter_updated, duthost, table_name, rule_name, prev_count)
     result = duthost.show_and_parse('aclshow -a')
 
-    if not result:
-        pytest.fail("Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
+    pytest_assert(result, "Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
 
-    for rule in result:
-        if table_name == rule.get('table name') and rule_name == rule.get('rule name'):
-            pkt_count = rule.get('packets count', '0')
-            try:
-                return int(pkt_count)
-            except ValueError:
-                logger.warning(f"ACL counter for {table_name}|{rule_name} is not integer: '{pkt_count}', returning 0")
-                return 0
+    matched = next((rule for rule in result
+                    if table_name == rule.get('table name') and rule_name == rule.get('rule name')), None)
+    pytest_assert(matched, "ACL rule {} not found in table {}".format(rule_name, table_name))
 
-    pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
-
-
-def check_rule_counters(duthost):
-    """
-    Check if ACL rule counters are initialized.
-    """
-    res = duthost.shell("aclshow -a")['stdout_lines']
-    if len(res) <= 2 or [line for line in res if 'N/A' in line]:
-        return False
-    else:
-        return True
+    pkt_count = matched.get('packets count', '0')
+    if pkt_count == 'N/A':
+        return 0
+    try:
+        return int(pkt_count)
+    except ValueError:
+        logger.warning(
+            f"ACL counter for {table_name}|{rule_name} has unexpected value: '{pkt_count}', returning 0"
+        )
+        return 0
 
 
 def get_acl_counters(duthost, table_name):
     """
-    Get ACL counter packets value for all rules in a table.
+    Get ACL counter packets value for all rules in a table in a single call. Used by the scale
+    test to diff before/after counters in bulk instead of issuing one 'aclshow -a' per rule.
     """
     result = duthost.show_and_parse('aclshow -a')
 
@@ -307,6 +374,26 @@ def get_acl_counters(duthost, table_name):
             counters[rule_name] = 0
 
     return counters
+
+
+def check_rule_counters(duthost):
+    """
+    Check if ACL rule counters are initialized.
+    """
+    res = duthost.shell("aclshow -a")['stdout_lines']
+    if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        return False
+    else:
+        return True
+
+
+def count_active_acl_rules(duthost):
+    """
+    Return the number of rules reported as Active for the test ACL table.
+    """
+    rules = duthost.show_and_parse("show acl rule", module_ignore_errors=True)
+    return len([r for r in rules
+                if r.get('table') == ACL_TABLE_NAME and r.get('status', '').lower() == 'active'])
 
 
 def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
@@ -338,10 +425,6 @@ def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
     logger.info("Loading ACL table type definition using config load")
     duthost.shell(f"config load -y {acl_type_file}")
 
-    def _check_acl_table_type_in_config_db(duthost, type_name):
-        result = duthost.shell(f'redis-cli -n 4 KEYS "ACL_TABLE_TYPE|{type_name}"')["stdout"]
-        return type_name in result
-
     pytest_assert(wait_until(30, 5, 2, _check_acl_table_type_in_config_db, duthost, acl_type_name),
                   f"ACL table type {acl_type_name} not found in CONFIG_DB after loading")
 
@@ -360,33 +443,10 @@ def setup_acl_table(duthost, ports):
     logger.info(f"Creating ACL table {ACL_TABLE_NAME} with ports: {ports}")
     duthost.shell(cmd)
 
-    def _check_acl_table_present(duthost, table_name):
-        result = duthost.shell(f'redis-cli -n 4 KEYS "ACL_TABLE|{table_name}"')["stdout"]
-        return table_name in result
-
     pytest_assert(wait_until(30, 5, 2, _check_acl_table_present, duthost, ACL_TABLE_NAME),
-                  f"ACL table {ACL_TABLE_NAME} not found in CONFIG_DB after creation")
+                  f"ACL table {ACL_TABLE_NAME} not found or not active in 'show acl table' output after creation")
 
-    # === Show ACL Table Verification ===
-    logger.info("Verifying ACL table state using 'show acl table'")
-    result = duthost.shell("show acl table", module_ignore_errors=True)
-    output = result.get("stdout", "")
-    logger.info("Output of 'show acl table':\n%s", output)
-
-    if ACL_TABLE_NAME not in output:
-        pytest.fail(f"ACL table {ACL_TABLE_NAME} not found in 'show acl table' output")
-
-    for line in output.splitlines():
-        if ACL_TABLE_NAME in line:
-            if "pending" in line.lower():
-                pytest.fail(f"ACL table {ACL_TABLE_NAME} is in 'Pending creation' state")
-            elif "created" in line.lower() or "egress" in line.lower():
-                logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
-                break
-    else:
-        pytest.fail(f"Unable to determine valid state for ACL table {ACL_TABLE_NAME}")
-
-    logger.info(f"ACL table {ACL_TABLE_NAME} validation completed successfully")
+    logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
 
 
 def remove_acl_table(duthost):
@@ -398,124 +458,39 @@ def remove_acl_table(duthost):
         logger.warning(f"Failed to remove ACL table via config command. Output:\n{result.get('stdout', '')}")
         pytest.fail(f"Failed to remove ACL table {ACL_TABLE_NAME}")
 
-    def _check_acl_table_absent(duthost, table_name):
-        result = duthost.shell(f'redis-cli -n 6 KEYS "ACL_TABLE_TABLE|{table_name}"')["stdout"]
-        return table_name not in result
-
     pytest_assert(wait_until(30, 5, 2, _check_acl_table_absent, duthost, ACL_TABLE_NAME),
                   f"ACL table {ACL_TABLE_NAME} still present in STATE_DB after removal")
 
-    logger.info(f"Verifying ACL table {ACL_TABLE_NAME} was removed from STATE_DB")
-    db_cmd = f"redis-cli -n 6 KEYS 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}'"
-    keys_output = duthost.shell(db_cmd)["stdout_lines"]
-
-    if any(keys_output):
-        logger.error(f"ACL table {ACL_TABLE_NAME} still present in STATE_DB: {keys_output}")
-        pytest.fail(f"ACL table {ACL_TABLE_NAME} was not removed from STATE_DB")
-    else:
-        logger.info(f"ACL table {ACL_TABLE_NAME} successfully removed from STATE_DB")
+    logger.info(f"ACL table {ACL_TABLE_NAME} successfully removed from STATE_DB")
 
 
-def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
-    """
-    Set up initial ACL rules. Uses 'config load -y' for initial setup
-    since it may need to create table types and tables first.
-    """
-
+def setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name="rule_1", priority=ACL_RULE_PRIORITY):
+    """Create (or update) an ACL rule via 'config load -y' and wait until it is active."""
     acl_rule = {
         "ACL_RULE": {
-            f"{ACL_TABLE_NAME}|rule_1": {
-                "priority": "1005",
+            f"{ACL_TABLE_NAME}|{rule_name}": {
+                "PRIORITY": priority,
                 "TUNNEL_VNI": vni,
                 "INNER_SRC_IP": inner_src_ip,
                 "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
             }
         }
     }
-    # Convert to JSON string
-    acl_rule_json = json.dumps(acl_rule, indent=4)
-    dest_path = os.path.join(TMP_DIR, ACL_RULES_FILE)
 
-    logger.info("Writing ACL rule to %s:\n%s", dest_path, acl_rule_json)
-    duthost.copy(content=acl_rule_json, dest=dest_path)
+    logger.info("Loading ACL rule config:\n%s", json.dumps(acl_rule, indent=4))
+    apply_config_chunk(duthost, acl_rule, f"acl_rule_{rule_name}")
 
-    logger.info("Loading ACL rule from %s", dest_path)
-    load_result = duthost.shell(f"config load -y {dest_path}", module_ignore_errors=True)
-    logger.info("Config load result: rc=%s, stdout=%s", load_result.get("rc", "unknown"), load_result.get("stdout", ""))
+    logger.info(f"Waiting for ACL rule {rule_name} to be applied...")
+    pytest_assert(wait_until(30, 5, 2, _check_acl_rule_active, duthost, ACL_TABLE_NAME, rule_name),
+                  f"ACL rule {rule_name} not active in STATE_DB after loading")
 
-    if load_result.get("rc", 0) != 0:
-        logger.error("Config load failed: %s", load_result.get("stderr", ""))
-        pytest.fail("Failed to load ACL rule configuration")
-
-    def _check_acl_rule_active(duthost, table_name, rule_name):
-        result = duthost.shell(
-            f'redis-cli -n 6 KEYS "ACL_RULE_TABLE|{table_name}|{rule_name}"'
-        )["stdout"]
-        return rule_name in result
-
-    logger.info("Waiting for ACL rule to be applied...")
-    pytest_assert(wait_until(30, 5, 2, _check_acl_rule_active, duthost, ACL_TABLE_NAME, "rule_1"),
-                  "ACL rule not found in STATE_DB after loading")
-
-    # Check CONFIG_DB for the rule
-    logger.info("Checking if rule was added to CONFIG_DB...")
-    rule_config_cmd = f'redis-cli -n 4 HGETALL "ACL_RULE|{ACL_TABLE_NAME}|rule_1"'
-    rule_config_result = duthost.shell(rule_config_cmd)["stdout"]
-    logger.info("ACL rule in CONFIG_DB:\n%s", rule_config_result)
-
-    # === Show ACL Rule Verification ===
-    logger.info("Verifying ACL rule state using 'show acl rule'")
-    rule_result = duthost.shell("show acl rule", module_ignore_errors=True)
-    rule_output = rule_result.get("stdout", "")
-    logger.info("Output of 'show acl rule':\n%s", rule_output)
-
-    # Check that the rule shows up and is Active
-    if ACL_TABLE_NAME not in rule_output or "rule_1" not in rule_output:
-        pytest.fail(f"ACL rule for table {ACL_TABLE_NAME} and rule rule_1 not found in 'show acl rule' output")
-
-    if "Active" not in rule_output:
-        pytest.fail(f"ACL rule for table {ACL_TABLE_NAME} is not showing as Active in 'show acl rule' output")
-
-    logger.info(f"ACL rule for table {ACL_TABLE_NAME} is successfully created and shows as Active")
-
-    # === STATE_DB Verification ===
-    logger.info("Verifying ACL rule propagation to STATE_DB...")
-    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"
-    state_db_cmd = f"redis-cli -n 6 HGETALL \"{state_db_key}\""
-    state_db_output = duthost.shell(state_db_cmd)["stdout"]
-
-    logger.info("STATE_DB entry for ACL rule:\n%s", state_db_output)
-
-    # Check if the rule is active in STATE_DB (this indicates successful propagation)
-    if "status" in state_db_output and "Active" in state_db_output:
-        logger.info("ACL rule is active in STATE_DB, indicating successful propagation")
-        # Also verify the CONFIG_DB has the correct MAC to confirm the setup
-        rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|rule_1"
-        config_verification = duthost.shell(f'redis-cli -n 4 HGET "{rule_key}" INNER_SRC_MAC_REWRITE_ACTION')["stdout"]
-        pytest_assert(config_verification.strip() == new_src_mac,
-                      f"CONFIG_DB does not have expected MAC {new_src_mac}, got: {config_verification.strip()}")
-        logger.info(f"STATE_DB validation successful - rule is active with MAC {new_src_mac}")
-
-    logger.info("ACL rule STATE_DB verification completed")
-
-
-def count_active_acl_rules(duthost):
-    """
-    Return the number of rules reported as Active for the test ACL table, or -1 if the CLI fails.
-    """
-    result = duthost.shell("show acl rule", module_ignore_errors=True)
-    if result["rc"] != 0:
-        logger.warning("'show acl rule' failed while polling rule status: %s", result.get("stderr", ""))
-        return -1
-
-    rule_lines = [line for line in result["stdout"].splitlines() if ACL_TABLE_NAME in line]
-    return len([line for line in rule_lines if "Active" in line])
+    logger.info(f"ACL rule {rule_name} for table {ACL_TABLE_NAME} is successfully created and active")
 
 
 def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0):
     """
-    Setup ALL ACL rules at once using single JSON operation - maximum performance.
-
+    Setup ALL ACL rules at once using a single JSON operation - maximum performance. Used by the
+    scale test, where applying rule_count individual 'config load' calls would be far too slow.
     """
     logger.info(f"Building ALL {rule_count} ACL rules for single application")
 
@@ -535,12 +510,11 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
 
         # Create rule entry for config
         rule_key = f"{ACL_TABLE_NAME}|{rule_name}"
-        priority = 1000  # SAME PRIORITY for all rules to observe behavior
         acl_rules["ACL_RULE"][rule_key] = {
             "INNER_SRC_IP": f"{inner_src_ip}/32",
             "TUNNEL_VNI": str(vni),
             "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac,
-            "PRIORITY": str(priority)
+            "PRIORITY": ACL_RULE_PRIORITY  # SAME PRIORITY for all rules to observe behavior
         }
 
     generation_time = time.time() - generation_start
@@ -562,7 +536,7 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
     transfer_time = time.time() - transfer_start
     logger.info(f"Config file transferred in {transfer_time:.2f} seconds")
 
-    # Apply ALL rules in single operation using sonic-cfggen
+    # Apply ALL rules in a single operation
     logger.info("Loading bulk ACL rules from %s", dest_path)
     load_result = duthost.shell(f"config load -y {dest_path}", module_ignore_errors=True)
     logger.info("Config load result: rc=%s, stdout=%s", load_result.get("rc", "unknown"), load_result.get("stdout", ""))
@@ -596,7 +570,6 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
 def verify_acl_rules_installation(duthost, expected_count):
     """
     Verify that the expected number of ACL rules are installed.
-    Enhanced with detailed debugging information.
     """
     logger.info(f"Verifying {expected_count} ACL rules are installed")
 
@@ -616,15 +589,15 @@ def verify_acl_rules_installation(duthost, expected_count):
     state_rule_count = len([key for key in state_rules if key.strip()])
     logger.info(f"Number of rules in STATE_DB: {state_rule_count}")
 
-    # Use 'show acl rule' for final verification with Active/Inactive checking
-    show_acl_result = duthost.shell("show acl rule", module_ignore_errors=True)
-    if show_acl_result["rc"] == 0:
-        output = show_acl_result["stdout"]
-        rule_count = output.count(ACL_TABLE_NAME)
+    # Use 'show acl rule' for final verification with exact status-column matching (a substring
+    # search for "Active" would also match "Inactive" rows and silently overcount/mask failures)
+    table_rules = [r for r in duthost.show_and_parse("show acl rule", module_ignore_errors=True)
+                   if r.get('table') == ACL_TABLE_NAME]
 
-        # Count active and inactive rules
-        active_count = output.count("Active")
-        inactive_count = output.count("Inactive")
+    if table_rules is not None:
+        rule_count = len(table_rules)
+        active_count = len([r for r in table_rules if r.get('status', '').lower() == 'active'])
+        inactive_count = rule_count - active_count
 
         logger.info(f"Number of rules found in 'show acl rule': {rule_count}")
         logger.info(f"Rule status summary: {active_count} Active, {inactive_count} Inactive")
@@ -632,7 +605,7 @@ def verify_acl_rules_installation(duthost, expected_count):
         if rule_count < expected_count:
             logger.error(f"'show acl rule' count mismatch: expected {expected_count}, found {rule_count}")
             logger.info("Sample of show acl rule output:")
-            logger.info(output[:1000])  # Show first 1000 chars for debugging
+            logger.info(str(table_rules[:10]))  # Show a sample for debugging
             pytest.fail(f"Not all ACL rules are programmed. Expected: {expected_count}, Found: {rule_count}")
 
         if inactive_count > 0:
@@ -641,7 +614,6 @@ def verify_acl_rules_installation(duthost, expected_count):
         else:
             logger.info(f"All {active_count} rules are active")
     else:
-        logger.warning(f"'show acl rule' command failed: {show_acl_result}")
         # Fall back to STATE_DB count
         if state_rule_count < expected_count:
             pytest.fail(f"STATE_DB rule count insufficient: {state_rule_count}/{expected_count}")
@@ -660,27 +632,27 @@ def verify_acl_rules_installation(duthost, expected_count):
 
 def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("Modifying ACL rule with new MAC: %s", new_src_mac)
-
-    setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac)
-
-    rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|rule_1"
-
-    def _check_rule_updated(duthost, expected_mac):
-        cfg = duthost.shell(
-            f'sonic-db-cli CONFIG_DB HGET "{rule_key}" INNER_SRC_MAC_REWRITE_ACTION'
-        )["stdout"].strip()
-        status = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1" status'
-        )["stdout"].strip()
-        return cfg.lower() == expected_mac.lower() and status == "Active"
-
-    pytest_assert(wait_until(30, 5, 2, _check_rule_updated, duthost, new_src_mac),
-                  f"Rule not active with new MAC {new_src_mac} after modify")
-
+    # Re-applying the rule via config load properly triggers change notifications.
+    setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac)
     logger.info("ACL rule successfully modified to use MAC: %s", new_src_mac)
 
 
-def remove_acl_rules(duthost):
+def remove_acl_rules(duthost, rule_names=("rule_1",)):
+    duthost.copy(src=os.path.join(FILES_DIR, ACL_REMOVE_RULES_FILE), dest=TMP_DIR)
+    remove_rules_dut_path = os.path.join(TMP_DIR, ACL_REMOVE_RULES_FILE)
+    duthost.command("acl-loader update full {} --table_name {}".format(remove_rules_dut_path, ACL_TABLE_NAME))
+
+    for rule_name in rule_names:
+        pytest_assert(wait_until(30, 5, 2, _check_acl_rule_absent, duthost, ACL_TABLE_NAME, rule_name),
+                      f"ACL rule {rule_name} still in STATE_DB after removal")
+
+
+def remove_bulk_acl_rules(duthost):
+    """
+    Remove all ACL rules from the test table. Unlike remove_acl_rules(), which polls each rule
+    name individually, this scans CONFIG_DB/STATE_DB in bulk - required for the scale test where
+    there may be thousands of individually-named rules.
+    """
     logger.info(f"Removing all ACL rules from table {ACL_TABLE_NAME}")
 
     rule_pattern = f"ACL_RULE|{ACL_TABLE_NAME}|*"
@@ -698,76 +670,88 @@ def remove_acl_rules(duthost):
         )
         return not result["stdout"].strip()
 
-    pytest_assert(wait_until(30 + rule_count // 30, 1, 0, _check_acl_rules_absent, duthost, 4, rule_pattern),
+    pytest_assert(wait_until(60 + rule_count // 10, 1, 0, _check_acl_rules_absent, duthost, 4, rule_pattern),
                   f"ACL rules for {ACL_TABLE_NAME} still present in CONFIG_DB after batch deletion")
     state_rule_pattern = f"ACL_RULE_TABLE*{ACL_TABLE_NAME}*"
-    pytest_assert(wait_until(60 + rule_count // 30, 2, 0, _check_acl_rules_absent, duthost, 6, state_rule_pattern),
+    pytest_assert(wait_until(60 + rule_count // 10, 2, 0, _check_acl_rules_absent, duthost, 6, state_rule_pattern),
                   f"ACL rules for {ACL_TABLE_NAME} still present in STATE_DB after batch deletion")
 
     logger.info(f"Successfully removed {rule_count} ACL rules")
 
 
-def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None,
-                             asic_type=None):
+def create_vxlan_vnet_config(duthost, tunnel_name, src_ip):
     # --- VXLAN parameters ---
     vnet_base = VXLAN_VNI
     ptf_vtep = PTF_VTEP_IP
-    dut_vtep = DUT_VTEP_IP
 
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = True
     ecmp_utils.Constants['DEBUG'] = False
 
-    vxlan_tunnel_entry = {"src_ip": dut_vtep}
-    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
-    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
-    if asic_type == "cisco-8000":
+    # First create the VXLAN tunnel manually (since we need specific src_ip)
+    vxlan_tunnel_entry = {"src_ip": src_ip}
+    # On cisco-8000, base IP-in-IP decap tunnels use pipe TTL mode; set VXLAN decap ttl_mode to
+    # pipe so orchagent programs DECAP_TTL_MODE consistently (upstream #26084).
+    if duthost.facts.get("asic_type") == "cisco-8000":
         vxlan_tunnel_entry["ttl_mode"] = "pipe"
-
-    # Switch-level VXLAN params must be programmed before the tunnel and VNET route, otherwise
-    # the tunnel nexthop creation fails and orchagent does not retry it.
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
-
-    def _check_vxlan_switch_config(duthost):
-        result = duthost.shell('redis-cli -n 0 HGET "SWITCH_TABLE:switch" vxlan_router_mac',
-                               module_ignore_errors=True)
-        return bool(result.get("stdout", "").strip())
-
-    pytest_assert(wait_until(30, 2, 2, _check_vxlan_switch_config, duthost),
-                  "vxlan_router_mac not set in SWITCH_TABLE:switch after configure_vxlan_switch")
-
-    # --- Build overlay config JSON ---
-    dut_json = {
+    tunnel_config = {
         "VXLAN_TUNNEL": {
             tunnel_name: vxlan_tunnel_entry
-        },
-        "VNET": {
-            VNET_NAME: {
-                "vni": str(vnet_base),
-                "vxlan_tunnel": tunnel_name,
-                "scope": "default"
-            }
-        },
-        "VNET_ROUTE_TUNNEL": {
-            f"{VNET_NAME}|{VNET_ROUTE_PREFIX}": {"endpoint": ptf_vtep}
         }
     }
 
-    # Copy overlay config to DUT
-    config_content = json.dumps(dut_json, indent=4)
-    logger.info("Applying comprehensive VXLAN/VNET config:\n%s", config_content)
+    logger.info("Creating VXLAN tunnel:\n%s", json.dumps(tunnel_config, indent=4))
+    apply_config_chunk(duthost, tunnel_config, "vxlan_tunnel")
 
-    duthost.copy(content=config_content, dest="/tmp/config_db_vxlan_vnet.json")
-    duthost.shell("sonic-cfggen -j /tmp/config_db_vxlan_vnet.json --write-to-db")
+    # Wait for VXLAN tunnel to appear in CONFIG_DB before ecmp_utils consumes it
+    pytest_assert(wait_until(30, 2, 2, _check_vxlan_tunnel_config, duthost, tunnel_name),
+                  f"VXLAN tunnel {tunnel_name} not found in CONFIG_DB after apply")
 
-    # Clean up temp file
-    duthost.shell("rm /tmp/config_db_vxlan_vnet.json")
+    # Use ecmp_utils.create_vnets() for primary VNET (handles complex setup)
+    logger.info("Creating primary VNET using ecmp_utils.create_vnets()")
+    vnet_vni_map = ecmp_utils.create_vnets(
+        duthost,
+        tunnel_name=tunnel_name,
+        vnet_count=1,
+        vni_base=vnet_base,
+        vnet_name_prefix="Vnet",
+        advertise_prefix="false"
+    )
 
-    def _check_vxlan_tunnel_config(duthost, tunnel_name):
-        result = duthost.shell(f'redis-cli -n 0 KEYS "VXLAN_TUNNEL_TABLE:{tunnel_name}"')["stdout"]
-        return tunnel_name in result
+    logger.info(f"Created primary VNET: {vnet_vni_map}")
+
+    # Get the VNET name (should be VNET_PRIMARY_NAME based on ecmp_utils naming)
+    vnet_name = list(vnet_vni_map.keys())[0]
+
+    # Configure VNET route via CONFIG_DB so 'show vnet route all' can see it
+    logger.info("Configuring primary VNET route via CONFIG_DB")
+    route_config = {
+        "VNET_ROUTE_TUNNEL": {
+            f"{vnet_name}|{VNET_PRIMARY_ROUTE_PREFIX}": {
+                "endpoint": ptf_vtep
+            }
+        }
+    }
+    apply_config_chunk(duthost, route_config, "vnet_route")
 
     pytest_assert(wait_until(60, 5, 5, _check_vxlan_tunnel_config, duthost, tunnel_name),
-                  f"VXLAN_TUNNEL_TABLE:{tunnel_name} not found in APPL_DB after config write")
+                  f"VXLAN tunnel {tunnel_name} not found in CONFIG_DB after setup")
+
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=VXLAN_ROUTER_MAC)
+
+    # Allow time for VXLAN switch config to propagate through swss pipeline
+    pytest_assert(wait_until(10, 2, 2, _check_vxlan_switch_config, duthost),
+                  "SWITCH_TABLE:switch not found in APP_DB after configure_vxlan_switch")
+
+
+def apply_config_chunk(duthost, payload, config_name):
+    """Apply configuration chunk using config load for proper notification"""
+    content = json.dumps(payload, indent=2)
+    file_dest = f"/tmp/{config_name}_chunk.json"
+    duthost.copy(content=content, dest=file_dest)
+    result = duthost.shell(f"config load -y {file_dest}", module_ignore_errors=True)
+    duthost.shell(f"rm -f {file_dest}", module_ignore_errors=True)
+    pytest_assert(result.get("rc", 1) == 0,
+                  f"config load failed for {file_dest}: {result.get('stderr', result.get('stdout', ''))}")
 
 
 def backup_config(duthost):
@@ -811,15 +795,10 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
         try:
             logger.info("Cleaning up temporary files...")
             temp_files = [
-                "/tmp/acl_update.json",
-                "/tmp/vnet_route_update.json",
-                "/tmp/bgp_and_interface_update.json",
-                "/tmp/vnet_vxlan_update.json",
-                "/tmp/swss_config_update.json",
-                "/tmp/config_db_vxlan_vnet.json",
-                f"/tmp/{ACL_RULES_FILE}",
-                f"/tmp/{ACL_REMOVE_RULES_FILE}",
-                "/tmp/acl_rule_modify.json"  # Clean up modify rule temp file
+                f"/tmp/{ACL_REMOVE_RULES_FILE}",  # acl_rules_del.json
+                f"/tmp/{ACL_RULES_FILE}",  # Created by setup_bulk_acl_rules (scale test)
+                "/tmp/inner_src_mac_rewrite_type_acl_type.json",  # Created by setup_acl_table_type
+                "/tmp/vxlan_tunnel_chunk.json",  # Created by create_vxlan_vnet_config
             ]
 
             for file_path in temp_files:
@@ -836,85 +815,133 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
     logger.info("=== Configuration cleanup completed ===")
 
 
-def _send_and_verify_mac_rewrite(ptfadapter, ptf_send_port, duthost,
-                                 src_ip, dst_ip, orig_src_mac, expected_inner_src_mac,
-                                 table_name, rule_name, scale_test=False):
+def _log_vxlan_datapath_state(duthost, inner_src_ip, inner_dst_ip, rule_name):
+    """Dump VNET/underlay/ACL state to distinguish a missing-encap datapath problem from a
+    packet-content mismatch when no encapsulated packet is received."""
+    diag_cmds = [
+        "show vnet route all",
+        "show vxlan tunnel",
+        "show ip route {}".format(PTF_VTEP_IP),
+        "show arp {}".format(PTF_VTEP_IP),
+        "show ip route {}".format(inner_dst_ip),
+        "aclshow -a",
+    ]
+    logger.error("=== VXLAN datapath diagnostics (no encapsulated packet received for "
+                 "inner_src=%s inner_dst=%s rule=%s) ===", inner_src_ip, inner_dst_ip, rule_name)
+    for cmd in diag_cmds:
+        try:
+            out = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+        except Exception as e:
+            out = "<failed to run '{}': {}>".format(cmd, e)
+        logger.error("--- %s ---\n%s", cmd, out)
+
+
+def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
+                                 src_ip, dst_ip, orig_src_mac, rewrite_mac,
+                                 table_name, rule_name, expect_rewrite=True,
+                                 vni=VXLAN_VNI, test_description="", scale_test=False,
+                                 dut_vtep_ip=None):
+    """
+    Send one test packet from the PTF host and verify whether the ACL rewrote the inner
+    source MAC of the DUT-emitted VXLAN packet.
+
+    The DUT VXLAN-encapsulates the injected inner packet toward the PTF VTEP. A full expected
+    VXLAN packet is built and matched exactly on the inner frame (only the dynamic outer fields
+    are masked). The inner source MAC we expect depends on the case: the rewrite MAC when the
+    rule fires, otherwise the DUT's router_mac. VNET L3 routing rebuilds the inner Ethernet
+    header before encap, so the original injected src MAC is gone and the un-rewritten inner src
+    MAC is router_mac. Either way we positively assert the encapped packet IS received over the
+    egress PortChannel-member port(s), which confirms end to end whether the src MAC was rewritten.
+
+    The ACL counter is checked in addition: it must increment when expect_rewrite is True and
+    stay flat for a partial/no-match case. Pass scale_test=True to skip this per-call check
+    (e.g. the scale test diffs 'aclshow -a' in bulk before/after instead, since polling every
+    individual rule's counter does not scale to thousands of rules).
+
+    dut_vtep_ip should be the VXLAN tunnel's source IP (setUp['loopback_src_ip'], fixed for the
+    whole test module). Pass it in so callers avoid an extra 'show vxlan tunnel' CLI round trip
+    on every single packet - that lookup is only done here as a fallback if omitted.
+    """
     router_mac = duthost.facts["router_mac"]
+    if dut_vtep_ip is None:
+        dut_vtep_ip = _get_vxlan_tunnel_src_ip(duthost, "tunnel_v4")
+    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in 'show vxlan tunnel' output")
+    # The ASIC uses the configured tunnel MAC (VXLAN_ROUTER_MAC) as the inner eth_dst.
+    vxlan_router_mac = VXLAN_ROUTER_MAC
+    logger.info("vxlan_router_mac=%s, router_mac=%s", vxlan_router_mac, router_mac)
 
-    # Create input packet
-    options = {'ip_ecn': 0}
-    pkt_opts = {
-        "pktlen": 100,
-        "eth_dst": router_mac,
-        "eth_src": orig_src_mac,
-        "ip_dst": dst_ip,
-        "ip_src": src_ip,
-        "ip_id": 105,
-        "ip_ttl": 64,
-        "tcp_sport": 1234,
-        "tcp_dport": 5000
-    }
+    input_pkt = testutils.simple_tcp_packet(
+        pktlen=100, eth_dst=router_mac, eth_src=orig_src_mac,
+        ip_dst=dst_ip, ip_src=src_ip, ip_id=105, ip_ttl=64,
+        tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
+    # Inner src MAC of the encapped packet: the ACL rewrite MAC when the rule fires, otherwise the
+    # DUT router_mac. VNET L3 routing rebuilds the inner Ethernet header, so orig_src_mac is gone
+    # and the un-rewritten inner src MAC is router_mac. Matching it exactly confirms e2e whether
+    # the rewrite happened.
+    expected_inner_src_mac = rewrite_mac if expect_rewrite else router_mac
+    inner_exp = testutils.simple_tcp_packet(
+        pktlen=100, eth_src=expected_inner_src_mac, eth_dst=vxlan_router_mac,
+        ip_src=src_ip, ip_dst=dst_ip, ip_id=105, ip_ttl=63,
+        tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
+    expected_pkt = testutils.simple_vxlan_packet(
+        eth_src=router_mac, eth_dst="ff:ff:ff:ff:ff:ff",
+        ip_src=dut_vtep_ip, ip_dst=PTF_VTEP_IP, ip_id=0, ip_flags=0x2,
+        udp_sport=0, udp_dport=VXLAN_UDP_PORT, with_udp_chksum=False,
+        vxlan_vni=vni, inner_frame=inner_exp)
 
-    pkt_opts.update(options)
-    input_pkt = testutils.simple_tcp_packet(**pkt_opts)
+    masked = Mask(expected_pkt)
+    masked.set_ignore_extra_bytes()
+    masked.set_do_not_care_packet(scapy.Ether, "dst")
+    masked.set_do_not_care_packet(scapy.UDP, "sport")
+    masked.set_do_not_care_packet(scapy.UDP, "dport")
+    masked.set_do_not_care_packet(scapy.UDP, "chksum")
+    masked.set_do_not_care_packet(scapy.IP, "ttl")
+    masked.set_do_not_care_packet(scapy.IP, "chksum")
+    masked.set_do_not_care_packet(scapy.IP, "id")
+    masked.set_do_not_care_packet(scapy.IP, "len")
+    masked.set_do_not_care_packet(scapy.IP, "tos")
+
+    count_before = get_acl_counter(duthost, table_name, rule_name, timeout=0) if not scale_test else None
+    logger.info("=== MAC Rewrite Test (expect_rewrite=%s, rule=%s, %s) ===",
+                expect_rewrite, rule_name, test_description)
+    logger.info("Sending pkt from PTF port %s (inner src MAC=%s); rewrite MAC=%s on PTF port(s) %s",
+                ptf_port_1, orig_src_mac, rewrite_mac, ptf_ports)
+
+    # Inject via testutils.send (not send_packet): the ptfadapter overrides send/dp_poll to rewrite
+    # the L4 payload to a per-module pattern on BOTH the injected packet and the expected mask, so
+    # they stay symmetric. send_packet skips that rewrite and would mismatch the payload here.
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, ptf_port_1, input_pkt, 1)
+
+    # `masked` already encodes the expected inner src MAC for this case (rewrite MAC when the rule
+    # fires, router_mac when it must not), so the same positive verify confirms e2e whether the
+    # rewrite happened. Only the ACL-counter expectation differs between the two cases.
+    # timeout=1: the rule is already confirmed Active before any packet is sent, so the
+    # encapped packet should arrive almost immediately; a short timeout caps the per-packet
+    # miss penalty (important at scale, where thousands of packets are sent serially).
+    try:
+        testutils.verify_packet_any_port(ptfadapter, masked, ptf_ports, timeout=1)
+    except Exception:
+        # Dump VNET/underlay/ACL state to distinguish a datapath problem (no encap at all)
+        # from a packet-content mismatch, then fail.
+        _log_vxlan_datapath_state(duthost, src_ip, dst_ip, rule_name)
+        raise
 
     if not scale_test:
-        # Get ACL counter before sending
-        count_before = get_acl_counter(duthost, table_name, rule_name, timeout=0)
-
-    # Send packet
-    logger.info(f"Sending TCP packet on port {ptf_send_port}")
-    send_packet(ptfadapter, ptf_send_port, input_pkt)
-
-    # Poll for VXLAN packets with inner MAC rewrite
-    poll_start = datetime.now()
-    poll_timeout = 8  # seconds
-    success = False
-
-    while (datetime.now() - poll_start).total_seconds() < poll_timeout:
-        res = dp_poll(ptfadapter, timeout=2)
-        if not isinstance(res, ptfadapter.dataplane.PollSuccess):
-            continue
-
-        ether = Ether(res.packet)
-        if IP in ether and UDP in ether and ether[UDP].dport == VXLAN_UDP_PORT:
-            try:
-                # Extract VXLAN payload (skip 8-byte VXLAN header)
-                vxlan_payload = bytes(ether[UDP].payload)[8:]
-                if len(vxlan_payload) < 14:  # Need at least Ethernet header
-                    continue
-
-                # Parse inner Ethernet frame
-                inner_eth = Ether(vxlan_payload)
-                if not inner_eth.haslayer(Ether):
-                    continue
-
-                # Check if inner source MAC matches expected rewritten MAC
-                inner_src_mac = inner_eth.src.lower()
-                expected_mac = expected_inner_src_mac.lower()
-
-                if inner_src_mac == expected_mac:
-                    logger.info(f"Successfully verified VXLAN packet with inner MAC rewrite: {inner_src_mac}")
-                    success = True
-                    break
-
-            except Exception as e:
-                logger.warning(f"Error parsing VXLAN packet: {e}")
-                continue
-
-    elapsed_time = (datetime.now() - poll_start).total_seconds()
-    if success:
-        logger.info(f"Packet verification completed in {elapsed_time:.2f} seconds")
-    else:
-        raise AssertionError(f"No valid VXLAN packet with expected inner source MAC {expected_inner_src_mac} "
-                             f"received after {elapsed_time:.2f} seconds")
-
-    # Check ACL counter incremented
-    if not scale_test:
-        count_after = get_acl_counter(duthost, table_name, rule_name, prev_count=count_before)
-        logger.info("ACL counter for IP %s: before=%s, after=%s", src_ip, count_before, count_after)
-        pytest_assert(count_after >= count_before + 1,
-                      f"ACL counter did not increment for {src_ip}. before={count_before}, after={count_after}")
+        if expect_rewrite:
+            # The rule fired: wait for orchagent to flush the incremented counter.
+            count_after = get_acl_counter(duthost, table_name, rule_name, prev_count=count_before)
+            pytest_assert(count_after >= count_before + 1,
+                          f"ACL counter did not increment for {src_ip}. "
+                          f"before={count_before}, after={count_after}.")
+        else:
+            # The rule must NOT fire: read immediately (no reason to wait) and require a flat counter.
+            count_after = get_acl_counter(duthost, table_name, rule_name, timeout=0)
+            pytest_assert(count_after == count_before,
+                          f"ACL counter incremented unexpectedly for partial match "
+                          f"({test_description}): before={count_before}, after={count_after}")
+        logger.info("ACL counter for IP %s: before=%s, after=%s",
+                    src_ip, count_before, count_after)
 
 
 def _test_inner_src_mac_rewrite(setUp, scenario_name):
@@ -923,8 +950,10 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     ptfadapter = setUp['ptfadapter']
     scenario = setUp['test_scenarios'][scenario_name]
 
-    ptf_send_port = setUp['ptf_send_port']
+    ptf_port_1 = setUp['ptf_port_1']
+    ptf_port_2 = setUp['ptf_port_2']
     bind_ports = setUp['bind_ports']
+    dut_vtep_ip = setUp['loopback_src_ip']
 
     # Extract scenario-specific MAC addresses
     original_inner_src_mac = scenario['original_mac']
@@ -936,7 +965,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = VNET_ROUTE_DST_IP
+    inner_dst_ip = VNET_PRIMARY_ROUTE_IP  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
     inner_src_ip = "201.0.0.101"  # Source IP for test packets
 
@@ -954,12 +983,12 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
             acl_rule_prefix = "201.0.0.0/24"  # Matches the 201.0.0.x range including 201.0.0.101
             logger.info(f"Range test: Using ACL rule prefix {acl_rule_prefix}")
 
-        setup_acl_rules(duthost, acl_rule_prefix, vni_id, first_modified_mac)
+        setup_acl_rule(duthost, acl_rule_prefix, vni_id, first_modified_mac)
 
         # Test with the configured source IP
         _send_and_verify_mac_rewrite(
-            ptfadapter, ptf_send_port, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
-            first_modified_mac, table_name, RULE_NAME
+            ptfadapter, ptf_port_1, ptf_port_2, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
+            first_modified_mac, table_name, RULE_NAME, dut_vtep_ip=dut_vtep_ip
         )
 
         # For range test, also test with different IPs in the range
@@ -968,8 +997,8 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
             for test_ip in test_ips:
                 logger.info(f"Range test: Verifying rewrite with IP {test_ip}")
                 _send_and_verify_mac_rewrite(
-                    ptfadapter, ptf_send_port, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
-                    first_modified_mac, table_name, RULE_NAME)
+                    ptfadapter, ptf_port_1, ptf_port_2, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
+                    first_modified_mac, table_name, RULE_NAME, dut_vtep_ip=dut_vtep_ip)
 
         # Modify ACL rule to use new MAC address (much more efficient than remove/recreate)
         logger.info("Step 3: Modifying ACL rule to use new MAC: %s", second_modified_mac)
@@ -977,8 +1006,8 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
 
         logger.info("Step 4: Verifying rewrite with second modified MAC: %s", second_modified_mac)
         _send_and_verify_mac_rewrite(
-            ptfadapter, ptf_send_port, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
-            second_modified_mac, table_name, RULE_NAME
+            ptfadapter, ptf_port_1, ptf_port_2, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
+            second_modified_mac, table_name, RULE_NAME, dut_vtep_ip=dut_vtep_ip
         )
 
         logger.info("=== All test steps completed successfully ===")
@@ -1010,6 +1039,183 @@ def test_range_ip_acl_rule(setUp):
     _test_inner_src_mac_rewrite(setUp, "range_test")
 
 
+def test_partial_match(setUp):
+    """
+    Test partial match cases for ACL rules:
+      1. VNI matches but source IP does not - rule should not trigger.
+      2. Source IP matches but VNI does not - rule should not trigger.
+    Validates that both INNER_SRC_IP and TUNNEL_VNI must match for an ACL
+    rule to fire; a partial match should not increment counters or rewrite the MAC.
+    """
+    duthost = setUp['duthost']
+    ptfadapter = setUp['ptfadapter']
+    scenario = setUp['test_scenarios']['multi_vni_test']
+    ptf_port_1 = setUp['ptf_port_1']
+    ptf_port_2 = setUp['ptf_port_2']
+    bind_ports = setUp['bind_ports']
+    dut_vtep_ip = setUp['loopback_src_ip']
+    original_inner_src_mac = scenario['original_mac']
+    rewrite_mac_1 = scenario['first_modified_mac']
+    rewrite_mac_2 = scenario['second_modified_mac']
+    rule_name_1 = "rule_vni_match_no_ip"
+    rule_name_2 = "rule_ip_match_no_vni"
+
+    try:
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table(duthost, bind_ports)
+
+        # Case 1: VNI matches but source IP does not match
+        logger.info("=== Case 1: VNI matches but IP does not ===")
+        setup_acl_rule(duthost, "202.1.1.100/32", str(VXLAN_VNI), rewrite_mac_1, rule_name_1)
+        _send_and_verify_mac_rewrite(
+            ptfadapter, ptf_port_1, ptf_port_2, duthost,
+            "202.1.1.200", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
+            rewrite_mac_1, ACL_TABLE_NAME, rule_name_1,
+            expect_rewrite=False,
+            test_description="VNI matches but IP does not",
+            dut_vtep_ip=dut_vtep_ip
+        )
+        logger.info("=== Case 1 completed successfully ===")
+
+        # Case 2: Source IP matches but VNI does not match. UNPROVISIONED_VNI is never provisioned
+        # as a VNET; traffic is encapped with the primary VNET's VNI, so the rule can't match and
+        # no extra VNET provisioning is needed.
+        logger.info("=== Case 2: IP matches but VNI does not ===")
+        setup_acl_rule(duthost, "202.2.2.100/32", str(UNPROVISIONED_VNI), rewrite_mac_2, rule_name_2)
+        _send_and_verify_mac_rewrite(
+            ptfadapter, ptf_port_1, ptf_port_2, duthost,
+            "202.2.2.100", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
+            rewrite_mac_2, ACL_TABLE_NAME, rule_name_2,
+            expect_rewrite=False,
+            test_description="IP matches but VNI does not",
+            dut_vtep_ip=dut_vtep_ip
+        )
+        logger.info("=== Case 2 completed successfully ===")
+
+        logger.info("=== All partial match test cases completed successfully ===")
+
+    finally:
+        try:
+            remove_acl_rules(duthost, [rule_name_1, rule_name_2])
+            remove_acl_table(duthost)
+        except Exception as e:
+            logger.warning(f"Cleanup failed: {e}")
+
+
+def test_multiple_acl_rules(setUp):
+    """
+    Test two ACL rules with different source IPs and the same VNI.
+    Validates that each rule matches only its configured source IP and that their
+    counters increment independently.
+    """
+    # Extract test data from setUp fixture
+    duthost = setUp['duthost']
+    ptfadapter = setUp['ptfadapter']
+    scenario = setUp['test_scenarios']['multi_vni_test']
+
+    ptf_port_1 = setUp['ptf_port_1']
+    ptf_port_2 = setUp['ptf_port_2']
+    bind_ports = setUp['bind_ports']
+    dut_vtep_ip = setUp['loopback_src_ip']
+
+    # Extract MAC addresses
+    original_inner_src_mac = scenario['original_mac']
+    rewrite_mac_1 = scenario['first_modified_mac']
+    rewrite_mac_2 = scenario['second_modified_mac']
+
+    # Test parameters
+    test_src_ip_1 = "203.1.1.100"
+    test_src_ip_2 = "203.1.1.200"  # Different source IP
+    test_dst_ip = VNET_PRIMARY_ROUTE_IP
+    test_vni = str(VXLAN_VNI)  # Same VNI for both rules
+    rule_name_1 = "rule_multi_1"
+    rule_name_2 = "rule_multi_2"
+
+    try:
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table(duthost, bind_ports)
+
+        logger.info("Creating two ACL rules with different source IPs and the same VNI")
+        logger.info(f"Rule 1: src_ip={test_src_ip_1}, VNI={test_vni}, MAC={rewrite_mac_1}")
+        logger.info(f"Rule 2: src_ip={test_src_ip_2}, VNI={test_vni}, MAC={rewrite_mac_2}")
+
+        setup_acl_rule(duthost, f"{test_src_ip_1}/32", test_vni, rewrite_mac_1, rule_name_1)
+        setup_acl_rule(duthost, f"{test_src_ip_2}/32", test_vni, rewrite_mac_2, rule_name_2)
+
+        # Test Rule 1: Send packet matching first source IP
+        logger.info(f"=== Testing Rule 1: {rule_name_1} with source IP {test_src_ip_1} ===")
+
+        # Get initial counter for rule 1
+        counter_1_before = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_1, timeout=0)
+        counter_2_before = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_2, timeout=0)
+        logger.info(f"Initial counters - Rule 1: {counter_1_before}, Rule 2: {counter_2_before}")
+
+        # Send packet that should match rule 1
+        _send_and_verify_mac_rewrite(
+            ptfadapter, ptf_port_1, ptf_port_2, duthost,
+            test_src_ip_1, test_dst_ip, original_inner_src_mac,
+            rewrite_mac_1,  # Should use MAC from rule 1
+            ACL_TABLE_NAME, rule_name_1,
+            dut_vtep_ip=dut_vtep_ip
+        )
+
+        # Check counters after rule 1 test
+        counter_1_after = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_1, timeout=0)
+        counter_2_after = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_2, timeout=0)
+        logger.info(f"Counters after rule 1 test - Rule 1: {counter_1_after}, Rule 2: {counter_2_after}")
+
+        # Rule 1's own increment is asserted inside _send_and_verify_mac_rewrite; here we only
+        # need the cross-rule isolation check that rule 2 did NOT match.
+        pytest_assert(counter_2_after == counter_2_before,
+                      f"Rule 2 counter should not have incremented: {counter_2_before} -> {counter_2_after}")
+
+        # Test Rule 2: Send packet matching second source IP
+        logger.info(f"=== Testing Rule 2: {rule_name_2} with source IP {test_src_ip_2} ===")
+
+        # Update counters baseline
+        counter_1_baseline = counter_1_after
+
+        # Send packet that should match rule 2
+        _send_and_verify_mac_rewrite(
+            ptfadapter, ptf_port_1, ptf_port_2, duthost,
+            test_src_ip_2, test_dst_ip, original_inner_src_mac,
+            rewrite_mac_2,  # Should use MAC from rule 2
+            ACL_TABLE_NAME, rule_name_2,
+            dut_vtep_ip=dut_vtep_ip
+        )
+
+        # Check final counters
+        counter_1_final = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_1, timeout=0)
+        counter_2_final = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_2, timeout=0)
+        logger.info(f"Final counters - Rule 1: {counter_1_final}, Rule 2: {counter_2_final}")
+
+        # Rule 2's own increment is asserted inside _send_and_verify_mac_rewrite; here we only
+        # need the cross-rule isolation check that rule 1 did NOT match.
+        pytest_assert(counter_1_final == counter_1_baseline,
+                      f"Rule 1 counter should not have incremented: {counter_1_baseline} -> {counter_1_final}")
+
+        # Summary
+        logger.info("=== Test Summary ===")
+        logger.info(
+            f"Rule 1 ({test_src_ip_1}): {counter_1_before} -> {counter_1_final} "
+            f"(increment: {counter_1_final - counter_1_before})"
+        )
+        logger.info(
+            f"Rule 2 ({test_src_ip_2}): {counter_2_before} -> {counter_2_final} "
+            f"(increment: {counter_2_final - counter_2_before})"
+        )
+
+        logger.info("=== Multiple ACL rules test completed successfully ===")
+
+    finally:
+        try:
+            remove_acl_rules(duthost, [rule_name_1, rule_name_2])
+            remove_acl_table(duthost)
+            logger.info("Cleanup completed successfully")
+        except Exception as e:
+            logger.warning(f"Cleanup failed: {e}")
+
+
 @pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic,
                                           CompletenessLevel.confident, CompletenessLevel.thorough)
 def test_scale_acl_rule(setUp, request):
@@ -1017,7 +1223,7 @@ def test_scale_acl_rule(setUp, request):
     Scale test: Program ACL rules with SAME PRIORITIES and test packet forwarding.
 
     The rule count is driven by --completeness_level (see SCALE_RULE_COUNT_LEVEL_MAP),
-    ranging from 10 rules for 'debug' up to 9000 rules for 'thorough'.
+    ranging from 100 rules for 'debug' up to 9000 rules for 'thorough'.
     It verifies that all rules become Active and tests packet forwarding functionality
     at scale.
 
@@ -1026,30 +1232,29 @@ def test_scale_acl_rule(setUp, request):
     2. Packet forwarding verification with priority conflicts
     3. Performance testing with scale + same priorities
 
-    WARNING: at 'thorough' the rule count will likely hit hardware limits.
+    All programmed rules are expected to become Active; any Inactive rule fails the test.
     """
 
     normalized_level = CompletenessLevel.get_normalized_level(request)
     scale_rule_count = SCALE_RULE_COUNT_LEVEL_MAP[normalized_level]
 
     logger.info(f"=== STARTING {scale_rule_count}-RULE SCALE TEST (completeness level: {normalized_level}) ===")
-    logger.info("WARNING: This is a high-scale test that may hit hardware resource limits")
-    logger.info("Expect some rules to be INACTIVE - this is normal at this scale")
-    logger.info("==============================================")
-    # Extract test data from setUpScale fixture
+
+    # Extract test data from setUp fixture
     duthost = setUp['duthost']
     ptfadapter = setUp['ptfadapter']
 
-    ptf_send_port = setUp['ptf_send_port']
+    ptf_port_1 = setUp['ptf_port_1']
+    ptf_port_2 = setUp['ptf_port_2']
     bind_ports = setUp['bind_ports']
+    dut_vtep_ip = setUp['loopback_src_ip']
 
     # Configuration values
     vxlan_tunnel_name = setUp['vxlan_tunnel_name']
-    outer_src_mac = setUp['outer_src_mac']
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = VNET_ROUTE_DST_IP
+    inner_dst_ip = VNET_PRIMARY_ROUTE_IP
     vni_id = str(VXLAN_VNI)  # VNI from configuration
 
     logger.info("=== Starting ACL Source MAC Rewrite Scale Test ===")
@@ -1064,12 +1269,11 @@ def test_scale_acl_rule(setUp, request):
         logger.info("STEP 1: Verifying VXLAN/VNET infrastructure")
 
         logger.info("Verifying VNET route")
-        output = duthost.shell("show vnet route all")["stdout"]
-        assert VNET_ROUTE_PREFIX in output and VNET_NAME in output, "VNET route not found"
+        pytest_assert(_check_vnet_route(duthost), "VNET route not found")
 
         logger.info("Verifying VXLAN tunnel")
-        tunnel_output = duthost.shell("show vxlan tunnel")["stdout"]
-        assert vxlan_tunnel_name in tunnel_output, f"VXLAN tunnel {vxlan_tunnel_name} not found"
+        pytest_assert(_check_vxlan_tunnel_config(duthost, vxlan_tunnel_name),
+                      f"VXLAN tunnel {vxlan_tunnel_name} not found")
 
         # ===================================================================
         # STEP 2: Setup ACL table and scale rules
@@ -1100,18 +1304,16 @@ def test_scale_acl_rule(setUp, request):
         # ===================================================================
         logger.info("STEP 3: Testing packet forwarding with same-priority ACL rules")
 
-        # Test a reasonable subset of rules - focus on early rules (most likely to be active)
         test_rule_count = scale_rule_count
-        logger.info(f"Testing packet forwarding for {test_rule_count} rules with same priority (1000)")
+        logger.info(f"Testing packet forwarding for {test_rule_count} rules with same priority "
+                    f"({ACL_RULE_PRIORITY})")
         logger.info("Sending ONE packet per rule to test both MAC rewrite AND counter increment")
-        logger.info("This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
-        logger.info(f"Note: With {scale_rule_count} total rules, expect significant hardware resource limits")
 
         packet_test_start = time.time()
         successful_tests = 0
         failed_tests = 0
 
-        # Get ACL counters before testing
+        # Get ACL counters before testing (single bulk read instead of one per rule)
         counter_before = get_acl_counters(duthost, ACL_TABLE_NAME)
 
         for i in range(test_rule_count):
@@ -1122,18 +1324,21 @@ def test_scale_acl_rule(setUp, request):
             logger.info(f"Testing rule {i+1}/{test_rule_count}: {rule_name}")
 
             try:
-                # Send single packet to test both MAC rewrite AND counter increment
+                # Send single packet to test MAC rewrite; counter increments are checked in bulk below.
                 _send_and_verify_mac_rewrite(
                     ptfadapter=ptfadapter,
-                    ptf_send_port=ptf_send_port,
+                    ptf_port_1=ptf_port_1,
+                    ptf_ports=ptf_port_2,
                     duthost=duthost,
                     src_ip=inner_src_ip,
                     dst_ip=inner_dst_ip,
-                    orig_src_mac=outer_src_mac,
-                    expected_inner_src_mac=expected_new_src_mac,
+                    orig_src_mac=SCALE_TEST_ORIG_MAC,
+                    rewrite_mac=expected_new_src_mac,
                     table_name=table_name,
                     rule_name=rule_name,
-                    scale_test=True
+                    scale_test=True,
+                    test_description=f"scale test rule {rule_name}",
+                    dut_vtep_ip=dut_vtep_ip
                 )
 
                 successful_tests += 1
@@ -1202,9 +1407,8 @@ def test_scale_acl_rule(setUp, request):
 
         # Check that ACL table is still functional
         logger.info("Verifying ACL table status")
-        result = duthost.shell("show acl table", module_ignore_errors=True)
-        output = result.get("stdout", "")
-        assert ACL_TABLE_NAME in output, f"ACL table {ACL_TABLE_NAME} missing after scale test"
+        pytest_assert(_check_acl_table_present(duthost, ACL_TABLE_NAME),
+                      f"ACL table {ACL_TABLE_NAME} missing after scale test")
 
         # Use the existing verify_acl_rules_installation function for comprehensive rule verification
         logger.info("Performing final verification of all ACL rules with SAME PRIORITY...")
@@ -1225,15 +1429,12 @@ def test_scale_acl_rule(setUp, request):
             # Still report the actual count found
             pytest.fail(f"ACL rules verification failed: {e}")
 
-        # Skip counter testing for this same-priority observation test
-        logger.info("Skipping ACL counter verification for same-priority behavior test")
-
         logger.info(f"=== {scale_rule_count}-RULE SCALE TEST COMPLETED ===")
         logger.info("SCALE TEST SUMMARY:")
-        logger.info(f"- Programmed {scale_rule_count} ACL rules with SAME priority (1000)")
+        logger.info(f"- Programmed {scale_rule_count} ACL rules with SAME priority ({ACL_RULE_PRIORITY})")
         logger.info("- System behavior observed for priority conflict handling")
-        logger.info("- Packet testing performed for sample rules to identify active vs inactive patterns")
-        logger.info("- Check logs above for rule installation, active/inactive ratios, and performance results")
+        logger.info("- Packet testing and counter verification performed for all programmed rules")
+        logger.info("- Check logs above for rule installation and performance results")
         logger.info("- This scale test provides insights into hardware ACL capacity limits")
 
     finally:
@@ -1242,7 +1443,7 @@ def test_scale_acl_rule(setUp, request):
         # ===================================================================
         logger.info("CLEANUP: Removing scale test configuration")
         try:
-            remove_acl_rules(duthost)
+            remove_bulk_acl_rules(duthost)
             remove_acl_table(duthost)
             logger.info("Scale test cleanup completed")
         except Exception as e:

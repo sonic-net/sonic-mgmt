@@ -61,7 +61,11 @@ def generate_nat_expected_rules(duthost):
     ip6tables_natrules.append("-P POSTROUTING ACCEPT")
 
     debian_version = duthost.command("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
-    if "trixie" in debian_version:
+    # The iptables-persistent package causes iptables rules to persist across reboots, including rules that were
+    # added at build time, which is not the intention. This will be removed in later images.
+    iptables_rules_persist = "installed" in duthost.command("dpkg-query -W -f '${Status}\\n' iptables-persistent",
+                                                            module_ignore_errors=True)['stdout']
+    if "trixie" in debian_version and iptables_rules_persist:
         ip6tables_natrules.append("-N DOCKER")
         ip6tables_natrules.append("-A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER")
         ip6tables_natrules.append("-A OUTPUT ! -d ::1/128 -m addrtype --dst-type LOCAL -j DOCKER")

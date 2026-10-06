@@ -9,6 +9,7 @@ import sys
 import random
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from tests.common.utilities import (wait, wait_until)   # noqa: F401
 from tabulate import tabulate
 
@@ -20,7 +21,7 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
     get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
-    fetch_flow_metrics_for_macsec    # noqa: F401
+    fetch_flow_metrics_for_macsec, set_flow_transmit_state, are_flows_stopped    # noqa: F401
 from .variables import pfcQueueValueDict
 from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
@@ -863,9 +864,7 @@ def run_traffic(duthost,
 
     if not ptype:
         logger.info("Starting transmit on all flows ...")
-        cs = api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-        api.set_control_state(cs)
+        set_flow_transmit_state(api, "start")
     else:
         print('Generating Traffic Item')
         trafficItems = ixnet.Traffic.TrafficItem.find()
@@ -922,15 +921,19 @@ def run_traffic(duthost,
             api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         time.sleep(exp_dur_sec*(3/5))
 
+    # A flow held under PFC flow control never transitions to 'stopped' on its own, so stop
+    # transmit here. Only the data flows: the pause storm must keep DUT egress paused.
+    if snappi_extra_params.stop_data_flows_before_final_stats and not ptype:
+        logger.info("Stopping transmit on data flows after in-flight stats collection")
+        set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
+
     attempts = 0
     max_attempts = 20
     while attempts < max_attempts:
         logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
         if not ptype:
-            flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
             # If all the data flows have stopped
-            transmit_states = [metric.transmit for metric in flow_metrics]
-            if len(flow_metrics) == len(data_flow_names) and list(set(transmit_states)) == ['stopped']:
+            if are_flows_stopped(api, data_flow_names):
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
@@ -956,6 +959,19 @@ def run_traffic(duthost,
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
+    # Capture stop + retrieval is slow enough to outlast the pause storm, which would let the
+    # DUT drain buffered frames and push a paused flow's rx_frames above 0. Read metrics first.
+    read_stats_before_capture_stop = (
+        snappi_extra_params.stop_data_flows_before_final_stats
+        and not ptype
+        and pcap_type != packet_capture.NO_CAPTURE
+    )
+
+    flow_metrics = None
+    if read_stats_before_capture_stop:
+        logger.info("Dumping per-flow statistics")
+        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Stopping packet capture ...")
         request = api.capture_request()
@@ -968,16 +984,15 @@ def run_traffic(duthost,
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
-    # Dump per-flow statistics
-    logger.info("Dumping per-flow statistics")
-    if not ptype:
-        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-    else:
-        flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+    # Dump per-flow statistics (unless already collected above before capture teardown)
+    if flow_metrics is None:
+        logger.info("Dumping per-flow statistics")
+        if not ptype:
+            flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+        else:
+            flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
     logger.info("Stopping transmit on all remaining flows")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-    api.set_control_state(cs)
+    set_flow_transmit_state(api, "stop")
     check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
@@ -1937,6 +1952,8 @@ def run_traffic_and_collect_stats(rx_duthost,
         flow_list.append(item.replace(' ', '_').lower())
     results = list(df_t.columns)
     fname = fname + '-' + datetime.now().strftime('%Y-%m-%d-%H-%M')
+    # Callers compose fname from nested log dirs that may not exist yet.
+    Path(fname).parent.mkdir(parents=True, exist_ok=True)
     with open(fname+'.txt', 'w') as f:
         f.write('Captured data for {} iterations at {} seconds interval \n'.format(m, stats_interval))
         test_stats = {}

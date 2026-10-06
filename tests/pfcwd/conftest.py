@@ -7,12 +7,14 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
-from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa: F401
+from tests.common.fixtures.ptfhost_utils import pause_garp_service           # noqa: F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
 from tests.common.utilities import str2bool
 
 logger = logging.getLogger(__name__)
+
+SET_PFC_TIME_SUCCESS_MSG = "PFC bit time set successful"
 
 
 def pytest_addoption(parser):
@@ -56,9 +58,9 @@ def two_queues(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fan
     if dut_asic_type == "mellanox":
         for fanouthost in list(fanouthosts.values()):
             fanout_os = fanouthost.get_fanout_os()
-            if fanout_os == 'eos':
+            if fanout_os == "eos":
                 return False
-    return request.config.getoption('--two-queues')
+    return request.config.getoption("--two-queues")
 
 
 @pytest.fixture(scope="module")
@@ -83,7 +85,7 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa: F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,    # noqa: F811
 ):
     """
     Sets up all the parameters needed for the PFCWD tests
@@ -96,16 +98,16 @@ def setup_dut_test_params(
     Yields:
         dut_info: dictionary containing dut information
     """
-    dut_test_params = {'basicParams': {'is_dualtor': False}}
+    dut_test_params = {"basicParams": {"is_dualtor": False}}
     if "dualtor" in tbinfo["topo"]["name"]:
         dut_test_params["basicParams"]["is_dualtor"] = True
-        vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-        if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-            default_vlan_name = vlan_cfgs['default_vlan_config']
+        vlan_cfgs = tbinfo["topo"]["properties"]["topology"]["DUT"]["vlan_configs"]
+        if vlan_cfgs and "default_vlan_config" in vlan_cfgs:
+            default_vlan_name = vlan_cfgs["default_vlan_config"]
             if default_vlan_name:
                 for vlan in list(vlan_cfgs[default_vlan_name].values()):
-                    if 'mac' in vlan and vlan['mac']:
-                        dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
+                    if "mac" in vlan and vlan["mac"]:
+                        dut_test_params["basicParams"]["def_vlan_mac"] = vlan["mac"]
                         break
 
     logger.info("dut_test_params : {}".format(dut_test_params))
@@ -119,12 +121,12 @@ def pfcwd_pause_service(ptfhost):
     needs_resume = {"icmp_responder": False, "garp_service": False}
 
     out = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True).get("stdout", "")
-    if 'RUNNING' in out:
+    if "RUNNING" in out:
         needs_resume["icmp_responder"] = True
         ptfhost.shell("supervisorctl stop icmp_responder")
 
     out = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True).get("stdout", "")
-    if 'RUNNING' in out:
+    if "RUNNING" in out:
         needs_resume["garp_service"] = True
         ptfhost.shell("supervisorctl stop garp_service")
 
@@ -149,57 +151,66 @@ def set_pfc_time_cisco_8000(
         setup_pfc_test):
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    test_ports = setup_pfc_test['test_ports']
+    test_ports = setup_pfc_test["test_ports"]
 
     # Lets limit this to cisco and T2 only.
-    if duthost.facts['asic_type'] != "cisco-8000":
+    if duthost.facts["asic_type"] != "cisco-8000":
         yield
         return
 
     PFC_TIME_SET_SCRIPT = "pfcwd/cisco/set_pfc_time.py"
     PFC_TIME_RESET_SCRIPT = "pfcwd/cisco/default_pfc_time.py"
 
-    for port in test_ports:
-        asic_id = ""
-        if duthost.sonichost.is_multi_asic:
-            asic_id = duthost.get_port_asic_instance(port).asic_index
-        set_pfc_timer_cisco_8000(
-            duthost,
-            asic_id,
-            PFC_TIME_SET_SCRIPT,
-            port)
+    # Construct a map of asic_id to list of ports for multi-asic devices
+    # Recycle the keys from ports for single-asic devices
+
+    if duthost.sonichost.is_multi_asic:
+        asic_to_ports = dict()
+        for port in test_ports.keys():
+            asic_instance = duthost.get_port_asic_instance(port)
+            if asic_instance:
+                if asic_instance.asic_index not in asic_to_ports:
+                    asic_to_ports[asic_instance.asic_index] = [port]
+                else:
+                    asic_to_ports[asic_instance.asic_index].append(port)
+    else:
+        asic_to_ports = list(test_ports.keys())
+
+    set_pfc_timer_cisco_8000(duthost, PFC_TIME_SET_SCRIPT, asic_to_ports)
 
     yield
 
-    for port in test_ports:
-        asic_id = ""
-        if duthost.sonichost.is_multi_asic:
-            asic_id = duthost.get_port_asic_instance(port).asic_index
-        set_pfc_timer_cisco_8000(
-            duthost,
-            asic_id,
-            PFC_TIME_RESET_SCRIPT,
-            port)
+    set_pfc_timer_cisco_8000(duthost, PFC_TIME_RESET_SCRIPT, asic_to_ports)
 
 
-def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
-
+def set_pfc_timer_cisco_8000(duthost, script, asic_to_ports):
     script_name = os.path.basename(script)
-    dut_script_path = f"/tmp/{script_name}"
-    duthost.copy(src=script, dest=dut_script_path)
-    duthost.shell(f"sed -i 's/INTERFACE/{port}/' {dut_script_path}")
-    duthost.docker_copy_to_all_asics(
-        container_name=f"syncd{asic_id}",
-        src=dut_script_path,
-        dst="/")
 
-    asic_arg = ""
-    if asic_id != "":
-        asic_arg = f"-n asic{asic_id}"
-    duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
+    def copy_and_run(dut_script_path, port_list, asic=None):
+        duthost.copy(src=script, dest=dut_script_path)
+        ports_as_str = "[" + ",".join([f'"{port}"' for port in port_list]) + "]"
+        duthost.shell(f"sed -i 's/__PARAM_INTERFACES__/{ports_as_str}/' {dut_script_path}")
+        duthost.shell(f"sed -i 's/__PARAM_SUCCESS__/\"{SET_PFC_TIME_SUCCESS_MSG}\"/' {dut_script_path}")
+        asic_str = str(asic) if asic is not None else ""
+        duthost.docker_copy_to_all_asics(container_name=f"syncd{asic_str}", src=dut_script_path, dst="/")
+        container_script_path = "/" + os.path.basename(dut_script_path)
+        asic_str = f"-n asic{asic}" if asic is not None else ""
+        result = duthost.shell(f"show platform npu script {asic_str} -s {container_script_path}")
+        success = SET_PFC_TIME_SUCCESS_MSG in result["stdout"]
+        assert success, f"Script {script_name} failed to execute correctly, output: {result['stdout']}"
+
+    if type(asic_to_ports) is dict:
+        for asic_id, ports in asic_to_ports.items():
+            dut_script_path = f"/tmp/asic{asic_id}_{script_name}"
+            copy_and_run(dut_script_path, ports, asic=asic_id)
+    elif type(asic_to_ports) is list:
+        dut_script_path = f"/tmp/{script_name}"
+        copy_and_run(dut_script_path, asic_to_ports)
+    else:
+        assert False, f"Invalid type of port info sent to PFC timer script: {type(asic_to_ports).__name__}."
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that saves PFCWD configuration before each test and restores it after
@@ -216,11 +227,12 @@ def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hos
     # Get current PFCWD configuration from config_db.json
     cmd = "jq '.PFC_WD' /etc/sonic/config_db.json"
     result = duthost.shell(cmd, module_ignore_errors=True)
-    original_config = result.get('stdout', '{}')
+    original_config = result.get("stdout", "{}")
     logger.info("Original PFCWD config before test: {}".format(original_config))
 
     # Parse the configuration to extract settings
     import json
+
     try:
         pfcwd_config = json.loads(original_config)
     except Exception as e:
@@ -237,8 +249,8 @@ def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hos
 
     if pfcwd_config:
         # Restore POLL_INTERVAL if it exists
-        if 'GLOBAL' in pfcwd_config and 'POLL_INTERVAL' in pfcwd_config['GLOBAL']:
-            poll_interval = pfcwd_config['GLOBAL']['POLL_INTERVAL']
+        if "GLOBAL" in pfcwd_config and "POLL_INTERVAL" in pfcwd_config["GLOBAL"]:
+            poll_interval = pfcwd_config["GLOBAL"]["POLL_INTERVAL"]
             cmd = "pfcwd interval {}".format(poll_interval)
             duthost.shell(cmd, module_ignore_errors=True)
             logger.info("Restored POLL_INTERVAL to {}".format(poll_interval))
@@ -247,12 +259,12 @@ def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hos
         # Group ports by their configuration (action, detection_time, restoration_time)
         config_groups = {}
         for port, settings in pfcwd_config.items():
-            if port == 'GLOBAL':
+            if port == "GLOBAL":
                 continue
 
-            action = settings.get('action', 'drop')
-            detection_time = settings.get('detection_time', '200')
-            restoration_time = settings.get('restoration_time', '200')
+            action = settings.get("action", "drop")
+            detection_time = settings.get("detection_time", "200")
+            restoration_time = settings.get("restoration_time", "200")
 
             key = (action, detection_time, restoration_time)
             if key not in config_groups:
@@ -261,7 +273,7 @@ def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hos
 
         # Start PFCWD for each configuration group
         for (action, detection_time, restoration_time), ports in config_groups.items():
-            ports_str = ' '.join(ports)
+            ports_str = " ".join(ports)
             cmd = "pfcwd start --action {} --restoration-time {} {} {}".format(
                 action, restoration_time, ports_str, detection_time
             )
