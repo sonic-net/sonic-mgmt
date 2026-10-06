@@ -25,8 +25,9 @@ Switch-host power events come from bmcctld's HOST_STATE|switch-host row:
 ``sonic-dbus-bridge`` mirrors device_power_state/device_status into
 ``xyz.openbmc_project.State.Host`` CurrentHostState and bmcweb's host state
 monitor turns each change into a ``ResourceEvent.1.3.0.ResourcePower*``
-event on the ComputerSystem. The tests stand in for bmcctld by writing that
-row, the same way they stand in for thermalctld on the leak sensor.
+event on the ComputerSystem. The power tests drive real transitions through
+ComputerSystem.Reset, so bmcctld writes the row and the events come out of
+the live chain. Only the leak sensor is simulated, standing in for thermalctld.
 
 The webhook endpoint is ``redfish_event_listener.py`` running on the PTF
 host, the test infrastructure sitting on the BMC's management subnet. That
@@ -46,7 +47,7 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
-from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_hset, redis_keys
+from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_keys
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     assert_field_equals,
@@ -123,13 +124,19 @@ SYSTEM_ORIGIN = "/redfish/v1/Systems/system"
 RESET_PATH = "{}/Actions/ComputerSystem.Reset".format(SYSTEM_ORIGIN)
 COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
 COMMAND_DONE_TIMEOUT = 60
-# device_power_state -> (device_status bmcctld writes with it, MessageId, Message)
+# Events the host state monitor raises as the switch host goes off and comes back, in delivery order.
 HOST_POWER_EVENTS = {
-    "POWERING_OFF": ("ONLINE", "ResourceEvent.1.3.0.ResourcePoweringOff", "The resource `system` is powering off."),
-    "POWERED_OFF": ("OFFLINE", "ResourceEvent.1.3.0.ResourcePoweredOff", "The resource `system` has powered off."),
-    "POWERING_ON": ("OFFLINE", "ResourceEvent.1.3.0.ResourcePoweringOn", "The resource `system` is powering on."),
-    "POWERED_ON": ("ONLINE", "ResourceEvent.1.3.0.ResourcePoweredOn", "The resource `system` has powered on."),
+    "PoweringOff": ("ResourceEvent.1.3.0.ResourcePoweringOff", "The resource `system` is powering off."),
+    "PoweredOff": ("ResourceEvent.1.3.0.ResourcePoweredOff", "The resource `system` has powered off."),
+    "PoweringOn": ("ResourceEvent.1.3.0.ResourcePoweringOn", "The resource `system` is powering on."),
+    "PoweredOn": ("ResourceEvent.1.3.0.ResourcePoweredOn", "The resource `system` has powered on."),
 }
+EVENT_NAME_BY_MESSAGE_ID = {message_id: name for name, (message_id, _) in HOST_POWER_EVENTS.items()}
+POWER_OFF_ON_SEQUENCE = ("PoweringOff", "PoweredOff", "PoweringOn", "PoweredOn")
+# A GracefulShutdown gives the host graceful_shutdown_timeout to go down on its own before power is removed.
+HOST_OFF_TIMEOUT = 240
+HOST_ON_TIMEOUT = 120
+HOST_STATE_POLL = 5
 
 # Runs a POST from inside the redfish container: exactly the network path bmcweb uses.
 PROBE_SNIPPET = ("import sys, urllib.request; "
@@ -253,9 +260,65 @@ def _assert_leak_event(event, state):
     )
 
 
-def _assert_host_power_event(event, power_state):
-    """Check an event record is the host state monitor's event for `power_state`."""
-    _, message_id, message = HOST_POWER_EVENTS[power_state]
+def _host_state(bmc_duthost):
+    return redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+
+
+def _host_is_settled_on(bmc_duthost):
+    return host_is_settled_on(_host_state(bmc_duthost))
+
+
+def _reset(redfish_client, reset_type):
+    response = _redfish(redfish_client, "POST", RESET_PATH, json={"ResetType": reset_type})
+    pytest_assert(response.status_code in (200, 204),
+                  "ResetType={} must be accepted with HTTP 200 or 204, got: {}".format(
+                      reset_type, response.status_code))
+
+
+def _delivered_message_ids(payloads, collapse_repeats=False):
+    """MessageId of every event delivered, in order.
+
+    bmcctld writes two transitional values on the way down (GRACEFUL_SHUTTING_DOWN,
+    then POWERING_OFF) that the bridge maps to the same CurrentHostState, so the
+    same event can be raised twice in a row. collapse_repeats folds those.
+    """
+    ids = []
+    for payload in payloads:
+        for event in payload.get("Events", []):
+            message_id = event.get("MessageId")
+            if not (collapse_repeats and ids and ids[-1] == message_id):
+                ids.append(message_id)
+    return ids
+
+
+def _wait_for_power_event(receiver, name, event_name, timeout):
+    """Return every payload delivered to receiver path `name` once the `event_name` power event is among them."""
+    message_id = HOST_POWER_EVENTS[event_name][0]
+    pytest_assert(
+        wait_until(timeout, DELIVERY_POLL, 0, lambda: message_id in _delivered_message_ids(receiver.deliveries(name))),
+        "{} did not reach {} within {}s, deliveries so far: {}".format(
+            message_id, receiver.url(name), timeout, _delivered_message_ids(receiver.deliveries(name)))
+    )
+    payloads = receiver.deliveries(name)
+    logger.info("RMC endpoint %s has %s after %d delivery(ies)", receiver.url(name), message_id, len(payloads))
+    return payloads
+
+
+def _power_event(payloads, event_name):
+    """The event record for `event_name` among delivered payloads, envelope checked."""
+    message_id = HOST_POWER_EVENTS[event_name][0]
+    event = next(
+        (record for payload in payloads for record in _assert_event_envelope(payload)
+         if record.get("MessageId") == message_id),
+        None)
+    pytest_assert(event is not None,
+                  "{} not found in deliveries: {}".format(message_id, _delivered_message_ids(payloads)))
+    return event
+
+
+def _assert_host_power_event(event, event_name):
+    """Check an event record is the host state monitor's `event_name` event."""
+    message_id, message = HOST_POWER_EVENTS[event_name]
     assert_field_equals(event, "MessageId", message_id)
     assert_field_equals(event, "Severity", "OK")
     assert_field_equals(event, "Message", message)
@@ -429,27 +492,26 @@ def leak_event(bmc_duthost, leak_sensor, clean_subscriptions):
 
 
 @pytest.fixture(scope="function")
-def host_power_state(bmc_duthost):
-    """Write HOST_STATE|switch-host as bmcctld would; returns a setter and restores the row afterwards.
+def host_power_restored(redfish_client, bmc_duthost):
+    """Require the switch host settled on before a power test and power it back on if the test leaves it off.
 
-    Only the STATE_DB row is written, never the switch host: bmcctld rewrites
-    the row on a real transition and leaves it alone otherwise, so a
-    simulated value stays until this fixture restores the snapshot. Requires
-    the host to be settled on so nothing real is in flight.
+    The power tests take the host down for real through ComputerSystem.Reset,
+    so a failure part-way must not leave it off for the rest of the run.
     """
-    before = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+    before = _host_state(bmc_duthost)
     pyrequire(host_is_settled_on(before),
-              "{} must show the switch host settled on to simulate power events, got: {}".format(
-                  HOST_STATE_KEY, before))
+              "{} must show the switch host settled on before a power test, got: {}".format(HOST_STATE_KEY, before))
 
-    def _write(power_state, device_status):
-        redis_hset(bmc_duthost, STATE_DB, HOST_STATE_KEY, device_power_state=power_state, device_status=device_status,
-                   last_change_timestamp=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
-        logger.info("%s set to device_power_state=%s device_status=%s", HOST_STATE_KEY, power_state, device_status)
+    yield
 
-    yield lambda power_state: _write(power_state, HOST_POWER_EVENTS[power_state][0])
-
-    _write(before["device_power_state"], before["device_status"])
+    if _host_is_settled_on(bmc_duthost):
+        return
+    logger.warning("%s is %s after the test, powering the switch host back on",
+                   HOST_STATE_KEY, _host_state(bmc_duthost))
+    _reset(redfish_client, "On")
+    pytest_assert(wait_until(HOST_ON_TIMEOUT, HOST_STATE_POLL, 0, _host_is_settled_on, bmc_duthost),
+                  "{} did not settle on within {}s of ResetType=On: {}".format(
+                      HOST_STATE_KEY, HOST_ON_TIMEOUT, _host_state(bmc_duthost)))
 
 
 class TestRedfishEventSubscription:
@@ -709,28 +771,40 @@ class TestRedfishEventSubscription:
             logger.info("Verified %s DetectorState=%s Health=%s", LEAK_ORIGIN, state,
                         body.get("Status", {}).get("Health"))
 
-    def test_host_power_events_delivered(self, redfish_client, rmc_receiver, clean_subscriptions, host_power_state):
+    def test_host_power_events_delivered(self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions,
+                                         host_power_restored):
         """
-        Each switch-host power transition reaches a subscribed rack manager as a ResourceEvent.
+        Taking the switch host down and back up reaches a subscribed rack manager as ResourceEvents.
 
         A subscription filtered on ResourceTypes=[ComputerSystem] receives
-        ResourcePoweringOff, ResourcePoweredOff, ResourcePoweringOn and
-        ResourcePoweredOn, in order and with increasing Ids, as HOST_STATE
-        moves through POWERING_OFF, POWERED_OFF, POWERING_ON, POWERED_ON.
+        ResourcePoweringOff and ResourcePoweredOff for a ComputerSystem.Reset
+        GracefulShutdown, then ResourcePoweringOn and ResourcePoweredOn for the
+        ResetType=On that follows, in that order and with increasing Ids. The
+        transitions are real: bmcctld shuts the host down, removes its power
+        and restores it, and HOST_STATE reads a settled on value at the end.
         Each event names the ComputerSystem as its origin. A subscription
         filtered on LeakDetector receives none of them.
         """
         _subscribe(redfish_client, rmc_receiver.url("power"), "ctx-power", ResourceTypes=[HOST_RESOURCE_TYPE])
         _subscribe(redfish_client, rmc_receiver.url("leak-only"), "ctx-leak-only", ResourceTypes=[LEAK_RESOURCE_TYPE])
 
-        payloads = []
-        for count, power_state in enumerate(("POWERING_OFF", "POWERED_OFF", "POWERING_ON", "POWERED_ON"), 1):
-            host_power_state(power_state)
-            payloads = _wait_for_deliveries(rmc_receiver, "power", count)
-            events = _assert_event_envelope(payloads[-1])
-            pytest_assert(len(events) == 1, "Expected exactly one event record, got: {}".format(events))
-            _assert_host_power_event(events[0], power_state)
-            logger.info("Verified %s delivered for device_power_state=%s", events[0]["MessageId"], power_state)
+        _reset(redfish_client, "GracefulShutdown")
+        _wait_for_power_event(rmc_receiver, "power", "PoweredOff", HOST_OFF_TIMEOUT)
+        logger.info("%s after GracefulShutdown: %s", HOST_STATE_KEY, _host_state(bmc_duthost))
+
+        _reset(redfish_client, "On")
+        payloads = _wait_for_power_event(rmc_receiver, "power", "PoweredOn", HOST_ON_TIMEOUT)
+        pytest_assert(wait_until(HOST_ON_TIMEOUT, HOST_STATE_POLL, 0, _host_is_settled_on, bmc_duthost),
+                      "{} did not settle on after ResetType=On: {}".format(HOST_STATE_KEY, _host_state(bmc_duthost)))
+        logger.info("%s after ResetType=On: %s", HOST_STATE_KEY, _host_state(bmc_duthost))
+
+        expected = [HOST_POWER_EVENTS[name][0] for name in POWER_OFF_ON_SEQUENCE]
+        delivered = _delivered_message_ids(payloads, collapse_repeats=True)
+        pytest_assert(delivered == expected, "Power events must arrive as {}, got: {}".format(expected, delivered))
+        for payload in payloads:
+            events = _assert_event_envelope(payload)
+            pytest_assert(len(events) == 1, "Expected exactly one event record per delivery, got: {}".format(events))
+            _assert_host_power_event(events[0], EVENT_NAME_BY_MESSAGE_ID[events[0]["MessageId"]])
 
         ids = [int(p["Id"]) for p in payloads]
         pytest_assert(ids == sorted(ids) and len(set(ids)) == len(ids),
@@ -739,33 +813,32 @@ class TestRedfishEventSubscription:
         leak_only = rmc_receiver.deliveries("leak-only")
         pytest_assert(not leak_only,
                       "A LeakDetector-only subscriber must not receive power events, got: {}".format(leak_only))
-        logger.info("Verified four power events in order and none at the LeakDetector-only subscriber")
+        logger.info("Verified the four power events of a real shutdown and power-on, none at the LeakDetector-only "
+                    "subscriber")
 
     def test_host_power_off_event_drives_power_on_request(
-            self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions, host_power_state):
+            self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions, host_power_restored):
         """
         A rack manager learns the switch host is off from the event and powers it back on over Redfish.
 
-        HOST_STATE reports POWERED_OFF, the subscriber receives
-        ResourcePoweredOff, and answers with ComputerSystem.Reset ResetType=On.
-        That request must become one RACK_MANAGER_COMMAND row with
-        command=POWER_ON that bmcctld completes with status DONE and result
-        SUCCESS. bmcctld finds the host already on and so does not rewrite
-        HOST_STATE itself, so the row is set back to POWERED_ON here, standing
-        in for the write a real power-on would make, and the subscriber must
-        then receive ResourcePoweredOn.
+        The host is powered off for real with ComputerSystem.Reset ForceOff.
+        The subscriber receives ResourcePoweredOff and answers with
+        ResetType=On. That request must become one new RACK_MANAGER_COMMAND
+        row with command=POWER_ON that bmcctld completes with status DONE and
+        result SUCCESS, bmcctld must bring the host back so HOST_STATE settles
+        on, and the subscriber must then receive ResourcePoweredOn.
         """
         _subscribe(redfish_client, rmc_receiver.url("rm"), "ctx-rm", ResourceTypes=[HOST_RESOURCE_TYPE])
+
+        _reset(redfish_client, "ForceOff")
+        payloads = _wait_for_power_event(rmc_receiver, "rm", "PoweredOff", HOST_OFF_TIMEOUT)
+        event = _power_event(payloads, "PoweredOff")
+        _assert_host_power_event(event, "PoweredOff")
+        logger.info("Rack manager received %s with %s=%s, requesting ResetType=On",
+                    event["MessageId"], HOST_STATE_KEY, _host_state(bmc_duthost))
         keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
 
-        host_power_state("POWERED_OFF")
-        event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, "rm", 1)[0])[0]
-        _assert_host_power_event(event, "POWERED_OFF")
-        logger.info("Rack manager received %s, requesting ResetType=On", event["MessageId"])
-
-        response = _redfish(redfish_client, "POST", RESET_PATH, json={"ResetType": "On"})
-        pytest_assert(response.status_code in (200, 204),
-                      "ResetType=On must be accepted with HTTP 200 or 204, got: {}".format(response.status_code))
+        _reset(redfish_client, "On")
 
         def _new_command_keys():
             return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
@@ -788,7 +861,8 @@ class TestRedfishEventSubscription:
         )
         logger.info("bmcctld completed %s: %s", key, row)
 
-        host_power_state("POWERED_ON")
-        event = _assert_event_envelope(_wait_for_deliveries(rmc_receiver, "rm", 2)[1])[0]
-        _assert_host_power_event(event, "POWERED_ON")
-        logger.info("Verified the rack manager saw the host off, powered it on, and saw it on again")
+        pytest_assert(wait_until(HOST_ON_TIMEOUT, HOST_STATE_POLL, 0, _host_is_settled_on, bmc_duthost),
+                      "{} did not settle on after ResetType=On: {}".format(HOST_STATE_KEY, _host_state(bmc_duthost)))
+        payloads = _wait_for_power_event(rmc_receiver, "rm", "PoweredOn", HOST_ON_TIMEOUT)
+        _assert_host_power_event(_power_event(payloads, "PoweredOn"), "PoweredOn")
+        logger.info("Verified the rack manager saw the host go off, powered it on, and saw it on again")
