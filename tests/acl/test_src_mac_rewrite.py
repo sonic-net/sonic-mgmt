@@ -842,6 +842,35 @@ def _log_vxlan_datapath_state(duthost, inner_src_ip, inner_dst_ip, rule_name):
         logger.error("--- %s ---\n%s", cmd, out)
 
 
+# Mask.set_do_not_care_packet() re-serializes and re-parses the whole packet via scapy on every
+# call (a known PTF inefficiency, ~13ms x 9 fields = ~80ms/packet at scale). Since every packet
+# built by _send_and_verify_mac_rewrite has the same layout, caching the resulting mask bit array
+# (keyed by packet length as a structural sanity check) and reusing it cuts this to ~3ms/packet.
+_MASK_TEMPLATE_CACHE = {}
+
+
+def _build_expected_packet_mask(expected_pkt):
+    masked = Mask(expected_pkt)
+    masked.set_ignore_extra_bytes()
+
+    cached = _MASK_TEMPLATE_CACHE.get(len(expected_pkt))
+    if cached is not None:
+        masked.mask = list(cached)
+        return masked
+
+    masked.set_do_not_care_packet(scapy.Ether, "dst")
+    masked.set_do_not_care_packet(scapy.UDP, "sport")
+    masked.set_do_not_care_packet(scapy.UDP, "dport")
+    masked.set_do_not_care_packet(scapy.UDP, "chksum")
+    masked.set_do_not_care_packet(scapy.IP, "ttl")
+    masked.set_do_not_care_packet(scapy.IP, "chksum")
+    masked.set_do_not_care_packet(scapy.IP, "id")
+    masked.set_do_not_care_packet(scapy.IP, "len")
+    masked.set_do_not_care_packet(scapy.IP, "tos")
+    _MASK_TEMPLATE_CACHE[len(expected_pkt)] = list(masked.mask)
+    return masked
+
+
 def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
                                  src_ip, dst_ip, orig_src_mac, rewrite_mac,
                                  table_name, rule_name, expect_rewrite=True,
@@ -895,17 +924,7 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
         udp_sport=0, udp_dport=VXLAN_UDP_PORT, with_udp_chksum=False,
         vxlan_vni=vni, inner_frame=inner_exp)
 
-    masked = Mask(expected_pkt)
-    masked.set_ignore_extra_bytes()
-    masked.set_do_not_care_packet(scapy.Ether, "dst")
-    masked.set_do_not_care_packet(scapy.UDP, "sport")
-    masked.set_do_not_care_packet(scapy.UDP, "dport")
-    masked.set_do_not_care_packet(scapy.UDP, "chksum")
-    masked.set_do_not_care_packet(scapy.IP, "ttl")
-    masked.set_do_not_care_packet(scapy.IP, "chksum")
-    masked.set_do_not_care_packet(scapy.IP, "id")
-    masked.set_do_not_care_packet(scapy.IP, "len")
-    masked.set_do_not_care_packet(scapy.IP, "tos")
+    masked = _build_expected_packet_mask(expected_pkt)
 
     count_before = get_acl_counter(duthost, table_name, rule_name, timeout=0) if not scale_test else None
     logger.info("=== MAC Rewrite Test (expect_rewrite=%s, rule=%s, %s) ===",
