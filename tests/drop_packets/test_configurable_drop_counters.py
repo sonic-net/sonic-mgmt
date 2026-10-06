@@ -79,7 +79,7 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
             ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*",
-            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, "
+            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, " +
             "SAI_OBJECT_TYPE_NULL.*"
 
         ]

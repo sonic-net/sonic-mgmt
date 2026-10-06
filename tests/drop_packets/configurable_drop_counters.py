@@ -47,6 +47,16 @@ _COUNTERS_DB_MONITOR_STAT_KEYS = (
 _COUNTERS_DB_INCIDENT_COUNT = (
     "sonic-db-cli COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
 )
+_COUNTERS_DB_INCIDENT_CLEAR = (
+    "sonic-db-cli COUNTERS_DB DEL 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
+)
+_COUNTERS_DB_FIRST_INCIDENT = (
+    "sonic-db-cli COUNTERS_DB LINDEX 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents' 0"
+)
+_COUNTERS_DB_PREV_DROP_COUNT = (
+    "sonic-db-cli COUNTERS_DB HGET 'DEBUG_DROP_MONITOR_STATS|{}|{}' prev_drop_count"
+)
+_DUT_UNIX_TIME = "date +%s"
 
 
 def get_device_capabilities(dut):
@@ -219,14 +229,74 @@ def get_counter_config_field(dut, counter_name, field):
     return dut.command(_CONFIG_DB_COUNTER_FIELD.format(counter_name, field))["stdout"].strip()
 
 
+def _checked_stdout(dut, command, description):
+    """
+    Run a query on the DUT and return its stripped stdout, raising when the command itself
+    failed.
+
+    The monitor state is only ever read to decide whether an incident is present or has
+    been purged. Treating a failed query as empty output would turn "the DUT could not
+    answer" into "there are no incidents", which silently satisfies exactly the assertions
+    these tests rely on, so failures are surfaced instead.
+    """
+    output = dut.command(command, module_ignore_errors=True)
+    if output["rc"] != 0:
+        raise RuntimeError("{} failed (rc={}): {}".format(
+            description, output["rc"], output.get("stderr", "").strip()))
+    return output["stdout"].strip()
+
+
 def get_incident_count(dut, counter_name, port):
     """
     Get the number of currently tracked (i.e. not yet outside the configured window)
     incidents for a given counter/port pair.
     """
-    output = dut.command(_COUNTERS_DB_INCIDENT_COUNT.format(counter_name, port),
-                         module_ignore_errors=True)
-    return int(output["stdout"].strip() or 0)
+    description = "Reading the incident count for {}/{}".format(counter_name, port)
+    stdout = _checked_stdout(
+        dut, _COUNTERS_DB_INCIDENT_COUNT.format(counter_name, port), description)
+    # LLEN reports 0 for a missing key, so a non-numeric answer means the query did not
+    # actually run and must not be rounded down to "no incidents".
+    if not stdout.isdigit():
+        raise RuntimeError("{} returned a non-numeric response: {!r}".format(description, stdout))
+    return int(stdout)
+
+
+def get_first_incident_timestamp(dut, counter_name, port):
+    """
+    Unix timestamp (DUT clock) of the oldest tracked incident, or None when there is none.
+
+    The monitor stamps incidents using the Redis clock on the DUT, so this is the only
+    sound reference point for reasoning about when the configured window expires.
+    """
+    stdout = _checked_stdout(
+        dut, _COUNTERS_DB_FIRST_INCIDENT.format(counter_name, port),
+        "Reading the oldest incident timestamp for {}/{}".format(counter_name, port))
+    return int(stdout) if stdout else None
+
+
+def get_monitor_prev_drop_count(dut, counter_name, port):
+    """
+    The drop count the monitor recorded for this counter/port on its most recent poll.
+
+    The plugin rewrites this field on every poll, so a change in its value is proof that a
+    poll has completed. An empty response is legitimate here: the field does not exist
+    until the monitor has polled the port for the first time.
+    """
+    stdout = _checked_stdout(
+        dut, _COUNTERS_DB_PREV_DROP_COUNT.format(counter_name, port),
+        "Reading prev_drop_count for {}/{}".format(counter_name, port))
+    return int(stdout) if stdout else 0
+
+
+def clear_monitor_incidents(dut, counter_name, port):
+    """Drop any incidents the monitor is currently tracking for this counter/port."""
+    return dut.command(_COUNTERS_DB_INCIDENT_CLEAR.format(counter_name, port),
+                       module_ignore_errors=True)
+
+
+def get_dut_unix_timestamp(dut):
+    """Current unix time on the DUT, i.e. the same clock the monitor stamps incidents with."""
+    return int(_checked_stdout(dut, _DUT_UNIX_TIME, "Reading the DUT clock"))
 
 
 def is_drop_monitor_supported(dut):
