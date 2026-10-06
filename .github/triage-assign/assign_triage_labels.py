@@ -14,6 +14,11 @@ Author company is resolved in this order:
      repository is public, so this needs no credentials)
   3. a username suffix heuristic (e.g. "someone-arista" -> Arista)
 
+This complements, and does not replace, assignReviewers.yaml, which assigns
+individual reviewers from pr_reviewer-by-files.yml on the same
+pull_request_target event. The two are independent: that workflow picks people
+by the files a PR touches, this one picks companies to triage it.
+
 Modes:
   PR_NUMBER set  -> label that single pull request
   PR_NUMBER unset -> scan open pull requests and label the ones that carry no
@@ -89,7 +94,8 @@ def load_author_map(config: dict) -> dict[str, str]:
 
     Parsed from sii_author_predict.csv (columns: Author, Organization, Score).
     A handful of authors appear more than once with conflicting organizations;
-    the row with the highest Score wins. Organizations listed under
+    the row with the highest Score wins, and each such conflict is reported on
+    stderr so the CSV can be corrected upstream. Organizations listed under
     `unknown_organizations` in companies.yml (the CSV's "Others" bucket) mean
     "not known", not "not one of these companies", so they are dropped here and
     left to the suffix heuristic.
@@ -120,6 +126,7 @@ def load_author_map(config: dict) -> dict[str, str]:
     unknown = config["unknown_organizations"]
     best_score: dict[str, float] = {}
     author_map: dict[str, str] = {}
+    seen_organizations: dict[str, set[str]] = {}
     for row in rows:
         author = str(row.get("Author") or "").strip().lower()
         organization = str(row.get("Organization") or "").strip().lower()
@@ -129,9 +136,19 @@ def load_author_map(config: dict) -> dict[str, str]:
             score = float(row.get("Score") or 0)
         except ValueError:
             score = 0.0
+        seen_organizations.setdefault(author, set()).add(organization)
         if score > best_score.get(author, float("-inf")):
             best_score[author] = score
             author_map[author] = organization
+
+    for author, organizations in sorted(seen_organizations.items()):
+        if len(organizations) > 1:
+            print(
+                f"WARNING: {AUTHOR_MAP_URL} lists '{author}' under conflicting organizations "
+                f"({', '.join(sorted(organizations))}); using '{author_map.get(author)}' "
+                "(highest Score).",
+                file=sys.stderr,
+            )
 
     print(f"Loaded {len(author_map)} authors from {AUTHOR_MAP_URL}.")
     return author_map
