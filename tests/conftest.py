@@ -75,6 +75,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.helpers.runtime_config import get_unrestored_runtime_managed_entries_by_context
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -106,6 +107,8 @@ HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
 GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
+RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
+RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -3279,6 +3282,21 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         if check_flag:
 
+            def collect_running_config(dut):
+                running_config = {
+                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                }
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        running_config[asic_ns] = json.loads(
+                            dut.shell(
+                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                verbose=False,
+                            )['stdout']
+                        )
+                return running_config
+
             def collect_after_test(dut):
                 inconsistent_config[dut.hostname] = {}
                 pre_only_config[dut.hostname] = {}
@@ -3301,20 +3319,57 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
 
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
-                # get running config after running
-                duts_data[dut.hostname]["cur_running_config"] = {}
-                duts_data[dut.hostname]["cur_running_config"][None] = \
-                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                if dut.is_multi_asic:
-                    for asic_index in range(0, dut.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        duts_data[dut.hostname]["cur_running_config"][asic_ns] = \
-                            json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                 verbose=False)['stdout'])
+                duts_data[dut.hostname]["cur_running_config"] = collect_running_config(dut)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
+
+            def wait_for_runtime_managed_config(dut):
+                pre_running_config = duts_data[dut.hostname]["pre_running_config"]
+                cur_running_config = duts_data[dut.hostname]["cur_running_config"]
+                unrestored = get_unrestored_runtime_managed_entries_by_context(
+                    pre_running_config,
+                    cur_running_config,
+                )
+                if not unrestored:
+                    return
+
+                logger.info(
+                    "Waiting for runtime-managed config entries to be restored on {}: {}".format(
+                        dut.hostname,
+                        json.dumps(unrestored),
+                    )
+                )
+
+                def runtime_managed_config_restored():
+                    current = collect_running_config(dut)
+                    duts_data[dut.hostname]["cur_running_config"] = current
+                    return not get_unrestored_runtime_managed_entries_by_context(
+                        pre_running_config,
+                        current,
+                    )
+
+                if not wait_until(
+                        RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT,
+                        RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL,
+                        0,
+                        runtime_managed_config_restored):
+                    logger.warning(
+                        "Runtime-managed config entries were not restored on {}: {}".format(
+                            dut.hostname,
+                            json.dumps(
+                                get_unrestored_runtime_managed_entries_by_context(
+                                    pre_running_config,
+                                    duts_data[dut.hostname]["cur_running_config"],
+                                )
+                            ),
+                        )
+                    )
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(wait_for_runtime_managed_config, duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
