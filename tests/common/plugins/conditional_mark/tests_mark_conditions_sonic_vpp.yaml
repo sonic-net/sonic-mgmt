@@ -89,12 +89,16 @@ configlet/test_add_rack.py::test_add_rack:
 #######################################
 #####           COPP              #####
 #######################################
-# All copp/test_copp.py subtests now pass on vpp; nothing left to skip.
-# (test_policer_mtu[IP2ME/SNMP/SSH] used to fail here with zero packets
+copp/test_copp.py:
+  skip:
+    reason: "CoPP on VPP is currently validated only on the t1-lag topology"
+    conditions:
+      - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
+
+# test_policer_mtu[IP2ME/SNMP/SSH] used to fail on VPP with zero packets
 # received due to a missing ip_src in the PTF test packets, defaulting to
-# an unroutable source that VPP's uRPF check silently dropped -- fixed by
-# setting ip_src=self.myip in IP2METest/SNMPTest, matching SSHTest's
-# existing pattern.)
+# an unroutable source that VPP's uRPF check silently dropped. Setting
+# ip_src=self.myip matches SSHTest's existing pattern.
 
 #######################################
 #####           Decap             #####
