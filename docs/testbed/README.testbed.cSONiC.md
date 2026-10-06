@@ -69,6 +69,27 @@ The image should appear as `docker-sonic-vs:latest`.
 cSONiC neighbors are **containers that share the host kernel**, so neighbor
 PortChannels are realized by the *host* kernel — not by a private neighbor
 kernel as with vSONiC (a KVM VM) or cEOS (Arista's own LAG implementation).
+
+#### Optional userspace OVS backend
+
+`sonic-mgmt` can implement cSONiC neighbor PortChannels with an OVS `netdev`
+datapath, avoiding a VM-host `team` or `bonding` kernel-module dependency. The
+existing teamd behavior remains the default. Enable the experimental backend
+for both `add-topo` and `deploy-mg`:
+
+```bash
+export SONIC_MGMT_CSONIC_LAG_BACKEND=userspace_ovs
+```
+
+During `add-topo`, sonic-mgmt derives a local image from `csonic_image` and
+adds the OVS userspace packages. During `deploy-mg`, it reads the generated
+`PORTCHANNEL`, `PORTCHANNEL_MEMBER`, and `PORTCHANNEL_INTERFACE` tables,
+stops the conflicting teamd processes, and creates the same PortChannels with
+OVS LACP. The host-side virtual-wire bridges receive explicit bidirectional
+LACP flows based on live OVS port discovery.
+
+Unset the environment variable, or set it to `teamd`, to retain the default.
+
 SONiC normally uses `teamd`/libteam, which needs the kernel **`team`** module.
 The cSONiC image handles both cases automatically:
 
