@@ -200,7 +200,6 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
         "nn_target_interface": nn_target_interface,
         "nn_target_vlanid": nn_target_vlanid
     }
-    dut.host.options["variable_manager"].extra_vars.update(facts)
 
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
@@ -209,6 +208,8 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     if not swap_syncd:
         _install_nano(dut, creds, syncd_docker_name)
 
+    facts["nn_agent_python"] = _get_nn_agent_python(dut, syncd_docker_name)
+    dut.host.options["variable_manager"].extra_vars.update(facts)
     dut.template(src=_SYNCD_NN_TEMPLATE, dest=_SYNCD_NN_DEST)
 
     dut.command("docker cp {} {}:/etc/supervisor/conf.d/".format(_SYNCD_NN_DEST, syncd_docker_name))
@@ -248,8 +249,29 @@ def restore_syncd(dut, nn_target_namespace):
     asichost.delete_container(syncd_docker_name)
 
 
+def _get_nn_agent_python(dut, syncd_docker_name):
+    """Return an interpreter that can run the installed DUT-side NN agent."""
+    cmd = (
+        "docker exec {} bash -c '"
+        "for candidate in python3 python python2; do "
+        "interpreter=$(command -v $candidate 2>/dev/null) || continue; "
+        "$interpreter -c \"import nnpy; nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)\" "
+        ">/dev/null 2>&1 || continue; "
+        "$interpreter /opt/ptf_nn_agent.py --help >/dev/null 2>&1 || continue; "
+        "echo $interpreter; exit 0; "
+        "done; exit 1'"
+    ).format(syncd_docker_name)
+    result = dut.command(cmd, module_ignore_errors=True)
+    if result["rc"] != 0 or not result["stdout"].strip():
+        raise RuntimeError(
+            "No Python interpreter can run the DUT-side PTF NN agent in {}"
+            .format(syncd_docker_name)
+        )
+    return result["stdout"].strip().splitlines()[0]
+
+
 def _nn_agent_runtime_ready(dut, syncd_docker_name):
-    """Return whether syncd already has a usable DUT-side PTF NN agent."""
+    """Return whether syncd already has a usable Python 3 NN-agent runtime."""
     cmd = (
         "docker exec {} bash -c '"
         "python3 -c \"import nnpy; nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)\" "
