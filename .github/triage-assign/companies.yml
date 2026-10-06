@@ -56,3 +56,26 @@ companies:
 # the list above.
 overrides: {}
   # octocat: Nexthop
+
+# Labels added on top of the company labels when a pull request is about a
+# given area. A label is added when any of its keywords appears as a whole
+# token (case-insensitive; tokens are split on anything that is not a letter
+# or digit) in the PR title or in the path of any file the PR changes. So "t2"
+# matches "[T2] fix ..." and "ansible/vars/topo_t2_2lc.yml", but not "test2".
+topic_labels:
+  - label: chassis
+    keywords:
+      # Chassis / VOQ
+      - chassis
+      - linecard
+      - voq
+      # T2 topology family
+      - t2
+      - ft2
+      - lt2
+      - ut2
+      # Rack head (RH) topologies
+      - rh
+      - lrh
+      - urh
+      - drh

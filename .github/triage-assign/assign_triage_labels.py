@@ -19,10 +19,14 @@ individual reviewers from pr_reviewer-by-files.yml on the same
 pull_request_target event. The two are independent: that workflow picks people
 by the files a PR touches, this one picks companies to triage it.
 
+Independently of the company draw, a pull request also gets each label under
+`topic_labels` (e.g. "chassis") whose keywords appear, as whole tokens, in its
+title or in the path of any file it changes.
+
 Modes:
   PR_NUMBER set  -> label that single pull request
   PR_NUMBER unset -> scan open pull requests and label the ones that carry no
-                     company label yet
+                     company label yet (company and topic labels)
 """
 
 import csv
@@ -30,6 +34,7 @@ import hashlib
 import io
 import os
 import random
+import re
 import sys
 
 import requests
@@ -86,7 +91,28 @@ def load_config(config_path: str) -> dict:
             str(organization).strip().lower()
             for organization in (config.get("unknown_organizations") or [])
         },
+        "topic_labels": [
+            {
+                "label": str(topic["label"]),
+                "label_color": str(topic.get("label_color", DEFAULT_LABEL_COLOR)),
+                "pattern": keyword_pattern(topic.get("keywords") or [], config_path, topic["label"]),
+            }
+            for topic in (config.get("topic_labels") or [])
+        ],
     }
+
+
+def keyword_pattern(keywords: list, config_path: str, label: str) -> re.Pattern:
+    """Match any of `keywords` as a whole token, case-insensitively.
+
+    Tokens are delimited by anything that is not a letter or digit, so "t2"
+    matches "[T2] fix", "topo_t2_2lc.yml" and "tests/t2/", but not "test2".
+    """
+    keywords = [str(keyword).strip() for keyword in keywords if str(keyword).strip()]
+    if not keywords:
+        raise SystemExit(f"{config_path}: topic label '{label}' has no keywords")
+    alternatives = "|".join(re.escape(keyword) for keyword in keywords)
+    return re.compile(rf"(?<![a-z0-9])(?:{alternatives})(?![a-z0-9])", re.IGNORECASE)
 
 
 def load_author_map(config: dict) -> dict[str, str]:
@@ -194,12 +220,48 @@ def pick_companies(repository: str, pr_number: int, candidates: list[str], count
 
 def ensure_labels_exist(repo, config: dict) -> None:
     existing = {label.name for label in repo.get_labels()}
-    for company in config["companies"]:
-        name = f"{config['label_prefix']}{company['name']}"
+    wanted = [(f"{config['label_prefix']}{company['name']}", company["label_color"])
+              for company in config["companies"]]
+    wanted += [(topic["label"], topic["label_color"]) for topic in config["topic_labels"]]
+    for name, color in wanted:
         if name not in existing:
             print(f"Creating missing label '{name}'.")
             if not DRY_RUN:
-                repo.create_label(name=name, color=company["label_color"])
+                repo.create_label(name=name, color=color)
+
+
+def assign_topic_labels(pull_request, config: dict) -> None:
+    """Add each topic label whose keywords match the PR title or a changed file path."""
+    present = {label.name for label in pull_request.labels}
+    pending = [topic for topic in config["topic_labels"] if topic["label"] not in present]
+    if not pending:
+        return
+
+    matched = {}
+    for topic in pending:
+        if topic["pattern"].search(pull_request.title or ""):
+            matched[topic["label"]] = "title"
+
+    # Listing the files costs API calls, so only do it for topics the title
+    # did not settle, and stop as soon as every remaining topic has matched.
+    remaining = [topic for topic in pending if topic["label"] not in matched]
+    if remaining:
+        for changed_file in pull_request.get_files():
+            for topic in list(remaining):
+                if topic["pattern"].search(changed_file.filename):
+                    matched[topic["label"]] = changed_file.filename
+                    remaining.remove(topic)
+            if not remaining:
+                break
+
+    if not matched:
+        return
+    print(
+        f"PR #{pull_request.number}: topic labels "
+        + ", ".join(f"{label} (matched {source})" for label, source in sorted(matched.items()))
+    )
+    if not DRY_RUN:
+        pull_request.add_to_labels(*sorted(matched))
 
 
 def assign_labels(repo, pull_request, config: dict, author_map: dict[str, str]) -> bool:
@@ -252,7 +314,9 @@ def main() -> None:
     ensure_labels_exist(repo, config)
 
     if PR_NUMBER:
-        assign_labels(repo, repo.get_pull(int(PR_NUMBER)), config, author_map)
+        pull_request = repo.get_pull(int(PR_NUMBER))
+        assign_labels(repo, pull_request, config, author_map)
+        assign_topic_labels(pull_request, config)
         return
 
     print("Scanning open pull requests for missing triage labels...")
@@ -263,7 +327,10 @@ def main() -> None:
             print(f"Reached SCAN_LIMIT of {SCAN_LIMIT} pull requests, stopping.")
             break
         scanned += 1
+        # Topic labels are only considered for the PRs this scan is labelling
+        # anyway: checking every open PR would mean listing the files of each.
         if assign_labels(repo, pull_request, config, author_map):
+            assign_topic_labels(pull_request, config)
             assigned += 1
 
     print(f"Scanned {scanned} open pull requests, labelled {assigned}.")
