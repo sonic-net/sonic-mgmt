@@ -95,11 +95,6 @@ copp/test_copp.py:
     conditions:
       - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
-# test_policer_mtu[IP2ME/SNMP/SSH] used to fail on VPP with zero packets
-# received due to a missing ip_src in the PTF test packets, defaulting to
-# an unroutable source that VPP's uRPF check silently dropped. Setting
-# ip_src=self.myip matches SSHTest's existing pattern.
-
 #######################################
 #####           Decap             #####
 #######################################

@@ -588,23 +588,16 @@ class UDLDTest(PolicyTest):
         self.log("UDLDTest")
         self.run_suite()
 
-    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc as its
-    # destination MAC address. Real UDLD (RFC/Cisco wire format) is
-    # not Ethernet-II: it is an 802.3 length-framed LLC/SNAP frame --
-    # LLC dsap=ssap=0xAA (SNAP), control=0x03, followed by a SNAP
-    # header carrying Cisco's OUI (00:00:0c) and protocol 0x0111
-    # (unidirectional_link_detection). Build that exact structure so
-    # this test exercises the DUT's real UDLD classification path
-    # rather than relying on a synthetic frame shape.
+    # Build UDLD packet in a standard manner rather than a synthetic
+    # ethernet packet. UDLD uses Ethernet multicast destination address
+    # 01-00-0c-cc-cc-cc and is an 802.3 length-framed LLC/SNAP frame - LLC
+    # dsap=ssap=0xAA (SNAP), control=0x03, followed by a SNAP header carrying
+    # Cisco's OUI (00:00:0c) and protocol 0x0111
+    # (unidirectional_link_detection)
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         pktlen = 117
-        # The 14th/15th wire bytes of a sub-0x1600 (802.3) frame are a
-        # *length* field, not an EtherType -- set it to the number of
-        # bytes following the Ethernet header so this is a
-        # standards-conformant 802.3 length-framed packet, matching
-        # scapy's own encoding when it builds a real 802.3 frame.
         eth = scapy.Ether(dst='01:00:0c:cc:cc:cc', src=src_mac,
                           type=pktlen - 14)
         llc = scapy.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
