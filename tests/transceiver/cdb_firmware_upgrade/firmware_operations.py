@@ -27,7 +27,7 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     resolve_binary_path,
 )
 from tests.transceiver.dom import dom_helpers
-from tests.transceiver.eeprom import eeprom_content
+from tests.transceiver.eeprom import recovery
 from tests.transceiver.common.cli_parser_helper import (
     FW_ACTIVE,
     FW_COMMITTED_IMAGE,
@@ -191,16 +191,54 @@ def verify_firmware_state(duthost, port, before_banks, dual_bank_supported,
     return failures
 
 
-def verify_static_eeprom_unchanged(duthost, port_attributes_dict, ports, lport_to_first_subport_mapping):
-    """Static EEPROM content still matches inventory after a firmware operation."""
-    failures = eeprom_content.verify_eeprom_static_recovered(
-        duthost,
-        port_attributes_dict,
-        lport_to_first_subport_mapping,
-        wait_sec=0,
-        ports=ports,
-    )
-    return [f"static EEPROM check failed after firmware operation: {failure}" for failure in failures]
+def verify_transceiver_recovered_after_operation(
+    duthost,
+    port_attributes_dict,
+    qualifying_ports,
+    lport_to_first_subport_mapping,
+    wait_sec,
+):
+    """Verify shared EEPROM, DataPath, and firmware recovery per upgraded module."""
+    failures = []
+    for port in qualifying_ports:
+        firmware_info, err = cli_helpers.sfputil_show_fwversion(duthost, port)
+        if err:
+            failures.append(f"{port}: failed to read expected firmware versions: {err}")
+            continue
+
+        expected_active = firmware_info.get(FW_ACTIVE)
+        if not expected_active:
+            failures.append(f"{port}: Active Firmware is missing after firmware operation")
+            continue
+
+        cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+        dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
+        expected_inactive = (
+            firmware_info.get(FW_INACTIVE)
+            if dual_bank_supported
+            else None
+        )
+        if dual_bank_supported and not expected_inactive:
+            failures.append(f"{port}: Inactive Firmware is missing after firmware operation")
+            continue
+
+        module_ports = [
+            subport
+            for subport in port_attributes_dict
+            if lport_to_first_subport_mapping.get(subport, subport) == port
+        ]
+        module_failures = recovery.verify_transceiver_recovery(
+            duthost,
+            port_attributes_dict,
+            lport_to_first_subport_mapping,
+            wait_sec,
+            f"after CDB firmware operation on {port}",
+            ports=module_ports,
+            expected_active=expected_active,
+            expected_inactive=expected_inactive,
+        )
+        failures += [f"{port}: {failure}" for failure in module_failures]
+    return failures
 
 
 def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
@@ -862,7 +900,7 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
 
     ``verify_post_operation`` runs the Standard Port Recovery and Verification
     Procedure over every sub-port of the modules under test both before and
-    after the operation, and additionally verifies static EEPROM and DOM
+    after the operation, and additionally verifies DOM and shared transceiver
     recovery once every port is done. It requires ``lport_to_first_subport_mapping``
     and ``port_peers``. Standard recovery still runs after reported operation
     or restoration failures.
@@ -930,14 +968,15 @@ def execute_on_ports(duthost, port_attributes_dict, qualifying_ports, lport_to_p
     all_failures += restoration_failures
 
     if verify_post_operation and qualifying_ports and not all_failures:
-        all_failures += verify_static_eeprom_unchanged(
-            duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
-        )
         all_failures += dom_helpers.verify_dom_thresholds_after_operation(
             duthost, port_attributes_dict, qualifying_ports,
         )
         all_failures += verify_dom_recovered_after_operation(
             duthost, port_attributes_dict, qualifying_ports, lport_to_first_subport_mapping,
+        )
+        all_failures += verify_transceiver_recovered_after_operation(
+            duthost, port_attributes_dict, qualifying_ports,
+            lport_to_first_subport_mapping, link_up_timeout_sec,
         )
     if verify_post_operation and qualifying_ports:
         all_failures += verify_standard_port_recovery(
