@@ -33,6 +33,13 @@
 
 - hosts: sonic
   gather_facts: no
+  pre_tasks:
+  - name: Complete a missing primary management address
+    set_fact:
+      ansible_host: "{{ ansible_hostv6 }}"
+    when: hostvars[inventory_hostname].ansible_host is not defined
+    tags: always
+
   tasks:
 
   - block:
@@ -55,7 +62,7 @@
       assert:
         that:
           - >-
-            (hostvars[item].ansible_host | ansible.utils.ipv6) is not false or
+            (hostvars[item].ansible_host | default('') | ansible.utils.ipv6) is not false or
             (hostvars[item].ansible_hostv6 | default('') | ansible.utils.ipv6) is not false
         fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ item }}"
       loop: "{{ testbed_facts['duts'] }}"

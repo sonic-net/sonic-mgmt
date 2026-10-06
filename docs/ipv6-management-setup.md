@@ -85,6 +85,12 @@ field. The deployment inventory contract is:
 | IPv6 only | IPv6 in `ansible_host` |
 | IPv4 and IPv6 | IPv4 in `ansible_host`, IPv6 in `ansible_hostv6` |
 
+If only `ansible_hostv6` is supplied, deployment fills the missing
+`ansible_host` from that value in a controller-side pre-task, before connecting.
+An explicitly supplied primary is never overwritten, and an IPv6 primary
+does not cause a missing `ansible_hostv6` to be populated. This repair is
+local to the playbook invocation; it does not rewrite the inventory file.
+
 For example, a dual-stack inventory entry is:
 
 ```yaml
@@ -103,6 +109,11 @@ current addresses or which endpoint happens to be reachable. SSH fallback
 does not rewrite them. Only `--ipv6-only-mgmt` selects IPv6-only deployment;
 an IPv6 primary or an IPv4 connection failure does not implicitly enable
 that mode.
+
+The normal multi-DUT play handles each selected ToR independently. For a
+partial deployment, `dual_tor_facts` applies the same missing-primary fallback
+when reading an unselected peer, without writing facts onto that peer. Its
+output remains family-specific: optional IPv4 `ip` and IPv6 `ip_v6` fields.
 
 ### 3. IPv6 Configuration Files
 

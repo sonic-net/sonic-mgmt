@@ -43,7 +43,8 @@ class DualTorParser:
         neighbor = {}
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
-        neighbor_ip = self.host_vars[neighbor['hostname']]['ansible_host']
+        neighbor_ip = self.host_vars[neighbor['hostname']].get(
+            'ansible_host', self.host_vars[neighbor['hostname']].get('ansible_hostv6'))
         if ipaddress.ip_address(neighbor_ip).version == 6:
             neighbor['ip_v6'] = neighbor_ip
         else:
