@@ -260,6 +260,13 @@ def _offline_client():
     return PygnmiClient("", 0, plaintext=True, connect=False)
 
 
+def test_build_client_accepts_large_countersdb_updates(monkeypatch):
+    """Ensure whole-table COUNTERS_DB notifications fit in the receive window."""
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: kwargs)
+    options = _offline_client()._build_client()["grpc_options"]
+    assert options == [("grpc.max_receive_message_length", 16 * 1024 * 1024)]
+
+
 def test_build_subscribe_request_passthrough():
     """Test _build_subscribe_request forwards extra options verbatim."""
     client = _offline_client()

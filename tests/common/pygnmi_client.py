@@ -194,7 +194,9 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
-        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
+        # Full COUNTERS_DB updates can exceed gRPC's default 4 MiB receive limit.
+        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout,
+                  "grpc_options": [("grpc.max_receive_message_length", 16 * 1024 * 1024)]}
         if self.plaintext:
             kwargs["insecure"] = True
         else:
