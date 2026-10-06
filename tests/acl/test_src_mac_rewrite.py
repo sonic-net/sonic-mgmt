@@ -72,6 +72,12 @@ SCALE_IP_PREFIX = 16
 # Arbitrary MAC used as the pre-rewrite inner source MAC for scale test packets. VNET L3 routing
 # rebuilds the inner Ethernet header regardless of the injected value, so it need not be unique.
 SCALE_TEST_ORIG_MAC = "00:11:22:33:44:55"
+# Circuit breaker: abort the per-rule packet test loop after this many consecutive failures,
+# instead of grinding through every remaining rule one at a time. Without this, a systemic
+# datapath problem (e.g. rules unexpectedly cleared mid-test) would only be detected after every
+# single rule times out AND runs its own multi-command diagnostic dump - potentially hours for
+# 'thorough', instead of failing fast.
+CONSECUTIVE_FAILURE_LIMIT = 10
 
 
 def _check_acl_rule_active(duthost, table_name, rule_name):
@@ -1312,6 +1318,7 @@ def test_scale_acl_rule(setUp, request):
         packet_test_start = time.time()
         successful_tests = 0
         failed_tests = 0
+        consecutive_failures = 0
 
         # Get ACL counters before testing (single bulk read instead of one per rule)
         counter_before = get_acl_counters(duthost, ACL_TABLE_NAME)
@@ -1342,12 +1349,24 @@ def test_scale_acl_rule(setUp, request):
                 )
 
                 successful_tests += 1
+                consecutive_failures = 0
                 logger.info(f"✓ Rule {rule_name} packet test PASSED")
 
             except Exception as e:
                 failed_tests += 1
+                consecutive_failures += 1
                 logger.error(f"✗ Rule {rule_name} packet test FAILED: {e}")
-                # Continue testing other rules even if one fails
+                # Continue testing other rules even if one fails, unless failures are piling up
+                # consecutively - that points to a systemic problem (e.g. rules unexpectedly
+                # cleared mid-test), and grinding through every remaining rule (each paying the
+                # poll timeout plus a multi-command diagnostic dump) would waste hours.
+                if consecutive_failures >= CONSECUTIVE_FAILURE_LIMIT:
+                    logger.error(
+                        f"Aborting packet testing early after {consecutive_failures} consecutive "
+                        f"failures (tested {i + 1}/{test_rule_count} rules) - this points to a "
+                        f"systemic datapath/ACL issue rather than isolated rule failures"
+                    )
+                    break
 
         # Wait a moment for counters to update after testing
         time.sleep(20)
