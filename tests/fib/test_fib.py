@@ -161,7 +161,7 @@ def filter_ports(all_port_indices, tbinfo, is_chassis):
 
 
 def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts,
-                                     dut_hostname, tbinfo, is_chassis):
+                                     upstream_lc, tbinfo, is_chassis):
     """
     Get physical PTF port indices for an Ethernet or PortChannel interface.
 
@@ -169,7 +169,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
         port_name: The DUT Ethernet or PortChannel name to check
         all_port_indices: Dictionary mapping PTF port indices to (asic_id, port_name)
         duts_minigraph_facts: Minigraph facts containing port channel information
-        dut_hostname: The hostname of the DUT containing the port
+        upstream_lc: The upstream line card hostname
 
     Returns:
         List of PTF port indices for the port and all its port channel members
@@ -183,7 +183,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     portchannel_members = [port_name]  # Default is just the single port
     found_portchannel = False
 
-    for asic_id, asic_data in duts_minigraph_facts[dut_hostname]:
+    for asic_id, asic_data in duts_minigraph_facts[upstream_lc]:
         mg_facts = asic_data
         if mg_facts and 'minigraph_portchannels' in mg_facts:
             for pc_name, pc_info in mg_facts['minigraph_portchannels'].items():
@@ -935,10 +935,10 @@ def test_ecmp_group_member_flap(
     fib_files = gen_fib_info_files(ptfhost, fib_infos, tbinfo, request)
 
     # --- Identify the DUT and ports from the minigraph facts ---
-    dut_hostname = duthosts[0].hostname
-    logging.info("dut_hostname: {}".format(dut_hostname))
+    upstream_lc = duthosts[0].hostname
+    logging.info("upstream_lc: {}".format(upstream_lc))
 
-    all_port_indices = get_all_ptf_port_indices_from_mg_facts(duts_minigraph_facts[dut_hostname])
+    all_port_indices = get_all_ptf_port_indices_from_mg_facts(duts_minigraph_facts[upstream_lc])
     is_chassis = duthosts[0].get_facts().get("modular_chassis")
     filtered_ports = filter_ports(all_port_indices, tbinfo, is_chassis)
 
@@ -983,14 +983,14 @@ def test_ecmp_group_member_flap(
 
     # --- Flap one ECMP path: a routed Ethernet interface or an entire PortChannel ---
     flap_config = prepare_ecmp_flap(
-        duthosts[0], fib_infos, all_port_indices, duts_minigraph_facts[dut_hostname]
+        duthosts[0], fib_infos, all_port_indices, duts_minigraph_facts[upstream_lc]
     )
 
     logging.info("Shutting down one ECMP path.")
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
-        flap_config["interface"], all_port_indices, duts_minigraph_facts, dut_hostname, tbinfo, is_chassis)
+        flap_config["interface"], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo, is_chassis)
 
     # Add them to filtered_ports
     filtered_ports.extend(ptf_ports_to_filter)
