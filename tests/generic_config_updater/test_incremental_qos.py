@@ -277,7 +277,6 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
             pytest.skip("Test requires SONiC version >= {} (chassis: {}), current version: {}"
                         .format(min_version, bool(is_chassis), os_version))
 
-    tmpfile = generate_tmpfile(duthost)
     profile_name = "pg_lossless_99999_99m_profile"
     profile_data = {
         "dynamic_th": "-2",
@@ -286,6 +285,18 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
         "xoff": "1020672",
         "xon": "0"
     }
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    buffer_pools = config_facts.get("BUFFER_POOL", {})
+    if profile_data["pool"] not in buffer_pools:
+        template = config_facts.get("BUFFER_PROFILE", {}).get("egress_lossy_profile")
+        pytest_assert(template and template.get("pool") in buffer_pools,
+                      "No configured egress lossy buffer profile available for this test")
+        profile_name = "egress_lossy_test_profile"
+        pytest_assert(profile_name not in config_facts.get("BUFFER_PROFILE", {}),
+                      "Buffer profile {} already exists".format(profile_name))
+        profile_data = template.copy()
+
+    tmpfile = generate_tmpfile(duthost)
     # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
     try:
         # Step 2: Create new profile
@@ -301,11 +312,12 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
         expect_op_success(duthost, output)
 
         # Verify profile exists in CONFIG_DB
+        verify_field = "xon" if "xon" in profile_data else "pool"
         result = duthost.shell(
-            'sonic-db-cli {} CONFIG_DB hget "BUFFER_PROFILE|{}" xon'.format(
-                cli_namespace_prefix, profile_name),
+            'sonic-db-cli {} CONFIG_DB hget "BUFFER_PROFILE|{}" {}'.format(
+                cli_namespace_prefix, profile_name, verify_field),
             module_ignore_errors=True)
-        pytest_assert(result["stdout"] == profile_data["xon"], "Profile creation failed in CONFIG_DB")
+        pytest_assert(result["stdout"] == profile_data[verify_field], "Profile creation failed in CONFIG_DB")
 
         # Step 3: Remove new profile
         logger.info("Step 3: Removing buffer profile {}".format(profile_name))
