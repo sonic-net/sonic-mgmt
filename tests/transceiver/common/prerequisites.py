@@ -1,7 +1,7 @@
 """Shared prerequisite check primitives for transceiver tests.
 
-Each function returns a result dict (with ``'passed'`` and ``'details'`` keys);
-the caller decides whether to ``pytest.skip``, ``pytest.fail``, or assert.
+Most functions return a result dict with ``'passed'`` and ``'details'`` keys;
+the polling helper returns a failure list. Callers decide the pytest verdict.
 """
 import logging
 
@@ -336,6 +336,11 @@ def build_dom_polling_failures(duthost, primary_ports):
         raw_value = port_config.get("dom_polling")
         normalized = "" if raw_value is None else str(raw_value).strip().lower()
         if normalized in DOM_POLLING_ENABLED_VALUES:
+            logger.debug(
+                "%s DOM polling is enabled: %s",
+                port,
+                raw_value if raw_value is not None else "<default-enabled>",
+            )
             continue
         if normalized == DOM_POLLING_DISABLED_VALUE:
             failures.append("{} dom_polling is disabled".format(port))
@@ -347,7 +352,7 @@ def build_dom_polling_failures(duthost, primary_ports):
                 )
             )
 
-    return {"passed": not failures, "details": "; ".join(failures)}
+    return failures
 
 
 # ──────────────────────────────────────────────────────────────────────

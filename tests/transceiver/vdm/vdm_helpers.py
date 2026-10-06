@@ -5,23 +5,24 @@ import re
 from collections import defaultdict, namedtuple
 
 from tests.transceiver.attribute_parser.attribute_keys import VDM_ATTRIBUTES_KEY
+from tests.transceiver.common.attribute_helpers import (
+    LANE_NUM_PLACEHOLDER, MEDIA_LANE_MASK_KEY, OPERATIONAL_SUFFIX,
+    resolve_breakout_lanes,
+)
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
     get_state_db_table,
     parse_numeric,
     resolve_port_namespace,
 )
-from tests.transceiver.dom.dom_helpers import resolve_breakout_lanes
 
 STATE_DB_REAL_VALUE_TABLE = "TRANSCEIVER_VDM_REAL_VALUE"
 
-OPERATIONAL_SUFFIX = "_operational_range"
-
-MEDIA_LANE_MASK_KEY = "media_lane_mask"
 HOST_LANE_MASK_KEY = "host_lane_mask"
 VDM_BANK_0_MAX_LANE = 8
 
 VdmMappedField = namedtuple("VdmMappedField", ("source_attr", "attr_value"))
+VdmLaneDomains = namedtuple("VdmLaneDomains", ("media", "host", "data_path", "errors"))
 
 MEDIA_QUANTITIES = {
     "laser_temperature_media",
@@ -32,16 +33,16 @@ HOST_QUANTITIES = {
     "esnr_host_input",
     "pam4_level_transition_host_input",
 }
-for _metric in ("prefec_ber", "errored_frames"):
-    for _kind in ("curr", "avg", "min", "max"):
-        MEDIA_QUANTITIES.add("{}_{}_media_input".format(_metric, _kind))
-        HOST_QUANTITIES.add("{}_{}_host_input".format(_metric, _kind))
 
 DATA_PATH_QUANTITIES = {
     "biasxi", "biasxq", "biasxp", "biasyi", "biasyq", "biasyp",
     "cdshort", "cdlong", "dgd", "sopmd", "soproc", "pdl", "osnr", "esnr",
     "cfo", "txcurrpower", "rxtotpower", "rxsigpower",
 }
+for _metric in ("prefec_ber", "errored_frames"):
+    for _kind in ("curr", "avg", "min", "max"):
+        DATA_PATH_QUANTITIES.add("{}_{}_media_input".format(_metric, _kind))
+        DATA_PATH_QUANTITIES.add("{}_{}_host_input".format(_metric, _kind))
 
 
 def resolve_vdm_lane_domains(
@@ -77,12 +78,10 @@ def resolve_vdm_lane_domains(
                                   VDM_BANK_0_MAX_LANE)
             )
 
-    return {
-        "media": media.active_lanes,
-        "host": host.active_lanes,
-        "data_path": sorted(data_path_anchors),
-        "errors": errors,
-    }
+    return VdmLaneDomains(
+        media=media.active_lanes, host=host.active_lanes,
+        data_path=sorted(data_path_anchors), errors=errors,
+    )
 
 
 def build_vdm_field_plan(
@@ -95,7 +94,7 @@ def build_vdm_field_plan(
         lane_domains = resolve_vdm_lane_domains(
             port, port_attributes_dict, lport_to_first_subport_mapping,
         )
-        errors = list(lane_domains["errors"])
+        errors = list(lane_domains.errors)
         expected_fields = {}
         vdm_attrs = port_attributes_dict[port][VDM_ATTRIBUTES_KEY]
 
@@ -103,8 +102,8 @@ def build_vdm_field_plan(
             if not attr_name.endswith(OPERATIONAL_SUFFIX):
                 continue
             quantity = attr_name[:-len(OPERATIONAL_SUFFIX)]
-            if quantity.endswith("LANE_NUM"):
-                quantity = quantity[:-len("LANE_NUM")]
+            if quantity.endswith(LANE_NUM_PLACEHOLDER):
+                quantity = quantity[:-len(LANE_NUM_PLACEHOLDER)]
                 explicit_lane = None
             else:
                 match = re.fullmatch(r"(.+?)(\d+)", quantity)
@@ -113,11 +112,11 @@ def build_vdm_field_plan(
                     continue
                 quantity, explicit_lane = match.group(1), int(match.group(2))
             if quantity in MEDIA_QUANTITIES:
-                lanes = lane_domains["media"]
+                lanes = lane_domains.media
             elif quantity in HOST_QUANTITIES:
-                lanes = lane_domains["host"]
+                lanes = lane_domains.host
             elif quantity in DATA_PATH_QUANTITIES:
-                lanes = lane_domains["data_path"]
+                lanes = lane_domains.data_path
             else:
                 errors.append("unknown VDM attribute {}".format(attr_name))
                 continue

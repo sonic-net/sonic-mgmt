@@ -57,8 +57,8 @@ def _vdm_session_prerequisites(
     links_verified,
 ):
     """Opt VDM tests into shared prerequisite gates and polling checks."""
-    result = build_dom_polling_failures(duthost, vdm_primary_ports)
-    if not result["passed"]:
-        pytest.fail("VDM polling prerequisite failed - " + result["details"])
+    failures = build_dom_polling_failures(duthost, vdm_primary_ports)
+    if failures:
+        pytest.fail("VDM polling prerequisite failed - " + "; ".join(failures))
 
     logger.info("VDM session prerequisites passed for %d port(s)", len(vdm_primary_ports))

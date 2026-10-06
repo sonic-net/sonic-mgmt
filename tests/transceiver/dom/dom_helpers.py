@@ -13,6 +13,10 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import scenario_ops
+from tests.transceiver.common.attribute_helpers import (
+    LANE_NUM_PLACEHOLDER, MEDIA_LANE_MASK_KEY, OPERATIONAL_SUFFIX,
+    resolve_breakout_lanes,
+)
 from tests.transceiver.common.db_helpers import (
     check_entry_freshness,
     get_state_db_table,
@@ -25,15 +29,11 @@ logger = logging.getLogger(__name__)
 STATE_DB_SENSOR_TABLE = "TRANSCEIVER_DOM_SENSOR"
 STATE_DB_THRESHOLD_TABLE = "TRANSCEIVER_DOM_THRESHOLD"
 
-OPERATIONAL_SUFFIX = "_operational_range"
 THRESHOLD_SUFFIX = "_threshold_range"
 CONSISTENCY_SUFFIX = "_consistency_variation_threshold"
 CONSISTENCY_MODE_ABSOLUTE = "absolute"
 CONSISTENCY_MODE_PERCENT = "percent"
-LANE_NUM_PLACEHOLDER = "LANE_NUM"
-MEDIA_LANE_MASK_KEY = "media_lane_mask"
 DomMappedField = namedtuple("DomMappedField", ("source_attr", "attr_value"))
-BreakoutLaneSelection = namedtuple("BreakoutLaneSelection", ("lanes_by_port", "active_lanes", "errors"))
 DomThresholdMappedField = namedtuple("DomThresholdMappedField", ("source_attr", "attr_value", "threshold_key"))
 DomQuantitySpec = namedtuple(
     "DomQuantitySpec",
@@ -102,61 +102,6 @@ CONSISTENCY_MODES_BY_BASE = {
 }
 
 DOM_RECOVERY_POLL_INTERVAL_SEC = 20
-
-
-def resolve_breakout_lanes(
-    primary_port,
-    port_attributes_dict,
-    lport_to_first_subport_mapping,
-    mask_key,
-):
-    """Return per-subport and unioned lanes for one breakout mask.
-
-    The module-wide active lane set is the union of ``mask_key`` across every
-    logical subport in the breakout group. Each set mask bit is an absolute,
-    1-indexed lane. ``lanes_by_port`` preserves each subport's lanes for callers
-    that need data-path anchors.
-    """
-    mapping = lport_to_first_subport_mapping or {}
-    group = [sub for sub, first in mapping.items() if first == primary_port] or [primary_port]
-
-    lanes_by_port = {}
-    active_lanes = set()
-    errors = []
-    for subport in group:
-        base_attrs = port_attributes_dict.get(subport, {}).get(BASE_ATTRIBUTES_KEY, {})
-        raw_mask = base_attrs.get(mask_key)
-        if raw_mask is None:
-            errors.append(
-                "{} missing {} in {}".format(
-                    subport,
-                    mask_key,
-                    BASE_ATTRIBUTES_KEY,
-                )
-            )
-            continue
-        try:
-            mask = int(str(raw_mask), 16)
-        except (TypeError, ValueError):
-            errors.append(
-                "{} has unparsable {} {!r} in {}".format(
-                    subport,
-                    mask_key,
-                    raw_mask,
-                    BASE_ATTRIBUTES_KEY,
-                )
-            )
-            continue
-
-        lanes = [bit + 1 for bit in range(mask.bit_length()) if mask & (1 << bit)]
-        lanes_by_port[subport] = lanes
-        active_lanes.update(lanes)
-
-    return BreakoutLaneSelection(
-        lanes_by_port=lanes_by_port,
-        active_lanes=sorted(active_lanes),
-        errors=errors,
-    )
 
 
 def _map_operational_attribute_to_fields(attr_name, attr_value, active_media_lanes):
