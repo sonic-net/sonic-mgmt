@@ -910,8 +910,7 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     count_before = get_acl_counter(duthost, table_name, rule_name, timeout=0) if not scale_test else None
     logger.info("=== MAC Rewrite Test (expect_rewrite=%s, rule=%s, %s) ===",
                 expect_rewrite, rule_name, test_description)
-    logger.info("Sending pkt from PTF port %s (inner src MAC=%s); rewrite MAC=%s on PTF port(s) %s",
-                ptf_port_1, orig_src_mac, rewrite_mac, ptf_ports)
+    logger.info("Sending test packet for rule %s", rule_name)
 
     # Inject via testutils.send (not send_packet): the ptfadapter overrides send/dp_poll to rewrite
     # the L4 payload to a per-module pattern on BOTH the injected packet and the expected mask, so
