@@ -1,46 +1,16 @@
 """Shared helpers for request construction and device resource collection."""
 
-import json
 import ipaddress
 import shlex
 import uuid
 from contextlib import contextmanager, ExitStack
 
-import grpc
-from pygnmi.spec.v080 import gnmi_pb2, gnmi_pb2_grpc
+from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection  # noqa: F401
 
 BYPASS_METADATA = (("x-sonic-ss-bypass-validation", "true"),)
-
-
-@contextmanager
-def gnmi_connection(fixture):
-    """Open one shared TLS connection and close it even if stub creation fails."""
-    certs = fixture.pygnmi_client
-    with open(certs.ca_cert, "rb") as stream:
-        ca = stream.read()
-    with open(certs.client_key, "rb") as stream:
-        key = stream.read()
-    with open(certs.client_cert, "rb") as stream:
-        certificate = stream.read()
-    credentials = grpc.ssl_channel_credentials(root_certificates=ca, private_key=key, certificate_chain=certificate)
-    host = fixture.host
-    if ":" in host and not host.startswith("["):
-        host = "[{}]".format(host)
-    with grpc.secure_channel("{}:{}".format(host, fixture.port), credentials,
-                             options=(("grpc.enable_retries", 0),)) as channel:
-        yield channel, gnmi_pb2_grpc.gNMIStub(channel)
-
-
-def build_native_set_request(parts, value):
-    request = gnmi_pb2.SetRequest()
-    update = request.update.add()
-    update.path.origin = "sonic-db"
-    for name in parts:
-        update.path.elem.add(name=name)
-    update.val.json_ietf_val = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-    return request
 
 
 def collect_resource_snapshot(host):
