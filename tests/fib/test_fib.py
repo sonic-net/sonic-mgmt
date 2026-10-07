@@ -290,14 +290,12 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
         lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
         nh_ptf_ports, all_port_indices, lag_facts)
-    if is_t2:
-        fib_infos_after_shutdown = [fib_info.copy() for fib_info in fib_infos]
-        affected_fibs = fib_infos_after_shutdown
-    else:
-        fib_infos_after_shutdown = [fib_infos[0].copy()] + fib_infos[1:]
-        affected_fibs = fib_infos_after_shutdown[:1]
-    for fib_info in affected_fibs:
-        if '0.0.0.0/0' in fib_info:
+    fib_infos_after_shutdown = [
+        {prefix: [list(ports) for ports in paths] for prefix, paths in fib_info.items()}
+        for fib_info in fib_infos
+    ]
+    for fib_index, fib_info in enumerate(fib_infos_after_shutdown):
+        if (is_t2 or fib_index == 0) and '0.0.0.0/0' in fib_info:
             fib_info['0.0.0.0/0'] = [
                 ports for ports in fib_info['0.0.0.0/0']
                 if ptf_port not in (int(port) for port in ports)
@@ -312,20 +310,18 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
 def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                         tbinfo, request, flap_config, ptf_fib_infos, up):
     expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["fib_infos_after_shutdown"]
-    expected_fibs = expected_fib_infos if tbinfo['topo']['type'] == 't2' else expected_fib_infos[:1]
     expected_paths = [
         sorted(sorted(path) for path in get_ptf_ports_for_default_route(fib_info))
-        for fib_info in expected_fibs
+        for fib_info in expected_fib_infos
     ]
 
     def _ecmp_state_ready():
         candidate_fib_infos = collect_fib_info(
             duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
         )
-        candidate_fibs = candidate_fib_infos if tbinfo['topo']['type'] == 't2' else candidate_fib_infos[:1]
         actual_paths = [
             sorted(sorted(path) for path in get_ptf_ports_for_default_route(fib_info))
-            for fib_info in candidate_fibs
+            for fib_info in candidate_fib_infos
         ]
         return actual_paths == expected_paths
 
