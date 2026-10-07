@@ -2,17 +2,22 @@ name: "Assign Triage Labels"
 
 on:
   pull_request_target:
-    types: [opened, reopened]
-  # Backstop: catches PRs opened while this workflow was failing or disabled,
-  # and lets historic PRs be labelled on demand.
+    # Company labels are drawn once, when the PR has none; synchronize and
+    # edited re-check the topic labels, which depend on the title and files.
+    types: [opened, reopened, synchronize, edited]
+  # Backstop: labels PRs that carry no company label, such as those opened
+  # while this workflow was failing or disabled, and works through the
+  # historic backlog up to label_limit PRs per run. Company labels are
+  # permanent ownership markers: removing them does not stick, as this scan
+  # adds them back.
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
     inputs:
-      scan_limit:
-        description: 'Maximum number of open PRs to scan (0 = no limit)'
+      label_limit:
+        description: 'Maximum number of PRs to label in this run (0 = no limit)'
         required: false
-        default: '0'
+        default: '200'
       dry_run:
         description: 'Log the assignments without applying them'
         type: boolean
@@ -26,10 +31,11 @@ permissions:
 
 jobs:
   assign_triage_labels:
+    if: github.repository_owner == 'sonic-net'
     runs-on: ubuntu-latest
     steps:
       # Actions are pinned to full commit SHAs: mutable tags can be silently
-      # repointed by the action owner (enforced by the Semgrep CI check).
+      # repointed by the action owner.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
@@ -44,7 +50,7 @@ jobs:
           # Empty for the scheduled/manual runs, which scan open PRs instead.
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TRIAGE_CONFIG_PATH: .github/triage-assign/triage_labels.yml
-          SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '0' }}
+          LABEL_LIMIT: ${{ github.event.inputs.label_limit || '200' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
 
       - name: Cleanup the checked out repo
