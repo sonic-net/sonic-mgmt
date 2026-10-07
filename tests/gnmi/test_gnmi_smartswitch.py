@@ -2,8 +2,13 @@ import json
 import logging
 import pytest
 import uuid
-from .helper import gnmi_set
+
 from dash_api.vnet_pb2 import Vnet
+from pygnmi.create_gnmi_path import gnmi_path_generator
+from pygnmi.spec.v080 import gnmi_pb2
+
+from tests.gnmi_benchmark.helpers import gnmi_connection
+from .tls_setup import gnmi_server_context
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +20,14 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module")
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config,
+                      setup_vrf_configuration, setup_gnmi_ntp_client_server):
+    duthost = duthosts[rand_one_dut_hostname]
+    with gnmi_server_context(duthost, localhost, ptfhost, vrf_config) as server:
+        yield server
+
+
 def get_vnet_proto(vni, guid):
     pb = Vnet()
     pb.vni = int(vni)
@@ -22,7 +35,7 @@ def get_vnet_proto(vni, guid):
     return pb.SerializeToString()
 
 
-def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost, setup_gnmi_server):
     '''
     Verify GNMI native write with ApplDB
     Update DASH_VNET_TABLE
@@ -59,8 +72,11 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
         file.write(proto)
     ptfhost.copy(src=file_name, dest='/root')
     # Add DASH_VNET_TABLE
-    update_list = ["/sonic-db:APPL_DB/%s/DASH_VNET_TABLE/Vnet1:$/root/%s" % (target, file_name)]
-    gnmi_set(duthost, ptfhost, [], update_list, [])
+    update_list = ["/sonic-db:APPL_DB/%s/DASH_VNET_TABLE/Vnet1" % target]
+    request = gnmi_pb2.SetRequest(update=[gnmi_pb2.Update(
+        path=gnmi_path_generator(update_list[0]), val=gnmi_pb2.TypedValue(proto_bytes=proto))])
+    with gnmi_connection(setup_gnmi_server) as (_, client):
+        client.Set(request, timeout=30)
     # Verify APPL_DB
     int_cmd = "redis-cli --raw -p %s -n 0 hget \"DASH_VNET_TABLE:Vnet1\" pb" % redis_port
     int_cmd += " | dash_api_utils --table_name DASH_VNET_TABLE"
@@ -70,7 +86,9 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     logger.info("DASH_VNET_TABLE is updated: {}".format(result["stdout"]))
     # Remove DASH_VNET_TABLE
     delete_list = ["/sonic-db:APPL_DB/%s/DASH_VNET_TABLE/Vnet1" % target]
-    gnmi_set(duthost, ptfhost, delete_list, [], [])
+    request = gnmi_pb2.SetRequest(delete=[gnmi_path_generator(path) for path in delete_list])
+    with gnmi_connection(setup_gnmi_server) as (_, client):
+        client.Set(request, timeout=30)
     # Verify APPL_DB
     int_cmd = "redis-cli --raw -p %s -n 0 hgetall \"DASH_VNET_TABLE:Vnet1\"" % redis_port
     result = duthost.shell('docker exec database bash -c "%s"' % int_cmd)
