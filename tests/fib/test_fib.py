@@ -24,7 +24,8 @@ from tests.common.utilities import is_ipv4_address, is_ipv6_only_topology
 from tests.common.fixtures.fib_utils import (  # noqa: F401
     single_fib_for_duts,
     get_fib_info,
-    get_t2_fib_info,
+    get_t2_fib_info_per_asic,
+    merge_fib_infos,
     gen_fib_info_file,
     )
 from tests.common.utilities import wait, wait_until
@@ -209,7 +210,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
 
 
 def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
-    """Return one structured FIB snapshot per DUT, or one combined snapshot for T2."""
+    """Return per-DUT FIBs, or T2 FIBs keyed by (DUT hostname, ASIC index)."""
     duts_config_facts = duts_running_config_facts
     testname = request.node.name
     fib_infos = []
@@ -225,7 +226,7 @@ def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, 
                 fib_info['::/0'] = []
             fib_infos.append(fib_info)
     else:
-        fib_infos.append(get_t2_fib_info(duthosts, duts_config_facts, duts_minigraph_facts, testname))
+        return get_t2_fib_info_per_asic(duthosts, duts_config_facts, duts_minigraph_facts, testname)
 
     return fib_infos
 
@@ -241,7 +242,7 @@ def gen_fib_info_files(ptfhost, fib_infos, tbinfo, request):
             files.append(filename)
     else:
         filename = '/root/fib_info_all_duts.txt'
-        gen_fib_info_file(ptfhost, fib_infos[0], filename)
+        gen_fib_info_file(ptfhost, merge_fib_infos(fib_infos.values()), filename)
         files.append(filename)
 
     return files
@@ -257,7 +258,8 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 # Use grouped ports instead of the previous flattened list to preserve PortChannel membership.
 def get_ptf_ports_for_default_route(fib_infos):
-    return [[int(port) for port in group] for group in fib_infos[0].get('0.0.0.0/0', [])]
+    fib_info = merge_fib_infos(fib_infos.values()) if isinstance(fib_infos, dict) else fib_infos[0]
+    return [[int(port) for port in group] for group in fib_info.get('0.0.0.0/0', [])]
 
 
 def select_ecmp_member_to_flap(nh_ptf_ports, all_port_indices, lag_facts):
@@ -281,13 +283,20 @@ def select_ecmp_member_to_flap(nh_ptf_ports, all_port_indices, lag_facts):
 
 
 def get_remaining_fib_info(fib_infos, shut_ptf_port):
-    """Copy the target DUT's FIB and remove the complete path being shut."""
-    remaining_fib_info = fib_infos[0].copy()
-    remaining_fib_info['0.0.0.0/0'] = [
-        ports for ports in fib_infos[0]['0.0.0.0/0']
-        if shut_ptf_port not in (int(port) for port in ports)
-    ]
-    return [remaining_fib_info] + fib_infos[1:]
+    """Remove the shut path from each T2 ASIC, or from the target non-T2 DUT."""
+    if isinstance(fib_infos, dict):
+        remaining_fib_infos = {key: fib_info.copy() for key, fib_info in fib_infos.items()}
+        affected_fibs = remaining_fib_infos.values()
+    else:
+        remaining_fib_infos = [fib_infos[0].copy()] + fib_infos[1:]
+        affected_fibs = remaining_fib_infos[:1]
+    for fib_info in affected_fibs:
+        if '0.0.0.0/0' in fib_info:
+            fib_info['0.0.0.0/0'] = [
+                ports for ports in fib_info['0.0.0.0/0']
+                if shut_ptf_port not in (int(port) for port in ports)
+            ]
+    return remaining_fib_infos
 
 
 def prepare_ecmp_flap(duthost, fib_infos, all_port_indices, dut_mg_facts):
@@ -308,13 +317,21 @@ def prepare_ecmp_flap(duthost, fib_infos, all_port_indices, dut_mg_facts):
 def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                         tbinfo, request, flap_config, up):
     expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["remaining_fib_infos"]
-    expected_paths = sorted(sorted(path) for path in get_ptf_ports_for_default_route(expected_fib_infos))
+    expected_fibs = expected_fib_infos if tbinfo['topo']['type'] == 't2' else {0: expected_fib_infos[0]}
+    expected_paths = {
+        key: sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
+        for key, fib_info in expected_fibs.items()
+    }
 
     def _ecmp_state_ready():
         candidate_fib_infos = collect_fib_info(
             duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
         )
-        actual_paths = sorted(sorted(path) for path in get_ptf_ports_for_default_route(candidate_fib_infos))
+        candidate_fibs = candidate_fib_infos if tbinfo['topo']['type'] == 't2' else {0: candidate_fib_infos[0]}
+        actual_paths = {
+            key: sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
+            for key, fib_info in candidate_fibs.items()
+        }
         return actual_paths == expected_paths
 
     pytest_assert(

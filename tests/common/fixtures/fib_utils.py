@@ -32,9 +32,13 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
                 ...
             }
     """
+    return merge_fib_infos(get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname).values())
 
+
+def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
+    """Return a separate FIB snapshot for each (DUT hostname, ASIC index)."""
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    fib_info = {}
+    fib_infos = {}
     route_key = 'ROUTE_TABLE:*'
     if 'test_ecmp_group_member_flap' in testname:
         route_key = 'ROUTE_TABLE:0\.0\.0\.0*'    # noqa: W605
@@ -72,6 +76,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
         for list_index, asic_cfg_facts_tuple in enumerate(cfg_facts):
             asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
+            fib_info = {}
+            fib_infos[(duthost.hostname, asic_index)] = fib_info
 
             asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
             # change fetch to fetch_no_slurp to resolve slow fetch issue
@@ -159,15 +165,23 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
                         skip = True
 
                     if not skip:
-                        if prefix in fib_info:
-                            # Do not add the egress ports if they are already added.
-                            for ops in oports:
-                                if ops not in fib_info[prefix]:
-                                    fib_info[prefix].append(ops)
-                        else:
-                            fib_info[prefix] = oports
+                        fib_info[prefix] = oports
 
-    return fib_info
+    return fib_infos
+
+
+def merge_fib_infos(fib_infos):
+    """Combine FIB snapshots for PTF output without changing the snapshots."""
+    combined = {}
+    for fib_info in fib_infos:
+        for prefix, paths in fib_info.items():
+            if prefix not in combined:
+                combined[prefix] = list(paths)
+            else:
+                for path in paths:
+                    if path not in combined[prefix]:
+                        combined[prefix].append(path)
+    return combined
 
 
 def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
