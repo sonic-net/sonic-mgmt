@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 2 * * *'  # Daily at 02:00 UTC
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Log what would be labelled, commented on and closed, without doing it'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   issues: write
@@ -24,7 +30,11 @@ jobs:
           stale-issue-label: 'stale'
           stale-pr-label: 'stale'
 
-          exempt-issue-labels: 'never-stale'
+          # skip-wf-issue-expired marks an issue a conditional_mark skip/xfail
+          # still references on master or a release branch: closing it would
+          # un-skip those tests, and a GITHUB_TOKEN close never triggers
+          # skip_issue_close_guard.yml to reopen it.
+          exempt-issue-labels: 'never-stale,skip-wf-issue-expired'
           exempt-pr-labels: 'never-stale'
 
           # Process a bounded number of items per run so the initial backlog
@@ -35,6 +45,9 @@ jobs:
           # Remove the stale label when activity resumes.
           remove-stale-when-updated: true
 
+          # Manual runs default to a dry run; scheduled runs act.
+          debug-only: ${{ github.event.inputs.dry_run == 'true' }}
+
           stale-issue-message: >
             This issue has been automatically marked as stale because it has
             not had any activity for 365 days. It will be closed in 14 days
@@ -43,13 +56,17 @@ jobs:
 
             If this issue is still relevant, please leave a comment — this
             will reset the inactivity timer. If you believe this issue should
-            remain open regardless of activity, add the `never-stale` label.
+            remain open regardless of activity, ask a maintainer to add the
+            `never-stale` label.
 
 
             **Note:** if this issue is referenced by a skip or xfail condition
-            under `tests/common/plugins/conditional_mark/`, closing it will
-            make those tests run again. Either comment here to keep it open,
-            or update the condition first.
+            under `tests/common/plugins/conditional_mark/`, closing it makes
+            those tests run again on every branch that references it. Such
+            issues are exempt once the skip-expiry workflow has labelled them
+            `skip-wf-issue-expired`; otherwise comment here to keep it open, or
+            remove all references to this issue from conditional mark files
+            across `master` and all supported release branches first.
 
 
             Thank you for your contribution to SONiC!
@@ -65,15 +82,15 @@ jobs:
 
 
             **Important:** before this PR can be merged it must be rebased onto
-            the latest `master`. After a year of inactivity it is almost
-            certainly out of date and will not build or merge cleanly against
-            the current tree. Please rebase, resolve any conflicts, and
-            force-push so CI can re-run against current `master`; a PR that
-            cannot be rebased cleanly will not be merged.
+            the latest version of its base branch. After a year of inactivity it
+            is almost certainly out of date and will not build or merge cleanly
+            against the current tree. Please rebase, resolve any conflicts, and
+            force-push so CI can re-run against the current base branch; a PR
+            that cannot be rebased cleanly will not be merged.
 
 
             If you believe this PR should remain open regardless of activity,
-            add the `never-stale` label.
+            ask a maintainer to add the `never-stale` label.
 
 
             Thank you for your contribution to SONiC!
@@ -89,8 +106,8 @@ jobs:
           close-pr-message: >
             This pull request has been closed due to inactivity (no updates
             in over 1 year). If you would like to continue this work, please
-            re-open the PR or submit a new one rebased onto the latest
-            `master`.
+            re-open the PR or submit a new one rebased onto the latest version
+            of its base branch.
 
 
             Thank you for your contribution to SONiC!
