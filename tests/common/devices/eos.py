@@ -550,13 +550,9 @@ class EosHost(AnsibleHostBase):
         return out
 
     def is_multiagent(self):
-        # Cache the result: a cEOS instance does not switch protocol model during
-        # a test run, so probe it only once per host instead of on every
-        # kill_bgpd()/start_bgpd() call. Each eos_command() opens a fresh SSH
-        # login, so re-probing on every flap iteration floods the cEOS
-        # management plane when many neighbors are flapped in parallel
-        # (e.g. test_bgp_session_flap.test_bgp_multiple_session_flaps on T2),
-        # which can lead to SSH "Authentication failed" errors.
+        # Cache it: the protocol model is fixed per run, so probe once instead of on
+        # every kill_bgpd()/start_bgpd(). Each eos_command() is a fresh SSH login, and
+        # re-probing on every parallel flap floods cEOS mgmt SSH (auth failures).
         if self._is_multiagent is None:
             out = self.eos_command(commands=["show ip route summary | json"])
             model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
