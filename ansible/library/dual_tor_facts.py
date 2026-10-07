@@ -50,8 +50,6 @@ class DualTorParser:
             field = 'ip' if ipaddress.ip_address(address).version == 4 else 'ip_v6'
             # Keep the primary if both supplied values have the same family.
             neighbor.setdefault(field, address)
-        if 'ip' not in neighbor and 'ip_v6' not in neighbor:
-            raise ValueError("No management address supplied for {}".format(neighbor['hostname']))
         if 'hwsku' in self.host_vars[neighbor['hostname']]:
             neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
         else:
