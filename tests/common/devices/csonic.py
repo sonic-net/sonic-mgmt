@@ -209,6 +209,56 @@ class CsonicHost(NeighborDevice):
                 return result['stdout']
         return {}
 
+    def _lacp_bond_for_member(self, interface_name):
+        """Return the OVS bond port of the PortChannel that has interface_name as a member.
+
+        Only the userspace OVS LAG backend creates these bonds (``<PortChannel>-bond``);
+        returns None when the member has no PortChannel or the bond does not exist.
+        """
+        result = self._docker_exec(
+            "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
+            module_ignore_errors=True)
+        keys = result['stdout_lines'] if result['rc'] == 0 else []
+        if not keys:
+            return None
+        bond = "{}-bond".format(keys[0].split('|')[1])
+        result = self._docker_exec("ovs-vsctl --if-exists get Port {} name".format(bond),
+                                   module_ignore_errors=True)
+        if result['rc'] != 0 or not result['stdout']:
+            return None
+        return bond
+
+    def get_interface_lacp_rate_mode(self, interface_name):
+        """Return the LACP rate ('fast' or 'normal') of the LAG containing interface_name."""
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            raise NotImplementedError(
+                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
+                "{} is not one".format(interface_name))
+        result = self._docker_exec(
+            "ovs-vsctl --if-exists get Port {} other_config:lacp-time".format(bond),
+            module_ignore_errors=True)
+        return "fast" if result['stdout'].strip().strip('"') == "fast" else "normal"
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        """Set the LACP rate of the LAG containing interface_name ('fast', or 'normal'/'slow')."""
+        if mode not in ("fast", "normal", "slow"):
+            raise ValueError("Unsupported LACP rate mode: {}".format(mode))
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            raise NotImplementedError(
+                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
+                "{} is not one".format(interface_name))
+        lacp_time = "fast" if mode == "fast" else "slow"
+        logger.info("CsonicHost [%s] setting LACP rate of %s (%s) to %s",
+                    self.container_name, interface_name, bond, lacp_time)
+        result = self._docker_exec(
+            "ovs-vsctl set Port {} other_config:lacp-time={}".format(bond, lacp_time))
+        if result['rc'] != 0:
+            raise Exception("Unable to set interface [{}] lacp rate to [{}]: {}".format(
+                interface_name, mode, result['stderr']))
+        return result
+
     def config(self, lines=None, parents=None, **kwargs):
         """
         Configure via vtysh (loose compatibility with EOS config style).
