@@ -173,6 +173,28 @@ QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS = [
     "nvidia_sn6",
 ]
 
+# Constants for the trimming during warm reboot test
+WARM_REBOOT_SCRIPT_NAME = "trim_warm_reboot_traffic.py"
+WARM_REBOOT_SCRIPT_PATH = f"/tmp/{WARM_REBOOT_SCRIPT_NAME}"
+WARM_REBOOT_SENDER_LOG = "/tmp/trim_warm_reboot_sender.log"
+WARM_REBOOT_CAPTURE_LOG = "/tmp/trim_warm_reboot_capture.log"
+WARM_REBOOT_REPORT_FILE = "/tmp/trim_warm_reboot_report.json"
+WARM_REBOOT_PACKET_RATE = 10000  # Packets per second, high enough to make a short disruption countable
+WARM_REBOOT_PACKET_SIZE = 1000  # Payload size, big enough for the packets to always be trimmed
+WARM_REBOOT_CAPTURE_SNAP_LEN = 128  # Only the headers and the counter are needed, IPv6 needs a bit more room
+WARM_REBOOT_CAPTURE_BUFFER_SIZE = 65536  # Capture buffer size in KB, big enough to never drop a packet
+WARM_REBOOT_TRAFFIC_DURATION = 900  # Must cover the whole warm reboot, including the warmboot finalizer
+WARM_REBOOT_STEADY_STATE_WAIT = 10  # Time for the egress queue to fill up, so that all packets are trimmed
+WARM_REBOOT_CAPTURE_START_WAIT = 5  # Time for tcpdump to open its capture socket
+WARM_REBOOT_ANALYZER_WAIT = 15  # Time for the analyzer to drain the capture pipe and write the report
+# The trimming disruption during warm reboot shows up as a single contiguous burst of at least 63 lost
+# packets, so the threshold keeps a large margin below it while tolerating a few packets lost by the capture
+WARM_REBOOT_MAX_CONTIGUOUS_LOSS = 20
+# The disruption lasts about 6 ms, so at this rate it drops at least 30 packets, which stays above
+# WARM_REBOOT_MAX_CONTIGUOUS_LOSS. A slower stream would silently lose the ability to detect it, and an
+# idle stream reports no rate at all, so this guards the measurement against both.
+WARM_REBOOT_MIN_PACKET_RATE = 5000
+
 # Mirror session configuration
 MIRROR_SESSION_NAME = "test_mirror"
 MIRROR_SESSION_SRC_IP = "1.1.1.1"

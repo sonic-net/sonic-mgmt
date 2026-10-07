@@ -217,7 +217,7 @@ def build_na_packet(src_mac, src_ip, dst_mac, dst_ip):
 def _skip_if_virtual(duthost):
     """Skip on virtual platforms where counters are not meaningful."""
     asic_type = duthost.facts.get("asic_type", "")
-    if asic_type in ("vs", "vpp"):
+    if asic_type in ("vs"):
         pytest.skip(
             "Counter check not applicable on {} platform"
             .format(asic_type)

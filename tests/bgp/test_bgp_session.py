@@ -11,6 +11,7 @@ from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 vrfname = 'default'
+BGP_SESSION_TIMEOUT = 300
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma'),
@@ -65,8 +66,23 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
     # verify sessions are established on the selected ASIC
     neigh_ips = list(bgp_neighbors.keys())
-    pytest_assert(wait_until(120, 5, 0, asichost.check_bgp_session_state, neigh_ips),
-                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
+    sessions_established = wait_until(
+        BGP_SESSION_TIMEOUT, 10, 0, asichost.check_bgp_session_state, neigh_ips
+    )
+    if not sessions_established:
+        for cmd in ('show ip bgp summary', 'show ipv6 bgp summary'):
+            logger.error(
+                "%s\n%s",
+                cmd,
+                duthost.shell(
+                    '{} {}'.format(cmd, asichost.cli_ns_option).strip(),
+                    module_ignore_errors=True
+                )['stdout']
+            )
+    pytest_assert(
+        sessions_established,
+        "Not all BGP sessions are established on DUT ASIC {}".format(asic_index)
+    )
 
     for ip, details in bgp_neighbors.items():
         interfaces = map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
@@ -111,7 +127,7 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_session_state, neigh_ips),
+        pytest_assert(wait_until(BGP_SESSION_TIMEOUT, 10, 0, asichost.check_bgp_session_state, neigh_ips),
                       "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
 

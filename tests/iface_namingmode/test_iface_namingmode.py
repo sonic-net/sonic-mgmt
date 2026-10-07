@@ -47,7 +47,8 @@ def ignore_host_lane_count_loganalyzer(enum_rand_one_per_hwsku_frontend_hostname
         # when loganalyzer is disabled, the object could be None
         if loganalyzer:
             ignoreRegex = [
-                (".*ERR pmon#xcvrd.*: no suitable app for the port appl .* host_lane_count [0-9] host_speed.*"),
+                (".*ERR pmon#(?:xcvrd|CmisManagerTask).*: no suitable app for the port appl .* "
+                 "host_lane_count [0-9] host_speed.*"),
             ]
             loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
@@ -799,6 +800,10 @@ class TestShowQueue():
 
             configDbCli = SonicDbCli(asic, "CONFIG_DB")
             buffer_queue_keys = configDbCli.get_keys("BUFFER_QUEUE|*", raise_error_when_not_found=False)
+            if not buffer_queue_keys:
+                if tbinfo["topo"]["type"] in ("uma", "lma"):
+                    pytest.skip("Buffer queues are not configured on DMA topologies")
+                pytest.fail("No BUFFER_QUEUE entries found in CONFIG_DB")
             interfaces = set()
 
             for key in buffer_queue_keys:

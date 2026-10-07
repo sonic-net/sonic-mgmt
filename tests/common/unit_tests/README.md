@@ -28,8 +28,44 @@ python3 -m pytest --noconftest \
 
 If your environment has the full sonic-mgmt test dependencies installed and you intentionally want global fixtures, you can remove `--noconftest`.
 
+### DHCP relay cleanup regression
+
+`unit_test_dhcp_relay_cleanup.py` exercises both DHCP relay cleanup blocks with
+independent selected/standby relay modes, single/dual-ToR topologies, and config,
+readiness, and socket failures. It extracts the cleanup code via `ast` to avoid
+testbed dependencies; physical packet forwarding still requires a dual-ToR run.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_dhcp_relay_cleanup.py -v
+```
+
+The `--confcutdir` option also prevents collection of parent package setup that
+imports Linux-only testbed utilities.
+
 ## Requirements
 
 - Python 3
 - `pytest`
 - `unittest.mock` (built into Python standard library)
+
+## Host-failure lifecycle regressions
+
+Run the classifier unit tests and the real pytest lifecycle regressions together:
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_host_failure_utils.py \
+  tests/common/unit_tests/helpers/unit_test_host_failure_lifecycle.py -q
+```
+
+`--confcutdir` also excludes parent package setup, so these tests do not load
+`tests/common/__init__.py` or require a SONiC container. The lifecycle tests extract
+the production hooks from `tests/conftest.py` and run them in isolated pytest
+subprocesses with real function/module/session fixtures. They cover teardown-first
+unreachability, later cleanup failures, exit code 15, complete final `CustomMsg`
+and captured cleanup logs, and preservation of normal test execution. Exception
+coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
+unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
+Mixed-group coverage also checks independent same-scope finalizers and errors
+raised before the group, so completing ancestor scopes alone is not sufficient.
