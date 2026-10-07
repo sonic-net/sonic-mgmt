@@ -1073,6 +1073,13 @@
                 ],
                 "owner": "Dawei Huang",
                 "email": "daweihuang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "k8s_container.test_ndra"
+                ],
+                "owner": "Ali Liva",
+                "email": "aliliva@microsoft.com"
             }
         ]
     },

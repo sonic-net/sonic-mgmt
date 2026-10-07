@@ -45,6 +45,19 @@ def pytest_addoption(parser):
         help="Evidence role for the deployed image",
     )
 
+    ndra_group = parser.getgroup("Kubernetes NDRA provider")
+    ndra_group.addoption(
+        "--k8s-ndra-role",
+        choices=("golden", "candidate"),
+        default="golden",
+        help="Evidence role for the deployed Network Device Repair Agent images",
+    )
+    ndra_group.addoption(
+        "--k8s-ndra-image-version",
+        default=None,
+        help="Candidate build version shared by the sonic-health-monitor and sonic-repair-agent images",
+    )
+
 
 def pytest_ignore_collect(collection_path, config):
     if _is_suite_test(collection_path) and not config.getoption("--k8s-container-test"):

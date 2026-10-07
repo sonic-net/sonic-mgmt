@@ -3,3 +3,11 @@ k8s_container/test_gnmi.py:
     reason: "Kubernetes gNMI qualification requires an internal SONiC image"
     conditions:
       - "branch in ['master']"
+
+k8s_container/test_ndra.py:
+  skip:
+    reason: "Kubernetes NDRA qualification requires an internal SONiC image and a HWSKU that the production DaemonSet schedules on"
+    conditions_logical_operator: or
+    conditions:
+      - "branch in ['master']"
+      - "hwsku is not None and hwsku.lower() in ['arista-7050qx32s-q32', 'arista-7050qx-32s-s4q31', 'arista-7050-qx32', 'arista-7050-qx-32s', 'celestica-e1031-t48s4', 'arista-7060cx-32s-q32', 'arista-7060cx-32s-d48c8', 'arista-7060cx-32s-c32-t1', 'arista-7060cx-32s-c32']"

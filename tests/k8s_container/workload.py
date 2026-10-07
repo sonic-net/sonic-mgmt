@@ -329,6 +329,8 @@ class ContainerSpec:
     tty: bool = False
     liveness_probe: Optional[Union[ExecReadinessProbe, HttpReadinessProbe]] = None
     readiness_probe: Optional[Union[ExecReadinessProbe, HttpReadinessProbe]] = None
+    command: Tuple[str, ...] = field(default_factory=tuple)
+    args: Tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _validate_dns_label(self.name, "container name")
@@ -338,9 +340,15 @@ class ContainerSpec:
         _validate_ordered_sequence(self.environment, "environment")
         _validate_ordered_sequence(self.mounts, "mounts")
         _validate_ordered_sequence(self.ports, "ports")
+        _validate_ordered_sequence(self.command, "command")
+        _validate_ordered_sequence(self.args, "args")
         object.__setattr__(self, "environment", tuple(self.environment))
         object.__setattr__(self, "mounts", tuple(self.mounts))
         object.__setattr__(self, "ports", tuple(self.ports))
+        object.__setattr__(self, "command", tuple(self.command))
+        object.__setattr__(self, "args", tuple(self.args))
+        if any(not isinstance(part, str) or not part for part in self.command + self.args):
+            raise ValueError("command and args must contain non-empty strings")
         if any(not isinstance(variable, EnvVar) for variable in self.environment):
             raise ValueError("environment must contain EnvVar values")
         if any(not isinstance(mount, HostPathMount) for mount in self.mounts):
@@ -490,6 +498,10 @@ def _render_container(container: ContainerSpec) -> Dict[str, Any]:
         "imagePullPolicy": container.image_pull_policy,
         "name": container.name,
     }
+    if container.command:
+        rendered["command"] = list(container.command)
+    if container.args:
+        rendered["args"] = list(container.args)
     if container.tty:
         rendered["tty"] = True
     if container.environment:

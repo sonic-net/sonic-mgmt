@@ -233,6 +233,8 @@ class ContainerFamilySpec:
                     name=declaration["name"],
                     image=images[declaration["name"]],
                     image_pull_policy=_IMAGE_PULL_POLICY,
+                    command=tuple(declaration.get("command", ())),
+                    args=tuple(declaration.get("args", ())),
                     environment=tuple(
                         EnvVar(name=item["name"], value=item["value"])
                         for item in declaration.get("env", [])
@@ -312,6 +314,8 @@ def load_container_spec(path: Path) -> ContainerFamilySpec:
     allowed_container_fields = {
         "name",
         "tty",
+        "command",
+        "args",
         "env",
         "securityContext",
         "volumeMounts",
@@ -324,6 +328,9 @@ def load_container_spec(path: Path) -> ContainerFamilySpec:
         if unknown or "name" not in container:
             raise ValueError("container fields are invalid; unknown={}".format(unknown))
         _string(container["name"], "container.name")
+        for field_name in ("command", "args"):
+            for part in _list(container.get(field_name, []), "container.{}".format(field_name)):
+                _string(part, "container.{} entry".format(field_name))
         for item in container.get("env", []):
             if set(item) != {"name", "value"}:
                 raise ValueError("container env entries must contain name and value")

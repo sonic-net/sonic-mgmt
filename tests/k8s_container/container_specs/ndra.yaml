@@ -1,0 +1,246 @@
+schema_version: 1
+
+golden_images:
+  sonic-health-monitor:
+    amd64: soniccr1.azurecr.io/sonic-health-monitor:20261002.2
+    armhf: soniccr1.azurecr.io/sonic-health-monitor:20261002.2-armhf
+    arm64: soniccr1.azurecr.io/sonic-health-monitor:20261002.2-arm64
+  sonic-node-problem-detector:
+    amd64: soniccr1.azurecr.io/sonic-health-monitor:20261002.2
+    armhf: soniccr1.azurecr.io/sonic-health-monitor:20261002.2-armhf
+    arm64: soniccr1.azurecr.io/sonic-health-monitor:20261002.2-arm64
+  sonic-repair-agent:
+    amd64: soniccr1.azurecr.io/sonic-repair-agent:20261002.2
+    armhf: soniccr1.azurecr.io/sonic-repair-agent:20261002.2-armhf
+    arm64: soniccr1.azurecr.io/sonic-repair-agent:20261002.2-arm64
+
+# These entries match the native Kubernetes container shape. The framework adds
+# images, ownership, scheduling, and common SONiC environment values.
+containers:
+  - name: sonic-health-monitor
+    tty: true
+    env:
+      - name: IMAGE_VERSION
+        value: ${HEALTH_MONITOR_IMAGE_VERSION}
+      - name: RUNTIME_OWNER
+        value: kube
+      - name: DETECTION_ENABLED
+        value: "true"
+      - name: REPAIR_AGENT_ENDPOINT
+        value: http://127.0.0.1:9090
+      - name: MONITOR_CONFIG
+        value: /default-config/monitor.yaml
+      - name: MONITOR_REPAIR_STATE_PATH
+        value: /host/var/lib/sonic-health-monitor/repair-state.json
+      - name: LIVENESS_BYPASS_MAX_AGE_MS
+        value: "900000"
+      - name: MONITOR_HEARTBEAT_FILE
+        value: /run/dpd/monitor-daemon.heartbeat
+      - name: ENVIRONMENT
+        value: production
+      - name: RUST_BACKTRACE
+        value: "1"
+      - name: K8S_NODECONDITION_ENABLED
+        value: "false"
+      - name: NODE_NAME
+        value: ${NODE_NAME}
+    securityContext:
+      privileged: true
+    volumeMounts:
+      - name: etc-sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: etc-localtime
+        mountPath: /etc/localtime
+        readOnly: true
+      - name: var-run-redis
+        mountPath: /var/run/redis
+      - name: var-run-redis-chassis
+        mountPath: /var/run/redis-chassis
+        readOnly: true
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+      - name: host-root
+        mountPath: /host
+        readOnly: true
+      - name: health-monitor-state
+        mountPath: /host/var/lib/sonic-health-monitor
+      - name: dev-log
+        mountPath: /dev/log
+      - name: ndra-run
+        mountPath: /run/dpd
+    livenessProbe:
+      exec:
+        command:
+          - /liveness-bypass.sh
+          - /bin/sh
+          - -c
+          - "hb=${MONITOR_HEARTBEAT_FILE:-/run/dpd/monitor-daemon.heartbeat}; [ -f $hb ] || { echo no-heartbeat >&2; exit 1; }; [ $(( $(date +%s) - $(stat -c %Y $hb 2>/dev/null || echo 0) )) -le ${MONITOR_HEARTBEAT_MAX_AGE_S:-90} ] || { echo heartbeat-stale >&2; exit 1; }"
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 15
+      failureThreshold: 6
+
+  - name: sonic-node-problem-detector
+    tty: true
+    command:
+      - /entrypoint-npd.sh
+    args:
+      - --logtostderr
+      - --port=20256
+      - --enable-k8s-exporter=false
+    env:
+      - name: IMAGE_VERSION
+        value: ${HEALTH_MONITOR_IMAGE_VERSION}
+      - name: RUNTIME_OWNER
+        value: kube
+      - name: DETECTION_ENABLED
+        value: "true"
+      - name: MONITOR_CONFIG
+        value: /default-config/monitor.yaml
+      - name: MONITOR_REPAIR_STATE_PATH
+        value: /host/var/lib/sonic-health-monitor/repair-state.json
+      - name: LIVENESS_BYPASS_MAX_AGE_MS
+        value: "900000"
+      - name: RUST_BACKTRACE
+        value: "1"
+      - name: GOMEMLIMIT
+        value: 112MiB
+      - name: NODE_NAME
+        value: ${NODE_NAME}
+    securityContext:
+      privileged: true
+    volumeMounts:
+      - name: health-monitor-state
+        mountPath: /host/var/lib/sonic-health-monitor
+        readOnly: true
+      - name: dev-log
+        mountPath: /dev/log
+      - name: dev-kmsg
+        mountPath: /dev/kmsg
+        readOnly: true
+      - name: var-log-journal
+        mountPath: /var/log/journal
+        readOnly: true
+      - name: ndra-run
+        mountPath: /generated-config
+      - name: ndra-run
+        mountPath: /run/dpd
+    livenessProbe:
+      exec:
+        command:
+          - /liveness-bypass.sh
+          - /bin/sh
+          - -c
+          - "wget -q -T 10 -O - http://127.0.0.1:20257/metrics >/dev/null"
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 15
+      failureThreshold: 6
+
+  - name: sonic-repair-agent
+    tty: true
+    env:
+      - name: IMAGE_VERSION
+        value: ${REPAIR_AGENT_IMAGE_VERSION}
+      - name: DOCKER_BIN
+        value: /usr/bin/docker
+      - name: RUNTIME_OWNER
+        value: kube
+      - name: RUST_BACKTRACE
+        value: "1"
+      - name: MITIGATION_ENABLED
+        value: "true"
+      - name: NODE_NAME
+        value: ${NODE_NAME}
+    securityContext:
+      privileged: true
+    volumeMounts:
+      - name: docker-bin
+        mountPath: /usr/bin/docker
+        readOnly: true
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+      - name: host-hostname
+        mountPath: /etc/host-utsname
+        readOnly: true
+      - name: etc-sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: host-root
+        mountPath: /host
+      - name: repair-agent-state
+        mountPath: /host/var/lib/sonic-repair-agent
+      - name: dev-log
+        mountPath: /dev/log
+    livenessProbe:
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - "true"
+      periodSeconds: 30
+      timeoutSeconds: 5
+
+volumes:
+  - name: etc-sonic
+    hostPath:
+      path: /etc/sonic
+      type: Directory
+  - name: etc-localtime
+    hostPath:
+      path: /etc/localtime
+      type: File
+  - name: var-run-redis
+    hostPath:
+      path: /var/run/redis
+      type: Directory
+  - name: var-run-redis-chassis
+    hostPath:
+      path: /var/run/redis-chassis
+      type: Directory
+  - name: docker-bin
+    hostPath:
+      path: /usr/bin/docker
+      type: File
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket
+  - name: host-root
+    hostPath:
+      path: /
+      type: Directory
+  - name: host-hostname
+    hostPath:
+      path: /etc/hostname
+      type: File
+  - name: dev-log
+    hostPath:
+      path: /dev/log
+      type: Socket
+  - name: dev-kmsg
+    hostPath:
+      path: /dev/kmsg
+      type: CharDevice
+  - name: var-log-journal
+    hostPath:
+      path: /var/log/journal
+      type: DirectoryOrCreate
+  - name: repair-agent-state
+    hostPath:
+      path: /var/lib/sonic-repair-agent
+      type: DirectoryOrCreate
+  - name: health-monitor-state
+    hostPath:
+      path: /var/lib/sonic-health-monitor
+      type: DirectoryOrCreate
+  - name: ndra-run
+    hostPath:
+      path: ${NDRA_RUN_DIR}
+      type: Directory
+
+host_path_overrides:
+  ndra-run:
+    placeholder: NDRA_RUN_DIR
+    required_prefix: /run/sonic-mgmt-k8s-
