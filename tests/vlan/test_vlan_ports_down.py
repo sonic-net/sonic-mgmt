@@ -97,19 +97,27 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
             # Skip PT0 neighbors as only specific routes are being advertised to them.
             continue
         nbrhost = nbrhost["host"]
+        route_info = None
+        route_info_ipv6 = None
         try:
+            # Only neighbor access is guarded here; the advertisement assertions are made below so that
+            # a genuinely missing route fails the test instead of being treated as an unreachable neighbor.
             if vlan_subnet:
                 logger.info(f"Checking IPv4 routes on {nbrname}...")
-                pytest_assert(is_route_advertised(nbrhost.get_route(vlan_subnet)),
-                              f"{vlan_name}'s IPv4 subnet is not advertised to the T1 neighbor {nbrname}.")
+                route_info = nbrhost.get_route(vlan_subnet)
             if vlan_subnet_ipv6:
                 logger.info(f"Checking IPv6 routes on {nbrname}...")
-                pytest_assert(is_route_advertised(nbrhost.get_route(vlan_subnet_ipv6)),
-                              f"{vlan_name}'s IPv6 subnet is not advertised to the T1 neighbor {nbrname}.")
+                route_info_ipv6 = nbrhost.get_route(vlan_subnet_ipv6)
         except Exception:
             # nbrhost might be unreachable. Skip it.
             logger.info(f"{nbrname} might be unreachable.")
             continue
+        if vlan_subnet:
+            pytest_assert(is_route_advertised(route_info),
+                          f"{vlan_name}'s IPv4 subnet is not advertised to the T1 neighbor {nbrname}.")
+        if vlan_subnet_ipv6:
+            pytest_assert(is_route_advertised(route_info_ipv6),
+                          f"{vlan_name}'s IPv6 subnet is not advertised to the T1 neighbor {nbrname}.")
         nbrcount += 1
     if nbrcount == 0:
         pytest.skip("Could not get routing info from any T1 neighbors.")
