@@ -238,6 +238,12 @@ class CsonicHost(NeighborDevice):
         result = self._docker_exec(
             "ovs-vsctl --if-exists get Port {} other_config:lacp-time".format(bond),
             module_ignore_errors=True)
+        # --if-exists makes an unset key succeed with empty output (= OVS default
+        # 'slow'), so only a non-zero rc is a real failure (e.g. ovsdb-server or
+        # ovs-vswitchd unavailable). Raise instead of reporting a bogus 'normal'.
+        if result['rc'] != 0:
+            raise Exception("Unable to get interface [{}] lacp rate from bond [{}]: {}".format(
+                interface_name, bond, result['stderr']))
         return "fast" if result['stdout'].strip().strip('"') == "fast" else "normal"
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
