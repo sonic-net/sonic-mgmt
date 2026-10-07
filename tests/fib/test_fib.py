@@ -1012,7 +1012,7 @@ def test_ecmp_group_member_flap(
         duthosts, duts_running_config_facts, duts_minigraph_facts,
         tbinfo, request, expected_fib_infos=fib_infos_after_shutdown
     )
-    down_fib_files = gen_fib_info_files(ptfhost, fib_infos_after_shutdown, tbinfo, request)
+    fib_files_after_shutdown = gen_fib_info_files(ptfhost, fib_infos_after_shutdown, tbinfo, request)
     member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
                             ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_down_log_file))
@@ -1023,7 +1023,7 @@ def test_ecmp_group_member_flap(
         "fib_test.FibTest",
         platform_dir="ptftests",
         params={
-            "fib_info_files": down_fib_files[:3],
+            "fib_info_files": fib_files_after_shutdown[:3],
             "ptf_test_port_map": ptf_test_port_map_active_active(
                 ptfhost, updated_tbinfo, duthosts, mux_server_url,
                 duts_running_config_facts, duts_minigraph_facts,
