@@ -1,0 +1,29 @@
+{
+    "laser_temperature_media1_operational_range": {"min": 0.0, "max": 85.0},
+    "laser_temperature_media2_operational_range": {"min": 0.0, "max": 85.0},
+    "laser_temperature_media3_operational_range": {"min": 0.0, "max": 85.0},
+    "laser_temperature_media4_operational_range": {"min": 0.0, "max": 85.0},
+
+    "esnr_media_inputLANE_NUM_operational_range": {"min": 19.0, "max": 25.0},
+    "esnr_host_inputLANE_NUM_operational_range": {"min": 19.0, "max": 25.0},
+
+    "prefec_ber_curr_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_min_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_max_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_avg_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+
+    "prefec_ber_curr_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_min_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_max_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+    "prefec_ber_avg_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 1.0e-7},
+
+    "errored_frames_curr_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_min_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_max_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_avg_host_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+
+    "errored_frames_curr_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_min_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_max_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0},
+    "errored_frames_avg_media_inputLANE_NUM_operational_range": {"min": 0.0, "max": 0.0}
+}

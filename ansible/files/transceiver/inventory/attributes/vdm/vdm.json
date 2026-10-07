@@ -1,0 +1,7 @@
+{
+    "defaults": {
+        "data_max_age_min": 5,
+        "consistency_check_poll_count": 3,
+        "max_update_time_sec": 60
+    }
+}
