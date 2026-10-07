@@ -8,10 +8,10 @@ from ptf import mask, packet
 
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.portstat_utilities import parse_portstat
+from tests.common.portstat_utilities import parse_portstat, counter_value, sum_ifaces_counts
 from tests.common.helpers.dut_utils import is_mellanox_fanout, get_dut_ports_with_checksum_modifying_fanouts
 from tests.common.utilities import parse_rif_counters, wait_until
-from tests.ip.ip_util import parse_interfaces, sum_ifaces_counts, random_mac
+from tests.ip.ip_util import parse_interfaces, random_mac
 
 
 pytestmark = [
@@ -19,6 +19,13 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def assert_counters_published(**counters):
+    """Fail naming the counters the poller has not published, instead of comparing None."""
+    unpublished = sorted(name for name, value in counters.items() if value is None)
+    pytest_assert(not unpublished,
+                  "Counters not published yet: {}".format(", ".join(unpublished)))
 
 
 class TestIPPacket(object):
@@ -40,13 +47,9 @@ class TestIPPacket(object):
     def check_rx_ok(duthost, ingress_iface, pkt_num_min):
         """Check if the ingress port has received enough packets."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok_raw = portstat_out[ingress_iface]["rx_ok"].replace(",", "")
-        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
-        # treat that as "not ready yet" so the wait_until caller keeps polling.
-        if rx_ok_raw == "N/A":
-            return False
-        rx_ok = int(rx_ok_raw)
-        return rx_ok >= pkt_num_min
+        # An unpublished counter means "not ready yet", so the wait_until caller keeps polling.
+        rx_ok = counter_value(portstat_out, ingress_iface, "rx_ok")
+        return rx_ok is not None and rx_ok >= pkt_num_min
 
     @staticmethod
     def check_rx_drop(duthost, ingress_iface, rif_support, rif_rx_ifaces, pkt_num_min):
@@ -54,12 +57,16 @@ class TestIPPacket(object):
         On some ASICs the drop counter updates a few seconds after rx_ok, so reading
         it immediately yields a flaky 0. Poll until it settles."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_drp = int(portstat_out[ingress_iface]["rx_drp"].replace(",", ""))
+        rx_drp = counter_value(portstat_out, ingress_iface, "rx_drp")
+        if rx_drp is None:
+            return False
         rx_err = 0
         if rif_support:
             rif_counter_out = parse_rif_counters(
                 duthost.command("show interfaces counters rif")["stdout_lines"])
-            rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", ""))
+            rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err")
+            if rx_err is None:
+                return False
         return max(rx_drp, rx_err) >= pkt_num_min
 
     @staticmethod
@@ -271,9 +278,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -281,6 +288,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(tx_ok >= self.PKT_NUM_MIN,
@@ -346,9 +354,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -356,6 +364,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(tx_ok >= self.PKT_NUM_MIN,
@@ -442,9 +451,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[rx_port]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[rx_port]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, rx_port, "rx_ok")
+        rx_drp = counter_value(portstat_out, rx_port, "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -459,6 +468,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN,
@@ -527,9 +537,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -537,6 +547,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(tx_ok >= self.PKT_NUM_MIN,
@@ -602,9 +613,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -612,6 +623,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(tx_ok >= self.PKT_NUM_MIN,
@@ -669,9 +681,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -679,6 +691,7 @@ class TestIPPacket(object):
         if asic_type == "vs":
             logger.info("Skipping packet count check on VS platform")
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(tx_ok >= self.PKT_NUM_MIN,
@@ -737,9 +750,9 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -747,6 +760,7 @@ class TestIPPacket(object):
         if asic_type in ["vs", "nokia-vs", "micas-vs"]:
             logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, rx_err=rx_err, tx_ok=tx_ok, tx_drp=tx_drp, tx_err=tx_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(
@@ -798,8 +812,8 @@ class TestIPPacket(object):
         # rx_ok counter to increase to show packets are being received correctly at layer 2
         # rx_drp counter to increase to show packets are being dropped
         # tx_ok, tx_drop, tx_err counter to zero to show no packets are being forwarded
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
+        rx_ok = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_ok")
+        rx_drp = counter_value(portstat_out, peer_ip_ifaces_pair[0][1][0], "rx_drp")
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
@@ -807,6 +821,7 @@ class TestIPPacket(object):
         if asic_type in ["vs", "nokia-vs", "micas-vs"]:
             logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
+        assert_counters_published(rx_ok=rx_ok, rx_drp=rx_drp, tx_ok=tx_ok, tx_drp=tx_drp, tx_rif_err=tx_rif_err)
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         asic_type = duthost.facts["asic_type"]
