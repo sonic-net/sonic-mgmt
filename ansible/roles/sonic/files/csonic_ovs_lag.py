@@ -109,6 +109,12 @@ def check_portchannels(tables, settle=5):
     for process in TEAM_PROCESSES:
         if supervisor_state(process) == "RUNNING":
             problems.append("{} restarted".format(process))
+    for _, member in tables["members"]:
+        link = call(["ip", "-o", "link", "show", "dev", member], check=False)
+        if "does not exist" in link or not link:
+            problems.append("{} device missing".format(member))
+        elif not re.search(r"<[^>]*\bUP\b[^>]*>", link):
+            problems.append("{} is down".format(member))
     for name in tables["portchannels"]:
         addresses = call(["ip", "-o", "addr", "show", "dev", name],
                          check=False)
@@ -173,6 +179,12 @@ def apply():
         members = [kernel_member(member) for member in config_members]
         ovs_portchannel(name, members, attributes.get("mtu", "9100"),
                         attributes.get("min_links", "1"))
+
+        # teammgrd sets the SAI-facing member ports (EthernetN) down before it
+        # enslaves them and leaves them down once its team device is gone.
+        # lldpd runs on EthernetN, so bring them back up.
+        for member in config_members:
+            call(["ip", "link", "set", member, "up"])
 
         for key in tables["interfaces"]:
             if isinstance(key, tuple) and key[0] == name:
