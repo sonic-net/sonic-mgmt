@@ -301,13 +301,13 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
     asic = duthost.asic_instance(asic_id)
     return {
         "asic": asic, "interface": lag_name or dut_port,
-        "initial_fib_infos": fib_infos, "fib_infos_after_shutdown": fib_infos_after_shutdown,
+        "fib_infos_after_shutdown": fib_infos_after_shutdown,
     }
 
 
-def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
-                        tbinfo, request, flap_config, ptf_fib_infos, up):
-    expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["fib_infos_after_shutdown"]
+def wait_for_ecmp_state(duthosts, duts_running_config_facts, duts_minigraph_facts,
+                        tbinfo, request, expected_fib_infos):
+    """Wait until every FIB snapshot matches the expected default-route paths."""
     expected_paths = [
         sorted(sorted(path) for path in get_ptf_ports_for_default_route(fib_info))
         for fib_info in expected_fib_infos
@@ -325,9 +325,8 @@ def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minig
 
     pytest_assert(
         wait_until(180, 5, 0, _ecmp_state_ready),
-        "ECMP state did not converge (up={}). Expected FIB {}".format(up, expected_fib_infos)
+        "ECMP state did not converge. Expected FIB {}".format(expected_fib_infos)
     )
-    return gen_fib_info_files(ptfhost, ptf_fib_infos, tbinfo, request)
 
 
 @pytest.fixture(scope="module")
@@ -993,9 +992,7 @@ def test_ecmp_group_member_flap(
     flap_config = prepare_ecmp_flap(
         duthosts[0], fib_infos, nh_ptf_ports, all_port_indices, duts_minigraph_facts[upstream_lc], is_t2=is_t2
     )
-    down_ptf_fib_infos = flap_config["fib_infos_after_shutdown"]
-    if is_t2:
-        down_ptf_fib_infos = [merge_fib_infos(down_ptf_fib_infos)]
+    fib_infos_after_shutdown = flap_config["fib_infos_after_shutdown"]
 
     logging.info("Shutting down one ECMP path.")
 
@@ -1011,10 +1008,12 @@ def test_ecmp_group_member_flap(
 
     # --- Re-run the PTF test after member down ---
     logging.info("Verifying ECMP behavior after member down.")
-    down_fib_files = wait_for_ecmp_state(
-        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
-        tbinfo, request, flap_config, down_ptf_fib_infos, up=False
+    wait_for_ecmp_state(
+        duthosts, duts_running_config_facts, duts_minigraph_facts,
+        tbinfo, request, expected_fib_infos=fib_infos_after_shutdown
     )
+    down_ptf_fib_infos = [merge_fib_infos(fib_infos_after_shutdown)] if is_t2 else fib_infos_after_shutdown
+    down_fib_files = gen_fib_info_files(ptfhost, down_ptf_fib_infos, tbinfo, request)
     member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
                             ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_down_log_file))
@@ -1059,10 +1058,11 @@ def test_ecmp_group_member_flap(
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
-    up_fib_files = wait_for_ecmp_state(
-        duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
-        tbinfo, request, flap_config, initial_ptf_fib_infos, up=True
+    wait_for_ecmp_state(
+        duthosts, duts_running_config_facts, duts_minigraph_facts,
+        tbinfo, request, expected_fib_infos=fib_infos
     )
+    up_fib_files = gen_fib_info_files(ptfhost, initial_ptf_fib_infos, tbinfo, request)
     member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
                           ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_up_log_file))
