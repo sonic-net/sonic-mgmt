@@ -55,6 +55,8 @@ There are 7 main sections in testbed.yaml that need to be edited:
 6. testbed
 7. topology
 
+There are also optional sections: testbed_config, pdu_links and lab_config.
+
 Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Testbed Inventory](#testbed-inventory) and [Testbed Physical Topology](#testbed-physical-topology).
 
 Within the testbed.yaml file:
@@ -224,6 +226,49 @@ docker_registry_host: 127.0.0.1:5000
 docker_registry_username: root
 docker_registry_password: root
 ```
+
+### (OPTIONAL) pdu_links section:
+**USAGE**: files/sonic_lab_pdu_links.csv
+
+This section defines which PDU outlet is connected to which device PSU. Each top-level key is a PDU device name, and each key under `interfaces` is an outlet on that PDU. For every outlet, define:
+- EndDevice - the device that is powered by this outlet
+- EndPort - the PSU of the device, for example PSU1
+- EndFeed - (optional) the feed of the PSU, when one PSU is connected to more than one outlet. Leave it out if the PSU has only one feed.
+
+Example:
+```
+pdu_links:
+    pdu1:
+        interfaces:
+            10:
+                EndDevice: t0-dut
+                EndPort: PSU1
+            11:
+                EndDevice: t0-dut
+                EndPort: PSU0
+```
+
+The example above generates:
+```
+StartDevice,StartPort,EndDevice,EndPort,EndFeed
+pdu1,10,t0-dut,PSU1,
+pdu1,11,t0-dut,PSU0,
+```
+
+If this section is missing, the script writes only the header line to `files/sonic_lab_pdu_links.csv`. For details about PDU configuration, check doc [pdu wiring](./README.testbed.PDUWiring.md).
+
+### (OPTIONAL) lab_config section:
+**USAGE**: group_vars/lab/lab.yml
+
+This section defines lab-wide variables for the `lab` group. The script updates only the keys listed in this section. All other keys, comments and formatting in `group_vars/lab/lab.yml` stay the same. Keys that are not in the file yet are added at the end of the file. If the file does not exist, it is created.
+
+Example:
+```
+lab_config:
+    <key>: <value>
+```
+
+If this section is missing or empty, `group_vars/lab/lab.yml` is not changed.
 
 ### inventory file:
 
