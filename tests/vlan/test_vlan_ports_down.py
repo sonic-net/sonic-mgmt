@@ -40,6 +40,17 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
         duthost.shell(f"sudo config interface startup {vlan_port}")
 
 
+def is_route_advertised(route_info):
+    """
+    Returns True if a neighbor's get_route() output contains the prefix.
+    EOS neighbors return 'vrfs.default.bgpRouteEntries'; SONiC/FRR neighbors return
+    'show bgp ... json' output with a 'paths' list.
+    """
+    if "vrfs" in route_info:
+        return bool(route_info["vrfs"]["default"]["bgpRouteEntries"])
+    return bool(route_info.get("paths"))
+
+
 def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, ptfadapter):
     """
     Asserts the following conditions when all member ports of a VLAN interface are down:
@@ -89,13 +100,11 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         try:
             if vlan_subnet:
                 logger.info(f"Checking IPv4 routes on {nbrname}...")
-                vlan_route = nbrhost.get_route(vlan_subnet)["vrfs"]["default"]
-                pytest_assert(vlan_route["bgpRouteEntries"],
+                pytest_assert(is_route_advertised(nbrhost.get_route(vlan_subnet)),
                               f"{vlan_name}'s IPv4 subnet is not advertised to the T1 neighbor {nbrname}.")
             if vlan_subnet_ipv6:
                 logger.info(f"Checking IPv6 routes on {nbrname}...")
-                vlan_route_ipv6 = nbrhost.get_route(vlan_subnet_ipv6)["vrfs"]["default"]
-                pytest_assert(vlan_route_ipv6["bgpRouteEntries"],
+                pytest_assert(is_route_advertised(nbrhost.get_route(vlan_subnet_ipv6)),
                               f"{vlan_name}'s IPv6 subnet is not advertised to the T1 neighbor {nbrname}.")
         except Exception:
             # nbrhost might be unreachable. Skip it.
