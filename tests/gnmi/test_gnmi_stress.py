@@ -6,7 +6,7 @@ import json
 import grpc
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.gnmi_benchmark.helpers import build_native_set_request, gnmi_connection
+from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection
 
 logger = logging.getLogger(__name__)
 
