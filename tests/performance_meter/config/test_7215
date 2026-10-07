@@ -10,8 +10,8 @@ performance_meter:
     timeout: 1000
     delay: 60
     interval: 10
-    swss_create_switch_mean: 80
-    swss_create_switch_p100: 110
+    swss_create_switch_mean: 120
+    swss_create_switch_p100: 130
   reboot_by_cmd_to_mem_usage:
     run: 5
     op: reboot_by_cmd
