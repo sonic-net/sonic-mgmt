@@ -216,7 +216,7 @@ class TestSummaryAndNeighborParsers:
 # --- LACP rate (userspace OVS LAG backend) --------------------------------
 
 def lacp_docker_exec(lacp_time='fast', member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet1",
-                     bond_exists=True, calls=None):
+                     bond_exists=True, calls=None, lacp_time_rc=0):
     """Dispatch mock for the CONFIG_DB/ovs-vsctl commands used by the LACP rate methods."""
     def side(cmd, **kwargs):
         if calls is not None:
@@ -227,6 +227,9 @@ def lacp_docker_exec(lacp_time='fast', member_key="PORTCHANNEL_MEMBER|PortChanne
         if cmd.endswith(" name"):
             return docker_ok("PortChannel1-bond" if bond_exists else "")
         if "get Port" in cmd and "lacp-time" in cmd:
+            if lacp_time_rc != 0:
+                return {"rc": lacp_time_rc, "stdout": "",
+                        "stderr": "ovs-vsctl: unix:/run/openvswitch/db.sock: database connection failed"}
             return docker_ok(lacp_time)
         if cmd.startswith("ovs-vsctl set Port"):
             return docker_ok("")
@@ -271,6 +274,14 @@ class TestLacpRate:
         with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(bond_exists=False)):
             with pytest.raises(NotImplementedError):
                 host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+
+    def test_get_raises_when_ovs_read_fails(self):
+        """A failed ovs-vsctl read must raise, not be reported as the 'normal' default."""
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(lacp_time_rc=1)):
+            with pytest.raises(Exception) as excinfo:
+                host.get_interface_lacp_rate_mode("Ethernet1")
+        assert "lacp rate" in str(excinfo.value)
 
     def test_invalid_mode(self):
         host = make_host()

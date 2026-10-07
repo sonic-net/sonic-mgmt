@@ -110,11 +110,16 @@ def check_portchannels(tables, settle=5):
         if supervisor_state(process) == "RUNNING":
             problems.append("{} restarted".format(process))
     for _, member in tables["members"]:
-        link = call(["ip", "-o", "link", "show", "dev", member], check=False)
-        if "does not exist" in link or not link:
-            problems.append("{} device missing".format(member))
-        elif not re.search(r"<[^>]*\bUP\b[^>]*>", link):
-            problems.append("{} is down".format(member))
+        # EthernetN is the SAI-facing port lldpd runs on; ethN is the device
+        # actually enslaved by the OVS bond. Both must survive the apply, so
+        # check each one rather than inferring the bond member from EthernetN.
+        for device in (member, kernel_member(member)):
+            link = call(["ip", "-o", "link", "show", "dev", device],
+                        check=False)
+            if "does not exist" in link or not link:
+                problems.append("{} device missing".format(device))
+            elif not re.search(r"<[^>]*\bUP\b[^>]*>", link):
+                problems.append("{} is down".format(device))
     for name in tables["portchannels"]:
         addresses = call(["ip", "-o", "addr", "show", "dev", name],
                          check=False)
