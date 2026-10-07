@@ -15,6 +15,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import db_helpers
+from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 from tests.transceiver.common.prerequisites import (
     wait_until_health_ok, wait_until_links_up,
 )
@@ -601,7 +602,7 @@ def standard_port_recovery_and_verification(
             reason = f"missing required attribute {error}"
             record_failure("LLDP", port, f"LLDP: {reason}", reason)
         try:
-            if attrs[EEPROM_ATTRIBUTES_KEY]["cmis_active_optical"]:
+            if is_cmis_active_optical(attrs[EEPROM_ATTRIBUTES_KEY]):
                 cmis_port_timeouts[port] = attrs[DOM_ATTRIBUTES_KEY]["dom_info_recover_sec"]
         except KeyError as error:
             reason = f"missing required attribute {error}"
