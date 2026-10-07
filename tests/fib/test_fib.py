@@ -932,8 +932,10 @@ def test_ecmp_group_member_flap(
     fib_infos = collect_fib_info(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    initial_fib_info = merge_fib_infos(fib_infos) if is_t2 else fib_infos[0]
-    nh_ptf_ports = get_ptf_ports_for_default_route(initial_fib_info)
+    # Select the ECMP path from the first DUT on multi-DUT setups.
+    # For T2, treat the merged routes as one target.
+    target_device_fib_info = merge_fib_infos(fib_infos) if is_t2 else fib_infos[0]
+    nh_ptf_ports = get_ptf_ports_for_default_route(target_device_fib_info)
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if len(nh_ptf_ports) <= 1:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
