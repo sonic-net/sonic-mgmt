@@ -62,6 +62,7 @@ from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_group_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
@@ -1469,11 +1470,13 @@ def eos():
 
 
 @pytest.fixture(scope='session')
-def sonic():
-    """ read and yield sonic configuration """
-    with open('sonic/sonic.yml') as stream:
-        eos = yaml.safe_load(stream)
-        return eos
+def sonic(request):
+    """Read SONiC-neighbor settings from the active Ansible inventory."""
+    inv_files = get_inventory_files(request)
+    sonic_vars = get_group_visible_vars(inv_files, "sonic")
+    if not sonic_vars or not sonic_vars.get("snmp_rocommunity"):
+        pytest.fail("Active inventory has no SONiC SNMP read community")
+    return {"snmp_rocommunity": sonic_vars["snmp_rocommunity"]}
 
 
 @pytest.fixture(scope='session')
