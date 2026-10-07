@@ -210,7 +210,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
 
 
 def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
-    """Return per-DUT FIBs, or T2 FIBs keyed by (DUT hostname, ASIC index)."""
+    """Return ordered FIB snapshots: one per DUT, or one per ASIC for T2."""
     duts_config_facts = duts_running_config_facts
     testname = request.node.name
     fib_infos = []
@@ -242,7 +242,7 @@ def gen_fib_info_files(ptfhost, fib_infos, tbinfo, request):
             files.append(filename)
     else:
         filename = '/root/fib_info_all_duts.txt'
-        gen_fib_info_file(ptfhost, merge_fib_infos(fib_infos.values()), filename)
+        gen_fib_info_file(ptfhost, merge_fib_infos(fib_infos), filename)
         files.append(filename)
 
     return files
@@ -257,8 +257,8 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 
 # Use grouped ports instead of the previous flattened list to preserve PortChannel membership.
-def get_ptf_ports_for_default_route(fib_infos):
-    fib_info = merge_fib_infos(fib_infos.values()) if isinstance(fib_infos, dict) else fib_infos[0]
+def get_ptf_ports_for_default_route(fib_infos, is_t2=False):
+    fib_info = merge_fib_infos(fib_infos) if is_t2 else fib_infos[0]
     return [[int(port) for port in group] for group in fib_info.get('0.0.0.0/0', [])]
 
 
@@ -282,11 +282,11 @@ def select_ecmp_member_to_flap(nh_ptf_ports, all_port_indices, lag_facts):
         return candidate_ptf_port, candidate_asic_id, candidate_dut_port, candidate_lag_name
 
 
-def get_remaining_fib_info(fib_infos, shut_ptf_port):
+def get_remaining_fib_info(fib_infos, shut_ptf_port, is_t2=False):
     """Remove the shut path from each T2 ASIC, or from the target non-T2 DUT."""
-    if isinstance(fib_infos, dict):
-        remaining_fib_infos = {key: fib_info.copy() for key, fib_info in fib_infos.items()}
-        affected_fibs = remaining_fib_infos.values()
+    if is_t2:
+        remaining_fib_infos = [fib_info.copy() for fib_info in fib_infos]
+        affected_fibs = remaining_fib_infos
     else:
         remaining_fib_infos = [fib_infos[0].copy()] + fib_infos[1:]
         affected_fibs = remaining_fib_infos[:1]
@@ -299,14 +299,14 @@ def get_remaining_fib_info(fib_infos, shut_ptf_port):
     return remaining_fib_infos
 
 
-def prepare_ecmp_flap(duthost, fib_infos, all_port_indices, dut_mg_facts):
+def prepare_ecmp_flap(duthost, fib_infos, all_port_indices, dut_mg_facts, is_t2=False):
     """Prepare one ECMP path: its Ethernet or PortChannel interface and expected routes."""
     lag_facts = {"lags": {}}
     if any(asic_data.get('minigraph_portchannels') for _, asic_data in dut_mg_facts):
         lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
-        get_ptf_ports_for_default_route(fib_infos), all_port_indices, lag_facts)
-    remaining_fib_infos = get_remaining_fib_info(fib_infos, ptf_port)
+        get_ptf_ports_for_default_route(fib_infos, is_t2=is_t2), all_port_indices, lag_facts)
+    remaining_fib_infos = get_remaining_fib_info(fib_infos, ptf_port, is_t2=is_t2)
     asic = duthost.asic_instance(asic_id)
     return {
         "asic": asic, "interface": lag_name or dut_port,
@@ -317,21 +317,21 @@ def prepare_ecmp_flap(duthost, fib_infos, all_port_indices, dut_mg_facts):
 def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                         tbinfo, request, flap_config, up):
     expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["remaining_fib_infos"]
-    expected_fibs = expected_fib_infos if tbinfo['topo']['type'] == 't2' else {0: expected_fib_infos[0]}
-    expected_paths = {
-        key: sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
-        for key, fib_info in expected_fibs.items()
-    }
+    expected_fibs = expected_fib_infos if tbinfo['topo']['type'] == 't2' else expected_fib_infos[:1]
+    expected_paths = [
+        sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
+        for fib_info in expected_fibs
+    ]
 
     def _ecmp_state_ready():
         candidate_fib_infos = collect_fib_info(
             duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
         )
-        candidate_fibs = candidate_fib_infos if tbinfo['topo']['type'] == 't2' else {0: candidate_fib_infos[0]}
-        actual_paths = {
-            key: sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
-            for key, fib_info in candidate_fibs.items()
-        }
+        candidate_fibs = candidate_fib_infos if tbinfo['topo']['type'] == 't2' else candidate_fib_infos[:1]
+        actual_paths = [
+            sorted(sorted(path) for path in get_ptf_ports_for_default_route([fib_info]))
+            for fib_info in candidate_fibs
+        ]
         return actual_paths == expected_paths
 
     pytest_assert(
@@ -942,10 +942,11 @@ def test_ecmp_group_member_flap(
         test_balancing = True
 
     # --- Load initial FIB snapshot ---
+    is_t2 = tbinfo['topo']['type'] == 't2'
     fib_infos = collect_fib_info(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    nh_ptf_ports = get_ptf_ports_for_default_route(fib_infos)
+    nh_ptf_ports = get_ptf_ports_for_default_route(fib_infos, is_t2=is_t2)
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if len(nh_ptf_ports) <= 1:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
@@ -1000,7 +1001,7 @@ def test_ecmp_group_member_flap(
 
     # --- Flap one ECMP path: a routed Ethernet interface or an entire PortChannel ---
     flap_config = prepare_ecmp_flap(
-        duthosts[0], fib_infos, all_port_indices, duts_minigraph_facts[upstream_lc]
+        duthosts[0], fib_infos, all_port_indices, duts_minigraph_facts[upstream_lc], is_t2=is_t2
     )
 
     logging.info("Shutting down one ECMP path.")

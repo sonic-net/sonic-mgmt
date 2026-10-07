@@ -32,13 +32,13 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
                 ...
             }
     """
-    return merge_fib_infos(get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname).values())
+    return merge_fib_infos(get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname))
 
 
 def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
-    """Return a separate FIB snapshot for each (DUT hostname, ASIC index)."""
+    """Return FIB snapshots in frontend-DUT order, then each DUT's config-facts ASIC order."""
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-    fib_infos = {}
+    fib_infos = []
     route_key = 'ROUTE_TABLE:*'
     if 'test_ecmp_group_member_flap' in testname:
         route_key = 'ROUTE_TABLE:0\.0\.0\.0*'    # noqa: W605
@@ -77,7 +77,7 @@ def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=N
             asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
             fib_info = {}
-            fib_infos[(duthost.hostname, asic_index)] = fib_info
+            fib_infos.append(fib_info)
 
             asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
             # change fetch to fetch_no_slurp to resolve slow fetch issue
