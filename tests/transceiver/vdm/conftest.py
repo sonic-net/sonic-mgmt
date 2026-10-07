@@ -12,10 +12,14 @@ from tests.transceiver.common.prerequisites import build_dom_polling_failures
 logger = logging.getLogger(__name__)
 
 
-def _vdm_supported(_port, port_attrs):
-    return port_attrs.get(EEPROM_ATTRIBUTES_KEY, {}).get(
-        "vdm_supported"
-    ) is True
+def _vdm_supported(port, port_attrs):
+    supported = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {}).get("vdm_supported")
+    if supported is not True:
+        logger.info(
+            "%s excluded from VDM tests: vdm_supported=%r",
+            port, supported,
+        )
+    return supported is True
 
 
 @pytest.fixture(scope="session")

@@ -22,7 +22,7 @@ HOST_LANE_MASK_KEY = "host_lane_mask"
 VDM_BANK_0_MAX_LANE = 8
 
 VdmMappedField = namedtuple("VdmMappedField", ("source_attr", "attr_value"))
-VdmLaneDomains = namedtuple("VdmLaneDomains", ("media", "host", "data_path", "errors"))
+VdmLaneDomains = namedtuple("VdmLaneDomains", ("media", "host", "data_path", "host_path", "errors"))
 
 MEDIA_QUANTITIES = {
     "laser_temperature_media",
@@ -50,7 +50,7 @@ def resolve_vdm_lane_domains(
     port_attributes_dict,
     lport_to_first_subport_mapping,
 ):
-    """Return module media/host lanes and first-lane data-path anchors."""
+    """Return media/host lanes and host-lane anchors for data and host paths."""
     media = resolve_breakout_lanes(
         primary_port, port_attributes_dict,
         lport_to_first_subport_mapping, MEDIA_LANE_MASK_KEY,
@@ -59,9 +59,12 @@ def resolve_vdm_lane_domains(
         primary_port, port_attributes_dict,
         lport_to_first_subport_mapping, HOST_LANE_MASK_KEY,
     )
-    data_path_anchors = {
-        min(lanes) for lanes in media.lanes_by_port.values() if lanes
-    }
+    host_by_media = defaultdict(list)
+    for subport, media_lanes in media.lanes_by_port.items():
+        if media_lanes:
+            host_by_media[tuple(media_lanes)].extend(host.lanes_by_port.get(subport, []))
+    data_path_anchors = {min(lanes) for lanes in host_by_media.values() if lanes}
+    host_path_anchors = {min(lanes) for lanes in host.lanes_by_port.values() if lanes}
     errors = list(media.errors) + list(host.errors)
 
     for domain, lanes in (
@@ -80,7 +83,7 @@ def resolve_vdm_lane_domains(
 
     return VdmLaneDomains(
         media=media.active_lanes, host=host.active_lanes,
-        data_path=sorted(data_path_anchors), errors=errors,
+        data_path=sorted(data_path_anchors), host_path=sorted(host_path_anchors), errors=errors,
     )
 
 
@@ -116,7 +119,7 @@ def build_vdm_field_plan(
             elif quantity in HOST_QUANTITIES:
                 lanes = lane_domains.host
             elif quantity in DATA_PATH_QUANTITIES:
-                lanes = lane_domains.data_path
+                lanes = lane_domains.host_path if quantity.endswith("_host_input") else lane_domains.data_path
             else:
                 errors.append("unknown VDM attribute {}".format(attr_name))
                 continue
@@ -127,16 +130,19 @@ def build_vdm_field_plan(
                 lanes = [explicit_lane]
             for lane in lanes:
                 field = "{}{}".format(quantity, lane)
-                expected_fields[field] = VdmMappedField(attr_name, attr_value)
+                if explicit_lane is not None or field not in expected_fields:
+                    expected_fields[field] = VdmMappedField(attr_name, attr_value)
 
         if not expected_fields:
             errors.append("{} has no authored VDM fields".format(port))
 
         max_age_min = parse_numeric(vdm_attrs.get("data_max_age_min"))
-        if max_age_min is None or not math.isfinite(max_age_min) or max_age_min <= 0:
+        if "data_max_age_min" not in vdm_attrs:
+            errors.append("{} missing data_max_age_min in {}".format(port, VDM_ATTRIBUTES_KEY))
+        elif max_age_min is None or not math.isfinite(max_age_min) or max_age_min <= 0:
             errors.append(
                 "{} has invalid data_max_age_min {}; expected a finite positive number".format(
-                    port, vdm_attrs.get("data_max_age_min")
+                    port, vdm_attrs.get("data_max_age_min"),
                 )
             )
 
