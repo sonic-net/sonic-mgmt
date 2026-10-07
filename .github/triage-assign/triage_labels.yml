@@ -15,9 +15,11 @@ assignments_per_pr: 2
 # company other than the ones below". Authors carrying one of these are treated
 # as absent from the map, so the username suffix heuristic still gets a shot --
 # without this, the ~30 suffixed authors the CSV files under "Others" would
-# never be matched to their company.
+# never be matched to their company. "author_org_dup" is a placeholder the CSV
+# uses on some duplicated rows.
 unknown_organizations:
   - Others
+  - author_org_dup
 
 companies:
   - name: Arista
@@ -57,7 +59,7 @@ companies:
 # for people whose username carries no company suffix.
 # Keys are GitHub usernames (case-insensitive), values are company names from
 # the list above.
-overrides: {}
+overrides:
   # octocat: Nexthop
 
 # Labels added on top of the company labels when a pull request is about a
@@ -65,8 +67,15 @@ overrides: {}
 # token (case-insensitive; tokens are split on anything that is not a letter
 # or digit) in the PR title or in the path of any file the PR changes. So "t2"
 # matches "[T2] fix ..." and "ansible/vars/topo_t2_2lc.yml", but not "test2".
+# Changed files under any of a label's `exclude_paths` (path prefixes) are not
+# matched; the title still is.
 topic_labels:
   - label: chassis
+    # The platform API names its root object "chassis" on every device, so
+    # these generic platform API tests and helpers are not chassis work.
+    exclude_paths:
+      - tests/platform_tests/api/
+      - tests/common/helpers/platform_api/
     keywords:
       # Chassis / VOQ
       - chassis
@@ -77,7 +86,7 @@ topic_labels:
       - ft2
       - lt2
       - ut2
-      # Rack head (RH) topologies
+      # Regional Hub (RH) topologies: lower, upper and disaggregated
       - rh
       - lrh
       - urh
