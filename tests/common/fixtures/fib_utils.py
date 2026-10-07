@@ -77,7 +77,6 @@ def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=N
             asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
             fib_info = {}
-            fib_infos.append(fib_info)
 
             asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
             # change fetch to fetch_no_slurp to resolve slow fetch issue
@@ -166,6 +165,7 @@ def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=N
 
                     if not skip:
                         fib_info[prefix] = oports
+            fib_infos.append(fib_info)
 
     return fib_infos
 
