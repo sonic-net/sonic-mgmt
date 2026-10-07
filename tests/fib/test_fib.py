@@ -291,11 +291,11 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
     ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
         nh_ptf_ports, all_port_indices, lag_facts)
     if is_t2:
-        remaining_fib_infos = [fib_info.copy() for fib_info in fib_infos]
-        affected_fibs = remaining_fib_infos
+        fib_infos_after_shutdown = [fib_info.copy() for fib_info in fib_infos]
+        affected_fibs = fib_infos_after_shutdown
     else:
-        remaining_fib_infos = [fib_infos[0].copy()] + fib_infos[1:]
-        affected_fibs = remaining_fib_infos[:1]
+        fib_infos_after_shutdown = [fib_infos[0].copy()] + fib_infos[1:]
+        affected_fibs = fib_infos_after_shutdown[:1]
     for fib_info in affected_fibs:
         if '0.0.0.0/0' in fib_info:
             fib_info['0.0.0.0/0'] = [
@@ -305,13 +305,13 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
     asic = duthost.asic_instance(asic_id)
     return {
         "asic": asic, "interface": lag_name or dut_port,
-        "initial_fib_infos": fib_infos, "remaining_fib_infos": remaining_fib_infos,
+        "initial_fib_infos": fib_infos, "fib_infos_after_shutdown": fib_infos_after_shutdown,
     }
 
 
 def wait_for_ecmp_state(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                         tbinfo, request, flap_config, ptf_fib_infos, up):
-    expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["remaining_fib_infos"]
+    expected_fib_infos = flap_config["initial_fib_infos"] if up else flap_config["fib_infos_after_shutdown"]
     expected_fibs = expected_fib_infos if tbinfo['topo']['type'] == 't2' else expected_fib_infos[:1]
     expected_paths = [
         sorted(sorted(path) for path in get_ptf_ports_for_default_route(fib_info))
@@ -999,7 +999,7 @@ def test_ecmp_group_member_flap(
     flap_config = prepare_ecmp_flap(
         duthosts[0], fib_infos, nh_ptf_ports, all_port_indices, duts_minigraph_facts[upstream_lc], is_t2=is_t2
     )
-    down_ptf_fib_infos = flap_config["remaining_fib_infos"]
+    down_ptf_fib_infos = flap_config["fib_infos_after_shutdown"]
     if is_t2:
         down_ptf_fib_infos = [merge_fib_infos(down_ptf_fib_infos)]
 
