@@ -2085,7 +2085,7 @@ class QosSaiBase(QosBase):
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             elif dutAsic in ['th5', 'th6']:
-                logger.info("Generator script not implemented")
+                logger.info("Generator script not implemented for TH5/6")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = dutBufferConfig(duthost, dut_asic)
@@ -3826,7 +3826,7 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
-                                      "Mellanox-SN5640-C508O1X2",
+                                      "Mellanox-SN5640-C508O1X2", "Mellanox-SN5640-C512X2",
                                       "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
                                       "Arista-7060X6-16PE-384C-B-O128S2"]
         is_supported_per_dir = \

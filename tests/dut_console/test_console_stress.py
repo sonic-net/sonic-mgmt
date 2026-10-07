@@ -1,6 +1,7 @@
 import hashlib
 
 import pytest
+from tests.common.connections.ssh_console_conn import SSHConsoleConn
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -33,11 +34,12 @@ def test_console_stress_output(duthost_console):
     # Each line: "LINE_XXXX: " + 10 blocks of '0123456789' (110 chars per line)
     # Generate 1000 lines = 110,000 chars total
     num_lines = 1000
-    # Disable echo verification: the wrapped 9600-baud echo never matches and a half-typed command leaves a PS2 prompt.
+    # Disable echo verification because the serial echo wraps across lines.
     output = duthost_console.send_command(
         f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",  # noqa: E231
-        max_loops=300,
+        read_timeout=300,
         expect_string=PROMPT_PATTERN,
+        cmd_verify=False,
     )
 
     # Parse output into lines
@@ -75,7 +77,7 @@ def test_console_stress_input(duthost_console):
 
     The test verifies:
     - Console can accept large command inputs without hanging
-    - All input characters are successfully transmitted and echoed back
+    - All input characters are successfully received, verified with a DUT-side hash
     - Console remains responsive after large input
     """
     # Generate a large string to send as input
@@ -83,14 +85,27 @@ def test_console_stress_input(duthost_console):
     large_string = '0123456789' * 10000  # 100,000 chars
 
     expected_hash = hashlib.md5(large_string.encode()).hexdigest()
-    output = duthost_console.send_command_timing(
-        f"echo -n '{large_string}' | md5sum",
-        read_timeout=300,
-        last_read=2.0
-    )
+    stress_timeout = 300
+
+    # Netmiko's read_timeout does not apply while Paramiko is writing. A serial
+    # console can drain 100 KB more slowly than Paramiko's default 20-second
+    # channel timeout, so extend the write timeout for this operation.
+    is_ssh_console = isinstance(duthost_console, SSHConsoleConn)
+    if is_ssh_console:
+        original_write_timeout = duthost_console.remote_conn.gettimeout()
+        duthost_console.remote_conn.settimeout(stress_timeout)
+    try:
+        output = duthost_console.send_command_timing(
+            f"echo -n '{large_string}' | md5sum",
+            read_timeout=stress_timeout,
+            last_read=2.0
+        )
+    finally:
+        if is_ssh_console:
+            duthost_console.remote_conn.settimeout(original_write_timeout)
 
     pytest_assert(expected_hash in output,
-                  f"Input integrity check failed: md5sum of echoed 100K chars "
+                  f"Input integrity check failed: md5sum of received 100K chars "
                   f"expected {expected_hash}, console returned: {output!r}")
 
     # Verify console is still responsive

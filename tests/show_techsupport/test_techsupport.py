@@ -563,7 +563,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.topo_type in ["mx", "m0", "m1"]:
+        if duthost.topo_type in ["mx", "m0", "m1", "uma", "lma"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":

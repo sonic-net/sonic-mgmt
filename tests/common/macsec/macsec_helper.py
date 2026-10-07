@@ -16,7 +16,7 @@ import scapy.contrib.macsec as scapy_macsec
 
 from tests.common.macsec.macsec_platform_helper import sonic_db_cli
 from tests.common.devices.eos import EosHost
-from tests.common.utilities import convert_scapy_packet_to_bytes
+from tests.common.utilities import convert_scapy_packet_to_bytes, wait_until
 
 __all__ = [
     'check_wpa_supplicant_process',
@@ -205,6 +205,9 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
     procs = []
     for port_name, nbr in list(ctrl_links.items()):
         if isinstance(nbr["host"], EosHost):
+            assert wait_until(300, 3, 0,
+                              lambda: duthost.iface_macsec_ok(port_name) and
+                              nbr["host"].iface_macsec_ok(nbr["port"]))
             continue
         proc = submit_async_task(
             __check_appl_db,
@@ -554,12 +557,13 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 break
             else:
                 continue
-        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
-        # Don't need to do MACsec further.
-        if ret.device != 0:
-            return ret
         pkt = scapy.Ether(ret.packet)
-        if pkt.haslayer(scapy.Ether):
+        # MACsec decoding is only configured for device 0, but other devices
+        # must still match the expected packet.
+        if ret.device != 0:
+            if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                return ret
+        elif pkt.haslayer(scapy.Ether):
             if pkt[scapy.Ether].type != 0x88e5:
                 if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret
