@@ -56,8 +56,9 @@ def build_branches_to_scan(release_branches: Iterable[str]) -> List[str]:
 
 
 def _checkout_branch(repo_root: Path, branch: str) -> None:
+    # An explicit refspec: a shallow or single-branch clone's default one only maps the cloned branch.
     subprocess.run(
-        ["git", "fetch", "origin", branch, "--depth", "1"],
+        ["git", "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}", "--depth", "1"],
         check=True,
         cwd=repo_root,
         capture_output=True,
@@ -128,14 +129,17 @@ def enforce_issue_close_guard(
     return True
 
 
-def run_issue_close_guard(
+def collect_tracked_issues(
     api_client: GitHubApiClient,
     config: SkipExpiryConfig,
     repo_root: Path,
     conditional_mark_dir: str,
     target_repo: str,
-    event_path: Path,
-) -> bool:
+) -> Set[IssueRef]:
+    """Issues in `target_repo` referenced by conditional marks on master or any configured release branch.
+
+    Checks out each scanned branch in `repo_root` in turn, so the working tree is left on the last one.
+    """
     owner, _, repo = normalize_repo_name(target_repo).partition("/")
     all_branches = api_client.list_repo_branches(owner, repo)
     release_branches = resolve_release_branches(
@@ -151,11 +155,28 @@ def run_issue_close_guard(
     )
 
     normalized_target_repo = normalize_repo_name(target_repo)
-    same_repo_issues = {
+    return {
         issue
         for issue in tracked_issues
         if normalize_repo_name(f"{issue.owner}/{issue.repo}") == normalized_target_repo
     }
+
+
+def run_issue_close_guard(
+    api_client: GitHubApiClient,
+    config: SkipExpiryConfig,
+    repo_root: Path,
+    conditional_mark_dir: str,
+    target_repo: str,
+    event_path: Path,
+) -> bool:
+    same_repo_issues = collect_tracked_issues(
+        api_client=api_client,
+        config=config,
+        repo_root=repo_root,
+        conditional_mark_dir=conditional_mark_dir,
+        target_repo=target_repo,
+    )
 
     closed_issue = load_closed_issue_from_event(event_path, target_repo)
     return enforce_issue_close_guard(api_client, closed_issue, same_repo_issues)

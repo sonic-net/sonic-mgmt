@@ -4,14 +4,16 @@ from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+import subprocess
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from .reporting import TestReportData, create_reporter_from_env
 
 from .conditional_marks import collect_report_entries_from_conditional_marks
-from .config import load_skip_expiry_config
-from .expiry import IssueEvaluation, SkipExpiryManager
+from .config import SkipExpiryConfig, load_skip_expiry_config
+from .expiry import EXPIRED_LABEL, IssueEvaluation, SkipExpiryManager
 from .github_api import GitHubApiClient
+from .issue_close_guard import collect_tracked_issues
 from .models import IssueRef
 
 DEFAULT_TARGET_REPO = "sonic-net/sonic-mgmt"
@@ -256,6 +258,71 @@ def _build_report_row(
     )
 
 
+def _current_checkout(repo_root: Path) -> str:
+    """The branch name checked out in `repo_root`, or the commit SHA when HEAD is detached."""
+    for command in (["git", "symbolic-ref", "-q", "--short", "HEAD"], ["git", "rev-parse", "HEAD"]):
+        result = subprocess.run(command, cwd=repo_root, capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    raise RuntimeError(f"Unable to determine the current checkout of {repo_root}")
+
+
+def _collect_tracked_issues_across_branches(
+    api_client: GitHubApiClient,
+    config: SkipExpiryConfig,
+    repo_root: Path,
+    conditional_mark_dir: str,
+    target_repo: str,
+) -> Set[IssueRef]:
+    """Same-repo issues referenced on master or any configured release branch, as the close guard computes them.
+
+    The scan checks out each branch in turn; the original checkout is restored afterwards.
+    """
+    original_checkout = _current_checkout(repo_root)
+    try:
+        return collect_tracked_issues(
+            api_client=api_client,
+            config=config,
+            repo_root=repo_root,
+            conditional_mark_dir=conditional_mark_dir,
+            target_repo=target_repo,
+        )
+    finally:
+        subprocess.run(
+            ["git", "checkout", "--force", original_checkout],
+            check=True,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+        )
+
+
+def _release_unreferenced_issues(
+    api_client: Any,
+    manager: SkipExpiryManager,
+    target_repo: str,
+    tracked_issues: Set[IssueRef],
+) -> bool:
+    """Drop the expired label from open issues no branch references any more. Returns True on any error."""
+    logger = logging.getLogger(__name__)
+    if not tracked_issues:
+        # An empty set almost certainly means the scan went wrong; stripping every label would unprotect them all.
+        logger.error("No tracked issues found on any branch; not removing %s from any issue", EXPIRED_LABEL)
+        return True
+
+    owner, repo = _normalize_repo_name(target_repo)
+    had_errors = False
+    for issue_ref in api_client.list_open_issues_with_label(owner, repo, EXPIRED_LABEL):
+        if issue_ref in tracked_issues:
+            continue
+        try:
+            manager.release_unreferenced_issue(issue_ref)
+        except Exception:  # pragma: no cover - runtime protection
+            had_errors = True
+            logger.exception("Failed to release unreferenced issue %s", issue_ref.html_url)
+    return had_errors
+
+
 def _resolve_reporting_token() -> str:
     for env_var in ("GITHUB_APP_TOKEN", "GH_APP_TOKEN"):
         token = os.getenv(env_var, "").strip()
@@ -329,6 +396,32 @@ def run() -> int:
     report_entries = collect_report_entries_from_conditional_marks(conditional_mark_dir)
     all_issues = sorted({entry["issue_ref"] for entry in report_entries if entry.get("issue_ref") is not None})
     issues, skipped_issues = _filter_same_repo_issues(all_issues, args.target_repo)
+
+    api_client = GitHubApiClient(token=token)
+    had_errors = False
+
+    # Release branches can reference issues master no longer does; those need the same expiry handling, and
+    # the expired label must stay on any issue still referenced anywhere (the stale bot exempts it).
+    tracked_issues: Optional[Set[IssueRef]] = None
+    try:
+        tracked_issues = _collect_tracked_issues_across_branches(
+            api_client=api_client,
+            config=config,
+            repo_root=repo_root,
+            conditional_mark_dir=args.conditional_mark_dir,
+            target_repo=args.target_repo,
+        )
+    except Exception:
+        had_errors = True
+        logging.getLogger(__name__).exception(
+            "Failed to scan release branches; evaluating the current checkout only and keeping every expired label"
+        )
+    if tracked_issues is not None:
+        release_only_issues = sorted(tracked_issues.difference(issues))
+        logging.getLogger(__name__).info(
+            "Found %d same-repo issue(s) referenced only on release branches", len(release_only_issues)
+        )
+        issues = sorted(set(issues).union(release_only_issues))
     logging.getLogger(__name__).info(
         "Evaluating %d same-repo issue(s) from %d total reference(s) for target %s",
         len(issues),
@@ -344,7 +437,6 @@ def run() -> int:
     if args.no_op:
         logging.getLogger(__name__).info("NO-OP mode enabled: no labels/comments will be changed")
 
-    api_client = GitHubApiClient(token=token)
     manager = SkipExpiryManager(
         api_client=api_client,
         config=config,
@@ -358,7 +450,6 @@ def run() -> int:
     else:
         logging.getLogger(__name__).info("Project V2 reporting is disabled")
 
-    had_errors = False
     issue_evaluations: Dict[IssueRef, Optional[IssueEvaluation]] = {}
     source_repo = f"{_normalize_repo_name(args.target_repo)[0]}/{_normalize_repo_name(args.target_repo)[1]}"
     now = datetime.now(timezone.utc)
@@ -372,6 +463,10 @@ def run() -> int:
             had_errors = True
             issue_evaluations[issue_ref] = None
             logging.getLogger(__name__).exception("Failed to process %s", issue_ref.html_url)
+
+    if tracked_issues is not None:
+        if _release_unreferenced_issues(api_client, manager, args.target_repo, set(issues)):
+            had_errors = True
 
     if reporter:
         for issue_ref in skipped_issues:

@@ -29,6 +29,21 @@ Required environment variables:
 - Optional: `SKIP_EXPIRY_BOT_LOGIN` (defaults to `github-actions[bot]`)
 - Optional: `GITHUB_REPOSITORY` (used as default for `--target-repo`)
 
+## Branches scanned and the expired label
+
+Issues are collected from the conditional marks on `master` and on every
+release branch that `.github/SKIP_EXPIRY_CONFIG.yaml` selects (the same set
+the close guard protects), so an issue referenced only on a release branch is
+still evaluated for expiry. The scan checks out each branch in turn and
+restores the original checkout afterwards; run it from a clean clone.
+
+`skip-wf-issue-expired` therefore marks an open issue that some branch still
+references. When no scanned branch references a labelled issue any more, the
+workflow removes the label and posts a comment carrying
+`<!-- skip-expiry:state=unreferenced -->`. The stale-issue workflow
+(`close-stale.yml`) exempts this label, so it never closes an issue a skip
+still depends on.
+
 ## Cross-repository issue references
 
 Conditional mark files may contain GitHub issue URLs from multiple repositories.

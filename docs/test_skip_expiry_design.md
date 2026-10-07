@@ -102,6 +102,8 @@ Chosen strategy is **Strategy A: Time-Based Expiry from Issue Creation**.
 - The automation workflow marks the issue as expired when the expiry threshold is reached
 - On expiry, the workflow adds the configured expired label and posts an issue comment that `@` mentions designated skip maintainers for triage
 - Initial expiry thresholds can be calibrated based on historical analysis of how long issues have been open
+- Issues are collected from `master` and every configured release branch (the same set the close guard protects), so an issue referenced only on a release branch also expires
+- When no scanned branch references an issue any more, the workflow removes the expired label and posts a comment saying so; the stale-issue workflow exempts the label, so it never closes an issue a skip still depends on
 
 ```
 Issue #12345 created: 2025-08-01
