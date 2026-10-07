@@ -212,6 +212,7 @@ def _process_crash_tester(
     ).get(f"{program_name}_restart_settle_sec", 120)
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
+    pre_operation_sentinels = None
 
     logger.info("Recording initial link states for %d port(s)", len(ports))
     status, pid, uptime = get_program_info(
@@ -223,7 +224,10 @@ def _process_crash_tester(
     )
     link_check = check_links_up(duthost, port_attributes_dict)
     if not link_check["passed"]:
+        failures.append(f"[pre-crash] {link_check['details']}")
         logger.warning("Validation on Start FAILED: some ports are down")
+    else:
+        pre_operation_sentinels = capture_flap_sentinels(duthost, ports)
 
     logger.info("Using kill %s to crash %s", kill_signal, program_name)
     status, pid = get_program_info(duthost, container_name, program_name)
@@ -242,6 +246,7 @@ def _process_crash_tester(
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         expected_pid_changes=expected_pid_changes,
         port_peers=port_peers,
+        pre_operation_sentinels=pre_operation_sentinels,
     )
     if not result["passed"]:
         failures.append(f"[post-crash] {result['details']}")
