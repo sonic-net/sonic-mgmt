@@ -79,3 +79,36 @@ def parse_portstat(content_lines):
             results[intf][headers[idx]] = portstats[idx]
 
     return results
+
+
+COUNTER_UNPUBLISHED = 'N/A'
+
+
+def counter_value(counter_out, iface, column):
+    '''Read one counter cell as an int
+
+    Args:
+        counter_out (dict): Parsed portstat/rif-counter output
+        iface (string): Interface name
+        column (string): Counter column, e.g. 'rx_ok'
+
+    Returns:
+        int: The counter value, or None while the poller still reports 'N/A' because the
+             counter has no COUNTERS_DB entry yet
+    '''
+    raw = counter_out[iface][column].replace(',', '')
+    if raw == COUNTER_UNPUBLISHED:
+        return None
+    return int(raw)
+
+
+def sum_ifaces_counts(counter_out, ifaces, column):
+    '''Sum one counter column over several interfaces
+
+    Returns:
+        int: The total, or None if any interface's counter is not published yet
+    '''
+    values = [counter_value(counter_out, iface, column) for iface in ifaces]
+    if any(value is None for value in values):
+        return None
+    return sum(values)
