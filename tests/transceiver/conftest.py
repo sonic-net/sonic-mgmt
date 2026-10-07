@@ -4,11 +4,12 @@ import logging
 import warnings
 from pathlib import Path
 
-from ansible.errors import AnsibleError
+from ansible.errors import AnsibleConnectionFailure, AnsibleError
+from retry import retry
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.fixtures.conn_graph_facts import get_graph_facts
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
 from tests.common.platform.interface_utils import (
     get_physical_port_indices,
     get_lport_to_first_subport_mapping,
@@ -318,7 +319,8 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
     fixture is module-scoped. Batch local graph lookups and peer alias reads
     by ASIC. Peers with LLDP enabled must be accessible through inventory,
     but need not be selected as testbed DUTs. Cabling and port/alias mappings
-    must stay fixed for the session.
+    must stay fixed for the session. Transport failures get up to three
+    attempts, two seconds apart, before caching a per-peer failure.
     """
     lldp_ports = [
         port for port, attrs in port_attributes_dict.items()
@@ -335,7 +337,9 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
 
     hosts = {host.hostname: host for host in duthosts}
     hosts[duthost.hostname] = duthost
-    for device, peer_connections in ports_by_peer.items():
+
+    @retry(AnsibleConnectionFailure, tries=3, delay=2, logger=None)
+    def read_peer_aliases(device, peer_connections):
         try:
             peer_host = hosts.get(device)
             namespaces = None
@@ -343,9 +347,20 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
                 peer_host = AnsibleHostBase(ansible_adhoc, device)
             else:
                 namespaces = peer_host.get_frontend_asic_namespace_list()
-            connections.update(resolve_lldp_peer_aliases(peer_host, peer_connections, namespaces=namespaces))
+            return resolve_lldp_peer_aliases(peer_host, peer_connections, namespaces=namespaces)
+        except RunAnsibleModuleFail as error:
+            result = error.results or {}
+            if result.get("unreachable") or result.get("rc") == 255:
+                raise AnsibleConnectionFailure("LLDP peer transport failed") from error
+            raise
+
+    for device, peer_connections in ports_by_peer.items():
+        try:
+            connections.update(read_peer_aliases(device, peer_connections))
         except (pytest.fail.Exception, AnsibleError, KeyError, ValueError) as error:
             logger.warning("LLDP peer %s alias resolution failed", device, exc_info=True)
+            if isinstance(error, AnsibleConnectionFailure) and isinstance(error.__cause__, RunAnsibleModuleFail):
+                error = error.__cause__
             if isinstance(error, RunAnsibleModuleFail):
                 result = error.results or {}
                 reason = result.get("stderr") or result.get("msg") or error.message
