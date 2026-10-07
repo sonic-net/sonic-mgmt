@@ -9,6 +9,7 @@ inside the container.
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 
@@ -171,20 +172,74 @@ class CsonicHost(NeighborDevice):
         driving the port through the SONiC CLI updates CONFIG_DB and lets the
         orchestration (portchannel/BGP) react correctly, which
         ``ip link set ... down`` would bypass.
+
+        On the opt-in userspace OVS LAG backend teamd is stopped and the bond
+        is built on the mapped kernel device (ethN), so the CONFIG_DB port
+        alone does not stop LACP; additionally down the bond member.
         """
         logger.info("CsonicHost [%s] shutting down %s", self.container_name, ifname)
-        return self._docker_exec("config interface shutdown {}".format(ifname),
-                                 module_ignore_errors=True)
+        result = self._docker_exec("config interface shutdown {}".format(ifname),
+                                   module_ignore_errors=True)
+        self._set_ovs_bond_member_link(ifname, "down")
+        return result
 
     def no_shutdown(self, ifname):
         """Bring up an interface.
 
         Mirrors ``SonicHost.no_shutdown`` (``config interface startup``); see
-        :meth:`shutdown` for why the SONiC CLI is used instead of ``ip link``.
+        :meth:`shutdown` for why the SONiC CLI is used instead of ``ip link``
+        and why the userspace OVS LAG bond member is toggled as well.
         """
         logger.info("CsonicHost [%s] bringing up %s", self.container_name, ifname)
-        return self._docker_exec("config interface startup {}".format(ifname),
-                                 module_ignore_errors=True)
+        result = self._docker_exec("config interface startup {}".format(ifname),
+                                   module_ignore_errors=True)
+        self._set_ovs_bond_member_link(ifname, "up")
+        return result
+
+    def _ovs_bond_member(self, interface_name, bond):
+        """Return the kernel device of interface_name that bond actually enslaves.
+
+        The EthernetN -> ethN convention is duplicated from ``kernel_member()`` in
+        ansible/roles/sonic/files/csonic_ovs_lag.py, which is the source of truth
+        but ships into the container as an Ansible module and cannot be imported
+        here; keep the two in sync. The regex only supplies the correspondence,
+        so confirm the derived device against the bond's OVS member list and
+        raise when it is absent rather than silently toggling EthernetN only.
+        """
+        match = re.fullmatch(r"Ethernet(\d+)", interface_name)
+        if not match:
+            raise Exception(
+                "Unable to map unsupported cSONiC LAG member [{}] to a kernel device "
+                "of bond [{}]".format(interface_name, bond))
+        device = "eth{}".format(match.group(1))
+        # ovs_portchannel() creates each PortChannel as its own bridge and puts the
+        # members into a Port named '<PortChannel>-bond'.
+        bridge = bond[:-len("-bond")]
+        result = self._docker_exec("ovs-vsctl list-ifaces {}".format(bridge),
+                                   module_ignore_errors=True)
+        members = result['stdout_lines'] if result['rc'] == 0 else []
+        if device not in members:
+            raise Exception(
+                "Interface [{}] maps to kernel device [{}], which is not a member of "
+                "OVS bond [{}] (members: {}); refusing to toggle only [{}] because that "
+                "would leave the bond member up and LACP active".format(
+                    interface_name, device, bond, ",".join(members) or "none",
+                    interface_name))
+        return device
+
+    def _set_ovs_bond_member_link(self, interface_name, state):
+        """Bring the userspace OVS LAG bond member of interface_name up/down.
+
+        No-op (returns None) on any other backend, so teamd-backed neighbors keep
+        the SONiC-CLI-only behaviour.
+        """
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            return None
+        device = self._ovs_bond_member(interface_name, bond)
+        logger.info("CsonicHost [%s] setting OVS bond [%s] member %s (%s) %s",
+                    self.container_name, bond, device, interface_name, state)
+        return self._docker_exec("ip link set {} {}".format(device, state))
 
     def get_route(self, prefix):
         """Get route info from FRR."""
