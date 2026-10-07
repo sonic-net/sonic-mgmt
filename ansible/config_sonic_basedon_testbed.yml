@@ -33,14 +33,13 @@
 
 - hosts: sonic
   gather_facts: no
-  pre_tasks:
+  tasks:
+
   - name: Complete a missing primary management address
     set_fact:
       ansible_host: "{{ ansible_hostv6 }}"
     when: hostvars[inventory_hostname].ansible_host is not defined
     tags: always
-
-  tasks:
 
   - block:
     - name: set default testbed file

@@ -86,7 +86,7 @@ field. The deployment inventory contract is:
 | IPv4 and IPv6 | IPv4 in `ansible_host`, IPv6 in `ansible_hostv6` |
 
 If only `ansible_hostv6` is supplied, deployment fills the missing
-`ansible_host` from that value in a controller-side pre-task, before connecting.
+`ansible_host` from that value in the first controller-side task, before connecting.
 An explicitly supplied primary is never overwritten, and an IPv6 primary
 does not cause a missing `ansible_hostv6` to be populated. This repair is
 local to the playbook invocation; it does not rewrite the inventory file.
