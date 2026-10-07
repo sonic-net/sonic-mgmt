@@ -232,7 +232,7 @@ def collect_fib_info(duthosts, duts_running_config_facts, duts_minigraph_facts, 
 
 
 def gen_fib_info_files(ptfhost, fib_infos, tbinfo, request):
-    """Write prepared PTF FIBs: one per DUT, or one already-combined FIB for T2."""
+    """Write FIB snapshots to PTF files, merging the per-ASIC snapshots for T2."""
     testname = request.node.name
     files = []
     if tbinfo['topo']['type'] != "t2":
@@ -242,7 +242,7 @@ def gen_fib_info_files(ptfhost, fib_infos, tbinfo, request):
             files.append(filename)
     else:
         filename = '/root/fib_info_all_duts.txt'
-        gen_fib_info_file(ptfhost, fib_infos[0], filename)
+        gen_fib_info_file(ptfhost, merge_fib_infos(fib_infos), filename)
         files.append(filename)
 
     return files
@@ -253,8 +253,6 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
     fib_infos = collect_fib_info(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    if tbinfo['topo']['type'] == 't2':
-        fib_infos = [merge_fib_infos(fib_infos)]
     return gen_fib_info_files(ptfhost, fib_infos, tbinfo, request)
 
 
@@ -934,12 +932,12 @@ def test_ecmp_group_member_flap(
     fib_infos = collect_fib_info(
         duthosts, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
     )
-    initial_ptf_fib_infos = [merge_fib_infos(fib_infos)] if is_t2 else fib_infos
-    nh_ptf_ports = get_ptf_ports_for_default_route(initial_ptf_fib_infos[0])
+    initial_fib_info = merge_fib_infos(fib_infos) if is_t2 else fib_infos[0]
+    nh_ptf_ports = get_ptf_ports_for_default_route(initial_fib_info)
     logging.info("nh_ptf_ports: {}".format(nh_ptf_ports))
     if len(nh_ptf_ports) <= 1:
         pytest.skip("Skipping test as default route is missing or has fewer than 2 nexthops.")
-    fib_files = gen_fib_info_files(ptfhost, initial_ptf_fib_infos, tbinfo, request)
+    fib_files = gen_fib_info_files(ptfhost, fib_infos, tbinfo, request)
 
     # --- Identify the DUT and ports from the minigraph facts ---
     upstream_lc = duthosts[0].hostname
@@ -1012,8 +1010,7 @@ def test_ecmp_group_member_flap(
         duthosts, duts_running_config_facts, duts_minigraph_facts,
         tbinfo, request, expected_fib_infos=fib_infos_after_shutdown
     )
-    down_ptf_fib_infos = [merge_fib_infos(fib_infos_after_shutdown)] if is_t2 else fib_infos_after_shutdown
-    down_fib_files = gen_fib_info_files(ptfhost, down_ptf_fib_infos, tbinfo, request)
+    down_fib_files = gen_fib_info_files(ptfhost, fib_infos_after_shutdown, tbinfo, request)
     member_down_log_file = "/tmp/fib_test.ecmp_member_flap.member_down.ipv4.{}.ipv6.{}.{}.log".format(
                             ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_down_log_file))
@@ -1062,7 +1059,7 @@ def test_ecmp_group_member_flap(
         duthosts, duts_running_config_facts, duts_minigraph_facts,
         tbinfo, request, expected_fib_infos=fib_infos
     )
-    up_fib_files = gen_fib_info_files(ptfhost, initial_ptf_fib_infos, tbinfo, request)
+    up_fib_files = gen_fib_info_files(ptfhost, fib_infos, tbinfo, request)
     member_up_log_file = "/tmp/fib_test.ecmp_member_flap.member_up.ipv4.{}.ipv6.{}.{}.log".format(
                           ipv4, ipv6, timestamp)
     logging.info("PTF log file: {}".format(member_up_log_file))
