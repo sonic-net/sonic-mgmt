@@ -289,5 +289,85 @@ class TestLacpRate:
             host.set_interface_lacp_rate_mode("Ethernet1", "medium")
 
 
+# --- shutdown / no_shutdown (backend aware) -------------------------------
+
+def link_docker_exec(calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet1",
+                     bond_exists=True, bond_ifaces=("eth1", "eth2")):
+    """Dispatch mock for config-interface / CONFIG_DB / ovs-vsctl / ip link commands."""
+    def side(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd.startswith("config interface"):
+            return docker_ok("")
+        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+            return {"rc": 0, "stdout": member_key,
+                    "stdout_lines": [member_key] if member_key else [], "stderr": ""}
+        if cmd.endswith(" name"):
+            return docker_ok("PortChannel1-bond" if bond_exists else "")
+        if cmd.startswith("ovs-vsctl list-ifaces"):
+            return {"rc": 0, "stdout": "\n".join(bond_ifaces),
+                    "stdout_lines": list(bond_ifaces), "stderr": ""}
+        if cmd.startswith("ip link set"):
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stdout_lines": [], "stderr": "unexpected cmd"}
+    return side
+
+
+class TestShutdownBackendAware:
+    def test_ovs_backend_toggles_port_and_bond_member(self):
+        """On the userspace OVS LAG backend the bond is built on ethN, so downing
+        only EthernetN would leave the member up and LACP active."""
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=link_docker_exec(calls)):
+            host.shutdown("Ethernet1")
+        assert "config interface shutdown Ethernet1" in calls
+        assert "ip link set eth1 down" in calls
+
+    def test_ovs_backend_no_shutdown_toggles_port_and_bond_member(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=link_docker_exec(calls)):
+            host.no_shutdown("Ethernet1")
+        assert "config interface startup Ethernet1" in calls
+        assert "ip link set eth1 up" in calls
+
+    def test_non_ovs_backend_touches_only_sonic_port(self):
+        """teamd-backed (or non-member) interfaces keep the SONiC-CLI-only path."""
+        host = make_host()
+        for kwargs in ({"member_key": ""}, {"bond_exists": False}):
+            calls = []
+            with patch.object(host, "_docker_exec",
+                              side_effect=link_docker_exec(calls, **kwargs)):
+                host.shutdown("Ethernet1")
+                host.no_shutdown("Ethernet1")
+            assert not [c for c in calls if c.startswith("ip link set")]
+            assert "config interface shutdown Ethernet1" in calls
+            assert "config interface startup Ethernet1" in calls
+
+    def test_member_not_in_bond_raises(self):
+        """A derived device missing from the bond must raise, never silently fall
+        back to an EthernetN-only shutdown."""
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec",
+                          side_effect=link_docker_exec(calls, bond_ifaces=("eth2",))):
+            with pytest.raises(Exception) as excinfo:
+                host.shutdown("Ethernet1")
+        message = str(excinfo.value)
+        assert "Ethernet1" in message and "eth1" in message and "PortChannel1-bond" in message
+        assert not [c for c in calls if c.startswith("ip link set")]
+
+    def test_unmappable_member_name_raises(self):
+        host = make_host()
+        calls = []
+        side = link_docker_exec(
+            calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet-BP0")
+        with patch.object(host, "_docker_exec", side_effect=side):
+            with pytest.raises(Exception) as excinfo:
+                host.shutdown("Ethernet-BP0")
+        assert "Ethernet-BP0" in str(excinfo.value)
+        assert not [c for c in calls if c.startswith("ip link set")]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-v"]))
