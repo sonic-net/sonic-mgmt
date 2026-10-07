@@ -189,10 +189,10 @@ class ControlPlaneBaseTest(BaseTest):
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
+        # Measure PPS over the active send window; the drain below is only for collection.
+        window_end_time = datetime.datetime.now()
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
-        # Capture the window end here, right after the fixed drain sleep
-        window_end_time = datetime.datetime.now()
         recv_count = testutils.count_matched_packets_all_ports(
             self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
