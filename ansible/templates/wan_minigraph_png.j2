@@ -149,9 +149,16 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
+{% if 'ip' in dual_tor_facts['neighbor'] %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
            <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
+{% if 'ip_v6' in dual_tor_facts['neighbor'] %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+           <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip_v6'] }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% endif %}
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}
@@ -183,7 +190,7 @@
         <ElementType>Server</ElementType>
         <Address xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>{{ server_base_address_v4.format(loop.index + 1) }}/26</d5p1:IPPrefix>
-        </Address> 
+        </Address>
         <AddressV6 xmlns:d5p1="Microsoft.Search.Autopilot.NetMux">
           <d5p1:IPPrefix>{{ server_base_address_v6.format(loop.index + 1) }}/96</d5p1:IPPrefix>
         </AddressV6>
@@ -257,4 +264,3 @@
 {% endfor %}
     </Devices>
   </PngDec>
-
