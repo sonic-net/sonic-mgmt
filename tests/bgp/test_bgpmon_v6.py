@@ -102,16 +102,12 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     # local_addr (IPv6): Loopback4096 on multi-ASIC, Loopback0 on single-ASIC (from minigraph)
     local_addr = None
     if duthost.is_multi_asic:
-        if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-            lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
-            for lb4096 in lbs4096:
-                lb4096intf = ipaddress.ip_interface(lb4096)
-                if lb4096intf.ip.version == 6:
-                    if "/" in lb4096:
-                        local_addr = lb4096.split("/")[0]
-                        break
-                    else:
-                        local_addr = lb4096
+        lb4096_intfs = cfg_facts.get('LOOPBACK_INTERFACE', {}).get('Loopback4096', {})
+        for lb4096 in lb4096_intfs:
+            lb4096intf = ipaddress.ip_interface(lb4096)
+            if lb4096intf.ip.version == 6:
+                local_addr = str(lb4096intf.ip)
+                break
     else:
         for lo_intf in mg_facts['minigraph_lo_interfaces']:
             if ":" in lo_intf['addr']:
