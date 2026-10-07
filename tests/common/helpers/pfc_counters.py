@@ -29,6 +29,13 @@ PKT_COUNT = 10
 PRIO_COUNT = 8
 PFC_COUNTER_POLL_TIMEOUT = 20
 PFC_COUNTER_POLL_INTERVAL = 1
+""" Continuous-PFC per-priority counter polling: max wait and poll interval (seconds) """
+PFC_CONTINUOUS_POLL_TIMEOUT = 15
+PFC_CONTINUOUS_POLL_INTERVAL = 0.2
+""" After clearing counters, require the port to read zero across this window -- longer
+than the ~1s FlexCounter poll """
+PFC_CLEAR_VERIFY_WINDOW = 1.5
+PFC_CLEAR_SETTLE_TIMEOUT = 15
 """ Name of the PFC storm container on MLNX-OS (Onyx) fanout switches """
 ONYX_PFC_CONTAINER_NAME = 'storm'
 """ Number of PFC frames sent per priority per port in the RX_OK isolation test """
@@ -94,6 +101,43 @@ def _resolve_peer_port_name(peerdev_ans, enum_fanout_graph_facts, peer_port):   
     else:
         peer_port_name = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
     return peer_port_name, fanout_hwsku
+
+
+def clear_pfc_counters_until_stable(duthost, intf, priority):            # noqa: F811
+    """
+    @summary: Clear PFC counters and re-clear until the port reads a stable zero.
+
+              pfcstat reports the current COUNTERS_DB contents **minus** a baseline
+              snapshot of same taken at clear time ("pfcstat -c"). But, COUNTERS_DB
+              updates asynchronously. A clear issued right after PFC frames are rx'ed
+              can capture an unsettled baseline (race condition!), and the offsets will
+              persist bogusly for each subsequent read.
+              Re-clear until the port stably reads zeroes instead.
+    @param duthost: dut host information
+    @param intf: Interface being validated
+    @param priority: PFC priority index being validated (for diagnostics)
+    """
+    clear_deadline = time.monotonic() + PFC_CLEAR_SETTLE_TIMEOUT
+    while True:
+        dirty_rx = None
+        stable_until = time.monotonic() + PFC_CLEAR_VERIFY_WINDOW
+        while time.monotonic() < stable_until:
+            baseline_rx = duthost.sonic_pfc_counters(
+                method="get")['ansible_facts'][intf]['Rx']
+            if any(v != '0' for v in baseline_rx):
+                dirty_rx = baseline_rx
+                break
+            time.sleep(PFC_CONTINUOUS_POLL_INTERVAL)
+        if dirty_rx is None:
+            break
+        if time.monotonic() >= clear_deadline:
+            # Never measure against a known-dirty baseline: a stale value
+            # could satisfy the later assertion with no real traffic.
+            pytest.fail(
+                "[PFC clear] {} prio {} baseline did not clear within {:.1f}s "
+                "(last Rx={})".format(
+                    intf, priority, PFC_CLEAR_SETTLE_TIMEOUT, dirty_rx))
+        duthost.sonic_pfc_counters(method="clear")
 
 
 def send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku, priority,
@@ -236,10 +280,8 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         for intf in active_phy_intfs:
             """only check priority 3 and 4: lossless priorities"""
             for priority in range(3, 5):
-                """ Clear PFC counters """
-                duthost.sonic_pfc_counters(method="clear")
-
                 if asic_type != 'vs':
+                    # Now resolve the peer device for the specified priority
                     peer_device = conn_facts[intf]['peerdevice']
                     peer_port = conn_facts[intf]['peerport']
 
@@ -250,6 +292,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     peer_port_name, fanout_hwsku = _resolve_peer_port_name(
                         peerdev_ans, enum_fanout_graph_facts, peer_port)
 
+                    clear_pfc_counters_until_stable(duthost, intf, priority)
                     send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                    priority, pause_time, PKT_COUNT)
 
@@ -270,7 +313,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                                 "Attempt %d: PFC counter not updated for interface %s priority %d "
                                 "(got %s), retrying send", attempt, intf, priority,
                                 pfc_rx[intf]['Rx'][priority])
-                            duthost.sonic_pfc_counters(method="clear")
+                            clear_pfc_counters_until_stable(duthost, intf, priority)
                             send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                            priority, pause_time, PKT_COUNT)
 
