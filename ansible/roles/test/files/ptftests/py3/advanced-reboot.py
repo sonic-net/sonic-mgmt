@@ -1158,11 +1158,11 @@ class ReloadTest(BaseTest):
         # logins, which surfaces as empty stdout rather than an exception.
         cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
         for attempt in range(1, attempts + 1):
-            stdout, stderr, rc = self.dut_connection.execCommand(cmd)
-            if rc == 0 and stdout:
+            stdout, stderr, conn_status = self.dut_connection.execCommand(cmd)
+            if conn_status == 0 and stdout:
                 return str(stdout[0]).strip()
-            self.log("Attempt {}/{} to read start time of {} failed. rc: {}, stderr: {}".format(
-                attempt, attempts, service_name, rc, str(stderr)))
+            self.log("Attempt {}/{} to read start time of {} failed. connection status: {}, stderr: {}".format(
+                attempt, attempts, service_name, conn_status, str(stderr)))
             if attempt < attempts:
                 time.sleep(2)
         raise Exception("Error collecting start time of {} from DUT after {} attempts".format(
@@ -1177,7 +1177,12 @@ class ReloadTest(BaseTest):
             for service_name in self.test_params['service_list']:
                 if service_name not in service_set:
                     continue
-                if self.service_data[service_name]['service_start_time'] != self.get_service_start_time(service_name):
+                try:
+                    current_start_time = self.get_service_start_time(service_name)
+                except Exception as e:
+                    self.log("Will re-poll {}: {}".format(service_name, e))
+                    continue
+                if self.service_data[service_name]['service_start_time'] != current_start_time:
                     service_set.remove(service_name)
             if not service_set:
                 break
