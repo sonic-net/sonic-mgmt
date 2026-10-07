@@ -213,5 +213,70 @@ class TestSummaryAndNeighborParsers:
             assert host._bgp_neighbors_json("ipv4") == {}
 
 
+# --- LACP rate (userspace OVS LAG backend) --------------------------------
+
+def lacp_docker_exec(lacp_time='fast', member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet1",
+                     bond_exists=True, calls=None):
+    """Dispatch mock for the CONFIG_DB/ovs-vsctl commands used by the LACP rate methods."""
+    def side(cmd, **kwargs):
+        if calls is not None:
+            calls.append(cmd)
+        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+            return {"rc": 0, "stdout": member_key, "stdout_lines": [member_key] if member_key else [],
+                    "stderr": ""}
+        if cmd.endswith(" name"):
+            return docker_ok("PortChannel1-bond" if bond_exists else "")
+        if "get Port" in cmd and "lacp-time" in cmd:
+            return docker_ok(lacp_time)
+        if cmd.startswith("ovs-vsctl set Port"):
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stderr": "unexpected cmd"}
+    return side
+
+
+class TestLacpRate:
+    def test_get_fast(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec("fast")):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "fast"
+
+    def test_get_slow_is_normal(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec('"slow"')):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "normal"
+
+    def test_get_unset_is_normal(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec("")):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "normal"
+
+    def test_set_maps_mode_to_bond(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(calls=calls)):
+            host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+            host.set_interface_lacp_rate_mode("Ethernet1", "normal")
+        sets = [c for c in calls if c.startswith("ovs-vsctl set Port")]
+        assert sets == ["ovs-vsctl set Port PortChannel1-bond other_config:lacp-time=fast",
+                        "ovs-vsctl set Port PortChannel1-bond other_config:lacp-time=slow"]
+
+    def test_non_member_not_supported(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(member_key="")):
+            with pytest.raises(NotImplementedError):
+                host.get_interface_lacp_rate_mode("Ethernet5")
+
+    def test_teamd_backend_not_supported(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(bond_exists=False)):
+            with pytest.raises(NotImplementedError):
+                host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+
+    def test_invalid_mode(self):
+        host = make_host()
+        with pytest.raises(ValueError):
+            host.set_interface_lacp_rate_mode("Ethernet1", "medium")
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-v"]))
