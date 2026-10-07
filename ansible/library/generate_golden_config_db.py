@@ -194,7 +194,8 @@ class GenerateGoldenConfigDBModule(object):
                                     bgp_confd_peers=dict(required=False, type='str', default=None),
                                     enabled_dpu_indices=dict(required=False, type='list',
                                                              elements='int', default=None),
-                                    lacp_fast_rate=dict(required=False, type='bool', default=False)),
+                                    lacp_fast_rate=dict(required=False, type='bool', default=False),
+                                    device_conn=dict(required=False, type='dict', default={})),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -220,6 +221,7 @@ class GenerateGoldenConfigDBModule(object):
         self.console_ports = self.module.params['console_ports']
         self.enabled_dpu_indices = self.module.params['enabled_dpu_indices']
         self.lacp_fast_rate = self.module.params['lacp_fast_rate']
+        self.device_conn = self.module.params['device_conn'] or {}
 
     def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
         """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
@@ -345,8 +347,20 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        # disable bmp feature table first
-        return False
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
+                return False
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
+                return False
+        else:
+            return True
+        return True
 
     def is_bmc_device(self):
         return device_info.get_localhost_info('type') == 'NetworkBmc'
@@ -911,6 +925,10 @@ class GenerateGoldenConfigDBModule(object):
                 "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
+        vxlan_tunnel_entry = {"src_ip": vxlan_src_ip}
+        if (device_info.get_sonic_version_info() or {}).get("asic_type") == "cisco-8000":
+            vxlan_tunnel_entry["ttl_mode"] = "pipe"
+
         ha_config = {
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
@@ -956,7 +974,7 @@ class GenerateGoldenConfigDBModule(object):
                 }
             },
             "VXLAN_TUNNEL": {
-                "t4": {"src_ip": vxlan_src_ip}
+                "t4": vxlan_tunnel_entry
             }
         }
 
@@ -1123,6 +1141,38 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
+    def update_swss_zmq_config(self, config):
+        """Enable SWSS ZMQ on T2 and DRH topologies via SYSTEM_DEFAULTS|swss_zmq.
+
+        The knob drives both the northbound (fpmsyncd<->orchagent) and southbound
+        (orchagent<->syncd) route ZMQ channels, which run per ASIC. On multi-ASIC
+        platforms the entry must therefore land in each ASIC namespace's CONFIG_DB,
+        so it is injected under the per-namespace ``asicN`` keys of the golden
+        config. The ASIC count is autodetected because the golden config module is
+        not always invoked with a reliable ``num_asics`` value.
+
+        Applies to the T2 family (``t2``, ``ft2``, ``lt2``, ``t2_single_node``)
+        and the disaggregated Regional Hub family (``lrh``, ``urh``, ``drh``),
+        which are the route-scaling roles that rely on the ZMQ route datapath.
+        Chassis supervisors are excluded: they hold no BGP sessions and run no
+        per-ASIC route programming, so the ZMQ knob does not apply to them.
+        """
+        topo = self.topo_name
+        if not any(t in topo for t in ("t2", "lrh", "urh", "drh")):
+            return config
+        if device_info.is_supervisor():
+            return config
+        ori_config_db = json.loads(config)
+        zmq_value = {"swss_zmq": {"status": "enabled"}}
+        if multi_asic.is_multi_asic():
+            for asic in range(multi_asic.get_num_asics()):
+                ns = "asic{}".format(asic)
+                ori_config_db.setdefault(ns, {}).setdefault(
+                    "SYSTEM_DEFAULTS", {}).update(zmq_value)
+        else:
+            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(zmq_value)
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
@@ -1151,7 +1201,7 @@ class GenerateGoldenConfigDBModule(object):
         Enables FEC for high-speed ports. PORT table rebuild from platform.json
         is handled separately by override_port_table_from_platform().
         """
-        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
+        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-cpo-64", "ft2-cpo-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
                           "ft2-o128", "lt2-o256-u32d224", "lt2-u32d128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
@@ -1283,6 +1333,87 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config_db, indent=4)
 
+    def get_minigraph_port_table(self):
+        """
+        PORT table as `config load_minigraph` would render it. Without an
+        explicit -p, sonic-cfggen seeds PORT from the running CONFIG_DB when
+        it is reachable (portconfig.get_port_config), inheriting live state
+        such as admin_status=up on unused ports. load_minigraph renders
+        against a flushed CONFIG_DB and never sees that, so pass the
+        platform's port_config file explicitly to get the same pristine
+        render.
+        """
+        cmd = "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data"
+        try:
+            port_config_path = device_info.get_path_to_port_config_file()
+        except Exception as e:
+            logger.warning("get_minigraph_port_table: failed to resolve port_config path, "
+                           "falling back to plain render: %s", e)
+            port_config_path = None
+        if port_config_path:
+            cmd += " -p {}".format(port_config_path)
+        rc, out, err = self.module.run_command(cmd)
+        if rc != 0:
+            logger.warning("get_minigraph_port_table: sonic-cfggen failed: %s", err)
+            return {}
+        try:
+            return json.loads(out).get('PORT', {})
+        except (TypeError, ValueError):
+            return {}
+
+    def apply_link_training_from_device_conn(self, config_str):
+        """
+        Inject per-port link_training values from device_conn (the LinkTraining
+        column of sonic_lab_links.csv) into the PORT table of the rendered
+        golden config. `config load_minigraph --override_config` replaces the
+        PORT table wholesale, so the emitted PORT table must contain every
+        port, not just the LT-tagged ones.
+        """
+        if not self.device_conn:
+            return config_str
+
+        if multi_asic.is_multi_asic():
+            logger.warning("apply_link_training_from_device_conn: multi-asic not supported, skipping")
+            return config_str
+
+        try:
+            config = json.loads(config_str) if config_str else {}
+        except (TypeError, ValueError):
+            return config_str
+
+        lt_updates = {}
+        for port_name, link in self.device_conn.items():
+            if not isinstance(link, dict):
+                continue
+            lt = link.get('linktraining')
+            if lt in ('on', 'off'):
+                lt_updates[port_name] = lt
+
+        if not lt_updates:
+            logger.info(
+                "apply_link_training_from_device_conn: no ports with "
+                "linktraining=on|off in device_conn; skipping"
+            )
+            return config_str
+
+        port_table = config.get('PORT')
+        if not port_table:
+            port_table = self.get_minigraph_port_table()
+
+        for port_name, lt in lt_updates.items():
+            if port_name in port_table:
+                port_table[port_name]['link_training'] = lt
+            else:
+                logger.warning(
+                    "apply_link_training_from_device_conn: port %s has "
+                    "linktraining=%s but is not in the PORT table; skipping", port_name, lt
+                )
+
+        if port_table:
+            config['PORT'] = port_table
+
+        return json.dumps(config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -1331,11 +1462,14 @@ class GenerateGoldenConfigDBModule(object):
         if "bmc" in self.topo_name:
             config = self.set_switch_host_admin_up_config(config)
 
+        config = self.apply_link_training_from_device_conn(config)
+
         # update dns config
         config = self.update_dns_config(config)
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+        config = self.update_swss_zmq_config(config)
 
         # Rebuild PORT table from port_speeds + platform.json when port override is active
         if self.port_override_from_links:
