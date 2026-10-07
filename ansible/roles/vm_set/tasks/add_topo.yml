@@ -356,28 +356,6 @@
     delay: 60
     when: enable_async
 
-  - name: Install forwarding and LACP flows on cSONiC VM bridges
-    become: yes
-    script: >-
-      configure_csonic_bridge.py
-      --bridge br-{{ vm_item }}-{{ link_index }}
-      --neighbor-port {{ vm_item }}-t{{ link_index }}
-    loop: "{{ query('nested', VM_targets, range(0, max_fp_num | int) | list) }}"
-    loop_control:
-      loop_var: csonic_bridge_link
-    vars:
-      vm_item: "{{ csonic_bridge_link.0 }}"
-      link_index: "{{ csonic_bridge_link.1 }}"
-    register: csonic_bridge_flow
-    changed_when: "'changed=true' in csonic_bridge_flow.stdout"
-    when:
-      - vm_type is defined and vm_type == "csonic"
-      - csonic_lag_backend == 'userspace_ovs'
-      - "'bmc' not in topo"
-      - >-
-        link_index | int <
-        (topology.VMs[vm_inv_to_topo[vm_item]].vlans | length)
-
   - name: Bind topology {{ topo }} to DPUs.
     vm_topology:
       cmd: "bind"

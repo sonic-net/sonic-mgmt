@@ -85,10 +85,11 @@ All backend setup happens during `add-topo`. sonic-mgmt derives a local image
 from `csonic_image` with the OVS userspace packages. For each neighbor, it
 reads the `PORTCHANNEL`, `PORTCHANNEL_MEMBER`, and `PORTCHANNEL_INTERFACE`
 tables, stops the conflicting teamd processes, and recreates the PortChannels
-as OVS LACP bonds. After the topology is bound, the host-side virtual-wire
-bridges receive explicit bidirectional LACP flows based on live OVS port
-discovery. `deploy-mg` only configures the DUT; LACP converges once the DUT
-PortChannels exist. To reapply the backend, rerun `add-topo`.
+as OVS LACP bonds. The host-side virtual-wire bridges need no extra flows:
+the flows installed when the topology is bound already carry LACP between the
+DUT and the neighbor (and copy it to the PTF). `deploy-mg` only configures the
+DUT; LACP converges once the DUT PortChannels exist. To reapply the backend,
+rerun `add-topo`.
 
 Unset the environment variable, or set it to `teamd`, to retain the default.
 
