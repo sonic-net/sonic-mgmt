@@ -37,78 +37,52 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####           BGP               #####
 #######################################
-bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   xfail:
     reason: "VPP BGP sessions intermittently fail to establish during module setup"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/27487 and asic_type in ['vpp']"
 
-bgp/test_bgp_suppress_fib.py:
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress[:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB dataplane behavior has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_traffic_shift.py:
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress_negative_operation:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
+    reason: "Suppress-FIB dataplane behavior has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
+  skip:
+    reason: "Suppress-FIB credit-loop behavior has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_performance:
+  skip:
+    reason: "Suppress-FIB performance coverage has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
+  skip:
+    reason: "Suppress-FIB stress coverage has not been validated on VPP"
+    conditions:
+      - "asic_type in ['vpp']"
+
+bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
+  skip:
+    reason: "Loading minigraph during traffic shift has not been validated on VPP"
     conditions:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
-
-#######################################
-#####            Cacl             #####
-#######################################
-cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-cacl/test_cacl_application.py::test_caclmgrd_syslog:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
 
 #######################################
 #####           Configlet         #####
 #######################################
 configlet/test_add_rack.py::test_add_rack:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####       Container Checker     #####
-#######################################
-container_checker/test_container_checker.py::test_container_checker_telemetry:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -397,6 +371,16 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
+#####             IP              #####
+#######################################
+ip/test_mgmt_ipv6_only.py::test_telemetry_output_ipv6_only:
+  xfail:
+    reason: "gNMI rejects IPv6 telemetry requests as Unauthenticated despite user_auth=none"
+    strict: false
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/28017 and asic_type in ['vpp'] and release == 'master'"
+
+#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
@@ -427,17 +411,6 @@ memory_checker/test_memory_checker.py::test_monit_reset_counter_failure:
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           MPLS              #####
-#######################################
-mpls/test_mpls.py:
-  skip:
-    reason: >
-            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -476,18 +449,6 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####          PC                 #####
-#######################################
-pc/test_po_cleanup.py::test_po_cleanup_after_reload:
-  disable_memory_utilization:
-    reason: >
-            config_reload with CPU stress transiently raises monit memory_usage past the
-            10% increase threshold on the low-RAM sonic-vpp KVM VM; the test body passes.
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -617,30 +578,6 @@ syslog/test_syslog_rate_limit.py:
       - "asic_type in ['vpp']"
 
 syslog/test_syslog_source_ip.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
             Failed/Errored: To be included

@@ -55,7 +55,8 @@ def run_pfc_test(api,
                  dut_port=None,
                  test_flow_is_lossless=True,
                  snappi_extra_params=None,
-                 flow_factor=1):
+                 flow_factor=1,
+                 validate_pfc_src_mac=False):
     """
     Run a multidut PFC test
     Args:
@@ -73,6 +74,8 @@ def run_pfc_test(api,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        validate_pfc_src_mac (bool): if the PFC pause frame source MAC address should be validated
+            against the peer port's gateway MAC (Cisco capture validation only)
 
     Returns:
         N/A
@@ -103,6 +106,9 @@ def run_pfc_test(api,
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
+    # Reset to initial values before any modification
+    DATA_FLOW_DURATION_SEC = 15
+    data_flow_delay_sec = 1
 
     # Port id of Rx port for traffic config
     port_id = 0
@@ -314,10 +320,18 @@ def run_pfc_test(api,
     # Verify PFC pause frames
     if valid_pfc_frame_test:
         if not is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            # Buffer may wrap during capture,
+            # but at least 100 frames are reliably retained in the pcapng file.
+            pfc_sample_size = 100
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng",
+                                                               SAMPLE_SIZE=pfc_sample_size)
         else:
+            peer_mac_addr = None
+            if validate_pfc_src_mac:
+                peer_mac_addr = snappi_extra_params.base_flow_config["tx_port_config"].gateway_mac
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
-                                                            snappi_extra_params.packet_capture_file + ".pcapng")
+                                                            snappi_extra_params.packet_capture_file + ".pcapng",
+                                                            peer_mac_addr=peer_mac_addr)
         pytest_assert(is_valid_pfc_frame, error_msg)
         return
 

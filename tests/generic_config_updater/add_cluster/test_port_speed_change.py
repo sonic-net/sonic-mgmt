@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
-from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
+from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch, rollback_or_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -1012,9 +1012,9 @@ def test_port_speed_change(tbinfo,
                           initial_pg_lossless_profile_name))
 
     with allure.step("Verify telemetry data for port after port speed change"):
-        with setup_streaming_telemetry_context(False, duthost, localhost, ptfhost, gnxi_path):
+        with setup_gnmi_streaming_context(False, duthost, localhost, ptfhost, gnxi_path):
             GNMI_SERVER_START_WAIT_TIME = 15
-            env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+            env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
             # Set up telemetry server
             duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
                           module_ignore_errors=False)
