@@ -46,6 +46,20 @@ STORM_VLAN_TAG = 100
 MAC_MOVE_GUARD_THRESHOLD = 100
 MAC_MOVE_GUARD_DETECT_INTERVAL = 10
 MAC_MOVE_GUARD_ACTION_INTERVAL = 60
+# Rate limit applied to the storm sender. The guard trips when a single MAC
+# moves MAC_MOVE_GUARD_THRESHOLD times inside MAC_MOVE_GUARD_DETECT_INTERVAL,
+# i.e. THRESHOLD / DETECT_INTERVAL moves per second per MAC. Sending faster
+# adds nothing to what these tests assert, but every storm frame is also
+# copied to the CPU by the arp_req trap and shows up as a kernel-bridge FDB
+# move on RTNLGRP_NEIGH, which overruns the netlink receive queue of the swss
+# syncd daemons. Pace the sender at a fixed multiple of the required rate: the
+# guard still trips within a couple of seconds while the punted copies stay
+# below the CoPP arp_req policer.
+STORM_MOVE_RATE_MARGIN = 5
+STORM_MOVES_PER_SEC_PER_MAC = STORM_MOVE_RATE_MARGIN * int(math.ceil(
+    float(MAC_MOVE_GUARD_THRESHOLD) / MAC_MOVE_GUARD_DETECT_INTERVAL))
+# Each move costs two frames: one on each of the two storm interfaces.
+STORM_PPS = STORM_MOVES_PER_SEC_PER_MAC * STORM_NUM_MACS * 2
 # Action interval used by the DISABLE_LEARN_ON_MAC_WITH_ACL test. Kept high so
 # the bad MAC is not auto-released while we drive the storm and observe
 # orchagent quiescence. The test reconfigures this to a small value after the
@@ -265,22 +279,26 @@ def _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts):
     return ptf_a, ptf_b, vlan_id, iface_a, iface_b, dut_a, dut_b
 
 
-def _start_storm_sender(ptfhost, iface_a, iface_b, router_mac, vlan_tag=None):
+def _start_storm_sender(ptfhost, iface_a, iface_b, router_mac, vlan_tag=None,
+                        pps=STORM_PPS):
     """Copy the storm script to ptfhost and launch it in background. Returns the pid.
 
     If ``vlan_tag`` is provided, frames are 802.1Q-tagged with that VID.
+
+    ``pps`` caps the aggregate send rate across both interfaces so the storm
+    stays just above the rate MAC_MOVE_GUARD needs in order to trip.
     """
     ptfhost.copy(src=STORM_SENDER_LOCAL_PATH, dest=STORM_SENDER_REMOTE_PATH, mode="0755")
     ptfhost.shell("rm -f {}".format(STORM_SENDER_LOG), module_ignore_errors=True)
     vlan_arg = "--vlan-tag {} ".format(vlan_tag) if vlan_tag is not None else ""
     cmd = (
         "nohup python3 {script} --iface-a {ia} --iface-b {ib} --router-mac {rmac} "
-        "--num-macs {n} --mac-base {base} --report-interval {ri} {vlan}"
+        "--num-macs {n} --mac-base {base} --report-interval {ri} --pps {pps} {vlan}"
         "> {log} 2>&1 & echo $!"
     ).format(
         script=STORM_SENDER_REMOTE_PATH, ia=iface_a, ib=iface_b, rmac=router_mac,
         n=STORM_NUM_MACS, base=STORM_MAC_BASE, ri=STORM_REPORT_INTERVAL,
-        vlan=vlan_arg,
+        vlan=vlan_arg, pps=pps,
         log=STORM_SENDER_LOG,
     )
     res = ptfhost.shell(cmd)

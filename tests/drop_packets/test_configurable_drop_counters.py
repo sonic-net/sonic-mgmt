@@ -51,7 +51,8 @@ LINK_LOCAL_IP = "169.254.0.1"
 
 # For dualtor
 @pytest.fixture(scope='module')
-def vlan_mac(duthost):
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
     for vlan in list(config_facts.get('VLAN', {}).values()):
@@ -515,8 +516,10 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
     def _check_arp_populated():
         if is_ipv4_address(server_dst_addr):
+            duthost.command("ping {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
         else:
+            duthost.command("ping6 {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
         return server_dst_addr in result.get('stdout', '')
 

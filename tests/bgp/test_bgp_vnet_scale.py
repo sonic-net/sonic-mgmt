@@ -23,6 +23,7 @@ PORTCHANNEL_NAME_FMT = "PortChannel{}"
 PORTCHANNEL_SHORT_NAME_FMT = "Po{}"
 VXLAN_PORT = 4789
 VNI_BASE = 10000
+CISCO_8000_ASIC = "cisco-8000"
 
 pytestmark = [
     pytest.mark.topology("t0"),
@@ -35,6 +36,104 @@ pytestmark = [
 
 def get_cfg_facts(duthost):
     return json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+
+
+# The key and its boolean value may each be quoted or unquoted across hwskus,
+# e.g. `mcast_tunnel_enabled: true`, `"mcast_tunnel_enabled": true`, or
+# `"mcast_tunnel_enabled": "true"`. This ERE matches up to (but not including)
+# the boolean literal, capturing any leading quote so it can be preserved.
+MCAST_TUNNEL_KEY_RE = r'mcast_tunnel_enabled"?[[:space:]]*:[[:space:]]*"?'
+MCAST_TUNNEL_BACKUP_SUFFIX = ".mcast_tunnel_bak"
+
+
+def _mcast_tunnel_cfg_files(duthost):
+    """Cisco-8000 SAI init files that may carry the mcast_tunnel_enabled device property.
+
+    asic_cfg.json is the live SAI_INIT_CONFIG_FILE read by syncd at init;
+    platform_npu_cfg.yaml is its cold-boot source. Both are updated so the
+    setting survives either a config reload or a reboot. Not every hwsku ships
+    both files, so callers must tolerate missing paths.
+    """
+    base = "/usr/share/sonic/device/{}/{}".format(
+        duthost.facts["platform"], duthost.facts["hwsku"]
+    )
+    return [
+        "{}/asic_cfg.json".format(base),
+        "{}/platform_npu_cfg.yaml".format(base),
+    ]
+
+
+def _file_exists(duthost, path):
+    return duthost.stat(path=path).get("stat", {}).get("exists", False)
+
+
+def _file_mcast_tunnel_enabled(duthost, path):
+    """Return True if mcast_tunnel_enabled is set true in the given SAI init file."""
+    res = duthost.shell(
+        "grep -Eq '{}true' {}".format(MCAST_TUNNEL_KEY_RE, path),
+        module_ignore_errors=True,
+    )
+    return res["rc"] == 0
+
+
+def mcast_tunnel_enabled_files(duthost):
+    """Return the SAI init files that exist and currently enable mcast_tunnel_enabled."""
+    return [
+        path
+        for path in _mcast_tunnel_cfg_files(duthost)
+        if _file_exists(duthost, path) and _file_mcast_tunnel_enabled(duthost, path)
+    ]
+
+
+def disable_mcast_tunnel(duthost, paths):
+    """Back up and disable mcast_tunnel_enabled in the given Cisco-8000 SAI init files.
+
+    Cisco-8000 only terminates VXLAN whose outer SIP is a known remote VTEP while
+    this property is enabled; disabling it lets the ASIC decap from arbitrary SIPs.
+    A config reload is required afterwards for syncd to re-read the value.
+
+    Each file is copied to a per-file backup first so teardown can restore the
+    exact original bytes (and thus the original per-file value) rather than
+    blindly rewriting the property. This assumes the key already exists in the
+    file: callers pass only files that matched the enabled pattern, and the sed
+    below rewrites the value in place -- it does not insert a missing key.
+
+    Returns the list of (path, backup_path) pairs that were modified so the
+    caller can restore them on teardown/failure.
+    """
+    backups = []
+    for path in paths:
+        backup = path + MCAST_TUNNEL_BACKUP_SUFFIX
+        duthost.shell("sudo cp -p {} {}".format(path, backup))
+        backups.append((path, backup))
+        result = duthost.shell(
+            "sudo sed -i -E 's/({})true/\\1false/' {}".format(MCAST_TUNNEL_KEY_RE, path),
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "sed failed disabling mcast_tunnel_enabled in {}".format(path),
+        )
+        pytest_assert(
+            not _file_mcast_tunnel_enabled(duthost, path),
+            "Failed to disable mcast_tunnel_enabled in {}".format(path),
+        )
+    return backups
+
+
+def restore_mcast_tunnel(duthost, backups):
+    """Restore the SAI init files backed up by disable_mcast_tunnel.
+
+    Runs on the teardown/failure path and must never raise so the caller always
+    reaches the subsequent config_reload; per-file failures are logged and the
+    remaining files are still restored.
+    """
+    for path, backup in backups:
+        res = duthost.shell("sudo mv -f {} {}".format(backup, path), module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error(
+                "Failed to restore mcast_tunnel_enabled file %s from %s: %s",
+                path, backup, res.get("stderr"),
+            )
 
 
 def calculate_wait_time(total_sessions):
@@ -434,12 +533,25 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
     t1_ptf_port_index = None
 
     duthost = None
+    mcast_tunnel_backups = []
 
     try:
         ecmp_utils.Constants["KEEP_TEMP_FILES"] = False
         ecmp_utils.Constants["DEBUG"] = True
         duthost = duthosts[rand_one_dut_hostname]
         dut_index = tbinfo["duts"].index(rand_one_dut_hostname)
+
+        # Cisco-8000 terminates VXLAN only from known remote VTEPs while the
+        # mcast_tunnel_enabled ASIC property is set, so scale decap validation
+        # that sources traffic from arbitrary outer SIPs fails. Disable it for
+        # the duration of the test (only in the files that currently enable it)
+        # and restore the original files in teardown. A config reload is needed
+        # for syncd to pick up the change.
+        if duthost.facts["asic_type"] == CISCO_8000_ASIC:
+            enabled_files = mcast_tunnel_enabled_files(duthost)
+            if enabled_files:
+                mcast_tunnel_backups = disable_mcast_tunnel(duthost, enabled_files)
+                config_reload(duthost, safe_reload=True, yang_validate=False)
 
         cfg_facts = get_cfg_facts(duthost)
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
@@ -490,6 +602,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
         logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
         cleanup_ptf_config(ptfhost, ptf_ports)
         if duthost is not None:
+            restore_mcast_tunnel(duthost, mcast_tunnel_backups)
             config_reload(duthost, safe_reload=True, yang_validate=False)
         pytest.fail("Vnet testing setup failed")
 
@@ -504,6 +617,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
     }
 
     cleanup_ptf_config(ptfhost, ptf_ports)
+    restore_mcast_tunnel(duthost, mcast_tunnel_backups)
     config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
