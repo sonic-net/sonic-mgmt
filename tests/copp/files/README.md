@@ -1,25 +1,27 @@
 # CoPP NN-agent offline bundle
 
-`copp-nn-agent-bundle-amd64.tar.gz` lets the shared CoPP fixture install the
-DUT-side PTF NN agent without network access from the running `syncd`
-container.
+The shared CoPP fixture builds the DUT-side PTF NN-agent runtime on the
+sonic-mgmt runner, then installs it in `syncd` without giving that container
+network access.
 
-The bundle contains:
+`build_nn_agent_bundle.sh` starts a throwaway `debian:<codename>-slim`
+container matching the target `syncd` Debian release. It builds and packages:
 
-- Debian `libnanomsg5` 1.1.5+dfsg-1.1+b1 for amd64;
-- nnpy 1.4.2 and its CPython stable-ABI extension;
-- cffi 2.1.1 backends for CPython 3.11 and 3.13;
+- nnpy 1.4.2;
+- cffi 2.1.1;
 - pycparser 3.0;
+- the target release's `libnanomsg5` Debian package; and
 - `ptf_nn_agent.py` and `ptf/afpacket.py` pinned to p4lang/ptf commit
-  `9d41838d634c479fc24fac7a527ec5ee2d0ce8eb`; and
-- the corresponding upstream license texts and a version manifest.
+  `9d41838d634c479fc24fac7a527ec5ee2d0ce8eb`.
 
-The installer verifies the container architecture and Python ABI before it
-changes the container. Add a matching backend and update `manifest.json`
-before supporting another ABI or architecture.
+The generated tarball records its Debian codename, architecture, and Python
+ABI. `install_nn_agent_bundle.sh` requires all three values to match the
+running `syncd` container before installing anything.
 
-Current SHA-256:
+The fixture currently uses this path for amd64 Bookworm and Trixie syncd
+containers. It caches one bundle per codename/architecture/Python-ABI tuple
+for the pytest process. Unsupported targets or local build failures retain the
+legacy installer as a fallback.
 
-```
-b80eb699076f90059e830ae70c8b6da16c2ea6a834a138f2e571c308e76d9ab3
-```
+The builder requires Internet access and a working Docker socket on the
+sonic-mgmt runner; `syncd` itself remains offline.

@@ -4,6 +4,7 @@
     Todo:
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
+import atexit
 import re
 import logging
 import json
@@ -11,6 +12,9 @@ import ipaddress
 import ast
 import os
 import random
+import shutil
+import subprocess
+import tempfile
 
 from tests.common.config_reload import config_reload
 
@@ -29,14 +33,15 @@ _PTF_AFPACKET_URL = (
     "https://raw.githubusercontent.com/p4lang/ptf"
     "/{}/src/ptf/afpacket.py".format(_PTF_COMMIT))
 
-_NN_AGENT_BUNDLE = os.path.join(
-    os.path.dirname(__file__), "files", "copp-nn-agent-bundle-amd64.tar.gz")
-_NN_AGENT_BUNDLE_DUT = "/tmp/copp-nn-agent-bundle-amd64.tar.gz"
+_NN_AGENT_BUNDLE_BUILDER = os.path.join(
+    os.path.dirname(__file__), "files", "build_nn_agent_bundle.sh")
+_NN_AGENT_BUNDLE_DUT = "/tmp/copp-nn-agent-bundle.tar.gz"
 # Docker cp into a container's mounted /tmp writes outside the runtime-visible
 # mount, which can also be noexec. Stage at the root and extract under /opt.
-_NN_AGENT_BUNDLE_SYNCD = "/copp-nn-agent-bundle-amd64.tar.gz"
+_NN_AGENT_BUNDLE_SYNCD = "/copp-nn-agent-bundle.tar.gz"
 _NN_AGENT_BUNDLE_DIR = "/opt/copp-nn-agent-bundle"
-_NN_AGENT_BUNDLE_ABIS = {"cp311", "cp313"}
+_NN_AGENT_BUNDLE_CACHE = {}
+_NN_AGENT_BUNDLE_WORKDIR = None
 
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
 _APP_DB_COPP_CONFIG = ":/etc/swss/config.d/00-copp.config.json"
@@ -281,7 +286,7 @@ def _nn_agent_runtime_ready(dut, syncd_docker_name):
     return dut.command(cmd, module_ignore_errors=True)["rc"] == 0
 
 
-def _offline_nn_agent_bundle_supported(dut, syncd_docker_name):
+def _get_nn_agent_bundle_target(dut, syncd_docker_name, codename):
     architecture = dut.command(
         "docker exec {} dpkg --print-architecture".format(syncd_docker_name)
     )["stdout"].strip()
@@ -292,12 +297,55 @@ def _offline_nn_agent_bundle_supported(dut, syncd_docker_name):
             "sys.version_info.minor))'"
         ).format(syncd_docker_name)
     )["stdout"].strip()
-    return architecture == "amd64" and python_abi in _NN_AGENT_BUNDLE_ABIS
+    if architecture != "amd64":
+        return None
+    return codename, architecture, python_abi
 
 
-def _install_offline_nn_agent_bundle(dut, syncd_docker_name):
-    """Stage the NN-agent runtime without syncd network access."""
-    dut.copy(src=_NN_AGENT_BUNDLE, dest=_NN_AGENT_BUNDLE_DUT)
+def _cleanup_nn_agent_bundle_workdir():
+    if _NN_AGENT_BUNDLE_WORKDIR:
+        shutil.rmtree(_NN_AGENT_BUNDLE_WORKDIR, ignore_errors=True)
+
+
+def _build_nn_agent_bundle(codename, architecture, python_abi):
+    """Build and cache an NN-agent bundle in a matching Debian container."""
+    global _NN_AGENT_BUNDLE_WORKDIR
+
+    target = (codename, architecture, python_abi)
+    if target in _NN_AGENT_BUNDLE_CACHE:
+        return _NN_AGENT_BUNDLE_CACHE[target]
+
+    if _NN_AGENT_BUNDLE_WORKDIR is None:
+        _NN_AGENT_BUNDLE_WORKDIR = tempfile.mkdtemp(
+            prefix="copp-nn-agent-bundles-")
+        atexit.register(_cleanup_nn_agent_bundle_workdir)
+
+    bundle = os.path.join(
+        _NN_AGENT_BUNDLE_WORKDIR,
+        "copp-nn-agent-bundle-{}-{}-{}.tar.gz".format(
+            codename, architecture, python_abi),
+    )
+    try:
+        subprocess.check_call([
+            _NN_AGENT_BUNDLE_BUILDER,
+            codename,
+            architecture,
+            python_abi,
+            bundle,
+        ])
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise RuntimeError(
+            "Failed to build CoPP NN-agent bundle for {}/{}/{}: {}".format(
+                codename, architecture, python_abi, error)
+        )
+
+    _NN_AGENT_BUNDLE_CACHE[target] = bundle
+    return bundle
+
+
+def _install_offline_nn_agent_bundle(dut, syncd_docker_name, bundle):
+    """Stage a locally built NN-agent runtime without syncd network access."""
+    dut.copy(src=bundle, dest=_NN_AGENT_BUNDLE_DUT)
     try:
         dut.command("docker cp {} {}:{}".format(
             _NN_AGENT_BUNDLE_DUT, syncd_docker_name, _NN_AGENT_BUNDLE_SYNCD))
@@ -334,18 +382,28 @@ def _install_offline_nn_agent_bundle(dut, syncd_docker_name):
         )
 
 
-def _install_nano_bookworm(dut, creds, syncd_docker_name):
+def _install_nano_bookworm(dut, creds, syncd_docker_name, codename):
     if _nn_agent_runtime_ready(dut, syncd_docker_name):
         return
 
-    if _offline_nn_agent_bundle_supported(dut, syncd_docker_name):
-        _install_offline_nn_agent_bundle(dut, syncd_docker_name)
-        return
-
-    logging.warning(
-        "The offline CoPP NN-agent bundle does not support this syncd "
-        "architecture/Python ABI; falling back to the legacy network installer"
-    )
+    target = _get_nn_agent_bundle_target(dut, syncd_docker_name, codename)
+    if target:
+        try:
+            bundle = _build_nn_agent_bundle(*target)
+        except RuntimeError as error:
+            logging.warning(
+                "%s; falling back to the legacy syncd network installer",
+                error,
+            )
+        else:
+            _install_offline_nn_agent_bundle(
+                dut, syncd_docker_name, bundle)
+            return
+    else:
+        logging.warning(
+            "The CoPP NN-agent builder does not support this syncd "
+            "architecture; falling back to the legacy network installer"
+        )
     http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
     # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
@@ -379,7 +437,8 @@ def _install_nano(dut, creds,  syncd_docker_name):
     codename = dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
                          .format(syncd_docker_name))['stdout'].lower()
     if "bookworm" in codename or "trixie" in codename:
-        _install_nano_bookworm(dut, creds, syncd_docker_name)
+        codename = codename.split("=", 1)[-1].strip().strip('"')
+        _install_nano_bookworm(dut, creds, syncd_docker_name, codename)
         return
 
     if dut.facts["asic_type"] == "cisco-8000":
