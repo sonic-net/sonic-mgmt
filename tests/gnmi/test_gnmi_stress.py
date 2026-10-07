@@ -5,25 +5,16 @@ import json
 
 import grpc
 
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.gnmi_benchmark.helpers import build_native_set_request, gnmi_connection
-from .tls_setup import gnmi_server_context
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp")
 ]
-
-
-@pytest.fixture(scope="module")
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config,
-                      setup_vrf_configuration, setup_gnmi_ntp_client_server):
-    duthost = duthosts[rand_one_dut_hostname]
-    with gnmi_server_context(duthost, localhost, ptfhost, vrf_config) as server:
-        yield server
 
 
 def get_first_interface(duthost):
@@ -45,7 +36,7 @@ def get_first_interface(duthost):
     return None
 
 
-def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, setup_gnmi_server):
+def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI native write latency
     Update interface description repeatedly and check latency
@@ -68,7 +59,7 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, setup_gnmi_se
     # Initialize latency tracking
     total_latencies = []
 
-    with gnmi_connection(setup_gnmi_server) as (channel, client):
+    with gnmi_connection(gnmi_tls) as (channel, client):
         grpc.channel_ready_future(channel).result(timeout=30)
         logger.info("Latency measures paired Set calls on a ready shared TLS channel; excludes legacy PTF/CLI setup")
         for i in range(test_loop):
