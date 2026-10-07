@@ -290,11 +290,8 @@ def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg
         lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
         nh_ptf_ports, all_port_indices, lag_facts)
-    # Deep copy the FIB data before changing the shutdown expectation.
-    fib_infos_after_shutdown = [
-        {prefix: [list(ports) for ports in paths] for prefix, paths in fib_info.items()}
-        for fib_info in fib_infos
-    ]
+    # Copy each FIB dictionary before changing the shutdown expectation.
+    fib_infos_after_shutdown = [fib_info.copy() for fib_info in fib_infos]
     for fib_index, fib_info in enumerate(fib_infos_after_shutdown):
         if (is_t2 or fib_index == 0) and '0.0.0.0/0' in fib_info:
             fib_info['0.0.0.0/0'] = [
