@@ -106,7 +106,8 @@ def test_privatelink_udp_sport_range_negative(
     # vxlan_security is enabled by default, disable it when vxlan_security is false
     if vxlan_security == "false":
         if 'pensando' in dpuhost.facts['asic_type']:
-            pytest.skip("on AMD DPU VXLAN Source port check is always enabled. Skipping vxlan source port security check disable test")
+            pytest.skip("on AMD DPU VXLAN Source port check is always enabled.\
+                         Skipping vxlan source port security check disable test")
         else:
             request.getfixturevalue("disable_vxlan_security")
 
