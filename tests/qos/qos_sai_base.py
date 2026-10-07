@@ -1494,6 +1494,9 @@ class QosSaiBase(QosBase):
             src_namespace_prefix = src_asic.namespace + '|' if src_asic.namespace else f'Asic{src_asic.asic_index}|'
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
+                    # Skip ports that are not mapped to a PTF port on this DUT
+                    if iface not in src_mgFacts["minigraph_ptf_indices"]:
+                        continue
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
@@ -1510,6 +1513,9 @@ class QosSaiBase(QosBase):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                     )
+                    # Skip portchannels whose members are not mapped to PTF ports on this DUT
+                    if portName not in src_mgFacts["minigraph_ptf_indices"]:
+                        continue
                     portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
@@ -1549,6 +1555,9 @@ class QosSaiBase(QosBase):
                 active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
+                        # Skip ports that are not mapped to a PTF port on this DUT
+                        if iface not in dst_mgFacts["minigraph_ptf_indices"]:
+                            continue
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][iface]
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
@@ -1565,6 +1574,9 @@ class QosSaiBase(QosBase):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
+                        # Skip portchannels whose members are not mapped to PTF ports on this DUT
+                        if portName not in dst_mgFacts["minigraph_ptf_indices"]:
+                            continue
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][portName]
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
