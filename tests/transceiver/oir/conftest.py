@@ -16,6 +16,7 @@ from tests.common.platform.device_utils import SERVER_PORT, start_platform_api_s
 from tests.common.platform.interface_utils import get_pport_presence_data
 from tests.transceiver.attribute_parser.attribute_keys import PHYSICAL_OIR_ATTRIBUTES_KEY
 from tests.transceiver.common.port_selectors import select_attribute_ports
+from tests.transceiver.common.topology import resolve_remote_peer
 from tests.transceiver.oir import oir_helpers
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,26 @@ def oir_pport_to_lports(
 
     logger.info("Physical OIR ports under test: %s", mapping)
     return mapping
+
+
+@pytest.fixture(scope="module")
+def oir_link_peers(duthost, duthosts, conn_graph_facts, oir_pport_to_lports):
+    """``{logical port under test: its link peer}`` for the link peers on this DUT.
+
+    A port's OIR takes its link peer down too, so the other-port checks must not
+    treat the peer as an unrelated port.  A peer that cannot be resolved stays
+    in those checks, where it can only cause a reported failure, never hide one.
+    """
+    link_peers = {}
+    for lports in oir_pport_to_lports.values():
+        for lport in lports:
+            peer, error = resolve_remote_peer(duthost, duthosts, conn_graph_facts, lport)
+            if error:
+                logger.info("No link peer on this DUT for %s: %s", lport, error)
+            elif peer.device == duthost.hostname:
+                link_peers[lport] = peer.port
+    logger.info("Physical OIR link peers on this DUT: %s", link_peers)
+    return link_peers
 
 
 @pytest.fixture(scope="session")
