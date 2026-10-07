@@ -43,15 +43,15 @@ class DualTorParser:
         neighbor = {}
         neighbor['hostname'] = [
             dut for dut in self.testbed_facts['duts'] if dut != self.hostname][0]
-        neighbor_ip = self.host_vars[neighbor['hostname']].get(
-            'ansible_host', self.host_vars[neighbor['hostname']].get('ansible_hostv6'))
-        if ipaddress.ip_address(neighbor_ip).version == 6:
-            neighbor['ip_v6'] = neighbor_ip
-        else:
-            neighbor['ip'] = neighbor_ip
-            if self.host_vars[neighbor['hostname']].get('ansible_hostv6'):
-                ipaddress.IPv6Address(self.host_vars[neighbor['hostname']]['ansible_hostv6'])
-                neighbor['ip_v6'] = self.host_vars[neighbor['hostname']]['ansible_hostv6']
+        for host_var in ('ansible_host', 'ansible_hostv6'):
+            address = self.host_vars[neighbor['hostname']].get(host_var)
+            if not address:
+                continue
+            field = 'ip' if ipaddress.ip_address(address).version == 4 else 'ip_v6'
+            # Keep the primary if both supplied values have the same family.
+            neighbor.setdefault(field, address)
+        if 'ip' not in neighbor and 'ip_v6' not in neighbor:
+            raise ValueError("No management address supplied for {}".format(neighbor['hostname']))
         if 'hwsku' in self.host_vars[neighbor['hostname']]:
             neighbor['hwsku'] = self.host_vars[neighbor['hostname']]['hwsku']
         else:
