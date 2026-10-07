@@ -8,7 +8,7 @@ from pygnmi.create_gnmi_path import gnmi_path_generator
 from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.gnmi_benchmark.helpers import gnmi_connection
+from tests.common.helpers.gnmi_connection import gnmi_connection
 
 logger = logging.getLogger(__name__)
 
