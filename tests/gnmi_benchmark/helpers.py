@@ -8,7 +8,10 @@ from contextlib import contextmanager, ExitStack
 from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.gcu_utils import apply_gcu_patch
-from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection  # noqa: F401
+from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection
+
+__all__ = ["BYPASS_METADATA", "build_native_set_request", "gnmi_connection",
+           "collect_resource_snapshot", "route_resources"]
 
 BYPASS_METADATA = (("x-sonic-ss-bypass-validation", "true"),)
 
