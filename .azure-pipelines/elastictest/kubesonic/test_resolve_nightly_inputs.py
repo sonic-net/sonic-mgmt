@@ -23,13 +23,6 @@ def _resolved_profile():
             "k8s_container/test_gnmi.py",
             "k8s_container/test_example.py",
         ],
-        "parameter_tokens": [
-            "--k8s-container-test",
-            "--k8s-gnmi-role=golden",
-        ],
-        "topologies": ["m0", "mx"],
-        "name_prefixes": ["testbed-bjw-can-720dt-"],
-        "dut_count": 1,
     }
 
 
@@ -43,17 +36,73 @@ class NightlyProfileTests(unittest.TestCase):
             resolved["selectors"],
             ["k8s_container/test_gnmi.py"],
         )
-        self.assertEqual(
-            resolved["parameter_tokens"],
-            ["--k8s-container-test", "--k8s-gnmi-role=golden"],
+
+    def test_trusted_nightly_testbed_policy(self):
+        selected = {
+            "name": "testbed-bjw-can-720dt-3",
+            "topo": "m0",
+            "dut": ["dut-1"],
+        }
+
+        self.assertIs(
+            RESOLVER._validate_nightly_testbed(selected),
+            selected,
         )
+
+    def test_trusted_nightly_testbed_policy_accepts_duts_field(self):
+        selected = {
+            "name": "testbed-bjw-can-720dt-3",
+            "topo": "m0",
+            "duts": {"dut-1": {}},
+        }
+
+        self.assertIs(
+            RESOLVER._validate_nightly_testbed(selected),
+            selected,
+        )
+
+    def test_trusted_nightly_testbed_policy_rejects_drift(self):
+        cases = (
+            (
+                {
+                    "name": "testbed-bjw-can-720dt-3",
+                    "topo": "t1",
+                    "dut": ["dut-1"],
+                },
+                "topology",
+            ),
+            (
+                {
+                    "name": "testbed-other-3",
+                    "topo": "m0",
+                    "dut": ["dut-1"],
+                },
+                "name must start",
+            ),
+            (
+                {
+                    "name": "testbed-bjw-can-720dt-3",
+                    "topo": "mx",
+                    "dut": ["dut-1", "dut-2"],
+                },
+                "exactly 1 DUT",
+            ),
+        )
+
+        for testbed, message in cases:
+            with self.subTest(testbed=testbed):
+                with self.assertRaisesRegex(
+                    RESOLVER.ResolutionError,
+                    message,
+                ):
+                    RESOLVER._validate_nightly_testbed(testbed)
 
     @mock.patch.dict(
         os.environ,
         {
             "PIPELINE_REF": "refs/heads/internal",
             "SOURCE_COMMIT": "a" * 40,
-            "TEST_CONFIG": "nightly-default",
+            "TEST_PROFILE": "nightly-default",
             "TESTBED": "testbed-bjw-can-720dt-3",
             "AZURE_DEVOPS_TOKEN": "token",
             "SYSTEM_COLLECTION_URI": "https://dev.azure.com/mssonic/",
@@ -65,11 +114,12 @@ class NightlyProfileTests(unittest.TestCase):
         clear=True,
     )
     def test_main_sets_profile_testbed_and_source_variables(self):
-        profile = {"version": 1}
+        profile = {"version": 2}
         resolved_profile = _resolved_profile()
         selected = {
             "name": "testbed-bjw-can-720dt-3",
             "topo": "m0",
+            "dut": ["dut-1"],
         }
         with ExitStack() as stack:
             stack.enter_context(
@@ -103,8 +153,8 @@ class NightlyProfileTests(unittest.TestCase):
             stack.enter_context(
                 mock.patch.object(
                     RESOLVER,
-                    "_select_testbed",
-                    return_value=(selected, 1),
+                    "_select_exact_testbed",
+                    return_value=selected,
                 )
             )
             set_variable = stack.enter_context(
@@ -128,7 +178,7 @@ class NightlyProfileTests(unittest.TestCase):
                 mock.call(
                     "resolvedSpecificParam",
                     '[{"name":"k8s_container","param":'
-                    '"--k8s-container-test --k8s-gnmi-role=golden"}]',
+                    '"--k8s-container-test"}]',
                 ),
                 mock.call(
                     "resolvedTestbedName",
@@ -149,7 +199,7 @@ class NightlyProfileTests(unittest.TestCase):
         {
             "PIPELINE_REF": "refs/heads/internal",
             "SOURCE_COMMIT": "a" * 40,
-            "TEST_CONFIG": "nightly-default",
+            "TEST_PROFILE": "nightly-default",
             "TESTBED": "auto",
             "AZURE_DEVOPS_TOKEN": "token",
             "SYSTEM_COLLECTION_URI": "https://dev.azure.com/mssonic/",

@@ -1,21 +1,7 @@
 {
-  "version": 1,
-  "description": "Run the reviewed KubeSonic nightly workload on a profile-compatible one-DUT testbed.",
+  "version": 2,
+  "description": "Run the reviewed KubeSonic nightly workload on the selected testbed.",
   "selectors": [
     "k8s_container/test_gnmi.py"
-  ],
-  "parameters": {
-    "k8s-container-test": true,
-    "k8s-gnmi-role": "golden"
-  },
-  "requirements": {
-    "topologies": [
-      "m0",
-      "mx"
-    ],
-    "name_prefixes": [
-      "testbed-bjw-can-720dt-"
-    ],
-    "dut_count": 1
-  }
+  ]
 }

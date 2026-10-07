@@ -9,15 +9,10 @@ parameters:
     default: 0
     displayName: "Required sonic-mgmt-int pull request ID"
 
-  - name: TEST_CONFIG
-    type: string
-    default: "from-pr"
-    displayName: "Use from-pr, or enter a KubeSonic profile name or path"
-
   - name: TESTBED
     type: string
-    default: "auto"
-    displayName: "Use auto or enter one exact eligible physical testbed name"
+    default: ""
+    displayName: "Required exact physical testbed name"
 
 resources:
   repositories:
@@ -71,7 +66,6 @@ stages:
             env:
               PIPELINE_REF: $(Build.SourceBranch)
               PR_ID: ${{ parameters.PR_ID }}
-              TEST_CONFIG: ${{ parameters.TEST_CONFIG }}
               TESTBED: ${{ parameters.TESTBED }}
               AZURE_DEVOPS_TOKEN: $(System.AccessToken)
               SYSTEM_COLLECTION_URI: $(System.CollectionUri)

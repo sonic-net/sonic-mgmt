@@ -11,10 +11,8 @@ from contextlib import contextmanager
 
 import pytest
 
-from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.minikube import DEFAULT_PROFILE
 from tests.common.minikube import MinikubeLockHeldError
-from tests.common.helpers.dut_utils import creds_on_dut
 from tests.common.gu_utils import create_checkpoint
 from tests.common.gu_utils import delete_checkpoint
 from tests.common.gu_utils import rollback
@@ -25,6 +23,11 @@ from tests.common.helpers.gnmi_utils import delete_gnmi_certs
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.k8s_container.container_spec import SPEC_DIRECTORY
 from tests.k8s_container.container_spec import load_container_spec
+from tests.k8s_container.image_staging import normalized_image_id
+from tests.k8s_container.image_staging import PAUSE_IMAGE
+from tests.k8s_container.image_staging import ProviderCleanupError
+from tests.k8s_container.image_staging import runtime_image_id
+from tests.k8s_container.image_staging import stage_images
 from tests.k8s_container.lifecycle import MinikubeCommandBoundary
 from tests.k8s_container.lifecycle import deploy_workload
 from tests.k8s_container.workload import ContainerSpec
@@ -35,8 +38,6 @@ pytest_plugins = ("tests.common.fixtures.minikube",)
 
 logger = logging.getLogger(__name__)
 SPEC_PATH = SPEC_DIRECTORY / "gnmi.yaml"
-PAUSE_IMAGE = "k8s.gcr.io/pause:3.5"
-PAUSE_SOURCE_IMAGE = "publicmirror.azurecr.io/pause:3.5"
 DUT_CERTIFICATE_PATHS = (
     "/etc/sonic/telemetry/gnmiCA.pem",
     "/etc/sonic/telemetry/gnmiserver.crt",
@@ -55,13 +56,6 @@ PTF_CERTIFICATE_PATHS = (
 )
 
 
-class ProviderCleanupError(RuntimeError):
-    def __init__(self, message):
-        super().__init__(message)
-        self.cleanup_errors = (message,)
-        self.preserve_environment = True
-
-
 def _option(request, name, default):
     try:
         return request.config.getoption(name)
@@ -69,9 +63,7 @@ def _option(request, name, default):
         return default
 
 
-def _selected_images(request, duthost, spec):
-    role = _option(request, "--k8s-gnmi-role", "golden")
-    candidate = _option(request, "--k8s-gnmi-image", None)
+def _selected_images(duthost, spec):
     machine = duthost.shell("uname -m", module_ignore_errors=True)
     architecture = machine.get("stdout", "").strip()
     if machine.get("rc", 1) != 0 or not architecture:
@@ -83,40 +75,9 @@ def _selected_images(request, duthost, spec):
         }
     except ValueError as error:
         pytest.fail(str(error))
-    if role == "candidate":
-        if not candidate:
-            pytest.fail("--k8s-gnmi-image is required for the candidate role")
-        images["gnmi"] = candidate
-    elif candidate:
-        pytest.fail("the golden role uses checked-in soniccr1 tags, not --k8s-gnmi-image")
     for name, image in images.items():
         ContainerSpec(name=name, image=image)
     return images
-
-
-def _normalized_image_id(image_id):
-    return image_id.rsplit("sha256:", 1)[-1]
-
-
-def _runtime_image_id(duthost, pod_uid, container_name):
-    result = duthost.shell(
-        "docker ps -q --filter {} --filter {}".format(
-            shlex.quote("label=io.kubernetes.pod.uid={}".format(pod_uid)),
-            shlex.quote("label=io.kubernetes.container.name={}".format(container_name)),
-        ),
-        module_ignore_errors=True,
-    )
-    container_ids = result.get("stdout", "").split()
-    if result.get("rc", 1) != 0 or len(container_ids) != 1:
-        pytest.fail("Unable to resolve one Kubernetes {} runtime container".format(container_name))
-    inspection = duthost.shell(
-        "docker inspect {}".format(shlex.quote(container_ids[0])),
-        module_ignore_errors=True,
-    )
-    try:
-        return json.loads(inspection.get("stdout", ""))[0]["Image"]
-    except (ValueError, IndexError, KeyError, TypeError):
-        pytest.fail("Kubernetes {} runtime inspection is invalid".format(container_name))
 
 
 def _remote_file_baseline(host, root, paths, sudo=False):
@@ -535,7 +496,7 @@ def _resolve_gnmi_container(duthost):
         image_id = json.loads(inspection.get("stdout", ""))[0]["Image"]
     except (ValueError, IndexError, KeyError, TypeError):
         return None
-    if _normalized_image_id(image_id) != _normalized_image_id(identity["image_id"]):
+    if normalized_image_id(image_id) != normalized_image_id(identity["image_id"]):
         return None
     return container_ids[0]
 
@@ -569,221 +530,6 @@ def _patched_public_gnmi_runtime():
         yield
     finally:
         GNMIEnvironment.generate_gnmi_config = original_generate
-
-
-def _image_id(host, image):
-    result = host.command(
-        argv=["docker", "image", "inspect", image],
-        module_ignore_errors=True,
-        verbose=False,
-    )
-    if result.get("rc", 1) != 0:
-        return None
-    try:
-        return json.loads(result.get("stdout", ""))[0]["Id"]
-    except (ValueError, IndexError, KeyError, TypeError):
-        pytest.fail("Image inspection returned invalid JSON for {}".format(image))
-
-
-def _registry_host(value):
-    host = value.rstrip("/")
-    return host[:-4] if host.endswith(":443") else host
-
-
-def _tagged_image(image):
-    last_slash = image.rfind("/")
-    separator = image.rfind(":")
-    if separator <= last_slash or "@" in image:
-        pytest.fail("Nightly image staging requires a version-pinned tag: {}".format(image))
-    registry_and_repository = image[:separator]
-    registry, found, repository = registry_and_repository.partition("/")
-    if not found:
-        pytest.fail("Nightly image staging requires an explicit registry: {}".format(image))
-    return registry, repository, image[separator + 1:]
-
-
-def _dut_docker(duthost, docker_config, arguments):
-    return duthost.command(
-        argv=["env", "DOCKER_CONFIG={}".format(docker_config), "docker"] + list(arguments),
-        module_ignore_errors=True,
-        verbose=False,
-    )
-
-
-def _pull_private_image(duthost, docker_config, creds, image, logged_in):
-    registry_name, repository, tag = _tagged_image(image)
-    registry = load_docker_registry_info(duthost, creds)
-    if _registry_host(registry.host) != _registry_host(registry_name):
-        pytest.fail("Registry credentials do not match {}".format(registry_name))
-    if registry_name not in logged_in:
-        if not registry.username or not registry.password:
-            pytest.fail("Registry credentials are required for {}".format(registry_name))
-        result = duthost._run(
-            "community.docker.docker_login",
-            registry_url=registry_name,
-            username=registry.username,
-            password=registry.password,
-            config_path="{}/config.json".format(docker_config),
-            reauthorize=True,
-            module_ignore_errors=True,
-            verbose=False,
-        )
-        if result.get("failed", True):
-            pytest.fail("Unable to authenticate to {}".format(registry_name))
-        logged_in.add(registry_name)
-    result = _dut_docker(duthost, docker_config, ["pull", "{}/{}:{}".format(registry_name, repository, tag)])
-    if result.get("rc", 1) != 0:
-        pytest.fail("Unable to pull {} on the DUT".format(image))
-
-
-def _restore_image_reference(duthost, image, before_id, staged_id):
-    current_id = _image_id(duthost, image)
-    if current_id is None:
-        if before_id is None:
-            return None
-        result = duthost.command(
-            argv=["docker", "tag", before_id, image],
-            module_ignore_errors=True,
-            verbose=False,
-        )
-        restored_id = _image_id(duthost, image)
-        if (
-            result.get("rc", 1) != 0
-            or restored_id is None
-            or _normalized_image_id(restored_id) != _normalized_image_id(before_id)
-        ):
-            return "unable to restore missing image reference {}".format(image)
-        return None
-    if _normalized_image_id(current_id) != _normalized_image_id(staged_id):
-        return "{} changed after staging; preserving it".format(image)
-    if before_id is None:
-        result = duthost.command(
-            argv=["docker", "image", "rm", image],
-            module_ignore_errors=True,
-            verbose=False,
-        )
-        if result.get("rc", 1) != 0 or _image_id(duthost, image) is not None:
-            return "unable to remove added image reference {}".format(image)
-        return None
-    result = duthost.command(
-        argv=["docker", "tag", before_id, image],
-        module_ignore_errors=True,
-        verbose=False,
-    )
-    restored_id = _image_id(duthost, image)
-    if (
-        result.get("rc", 1) != 0
-        or restored_id is None
-        or _normalized_image_id(restored_id) != _normalized_image_id(before_id)
-    ):
-        return "unable to restore image reference {}".format(image)
-    return None
-
-
-@contextmanager
-def _stage_images(duthost, creds, images):
-    docker_config = "/tmp/sonic-mgmt-k8s-docker-{}".format(uuid.uuid4())
-    references = {}
-    logged_in = set()
-    primary_error = None
-    preloaded_only = duthost.facts.get("asic_type") == "vs"
-    try:
-        duthost.shell(
-            "install -d -m 0700 {}".format(shlex.quote(docker_config)),
-            module_ignore_errors=False,
-            verbose=False,
-        )
-        for target in sorted(set(images)):
-            if preloaded_only:
-                target_id = _image_id(duthost, target)
-                if target_id is None:
-                    pytest.fail("KVM image must be preloaded: {}".format(target))
-                references[target] = {"before": target_id, "staged": target_id}
-                continue
-            source = PAUSE_SOURCE_IMAGE if target == PAUSE_IMAGE else target
-            if target not in references:
-                references[target] = {"before": _image_id(duthost, target), "staged": None}
-            if target == PAUSE_IMAGE and references[target]["before"] is not None:
-                references[target]["staged"] = references[target]["before"]
-                continue
-            if source not in references:
-                references[source] = {"before": _image_id(duthost, source), "staged": None}
-            if source == PAUSE_SOURCE_IMAGE:
-                result = _dut_docker(duthost, docker_config, ["pull", source])
-                if result.get("rc", 1) != 0:
-                    pytest.fail("Unable to pull {} on the DUT".format(source))
-            else:
-                _pull_private_image(duthost, docker_config, creds, source, logged_in)
-            references[source]["staged"] = _image_id(duthost, source)
-            if not references[source]["staged"]:
-                pytest.fail("Pulled image is absent: {}".format(source))
-            if target != source:
-                result = duthost.command(
-                    argv=["docker", "tag", source, target],
-                    module_ignore_errors=True,
-                    verbose=False,
-                )
-                if result.get("rc", 1) != 0:
-                    pytest.fail("Unable to tag {} as {}".format(source, target))
-            references[target]["staged"] = _image_id(duthost, target)
-            if (
-                not references[target]["staged"]
-                or _normalized_image_id(references[target]["staged"])
-                != _normalized_image_id(references[source]["staged"])
-            ):
-                pytest.fail("Staged image identity differs for {}".format(target))
-        credential_cleanup = duthost.shell(
-            "rm -rf -- {0} && test ! -e {0}".format(shlex.quote(docker_config)),
-            module_ignore_errors=True,
-            verbose=False,
-        )
-        if credential_cleanup.get("rc", 1) != 0:
-            pytest.fail("Unable to remove temporary Docker credentials before test execution")
-        yield
-    except BaseException as error:
-        primary_error = error
-        raise
-    finally:
-        cleanup_errors = []
-        preserve = primary_error is not None and getattr(
-            primary_error, "preserve_workload_dependencies", False
-        )
-        if preserve:
-            logger.error("Staged image references retained because workload cleanup failed")
-        else:
-            for image, identity in reversed(tuple(references.items())):
-                try:
-                    if identity["staged"] is None:
-                        identity["staged"] = _image_id(duthost, image)
-                    if identity["staged"] is None or identity["staged"] == identity["before"]:
-                        continue
-                    cleanup_error = _restore_image_reference(
-                        duthost, image, identity["before"], identity["staged"]
-                    )
-                    if cleanup_error:
-                        cleanup_errors.append(cleanup_error)
-                except BaseException as error:
-                    cleanup_errors.append("unable to restore {}: {}".format(image, error))
-        try:
-            credential_cleanup = duthost.shell(
-                "rm -rf -- {0} && test ! -e {0}".format(shlex.quote(docker_config)),
-                module_ignore_errors=True,
-                verbose=False,
-            )
-            if credential_cleanup.get("rc", 1) != 0:
-                cleanup_errors.append("unable to remove temporary Docker credentials")
-        except BaseException as error:
-            cleanup_errors.append("unable to remove temporary Docker credentials: {}".format(error))
-        if cleanup_errors:
-            if primary_error is not None:
-                logger.error("Image staging cleanup failed: %s", "; ".join(cleanup_errors))
-                existing = tuple(getattr(primary_error, "cleanup_errors", ()))
-                setattr(primary_error, "cleanup_errors", existing + tuple(cleanup_errors))
-                setattr(primary_error, "preserve_environment", True)
-            else:
-                raise ProviderCleanupError(
-                    "Image staging cleanup failed: {}".format("; ".join(cleanup_errors))
-                )
 
 
 def _host_gnmi_identity(duthost, timeout_seconds=0):
@@ -994,7 +740,7 @@ systemctl restart gnmi
                 else:
                     try:
                         restored_image_id = _host_gnmi_identity(duthost, timeout_seconds=60)[2]
-                        if _normalized_image_id(restored_image_id) != _normalized_image_id(expected_image_id):
+                        if normalized_image_id(restored_image_id) != normalized_image_id(expected_image_id):
                             cleanup_errors.append("Restored host gNMI uses a different image ID")
                     except BaseException as error:
                         cleanup_errors.append("Unable to verify restored host gNMI: {}".format(error))
@@ -1019,17 +765,16 @@ systemctl restart gnmi
 
 
 @contextmanager
-def _deployed_gnmi_workload(request, minikube_duthost, joined_minikube_dut):
+def _deployed_gnmi_workload(minikube_duthost, joined_minikube_dut):
     spec = load_container_spec(SPEC_PATH)
-    role = _option(request, "--k8s-gnmi-role", "golden")
-    images = _selected_images(request, minikube_duthost, spec)
+    images = _selected_images(minikube_duthost, spec)
     host_gnmi_identity = _host_gnmi_identity(joined_minikube_dut.duthost)
     ownership_id = str(uuid.uuid4())
     platform = str(joined_minikube_dut.duthost.facts.get("platform", ""))
     if not platform:
         pytest.fail("DUT platform is required for the gNMI container family")
     bundle = spec.build_bundle(
-        name="gnmi-{}".format(role),
+        name="gnmi-golden",
         images=images,
         runtime_values={"PLATFORM": platform},
     )
@@ -1069,20 +814,19 @@ def _deployed_gnmi_workload(request, minikube_duthost, joined_minikube_dut):
                 ownership_id,
             ) as workload:
                 actual_image_ids = {
-                    name: _runtime_image_id(joined_minikube_dut.duthost, workload.pod_uid, name)
+                    name: runtime_image_id(joined_minikube_dut.duthost, workload.pod_uid, name)
                     for name in spec.container_names
                 }
                 for container_name, actual_image_id in actual_image_ids.items():
-                    if _normalized_image_id(actual_image_id) != _normalized_image_id(
+                    if normalized_image_id(actual_image_id) != normalized_image_id(
                         expected_image_ids[container_name]
                     ):
                         pytest.fail(
                             "Kubernetes started a different {} image ID".format(container_name)
                         )
                 logger.info(
-                    "Kubernetes gNMI target role=%s images=%s image_ids=%s dut=%s node=%s namespace=%s "
+                    "Kubernetes gNMI target images=%s image_ids=%s dut=%s node=%s namespace=%s "
                     "pod=%s resource=%s",
-                    role,
                     images,
                     actual_image_ids,
                     joined_minikube_dut.duthost.hostname,
@@ -1109,22 +853,21 @@ def kubernetes_gnmi_workload(request, minikube_duthost, localhost, ptfhost):
         pytest.fail("Kubernetes gNMI image staging requires the default serialized Minikube profile")
     vmhosts = tuple(request.getfixturevalue("vmhosts") or ())
     if len(vmhosts) != 1:
-        pytest.skip("Kubernetes gNMI qualification requires exactly one associated test server")
+        pytest.fail("Kubernetes gNMI qualification requires exactly one associated test server")
     try:
         minikube_cluster = request.getfixturevalue("minikube_cluster")
     except MinikubeLockHeldError as error:
         pytest.fail(
             "Minikube setup cannot use the associated test server: {}".format(error)
         )
-    creds = creds_on_dut(minikube_duthost)
     spec = load_container_spec(SPEC_PATH)
-    images = _selected_images(request, minikube_duthost, spec)
+    images = _selected_images(minikube_duthost, spec)
     staged_images = tuple(images.values()) + (PAUSE_IMAGE,)
     with _patched_public_gnmi_runtime():
         with minikube_cluster.joined_dut(minikube_duthost) as joined:
             try:
-                with _stage_images(minikube_duthost, creds, staged_images):
-                    with _deployed_gnmi_workload(request, minikube_duthost, joined) as workload:
+                with stage_images(minikube_duthost, staged_images):
+                    with _deployed_gnmi_workload(minikube_duthost, joined) as workload:
                         with _gnmi_tls_context(minikube_duthost, localhost, ptfhost):
                             yield workload
             except BaseException as error:

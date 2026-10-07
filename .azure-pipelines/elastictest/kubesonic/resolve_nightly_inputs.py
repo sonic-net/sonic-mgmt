@@ -9,16 +9,54 @@ from pathlib import Path
 from resolve_manual_inputs import (
     _COMMIT_PATTERN,
     _NAME_PATTERN,
+    SUITE_OPTION,
     ResolutionError,
     _fetch_profile,
     _get_elastictest_token,
     _query_testbeds,
     _required,
-    _resolve_profile_path,
-    _select_testbed,
+    _resolve_named_profile_path,
+    _select_exact_testbed,
     _set_variable,
+    _testbed_duts,
     _validate_profile,
 )
+
+NIGHTLY_TOPOLOGIES = {"m0", "mx"}
+NIGHTLY_NAME_PREFIXES = ("testbed-bjw-can-720dt-",)
+NIGHTLY_DUT_COUNT = 1
+
+
+def _validate_nightly_testbed(testbed):
+    reasons = []
+    name = str(testbed.get("name", ""))
+    topology = str(testbed.get("topo", ""))
+    dut_count = len(_testbed_duts(testbed))
+
+    if topology not in NIGHTLY_TOPOLOGIES:
+        reasons.append(
+            "topology must be one of {}".format(
+                ", ".join(sorted(NIGHTLY_TOPOLOGIES))
+            )
+        )
+    if not any(name.startswith(prefix) for prefix in NIGHTLY_NAME_PREFIXES):
+        reasons.append(
+            "name must start with {}".format(
+                " or ".join(NIGHTLY_NAME_PREFIXES)
+            )
+        )
+    if dut_count != NIGHTLY_DUT_COUNT:
+        reasons.append(
+            "must contain exactly {} DUT".format(NIGHTLY_DUT_COUNT)
+        )
+    if reasons:
+        raise ResolutionError(
+            "Nightly testbed {} violates trusted policy: {}".format(
+                name or "<unnamed>",
+                ", ".join(reasons),
+            )
+        )
+    return testbed
 
 
 def _write_summary(
@@ -28,7 +66,6 @@ def _write_summary(
     resolved_profile,
 ):
     summary_path = Path.cwd() / "kubesonic-nightly-summary.md"
-    options = " ".join(resolved_profile["parameter_tokens"])
     selectors = "<br>".join(
         f"`{selector}`" for selector in resolved_profile["selectors"]
     )
@@ -44,7 +81,7 @@ def _write_summary(
                 f"| Testbed | `{selected_testbed['name']}` |",
                 f"| Topology | `{selected_testbed['topo']}` |",
                 f"| Test selectors | {selectors} |",
-                f"| Pytest options | `{options}` |",
+                f"| Pytest options | `{SUITE_OPTION}` |",
                 "",
             ]
         ),
@@ -66,7 +103,7 @@ def main():
                 "SOURCE_COMMIT must be a full immutable commit"
             )
 
-        test_config = _required("TEST_CONFIG")
+        test_profile = _required("TEST_PROFILE")
         requested_testbed = _required("TESTBED")
         if (
             requested_testbed == "auto"
@@ -82,7 +119,7 @@ def main():
         project_id = _required("SYSTEM_TEAM_PROJECT_ID")
         repository_id = _required("BUILD_REPOSITORY_ID")
 
-        profile_path = _resolve_profile_path(test_config, [])
+        profile_path = _resolve_named_profile_path(test_profile)
         profile = _fetch_profile(
             collection_uri,
             project_id,
@@ -97,20 +134,18 @@ def main():
             _required("ELASTICTEST_MSAL_CLIENT_ID"),
             _required("SONIC_AUTOMATION_UMI"),
         )
-        selected_testbed, _ = _select_testbed(
-            _query_testbeds(elastictest_token),
-            requested_testbed,
-            resolved_profile,
-            source_commit,
+        selected_testbed = _validate_nightly_testbed(
+            _select_exact_testbed(
+                _query_testbeds(elastictest_token),
+                requested_testbed,
+            )
         )
 
         specific_param = json.dumps(
             [
                 {
                     "name": "k8s_container",
-                    "param": " ".join(
-                        resolved_profile["parameter_tokens"]
-                    ),
+                    "param": SUITE_OPTION,
                 }
             ],
             separators=(",", ":"),

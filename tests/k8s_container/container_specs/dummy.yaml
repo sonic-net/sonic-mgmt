@@ -1,0 +1,55 @@
+schema_version: 1
+
+# Direct soniccr1 pulls use the reviewed architecture-specific GoldVersion tags.
+golden_images:
+  dummyk8s:
+    amd64: soniccr1.azurecr.io/docker-dummyk8s:kube-20260202-amd64
+    armhf: soniccr1.azurecr.io/docker-dummyk8s:kube-20260202-armhf
+    arm64: soniccr1.azurecr.io/docker-dummyk8s:kube-20260202-arm64
+
+containers:
+  - name: dummyk8s
+    tty: true
+    env:
+      - name: IMAGE_VERSION
+        value: 20260202a.kube
+      - name: RUNTIME_OWNER
+        value: kube
+    securityContext:
+      privileged: false
+    volumeMounts:
+      - name: sonic
+        mountPath: /etc/sonic
+        readOnly: true
+      - name: dbus
+        mountPath: /var/run/dbus
+      - name: redis
+        mountPath: /var/run/redis
+      - name: redis-chassis
+        mountPath: /var/run/redis-chassis
+        readOnly: true
+    readinessProbe:
+      exec:
+        command:
+          - /bin/bash
+          - /usr/bin/readiness-probe.sh
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+volumes:
+  - name: sonic
+    hostPath:
+      path: /etc/sonic
+      type: Directory
+  - name: dbus
+    hostPath:
+      path: /var/run/dbus
+      type: Directory
+  - name: redis
+    hostPath:
+      path: /var/run/redis
+      type: Directory
+  - name: redis-chassis
+    hostPath:
+      path: /var/run/redis-chassis
+      type: Directory

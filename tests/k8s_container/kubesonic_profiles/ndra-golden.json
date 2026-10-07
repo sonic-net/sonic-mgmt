@@ -1,21 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Run the Network Device Repair Agent (NDRA) tests against the pinned golden images.",
   "selectors": [
     "k8s_container/test_ndra.py"
-  ],
-  "parameters": {
-    "k8s-container-test": true,
-    "k8s-ndra-role": "golden"
-  },
-  "requirements": {
-    "topologies": [
-      "m0",
-      "mx"
-    ],
-    "name_prefixes": [
-      "testbed-bjw-can-720dt-"
-    ],
-    "dut_count": 1
-  }
+  ]
 }

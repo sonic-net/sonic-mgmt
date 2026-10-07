@@ -1,42 +1,49 @@
 # KubeSonic test profiles
 
-Profiles are version-controlled test recipes. They define test selectors,
-structured pytest options, and compatible physical-testbed requirements.
+Profiles are version-controlled selector lists. Version 2 profiles choose
+tests only. They do not own testbeds, topology, device count, pytest
+overrides, or container images.
 
 ## Queue a manual run
 
 Run the `kubesonic.manual` pipeline from its default `internal` branch:
 
-- `PR_ID`: the active pull request that contains the test code.
-- `TEST_CONFIG`: `from-pr` when the pull request changes exactly one profile,
-  or an existing profile name such as `gnmi-golden`.
-- `TESTBED`: `auto`, or one exact physical testbed name when a specific
-  eligible device is required.
+- `PR_ID`: an active or completed pull request that changes exactly one
+  profile.
+- `TESTBED`: one exact physical testbed name.
 
-The pipeline resolves the pull request to an immutable commit. For `auto`, it
-reads the current Elastictest inventory, excludes unavailable or reserved
-testbeds, selects one matching the profile, and derives the topology from that
-testbed.
+An active pull request resolves to its immutable source commit. A completed
+pull request resolves to its merge commit. Zero or multiple changed profiles
+fail clearly. The pipeline reads live Elastictest inventory to validate the
+exact testbed and derive its topology and associated execution inventory.
+
+Container images belong in reviewed YAML under `../container_specs/`. To test
+another image, change that YAML in the same pull request. The manual queue has
+no runtime image override.
 
 ## Join the nightly run
 
 The `kubesonic.nightly` pipeline runs `nightly-default.json` from the exact
 scheduled `internal` commit. The profile initially contains the
-canary-validated gNMI golden selector and options. The scheduled default is
-`testbed-bjw-can-720dt-3`; a manual run may provide another exact eligible
-testbed that satisfies the same profile requirements.
+canary-validated gNMI selector. The scheduled default is
+`testbed-bjw-can-720dt-3`.
+
+The trusted nightly resolver keeps the reviewed target boundary outside the
+profile: topology `m0` or `mx`, the `testbed-bjw-can-720dt-` lab prefix, and
+exactly one DUT.
 
 Compatible Kubernetes-container tests can piggyback on the same physical run
-by adding their selectors and structured options to `nightly-default.json`.
-Every addition requires a reviewed profile change. The launcher YAML does not
-need to change.
+by adding their selectors to `nightly-default.json`. Every addition requires a
+reviewed profile change. The launcher YAML does not need to change.
+
+`dummy-golden.json` is the manual-only reference for onboarding another
+container. It exercises the shared Minikube, workload, image-staging,
+readiness, and cleanup contract without joining `nightly-default.json`.
 
 Keep one aggregate profile only while every included test is compatible with
-the same topology, testbed-name prefixes, DUT count, installed-image policy,
-preparation, pretest, posttest, restart-PTF, teardown, and release behavior.
-The job keeps test-case retries at zero and stops on failure. Do not weaken the
-requirements to admit an incompatible test. A test that needs a different
-physical boundary requires a separately reviewed profile and scheduled job.
+the same physical execution boundary. The job keeps test-case retries at zero
+and stops on failure. A test that needs a different boundary requires a
+separately reviewed profile and scheduled job.
 
 ## Add a profile
 
@@ -44,35 +51,20 @@ Add one JSON file under this directory:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "description": "What this profile validates.",
   "selectors": [
     "k8s_container/test_example.py"
-  ],
-  "parameters": {
-    "k8s-container-test": true,
-    "k8s-example-option": "value"
-  },
-  "requirements": {
-    "topologies": [
-      "m0"
-    ],
-    "name_prefixes": [
-      "testbed-example-"
-    ],
-    "dut_count": 1
-  }
+  ]
 }
 ```
 
 Profile rules:
 
 - Selectors must reference `test_*.py` files under `k8s_container/`.
-- Parameters must use `k8s-*` or `minikube-*` names.
-- `k8s-container-test` must be `true`.
-- Requirements must list allowed topologies and testbed-name prefixes.
-- `dut_count` must match the required number of devices under test (DUTs).
-- Shell syntax, traversal, quotes, and unknown fields are rejected.
+- Only `version`, `description`, and `selectors` are accepted.
+- Traversal, invalid selectors, and unknown fields are rejected.
 
-An exact `TESTBED` override must still be ready, unlocked, non-nightly, outside
-the `AIBE test only` pool, and compatible with the selected profile.
+The exact testbed must be ready, unlocked, non-nightly, and outside the
+`AIBE test only` pool. An explicitly selected test fails if that inventory is
+incompatible with its own runtime requirements.

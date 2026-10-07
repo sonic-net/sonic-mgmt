@@ -28,13 +28,6 @@ KUBECONFIG_ROOT = "/var/tmp/sonic-mgmt-minikube-kubeconfigs"
 logger = logging.getLogger(__name__)
 
 _PROFILE_NAME = re.compile(r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$")
-_NODE_IP_OVERRIDE_SKUS = frozenset((
-    "Arista-7060X6-16PE-384C-B-O128S2",
-    "Arista-7060CX-32S-C32",
-    "Arista-7060X6-64PE-B-C512S2",
-    "Mellanox-SN5640-C512S2",
-    "Mellanox-SN5640-C448O16",
-))
 
 
 class MinikubeError(RuntimeError):
@@ -933,8 +926,15 @@ cp --archive --no-dereference "$path" "$tmp"; printf '\n%s\n' "$line" >> "$tmp";
             raise MinikubeError("DUT hosts entry installation failed")
 
     def needs_node_ip_override(self) -> bool:
-        hwsku = getattr(self.duthost, "facts", {}).get("hwsku", "")
-        return hwsku in _NODE_IP_OVERRIDE_SKUS
+        result = self.run(
+            "grep -q -- '--node-ip=::' /etc/default/kubelet",
+            private=True,
+        )
+        if result.rc not in (0, 1):
+            raise MinikubeError(
+                "DUT kubelet node IP configuration is unreadable"
+            )
+        return result.rc == 0
 
     def install_node_ip(self, node_ip: str, token: str) -> None:
         ipaddress.ip_address(node_ip)

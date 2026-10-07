@@ -33,17 +33,6 @@ def pytest_addoption(parser):
     )
     group.addoption("--minikube-vmhost", default=None, help="Exact associated server hostname")
     group.addoption("--minikube-dut", default=None, help="Exact DUT hostname")
-    group.addoption(
-        "--k8s-gnmi-image",
-        default=None,
-        help="Version-pinned candidate image already present on the selected DUT",
-    )
-    group.addoption(
-        "--k8s-gnmi-role",
-        choices=("golden", "candidate"),
-        default="golden",
-        help="Evidence role for the deployed image",
-    )
 
     ndra_group = parser.getgroup("Kubernetes NDRA provider")
     ndra_group.addoption(

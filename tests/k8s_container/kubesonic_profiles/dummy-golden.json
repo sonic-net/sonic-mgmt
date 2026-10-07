@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "description": "Run the docker-dummyk8s reference lifecycle with its reviewed golden image.",
+  "selectors": [
+    "k8s_container/test_dummy.py"
+  ]
+}

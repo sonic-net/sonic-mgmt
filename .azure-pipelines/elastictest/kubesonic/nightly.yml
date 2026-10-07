@@ -23,7 +23,7 @@ parameters:
   - name: TESTBED_NAME
     type: string
     default: "testbed-bjw-can-720dt-3"
-    displayName: "Exact eligible physical one-DUT testbed name"
+    displayName: "Exact eligible physical testbed name"
 
 stages:
   - stage: Test
@@ -69,7 +69,7 @@ stages:
             env:
               PIPELINE_REF: $(Build.SourceBranch)
               SOURCE_COMMIT: $(Build.SourceVersion)
-              TEST_CONFIG: "nightly-default"
+              TEST_PROFILE: "nightly-default"
               TESTBED: ${{ parameters.TESTBED_NAME }}
               AZURE_DEVOPS_TOKEN: $(System.AccessToken)
               SYSTEM_COLLECTION_URI: $(System.CollectionUri)

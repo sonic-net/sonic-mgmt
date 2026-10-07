@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 
 
 PROFILE_ROOT = "/tests/k8s_container/kubesonic_profiles"
+SUITE_OPTION = "--k8s-container-test"
 MANAGEMENT_URL = (
     "https://sonic-elastictest-prod-management-webapp.azurewebsites.net"
     "/api/v1/testbeds/query_by_keyword"
@@ -26,8 +27,6 @@ RETRYABLE_HTTP_CODES = {408, 429, 500, 502, 503, 504}
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 _NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _NODE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.:@+\[\]=-]*$")
-_OPTION_PATTERN = re.compile(r"^(?:k8s|minikube)-[A-Za-z0-9][A-Za-z0-9-]*$")
-_SAFE_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_./:@+,-]+$")
 _TOPOLOGY_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
@@ -96,10 +95,10 @@ def _resolve_pull_request(
     )
     pull_request = _request_json(url, token, {"api-version": "7.1"})
 
-    if pull_request.get("status") != "active":
-        status = pull_request.get("status")
+    status = pull_request.get("status")
+    if status not in ("active", "completed"):
         raise ResolutionError(
-            f"PR {pull_request_id} must be active, not {status}"
+            f"PR {pull_request_id} must be active or completed, not {status}"
         )
     if pull_request.get("targetRefName") != "refs/heads/internal":
         raise ResolutionError(
@@ -116,14 +115,35 @@ def _resolve_pull_request(
             f"not {repository_id}"
         )
 
-    source_commit = (pull_request.get("lastMergeSourceCommit") or {}).get(
-        "commitId", ""
+    commit_field = (
+        "lastMergeSourceCommit"
+        if status == "active"
+        else "lastMergeCommit"
     )
+    source_commit = (pull_request.get(commit_field) or {}).get("commitId", "")
     if not _COMMIT_PATTERN.fullmatch(source_commit):
+        commit_kind = "source" if status == "active" else "merge"
         raise ResolutionError(
-            f"PR {pull_request_id} did not resolve to a full source commit"
+            f"PR {pull_request_id} did not resolve to a full "
+            f"{commit_kind} commit"
         )
     return pull_request, source_commit
+
+
+def _is_profile_path(path):
+    return bool(
+        path
+        and path.startswith(f"{PROFILE_ROOT}/")
+        and path.endswith(".json")
+    )
+
+
+def _change_types(value):
+    return {
+        change_type.strip().lower()
+        for change_type in str(value or "").split(",")
+        if change_type.strip()
+    }
 
 
 def _changed_paths(
@@ -164,9 +184,35 @@ def _changed_paths(
         )
         entries = response.get("changeEntries", response.get("value", []))
         for entry in entries:
-            if str(entry.get("changeType", "")).lower() == "delete":
-                continue
+            change_types = _change_types(entry.get("changeType"))
             path = (entry.get("item") or {}).get("path")
+            destructive_profile_path = next(
+                (
+                    candidate
+                    for candidate in (
+                        path,
+                        entry.get("originalPath"),
+                        entry.get("sourceServerItem"),
+                    )
+                    if _is_profile_path(candidate)
+                ),
+                None,
+            )
+            if "delete" in change_types:
+                if destructive_profile_path:
+                    raise ResolutionError(
+                        "Manual KubeSonic runs cannot infer a deleted "
+                        "profile: "
+                        f"{destructive_profile_path}"
+                    )
+                continue
+            if change_types.intersection(
+                {"rename", "sourcerename", "targetrename"}
+            ) and destructive_profile_path:
+                raise ResolutionError(
+                    "Manual KubeSonic runs cannot infer a renamed profile: "
+                    f"{destructive_profile_path}"
+                )
             if path:
                 paths.add(path)
 
@@ -177,33 +223,29 @@ def _changed_paths(
     return sorted(paths)
 
 
-def _resolve_profile_path(test_config, changed_paths):
-    if test_config == "from-pr":
-        profiles = [
-            path
-            for path in changed_paths
-            if path.startswith(f"{PROFILE_ROOT}/") and path.endswith(".json")
-        ]
-        if len(profiles) != 1:
-            joined = ", ".join(profiles) if profiles else "none"
-            raise ResolutionError(
-                "TEST_CONFIG=from-pr requires exactly one changed "
-                f"{PROFILE_ROOT}/*.json profile; found {joined}"
-            )
-        return profiles[0]
+def _resolve_changed_profile_path(changed_paths):
+    profiles = [path for path in changed_paths if _is_profile_path(path)]
+    if len(profiles) != 1:
+        joined = ", ".join(profiles) if profiles else "none"
+        raise ResolutionError(
+            "Manual KubeSonic runs require exactly one changed "
+            f"{PROFILE_ROOT}/*.json profile; found {joined}"
+        )
+    return profiles[0]
 
-    if "/" not in test_config:
-        name = test_config
-        if name.endswith(".json"):
-            name = name[:-5]
-        if not _NAME_PATTERN.fullmatch(name):
-            raise ResolutionError(
-                "TEST_CONFIG profile names may contain only letters, numbers, "
-                "dots, underscores, and hyphens"
-            )
-        return f"{PROFILE_ROOT}/{name}.json"
 
-    path = PurePosixPath("/" + test_config.lstrip("/"))
+def _resolve_named_profile_path(profile_name):
+    name = (
+        profile_name[:-5]
+        if profile_name.endswith(".json")
+        else profile_name
+    )
+    if not _NAME_PATTERN.fullmatch(name):
+        raise ResolutionError(
+            "Profile names may contain only letters, numbers, dots, "
+            "underscores, and hyphens"
+        )
+    path = PurePosixPath(f"{PROFILE_ROOT}/{name}.json")
     normalized = str(path)
     if (
         normalized == PROFILE_ROOT
@@ -212,7 +254,7 @@ def _resolve_profile_path(test_config, changed_paths):
         or any(part in ("", ".", "..") for part in path.parts)
     ):
         raise ResolutionError(
-            f"TEST_CONFIG paths must reference {PROFILE_ROOT}/*.json"
+            f"Profiles must reference {PROFILE_ROOT}/*.json"
         )
     return normalized
 
@@ -299,88 +341,25 @@ def _validate_profile(profile):
     if not isinstance(profile, dict):
         raise ResolutionError("The KubeSonic profile must be a JSON object")
 
-    allowed_keys = {
-        "version",
-        "description",
-        "selectors",
-        "parameters",
-        "requirements",
-    }
+    allowed_keys = {"version", "description", "selectors"}
     unknown_keys = sorted(set(profile) - allowed_keys)
     if unknown_keys:
         raise ResolutionError(
             f"Unsupported profile fields: {', '.join(unknown_keys)}"
         )
-    if profile.get("version") != 1:
-        raise ResolutionError("Profile version must be 1")
+    if profile.get("version") != 2:
+        raise ResolutionError("Profile version must be 2")
+    description = profile.get("description")
+    if not isinstance(description, str) or not description.strip():
+        raise ResolutionError(
+            "Profile description must be a non-empty string"
+        )
 
     selectors = _validate_string_list("selectors", profile.get("selectors"))
     for selector in selectors:
         _validate_selector(selector)
 
-    parameters = profile.get("parameters")
-    if not isinstance(parameters, dict) or not parameters:
-        raise ResolutionError("parameters must be a non-empty object")
-
-    tokens = []
-    for option, value in parameters.items():
-        if not isinstance(option, str) or not _OPTION_PATTERN.fullmatch(
-            option
-        ):
-            raise ResolutionError(
-                f"Unsupported option {option}; use k8s-* or minikube-* keys"
-            )
-        if isinstance(value, bool):
-            if value:
-                tokens.append(f"--{option}")
-            continue
-        if not isinstance(
-            value, (str, int)
-        ) or not _SAFE_VALUE_PATTERN.fullmatch(str(value)):
-            raise ResolutionError(f"Unsupported value for --{option}: {value}")
-        tokens.append(f"--{option}={value}")
-
-    if parameters.get("k8s-container-test") is not True:
-        raise ResolutionError("parameters must set k8s-container-test to true")
-
-    requirements = profile.get("requirements")
-    if not isinstance(requirements, dict):
-        raise ResolutionError("requirements must be an object")
-    allowed_requirements = {"topologies", "name_prefixes", "dut_count"}
-    unknown_requirements = sorted(set(requirements) - allowed_requirements)
-    if unknown_requirements:
-        raise ResolutionError(
-            "Unsupported requirement fields: "
-            f"{', '.join(unknown_requirements)}"
-        )
-
-    topologies = _validate_string_list(
-        "requirements.topologies",
-        requirements.get("topologies"),
-        _TOPOLOGY_PATTERN,
-    )
-    name_prefixes = _validate_string_list(
-        "requirements.name_prefixes",
-        requirements.get("name_prefixes"),
-        _NAME_PATTERN,
-    )
-    dut_count = requirements.get("dut_count", 1)
-    if (
-        not isinstance(dut_count, int)
-        or isinstance(dut_count, bool)
-        or dut_count < 1
-    ):
-        raise ResolutionError(
-            "requirements.dut_count must be a positive integer"
-        )
-
-    return {
-        "selectors": selectors,
-        "parameter_tokens": tokens,
-        "topologies": topologies,
-        "name_prefixes": name_prefixes,
-        "dut_count": dut_count,
-    }
+    return {"selectors": selectors}
 
 
 def _get_elastictest_token(client_id, managed_identity_id):
@@ -478,7 +457,7 @@ def _testbed_duts(testbed):
     return []
 
 
-def _ineligible_reasons(testbed, requirements):
+def _ineligible_reasons(testbed):
     reasons = []
     name = str(testbed.get("name", ""))
     topology = str(testbed.get("topo", ""))
@@ -499,91 +478,41 @@ def _ineligible_reasons(testbed, requirements):
         reasons.append("reserved for nightly")
     if any(tag in comment for tag in DISALLOWED_COMMENT_TAGS):
         reasons.append("excluded by comment tag")
-    if topology not in requirements["topologies"]:
-        reasons.append(f"topology {topology or 'unknown'} is not allowed")
-    if not any(
-        name.startswith(prefix) for prefix in requirements["name_prefixes"]
-    ):
-        reasons.append("name is outside the allowed prefixes")
-    if len(_testbed_duts(testbed)) != requirements["dut_count"]:
-        reasons.append(
-            f"DUT count {len(_testbed_duts(testbed))} does not match "
-            f"{requirements['dut_count']}"
-        )
     return reasons
 
 
-def _select_testbed(testbeds, requested_testbed, requirements, source_commit):
-    by_name = {
-        str(testbed.get("name")): testbed
-        for testbed in testbeds
-        if testbed.get("name")
-    }
-    if requested_testbed != "auto":
-        testbed = by_name.get(requested_testbed)
-        if not testbed:
-            suggestions = difflib.get_close_matches(
-                requested_testbed, sorted(by_name), n=5
-            )
-            suffix = (
-                f"; closest matches: {', '.join(suggestions)}"
-                if suggestions
-                else ""
-            )
-            raise ResolutionError(
-                f"Unknown physical testbed {requested_testbed}{suffix}"
-            )
-        reasons = _ineligible_reasons(testbed, requirements)
-        if reasons:
-            detail = ", ".join(reasons)
-            raise ResolutionError(
-                f"Testbed {requested_testbed} is not eligible: {detail}"
-            )
-        return testbed, 1
-
-    candidates = sorted(
-        (
-            testbed
-            for testbed in testbeds
-            if not _ineligible_reasons(testbed, requirements)
-        ),
-        key=lambda testbed: str(testbed["name"]),
-    )
-    if not candidates:
-        raise ResolutionError(
-            "No READY non-nightly physical testbed matches "
-            "the profile requirements"
-        )
-    selected = candidates[int(source_commit[:8], 16) % len(candidates)]
-    return selected, len(candidates)
-
-
-def _select_exact_testbed(testbeds, requested_testbed, dut_count=1):
+def _select_exact_testbed(testbeds, requested_testbed):
     if not _NAME_PATTERN.fullmatch(requested_testbed):
         raise ResolutionError(
             "TESTBED must be an exact name containing only letters, "
             "numbers, dots, underscores, and hyphens"
         )
 
-    topologies = sorted(
-        {
-            str(testbed.get("topo", ""))
-            for testbed in testbeds
-            if _TOPOLOGY_PATTERN.fullmatch(str(testbed.get("topo", "")))
-        }
-    )
-    requirements = {
-        "topologies": topologies,
-        "name_prefixes": [requested_testbed],
-        "dut_count": dut_count,
+    by_name = {
+        str(testbed.get("name")): testbed
+        for testbed in testbeds
+        if testbed.get("name")
     }
-    selected, _ = _select_testbed(
-        testbeds,
-        requested_testbed,
-        requirements,
-        "0" * 40,
-    )
-    return selected
+    testbed = by_name.get(requested_testbed)
+    if not testbed:
+        suggestions = difflib.get_close_matches(
+            requested_testbed, sorted(by_name), n=5
+        )
+        suffix = (
+            f"; closest matches: {', '.join(suggestions)}"
+            if suggestions
+            else ""
+        )
+        raise ResolutionError(
+            f"Unknown physical testbed {requested_testbed}{suffix}"
+        )
+    reasons = _ineligible_reasons(testbed)
+    if reasons:
+        detail = ", ".join(reasons)
+        raise ResolutionError(
+            f"Testbed {requested_testbed} is not eligible: {detail}"
+        )
+    return testbed
 
 
 def _set_variable(name, value):
@@ -598,11 +527,9 @@ def _write_summary(
     source_commit,
     profile_path,
     selected_testbed,
-    candidate_count,
     resolved_profile,
 ):
     summary_path = Path.cwd() / "kubesonic-request-summary.md"
-    options = " ".join(resolved_profile["parameter_tokens"])
     selectors = "<br>".join(
         f"`{selector}`" for selector in resolved_profile["selectors"]
     )
@@ -618,9 +545,8 @@ def _write_summary(
                 f"| Test profile | `{profile_path}` |",
                 f"| Testbed | `{selected_testbed['name']}` |",
                 f"| Topology | `{selected_testbed['topo']}` |",
-                f"| Eligible candidates | `{candidate_count}` |",
                 f"| Test selectors | {selectors} |",
-                f"| Pytest options | `{options}` |",
+                f"| Pytest options | `{SUITE_OPTION}` |",
                 "",
             ]
         ),
@@ -641,14 +567,10 @@ def main():
         if pull_request_id <= 0:
             raise ResolutionError("PR_ID must be a positive integer")
 
-        test_config = _required("TEST_CONFIG")
         requested_testbed = _required("TESTBED")
-        if requested_testbed != "auto" and not _NAME_PATTERN.fullmatch(
-            requested_testbed
-        ):
+        if not _NAME_PATTERN.fullmatch(requested_testbed):
             raise ResolutionError(
-                "TESTBED must be auto or an exact name containing only "
-                "letters, "
+                "TESTBED must be an exact name containing only letters, "
                 "numbers, dots, underscores, and hyphens"
             )
 
@@ -671,7 +593,7 @@ def main():
             azure_token,
             pull_request_id,
         )
-        profile_path = _resolve_profile_path(test_config, changed_paths)
+        profile_path = _resolve_changed_profile_path(changed_paths)
         profile = _fetch_profile(
             collection_uri,
             project_id,
@@ -687,18 +609,16 @@ def main():
             _required("SONIC_AUTOMATION_UMI"),
         )
         testbeds = _query_testbeds(elastictest_token)
-        selected_testbed, candidate_count = _select_testbed(
+        selected_testbed = _select_exact_testbed(
             testbeds,
             requested_testbed,
-            resolved_profile,
-            source_commit,
         )
 
         specific_param = json.dumps(
             [
                 {
                     "name": "k8s_container",
-                    "param": " ".join(resolved_profile["parameter_tokens"]),
+                    "param": SUITE_OPTION,
                 }
             ],
             separators=(",", ":"),
@@ -715,7 +635,6 @@ def main():
             source_commit,
             profile_path,
             selected_testbed,
-            candidate_count,
             resolved_profile,
         )
 
