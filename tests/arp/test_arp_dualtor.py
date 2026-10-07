@@ -85,6 +85,9 @@ def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):       
 def verify_neighbor_status(duthost, neigh_ip, expected_status):
     ip_version = 'v4' if ip_address(neigh_ip).version == 4 else 'v6'
     neighbor_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    if str(neigh_ip) not in neighbor_table[ip_version]:
+        logger.debug("Neighbor %s is not present on %s", neigh_ip, duthost.hostname)
+        return False
     return expected_status.lower() in neighbor_table[ip_version][str(neigh_ip)]['state'].lower()
 
 
@@ -207,4 +210,5 @@ def test_standby_unsolicited_neigh_learning(
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     rand_selected_dut.shell(arp_update_cmd)
 
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)))
+    # arp_update refreshes all VLAN neighbors sequentially.
+    pytest_assert(wait_until(10, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)))
