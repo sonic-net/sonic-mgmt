@@ -283,8 +283,13 @@ def select_ecmp_member_to_flap(nh_ptf_ports, all_port_indices, lag_facts):
         return candidate_ptf_port, candidate_asic_id, candidate_dut_port, candidate_lag_name
 
 
-def get_remaining_fib_info(fib_infos, shut_ptf_port, is_t2=False):
-    """Remove the shut path from each T2 ASIC, or from the target non-T2 DUT."""
+def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg_facts, is_t2=False):
+    """Prepare one ECMP path: its Ethernet or PortChannel interface and expected routes."""
+    lag_facts = {"lags": {}}
+    if any(asic_data.get('minigraph_portchannels') for _, asic_data in dut_mg_facts):
+        lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+    ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
+        nh_ptf_ports, all_port_indices, lag_facts)
     if is_t2:
         remaining_fib_infos = [fib_info.copy() for fib_info in fib_infos]
         affected_fibs = remaining_fib_infos
@@ -295,19 +300,8 @@ def get_remaining_fib_info(fib_infos, shut_ptf_port, is_t2=False):
         if '0.0.0.0/0' in fib_info:
             fib_info['0.0.0.0/0'] = [
                 ports for ports in fib_info['0.0.0.0/0']
-                if shut_ptf_port not in (int(port) for port in ports)
+                if ptf_port not in (int(port) for port in ports)
             ]
-    return remaining_fib_infos
-
-
-def prepare_ecmp_flap(duthost, fib_infos, nh_ptf_ports, all_port_indices, dut_mg_facts, is_t2=False):
-    """Prepare one ECMP path: its Ethernet or PortChannel interface and expected routes."""
-    lag_facts = {"lags": {}}
-    if any(asic_data.get('minigraph_portchannels') for _, asic_data in dut_mg_facts):
-        lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
-    ptf_port, asic_id, dut_port, lag_name = select_ecmp_member_to_flap(
-        nh_ptf_ports, all_port_indices, lag_facts)
-    remaining_fib_infos = get_remaining_fib_info(fib_infos, ptf_port, is_t2=is_t2)
     asic = duthost.asic_instance(asic_id)
     return {
         "asic": asic, "interface": lag_name or dut_port,
