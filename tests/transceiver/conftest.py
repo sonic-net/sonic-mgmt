@@ -8,6 +8,7 @@ from ansible.errors import AnsibleError
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.interface_utils import (
     get_physical_port_indices,
     get_lport_to_first_subport_mapping,
@@ -344,8 +345,15 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
                 namespaces = peer_host.get_frontend_asic_namespace_list()
             connections.update(resolve_lldp_peer_aliases(peer_host, peer_connections, namespaces=namespaces))
         except (pytest.fail.Exception, AnsibleError, KeyError, ValueError) as error:
-            detail = f"LLDP peer {device} alias resolution failed: {error}"
-            logger.warning("%s", detail)
+            logger.warning("LLDP peer %s alias resolution failed", device, exc_info=True)
+            if isinstance(error, RunAnsibleModuleFail):
+                result = error.results or {}
+                reason = result.get("stderr") or result.get("msg") or error.message
+                reason = (str(reason).strip() or type(error).__name__).splitlines()[-1]
+                reason = f"rc={result.get('rc', 'unknown')}: {reason}"
+            else:
+                reason = str(error)
+            detail = f"LLDP peer {device} alias resolution failed: {' '.join(reason.split())[:300]}"
             for port in peer_connections:
                 connections[port] = None, detail
     return connections

@@ -47,7 +47,7 @@ The following table summarizes the key attributes used in system testing. This t
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
-| verify_lldp_on_link_up | boolean | True | O | dut | Whether to verify LLDP functionality when link comes up |
+| verify_lldp_on_link_up | boolean | True | O | dut | Verify LLDP peer identity after link recovery. Supports [topologies 1 and 2](test_plan.md#testbed-topology) (SONiC self-loopback and SONiC-to-SONiC). Requires a SONiC peer accessible through the test inventory, a valid connection-graph entry, and readable peer running configuration. Set to false for topology 3 server-facing ports or other unsupported peers. |
 | lldp_neighbor_wait_sec | integer | 60 | O | dut | Max time to observe the LLDP neighbor after the batch link-recovery phase completes, using one shared start time for all recovered ports |
 | port_shutdown_wait_sec | integer | 5 | O | transceivers or platform_hwsku_overrides | Wait time after port shutdown before verification |
 | port_startup_wait_sec | integer | 60 | O | transceivers or platform_hwsku_overrides | Wait time after port startup before link verification |
