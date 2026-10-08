@@ -27,7 +27,7 @@ from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
-from tests.common.macsec.macsec_helper import get_macsec_counters, clear_macsec_counters, \
+from tests.common.macsec.macsec_helper import clear_macsec_counters, \
     get_dict_macsec_counters  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.port import SnappiPortConfig
@@ -522,6 +522,53 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
 
+    if global_pause and "--snappi_macsec" in sys.argv:
+        snappi_api = snappi_extra_params.snappi_api
+        # Build the global pause as an IxNetwork raw traffic item instead of a snappi flow.
+        testbed_config.flows.remove(len(testbed_config.flows) - 1)
+        snappi_api.set_config(testbed_config)
+        ixnet = snappi_api._ixnetwork
+
+        logger.info("Creating global pause traffic item %s", pause_flow.name)
+        tx_vport = ixnet.Vport.find(Name='^{}$'.format(re.escape(pause_flow.tx_rx.port.tx_name)))
+        rx_vport = ixnet.Vport.find(Name='^{}$'.format(re.escape(pause_flow.tx_rx.port.rx_name)))
+        traffic_item = ixnet.Traffic.TrafficItem.add(Name=pause_flow.name, TrafficItemType='quick',
+                                                     BiDirectional=False, TrafficType='raw')
+        traffic_item.EndpointSet.add(Sources=tx_vport.Protocols.find(), Destinations=rx_vport.Protocols.find())
+        traffic_item.Tracking.find()[0].TrackBy = []
+
+        high_level_stream = traffic_item.HighLevelStream.find()[0]
+        high_level_stream.FrameRate.Type = 'framesPerSecond'
+        high_level_stream.FrameRate.Rate = pause_flow.rate.pps
+        high_level_stream.FrameSize.FixedSize = pause_flow.size.fixed
+
+        transmission = high_level_stream.TransmissionControl
+        transmission.StartDelayUnits = 'nanoseconds'
+        transmission.StartDelay = pause_flow.duration.fixed_seconds.delay.nanoseconds
+        if pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+            transmission.Type = 'fixedDuration'
+            transmission.Duration = pause_flow_config["flow_dur_sec"]
+        elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
+            transmission.Type = 'continuous'
+        elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+            transmission.Type = 'fixedFrameCount'
+            transmission.FrameCount = pause_flow_config["flow_pkt_count"]
+
+        ethernet_stack = high_level_stream.Stack.find(StackTypeId='^ethernet$')
+        global_pause_template = ixnet.Traffic.ProtocolTemplate.find(StackTypeId='^globalPause$')
+        ethernet_stack.AppendProtocol(global_pause_template)
+        ethernet_stack.Remove()
+        global_pause_stack = high_level_stream.Stack.find(StackTypeId='^globalPause$')
+        pytest_assert(len(global_pause_stack) == 1, "globalPause stack not found on {}".format(pause_flow.name))
+        pause_fields = global_pause_stack.Field
+        pause_fields.find(FieldTypeId='dstAddress$').SingleValue = pause_pkt.dst.value
+        pause_fields.find(FieldTypeId='srcAddress$').SingleValue = pause_pkt.src.value
+        pause_fields.find(FieldTypeId='ethertype$').SingleValue = '{:04x}'.format(pause_pkt.ether_type.value)
+        pause_fields.find(FieldTypeId='controlOpcode$').SingleValue = '{:04x}'.format(
+            pause_pkt.control_op_code.value)
+        pause_fields.find(FieldTypeId='pfcQueue0$').SingleValue = '{:04x}'.format(pause_pkt.time.value)
+        snappi_extra_params.config_applied = True
+
 
 def _rand_ipv6():
     # 2007:db8::/32 is documentation range
@@ -855,7 +902,8 @@ def run_traffic(duthost,
                                                         (right before flows end)
     """
 
-    api.set_config(config)
+    if not snappi_extra_params.config_applied:
+        api.set_config(config)
     ptype = "--snappi_macsec" in sys.argv
     if ptype and snappi_extra_params.incrementing_pn_traffic:
         exp_dur_sec = INCREMENTING_PN_TRAFFIC_DURATION_SEC
@@ -945,17 +993,14 @@ def run_traffic(duthost,
         clear_dut_que_counters(host)
         clear_dut_pfc_counters(host)
 
+    logger.info("Starting transmit on all flows ...")
     if not ptype:
-        logger.info("Starting transmit on all flows ...")
         set_flow_transmit_state(api, "start")
     else:
-        print('Generating Traffic Item')
         trafficItems = ixnet.Traffic.TrafficItem.find()
         for trafficItem in trafficItems:
             trafficItem.Generate()
-        print('Applying Traffic')
         _apply_ixnetwork_traffic(ixnet)
-        print('Starting Traffic')
         ixnet.Traffic.StartStatelessTrafficBlocking()
 
     if snappi_extra_params.reboot_type:
@@ -1036,6 +1081,12 @@ def run_traffic(duthost,
                     time.sleep(1)
                     attempts += 1
             else:
+                flow_stat_view = api._ixnetwork.Statistics.View.find(Caption='Flow Statistics')
+                if flow_stat_view:
+                    flow_stat_view.Page.PageSize = 1000
+                    logger.info("Flow Statistics page size set to %s", flow_stat_view.Page.PageSize)
+                else:
+                    logger.warning("'Flow Statistics' view not found, page size not changed")
                 flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
                 transmit_states = [
                     int(float(metric['Tx Frame Rate']))
@@ -1043,7 +1094,7 @@ def run_traffic(duthost,
                     if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
                     and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
                 ]
-                if list(set(transmit_states)) == [0]:
+                if all(state == 0 for state in transmit_states):
                     logger.info("All test and background traffic flows stopped")
                     time.sleep(SNAPPI_POLL_DELAY_SEC)
                     break
