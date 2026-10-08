@@ -469,6 +469,7 @@ def create_traffic_items(config, snappi_extra_params):
         test_flow = config.flows.flow(name=traffic.get("flow_name", "Flow {}".format(indx)))[-1]
         test_flow.tx_rx.device.tx_names = traffic["tx_names"]
         test_flow.tx_rx.device.rx_names = traffic["rx_names"]
+        test_flow.tx_rx.device.bidirectional = traffic.get("bidirectional", False)
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
         if "mesh_type" in traffic:
