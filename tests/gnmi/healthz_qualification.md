@@ -241,6 +241,54 @@ their dated candidate versions and do not replace this installed-package result.
 
 ## Inputs and transport
 
+### Automated pytest cases
+
+`test_gnoi_healthz.py` checks installed aggregate-to-gNMI GET mapping, stored
+Get/List/default acknowledgement filtering, and NotFound for unassessed
+components. Its three controlled cases are opt-in. The generic archive and
+no-archive cases publish only their own unique producer/component records to
+`HEALTHZ_TRANSITIONS`; the archived case submits one small file through host
+D-Bus. The DLDD case changes an explicitly selected installed demo signal
+between `HEALTHY` and `FAULT`, checks the scalar-only fault artifact ID, and
+restores the signal's original bytes and ownership/mode. It does not install
+or edit rules. Every case synchronizes ON_CHANGE before activation and verifies
+active, asserted observation, and recovery behavior, including archive ID,
+frame ordering, size/SHA256, idempotent acknowledgement, and filtering.
+
+Use the usual testbed options with this selection during an exclusive lab
+Healthz write window:
+
+```sh
+pytest gnmi/test_gnoi_healthz.py gnmi/test_gnoi_healthz_auth.py \
+  --healthz-controlled-episodes \
+  --healthz-dldd-component DLDD_DEMO_SERVICE \
+  --healthz-dldd-signal /var/tmp/dldd-demo-20260929/cli_status
+```
+
+Without the controlled option, all three episode cases skip before TLS setup.
+Without both DLDD options, only that case skips before TLS setup, with the
+missing-input reason. Archive cases require a free slot in the installed
+20-archive store so they do not prune retained artifacts. Test events and their
+archive follow normal Healthz retention; teardown clears each controlled
+source and removes its temporary input file. A teardown failure is a test
+failure. The baseline and authorization cases use the existing `gnmi_tls`
+fixture, which configures certificates, restarts gNMI, and rolls configuration
+back afterward; schedule that interruption with other gNOI qualification.
+
+`test_gnoi_healthz_auth.py` checks all five RPCs under `gnoi_readwrite`,
+`gnoi_readonly`, and `gnoi_noaccess`, plus TLS handshake rejection without a
+client certificate. Missing valid IDs distinguish authorization from method
+execution without acknowledging an unrelated event. It verifies that catalog
+contents remain unchanged and restores the certificate's original role.
+
+The shared grpcurl streaming helper has standalone malformed/truncated-frame
+and request/metadata regression tests:
+
+```sh
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_ptf_grpc.py
+```
+
 Record the DUT image and installed package versions. Use one known DLDD component
 with no unrelated active fault, and a separate component for the independent
 producer. Record these IDs as the episodes run:
@@ -372,10 +420,9 @@ running while the fixture makes multiple changes.
    Capture the entire stream and check header, one or more data frames, then
    trailer. The file name is the archive basename, MIME type is
    `application/gzip`, and size and SHA-256 match the reconstructed bytes.
-   `PtfGrpc.call_server_streaming()` currently parses only whole or line-wise
-   JSON. Use `grpcurl` directly with the fixture's TLS certificate paths and
-   target for this capture if its multi-line output cannot be parsed by that
-   helper. For example, run the following on the PTF host with the fixture's
+   `PtfGrpc.call_server_streaming()` forwards the Artifact request and decodes
+   every adjacent JSON frame, including multi-line grpcurl output. A malformed
+   frame fails the call. For a separate raw capture, run the following on the PTF host with the fixture's
    certificate paths and target; decode and concatenate the JSON `bytes`
    frames before checking the header hash. Do not modify the archive on the
    DUT.
