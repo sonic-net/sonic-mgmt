@@ -862,37 +862,9 @@
       # t2_single_node golden_config needs port_config from generated minigraph so
       # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
+        become: true
+        shell: config load_minigraph -y
         when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-        block:
-          - name: Load minigraph before golden generation
-            become: true
-            shell: config load_minigraph -y
-            register: preload_minigraph_result
-            async: "{{ 300 if use_ipv6_mgmt|default(false)|bool else 0 }}"
-            poll: "{{ 0 if use_ipv6_mgmt|default(false)|bool else 15 }}"
-
-          - name: Wait for IPv6 management after pre-golden minigraph load
-            become: false
-            local_action: wait_for
-            args:
-              host: "{{ ansible_host if (ansible_host | ansible.utils.ipv6) else ansible_hostv6 }}"
-              port: 22
-              state: started
-              search_regex: "OpenSSH_[\\w\\.]+ Debian"
-              delay: 15
-              timeout: 600
-            changed_when: false
-            when: use_ipv6_mgmt|default(false)|bool
-
-          - name: Wait for pre-golden minigraph load to complete
-            become: true
-            async_status:
-              jid: "{{ preload_minigraph_result.ansible_job_id }}"
-            register: preload_minigraph_poll
-            until: preload_minigraph_poll.finished
-            retries: 60
-            delay: 5
-            when: use_ipv6_mgmt|default(false)|bool
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
