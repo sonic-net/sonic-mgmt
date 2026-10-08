@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import re
 import pytest
 
@@ -60,9 +61,12 @@ def _validate_psu_power(duthost, psu, pdus, dut_psu_status=None):
         if pdu.get("outlet_on") is not True or "output_watts" not in pdu:
             continue
         try:
-            watt_readings.append(float(pdu["output_watts"]))
+            reading = float(pdu["output_watts"])
         except (TypeError, ValueError):
             pytest.fail("Invalid PDU output_watts for PSU {}: {}".format(psu, pdu["output_watts"]))
+        if not math.isfinite(reading) or reading < 0:
+            pytest.fail("Invalid PDU output_watts for PSU {}: {}".format(psu, pdu["output_watts"]))
+        watt_readings.append(reading)
 
     if not watt_readings or any(reading > 0 for reading in watt_readings):
         return dut_psu_status
