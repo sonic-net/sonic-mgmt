@@ -264,6 +264,7 @@ def _wait_for_fresh_cmis_status(duthost, requests_by_ns, deadline):
 
     requests_by_ns maps namespaces to {logical_port: (parent, UTC boundary)}.
     Each accepted snapshot supplies both its timestamp and its state fields.
+    A None deadline performs one read per pending namespace without polling.
     """
     pending_by_ns = {
         namespace: port_requests.copy()
@@ -275,16 +276,16 @@ def _wait_for_fresh_cmis_status(duthost, requests_by_ns, deadline):
         for namespace, pending in pending_by_ns.items()
         for port in pending
     }
-    while any(pending_by_ns.values()) and time.monotonic() <= deadline:
+    while any(pending_by_ns.values()) and (deadline is None or time.monotonic() <= deadline):
         for namespace, pending in pending_by_ns.items():
-            if time.monotonic() > deadline:
+            if deadline is not None and time.monotonic() > deadline:
                 break
             if not pending:
                 continue
             status_dump, status_err = db_helpers.get_state_db_table(
                 duthost, db_helpers.TRANSCEIVER_STATUS_TABLE, namespace=namespace
             )
-            if time.monotonic() > deadline:
+            if deadline is not None and time.monotonic() > deadline:
                 for port in pending:
                     errors[port] += "; status read completed after the freshness deadline"
                     if status_err is not None:
@@ -310,7 +311,7 @@ def _wait_for_fresh_cmis_status(duthost, requests_by_ns, deadline):
                     fresh_status[port] = status
                     errors.pop(port, None)
                     del pending[port]
-        if not any(pending_by_ns.values()):
+        if deadline is None or not any(pending_by_ns.values()):
             break
         remaining_sec = deadline - time.monotonic()
         if remaining_sec <= 0:
@@ -349,6 +350,8 @@ def check_cmis_state(
             required BASE_ATTRIBUTES.host_lane_mask; no live-lane fallback.
         timeout_sec: shared freshness deadline, including initial DB reads.
             Size this from ``DOM_ATTRIBUTES.dom_info_recover_sec``.
+            Non-positive values perform one immediate snapshot per relevant
+            namespace, without polling; freshness and state checks still apply.
         not_before_utc: optional naive UTC datetime captured on the DUT at the
             operation/recovery boundary. Required to exclude pre-operation
             data when the link stays up.
@@ -359,7 +362,7 @@ def check_cmis_state(
         dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
         ``ports``.
     """
-    deadline = time.monotonic() + timeout_sec
+    deadline = time.monotonic() + timeout_sec if timeout_sec > 0 else None
     ports_by_ns = db_helpers.group_ports_by_namespace(
         duthost, ports, namespaces
     )
