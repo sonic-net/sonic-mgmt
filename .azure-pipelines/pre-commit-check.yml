@@ -15,7 +15,8 @@ steps:
 
 - script: |
     set -x
-    sudo pip install pre-commit
+    sudo apt-get update
+    sudo apt-get install -y pre-commit
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
 
@@ -75,7 +76,7 @@ steps:
          docker container.
       2. Ensure that the `pre-commit` package is installed:
       ```
-      sudo pip install pre-commit
+      sudo apt-get install -y pre-commit
       ```
       3. Go to repository root folder
       4. Install the pre-commit hooks:
