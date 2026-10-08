@@ -154,10 +154,13 @@
           <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
 {% endif %}
-{% set local_mgmt_ipv6 = ansible_hostv6 | default(ansible_host if (ansible_host | ansible.utils.ipv6) else '', true) %}
-{% if local_mgmt_ipv6 %}
+{% if ansible_hostv6 | default('') %}
         <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
-          <a:IPPrefix>{{ local_mgmt_ipv6 }}</a:IPPrefix>
+          <a:IPPrefix>{{ ansible_hostv6 }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% elif ansible_host | ansible.utils.ipv6 %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddressV6>
 {% endif %}
 {% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
