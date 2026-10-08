@@ -24,8 +24,8 @@ import logging
 
 from tests.common.config_reload import config_reload
 from tests.common.platform.interface_utils import wait_ports_oper_status
-from tests.common.reboot import reboot
-from tests.common.utilities import wait_until
+from tests.common.reboot import REBOOT_TYPE_POWEROFF, reboot
+from tests.common.utilities import pdu_reboot, wait_until
 from tests.transceiver.common import cli_helpers
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,31 @@ def perform_warm_reboot(duthost, localhost):
 def perform_fast_reboot(duthost, localhost):
     """Perform a fast reboot and return when DUT SSH connectivity is restored."""
     _perform_reboot(duthost, localhost, "fast")
+
+
+def perform_power_cycle(duthost, localhost, pdu_controller):
+    """Power-cycle the DUT via its PDU outlets and return when SSH reconnects.
+
+    ``tests.common.utilities.pdu_reboot`` toggles the outlets; it is run as the
+    ``reboot_helper`` of the canonical ``reboot`` so the shutdown/startup waits,
+    console log capture and fact clearing are shared with the other reboots.
+
+    Args:
+        localhost: controller fixture used to observe SSH loss/recovery.
+        pdu_controller: PDU controller from the ``pdu_controller`` fixture.
+    """
+    def _pdu_reboot_helper(reboot_kwargs, power_on_event):
+        if not pdu_reboot(pdu_controller):
+            raise RuntimeError("PDU power cycle of {} failed".format(duthost.hostname))
+
+    logger.info("Performing PDU power cycle for transceiver scenario")
+    reboot(
+        duthost,
+        localhost,
+        reboot_type=REBOOT_TYPE_POWEROFF,
+        reboot_helper=_pdu_reboot_helper,
+        return_after_reconnect=True,
+    )
 
 
 def perform_config_reload(duthost):
