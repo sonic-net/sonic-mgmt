@@ -49,26 +49,6 @@ imports Linux-only testbed utilities.
 - `pytest`
 - `unittest.mock` (built into Python standard library)
 
-## Multi-password SSH rotation
-
-`connections/unit_test_multi_passwd_ssh.py` also requires Ansible. It loads the
-real connection plugin and covers command execution, SFTP, SCP and piped transfers
-without connecting to a DUT.
-
-```bash
-python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
-  tests/common/unit_tests/connections/unit_test_multi_passwd_ssh.py -q
-```
-
-The plugin rotates through distinct supplied endpoint/password pairs, beginning
-with the last successful pair for that connection. Each operation stops on
-success or before repeating its starting pair. Changed candidates reset the
-cursor; reapplying identical candidates preserves it. Connection/authentication exceptions, including censored
-`no_log` failures, permit rotation; remote command exit statuses do not.
-Password settings are restored after each operation, and endpoint settings are
-restored if every candidate fails. Existing Ansible same-endpoint reconnect
-retries remain independent of this one-cycle bound.
-
 ## Host-failure lifecycle regressions
 
 Run the classifier unit tests and the real pytest lifecycle regressions together:
