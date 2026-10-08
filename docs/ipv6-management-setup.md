@@ -95,6 +95,11 @@ A valid IP primary is never overwritten, and an IPv6 primary
 does not cause a missing `ansible_hostv6` to be populated. This repair is
 local to the playbook invocation; it does not rewrite the inventory file.
 
+When `ansible_hostv6` is supplied and `ansible_host` is IPv6, they must identify
+the same IPv6 address. Deployment rejects a mismatch before connecting, in either
+deployment mode. Equivalent compressed or expanded IPv6 spellings are accepted.
+An IPv6 primary without `ansible_hostv6` remains valid; no reverse copy is made.
+
 For example, a dual-stack inventory entry is:
 
 ```yaml

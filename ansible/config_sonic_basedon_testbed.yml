@@ -57,6 +57,18 @@
         set_fact:
           ansible_host: "{{ ansible_hostv6 }}"
 
+  - name: Reject conflicting IPv6 management addresses
+    assert:
+      that:
+        - >-
+          (ansible_host | ansible.utils.ipaddr('address')) ==
+          (ansible_hostv6 | ansible.utils.ipaddr('address'))
+      fail_msg: "ansible_host and ansible_hostv6 specify different IPv6 addresses."
+    when:
+      - ansible_hostv6 is defined
+      - ansible_host is ansible.utils.ipv6_address
+    tags: always
+
   - block:
     - name: set default testbed file
       set_fact:
