@@ -540,17 +540,6 @@ stress/test_stress_routes.py::test_announce_withdraw_route:
       - "asic_type in ['vpp']"
 
 #######################################
-#####        Subport Interfaces   #####
-#######################################
-sub_port_interfaces/test_sub_port_l2_forwarding.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####          Syslog             #####
 #######################################
 syslog/test_logrotate.py:
