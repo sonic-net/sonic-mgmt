@@ -50,7 +50,10 @@ from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_keys
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
+    assert_field_contains,
     assert_field_equals,
+    assert_field_nonempty,
+    assert_no_content,
     assert_redfish_error,
     assert_status_ok,
     host_is_settled_on,
@@ -98,6 +101,8 @@ BRIDGE_BUS_NAME = "xyz.openbmc_project.Inventory.Manager"
 # OriginOfCondition of the test sensor's leak events, under the Chassis named "chassis"
 # as in pmon-bmc-design.md section 2.1.2.
 LEAK_ORIGIN = "/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/{}".format(LEAK_SENSOR)
+# The same detector at the canonical Chassis-level collection (Chassis schema v1.26.0) the Chassis links.
+LEAK_ORIGIN_CANONICAL = "/redfish/v1/Chassis/chassis/LeakDetectors/{}".format(LEAK_SENSOR)
 LEAK_REGISTRY = "Environmental"
 LEAK_RESOURCE_TYPE = "LeakDetector"
 # STATE_DB fields per detector state, as thermalctld writes them and
@@ -119,6 +124,7 @@ LEAK_EVENTS = {
 
 # Switch-host power state as bmcctld publishes it and the event each value produces.
 HOST_STATE_KEY = "HOST_STATE|switch-host"
+HOST_REGISTRY = "ResourceEvent"
 HOST_RESOURCE_TYPE = "ComputerSystem"
 SYSTEM_ORIGIN = "/redfish/v1/Systems/system"
 RESET_PATH = "{}/Actions/ComputerSystem.Reset".format(SYSTEM_ORIGIN)
@@ -270,9 +276,7 @@ def _host_is_settled_on(bmc_duthost):
 
 def _reset(redfish_client, reset_type):
     response = _redfish(redfish_client, "POST", RESET_PATH, json={"ResetType": reset_type})
-    pytest_assert(response.status_code in (200, 204),
-                  "ResetType={} must be accepted with HTTP 200 or 204, got: {}".format(
-                      reset_type, response.status_code))
+    assert_no_content(response, RESET_PATH)
 
 
 def _delivered_message_ids(payloads, collapse_repeats=False):
@@ -549,6 +553,33 @@ class TestRedfishEventSubscription:
         logger.info("Leak events advertised: %s registry=%s, %s resource type=%s", LEAK_REGISTRY,
                     LEAK_REGISTRY in prefixes, LEAK_RESOURCE_TYPE, LEAK_RESOURCE_TYPE in body.get("ResourceTypes", []))
 
+    def test_event_service_advertises_rack_manager_filters(self, redfish_client):
+        """
+        EventService advertises the filters the rack manager's subscriptions use.
+
+        Leak events come from the Environmental registry on LeakDetector
+        resources and switch-host power events from the ResourceEvent registry
+        on the ComputerSystem. bmcweb refuses a subscription that filters on a
+        RegistryPrefix or ResourceType it does not list, so all four must be
+        advertised.
+        """
+        response = redfish_client.get(EVENT_SERVICE_PATH)
+        assert_status_ok(response, EVENT_SERVICE_PATH)
+        body = response.json()
+        prefixes = set(body.get("RegistryPrefixes", []))
+        resource_types = set(body.get("ResourceTypes", []))
+        pytest_assert(
+            {LEAK_REGISTRY, HOST_REGISTRY} <= prefixes,
+            "RegistryPrefixes must include {} and {}, got: {}".format(LEAK_REGISTRY, HOST_REGISTRY, sorted(prefixes))
+        )
+        pytest_assert(
+            {LEAK_RESOURCE_TYPE, HOST_RESOURCE_TYPE} <= resource_types,
+            "ResourceTypes must include {} and {}, got: {}".format(
+                LEAK_RESOURCE_TYPE, HOST_RESOURCE_TYPE, sorted(resource_types))
+        )
+        logger.info("Verified EventService advertises RegistryPrefixes %s and ResourceTypes %s",
+                    sorted(prefixes), sorted(resource_types))
+
     def test_subscription_lifecycle(self, redfish_client, rmc_receiver, clean_subscriptions):
         """
         A push subscription can be created, read back and removed.
@@ -770,6 +801,41 @@ class TestRedfishEventSubscription:
             assert_field_equals(body, "Id", LEAK_SENSOR)
             logger.info("Verified %s DetectorState=%s Health=%s", LEAK_ORIGIN, state,
                         body.get("Status", {}).get("Health"))
+
+    def test_leak_detector_resource_shape(self, redfish_client, leak_event):
+        """
+        The LeakDetector a leak event points at is served in full at both of its URIs.
+
+        OriginOfCondition names the deprecated
+        ThermalSubsystem/LeakDetection/LeakDetectors/<id> form and the Chassis
+        links the canonical Chassis/<id>/LeakDetectors/<id> form. Each
+        collection must list the test sensor and each member must serve the
+        same LeakDetector under its own @odata.id: identity, a
+        LeakDetectorType, DetectorState OK and an Enabled, OK Status.
+        """
+        for member in (LEAK_ORIGIN, LEAK_ORIGIN_CANONICAL):
+            collection = member.rsplit("/", 1)[0]
+            response = redfish_client.get(collection)
+            assert_status_ok(response, collection)
+            members = [m.get("@odata.id") for m in response.json().get("Members", [])]
+            pytest_assert(member in members, "{} must list {}, got: {}".format(collection, member, members))
+
+            response = redfish_client.get(member)
+            assert_status_ok(response, member)
+            body = response.json()
+            assert_field_equals(body, "@odata.id", member)
+            assert_field_contains(body, "@odata.type", "#LeakDetector.")
+            assert_field_equals(body, "Id", LEAK_SENSOR)
+            assert_field_equals(body, "Name", "Leak Detector {}".format(LEAK_SENSOR))
+            assert_field_nonempty(body, "LeakDetectorType")
+            assert_field_equals(body, "DetectorState", "OK")
+            status = body.get("Status", {})
+            pytest_assert(
+                status.get("State") == "Enabled" and status.get("Health") == "OK",
+                "{} Status must be Enabled/OK, got: {!r}".format(member, status)
+            )
+            logger.info("Verified %s: LeakDetectorType=%s DetectorState=%s Status=%s",
+                        member, body["LeakDetectorType"], body["DetectorState"], status)
 
     def test_host_power_events_delivered(self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions,
                                          host_power_restored):

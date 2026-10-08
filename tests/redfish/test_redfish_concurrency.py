@@ -254,8 +254,8 @@ class TestRedfishConcurrency:
         _run_threads([_resetter] + [_poller] * POLLERS)
 
         pytest_assert(
-            len(resets) == RESET_REQUESTS and all(status in (200, 204) for status, _ in resets),
-            "Every reset must be accepted with HTTP 200 or 204 under load, got: {}".format(resets)
+            len(resets) == RESET_REQUESTS and all(status == 204 for status, _ in resets),
+            "Every reset must be accepted with HTTP 204 under load, got: {}".format(resets)
         )
         failed = [(r["path"], r["status"]) for r in polls if r["status"] != 200]
         pytest_assert(
