@@ -16,7 +16,9 @@ from success_criteria import filter_vars
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),  # will be invoked manually in test
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    # Repeated reboots invalidate the generic per-test container memory baseline.
+    pytest.mark.disable_memory_utilization
 ]
 
 
