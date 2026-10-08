@@ -6,7 +6,7 @@ This document explains how to use the `--ipv6-only-mgmt` flag to configure virtu
 
 The `--ipv6-only-mgmt` flag allows you to configure a virtual DUT (Device Under Test) with IPv6-only management network settings, including:
 
-- IPv6 management IP address (using an IPv6 primary or `ansible_hostv6` from inventory)
+- IPv6 management IP address (using `ansible_hostv6` from inventory)
 - IPv6 NTP servers
 - IPv6 DNS servers
 - IPv6 TACACS servers (using PTF container's IPv6 address)
@@ -76,34 +76,7 @@ The testbed must have `ptf_ipv6` defined in the testbed.yaml file:
 
 ### 2. Inventory Configuration
 
-`ansible_host` is the supplied primary management address, not an IPv4-only
-field. The deployment inventory contract is:
-
-| Supplied addresses | Inventory fields |
-|---|---|
-| IPv4 only | IPv4 in `ansible_host` |
-| IPv6 only | IPv6 in `ansible_host` |
-| IPv4 and IPv6 | IPv4 in `ansible_host`, IPv6 in `ansible_hostv6` |
-
-Deployment uses IP addresses for access. Its first controller-side tasks
-validate that `ansible_hostv6`, when defined, is a valid IPv6 address. They
-keep a valid IPv4 or IPv6 `ansible_host`; otherwise they require and copy
-the supplied `ansible_hostv6` into `ansible_host` before connecting. This also
-repairs Ansible's automatic inventory-hostname fallback when no primary was
-supplied. If neither field provides a usable IP address, deployment fails explicitly.
-A valid IP primary is never overwritten, and an IPv6 primary
-does not cause a missing `ansible_hostv6` to be populated. This repair is
-local to the playbook invocation; it does not rewrite the inventory file.
-
-When `ansible_hostv6` is supplied and `ansible_host` is IPv6, they must identify
-the same IPv6 address. Deployment rejects a mismatch before connecting, in either
-deployment mode. Equivalent compressed or expanded IPv6 spellings are accepted.
-An IPv6 primary without `ansible_hostv6` remains valid; no reverse copy is made.
-IPv6 configuration and metadata prefer `ansible_hostv6` when supplied, otherwise
-the IPv6 primary. The IPv6-only readiness check follows the same selection;
-normal-mode readiness continues to check `ansible_host`.
-
-For example, a dual-stack inventory entry is:
+The device should have `ansible_hostv6` defined in the inventory file:
 
 ```yaml
 str-msn2700-01:
@@ -111,22 +84,6 @@ str-msn2700-01:
   ansible_hostv6: fc00:2::101
   mgmt_subnet_mask_length: 24
 ```
-
-An IPv6-primary entry can instead supply `ansible_host: fc00:2::101` without
-`ansible_hostv6`. An IPv6-only deployment checks each selected DUT for
-`ansible_hostv6` first; when absent, its normalized `ansible_host` must be IPv6.
-It does not invent an IPv6 address or require one on an unselected peer.
-
-These values describe the supplied configuration inputs, not the DUT's
-current addresses or which endpoint happens to be reachable. SSH fallback
-does not rewrite them. Only `--ipv6-only-mgmt` selects IPv6-only deployment;
-an IPv6 primary or an IPv4 connection failure does not implicitly enable
-that mode.
-
-The normal multi-DUT play handles each selected ToR independently. For a
-partial deployment, `dual_tor_facts` applies the same missing-primary fallback
-when reading an unselected peer, without writing facts onto that peer. Its
-output remains family-specific: optional IPv4 `ip` and IPv6 `ip_v6` fields.
 
 ### 3. IPv6 Configuration Files
 
@@ -162,10 +119,8 @@ When `--ipv6-only-mgmt` is used, the following services use IPv6:
 
 ### Management IP Configuration
 
-- An IPv6 primary is used directly; otherwise IPv6-only deployment uses `ansible_hostv6`
-- IPv6-only deployment omits the IPv4 management interface and IPv4 management metadata
-- Normal dual-stack deployment records both supplied management addresses in their matching metadata fields
-- The IPv6 prefix length uses `mgmt_subnet_v6_mask_length`, defaulting to `/64`
+- The DUT's management IP uses `ansible_hostv6` instead of `ansible_host`
+- The subnet mask length defaults to `/64`
 - IPv6 management routes are configured for proper connectivity
 
 ### TACACS Integration
@@ -257,13 +212,11 @@ The local NTP server is configured as the primary NTP source in:
 
 **Solution:** Add `ptf_ipv6` to your testbed entry in testbed.yaml
 
-### No supplied IPv6 address
+### Missing ansible_hostv6
 
-**Error:** `IPv6-only deployment requested but no IPv6 management address is supplied for <dut>`
+**Issue:** Minigraph uses default IPv6 address
 
-**Solution:** Supply an IPv6 `ansible_host` for an IPv6-primary inventory, or
-add `ansible_hostv6` alongside the IPv4 primary. Do not change inventory
-addresses merely because the DUT is temporarily unreachable over IPv4.
+**Solution:** Add `ansible_hostv6` to the device entry in the inventory file
 
 ### DUT Not Reachable After IPv6 Transition
 
@@ -337,7 +290,7 @@ When enabled, the test framework will:
 
 - The `--ipv6_only_mgmt` / `-6` flag only affects test execution, not deployment
 - The DUT must already be configured with IPv6 management (via `deploy-mg --ipv6-only-mgmt`)
-- This test-execution option still requires `ansible_hostv6` for all DUTs; accepting an IPv6 primary for deployment does not change the test runner's separate address-selection option
+- Ensure `ansible_hostv6` is defined in the inventory for all DUTs
 
 ## Reverting to IPv4 Management
 
@@ -347,6 +300,4 @@ To switch back to IPv4 management, simply run `deploy-mg` without the `--ipv6-on
 ./testbed-cli.sh deploy-mg vms-sn2700-t0 lab ~/.password
 ```
 
-This regenerates normal management configuration from the supplied inventory.
-When both IPv4 and IPv6 are supplied, it restores dual-stack management.
-It cannot restore an IPv4 address that is not supplied in inventory.
+This will regenerate and deploy a minigraph with IPv4-only management configuration.
