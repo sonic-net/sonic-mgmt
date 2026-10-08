@@ -243,24 +243,13 @@ def verify_transceiver_recovered_after_operation(
 
 def verify_dom_recovered_after_operation(duthost, port_attributes_dict, ports,
                                          lport_to_first_subport_mapping):
-    """Re-enable DOM polling and verify DOM values recovered after a firmware operation.
+    """Verify DOM values recovered after the operation runner restored polling.
 
-    Leaves polling enabled and requires a publication newer than the snapshot
-    taken here, even when the operation runner already restored polling.
+    Read-only: require a publication newer than the snapshot captured here.
     """
     baseline_sensor_data, read_errors = dom_helpers.read_dom_sensor_data(duthost, ports)
     if read_errors:
-        return [f"DOM sensor read error before re-enabling polling: {read_error}" for read_error in read_errors]
-
-    failures = []
-    for port in ports:
-        err = cli_helpers.set_dom_polling(
-            duthost, port, enable=True, namespace=resolve_port_namespace(duthost, port),
-        )
-        if err:
-            failures.append(f"failed to enable DOM polling on {port}: {err}")
-    if failures:
-        return failures
+        return [f"DOM sensor baseline read error after polling restoration: {read_error}" for read_error in read_errors]
 
     return dom_helpers.verify_dom_recovered(
         duthost, port_attributes_dict, ports,
