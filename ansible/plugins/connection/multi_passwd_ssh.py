@@ -10,7 +10,7 @@ import logging
 import os
 
 from functools import wraps
-from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure
+from ansible.errors import AnsibleConnectionFailure
 from ansible.plugins import connection
 
 
@@ -52,142 +52,96 @@ DOCUMENTATION += """
               - name: ansible_altpasswords
               - name: ansible_ssh_altpasswords
       hostv6:
-          description: IPv6 address
+          description: Alternate management address
           vars:
               - name: ansible_hostv6
       current_password_hash:
           description: The hash of currently used password
 """.lstrip("\n")
 
-# Sample error messages that host unreachable:
-# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: Connection timed out'
-# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: No route to host'
-CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
-CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
-# ansible-core 2.19 changed the default password_mechanism from 'sshpass' to
-# 'ssh_askpass'. With ssh_askpass, authentication failures are reported as
-# AnsibleConnectionFailure instead of AnsibleAuthenticationFailure. We detect
-# the "Permission denied" message to distinguish auth failures from
-# connectivity failures (timeout, no route to host, etc.).
-PERMISSION_DENIED_ERR_FLAG = "Permission denied"
-# When a task has `no_log: true`, Ansible censors the underlying SSH stderr
-# before the connection plugin sees it. In that case the error message no
-# longer contains "Permission denied", so the auth-failure detection above
-# would mis-classify wrong-password attempts as real connectivity failures
-# and abort the retry loop. Detect the censorship marker so we can still
-# iterate through remaining passwords.
-NO_LOG_CENSORED_FLAG = "censored due to no log"
-
 
 def _password_retry(func):
-    """
-    Decorator to retry ssh/scp/sftp in the case of invalid password
-    Will retry with IPv6 addr if IPv4 addr is unavailable
-    Will retry for password in (ansible_password, ansible_altpassword, ansible_altpasswords):
-    """
-    def _conn_with_multi_pwd(self, *args, **kwargs):
-        password = self.get_option("password") or self._play_context.password
-        conn_passwords = [password]
-        altpassword = self.get_option("altpassword")
-        if altpassword:
-            conn_passwords.append(altpassword)
-        altpasswds = self.get_option("altpasswords")
-        if altpasswds:
-            conn_passwords.extend(altpasswds)
-        while conn_passwords:
-            conn_password = conn_passwords.pop(0)
-            # temporarily replace `password` for this trial
-            self.set_option("password", conn_password)
-            self._play_context.password = conn_password
-            try:
-                results = func(self, *args, **kwargs)
-                if "current_password_hash" not in self._options:
-                    digest = hashlib.sha256(conn_password.encode()).hexdigest()
-                    self.set_option("current_password_hash", digest)
-                return results
-            except AnsibleAuthenticationFailure:
-                # if there is no more altpassword to try, raise
-                if not conn_passwords:
-                    raise
-            except AnsibleConnectionFailure as e:
-                # ansible-core 2.19+ with ssh_askpass raises AnsibleConnectionFailure
-                # (not AnsibleAuthenticationFailure) for "Permission denied" auth failures.
-                # Treat it as an auth failure so the retry loop still iterates.
-                # If the task sets `no_log: true`, the SSH stderr is censored before
-                # this plugin can inspect it, so "Permission denied" will be absent
-                # from `err_msg`. In that case we cannot tell auth failure from a
-                # real connectivity failure; assume it may be auth and keep trying
-                # the remaining passwords rather than aborting prematurely.
-                err_msg = getattr(e, "message", "") or str(e)
-                is_auth_failure = (
-                    PERMISSION_DENIED_ERR_FLAG in err_msg
-                    or NO_LOG_CENSORED_FLAG in err_msg
-                )
-                if not is_auth_failure:
-                    raise  # not an auth failure; preserve original behaviour
-                if not conn_passwords:
-                    raise  # exhausted all passwords
-            finally:
-                # reset `password` to its original state
-                self.set_option("password", password)
-                self._play_context.password = password
-            # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-            if hasattr(self, 'sshpass_pipe'):
-                self.sshpass_pipe = os.pipe()
-
-    def _change_host(self, new_host, *args):
-        # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-        if hasattr(self, 'sshpass_pipe'):
-            self.sshpass_pipe = os.pipe()
-        self._play_context.remote_addr = new_host
-        # args sample:
-        # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501
-        # args[0] are the parameters of ssh connection
-        ssh_args = args[0]
-        # Change the IPv4 host in the ssh_args to IPv6
-        for idx in range(len(ssh_args)):
-            if isinstance(ssh_args[idx], bytes) and ssh_args[idx].decode() == self.host:
-                ssh_args[idx] = new_host
-        self.host = new_host
-        self.set_option("host", new_host)
-
+    """Try each distinct endpoint/password pair at most once per operation."""
     @wraps(func)
     def wrapped(self, *args, **kwargs):
+        # Piped file transfers call exec_command; the outer operation owns retries.
+        if getattr(self, "_credential_retry_active", False):
+            return func(self, *args, **kwargs)
+
+        candidates = self._get_credential_candidates()
+        original_host = (self.host, self.get_option("host"), self._play_context.remote_addr)
+        original_password = (self.get_option("password"), self._play_context.password)
+        succeeded = False
+        self._credential_retry_active = True
         try:
-            # First, try with original host(generally IPv4) with multi-password
-            return _conn_with_multi_pwd(self, *args, **kwargs)
-        except AnsibleConnectionFailure as e:
-            orig_host = self._play_context.remote_addr
-            # If a non-authentication related exception is raised and IPv6 host is set,
-            # Retry with IPv6 host with multi-password
-            try:
-                hostv6 = self.get_option("hostv6")
-            except KeyError:
-                hostv6 = None
-
-            ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
-                                    (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message)
-
-            try_ipv6_addr = orig_host != hostv6 and (not isinstance(e, AnsibleAuthenticationFailure)) and \
-                ipv4_addr_unavailable and hostv6
-            if not try_ipv6_addr:
-                raise e
-            _change_host(self, hostv6, *args)
-            try:
-                return _conn_with_multi_pwd(self, *args, **kwargs)
-            except AnsibleConnectionFailure as e:
-                _change_host(self, orig_host, *args)
-                raise e
+            for offset in range(len(candidates)):
+                index = (self._credential_index + offset) % len(candidates)
+                host, password = candidates[index]
+                self._set_active_host(host)
+                self._play_context.password = password
+                self.set_option("password", password)
+                try:
+                    result = func(self, *args, **kwargs)
+                except AnsibleConnectionFailure as error:
+                    if offset == len(candidates) - 1:
+                        raise AnsibleConnectionFailure(
+                            "All configured SSH endpoint/credential combinations failed."
+                        ) from error
+                else:
+                    self._credential_index = index
+                    digest = hashlib.sha256(password.encode()).hexdigest() if password is not None else None
+                    self.set_option("current_password_hash", digest)
+                    succeeded = True
+                    return result
+        finally:
+            self._credential_retry_active = False
+            self.set_option("password", original_password[0])
+            self._play_context.password = original_password[1]
+            if not succeeded:
+                self.host, host_option, self._play_context.remote_addr = original_host
+                self.set_option("host", host_option)
 
     return wrapped
 
 
 class Connection(_ssh.Connection):
 
+    def set_options(self, task_keys=None, var_options=None, direct=None):
+        previous = getattr(self, "_credential_candidates", None)
+        index = getattr(self, "_credential_index", 0)
+        super(Connection, self).set_options(task_keys=task_keys, var_options=var_options, direct=direct)
+        self._credential_candidates = None
+        if self._get_credential_candidates() == previous:
+            self._credential_index = index
+        self._set_active_host(self._credential_candidates[self._credential_index][0])
+
+    def _set_active_host(self, host):
+        self.host = self._play_context.remote_addr = host
+        self.set_option("host", host)
+
+    def _get_credential_candidates(self):
+        if getattr(self, "_credential_candidates", None) is None:
+            self._credential_index = 0
+            hosts = [self.get_option("host") or self._play_context.remote_addr]
+            alternate = self.get_option("hostv6")
+            if alternate and alternate not in hosts:
+                hosts.append(alternate)
+            passwords = [self.get_option("password") or self._play_context.password]
+            for password in [self.get_option("altpassword")] + (self.get_option("altpasswords") or []):
+                if password and password not in passwords:
+                    passwords.append(password)
+            self._credential_candidates = [(host, password) for host in hosts for password in passwords]
+        return self._credential_candidates
+
+    # Retry whole operations so Ansible rebuilds commands, pipes and control paths.
     @_password_retry
-    def _run(self, *args, **kwargs):
-        return super(Connection, self)._run(*args, **kwargs)
+    def exec_command(self, *args, **kwargs):
+        return super(Connection, self).exec_command(*args, **kwargs)
 
     @_password_retry
-    def _file_transport_command(self, *args, **kwargs):
-        return super(Connection, self)._file_transport_command(*args, **kwargs)
+    def put_file(self, *args, **kwargs):
+        return super(Connection, self).put_file(*args, **kwargs)
+
+    @_password_retry
+    def fetch_file(self, *args, **kwargs):
+        return super(Connection, self).fetch_file(*args, **kwargs)
