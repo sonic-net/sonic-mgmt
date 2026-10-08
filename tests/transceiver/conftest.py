@@ -5,6 +5,7 @@ import warnings
 from pathlib import Path
 
 from ansible.errors import AnsibleConnectionFailure, AnsibleError
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 from retry import retry
 
 from tests.common.devices.base import AnsibleHostBase
@@ -338,7 +339,7 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
     hosts = {host.hostname: host for host in duthosts}
     hosts[duthost.hostname] = duthost
 
-    @retry(AnsibleConnectionFailure, tries=3, delay=2, logger=None)
+    @retry((AnsibleConnectionFailure, PytestAnsibleConnectionFailure), tries=3, delay=2, logger=None)
     def read_peer_aliases(device, peer_connections):
         try:
             peer_host = hosts.get(device)
@@ -366,6 +367,9 @@ def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict
                 reason = result.get("stderr") or result.get("msg") or error.message
                 reason = (str(reason).strip() or type(error).__name__).splitlines()[-1]
                 reason = f"rc={result.get('rc', 'unknown')}: {reason}"
+            elif isinstance(error, PytestAnsibleConnectionFailure):
+                result = (error.dark or {}).get(device, {})
+                reason = result.get("msg") or result.get("stderr") or str(error)
             else:
                 reason = str(error)
             detail = f"LLDP peer {device} alias resolution failed: {' '.join(reason.split())[:300]}"
