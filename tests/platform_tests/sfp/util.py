@@ -71,7 +71,8 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 
     if asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        asic_dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+        dev_conn = {k: v for k, v in list(portmap.items()) if k in asic_dev_conn}
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn
