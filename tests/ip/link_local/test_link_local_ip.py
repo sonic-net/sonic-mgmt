@@ -444,8 +444,8 @@ class TestLinkLocalIPacket:
                       f"portstat rx_ok on {dut_rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        if rif_support:
-            rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+        rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"]) \
+            if rif_support else {}
 
         # Rx counters Validations
         rx_drp = counter_value(portstat_out, dut_rx_iface, "rx_drp")
