@@ -35,11 +35,27 @@
   gather_facts: no
   tasks:
 
-  - name: Complete a missing primary management address
-    set_fact:
-      ansible_host: "{{ ansible_hostv6 }}"
-    when: hostvars[inventory_hostname].ansible_host is not defined
+  - name: Validate the IPv6 address when supplied
+    assert:
+      that:
+        - ansible_hostv6 is ansible.utils.ipv6_address
+      fail_msg: "ansible_hostv6 must be a valid IPv6 address."
+    when: ansible_hostv6 is defined
     tags: always
+
+  - name: Repair a primary that is not an IP address
+    when: (ansible_host | default('')) is not ansible.utils.ip_address
+    tags: always
+    block:
+      - name: Require an IPv6 address to replace the invalid primary
+        assert:
+          that:
+            - ansible_hostv6 is defined
+          fail_msg: "ansible_host is not an IP address and ansible_hostv6 is missing."
+
+      - name: Use the supplied IPv6 address as the primary
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 }}"
 
   - block:
     - name: set default testbed file
