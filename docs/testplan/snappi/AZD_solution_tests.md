@@ -708,7 +708,7 @@ BGP session on each Po-sub-interface (2K BGP session on whole dut, IPv4 only)
 
 **Test Steps:**
 
-1. Configure 128K static host-routes in VNET_ROUTE_TUNNEL table
+1. Configure 128K static host-routes in VNET_ROUTE_TABLE.
 
 **Pass Criteria:**
 
@@ -718,17 +718,17 @@ BGP session on each Po-sub-interface (2K BGP session on whole dut, IPv4 only)
 
 ---
 
-### TC-AZD-19a1 – Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table. - 32K for Q200, - 128K for P200
+### TC-AZD-19a1 – Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table. - 32K for Q200, - 256K for P200
 
 **Objective:**
 
 Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table.
-- 32K for Q200, - 128K for P200
+- 32K for Q200, - 256K for P200
 
 **Test Steps:**
 
 1. Base config operational with traffic at 0% loss.
-2. Configure DMAC-VNI-rewrite routes at target scale (32K or 128K based on platform). Apply, save, log programming time.
+2. Configure DMAC-VNI-rewrite routes at target scale (32K or 256K based on platform). Apply, save, log programming time.
 3. Verify traffic, capture on Spine — validate inner DMAC, VNI and endpoint. Sample routes for correctness.
 4. Modify DMAC, VNI and endpoint in-place for all the routes. Verify updated values, old values gone, route count unchanged.
 5. Run triggers (config reload, SWSS restart, reboot) — verify routes restore, traffic resumes, modified values persist.
@@ -737,7 +737,7 @@ Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table.
 
 **Pass Criteria:**
 
-- All tunnel routes programmed and visible in show vnet route tunnel at target scale (32K/128K) with expected mac_address, VNI and endpoint.
+- All tunnel routes programmed and visible in show vnet route tunnel at target scale (32K/256K) with expected mac_address, VNI and endpoint.
 - Outer destination IP, VNI and inner DMAC in VXLAN packets match per-route configuration.
 - After modification, old values absent, all routes reflect updated DMAC, VNI and endpoint.
 - Route count unchanged during in-place modification. Spine packet captures confirm updated rewrite attributes post-modification.
@@ -1041,6 +1041,7 @@ Verify Data-ACL Coexists and Functions with VNET/VXLAN Setup (priority P2)
 **Pass Criteria:**
 
 - Verify basic functionality of AZD and Data-ACL matching traffic is denied/permitted at ingress/delivered as per ACL-action.
+- Verify PO-subinterface traffic gets mirrored, when mirror-source-port is parent-portchannel.
 
 ---
 
