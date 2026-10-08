@@ -50,7 +50,7 @@ resilience triggers, scale, longevity, and coexistence with Everflow, Data-ACL, 
 
 -	BGPv4 running between Ixia-A and Leaf0 are advertising routes, say A.x.y.z/32
 -	BGPv4 running between Ixia-X and Leaf1 are advertising routes, say X.x.y.z/32
--	Traffic running between A.x.y.z/32 <---->  X.x.y.z/32 
+-	Traffic running between A.x.y.z/32 <---->  X.x.y.z/32
 
 
 ---
@@ -116,8 +116,8 @@ Verify that BGP session can be configured on each PO-subinterfaces separately.
 **Test Steps:**
 
 1. Configure BGP session on all this interfaces created on these PO-subinterface.
-1a. As of now we are specifying BGP neighbor explicity. 
-1b. If possible (provided Ixia supports), use dynamic BGP session and move to BGP unnumbered over Link Local IPv6, RFC 5549's v4 NLRI with v6 NH. 
+1a. As of now we are specifying BGP neighbor explicity.
+1b. If possible (provided Ixia supports), use dynamic BGP session and move to BGP unnumbered over Link Local IPv6, RFC 5549's v4 NLRI with v6 NH.
 2. Configure BGP on Ixia-side as well for both leaf.
 3. Add route-ranges on decap leaf to be advertized as NLRI
 4. This route-ranges points to host-routes for easy verifcation in later testcases.
@@ -197,8 +197,8 @@ Also check that traffic is decapsulated and forwarded as per local VNET_ROUTEs
 
 **Objective:**
 
-Verify Traffic over static VXLAN tunnel. 
-Check that traffic is encapsulated as per route in VNET_ROUTE_TUNNEL. 
+Verify Traffic over static VXLAN tunnel.
+Check that traffic is encapsulated as per route in VNET_ROUTE_TUNNEL.
 Also check that traffic is decapsulated and forwarded as per local VNET-routes
 
 **Test Steps:**
@@ -216,8 +216,8 @@ Also check that traffic is decapsulated and forwarded as per local VNET-routes
 - Since there is default VNI used here, decap is verified here and traffic is delivered and verified at Ixia after vxlan-decap at Leaf-1
 - For high-scale scenarios, BGP route installation on the Leaf may take additional time.
 - If packet loss is observed initially, allow some time (tolerance) for route programming and retry traffic verification until loss converges to 0%. Note down this delay in script/log.
-- Ensure that traffic is ECMPed on Po100 and Po101 subinterfaces on decap leaf. 
-- Traffic-distribution should be fair, i.e. ~50% 
+- Ensure that traffic is ECMPed on Po100 and Po101 subinterfaces on decap leaf.
+- Traffic-distribution should be fair, i.e. ~50%
 ---
 
 ### TC-AZD-8 – Enable MacSec and verify that traffic (BGP/Data) is encrypted.
@@ -477,7 +477,7 @@ Basic Nexthop Sharing
     }
     ```
    * Verify a 4 nexthop entries is created, 1 multipath-group and 4 multi path-group-member are created
-   
+
 - Add the same route in Vnet-2
     ```
     ""VNET_ROUTE_TUNNEL"": {
@@ -536,35 +536,35 @@ Route Modification Scenarios
 
 - Create a ecmp-route to Host-A in Vnet-1, Vnet-2, and Vnet-3 using VNI-A1,A2,A3, EP-A1,A2,A3, DMAC-A1,A2,A3 (Nexthop-A)
    	*Verify encapsulation for Host-A in All Vnets
-	*Verify nexthop entries, Multipath-group, multipath-group-member 
+	*Verify nexthop entries, Multipath-group, multipath-group-member
         *Verify nexthop-count : NEXTHOP-A = 9
 
 - Modify the route in Vnet-2 to VNI-B1,B2,B3,B4, EP-B1,B2,B3,B4, DMAC-B1,B2,B3,B4
    * Verify encapsulation for Host-A in All Vnets
-   * Verify nexthop entries, Multipath-group, multipath-group-member 
+   * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-A = 6, NEXTHOP-B = 4
 
 - Modify the route in Vnet-3 to NEXTHOP-B
    * Verify encapsulation for Host-A in All Vnets
-   * Verify nexthop entries, Multipath-group, multipath-group-member  
+   * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-B = 8, NEXTHOP-A = 3
 
 - Modify the route in Vnet-1 to NEXTHOP-B
    * Verify encapsulation for Host-A in All Vnets
-   * Verify nexthop entries, Multipath-group, multipath-group-member 
+   * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-B = 12, NEXTHOP-A = 0
 
-- Delete the route in Vnet-1 
+- Delete the route in Vnet-1
    * Verify encapsulation for Host-A in All Vnets, Should use default-VNI for Host-A in Vnet-1, if any other route to host-A exist
-   * Verify nexthop entries, Multipath-group, multipath-group-member 
+   * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-B = 8, NEXTHOP-A = 0
 
-- Delete the route in Vnet-2 
+- Delete the route in Vnet-2
    * Verify encapsulation for Host-A in All Vnets, Should use default-VNI for Host-A in Vnet-1, Vnet-2, if any other route to host-A exist
    * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-B = 4, NEXTHOP-A = 0
 
-- Delete the route in Vnet-3 
+- Delete the route in Vnet-3
    * Verify encapsulation for Host-A in All Vnets, Should use default-VNI for Host-A in Vnet-1, Vnet-2, Vnet-3, if any other  route to host-A exist
    * Verify nexthop entries, Multipath-group, multipath-group-member
    * Verify next hop-count : NEXTHOP-B = 0, NEXTHOP-A = 0
@@ -708,7 +708,7 @@ BGP session on each Po-sub-interface (2K BGP session on whole dut, IPv4 only)
 
 **Test Steps:**
 
-1. Configure 128K static host-routes in VNET_ROUTE_TUNNEL table
+1. Configure 128K static host-routes in VNET_ROUTE_TABLE.
 
 **Pass Criteria:**
 
@@ -718,17 +718,17 @@ BGP session on each Po-sub-interface (2K BGP session on whole dut, IPv4 only)
 
 ---
 
-### TC-AZD-19a1 – Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table. - 32K for Q200, - 128K for P200
+### TC-AZD-19a1 – Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table. - 32K for Q200, - 256K for P200
 
 **Objective:**
 
 Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table.
-- 32K for Q200, - 128K for P200
+- 32K for Q200, - 256K for P200
 
 **Test Steps:**
 
 1. Base config operational with traffic at 0% loss.
-2. Configure DMAC-VNI-rewrite routes at target scale (32K or 128K based on platform). Apply, save, log programming time.
+2. Configure DMAC-VNI-rewrite routes at target scale (32K or 256K based on platform). Apply, save, log programming time.
 3. Verify traffic, capture on Spine — validate inner DMAC, VNI and endpoint. Sample routes for correctness.
 4. Modify DMAC, VNI and endpoint in-place for all the routes. Verify updated values, old values gone, route count unchanged.
 5. Run triggers (config reload, SWSS restart, reboot) — verify routes restore, traffic resumes, modified values persist.
@@ -737,7 +737,7 @@ Scaled number of rewrite-entries in VNET_ROUTE_TUNNEL table.
 
 **Pass Criteria:**
 
-- All tunnel routes programmed and visible in show vnet route tunnel at target scale (32K/128K) with expected mac_address, VNI and endpoint.
+- All tunnel routes programmed and visible in show vnet route tunnel at target scale (32K/256K) with expected mac_address, VNI and endpoint.
 - Outer destination IP, VNI and inner DMAC in VXLAN packets match per-route configuration.
 - After modification, old values absent, all routes reflect updated DMAC, VNI and endpoint.
 - Route count unchanged during in-place modification. Spine packet captures confirm updated rewrite attributes post-modification.
@@ -1041,6 +1041,7 @@ Verify Data-ACL Coexists and Functions with VNET/VXLAN Setup (priority P2)
 **Pass Criteria:**
 
 - Verify basic functionality of AZD and Data-ACL matching traffic is denied/permitted at ingress/delivered as per ACL-action.
+- Verify PO-subinterface traffic gets mirrored, when mirror-source-port is parent-portchannel.
 
 ---
 
