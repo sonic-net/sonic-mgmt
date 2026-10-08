@@ -63,6 +63,7 @@ def check_lldp_neighbors_present(
     ports_by_ns = db_helpers.group_ports_by_namespace(duthost, port_timeouts, namespaces)
     remaining = set(port_timeouts)
     neighbors = {}
+    read_ports = set()
     errors = {}
     if expected_peers is not None:
         for port in port_timeouts:
@@ -80,6 +81,7 @@ def check_lldp_neighbors_present(
             pending_in_ns = [port for port in ports_in_ns if port in remaining]
             if not pending_in_ns:
                 continue
+            read_ports.update(pending_in_ns)
             by_key, err = db_helpers.get_db_table(
                 duthost, "APPL_DB", "LLDP_ENTRY_TABLE", namespace=ns, sep=":"
             )
@@ -139,12 +141,12 @@ def check_lldp_neighbors_present(
             logger.info("LLDP check PASSED: %s", details)
             per_port[port] = {"passed": True, "details": details}
         else:
-            reason = (
-                f"unable to verify LLDP neighbor within {timeout_sec}s; "
-                f"{errors[port]}"
-                if port in errors
-                else f"no LLDP neighbor observed within {timeout_sec}s"
-            )
+            if port in errors:
+                reason = f"unable to verify LLDP neighbor within {timeout_sec}s; {errors[port]}"
+            elif port not in read_ports:
+                reason = f"LLDP budget expired before the first read (timeout={timeout_sec}s)"
+            else:
+                reason = f"no LLDP neighbor observed within {timeout_sec}s"
             details = f"{port}: {reason}{expected_detail}"
             logger.warning("LLDP check FAILED: %s", details)
             per_port[port] = {"passed": False, "details": details, "failure_reason": reason}
