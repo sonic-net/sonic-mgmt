@@ -51,7 +51,8 @@
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% set ansible_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
 {% set effective_mgmt_ipv6 = ansible_hostv6 | default(ansible_host if ansible_host_is_ipv6 else 'fc00:2::32', true) %}
-{% if (use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool) and not ansible_host_is_ipv6 %}
+{% set emit_ipv4 = not (use_ipv6_mgmt|default(false)|bool) and not ansible_host_is_ipv6 %}
+{% if emit_ipv4 %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
           <AttachTo>eth0</AttachTo>
@@ -62,7 +63,7 @@
         </a:ManagementIPInterface>
 {% endif %}
         <a:ManagementIPInterface>
-          <Name>{% if use_ipv6_mgmt|default(false)|bool or ansible_host_is_ipv6 %}HostIP{% else %}V6HostIP{% endif %}</Name>
+          <Name>{% if emit_ipv4 %}V6HostIP{% else %}HostIP{% endif %}</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
             <b:IPPrefix>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
