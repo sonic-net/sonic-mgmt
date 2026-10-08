@@ -1029,9 +1029,8 @@
         local_action: wait_for
         args:
           host: >-
-            {{ ansible_hostv6
-               if use_ipv6_mgmt|default(false)|bool and not (ansible_host | ansible.utils.ipv6)
-               else ansible_host }}
+            {{ (ansible_hostv6 | default(ansible_host, true))
+               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
