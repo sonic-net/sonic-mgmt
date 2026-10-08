@@ -1039,6 +1039,7 @@ function set_l2_mode
 {
   testbed_name=$1
   passfile=$2
+  l2_args=()
   shift
   shift
 
@@ -1051,7 +1052,13 @@ function set_l2_mode
     exit 1
   fi
 
-  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" "$@"
+  case "$topo" in
+    t0-isolated-d128u128s1|t0-isolated-d128u128s2|t0-isolated-d2u510s2|t0-isolated-d256u256s2)
+      l2_args=(-e max_l2_vlan_members=32)
+      ;;
+  esac
+
+  ansible-playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" "${l2_args[@]}" "$@"
 }
 
 function config_vm
