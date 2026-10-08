@@ -105,8 +105,9 @@ str-msn2700-01:
 ```
 
 An IPv6-primary entry can instead supply `ansible_host: fc00:2::101` without
-`ansible_hostv6`. An IPv6-only deployment requires an IPv6 address to be
-supplied; it does not invent one when only IPv4 is provided.
+`ansible_hostv6`. An IPv6-only deployment checks each selected DUT for
+`ansible_hostv6` first; when absent, its normalized `ansible_host` must be IPv6.
+It does not invent an IPv6 address or require one on an unselected peer.
 
 These values describe the supplied configuration inputs, not the DUT's
 current addresses or which endpoint happens to be reachable. SSH fallback

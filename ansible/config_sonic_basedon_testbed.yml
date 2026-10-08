@@ -76,11 +76,8 @@
     - name: Require a supplied IPv6 address for IPv6-only deployment
       assert:
         that:
-          - >-
-            (hostvars[item].ansible_host | default('') | ansible.utils.ipv6) is not false or
-            (hostvars[item].ansible_hostv6 | default('') | ansible.utils.ipv6) is not false
-        fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ item }}"
-      loop: "{{ testbed_facts['duts'] }}"
+          - ansible_hostv6 is defined or ansible_host is ansible.utils.ipv6_address
+        fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ inventory_hostname }}"
       when: use_ipv6_mgmt|default(false)|bool
 
     # IPv6-only management network configuration loading
