@@ -99,6 +99,9 @@ When `ansible_hostv6` is supplied and `ansible_host` is IPv6, they must identify
 the same IPv6 address. Deployment rejects a mismatch before connecting, in either
 deployment mode. Equivalent compressed or expanded IPv6 spellings are accepted.
 An IPv6 primary without `ansible_hostv6` remains valid; no reverse copy is made.
+IPv6 configuration and metadata prefer `ansible_hostv6` when supplied, otherwise
+the IPv6 primary. The IPv6-only readiness check follows the same selection;
+normal-mode readiness continues to check `ansible_host`.
 
 For example, a dual-stack inventory entry is:
 

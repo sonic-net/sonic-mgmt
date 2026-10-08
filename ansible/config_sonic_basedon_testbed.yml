@@ -121,7 +121,7 @@
       debug:
         msg: |
           IPv6-only management mode requested for {{ inventory_hostname }}
-          Target management IP: {{ ansible_host if (ansible_host | ansible.utils.ipv6) else ansible_hostv6 }}
+          Target management IP: {{ ansible_hostv6 | default(ansible_host, true) }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -1027,9 +1027,7 @@
         args:
           host: >-
             {{ (ansible_hostv6 | default(ansible_host, true))
-               if use_ipv6_mgmt|default(false)|bool
-                  and ansible_host is not ansible.utils.ipv6_address
-               else ansible_host }}
+               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"

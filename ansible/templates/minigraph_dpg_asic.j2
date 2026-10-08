@@ -50,7 +50,7 @@
       </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% set ansible_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
-{% set effective_mgmt_ipv6 = ansible_host if ansible_host_is_ipv6 else ansible_hostv6 | default('fc00:2::32', true) %}
+{% set effective_mgmt_ipv6 = ansible_hostv6 | default(ansible_host if ansible_host_is_ipv6 else 'fc00:2::32', true) %}
 {% if (use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool) and not ansible_host_is_ipv6 %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
