@@ -676,7 +676,11 @@ t1-lag-vpp:
   - bgp/test_bgp_port_disable.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_vnet.py
-  - bgp/test_bgpmon_v6.py
+  - bgp/test_bgp_max_route.py
+  - bgp/test_bgp_route_weight.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_prefix_list_suppress.py
   - bgp/test_traffic_shift_sup.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
@@ -740,6 +744,7 @@ t1-lag-vpp:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_underlay_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_ecmp_switchover.py
@@ -827,6 +832,7 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - sflow/test_sflow.py
   - span/test_port_mirroring.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
@@ -995,6 +1001,7 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_extended.py
   - dualtor_io/test_grpc_server_failure.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py

@@ -75,6 +75,13 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.helpers.host_failure_utils import (
+    is_testbed_unreachable_exception, stop_on_testbed_unreachable,
+)
+from tests.common.helpers.runtime_config import (
+    get_unrestored_runtime_managed_entries_by_context,
+    refresh_core_dump_inventory,
+)
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -103,9 +110,14 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
+CONNECTION_FAILURE_TYPES = (
+    AnsibleConnectionFailure,
+)
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
 GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
+RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
+RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -127,7 +139,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
-                  'tests.common.plugins.erspan_mirror')
+                  'tests.common.plugins.erspan_mirror',
+                  'tests.common.port_attributes.pytest_plugin')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -724,6 +737,11 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # A session killed before pytest_sessionfinish leaves these flags in the cache,
+    # reset them so that a later healthy run is not reported as a host failure.
+    session.config.cache.set("duthosts_fixture_failed", None)
+    session.config.cache.set("ptfhost_exception", None)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -1551,17 +1569,75 @@ def log_custom_msg(item):
         item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
 
 
+@pytest.hookimpl(trylast=True, wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Finish retained fixtures before reporting a teardown-first host failure."""
+    try:
+        from builtins import BaseExceptionGroup
+    except ImportError:
+        from exceptiongroup import BaseExceptionGroup
+    cleanup_exceptions = (Exception, pytest.fail.Exception, pytest.skip.Exception, BaseExceptionGroup)
+
+    # Native wrapper propagation keeps control-flow exceptions unchanged and
+    # preserves the original failure as their context during remaining cleanup.
+    try:
+        return (yield)
+    except pytest.exit.Exception:
+        raise
+    except cleanup_exceptions as original_error:
+        if nextitem is None or not is_testbed_unreachable_exception(original_error, CONNECTION_FAILURE_TYPES):
+            raise
+
+        # pytest chose nextitem before this failure, so shared fixtures may remain.
+        # Drain only the fixture stack, without running other teardown hooks twice.
+        # trylast keeps this inside pytest's teardown log/capture wrappers.
+        cleanup_errors = [original_error]
+        setup_state = item.session._setupstate
+        while setup_state.stack:
+            # Match pytest's LIFO stack drain, but retain sibling finalizers
+            # and earlier errors when a mixed BaseExceptionGroup is raised.
+            _, (finalizers, _) = setup_state.stack.popitem()
+            while finalizers:
+                finalizer = finalizers.pop()
+                try:
+                    finalizer()
+                except pytest.exit.Exception:
+                    raise
+                except cleanup_exceptions as cleanup_error:
+                    cleanup_errors.append(cleanup_error)
+        if len(cleanup_errors) > 1:
+            raise BaseExceptionGroup(
+                "Testbed unreachable and remaining fixture cleanup failed",
+                cleanup_errors,
+            ) from None
+        raise
+
+
 # This function is a pytest hook implementation that is called to create a test report.
 # By placing the call to log_custom_msg in the 'teardown' phase, we ensure that it is executed
 # at the end of each test, after all other fixture teardowns. This guarantees that any custom
 # messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    # Check the raw exception here instead of pytest_exception_interact,
+    # which pytest skips for expected failures (xfail).
+    try:
+        stop_on_testbed_unreachable(
+            item,
+            call,
+            CONNECTION_FAILURE_TYPES,
+        )
+    except Exception as e:
+        # This hook runs for every test phase, a failure here would abort the
+        # whole session with an INTERNALERROR instead of reporting the test.
+        logger.exception("Failed to check testbed connectivity failure: {}".format(repr(e)))
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
-        if item.nodeid == item.session.items[-1].nodeid:
+        # The remaining items never run once the session is stopped early, so this
+        # is the last chance to attach the custom messages to the test report.
+        if item.nodeid == item.session.items[-1].nodeid or item.session.shouldstop:
             log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
@@ -3278,6 +3354,37 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         if check_flag:
 
+            def collect_running_config(dut):
+                running_config = {
+                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                }
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        running_config[asic_ns] = json.loads(
+                            dut.shell(
+                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                verbose=False,
+                            )['stdout']
+                        )
+                return running_config
+
+            def collect_core_dumps(dut):
+                if "20191130" in dut.os_version:
+                    return dut.shell(
+                        'ls /var/core/ | grep -v python || true'
+                    )['stdout'].split()
+                return dut.shell('ls /var/core/')['stdout'].split()
+
+            def update_core_dump_inventory(dut):
+                cur_cores, detected_cores = refresh_core_dump_inventory(
+                    duts_data[dut.hostname]["pre_core_dumps"],
+                    lambda: collect_core_dumps(dut),
+                    new_core_dumps.get(dut.hostname),
+                )
+                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
+                new_core_dumps[dut.hostname] = detected_cores
+
             def collect_after_test(dut):
                 inconsistent_config[dut.hostname] = {}
                 pre_only_config[dut.hostname] = {}
@@ -3289,31 +3396,64 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 dut.shell("df -h")
 
                 logger.info("Collecting core dumps after test on {}".format(dut.hostname))
-                if "20191130" in dut.os_version:
-                    cur_cores = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
-                else:
-                    cur_cores = dut.shell('ls /var/core/')['stdout'].split()
-                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
-
-                cur_core_dumps_set = set(duts_data[dut.hostname]["cur_core_dumps"])
-                pre_core_dumps_set = set(duts_data[dut.hostname]["pre_core_dumps"])
-                new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
+                update_core_dump_inventory(dut)
 
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
-                # get running config after running
-                duts_data[dut.hostname]["cur_running_config"] = {}
-                duts_data[dut.hostname]["cur_running_config"][None] = \
-                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                if dut.is_multi_asic:
-                    for asic_index in range(0, dut.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        duts_data[dut.hostname]["cur_running_config"][asic_ns] = \
-                            json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                 verbose=False)['stdout'])
+                duts_data[dut.hostname]["cur_running_config"] = collect_running_config(dut)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
+
+            def wait_for_runtime_managed_config(dut):
+                pre_running_config = duts_data[dut.hostname]["pre_running_config"]
+                cur_running_config = duts_data[dut.hostname]["cur_running_config"]
+                unrestored = get_unrestored_runtime_managed_entries_by_context(
+                    pre_running_config,
+                    cur_running_config,
+                )
+                if not unrestored:
+                    return
+
+                logger.info(
+                    "Waiting for runtime-managed config entries to be restored on {}: {}".format(
+                        dut.hostname,
+                        json.dumps(unrestored),
+                    )
+                )
+
+                def runtime_managed_config_restored():
+                    current = collect_running_config(dut)
+                    duts_data[dut.hostname]["cur_running_config"] = current
+                    return not get_unrestored_runtime_managed_entries_by_context(
+                        pre_running_config,
+                        current,
+                    )
+
+                if not wait_until(
+                        RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT,
+                        RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL,
+                        0,
+                        runtime_managed_config_restored):
+                    logger.warning(
+                        "Runtime-managed config entries were not restored on {}: {}".format(
+                            dut.hostname,
+                            json.dumps(
+                                get_unrestored_runtime_managed_entries_by_context(
+                                    pre_running_config,
+                                    duts_data[dut.hostname]["cur_running_config"],
+                                )
+                            ),
+                        )
+                    )
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(wait_for_runtime_managed_config, duthost)
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(update_core_dump_inventory, duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
@@ -3797,12 +3937,24 @@ def setup_pfc_test(
 
     tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
     test_ports = tp_handle.build_port_list()
+    if not test_ports:
+        pytest.skip(
+            "setup_pfc_test: no test ports could be built on {} (topology {}, {}): the DUT needs "
+            "at least two routed interfaces, two Port-Channels, or two VLAN sub-interfaces "
+            "carrying an {} address".format(
+                duthost.hostname, topo, ip_version, ip_version))
 
     # In T1 topology update test ports by removing inactive ports
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
             duthost, mg_facts, test_ports, tbinfo
         )
+        if not test_ports:
+            pytest.fail(
+                "setup_pfc_test: no active IP interfaces remain on {} after filtering "
+                "inactive ports (topology {}, {}). Check link/BGP state.".format(
+                    duthost.hostname, topo, ip_version))
+
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
 
@@ -4043,7 +4195,7 @@ class DualtorMuxPortSetupConfig(enum.Flag):
 
 
 @pytest.fixture(autouse=True)
-def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url, vmhost):       # noqa:F811
     """Setup dualtor mux ports."""
     def _get_enumerated_dut_hostname(request):
         for k, v in request.node.callspec.params.items():
@@ -4200,7 +4352,8 @@ def setup_dualtor_mux_ports(duthost, duthosts, tbinfo, request, mux_server_url):
         mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
                                                                         duthosts,
                                                                         mux_server_url,
-                                                                        tbinfo)
+                                                                        tbinfo,
+                                                                        vmhost)
 
     if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
         logger.info("Set all mux ports to manual mode on all ToRs")

@@ -89,3 +89,60 @@ def test_firmware_download_admin_down(
     logger.info("Firmware download with admin-down port exercised %d port(s)", num_ports)
     if all_failures:
         pytest.fail("Firmware download with admin-down port failures:\n" + "\n".join(all_failures))
+
+
+def test_firmware_download_zero_filled_binary(
+    duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
+    dom_polling_disabled,
+):
+    """Verify a zero-filled firmware image is rejected and leaves the banks untouched."""
+    all_failures, num_ports = firmware_operations.execute_on_ports(
+        duthost, port_attributes_dict, cdb_firmware_abort_supported_ports,
+        get_lport_to_pport_mapping,
+        required_firmware_metadata_for_all_transceivers,
+        firmware_operations.download_zero_filled_binary_op,
+        lport_to_first_subport_mapping,
+        verify_post_operation=True,
+    )
+    logger.info("Zero-filled firmware download exercised %d port(s)", num_ports)
+    if all_failures:
+        pytest.fail("Zero-filled firmware download failures:\n" + "\n".join(all_failures))
+
+
+def test_firmware_download_corrupted_binary(
+    duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
+    dom_polling_disabled,
+):
+    """Verify a firmware image with a corrupted payload is rejected."""
+    all_failures, num_ports = firmware_operations.execute_on_ports(
+        duthost, port_attributes_dict, cdb_firmware_abort_supported_ports,
+        get_lport_to_pport_mapping,
+        required_firmware_metadata_for_all_transceivers,
+        firmware_operations.download_corrupted_binary_op,
+        lport_to_first_subport_mapping,
+        verify_post_operation=True,
+    )
+    logger.info("Corrupted firmware download exercised %d port(s)", num_ports)
+    if all_failures:
+        pytest.fail("Corrupted firmware download failures:\n" + "\n".join(all_failures))
+
+
+def test_firmware_download_interruption_and_recovery(
+    duthost, port_attributes_dict, cdb_firmware_abort_supported_ports, get_lport_to_pport_mapping,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
+    dom_polling_disabled,
+):
+    """Verify every interrupted download is aborted and followed by a clean download."""
+    all_failures, num_ports = firmware_operations.execute_on_ports(
+        duthost, port_attributes_dict, cdb_firmware_abort_supported_ports,
+        get_lport_to_pport_mapping,
+        required_firmware_metadata_for_all_transceivers,
+        firmware_operations.download_interruption_op,
+        lport_to_first_subport_mapping,
+        verify_post_operation=True,
+    )
+    logger.info("Firmware interruption and recovery exercised %d port(s)", num_ports)
+    if all_failures:
+        pytest.fail("Firmware interruption/recovery failures:\n" + "\n".join(all_failures))
