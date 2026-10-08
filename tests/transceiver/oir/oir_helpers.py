@@ -9,6 +9,7 @@ DUT to observe the new presence state.  Verifiers return per-port failure
 strings so the caller can aggregate them into a single ``pytest.fail``, matching
 the pattern used across the transceiver suite.
 """
+import http.client
 import logging
 import select
 import sys
@@ -58,6 +59,11 @@ KERNEL_ERROR_PATTERN = r"i2c|sfp|xcvr|transceiver|eeprom|optoe"
 # xcvrd's presence poll cycle plus CLI latency.
 PRESENCE_SETTLE_SEC = 30
 POLL_INTERVAL_SEC = 2
+
+# Bounds each platform API call.  The server is single threaded, so a call stuck
+# in pmon (e.g. on a hung I2C bus) would otherwise block every later call too,
+# the hot-swap restoration's included.
+PLATFORM_API_TIMEOUT_SEC = 60
 
 TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
@@ -344,6 +350,21 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
     )
 
 
+def _sfp_api(conn, pport, name, args=None):
+    """Call Sfp API ``name`` of ``pport`` through the platform API server.
+
+    After a timeout or a refused connection, ``http.client`` rejects every later
+    request on ``conn`` (``CannotSendRequest``) until it is closed, so a failed
+    call resets it.  The server answers in HTTP/1.0, so every call opens a new
+    TCP connection anyway.
+    """
+    try:
+        return sfp.sfp_api(conn, pport, name, args)
+    except (OSError, http.client.HTTPException):
+        conn.close()
+        raise
+
+
 def read_xcvr_api(conn, pport, wait_sec=0):
     """Return ``(xcvr_api, serial)`` of the module in ``pport`` via the platform API server.
 
@@ -353,9 +374,9 @@ def read_xcvr_api(conn, pport, wait_sec=0):
     the server's Sfp objects never see those events, so the XcvrApi is rebuilt
     here for the module now in the cage.
     """
-    sfp.sfp_api(conn, pport, "refresh_xcvr_api")
-    wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: sfp.sfp_api(conn, pport, "get_xcvr_api") is not None)
-    return sfp.sfp_api(conn, pport, "get_xcvr_api"), sfp.get_serial(conn, pport)
+    _sfp_api(conn, pport, "refresh_xcvr_api")
+    wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: _sfp_api(conn, pport, "get_xcvr_api") is not None)
+    return _sfp_api(conn, pport, "get_xcvr_api"), _sfp_api(conn, pport, "get_serial")
 
 
 def read_serial(conn, pport, wait_sec=0):
@@ -372,20 +393,20 @@ def read_serial(conn, pport, wait_sec=0):
         return None
 
 
-def wait_module_presence(conn, pport):
-    """Poll the platform's presence signal until it sees a module in ``pport``.
+def wait_module_presence(conn, pport, present=True):
+    """Poll the platform's presence signal until it reports ``present`` for ``pport``.
 
     The ``show`` presence CLI reflects xcvrd's ``TRANSCEIVER_INFO``, which a
     module without an XcvrApi never gets; this signal needs no XcvrApi.  The
     platform API server returns ``None`` when the call raised.
     """
     def _check():
-        presence = sfp.get_presence(conn, pport)
-        if presence is True:
-            return []
+        presence = _sfp_api(conn, pport, "get_presence")
         if presence is None:
             return [f"physical port {pport}: platform presence unreadable (platform API returned None)"]
-        return [f"physical port {pport}: platform presence {presence}, expected True"]
+        if bool(presence) is not present:
+            return [f"physical port {pport}: platform presence {presence}, expected {present}"]
+        return []
 
     return poll_ports_recovered(_check, PRESENCE_SETTLE_SEC, POLL_INTERVAL_SEC, "platform presence")
 
@@ -399,7 +420,7 @@ def is_identifier_readable(conn, pport):
     failed read and a raised call alike, and serializes the ``bytearray`` of a
     successful read as its class name.
     """
-    return sfp.sfp_api(conn, pport, "read_eeprom", [0, 1]) is not None
+    return _sfp_api(conn, pport, "read_eeprom", [0, 1]) is not None
 
 
 def get_flap_counts(duthost, lports):

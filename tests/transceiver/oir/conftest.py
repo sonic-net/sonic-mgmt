@@ -157,7 +157,8 @@ def hot_swap_ports_under_test(port_attributes_dict, physical_oir_attribute_ports
 def oir_platform_api_conn(duthost, localhost):
     """Platform API server connection; its Sfp objects outlive a hot swap, like xcvrd's."""
     start_platform_api_server(duthost, localhost)
-    conn = http.client.HTTPConnection(duthost.get_mgmt_ip()["mgmt_ip"], SERVER_PORT)
+    conn = http.client.HTTPConnection(
+        duthost.get_mgmt_ip()["mgmt_ip"], SERVER_PORT, timeout=oir_helpers.PLATFORM_API_TIMEOUT_SEC)
     yield conn
     conn.close()
 
