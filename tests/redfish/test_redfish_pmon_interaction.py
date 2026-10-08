@@ -104,11 +104,7 @@ def _device_power_state(bmc_duthost):
 def _post_reset_on(redfish_client):
     response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
     logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
-    pytest_assert(
-        response.status_code in (200, 204),
-        "ResetType=On must be accepted with HTTP 200 or 204, got {}: {}".format(
-            response.status_code, response.text[:200])
-    )
+    assert_no_content(response, RESET_PATH)
 
 
 def _wait_for_new_command(bmc_duthost, keys_before):
