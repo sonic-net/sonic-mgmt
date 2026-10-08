@@ -12,8 +12,8 @@ from tests.generic_config_updater.add_cluster.helpers import change_interface_ad
     get_active_interfaces, get_cfg_info_from_dut, select_random_active_interface
 
 pytestmark = [
-    pytest.mark.topology("t2")
-]
+        pytest.mark.topology("ut2", "t2")
+        ]
 
 logger = logging.getLogger(__name__)
 
