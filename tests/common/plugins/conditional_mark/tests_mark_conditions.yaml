@@ -5471,6 +5471,12 @@ span:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+span/test_erspan_sampling_truncation.py:
+  skip:
+    reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
+    conditions:
+      - "asic_gen != 'spc5' or topo_type != 't0'"
+
 span/test_port_mirroring.py:
   xfail:
     reason: "Testcase ignored on dualtor topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9647"
