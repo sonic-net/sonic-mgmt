@@ -3,7 +3,7 @@ import logging
 import requests
 import ipaddress
 
-from tests.common.utilities import wait_tcp_connection
+from tests.common.utilities import wait_tcp_connection, wait_until
 
 
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
@@ -162,25 +162,28 @@ def run_bgp_facts(duthost, enum_asic_index):
                 assert v['local AS'] == int(bgp_confed_asn)
         else:
             assert v['local AS'] == bgp_asn
-        # Check bgpmon functionality by validate STATE DB contains this neighbor as well
-        state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
-                                   .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']
-        peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
-                                  .format(sonic_db_cmd, k),
-                                  module_ignore_errors=False)['stdout_lines']
-        assert state_fact[0] == "Established", (
-            "BGP neighbor state in STATE_DB is not 'Established' for neighbor. "
-            "Expected: 'Established', got: '{}'."
-        ).format(
-            state_fact[0] if state_fact else "No state found"
-        )
-        assert peer_type[0] == ("i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"), (
-            "BGP peer type mismatch for neighbor. "
-            "Expected '{}', got '{}'."
-        ).format(
-            "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP",
-            peer_type[0] if peer_type else "No peer type found"
-        )
+        # bgpmon's main loop updates NEIGH_STATE_TABLE from FRR periodically
+        # (every ~15s) and so lags the FRR peer state, meaning STATE_DB can hold
+        # a stale state or no state at all. Poll STATE_DB for up to 30s (~2 bgpmon
+        # cycles) until it catches up.
+        expected_peer_type = "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"
+        last_seen = {"state": None, "peer_type": None}
+
+        def _neigh_get_state_db(k=k, expected_peer_type=expected_peer_type, last_seen=last_seen):
+            state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
+                                       .format(sonic_db_cmd, k),
+                                       module_ignore_errors=True)['stdout_lines']
+            peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
+                                      .format(sonic_db_cmd, k),
+                                      module_ignore_errors=True)['stdout_lines']
+            last_seen["state"] = state_fact[0] if state_fact else None
+            last_seen["peer_type"] = peer_type[0] if peer_type else None
+            return last_seen["state"] == "Established" and last_seen["peer_type"] == expected_peer_type
+
+        assert wait_until(30, 5, 0, _neigh_get_state_db), (
+            "BGP neighbor {} not correctly reflected in STATE_DB NEIGH_STATE_TABLE. "
+            "Expected state 'Established' and peerType '{}', last observed state '{}' and peerType '{}'."
+        ).format(k, expected_peer_type, last_seen["state"], last_seen["peer_type"])
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
