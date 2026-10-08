@@ -79,7 +79,7 @@ def resolve_lldp_peer_aliases(peer_host, connections, namespaces=None):
 
     Reuse supplied namespaces, or discover them through SONiC's frontend
     namespace API without initializing a full DUT host.
-    Missing ports and ambiguous aliases are per-port errors. Read failures
+    Missing ports and ambiguous port identities are per-port errors. Read failures
     propagate to the caller, which reports them for the affected peer's ports.
     """
     if namespaces is None:
@@ -104,15 +104,20 @@ def resolve_lldp_peer_aliases(peer_host, connections, namespaces=None):
             raise ValueError("Peer logical ports occur in multiple ASICs: {}".format(sorted(duplicate_ports)))
         aliases.update(namespace_aliases)
 
-    alias_counts = Counter(alias for alias in aliases.values() if alias)
+    advertised_id_counts = Counter(alias or port for port, alias in aliases.items())
     results = {}
     for local_port, peer in connections.items():
         if peer.port not in aliases:
             results[local_port] = None, f"peer port {peer.device}:{peer.port} is missing from running configuration"
             continue
         alias = aliases[peer.port]
-        if alias and (alias_counts[alias] > 1 or (alias in aliases and alias != peer.port)):
-            results[local_port] = None, f"peer port {peer.device}:{peer.port} has ambiguous alias {alias!r}"
+        advertised_id = alias or peer.port
+        if (advertised_id_counts[advertised_id] > 1
+                or (advertised_id != peer.port and advertised_id_counts[peer.port] > 0)):
+            results[local_port] = None, (
+                f"peer port {peer.device}:{peer.port} has ambiguous LLDP port IDs "
+                f"{sorted({peer.port, advertised_id})!r}"
+            )
             continue
         results[local_port] = peer._replace(alias=alias or None), None
     return results
