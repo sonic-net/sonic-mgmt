@@ -136,5 +136,5 @@ def check_interfaces_and_services_all_lcs(duthosts, conn_graph_facts, xcvr_skip_
         for linecard in duthosts.frontend_nodes:
             executor.submit(
                 check_interfaces_and_services,
-                linecard, conn_graph_facts["device_conn"][linecard.hostname], xcvr_skip_list,
+                linecard, conn_graph_facts.get("device_conn", {}).get(linecard.hostname, {}), xcvr_skip_list,
             )
