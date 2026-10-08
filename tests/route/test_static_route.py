@@ -17,7 +17,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F81
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # noqa F811
 from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_only_topology
-from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.utilities import get_neighbor_ptf_port_list, restart_arp_responder
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
@@ -92,7 +92,7 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.shell('supervisorctl reread && supervisorctl update')
-        ptfhost.shell('supervisorctl restart arp_responder')
+        restart_arp_responder(ptfhost)
 
 
 def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
