@@ -1837,9 +1837,8 @@ def _create_config_active_active_dualtor_handler(active_active_ports, ports_to_r
                 if port not in active_active_ports:
                     raise ValueError("Port {} is not in the active-active ports".format(port))
 
-        config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally)
-
         ports_to_restore.extend(active_active_ports if ports == "all" else ports)
+        config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally)
 
     return _config_active_active_dualtor_active_standby
 
