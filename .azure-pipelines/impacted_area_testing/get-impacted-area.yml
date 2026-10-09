@@ -14,6 +14,8 @@ steps:
       echo "Impact area info: $IMPACT_AREA_INFO"
       echo "Pre-defined test scripts: ${TEST_SCRIPTS}"
       echo "Pre-defined PR checkers: ${PR_CHECKERS}"
+      # The agent truncates any single output line at 40 KiB, which corrupts the JSON payload.
+      TEST_SCRIPTS=$(printf '%s' "${TEST_SCRIPTS}" | gzip -9 | base64 -w0)
       echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]${PR_CHECKERS}"
       echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]${TEST_SCRIPTS}"
     name: VerifyParams
@@ -57,8 +59,10 @@ steps:
     PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
     if [[ -n "$TEST_SCRIPTS" && -n "$PR_CHECKERS" ]]; then
       echo "Impact area was pre-defined, skip get impacted area step."
+      set +x
       echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
       echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+      set -x
       exit 0
     fi
     sudo uv pip install --system PyYAML natsort
@@ -108,7 +112,7 @@ steps:
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
       echo "Attempt $((RETRY_COUNT + 1)): Generating test scripts..."
 
-      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
+      TEST_SCRIPTS=$(python3 ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
 
       if [[ $? -ne 0 ]]; then
         echo "Get test scripts command failed on attempt $((RETRY_COUNT + 1))"
@@ -122,7 +126,8 @@ steps:
 
       # Validate TEST_SCRIPTS is valid JSON
       if echo "$TEST_SCRIPTS" | jq empty > /dev/null 2>&1; then
-        echo "TEST_SCRIPTS is valid JSON: $TEST_SCRIPTS"
+        echo "TEST_SCRIPTS is valid JSON, script count per checker:"
+        echo "$TEST_SCRIPTS" | jq -r 'to_entries[] | "  \(.key): \(.value | length)"'
 
         # Generate PR_CHECKERS
         PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
@@ -135,7 +140,7 @@ steps:
           echo "PR_CHECKERS generation failed or invalid list: $PR_CHECKERS"
         fi
       else
-        echo "TEST_SCRIPTS is not valid JSON: $TEST_SCRIPTS"
+        echo "TEST_SCRIPTS is not valid JSON: $(echo "$TEST_SCRIPTS" | head -c 2000)"
       fi
 
       RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -147,12 +152,17 @@ steps:
 
     # Final validation
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-      echo "##vso[task.complete result=Failed;]Failed to generate valid JSON after $MAX_RETRIES attempts. Last TEST_SCRIPTS: $TEST_SCRIPTS"
+      echo "##vso[task.complete result=Failed;]Failed to generate valid JSON after $MAX_RETRIES attempts. Last TEST_SCRIPTS: $(echo "$TEST_SCRIPTS" | head -c 2000)"
       exit 1
     fi
 
+    # The agent truncates any single output line at 40 KiB, which corrupts the JSON payload.
+    TEST_SCRIPTS=$(printf '%s' "$TEST_SCRIPTS" | gzip -9 | base64 -w0)
+
+    set +x
     echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
     echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+    set -x
   name: SetVariableTask
   continueOnError: false
   displayName: "Get impacted area"

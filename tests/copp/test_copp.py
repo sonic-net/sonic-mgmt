@@ -24,6 +24,7 @@ import logging
 import pytest
 import json
 import random
+import re
 import time
 from collections import namedtuple
 
@@ -110,11 +111,19 @@ class TestCOPP(object):
         """
         # If fanout is running 7060x6 and running SONiC, the only supported action for UDLD is trap, which means
         # UDLD packet will not be forwarded to DUT
+        # Nokia H5/H6 fanouts (all port-count variants, e.g. h5_32d, h5_64d, h5_64o, h6_64, h6_128) and
+        # Nexthop 4210 fanouts share the same Broadcom SAI/ASIC limitation and also only support trap
+        # (not forward) for UDLD.
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if (fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts["platform"]
-                        in ['arista_7060x6_64pe', 'x86_64-nokia_ixr7220_h5_64o-r0', 'x86_64-nokia_ixr7220_h6_64-r0']):
-                    pytest.skip("Skip UDLD test for Arista-7060x6 and Nokia-H5/H6 fanout without UDLD forward support")
+                fanout_platform = fanouthost.facts["platform"]
+                if fanouthost.get_fanout_os() == 'sonic' and (
+                    fanout_platform == 'arista_7060x6_64pe'
+                    or re.match(r'x86_64-nokia_ixr7220_h[56]_', fanout_platform)
+                    or re.match(r'x86_64-nexthop_4210-', fanout_platform)
+                ):
+                    pytest.skip("Skip UDLD test for Arista-7060x6, Nokia-H5/H6 and Nexthop-4210 "
+                                "fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
@@ -183,6 +192,14 @@ class TestCOPP(object):
 
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if packet_type == "VlanSubnetIPinIP":
+            ip_decap_status = duthost.shell(
+                "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                module_ignore_errors=True
+            )["stdout"].strip()
+            if ip_decap_status == "disabled":
+                pytest.skip("IP-in-IP decapsulation is disabled on this DUT")
 
         # Access test_params from the class-level variable
         test_params = self.test_params

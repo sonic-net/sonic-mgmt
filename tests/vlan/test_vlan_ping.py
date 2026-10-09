@@ -91,7 +91,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
             interface_name = 'Ethernet1'
             dev_name = 'eth1'
         # in case of lower tor host we need to use the next portchannel
-        if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
+        if "dualtor" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
             dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 

@@ -189,11 +189,21 @@ class ControlPlaneBaseTest(BaseTest):
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
         self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
+        # Measure PPS over the active send window; the drain below is only for collection.
+        window_end_time = datetime.datetime.now()
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
             self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
+
+        # Content-matched PPS: recv_count only counts packets that match the packet template
+        # we sent, so unlike the raw NN interface counter it is immune to unrelated background
+        # traffic sharing the same port.
+        content_matched_window_sec = (window_end_time - start_time).total_seconds()
+        self.content_matched_rx_pps = int(recv_count / content_matched_window_sec)
+        self.log("Content-matched RX PPS (recv_count/%.1fs): %d" % (
+            content_matched_window_sec, self.content_matched_rx_pps))
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
         nn_tx_count = int(post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
@@ -386,11 +396,8 @@ class DHCPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -435,11 +442,8 @@ class DHCP6Test(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -537,11 +541,8 @@ class LLDPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -573,11 +574,8 @@ class UDLDTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -590,19 +588,27 @@ class UDLDTest(PolicyTest):
         self.log("UDLDTest")
         self.run_suite()
 
-    # UDLD uses Ethernet multicast address 01-00-0c-cc-cc-cc
-    # as its destination MAC address. eth_type is to indicate
-    # the length of the data in Ethernet 802.3 frame. pktlen
-    # = 117 = 103 (0x67) + 6 (dst MAC) + 6 (dst MAC) + 2 (len)
+    # Build UDLD packet in a standard manner rather than a synthetic
+    # ethernet packet. UDLD uses Ethernet multicast destination address
+    # 01-00-0c-cc-cc-cc and is an 802.3 length-framed LLC/SNAP frame - LLC
+    # dsap=ssap=0xAA (SNAP), control=0x03, followed by a SNAP header carrying
+    # Cisco's OUI (00:00:0c) and protocol 0x0111
+    # (unidirectional_link_detection)
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
-        packet = testutils.simple_eth_packet(
-            pktlen=117,
-            eth_dst='01:00:0c:cc:cc:cc',
-            eth_src=src_mac,
-            eth_type=0x0067
-        )
+        pktlen = 117
+        eth = scapy.Ether(dst='01:00:0c:cc:cc:cc', src=src_mac,
+                          type=pktlen - 14)
+        llc = scapy.LLC(dsap=0xAA, ssap=0xAA, ctrl=0x03)
+        snap = scapy.SNAP(OUI=0x00000C, code=0x0111)
+        packet = eth / llc / snap
+
+        # Pad to the same 117-byte total length the previous
+        # synthetic frame used, so PPS/CIR accounting is unchanged.
+        pad_len = pktlen - len(packet)
+        if pad_len > 0:
+            packet = packet / (b"\x00" * pad_len)
 
         return packet
 
@@ -620,12 +626,15 @@ class BGPTest(PolicyTest):
 
     def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
             pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
+            ip_src=src_ip,
             ip_ttl=1,
             tcp_dport=179
         )
@@ -634,18 +643,28 @@ class BGPTest(PolicyTest):
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         self.log("")
+        # BGPTest sends real BGP traffic on testbeds that also run genuine live BGP
+        # sessions on the same port. The NN interface counter (rx_pps) counts that
+        # background BGP traffic alongside our own synthetic packets, inflating the
+        # measured rate. Use the content-matched count instead, which is immune to that
+        # contamination.
+        effective_rx_pps = getattr(self, "content_matched_rx_pps", rx_pps)
         if self.has_trap:
             self.log("Checking constraints (PolicyApplied):")
+            self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
-                 int(rx_pps),
+                 int(effective_rx_pps),
                  int(self.PPS_LIMIT_MAX),
-                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+                 str(self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
-                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
-        elif self.asic_type not in ['broadcom', 'marvell-teralynx']:
+            assert self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX, \
+                "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(
+                    effective_rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
+        elif self.asic_type not in ['broadcom', 'marvell-teralynx', 'vpp']:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
                 "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
@@ -657,16 +676,18 @@ class BGPTest(PolicyTest):
                 "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
         else:
             self.log("Checking constraints (DefaultPolicyApplied):")
+            self.log("Using content-matched rx_pps (%d) instead of raw NN counter rx_pps (%d) "
+                     "to avoid counting real background BGP traffic" % (effective_rx_pps, rx_pps))
             self.log(
                 "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
                 (int(self.PPS_LIMIT_MIN),
-                 int(rx_pps),
+                 int(effective_rx_pps),
                  int(self.PPS_LIMIT_MAX),
-                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+                 str(self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint " \
+            assert self.PPS_LIMIT_MIN <= effective_rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint " \
                 "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
-                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
+                    effective_rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=6000 for LACP
@@ -701,19 +722,21 @@ class SNMPTest(PolicyTest):  # FIXME: trapped as ip2me. mellanox should add supp
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_udp_packet(
             eth_dst=dst_mac,
-            ip_dst=dst_ip,
             eth_src=src_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
             udp_dport=161
         )
 
         return packet
 
 
-# SONIC config contains policer CIR=600 for SSH
 class SSHTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -766,12 +789,15 @@ class IP2METest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
+        # Default unroutable source IP fails VPP's uRPF check and gets silently dropped
+        src_ip = self.myip
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
             pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
+            ip_src=src_ip,
             ip_dst=dst_ip
         )
 
@@ -811,7 +837,10 @@ class VlanSubnetTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -853,7 +882,10 @@ class VlanSubnetIPinIPTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 

@@ -94,6 +94,36 @@ def expect_interface_status(dut, interface_name, expected_op_status):
     return status['oper'] == expected_op_status
 
 
+def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2):
+    """Poll until every port in ``ports`` reaches oper-``status``; return failures.
+
+    Issues a single ``show interface description`` per poll (one full-table dump,
+    parsed once) and checks every port against that snapshot, rather than one CLI
+    call per port -- the latter is O(N) redundant dumps per poll and does not
+    scale to hundreds of ports.
+
+    Returns a list with one string per port still not at oper-``status`` after
+    ``wait_sec``; empty once all reach it. A port absent from the dump is reported
+    as a failure (rather than raising) so a missing/renamed port aggregates like
+    any other laggard.
+    """
+    # Imported lazily to avoid a module-load import cycle
+    # (tests.common.utilities <-> tests.common.platform.interface_utils).
+    from tests.common.utilities import wait_until
+
+    def _ports_not_at_status():
+        snapshot = get_dut_interfaces_status(duthost)
+        return [port for port in ports
+                if (snapshot.get(port) or {}).get("oper") != status]
+
+    if wait_until(wait_sec, poll_interval_sec, 0, lambda: not _ports_not_at_status()):
+        return []
+    return [
+        "port {} did not reach oper-{} within {}s".format(port, status, wait_sec)
+        for port in _ports_not_at_status()
+    ]
+
+
 def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check the admin and oper status of the specified interfaces on DUT.
@@ -154,6 +184,9 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
+    # No front-panel interfaces to check (e.g. SONiC BMC has no front-panel ports)
+    if len(interfaces) == 0:
+        return True
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
@@ -205,7 +238,7 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 
     if asic_index is not None:
         # Check if the interfaces of this ASIC is present in conn_graph_facts
-        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        dev_conn = {port: dev_conn[port] for port in portmap if port in dev_conn}
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn
@@ -261,6 +294,37 @@ def get_dpu_npu_ports_from_hwsku(duthost):
             dpu_npu_port_list.append(intf)
     logging.info(f"DPU NPU ports in hwsku.json are {dpu_npu_port_list}")
     return dpu_npu_port_list
+
+
+def get_fec_candidate_interfaces(duthost):
+    """Return operationally-up, SFP-present interfaces and their live speeds."""
+    logging.info("Get output of 'show interface status'")
+    intf_status = duthost.show_and_parse("show interface status")
+    logging.info("Interface status: {intf_status}")
+
+    logging.info("Get output of 'sudo sfpshow presence'")
+    sfp_presence_output = duthost.show_and_parse("sudo sfpshow presence")
+    logging.info("SFP presence: {sfp_presence_output}")
+
+    sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
+
+    interfaces = {}
+    for intf in intf_status:
+        intf_name = intf['interface']
+        presence = sfp_presence_dict.get(intf_name, '')
+
+        if presence != "present":
+            continue
+
+        oper = intf.get('oper', '').lower()
+        speed = intf.get('speed', '')
+
+        if oper == "up" and speed:
+            interfaces[intf_name] = speed
+        else:
+            logging.info(f"Skip for {intf_name}: oper_state: {oper} speed: {speed}")
+
+    return interfaces
 
 
 def get_fec_eligible_interfaces(duthost, supported_speeds):
@@ -365,7 +429,8 @@ def is_first_subport(port, lport_to_first_subport):
 def get_xcvr_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of transceiver presence status for each interface.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are interface names and values are booleans indicating presence.
     """
     namespace = duthost.get_namespace_from_asic_id(asic_index)
@@ -381,7 +446,8 @@ def get_xcvr_presence_data(duthost, asic_index=None):
 def get_pport_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of physical port presence status for each physical port index.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @param asic_index: The ASIC index to query presence for. If None, omits the namespace option so
+        the CLI queries all frontend ASIC namespaces.
     @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
     """
     interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)

@@ -4,30 +4,15 @@ import pytest
 
 from tests.transceiver.common import cli_helpers, db_helpers
 from tests.transceiver.common.cli_parser_helper import (
+    ABSENT_MSG_CLI_INFO,
+    ABSENT_MSG_SFPUTIL,
     parse_presence,
+    PRESENCE_ABSENT,
     RC_FAILURE,
+    reduce_eeprom_status,
 )
-# parse_eeprom is the pre-existing baseline parser and stays in utils/.
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 
 logger = logging.getLogger(__name__)
-
-
-PRESENCE_STATUS_NOT_PRESENT = "Not present"
-
-# Expected absence messages per command family (case-sensitive — note the difference)
-ABSENT_MSG_SFPUTIL = "SFP EEPROM not detected"   # sfputil family:                     lowercase 'not'
-ABSENT_MSG_CLI_INFO = "SFP EEPROM Not detected"   # show interfaces transceiver info:   capital 'Not'
-
-
-def _reduce_eeprom(lines):
-    """Reduce an ``... eeprom`` / ``... info`` dump to ``{port: status_line}``.
-
-    ``parse_eeprom`` records each ``EthernetN: <text>`` header under the port's
-    ``status`` key (e.g. ``"SFP EEPROM not detected"`` for an empty cage), which
-    is the per-port status the verification loop compares against.
-    """
-    return {port: fields.get("status") for port, fields in parse_eeprom(lines).items()}
 
 
 # The four CLIs that report transceiver presence / EEPROM, each run ONCE without
@@ -38,31 +23,32 @@ def _reduce_eeprom(lines):
 #
 #   (label, global command, lines->{port: status} reducer, expected-empty-status)
 # Presence output is already {port: status}, so it uses ``parse_presence``
-# directly; the eeprom/info dumps need ``_reduce_eeprom`` to pull each port's
-# status line out of the parsed {port: {field: value}} map.
+# directly; the eeprom/info dumps need ``reduce_eeprom_status`` to pull each
+# port's status line out of the parsed {port: {field: value}} map.  The status
+# tokens are the canonical CLI contract from ``common/cli_parser_helper``.
 _ABSENCE_CHECKS = (
     (
         "sfputil show presence",
         cli_helpers.sfputil_show_presence_cmd(),
         parse_presence,
-        PRESENCE_STATUS_NOT_PRESENT,
+        PRESENCE_ABSENT,
     ),
     (
         "show interfaces transceiver presence",
         cli_helpers.show_interfaces_transceiver_presence_cmd(),
         parse_presence,
-        PRESENCE_STATUS_NOT_PRESENT,
+        PRESENCE_ABSENT,
     ),
     (
         "sfputil show eeprom",
         cli_helpers.sfputil_show_eeprom_cmd(),
-        _reduce_eeprom,
+        reduce_eeprom_status,
         ABSENT_MSG_SFPUTIL,
     ),
     (
         "show interfaces transceiver info",
         cli_helpers.show_interfaces_transceiver_info_cmd(),
-        _reduce_eeprom,
+        reduce_eeprom_status,
         ABSENT_MSG_CLI_INFO,
     ),
 )

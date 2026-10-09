@@ -8,8 +8,12 @@ from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_suc
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
+from tests.common.utilities import file_exists_on_dut, wait_until
+from tests.common.config_reload import (
+    DEFAULT_GOLDEN_CONFIG_PATH,
+    config_reload,
+    config_reload_minigraph_with_rendered_golden_config_override,
+)
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table
@@ -49,9 +53,30 @@ def get_iptable_rules(duthost, ip_netns_namespace_prefix):
 @pytest.fixture(scope="module", autouse=True)
 def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    config_reload(duthost, config_source="minigraph", safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
-                  override_config=True)
-    yield
+    golden_config_exists = file_exists_on_dut(duthost, DEFAULT_GOLDEN_CONFIG_PATH)
+    try:
+        if golden_config_exists:
+            config_reload(
+                duthost,
+                config_source="minigraph",
+                safe_reload=True,
+                check_intf_up_ports=True,
+                wait_for_bgp=True,
+                override_config=True,
+            )
+        else:
+            config_reload_minigraph_with_rendered_golden_config_override(
+                duthost,
+                safe_reload=True,
+                check_intf_up_ports=True,
+                wait_for_bgp=True,
+            )
+        yield
+    finally:
+        if not golden_config_exists and file_exists_on_dut(duthost, DEFAULT_GOLDEN_CONFIG_PATH):
+            duthost.command(
+                "mv {} {}_backup".format(DEFAULT_GOLDEN_CONFIG_PATH, DEFAULT_GOLDEN_CONFIG_PATH)
+            )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -908,6 +933,12 @@ def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_front_end_dut, en
 # ACL_RULE tests are related. So group them into one test.
 def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
                                 ip_netns_namespace_prefix):
+    if rand_selected_front_end_dut.is_multi_asic:
+        pytest.skip(
+            "On multi-ASIC, caclmgrd applies SSH/SNMP rules to the FORWARD chain instead of INPUT. "
+            "Test expectations need updating once sonic-host-services PR #398 "
+            "(https://github.com/sonic-net/sonic-host-services/pull/398) is merged."
+        )
     namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     logger.info("Test acl table for protocol {}".format(cacl_protocol))

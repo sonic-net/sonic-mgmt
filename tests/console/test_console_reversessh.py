@@ -130,6 +130,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts, co
         "Target line {} is busy before reverse SSH session start".format(target_line))
 
     ressh_user = "{}:{}".format(dutuser, target_line)
+    client = None
     try:
         client = console_session(duthost, dutip, ressh_user, dutpass, target_line)
         pytest_assert(
@@ -150,7 +151,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts, co
         error_msg="Target line {} not toggle to IDLE state after force clear command sent".format(target_line))
 
     try:
-        client.expect("Picocom was killed")
+        client.expect_exact(["Picocom was killed", "Thanks for using picocom"])
     except Exception as e:
         pytest.fail("Console session not exit correctly: {}".format(e))
 

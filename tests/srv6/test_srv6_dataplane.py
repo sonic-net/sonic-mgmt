@@ -2,20 +2,14 @@ import pytest
 import time
 import random
 import logging
-import string
 
-from scapy.all import Raw
-from scapy.layers.inet6 import IPv6, UDP
-from scapy.layers.l2 import Ether
-from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
-from ptf.mask import Mask
-from tests.srv6.srv6_utils import MySIDs, runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
+from tests.srv6.srv6_utils import MySIDs, verify_appl_db_sid_entry_exist, SRv6, \
     validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
-    get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE
+    get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE, run_srv6_traffic_test, \
+    run_srv6_no_sid_blackhole_test
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
@@ -29,161 +23,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom", "vpp"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
-    """Get the PTF port mapping for the duthost or an asic of the duthost"""
-    dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-    ports_map = dut_mg_facts["minigraph_ptf_indices"]
-    if len(ports_map) == 0:
-        pytest.skip("No PTF ports found for {}".format(dut))
-
-    lldp_table = dut.command("show lldp table")['stdout'].split("\n")[3:]
-    neighbor_table = [line.split() for line in lldp_table]
-    for entry in neighbor_table:
-        intf = entry[0]
-        if intf in ports_map:
-            # Check if this interface is part of a portchannel
-            ptf_ports = [ports_map[intf]]
-
-            # Check if the interface is a member of any portchannel
-            if 'minigraph_portchannels' in dut_mg_facts:
-                for pc_name, pc_info in dut_mg_facts['minigraph_portchannels'].items():
-                    if intf in pc_info.get('members', []):
-                        # Found a portchannel - get PTF ports for all members
-                        logger.info("Interface {} is a member of portchannel {}".format(intf, pc_name))
-                        ptf_ports = []
-                        for member in pc_info['members']:
-                            if member in ports_map:
-                                ptf_ports.append(ports_map[member])
-                                logger.info("Added portchannel member {} with PTF port {}".format(
-                                    member, ports_map[member]))
-                        break
-
-            return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
-
-    pytest.skip("No active LLDP neighbor found for {}".format(dut))
-
-
-def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):
-    # Convert single port to list for uniform handling
-    if isinstance(ptf_src_ports, int):
-        ptf_src_ports_list = [ptf_src_ports]
-    else:
-        ptf_src_ports_list = ptf_src_ports
-
-    # Use the first port for sending packets
-    ptf_src_port = ptf_src_ports_list[0]
-
-    for i in range(0, 10):
-        # generate a random payload
-        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-        if with_srh:
-            injected_pkt = simple_ipv6_sr_packet(
-                eth_dst=dut_mac,
-                eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
-                ipv6_dst="fcbb:bbbb:1:2::",
-                srh_seg_left=1,
-                srh_nh=41,
-                inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
-            )
-        else:
-            injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                           / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:1:2::") \
-                           / IPv6() / UDP(dport=4791) / Raw(load=payload)
-
-        expected_pkt = injected_pkt.copy()
-        expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
-        expected_pkt['Ether'].src = dut_mac
-        expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
-        expected_pkt['IPv6'].hlim -= 1
-        logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
-        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, ptf_src_ports_list, True, ptfadapter)
-
-
-@pytest.fixture()
-def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
-    duthost = duthosts[enum_frontend_dut_hostname]
-    asic_index = enum_frontend_asic_index
-
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    ptf_port_ids = []
-    for interface in list(mg_facts["minigraph_ptf_indices"].keys()):
-        port_id = mg_facts["minigraph_ptf_indices"][interface]
-        ptf_port_ids.append(port_id)
-
-    if duthost.is_multi_asic:
-        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-        dut_asic = duthost.asic_instance(asic_index)
-        dut_mac = dut_asic.get_router_mac()
-        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
-    else:
-        cli_options = ''
-        dut_mac = duthost.facts["router_mac"]
-        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
-
-    logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
-
-    neighbor_ip = None
-    # get neighbor IP
-    lines = duthost.command("show ipv6 bgp sum")['stdout'].split("\n")
-    for line in lines:
-        if neighbor in line:
-            neighbor_ip = line.split()[0]
-    assert neighbor_ip, "Unable to find neighbor {} IP".format(neighbor)
-
-    # use DUT portchannel if applicable
-    pc_info = duthost.command("show int portchannel")['stdout']
-    if dut_port in pc_info:
-        lines = pc_info.split("\n")
-        for line in lines:
-            if dut_port in line:
-                dut_port = line.split()[1]
-                logger.info("Using portchannel interface: {}".format(dut_port))
-                break
-
-    sonic_db_cli = "sonic-db-cli" + cli_options
-
-    # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
-    # add a uN sid configuration entry
-    duthost.command(sonic_db_cli +
-                    " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
-    random.seed(time.time())
-    # add the static route for IPv6 forwarding towards PTF's uSID and the blackhole route in a random order
-    if random.randint(0, 1) == 0:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
-                        .format(neighbor_ip, dut_port))
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
-    else:
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32 blackhole true")
-        duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48 nexthop {} ifname {}"
-                        .format(neighbor_ip, dut_port))
-    duthost.command("config save -y")
-    # Verify that the ASIC DB has the SRv6 SID entries
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
-
-    setup_info = {
-        "asic_index": asic_index,
-        "duthost": duthost,
-        "dut_mac": dut_mac,
-        "dut_port": dut_port,
-        "ptf_src_ports": ptf_src_ports,
-        "neighbor_ip": neighbor_ip,
-        "cli_options": cli_options,
-        "ptf_port_ids": ptf_port_ids
-    }
-
-    yield setup_info
-
-    # delete the SRv6 configuration
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_LOCATORS\\|loc1")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb:2::/48")
-    duthost.command(sonic_db_cli + " CONFIG_DB DEL STATIC_ROUTE\\|default\\|fcbb:bbbb::/32")
-    duthost.command("config save -y")
 
 
 class SRv6Base():
@@ -451,64 +290,4 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
-    duthost = setup_uN['duthost']
-    dut_mac = setup_uN['dut_mac']
-    dut_port = setup_uN['dut_port']
-    ptf_src_ports = setup_uN['ptf_src_ports']
-    neighbor_ip = setup_uN['neighbor_ip']
-    ptf_port_ids = setup_uN['ptf_port_ids']
-
-    # Use the first port to send traffic
-    first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
-
-    # Verify that the ASIC DB has the SRv6 SID entries
-    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB before blackhole test"
-
-    # get the drop counter before traffic test
-    if duthost.facts["asic_type"] == "broadcom":
-        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
-        before_count = int(portstat[dut_port]['rx_drp'])
-    elif duthost.facts["asic_type"] == "mellanox":
-        before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
-
-    # inject a number of packets with random payload
-    pkt_count = 100
-    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-    if with_srh:
-        injected_pkt = simple_ipv6_sr_packet(
-            eth_dst=dut_mac,
-            eth_src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode(),
-            ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
-            ipv6_dst="fcbb:bbbb:3:2::",
-            srh_seg_left=1,
-            srh_nh=41,
-            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") / UDP(
-                dport=4791) / Raw(load=payload)
-        )
-    else:
-        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode()) \
-                       / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
-                       / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
-                       / UDP(dport=4791) / Raw(load=payload)
-
-    expected_pkt = injected_pkt.copy()
-    expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
-    expected_pkt['IPv6'].hlim -= 1
-    logger.debug("Expected packet: {}".format(expected_pkt.summary()))
-
-    expected_pkt = Mask(expected_pkt)
-    expected_pkt.set_do_not_care_packet(Ether, "dst")
-    expected_pkt.set_do_not_care_packet(Ether, "src")
-    send_packet(ptfadapter, first_ptf_port, injected_pkt, count=pkt_count)
-    verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
-
-    # verify that the RX_DROP counter is incremented
-    if duthost.facts["asic_type"] == "broadcom":
-        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
-        after_count = int(portstat[dut_port]['rx_drp'])
-        assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
-    elif duthost.facts["asic_type"] == "mellanox":
-        after_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
-        assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
+    run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh)

@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_BURST = 100
 RATE_LIMIT_INTERVAL = 10
-SYSLOG_FORWARD_TIMEOUT = 60
+# Container -> host syslog forwarding is asynchronous and, on loaded/virtual testbeds,
+# can lag well beyond a minute.
+SYSLOG_FORWARD_TIMEOUT = 120
 SYSLOG_FORWARD_INTERVAL = 2
 # Generate 101 packets in tests/syslog/log_generator.py, so that 1 log message will be dropped by rsyslogd
 LOG_MESSAGE_GENERATE_COUNT = 101
@@ -27,12 +29,21 @@ DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 STP_LOG_FILE = '/var/log/stpd.log'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
-# rsyslogd emits one of two messages depending on version when rate-limiting kicks in:
-#   - "begin to drop messages due to rate-limiting"  (logged when drops start)
-#   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (logged as summary)
-# Both indicate that rate limiting is working. The exact form and frequency are
-# rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = r'.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
+# Scope to log_generator.py (imuxsock name: python3). The limiter is per PID, so a
+# chatty daemon in the same container (e.g. /usr/bin/syncd SAI flood after
+# config_reload) can emit its own drop notice. An unscoped pattern would count
+# that extra line.
+#   INFO syncd#rate-limit-test: This is a test log: 100
+#   INFO syncd#rsyslogd: imuxsock[pid: 286, name: python3] from : begin to drop messages due to rate-limiting
+#   INFO syncd#rsyslogd: imuxsock[pid: 127, name: /usr/bin/syncd] from : begin to drop messages due to rate-limiting
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = (
+    r'.*imuxsock\[pid: \d+, name: python3\].*'
+    r'(?:begin to drop messages|messages lost) due to rate-limiting.*'
+)
+
+# BMC syslog rate limit ignore container list
+# Bridge-network redfish on BMC does not forward container# logs to host /var/log/syslog
+BMC_SYSLOG_RATE_LIMIT_IGNORE_CONTAINERS = ['redfish']
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -92,7 +103,8 @@ def test_syslog_rate_limit(rand_selected_dut):
     # Copy tests/syslog/log_generator.py to DUT
     rand_selected_dut.copy(src=LOCAL_LOG_GENERATOR_FILE, dest=REMOTE_LOG_GENERATOR_FILE)
 
-    verify_container_rate_limit(rand_selected_dut)
+    verify_container_rate_limit(
+        rand_selected_dut, ignore_containers=get_rate_limit_ignore_containers(rand_selected_dut))
     verify_host_rate_limit(rand_selected_dut)
 
     # Save configuration and reload, verify the configuration can be loaded
@@ -101,8 +113,20 @@ def test_syslog_rate_limit(rand_selected_dut):
     config_reload(rand_selected_dut, safe_reload=True)
 
     # database does not support syslog rate limit configuration persist
-    verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])
+    verify_container_rate_limit(
+        rand_selected_dut,
+        ignore_containers=get_rate_limit_ignore_containers(rand_selected_dut, extra_ignore=['database']))
     verify_host_rate_limit(rand_selected_dut)
+
+
+def get_rate_limit_ignore_containers(duthost, extra_ignore=None):
+    """Containers excluded from random rate-limit verification."""
+    ignore = list(extra_ignore or [])
+    if duthost.is_bmc():
+        for name in BMC_SYSLOG_RATE_LIMIT_IGNORE_CONTAINERS:
+            if name not in ignore:
+                ignore.append(name)
+    return ignore
 
 
 def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
@@ -127,6 +151,7 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
     for item in feature_data:
         service_name = item['feature']
         if service_name in ignore_containers:
+            logger.info('Skipping syslog rate limit test for container {} (in ignore list)'.format(service_name))
             continue
         container_name = service_name
         if rand_selected_dut.is_multi_asic:
@@ -281,7 +306,8 @@ def verify_config_rate_limit_fail(duthost, service_name):
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
-def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, additional_files):
+def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, expect_log_matches, additional_files,
+                                  presence_log_regex=None):
     """Wait until every expected message has been forwarded into the host log files for
     this LogAnalyzer window before the window is closed.
 
@@ -291,6 +317,12 @@ def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, addit
     test fails intermittently. Poll the host log files, scoped to this window's unique
     start marker (the test reuses a marker prefix across config_reload, so an earlier
     window's identical logs must not be matched), until the expected messages appear.
+
+    Wait for the full expected count rather than mere presence: forwarding delivers the
+    burst incrementally, so a presence-only check (>=1 match) lets the window close while
+    the tail of the burst is still in flight, dropping the last message(s) out of the
+    window.  When ``expect_log_matches`` is 0 the count is non-deterministic (e.g. logs
+    routed to an additional file), so fall back to a presence check.
 
     The scoping pattern is the bare marker (``<prefix>.<timestamp>``) rather than the full
     ``start-LogAnalyzer-<marker>`` line: this shell command is itself echoed into syslog,
@@ -305,7 +337,15 @@ def _wait_expected_logs_forwarded(duthost, start_marker, expect_log_regex, addit
         for log_file in log_files:
             captured += duthost.shell("sudo awk '/{}/,0' {}".format(escaped_marker, log_file),
                                       module_ignore_errors=True)['stdout']
-        return all(re.search(regex, captured) for regex in expect_log_regex)
+        for regex in expect_log_regex:
+            if expect_log_matches:
+                if len(re.findall(regex, captured)) < expect_log_matches:
+                    return False
+            elif not re.search(regex, captured):
+                return False
+        if presence_log_regex and not all(re.search(regex, captured) for regex in presence_log_regex):
+            return False
+        return True
 
     return wait_until(SYSLOG_FORWARD_TIMEOUT, SYSLOG_FORWARD_INTERVAL, 0, _all_expected_present)
 
@@ -354,7 +394,8 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
         # forwarded (scoped to this window's unique start marker) before LogAnalyzer closes
         # and verifies the window, instead of racing that forwarding with a fixed sleep.
         # LogAnalyzer itself asserts the messages on exit, so this is only a wait.
-        _wait_expected_logs_forwarded(duthost, loganalyzer._markers[-1], expect_log_regex, additional_files)
+        _wait_expected_logs_forwarded(duthost, loganalyzer._markers[-1], expect_log_regex,
+                                      expect_log_matches, additional_files, presence_log_regex)
 
     if presence_log_regex:
         presence_analyzer.analyze(presence_marker)

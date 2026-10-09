@@ -4,7 +4,6 @@ import time
 import logging
 import ipaddress
 import json
-import sys
 from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -20,12 +19,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0")
 ]
-
-# TODO: Remove this once we no longer support Python 2
-if sys.version_info.major >= 3:
-    UNICODE_TYPE = str
-else:
-    UNICODE_TYPE = unicode      # noqa: F821
 
 PTF_LAG_NAME = "bond1"
 PTF_LAG_MAC = "00:11:22:33:44:66"
@@ -320,7 +313,7 @@ def generate_port_config(duthost, tbinfo, most_common_port_speed):
         "ip": "192.168.9.1/24"
     }
     ip_splits = vlan["ip"].split("/")
-    vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
+    vlan_ip = ipaddress.ip_address(str(ip_splits[0]))
     lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
     port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
     ptf_ports["ip"] = {
@@ -361,13 +354,6 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
         if src_vlan_id != -1:
             break
     return src_vlan_id
-
-
-@pytest.fixture(scope="module")
-def common_setup_teardown(copy_acstests_directory, ptfhost):  # noqa: F811
-    logger.info("########### Setup for lag testing ###########")
-
-    yield ptfhost
 
 
 @pytest.fixture(scope="module")
@@ -476,7 +462,7 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     ptf_runner(ptfhost, 'acstests', "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
 
-def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_teardown):
+def test_lag_member_traffic(copy_acstests_directory, ptfhost, duthost, ptf_dut_setup_and_teardown):  # noqa: F811
     """
     Test traffic about ports in a lag
 
@@ -489,7 +475,6 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
         4.) Send ICMP request packet from port not behind lag in PTF to port behind lag in PTF,
             and then verify recieve the packet in port behind lag
     """
-    ptfhost = common_setup_teardown
     dut_ports, ptf_ports, vlan = ptf_dut_setup_and_teardown
     ping_format = "ping -c 5 -w 2 -l 5 -I {} {}"
 

@@ -199,10 +199,15 @@ def main(args):
     if args.always_power_cycle:
         logger.info("Always do power cycle before upgrade")
         for hostname, pdu_manager in pdu_managers.items():
+            if pdu_manager is None:
+                logger.warning("No PDU manager for {}, skipping power off".format(hostname))
+                continue
             logger.info("Turn off power outlets to {}".format(hostname))
             pdu_manager.turn_off_outlet()
         localhost.pause(seconds=30, prompt="Pause between power off/on")
         for hostname, pdu_manager in pdu_managers.items():
+            if pdu_manager is None:
+                continue
             logger.info("Turn on power outlets to {}".format(hostname))
             pdu_manager.turn_on_outlet()
         localhost.pause(seconds=180, prompt="Add some sleep to allow power cycled DUTs to come back")
@@ -215,8 +220,15 @@ def main(args):
         power_cycle_performed = False
         for hostname, host_reachable in hosts_reachability.items():
             if not host_reachable:
+                pdu_manager = pdu_managers.get(hostname)
+                if pdu_manager is None:
+                    logger.warning(
+                        "No PDU manager configured for unreachable host {}, "
+                        "cannot power cycle; manual recovery required".format(hostname)
+                    )
+                    continue
                 logger.info("Trying to power off {}".format(hostname))
-                pdu_managers[hostname].turn_off_outlet()
+                pdu_manager.turn_off_outlet()
                 power_cycle_performed = True
 
         if power_cycle_performed:
@@ -224,8 +236,11 @@ def main(args):
 
         for hostname, host_reachable in hosts_reachability.items():
             if not host_reachable:
+                pdu_manager = pdu_managers.get(hostname)
+                if pdu_manager is None:
+                    continue
                 logger.info("Trying to power on {}".format(hostname))
-                pdu_managers[hostname].turn_on_outlet()
+                pdu_manager.turn_on_outlet()
 
         if power_cycle_performed:
             localhost.pause(seconds=180, prompt="Add some sleep to allow power cycled DUTs to come back")

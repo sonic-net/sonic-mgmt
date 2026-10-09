@@ -36,6 +36,27 @@ MIDPLANE_SUPP_MODULE = ['SUPERVISOR', 'LINE-CARD']
 
 MODULE_STATUS = ['Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online']
 
+# Module API tests that are not available/applicable on BMC topologies
+BMC_SKIPPED_MODULE_TESTS = {
+    "test_get_presence",
+    "test_get_model",
+    "test_get_status",
+    "test_get_position_in_parent",
+    "test_is_replaceable",
+    "test_get_base_mac",
+    "test_get_system_eeprom_info",
+    "test_components",
+    "test_fans",
+    "test_psus",
+    "test_thermals",
+    "test_sfps",
+    "test_get_slot",
+    "test_get_type",
+    "test_get_maximum_consumed_power",
+    "test_get_midplane_ip",
+    "test_is_midplane_reachable",
+}
+
 # TODO: EEPROM info is duplicated with chassis.py. Break out into a shared module
 # Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
 # https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
@@ -62,6 +83,16 @@ class TestModuleApi(PlatformApiTestBase):
     """Platform API test cases for the Module class"""
 
     num_modules = None
+
+    @pytest.fixture(autouse=True)
+    def skip_bmc_blocklisted_tests(self, request, tbinfo):
+        topo_type = (tbinfo.get("topo", {}).get("type") or "").lower()
+        if "bmc" not in topo_type:
+            return
+
+        test_name = request.function.__name__
+        if test_name in BMC_SKIPPED_MODULE_TESTS:
+            pytest.skip("Skipped on BMC: {} is in BMC skip list".format(test_name))
 
     # This fixture would probably be better scoped at the class level, but
     # it relies on the platform_api_conn_per_supervisor fixture, which is scoped at the function

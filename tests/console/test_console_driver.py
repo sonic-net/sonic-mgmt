@@ -29,6 +29,14 @@ def test_console_driver(duthost, conn_graph_facts):  # noqa: F811
     device_prefix = duthost.get_serial_device_prefix()
     ls_out = duthost.shell('ls {}*'.format(device_prefix), module_ignore_errors=True)['stdout']
     existing_ttys = set(ls_out.split())
+    if duthost.is_bmc():
+        # H6 BMC exposes a PTY pair alongside the console line node
+        # (/dev/ttySwitchCpu0-PTM, /dev/ttySwitchCpu0-PTS). They match the prefix but
+        # are not separate CONSOLE_PORT lines.
+        existing_ttys = {
+            name for name in existing_ttys
+            if not (name.endswith('-PTM') or name.endswith('-PTS'))
+        }
     pytest_assert(
         existing_ttys,
         "No tty devices matching prefix '{}' were created by the console driver on DUT '{}'".format(
