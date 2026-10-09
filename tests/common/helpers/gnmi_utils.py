@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.x509.oid import NameOID
 
 from tests.common.utilities import wait_until
-from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use
+from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use, check_ntp_sync_status
 from tests.common.helpers.dut_utils import check_container_state
 
 logger = logging.getLogger(__name__)
@@ -539,28 +539,6 @@ def cleanup_gnmi_insecure_mode(duthost):
     if result['stdout'].strip() == "":
         logger.info(f"Removing empty cert config from {table}")
         duthost.shell(f'sonic-db-cli CONFIG_DB del "{table}"', module_ignore_errors=True)
-
-
-def check_ntp_sync_status(duthost):
-    """
-    Checks if the DUT's time is synchronized with the NTP server.
-    """
-
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-
-    if ntp_daemon == NtpDaemon.CHRONY:
-        ntp_status_cmd = "chronyc -c tracking"
-    else:
-        ntp_status_cmd = "ntpstat"
-
-    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
-        logger.info("DUT %s is synchronized with NTP server.", duthost)
-        return True
-    else:
-        logger.info("DUT %s is NOT synchronized.", duthost)
-        return False
 
 
 def check_system_time_sync(duthost):
