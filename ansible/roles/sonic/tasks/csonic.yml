@@ -1,5 +1,24 @@
 - include_tasks: csonic_config.yml
 
+- name: Validate generated converged cSONiC VRF names
+  assert:
+    that:
+      - item | length <= 15
+      - item is match('^Vrf[A-Za-z0-9_-]+$')
+    fail_msg: "Generated cSONiC VRF '{{ item }}' is not SONiC/Linux safe"
+  loop: >-
+    {{ convergence_data['convergence_mapping'][hostname]
+       | map('extract', convergence_data['vrf_name_mapping']) | list }}
+  when: topo_is_multi_vrf | default(false) | bool
+
+- name: Load host Linux VRF support for converged cSONiC peers
+  become: yes
+  modprobe:
+    name: vrf
+    state: present
+  delegate_to: "{{ VM_host[0] }}"
+  when: topo_is_multi_vrf | default(false) | bool
+
 - name: Create cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}
   become: yes
   docker_container:
@@ -19,6 +38,29 @@
     env:
       HWSKU: "SONiC-VM"
   delegate_to: "{{ VM_host[0] }}"
+  when: not (topo_is_multi_vrf | default(false) | bool)
+
+- name: Create converged cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+  become: yes
+  docker_container:
+    name: csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    image: "{{ csonic_userspace_ovs_image if csonic_lag_backend == 'userspace_ovs' else csonic_image }}"
+    pull: no
+    state: started
+    restart: yes
+    tty: yes
+    entrypoint: /var/sonic/csonic_supervisord_entrypoint.sh
+    network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+    volumes:
+      - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic:/var/sonic
+    env:
+      HWSKU: "SONiC-VM"
+  delegate_to: "{{ VM_host[0] }}"
+  when: topo_is_multi_vrf | default(false) | bool
 
 - name: Wait for CONFIG_DB to be ready in container
   become: yes
@@ -53,6 +95,14 @@
 - name: Collect front panel interfaces expected from CONFIG_DB
   set_fact:
     csonic_fp_interfaces: "{{ configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"
+  when: not (topo_is_multi_vrf | default(false) | bool)
+
+- name: Collect converged cSONiC front panel interfaces
+  set_fact:
+    csonic_fp_interfaces: >-
+      {{ range(1, (topology['VMs'][hostname]['vlans'] | length) + 1)
+         | map('regex_replace', '^(.*)$', 'Ethernet\\1') | list }}
+  when: topo_is_multi_vrf | default(false) | bool
 
 - name: Wait for front panel interfaces to be created from CONFIG_DB
   become: yes
@@ -63,7 +113,21 @@
   retries: 30
   delay: 2
   changed_when: false
-  when: csonic_fp_interfaces | length > 0
+  when:
+    - csonic_fp_interfaces | length > 0
+    - not (topo_is_multi_vrf | default(false) | bool)
+
+- name: Wait for all converged front panel interfaces to be created from CONFIG_DB
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link show {{ item }}
+  delegate_to: "{{ VM_host[0] }}"
+  loop: "{{ csonic_fp_interfaces }}"
+  register: converged_fp_intf_ready
+  until: converged_fp_intf_ready.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: topo_is_multi_vrf | default(false) | bool
 
 - name: Bring up front panel interface in container
   become: yes
@@ -72,7 +136,17 @@
   loop: "{{ host['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"
   vars:
     host: "{{ configuration[hostname] }}"
+  when: not (topo_is_multi_vrf | default(false) | bool)
   register: ifup_result
+  failed_when: false
+
+- name: Bring up converged front panel interfaces in container
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set {{ item }} up
+  delegate_to: "{{ VM_host[0] }}"
+  loop: "{{ csonic_fp_interfaces }}"
+  when: topo_is_multi_vrf | default(false) | bool
+  register: converged_ifup_result
   failed_when: false
 
 - name: Bring up backplane interface if defined
@@ -81,8 +155,18 @@
   delegate_to: "{{ VM_host[0] }}"
   vars:
     bp_eth_idx: "{{ (configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list | length) + 1 }}"
-  when: configuration[hostname]['bp_interface'] is defined
+  when:
+    - configuration[hostname]['bp_interface'] is defined
+    - not (topo_is_multi_vrf | default(false) | bool)
   register: bp_ifup_result
+  failed_when: false
+
+- name: Bring up converged cSONiC backplane interface
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth{{ (csonic_fp_interfaces | length) + 1 }} up
+  delegate_to: "{{ VM_host[0] }}"
+  when: topo_is_multi_vrf | default(false) | bool
+  register: converged_bp_ifup_result
   failed_when: false
 
 - name: Configure cSONiC PortChannels with userspace OVS

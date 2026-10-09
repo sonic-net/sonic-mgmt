@@ -486,6 +486,67 @@ def converge_topo_if_needed(config):
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
 
+        # cSONiC has a separate T0-only converger. Keep the cEOS path below
+        # unchanged; the pytest option defaults to eos, so infer cSONiC from the
+        # testbed only when the command line did not explicitly select a backend.
+        requested_neighbor_type = config.getoption("--neighbor_type")
+        neighbor_type_overridden = any(
+            arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+            for arg in config.invocation_params.args
+        )
+        is_csonic = requested_neighbor_type == "csonic" or (
+            not neighbor_type_overridden and tb_config.get('vm_type') == "csonic"
+        )
+        if is_csonic:
+            topo_name = tb_config.get('topo', '').strip()
+            if topo_name != "t0":
+                logger.info(
+                    "cSONiC converged peers currently support topo=t0 only; "
+                    f"skipping topo='{topo_name}'")
+                return
+
+            logger.info(
+                f"use_converged_peers=True for cSONiC testbed '{tbname}', "
+                "starting converge...")
+            tests_dir = os.path.dirname(os.path.abspath(__file__))
+            ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+            vars_dir = os.path.join(ansible_dir, "vars")
+            topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+            backup_file = f"{topo_file}.bak"
+
+            if not os.path.exists(topo_file):
+                logger.warning(f"Topo file not found: {topo_file}")
+                return
+
+            original_stat = os.stat(topo_file)
+            original_mode = original_stat.st_mode
+            original_uid = original_stat.st_uid
+            original_gid = original_stat.st_gid
+
+            if os.path.exists(backup_file):
+                logger.info("Backup file exists, recovering original topo file")
+                shutil.copy(backup_file, topo_file)
+            else:
+                logger.info(f"Creating backup: {backup_file}")
+                shutil.copy(topo_file, backup_file)
+
+            converger_path = os.path.join(ansible_dir, "csonic_topo_converger.py")
+            spec = importlib.util.spec_from_file_location(
+                "csonic_topo_converger", converger_path)
+            csonic_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(csonic_module)
+
+            csonic_module.converge_testbed(backup_file, topo_file)
+            logger.info(f"cSONiC topology '{topo_name}' converged successfully")
+
+            os.chmod(topo_file, original_mode)
+            os.chown(topo_file, original_uid, original_gid)
+            logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+            config.cache.set("converged_topo_file", topo_file)
+            config.cache.set("converged_topo_backup", backup_file)
+            return
+
         # The converged (multi-VRF) peer model is implemented for cEOS neighbors
         # only (see ansible/testbed-cli.sh::converge_topo_if_needed and the
         # cEOS startup-config templates). For SONiC-VS / cisco / csonic
@@ -1186,12 +1247,42 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             # SSH-based SONiC family (sonic, vsonic) to SonicHost.
             vm_set_name = tbinfo.get('group-name', '')
             container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {
+                    'vrf': data['vrf_name_mapping'][neighbor_name],
+                    'logical_peer': neighbor_name,
+                    'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                    'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                    'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                    'primary_host': multi_vrf_primary_host,
+                    'primary_host_asn': primary_asn,
+                    'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                    'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                    'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name]),
                 }
-            )
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(
+                            container_name,
+                            bgp_vrf=multi_vrf_data['vrf'],
+                            intf_map=multi_vrf_data['orig_intf_map'],
+                            bgp_prime_asn=multi_vrf_data['primary_host_asn'],
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                        'is_multi_vrf_peer': True,
+                        'multi_vrf_data': multi_vrf_data,
+                    }
+                )
+            else:
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(container_name),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {

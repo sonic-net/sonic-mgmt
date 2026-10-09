@@ -102,6 +102,26 @@ def stop_teamd():
             ",".join(running)))
 
 
+def portchannel_vrf(tables, name):
+    """Return the CONFIG_DB VRF attached to a PortChannel, if any."""
+    attributes = tables["interfaces"].get(name, {})
+    return attributes.get("vrf_name") if isinstance(attributes, dict) else None
+
+
+def wait_for_link(name, timeout=30):
+    """Wait for vrfmgrd/intfmgrd to create a CONFIG_DB-backed Linux link."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        result = subprocess.run(
+            ["ip", "link", "show", "dev", name], check=False, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if result.returncode == 0:
+            return
+        time.sleep(1)
+    raise RuntimeError("Linux link {} was not created within {}s".format(
+        name, timeout))
+
+
 def check_portchannels(tables, settle=5):
     # Fail fast if anything removed the OVS-backed L3 devices after apply.
     time.sleep(settle)
@@ -131,6 +151,13 @@ def check_portchannels(tables, settle=5):
         for prefix in expected:
             if prefix.split("/")[0] not in addresses:
                 problems.append("{} lacks {}".format(name, prefix))
+        vrf = portchannel_vrf(tables, name)
+        if vrf:
+            link = call(["ip", "-o", "link", "show", "dev", name],
+                        check=False)
+            if "master {} ".format(vrf) not in "{} ".format(link):
+                problems.append("{} is not attached to VRF {}".format(
+                    name, vrf))
     if problems:
         raise RuntimeError("cSONiC PortChannel check failed: {}".format(
             "; ".join(problems)))
@@ -184,6 +211,15 @@ def apply():
         members = [kernel_member(member) for member in config_members]
         ovs_portchannel(name, members, attributes.get("mtu", "9100"),
                         attributes.get("min_links", "1"))
+
+        # Replacing teamd's device with an OVS netdev bridge drops the Linux
+        # VRF master that intfmgrd applied from PORTCHANNEL_INTERFACE. Restore
+        # it before adding addresses so converged logical peers keep separate
+        # routing tables.
+        vrf = portchannel_vrf(tables, name)
+        if vrf:
+            wait_for_link(vrf)
+            call(["ip", "link", "set", name, "master", vrf])
 
         # teammgrd sets the SAI-facing member ports (EthernetN) down before it
         # enslaves them and leaves them down once its team device is gone.

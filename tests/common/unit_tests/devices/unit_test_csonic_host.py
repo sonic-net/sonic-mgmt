@@ -42,6 +42,19 @@ def make_host():
     return CsonicHost("csonic_test_VM0100")
 
 
+def make_converged_host():
+    return CsonicHost(
+        "csonic_test_VM0100",
+        bgp_vrf="VrfARISTA02T1",
+        bgp_prime_asn=64600,
+        intf_map={
+            "Ethernet1": "Ethernet2",
+            "Port-Channel1": "Port-Channel2",
+            "Loopback0": "Loopback2",
+        },
+    )
+
+
 def docker_ok(stdout):
     """Shape a successful _docker_exec return with the given stdout."""
     return {"rc": 0, "stdout": stdout, "stderr": ""}
@@ -79,9 +92,9 @@ SUMMARY_V6 = {
 def route_docker_exec(cmd, **kwargs):
     """Dispatch mock: return the right FRR JSON based on the vtysh command."""
     import json as _json
-    if "show ip bgp neighbors json" in cmd:
+    if "show ip bgp neighbors json" in cmd or "ipv4 unicast neighbors json" in cmd:
         return docker_ok(_json.dumps(NEIGHBORS_V4))
-    if "show bgp ipv6 neighbors json" in cmd:
+    if "show bgp ipv6 neighbors json" in cmd or "ipv6 unicast neighbors json" in cmd:
         return docker_ok(_json.dumps(NEIGHBORS_V6))
     if "ipv4 summary json" in cmd:
         return docker_ok(_json.dumps(SUMMARY_V4))
@@ -91,6 +104,40 @@ def route_docker_exec(cmd, **kwargs):
 
 
 # --- minigraph_facts -------------------------------------------------------
+
+class TestStockHostInvariance:
+    def test_commands_pass_through_unchanged(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.command("show interfaces Port-Channel1 status")
+        assert mock_exec.call_args[0][0] == "show interfaces Port-Channel1 status"
+        assert host._interface_name("Port-Channel1") == "Port-Channel1"
+
+    def test_config_command_keeps_historical_shape(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.config(lines=["shutdown"], parents=["router bgp 64600"])
+        assert mock_exec.call_args[0][0] == (
+            "vtysh -c 'configure terminal' -c 'router bgp 64600' -c 'shutdown'")
+
+    def test_neighbor_queries_keep_historical_commands(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("{}")) as mock_exec:
+            host._bgp_neighbors_json("ipv4")
+            host._bgp_neighbors_json("ipv6")
+        commands = [invocation.args[0] for invocation in mock_exec.call_args_list]
+        assert commands == [
+            "vtysh -c 'show ip bgp neighbors json'",
+            "vtysh -c 'show bgp ipv6 neighbors json'",
+        ]
+
+    def test_hash_and_equality_remain_container_based(self):
+        first = make_host()
+        second = make_host()
+        assert first == second
+        assert hash(first) == hash(first.container_name)
+        assert len({first, second}) == 1
+
 
 class TestMinigraphFacts:
     def test_flat_shape_and_contents(self):
@@ -128,9 +175,9 @@ class TestMinigraphFacts:
 
         def side(cmd, **kwargs):
             import json as _json
-            if "show ip bgp neighbors json" in cmd:
+            if "show ip bgp neighbors json" in cmd or "ipv4 unicast neighbors json" in cmd:
                 return docker_ok(_json.dumps({"10.0.0.56": {"hostname": "dut-1", "remoteAs": 65100}}))
-            if "show bgp ipv6 neighbors json" in cmd:
+            if "show bgp ipv6 neighbors json" in cmd or "ipv6 unicast neighbors json" in cmd:
                 return docker_ok(_json.dumps(dup_v6))
             return {"rc": 1, "stdout": "", "stderr": ""}
 
@@ -183,6 +230,64 @@ class TestCheckBgpSessionState:
             assert host.check_bgp_session_state(["10.0.0.56"], neigh_desc=["DUT"]) is True
             # wrong description fails when FRR does report one
             assert host.check_bgp_session_state(["10.0.0.56"], neigh_desc=["OTHER"]) is False
+
+
+# --- bgpd restart / config replay -----------------------------------------
+
+class TestStartBgpd:
+    def test_stock_host_keeps_bgpcfgd_restart_behavior(self):
+        host = make_host()
+
+        def side(command, **kwargs):
+            if command == "supervisorctl start bgpd":
+                return docker_ok("bgpd: started")
+            if command == "supervisorctl status bgpd":
+                return docker_ok("bgpd RUNNING")
+            if command == "supervisorctl restart bgpcfgd":
+                return {"rc": 1, "stdout": "", "stderr": "restart failed"}
+            raise AssertionError(command)
+
+        with patch.object(host, "_docker_exec", side_effect=side):
+            result = host.start_bgpd()
+        assert result["rc"] == 0
+
+    def test_converged_host_surfaces_frrcfgd_restart_failure(self):
+        host = make_converged_host()
+
+        def side(command, **kwargs):
+            if command == "supervisorctl start bgpd":
+                return docker_ok("bgpd: started")
+            if command == "supervisorctl status bgpd":
+                return docker_ok("bgpd RUNNING")
+            if command == "supervisorctl restart frrcfgd":
+                return {"rc": 1, "stdout": "", "stderr": "restart failed"}
+            raise AssertionError(command)
+
+        with patch.object(host, "_docker_exec", side_effect=side):
+            result = host.start_bgpd()
+        assert result["rc"] == 1
+        assert result["stderr"] == "restart failed"
+
+    def test_converged_host_waits_for_logical_vrf_after_frrcfgd_restart(self):
+        host = make_converged_host()
+        calls = []
+
+        def side(command, **kwargs):
+            calls.append(command)
+            if command == "supervisorctl start bgpd":
+                return docker_ok("bgpd: started")
+            if command == "supervisorctl status bgpd":
+                return docker_ok("bgpd RUNNING")
+            if command == "supervisorctl restart frrcfgd":
+                return docker_ok("frrcfgd: restarted")
+            if "show bgp vrf VrfARISTA02T1 summary json" in command:
+                return docker_ok('{"ipv4Unicast": {"peers": {}}}')
+            raise AssertionError(command)
+
+        with patch.object(host, "_docker_exec", side_effect=side):
+            result = host.start_bgpd()
+        assert result["rc"] == 0
+        assert any("show bgp vrf VrfARISTA02T1 summary json" in cmd for cmd in calls)
 
 
 # --- lower-level parsers ---------------------------------------------------
@@ -276,6 +381,100 @@ class TestGetRoute:
         host = make_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("[1,2,3]")):
             assert host.get_route("192.168.0.0/21") == {}
+
+    def test_converged_host_defaults_to_logical_vrf(self):
+        import json as _json
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec",
+                          return_value=docker_ok(_json.dumps(ROUTE_V4))) as mock_exec:
+            assert host.get_route("192.168.0.0/21") == ROUTE_V4
+        assert "show bgp vrf VrfARISTA02T1 ipv4 unicast" in mock_exec.call_args[0][0]
+
+
+# --- converged logical-host translation -----------------------------------
+
+class TestConvergedLogicalHost:
+    def test_logical_vrfs_on_same_container_have_distinct_identity(self):
+        first = CsonicHost("csonic_test_VM0100", bgp_vrf="VrfARISTA01T1")
+        second = CsonicHost("csonic_test_VM0100", bgp_vrf="VrfARISTA02T1")
+        assert first != second
+        assert len({first, second}) == 2
+
+    def test_interface_commands_use_converged_name(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.command("show interfaces Ethernet1 status")
+        assert mock_exec.call_args[0][0] == "show interfaces Ethernet2 status"
+
+    def test_interface_mapping_does_not_cascade_through_actual_name(self):
+        host = CsonicHost(
+            "csonic_test_VM0100",
+            bgp_vrf="VrfARISTA02T1",
+            intf_map={"Ethernet1": "Ethernet2", "Ethernet2": "Ethernet3"},
+        )
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.command("show interfaces Ethernet1 status")
+        assert mock_exec.call_args[0][0] == "show interfaces Ethernet2 status"
+
+    def test_bare_sonic_interface_tokens_use_converged_name(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.command("config portchannel retry-count set PortChannel1 5")
+        assert mock_exec.call_args[0][0] == (
+            "config portchannel retry-count set PortChannel2 5")
+
+    def test_bgp_show_commands_are_scoped_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("show ip bgp summary")
+            host.shell("show ipv6 bgp neighbors fc00::75 | grep Established")
+        commands = [call.args[0] for call in mock_exec.call_args_list]
+        assert commands[0] == (
+            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv4 summary"')
+        assert commands[1] == (
+            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv6 unicast '
+            'neighbors fc00::75" | grep Established')
+
+    def test_bgp_clear_commands_are_scoped_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.command("sudo vtysh -c 'clear bgp ipv4 *'")
+        assert mock_exec.call_args[0][0] == (
+            "sudo vtysh -c 'clear bgp vrf VrfARISTA02T1 ipv4 *'")
+
+    def test_inline_vtysh_bgp_config_is_scoped_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("sudo vtysh -c 'configure terminal' -c 'router bgp 64601'")
+        assert "-c 'router bgp 64601 vrf VrfARISTA02T1'" in mock_exec.call_args[0][0]
+
+    def test_bgp_config_is_scoped_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.config(lines=["shutdown"], parents=["router bgp 64601"])
+        command = mock_exec.call_args[0][0]
+        assert "-c 'router bgp 64601 vrf VrfARISTA02T1'" in command
+
+    def test_interface_config_maps_portchannel_spelling(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.config(lines=["shutdown"], parents=["interface Port-Channel1"])
+        assert "-c 'interface PortChannel2'" in mock_exec.call_args[0][0]
+
+    def test_bgp_summary_defaults_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", side_effect=route_docker_exec) as mock_exec:
+            assert host.check_bgp_session_state(["10.0.0.56"])
+        commands = [call.args[0] for call in mock_exec.call_args_list]
+        assert all("show bgp vrf VrfARISTA02T1" in command for command in commands)
+
+    def test_minigraph_facts_reads_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", side_effect=route_docker_exec) as mock_exec:
+            host.minigraph_facts()
+        commands = [call.args[0] for call in mock_exec.call_args_list]
+        assert all("show bgp vrf VrfARISTA02T1" in command for command in commands)
+
 
 # --- LACP rate (userspace OVS LAG backend) --------------------------------
 

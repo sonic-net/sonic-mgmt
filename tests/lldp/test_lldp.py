@@ -17,6 +17,20 @@ pytestmark = [
 ]
 
 
+def _is_csonic_neighbor(request, tbinfo):
+    neighbor_type = request.config.getoption("--neighbor_type")
+    overridden = any(
+        arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+        for arg in request.config.invocation_params.args
+    )
+    return neighbor_type == 'csonic' or (
+        not overridden
+        and tbinfo.get('vm_type') == 'csonic'
+        and tbinfo.get('topo', {}).get('properties', {}).get(
+            'topo_is_multi_vrf', False)
+    )
+
+
 @pytest.fixture(scope="module", autouse="True")
 def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -103,7 +117,10 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
             primary = rev_vrf_map[vrf]
             new_intf = convergence_info['converged_peers'][primary]['intf_mapping'][vrf]['orig_intf_map'][exp_intf]
             assert v['chassis']['name'] == primary
-            assert v['port']['ifname'] == new_intf
+            if _is_csonic_neighbor(request, duthosts.tbinfo):
+                assert v['port']['descr'] == new_intf
+            else:
+                assert v['port']['ifname'] == new_intf
         else:
             # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
             assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
@@ -143,6 +160,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
                         enum_rand_one_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
     asic = enum_rand_one_frontend_asic_index
+    is_csonic = _is_csonic_neighbor(request, tbinfo)
 
     res = duthost.shell(
         "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(
@@ -201,7 +219,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
                     "LLDP mgmt-ip='{}', DEVICE_NEIGHBOR_METADATA mgmt_addr='{}'".format(
                         nei_name, hostip, fallback))
 
-        if request.config.getoption("--neighbor_type") == 'eos':
+        if request.config.getoption("--neighbor_type") == 'eos' and not is_csonic:
             neighbor_interface = v['port']['ifname']
             snmp_community = eos['snmp_rocommunity']
         else:
@@ -226,7 +244,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
         dut_port_alias = config_facts.get('PORT', {}).get(k, {}).get('alias')
-        if request.config.getoption("--neighbor_type") != 'eos' and not dut_port_alias:
+        if (request.config.getoption("--neighbor_type") != 'eos' or is_csonic) and not dut_port_alias:
             pytest.fail(
                 "DUT iface '{}' has no PORT alias in CONFIG_DB; cannot resolve SONiC "
                 "neighbor SNMP LLDP local-port key".format(k))
@@ -250,7 +268,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
         )
 
         # Verify the published DUT chassis id field is not empty
-        if request.config.getoption("--neighbor_type") == 'eos':
+        if request.config.getoption("--neighbor_type") == 'eos' and not is_csonic:
             assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
                 "0x%s" % (switch_mac.replace(':', '')), (
                 "LLDP neighbor chassis ID mismatch for interface '{}'. "
