@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
+    CAUSE_POWER_LOSS_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
@@ -262,11 +263,13 @@ class TestBmcCliCommands:
             )
 
             # CLI config shutdown takes the graceful path, which always falls back to
-            # power_off() if GNOI times out/fails, so accept either the graceful or the
-            # hard power-down cause.
+            # power_off() if GNOI times out/fails. Depending on how the BMC powers the
+            # host down, Switch-Host may report the graceful cause, the hard power-down
+            # cause, or a remote power-cycle surfaced as "power loss", so accept all three.
             verify_bmc_initiated_reboot(
                 host, pre_boot,
-                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC,
+                 CAUSE_POWER_LOSS_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
