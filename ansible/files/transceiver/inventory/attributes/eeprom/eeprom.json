@@ -11,6 +11,14 @@
             "8x100G_DR8": {
                 "vdm_supported": true,
                 "cmis_active_optical": true
+            },
+            "1x800G_DR8": {
+                "vdm_supported": true,
+                "cmis_active_optical": true
+            },
+            "2x400G_DR4": {
+                "vdm_supported": true,
+                "cmis_active_optical": true
             }
         }
     }
