@@ -206,6 +206,15 @@ VOLATILE_VALUES = {
         "rx2power",
         "rx3power",
         "rx4power",
+        # These are below the 'CREDENTIALS|CERT|*' top-level keys. Wall-clock
+        # stamps restamped each time the gnmi container bootstraps its profile.
+        # That happens on gnmi start whenever its metadata file
+        # (/keys/grpc-version.json) is missing; the file is container-local, so
+        # it is lost on container recreation e.g. image upgrade, load_minigraph.
+        "certificate_created_on",
+        "ca_trust_bundle_created_on",
+        "certificate_revocation_list_bundle_created_on",
+        "authentication_policy_created_on",
     }
 }
 
