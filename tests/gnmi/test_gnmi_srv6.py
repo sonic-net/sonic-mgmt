@@ -55,10 +55,10 @@ def test_poll_mode_srv6_sid_counters(duthosts, rand_one_dut_hostname, ptfhost, s
     duthost = duthosts[rand_one_dut_hostname]
     ns = _srv6_namespace(duthost)
     result = gnmi_subscribe_polling_py(duthost, ptfhost, ["COUNTERS/SID:*"], target="COUNTERS_DB",
-                                       polling_interval=2, update_count=5, max_sync_count=-1,
+                                       polling_interval=2, update_count=0, max_sync_count=5,
                                        timeout=30, namespace=ns)
     assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
-    assert re.findall("json_ietf_val", str(result['stdout'])), "Incorrect update responses"
+    assert re.findall("sync_response: true", str(result['stdout'])), "Incorrect sync responses"
 
     duthost.shell("counterpoll srv6 enable")
     wait_until(30, 1, 5, _check_srv6_stats, duthost)
@@ -88,10 +88,10 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, rand_one_dut_hostn
     duthost = duthosts[rand_one_dut_hostname]
     ns = _srv6_namespace(duthost)
     result = gnmi_subscribe_polling_py(duthost, ptfhost, ["COUNTERS/SID:*"], target="COUNTERS_DB",
-                                       polling_interval=2, update_count=5, max_sync_count=-1,
+                                       polling_interval=2, update_count=0, max_sync_count=5,
                                        timeout=30, namespace=ns)
     assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
-    assert re.findall("json_ietf_val", str(result['stdout'])), "Incorrect update responses"
+    assert re.findall("sync_response: true", str(result['stdout'])), "Incorrect sync responses"
 
     cli = _sonic_db_cli(duthost)
     duthost.shell(cli + " COUNTERS_DB HSET \"COUNTERS:oid:0x11110000001eb3\" "
