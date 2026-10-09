@@ -142,9 +142,11 @@ def _remove_routes(host, name, tunnel):
 
 
 def _restore_config(host, backup):
+    # Rehydrate CONFIG_DB so subscriber output queues do not leak into sanity checks.
     restored = host.shell(
         "cp -a --remove-destination {0} /etc/sonic/config_db.json && "
-        "cmp -s {0} /etc/sonic/config_db.json && rm {0}".format(shlex.quote(backup)),
+        "cmp -s {0} /etc/sonic/config_db.json && "
+        "config reload -y && rm {0}".format(shlex.quote(backup)),
         module_ignore_errors=True)
     if restored.get("rc") != 0:
         raise RuntimeError("Unable to restore persistent config backup {}".format(backup))
