@@ -94,6 +94,14 @@ def pytest_addoption(parser):
         choices=("no_front_panel_ports", "one_front_panel_port", ""),
         help="Control execution of GCU feature in Snappi Tests."
     )
+    snappi_group.addoption(
+        "--ecn-accuracy-iterations",
+        action="store",
+        type=int,
+        default=None,
+        help="Number of repetitions for test_ecn_accuracy_with_scheduler_blocking.py. "
+             "Overrides the ITERATIONS default in the test module."
+    )
 
 
 @pytest.fixture(scope="session")
