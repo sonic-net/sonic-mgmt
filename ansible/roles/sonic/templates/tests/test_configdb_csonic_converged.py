@@ -69,6 +69,7 @@ def _context():
 def _render_json(context=None):
     env = Environment(
         loader=FileSystemLoader(TEMPLATES_DIR),
+        autoescape=True,
         undefined=StrictUndefined,
     )
     env.filters["ansible.utils.ipaddr"] = lambda value, query: (
