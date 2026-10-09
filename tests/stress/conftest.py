@@ -47,7 +47,8 @@ def cleanup_neighbors_dualtor(duthosts, ptfhost, tbinfo):
 
 @pytest.fixture(scope='module')
 def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
-                                          enum_rand_one_frontend_asic_index, cleanup_neighbors_dualtor):            # noqa F811
+                                          enum_rand_one_frontend_asic_index, cleanup_neighbors_dualtor,
+                                          request):                                                               # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     namespace = asichost.namespace
@@ -60,6 +61,25 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
         get_crm_resource_status(duthost, "ipv6_route", "used", namespace),
     )
 
+    def restore_routes():
+        logger.info("announce existing ipv4 and ipv6 routes")
+        localhost.announce_routes(
+            topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
+
+        wait_until(
+            MAX_WAIT_TIME,
+            CRM_POLLING_INTERVAL,
+            0,
+            lambda: check_queue_status(duthost, "outq") is True,
+        )
+        sleep_to_wait(CRM_POLLING_INTERVAL * 5)
+        logger.info("ipv4 route used {}".format(
+            get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
+        logger.info("ipv6 route used {}".format(
+            get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
+
+    request.addfinalizer(restore_routes)
+
     logger.info("withdraw existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
@@ -67,17 +87,19 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     if not result:
         logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
 
+    stable_samples = 0
     ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
     ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
-    stable_samples = 0
 
     def routes_stable():
         nonlocal ipv4_route_used_before, ipv6_route_used_before, stable_samples
+        prior_stable_samples = stable_samples
+        stable_samples = 0
         ipv4_route_used_now = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
         ipv6_route_used_now = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
         ipv4_stable = ipv4_route_used_now == ipv4_route_used_before
         ipv6_stable = ipv6_route_used_now == ipv6_route_used_before
-        stable_samples = stable_samples + 1 if ipv4_stable and ipv6_stable else 0
+        stable_samples = prior_stable_samples + 1 if ipv4_stable and ipv6_stable else 0
         ipv4_route_used_before = ipv4_route_used_now
         ipv6_route_used_before = ipv6_route_used_now
         return stable_samples >= ROUTE_STABLE_SAMPLES
@@ -94,14 +116,6 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
         "announced": announced_route_counts,
         "withdrawn": (ipv4_route_used_before, ipv6_route_used_before),
     }
-
-    logger.info("announce existing ipv4 and ipv6 routes")
-    localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
-
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
-    sleep_to_wait(CRM_POLLING_INTERVAL * 5)
-    logger.info("ipv4 route used {}".format(get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
-    logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
 
 
 @pytest.fixture(scope="module", autouse=True)

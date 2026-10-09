@@ -140,12 +140,14 @@ def get_frr_daemon_memory_usage(duthost, daemon_list, namespace):
 
 
 def wait_for_route_counts(duthost, namespace, expected, queue, action):
-    full_wait_time = MAX_WAIT_TIME + CRM_POLLING_INTERVAL * 100
+    full_wait_time = MAX_WAIT_TIME
     current = None
     previous_match = False
 
     def route_counts_match():
         nonlocal current, previous_match
+        prior_match = previous_match
+        previous_match = False
         current = (
             get_crm_resource_status(duthost, "ipv4_route", "used", namespace),
             get_crm_resource_status(duthost, "ipv6_route", "used", namespace),
@@ -154,7 +156,7 @@ def wait_for_route_counts(duthost, namespace, expected, queue, action):
             abs(value - target) < ALLOW_ROUTES_CHANGE_NUMS
             for value, target in zip(current, expected)
         )
-        converged = matched and previous_match
+        converged = matched and prior_match
         previous_match = matched
         return converged
 
