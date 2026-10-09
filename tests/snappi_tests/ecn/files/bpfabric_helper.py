@@ -4,7 +4,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api                                                                                     # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
-    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
+    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
     config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate, get_all_port_stats  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
@@ -155,8 +155,10 @@ def get_traffic_path(
     egress_active_interfaces = load_port_stats(egress_stats, pkt_threshold, direction="rx")
 
     # Find the fabric mapping from the CLI
-    ingress_fabric_mapping = get_fabric_mapping(ingress_duthost)
-    egress_fabric_mapping = get_fabric_mapping(egress_duthost)
+    ingress_asic_instance = ingress_duthost.get_port_asic_instance(tx_port['peer_port'])
+    egress_asic_instance = egress_duthost.get_port_asic_instance(rx_port['peer_port'])
+    ingress_fabric_mapping = get_fabric_mapping(ingress_duthost, ingress_asic_instance)
+    egress_fabric_mapping = get_fabric_mapping(egress_duthost, egress_asic_instance)
 
     # Infer the traffic path from ingress to egress port via BP and Fabric port
     traffic_paths = infer_ecmp_backplane_ports(ingress_active_interfaces, egress_active_interfaces,
