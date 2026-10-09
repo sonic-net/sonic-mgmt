@@ -14,7 +14,8 @@ from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
-from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, \
+    creds_on_dut, enable_nat_for_dpus
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
 logger = logging.getLogger(__name__)
@@ -541,6 +542,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
+
+    # Restore NAT/iptables rules for DPU SSH access after reboot
+    if getattr(duthost, 'dpu_nat_port_mapping', None):
+        logger.info('Restoring NAT rules for DPU SSH access after reboot')
+        enable_nat_for_dpus(duthost)
+
     if console_obj:
         console_obj.disconnect()
         logger.info('end: collect console log')
