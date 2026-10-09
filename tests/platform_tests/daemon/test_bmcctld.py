@@ -28,7 +28,7 @@ from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
-    CAUSE_POWER_LOSS,
+    CAUSE_POWER_LOSS_FROM_BMC,
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
@@ -277,7 +277,7 @@ class TestBmcctldDaemon:
         # "power down request from bmc" or, on platforms where the BMC drops chassis power,
         # as "power loss (bmc remote power cycle)"; accept both.
         verify_bmc_initiated_reboot(host, critical_pre_boot,
-                                    (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS))
+                                    (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -345,7 +345,7 @@ class TestBmcctldDaemon:
             # "power down request from bmc" or, on platforms where the BMC drops chassis
             # power, as "power loss (bmc remote power cycle)"; accept both.
             verify_bmc_initiated_reboot(host, pre_boot,
-                                        (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS))
+                                        (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
         finally:
             del_cmd(off_key, on_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
