@@ -5475,7 +5475,7 @@ span/test_erspan_sampling_truncation.py:
   skip:
     reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
     conditions:
-      - "asic_gen != 'spc5' or topo_type != 't0'"
+      - "asic_gen != 'spc5' or topo_type not in ['t0', 't1']"
 
 span/test_port_mirroring.py:
   xfail:
