@@ -685,6 +685,7 @@ t1-lag-vpp:
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
+  - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -784,6 +785,7 @@ t0-vpp:
   - clock/test_clock.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - crm/test_crm.py
   - crm/test_crm_available.py
   - database/test_db_config.py
   - database/test_db_scripts.py

@@ -700,7 +700,8 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_e
             console_host=console_host,
             console_port=console_port,
             console_username=console_username,
-            console_password=creds['console_password'][console_type]
+            console_password=creds['console_password'][console_type],
+            enable_password=creds["console_enable_passwd"].get(console_type)
         )
     except Exception as e:
         logger.warning(f"Issue trying to clear console port: {e}")
@@ -790,6 +791,7 @@ def creds_on_dut(duthost):
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
+    creds["console_enable_passwd"] = {}
 
     creds["ansible_altpasswords"] = []
 
@@ -808,6 +810,8 @@ def creds_on_dut(duthost):
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
+        if "enable_passwd" in v:
+            creds["console_enable_passwd"][k] = v["enable_passwd"]
 
     return creds
 
@@ -817,7 +821,8 @@ def duthost_clear_console_port(
         console_host: str,
         console_port: str,
         console_username: str,
-        console_password: str
+        console_password: str,
+        enable_password=None
 ):
     """
     Helper function to clear the console port for a given DUT.
@@ -829,6 +834,12 @@ def duthost_clear_console_port(
         console_port: DUT host's console port, to be cleared
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
+        enable_password: Optional enable secret(s) for Cisco IOS console/terminal servers that
+            require privileged EXEC ('#') to run 'clear line'. Sourced from inventory
+            (console_login.<type>.enable_passwd in secrets.json). May be a single string or a
+            list of candidates, tried in order and capped at 3 attempts (Cisco IOS's own limit
+            on password tries per 'enable' invocation). If not configured, the 'enable' elevation
+            step is skipped and a warning is logged instead.
     """
     if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
@@ -850,30 +861,105 @@ def duthost_clear_console_port(
         sonic_password=None
     )
 
-    # Command lists for each config menu type
-    # List of tuples, containing a command to execute, and an optional pattern to wait for
-    command_list = {
-        CONSOLE_SSH_DIGI_CONFIG: [
-            ('2', None),                                                    # Enter serial port config
-            (console_port, None),                                           # Choose DUT console port
-            ('a', None),                                                    # Enter port management
-            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
-        ],
-        CONSOLE_SSH_SONIC_CONFIG: [
-            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
-        ],
-        CONSOLE_SSH_CISCO_CONFIG: [
-            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
-            ('', '[OK]')                                        # Confirm selection
-        ],
-    }
+    # Wrap the clear-port sequence so duthost_config_menu always gets
+    # disconnected. A leftover open session here holds the physical console
+    # line and was found to make the subsequent real console connection
+    # fail with "Socket is closed" on every retry.
+    try:
+        # Cisco IOS rejects 'clear line' from user EXEC ('>'); it requires
+        # privileged EXEC ('#'). Elevate via 'enable' first, but only if not
+        # already at '#' (e.g. leftover privileged session) - sending the
+        # password blindly while already privileged would feed it to IOS as
+        # a bogus command.
+        if menu_type == CONSOLE_SSH_CISCO_CONFIG:
+            current_prompt = duthost_config_menu.find_prompt(pattern=r"(?:>|\#|\$)")
+            if not current_prompt.endswith('#'):
+                if not enable_password:
+                    logger.warning(
+                        "No enable_passwd configured for this console type (set "
+                        "console_login.<type>.enable_passwd in secrets.json to enable this); "
+                        "skipping 'enable' elevation. 'clear line' will likely fail from user EXEC."
+                    )
+                else:
+                    # Cisco IOS allows at most 3 password attempts per 'enable' invocation
+                    # before dropping back to user EXEC - cap candidates accordingly.
+                    candidate_passwords = (
+                        enable_password if isinstance(enable_password, list) else [enable_password]
+                    )[:3]
 
-    for command, wait_for_pattern in command_list[menu_type]:
-        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
-        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+                    # Read until either a password re-prompt or a prompt terminator after each
+                    # write, and branch on what came back. netmiko's read_until_pattern() drops
+                    # whatever it read if it times out waiting for a fixed pattern like r'#' -
+                    # reading a combined pattern instead avoids losing the "Password:" re-prompt
+                    # IOS sends on a wrong guess.
+                    pw_or_prompt = r"[Pp]assword:\s*$|[>#]\s*$"
 
-    duthost_config_menu.disconnect()
-    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+                    duthost_config_menu.write_channel('enable' + duthost_config_menu.RETURN)
+                    try:
+                        out = duthost_config_menu.read_until_pattern(pw_or_prompt)
+                    except Exception as e:
+                        logger.warning(f"No response detected after 'enable': {e}")
+                        out = ""
+
+                    for attempt_num, candidate in enumerate(candidate_passwords, start=1):
+                        if not re.search(r"[Pp]assword:\s*$", out):
+                            break
+                        duthost_config_menu.write_channel(candidate + duthost_config_menu.RETURN)
+                        try:
+                            out = duthost_config_menu.read_until_pattern(pw_or_prompt)
+                        except Exception as e:
+                            logger.warning(
+                                f"Enable password attempt {attempt_num}/{len(candidate_passwords)} "
+                                f"timed out waiting for a response: {e}"
+                            )
+                            out = ""
+                        logger.info(
+                            f"Enable elevation attempt {attempt_num}/{len(candidate_passwords)}: "
+                            + ("re-prompted for password" if re.search(r"[Pp]assword:\s*$", out)
+                               else "reached a prompt terminator")
+                        )
+
+                current_prompt = duthost_config_menu.find_prompt(pattern=r"(?:>|\#|\$)")
+                if not current_prompt.endswith('#'):
+                    raise Exception(
+                        "Failed to elevate to privileged EXEC ('#') via 'enable' "
+                        f"(still at prompt '{current_prompt}'); aborting console port clear "
+                        "to avoid sending further commands into a confused session state."
+                    )
+
+        # Command lists for each config menu type
+        # List of tuples, containing a command to execute, and an optional pattern to wait for
+        command_list = {
+            CONSOLE_SSH_DIGI_CONFIG: [
+                ('2', None),                                                    # Enter serial port config
+                (console_port, None),                                           # Choose DUT console port
+                ('a', None),                                                    # Enter port management
+                ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+            ],
+            CONSOLE_SSH_SONIC_CONFIG: [
+                (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+            ],
+            CONSOLE_SSH_CISCO_CONFIG: [
+                # Note: no 'tty' keyword - confirmed working syntax on this terminal
+                # server is 'clear line <n>', not 'clear line tty <n>'.
+                # Patterns are regexes - '[confirm]'/'[OK]' would match any single bracketed
+                # character (e.g. the echoed command's own 'c'), not the literal text, and
+                # read_until_prompt_or_pattern() also returns on base_prompt regardless - so a
+                # failed 'clear line' (e.g. invalid port) could otherwise still look like success.
+                (f'clear line {console_port}', r'\[confirm\]'),    # Clear DUT console port
+                ('', r'\[OK\]')                                     # Confirm selection
+            ],
+        }
+
+        for command, wait_for_pattern in command_list[menu_type]:
+            duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+            output = duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+            if menu_type == CONSOLE_SSH_CISCO_CONFIG and wait_for_pattern and not re.search(wait_for_pattern, output):
+                raise Exception(f"Unexpected response to '{command}': {output!r}")
+
+        logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    finally:
+        duthost_config_menu.disconnect()
     time.sleep(5)
 
 
