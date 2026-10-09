@@ -492,55 +492,6 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
 
-    if global_pause and "--snappi_macsec" in sys.argv:
-        snappi_api = snappi_extra_params.snappi_api
-        # Build the global pause as an IxNetwork raw traffic item instead of a snappi flow, so drop the
-        # snappi pause flow and push the rest of the config to get the vports created
-        testbed_config.flows.remove(len(testbed_config.flows) - 1)
-        snappi_api.set_config(testbed_config)
-        ixnet = snappi_api._ixnetwork
-
-        logger.info("Creating global pause traffic item {}".format(pause_flow.name))
-        tx_vport = ixnet.Vport.find(Name='^{}$'.format(re.escape(pause_flow.tx_rx.port.tx_name)))
-        rx_vport = ixnet.Vport.find(Name='^{}$'.format(re.escape(pause_flow.tx_rx.port.rx_name)))
-        traffic_item = ixnet.Traffic.TrafficItem.add(Name=pause_flow.name, TrafficItemType='quick',
-                                                     BiDirectional=False, TrafficType='raw')
-        traffic_item.EndpointSet.add(Sources=tx_vport.Protocols.find(), Destinations=rx_vport.Protocols.find())
-        traffic_item.Tracking.find()[0].TrackBy = []
-
-        high_level_stream = traffic_item.HighLevelStream.find()[0]
-        high_level_stream.FrameRate.Type = 'framesPerSecond'
-        high_level_stream.FrameRate.Rate = pause_flow.rate.pps
-        high_level_stream.FrameSize.FixedSize = pause_flow.size.fixed
-
-        transmission = high_level_stream.TransmissionControl
-        transmission.StartDelayUnits = 'nanoseconds'
-        transmission.StartDelay = pause_flow.duration.fixed_seconds.delay.nanoseconds
-        if pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
-            transmission.Type = 'fixedDuration'
-            transmission.Duration = pause_flow_config["flow_dur_sec"]
-        elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
-            transmission.Type = 'continuous'
-        elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
-            transmission.Type = 'fixedFrameCount'
-            transmission.FrameCount = pause_flow_config["flow_pkt_count"]
-
-        # Replace the ethernet stack with the global pause stack
-        ethernet_stack = high_level_stream.Stack.find(StackTypeId='^ethernet$')
-        global_pause_template = ixnet.Traffic.ProtocolTemplate.find(StackTypeId='^globalPause$')
-        ethernet_stack.AppendProtocol(global_pause_template)
-        ethernet_stack.Remove()
-        # Removing the ethernet stack renumbers the stacks, so look up the global pause stack again
-        global_pause_stack = high_level_stream.Stack.find(StackTypeId='^globalPause$')
-        pytest_assert(len(global_pause_stack) == 1, "globalPause stack not found on {}".format(pause_flow.name))
-        pause_fields = global_pause_stack.Field
-        pause_fields.find(FieldTypeId='dstAddress$').SingleValue = pause_pkt.dst.value
-        pause_fields.find(FieldTypeId='srcAddress$').SingleValue = pause_pkt.src.value
-        pause_fields.find(FieldTypeId='ethertype$').SingleValue = '{:04x}'.format(pause_pkt.ether_type.value)
-        pause_fields.find(FieldTypeId='controlOpcode$').SingleValue = '{:04x}'.format(pause_pkt.control_op_code.value)
-        pause_fields.find(FieldTypeId='pfcQueue0$').SingleValue = '{:04x}'.format(pause_pkt.time.value)
-        snappi_extra_params.config_applied = True
-
 
 def _rand_ipv6():
     # 2007:db8::/32 is documentation range
@@ -829,8 +780,7 @@ def run_traffic(duthost,
         in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
                                                         (right before flows end)
     """
-    if not snappi_extra_params.config_applied:
-        api.set_config(config)
+    api.set_config(config)
     ptype = "--snappi_macsec" in sys.argv
     if ptype:
         ixnet = api._ixnetwork
@@ -920,7 +870,6 @@ def run_traffic(duthost,
 
     logger.info("Starting transmit on all flows ...")
     if not ptype:
-        logger.info("Starting transmit on all flows ...")
         set_flow_transmit_state(api, "start")
     else:
         trafficItems = ixnet.Traffic.TrafficItem.find()

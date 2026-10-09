@@ -1723,6 +1723,22 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             kay1_txsc1 = kay1_tx.secure_channels.add()
             kay1_txsc1.name = "txsc{}".format(port_id)
             kay1_txsc1.system_id = mac
+            # Egress only tracking(eotr)
+            eotr = config.egress_only_tracking
+            eotr1 = eotr.add()
+            eotr1.port_name = config.ports[port_id].names
+
+            # eotr filter
+            eotr1_filter1 = eotr1.filters.add()
+            eotr1_filter1.choice = "auto_macsec"
+
+            # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
+            eotr1_mt1 = eotr1.metric_tags.add()
+            eotr1_mt1.name = "pause traffic {}".format(port_id)
+            eotr1_mt1.rx_offset = 0
+            eotr1_mt1.length = 8
+            eotr1_mt1.tx_offset.choice = "custom"
+            eotr1_mt1.tx_offset.custom.value = 0
             port_config = SnappiPortConfig(
                                 id=port_id,
                                 ip=tgenIp,
