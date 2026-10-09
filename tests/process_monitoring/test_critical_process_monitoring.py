@@ -665,8 +665,12 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
         # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
-        # Wait for database_config.json first, then use config_reload for a clean
-        # recovery that also waits for BGP sessions to re-establish.
+        # The file appearing is necessary but NOT sufficient: it lands on tmpfs before
+        # redis-server is actually accepting connections, so "config reload" (which
+        # connects to redis even for "config reload -h") can still crash with
+        # "Unable to connect to redis - Connection refused".  Wait for both the config
+        # files AND redis connectivity before running config_reload, which also waits
+        # for BGP sessions to re-establish.
         db_config_timeout = 120
         if duthost.facts.get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
@@ -692,12 +696,20 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                         "test -f {}".format(db_config_file),
                         module_ignore_errors=True)["rc"] != 0:
                     return False
+            # database_config.json on tmpfs can appear before redis-server is actually
+            # accepting connections.  Probe redis directly so the subsequent
+            # config_reload (which runs "config reload -h" against redis) does not crash
+            # with "Unable to connect to redis - Connection refused".
+            redis_ping = duthost.shell("sonic-db-cli PING", module_ignore_errors=True)
+            if redis_ping["rc"] != 0 or "PONG" not in redis_ping["stdout"]:
+                return False
             return True
 
         db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
         if not db_config_ready:
             # Fail fast here to protect subsequent tests from a sick DUT.
-            pytest.fail("database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
+            pytest.fail("database_config.json / redis not ready after %ds -- DUT recovery incomplete"
+                        % db_config_timeout)
 
         logger.info("Database config ready, performing config reload for clean recovery...")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)

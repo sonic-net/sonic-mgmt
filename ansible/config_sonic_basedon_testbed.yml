@@ -879,10 +879,12 @@
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo"
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
@@ -927,6 +929,7 @@
           prober_type: "{{ prober_type | default(omit) }}"
           neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"

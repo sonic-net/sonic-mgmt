@@ -22,7 +22,8 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
     fetch_flow_metrics_for_macsec, set_flow_transmit_state, are_flows_stopped    # noqa: F401
-from .variables import pfcQueueGroupSize, pfcQueueValueDict
+from .variables import pfcQueueValueDict
+from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
@@ -227,7 +228,7 @@ def generate_test_flows(testbed_config,
             test_flow.packet.ethernet().ipv4()
             ip = test_flow.packet[-1]
             eth = test_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -253,7 +254,7 @@ def generate_test_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -361,7 +362,7 @@ def generate_background_flows(testbed_config,
             bg_flow.packet.ethernet().ipv4()
             ip = bg_flow.packet[-1]
             eth = bg_flow.packet[-2]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
@@ -385,7 +386,7 @@ def generate_background_flows(testbed_config,
 
             eth.src.value = base_flow_config["tx_mac"]
             eth.dst.value = base_flow_config["rx_mac"]
-            if pfcQueueGroupSize == 8:
+            if pfc_queue_group_size() == 8:
                 eth.pfc_queue.value = prio
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]

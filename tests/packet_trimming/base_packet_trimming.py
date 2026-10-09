@@ -1,5 +1,6 @@
 import logging
 import random
+import time
 
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert
@@ -7,7 +8,9 @@ from tests.common.utilities import wait_until, configure_packet_aging
 from tests.common.mellanox_data import is_mellanox_device
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, MIN_PACKET_SIZE, CONFIG_TOGGLE_COUNT,
-    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, TRIMMING_COUNTER_INTERVAL)
+    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, TRIMMING_COUNTER_INTERVAL,
+    WARM_REBOOT_TRAFFIC_DURATION, WARM_REBOOT_STEADY_STATE_WAIT,
+    WARM_REBOOT_MIN_PACKET_RATE, WARM_REBOOT_MAX_CONTIGUOUS_LOSS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
@@ -15,7 +18,9 @@ from tests.packet_trimming.packet_trimming_helper import (
     get_port_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane,
     verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
     has_non_zero_trim_counters, configure_port_mirror_session, remove_port_mirror_session,
-    check_trim_drop_counter_zero)
+    verify_queue_and_port_trim_sent_counter_consistency, verify_queue_and_port_trim_drop_counter_consistency,
+    compute_buffer_threshold, fill_egress_buffer, ConfigTrimming, start_warm_reboot_traffic,
+    start_warm_reboot_capture, collect_warm_reboot_loss_report)
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +348,58 @@ class BasePacketTrimming:
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
-    def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params):
+    def test_trimming_during_warm_reboot(self, duthost, ptfadapter, ptfhost, test_params, localhost,
+                                         clean_warm_reboot_traffic):
+        """
+        Test Case: Verify Trimming Is Not Disrupted During Warm Reboot
+
+        This test verifies that the trimmed packets keep being forwarded while the system goes
+        through a warm reboot. A sequence numbered stream is sent into a blocked egress queue, so
+        that every packet is trimmed, and the trimmed copies received on the PTF host are checked
+        for sequence gaps. A contiguous gap of trimmed packets means the trimming dataplane was
+        disrupted while syncd was applying the restored view.
+        """
+        with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
+            self.configure_trimming_global_by_mode(duthost)
+
+        with allure.step("Enable trimming in buffer profile"):
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
+
+        egress_port = test_params['egress_ports'][0]
+        # The egress queue is blocked for the whole measurement, so that the packets keep being
+        # trimmed during the warm reboot. It is released before the trimming is verified again,
+        # because verify_trimmed_packet blocks the same queue by itself.
+        with ConfigTrimming(duthost, egress_port['dut_members'], test_params['block_queue']):
+            with allure.step("Start sequence numbered traffic and wait for the egress queue to fill up"):
+                start_warm_reboot_traffic(ptfhost, test_params['ingress_port'], egress_port,
+                                          duthost.facts["router_mac"], WARM_REBOOT_TRAFFIC_DURATION)
+                time.sleep(WARM_REBOOT_STEADY_STATE_WAIT)
+
+            with allure.step("Start capturing the trimmed packets on the PTF host"):
+                start_warm_reboot_capture(ptfhost, egress_port)
+
+            with allure.step("Perform warm reboot while the trimmed traffic is running"):
+                reboot_dut(duthost, localhost, reboot_type="warm")
+
+            with allure.step("Verify trimmed packets were not lost during warm reboot"):
+                loss_report = collect_warm_reboot_loss_report(ptfhost)
+                pytest_assert(loss_report['rate'] >= WARM_REBOOT_MIN_PACKET_RATE,
+                              f"Trimmed packets were received at only {loss_report['rate']} pps, which is too "
+                              f"slow to detect a short disruption, loss report: {loss_report}")
+                pytest_assert(loss_report['max_contiguous_loss'] <= WARM_REBOOT_MAX_CONTIGUOUS_LOSS,
+                              f"Trimmed packets were lost during warm reboot, loss report: {loss_report}")
+
+        if is_mellanox_device(duthost):
+            with allure.step("Disable packet aging for mellanox device after warm reboot"):
+                configure_packet_aging(duthost, disabled=True)
+
+        with allure.step(f"Verify trimming function in {self.trimming_mode} mode after warm reboot"):
+            kwargs = self.get_verify_trimmed_packet_kwargs(duthost, ptfadapter, {**test_params})
+            verify_trimmed_packet(**kwargs)
+
+    def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params,
+                               queue_level_trim_supported):
         """
         Test Case: Verify PacketTrimming Counters
         """
@@ -382,9 +438,10 @@ class BasePacketTrimming:
                 for port in egress_port['dut_members']:
                     port_trim_tx_value = get_port_trim_counters_json(duthost, port)['TRIM_TX_PKTS']
                     ports_trim_sent_counters.append(port_trim_tx_value)
+                    # Verify queue-level TrimSent matches port-level TrimSent
+                    verify_queue_and_port_trim_sent_counter_consistency(duthost, port, port_trim_tx_value,
+                                                                        supported=queue_level_trim_supported)
 
-            # Verify the trim sent counter on the switch level is equal to the sum of the trim sent counter on the
-            # port level
             pytest_assert(sum(ports_trim_sent_counters) == switch_trim_sent_value and switch_trim_sent_value != 0,
                           "Trim sent counter on switch level is not equal to the sum of trim sent counter on port "
                           "level")
@@ -400,7 +457,32 @@ class BasePacketTrimming:
                         original_scheduler = disable_egress_data_plane(duthost, dut_member, trim_queue)
                         original_schedulers[dut_member] = original_scheduler
 
-                # Trigger trimmed packets on queue6
+                # Fill the trim queue buffer so TRIM_DRP_PKTS is triggered on platforms
+                trim_size = PacketTrimmingConfig.get_trim_size(duthost)
+                counter_dscp = PacketTrimmingConfig.get_counter_dscp(duthost)
+                for egress_port in trim_counter_params['egress_ports']:
+                    port_for_compute = egress_port['dut_members'][0]
+                    trim_queue_buffer_size = compute_buffer_threshold(duthost, port_for_compute, trim_queue)
+                    dst_addr = egress_port['ipv4'] or egress_port['ipv6']
+                    fill_egress_buffer(
+                        duthost,
+                        ptfadapter,
+                        trim_counter_params['ingress_port']['ptf_id'],
+                        trim_queue_buffer_size,
+                        trim_queue,
+                        dst_addr,
+                        counter_dscp,
+                        egress_port['dut_members'],
+                        packet_size_in_queue=trim_size,
+                    )
+
+                # Show port/queue level trim counters
+                for egress_port in trim_counter_params['egress_ports']:
+                    for port in egress_port['dut_members']:
+                        get_port_trim_counters_json(duthost, port)
+                        get_queue_trim_counters_json(duthost, port)
+
+                # Send packets that get trimmed and verify they are dropped at the blocked trim queue
                 counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs(duthost, ptfadapter,
                                                                                {**trim_counter_params})
                 # TH5 cannot completely block egress queues, so trimmed packets will leak out of the trim queues.
@@ -417,6 +499,9 @@ class BasePacketTrimming:
                         logger.info(f"port: {port}, port_trim_drop_value: {port_trim_drop_value}")
                         pytest_assert(port_trim_drop_value > 0,
                                       f"Trim drop counter on port {port} is not greater than 0")
+                        # Verify queue-level TrimDrop matches port-level TrimDrop
+                        verify_queue_and_port_trim_drop_counter_consistency(duthost, port, port_trim_drop_value,
+                                                                            supported=queue_level_trim_supported)
 
             finally:
                 # Enable the trimmed queue with original scheduler
@@ -424,14 +509,6 @@ class BasePacketTrimming:
                     for dut_member in port['dut_members']:
                         original_scheduler = original_schedulers.get(dut_member)
                         enable_egress_data_plane(duthost, dut_member, trim_queue, original_scheduler)
-                        # Known limitation: TRIM_DRP_PKTS is a calculated counter (TRIM_PKTS - TRIM_TX_PKTS)
-                        # rather than a real hardware counter. After restoring the blocked trim queue,
-                        # queued packets drain out and TRIM_DRP_PKTS gradually decreases to 0.
-                        # Wait for it to stabilize before reading baseline counters for the next step.
-                        pytest_assert(
-                            wait_until(30, 2, 0, check_trim_drop_counter_zero, duthost, dut_member),
-                            f"TRIM_DRP_PKTS on port {dut_member} did not stabilize to 0"
-                        )
 
     def test_trimming_counters_with_feature_toggle(self, duthost, ptfadapter, test_params, trim_counter_params):
         """
