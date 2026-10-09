@@ -28,6 +28,7 @@ from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
+    CAUSE_POWER_LOSS_FROM_BMC,
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
@@ -272,7 +273,11 @@ class TestBmcctldDaemon:
         # so force a clean down->up transition, then confirm it came back up with a
         # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
         recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
-        verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
+        # A BMC hard power_off can be reported by the Switch-Host either as an explicit
+        # "power down request from bmc" or, on platforms where the BMC drops chassis power,
+        # as "power loss (bmc remote power cycle)"; accept both.
+        verify_bmc_initiated_reboot(host, critical_pre_boot,
+                                    (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -336,7 +341,11 @@ class TestBmcctldDaemon:
             wait_host_on(host)
             pytest_assert(hget_status(on_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
+            # A BMC hard POWER_OFF can be reported by the Switch-Host either as an explicit
+            # "power down request from bmc" or, on platforms where the BMC drops chassis
+            # power, as "power loss (bmc remote power cycle)"; accept both.
+            verify_bmc_initiated_reboot(host, pre_boot,
+                                        (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
         finally:
             del_cmd(off_key, on_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",

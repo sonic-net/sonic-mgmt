@@ -5,7 +5,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import chassis, module as module_api
-from tests.common.platform.bmc_utils import get_switch_host_or_skip_test
+from tests.common.platform.bmc_utils import BMC_INITIATED_REBOOT_CAUSES, get_switch_host_or_skip_test
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
@@ -163,7 +163,7 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
                         f"Paired switch uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
 
             cause = host.shell('show reboot-cause', module_ignore_errors=True).get('stdout', '').strip().lower()
-            valid_causes = ('power down request from bmc', 'graceful shutdown from bmc', 'power loss')
+            valid_causes = BMC_INITIATED_REBOOT_CAUSES
             self.expect(any(c in cause for c in valid_causes),
                         f"reboot-cause {cause!r} not in expected BMC-initiated set {valid_causes}")
 
@@ -283,6 +283,6 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
 
         cause = host.shell('show reboot-cause', module_ignore_errors=True).get('stdout', '').strip().lower()
         self.expect(bool(cause), "show reboot-cause returned empty output")
-        valid_causes = ('power down request from bmc', 'graceful shutdown from bmc', 'power loss')
+        valid_causes = BMC_INITIATED_REBOOT_CAUSES
         self.expect(any(c in cause for c in valid_causes),
                     f"reboot-cause {cause!r} not in expected BMC-initiated set {valid_causes}")
