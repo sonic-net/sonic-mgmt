@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily reclamation of orphaned OVS bridges
+Documentation=https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.OvsBridgeReclaim.md
+
+[Timer]
+# Once a day, offset randomly so that a fleet of servers does not all run at
+# the same moment, and never while the nightly deployments are starting.
+OnCalendar=*-*-* 11:00:00
+RandomizedDelaySec=3600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
