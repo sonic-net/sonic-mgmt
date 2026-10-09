@@ -3,6 +3,13 @@
 import importlib.util
 from pathlib import Path
 
+import pytest
+
+
+pytestmark = [
+    pytest.mark.topology("any"),
+]
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MODULE_PATH = REPO_ROOT / "ansible" / "csonic_topo_converger.py"
