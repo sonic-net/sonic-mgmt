@@ -62,8 +62,14 @@ DOCUMENTATION += """
 # Sample error messages that host unreachable:
 # 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: Connection timed out'
 # 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: No route to host'
-CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
-CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
+# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: Connection refused'
+# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: Network is unreachable'
+CONNECTION_UNAVAILABLE_ERR_FLAGS = (
+    "Connection timed out",
+    "No route to host",
+    "Connection refused",
+    "Network is unreachable",
+)
 # ansible-core 2.19 changed the default password_mechanism from 'sshpass' to
 # 'ssh_askpass'. With ssh_askpass, authentication failures are reported as
 # AnsibleConnectionFailure instead of AnsibleAuthenticationFailure. We detect
@@ -165,8 +171,9 @@ def _password_retry(func):
             except KeyError:
                 hostv6 = None
 
-            ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
-                                    (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message)
+            ipv4_addr_unavailable = any(
+                flag in e.message for flag in CONNECTION_UNAVAILABLE_ERR_FLAGS
+            ) or self._play_context.no_log
 
             try_ipv6_addr = orig_host != hostv6 and (not isinstance(e, AnsibleAuthenticationFailure)) and \
                 ipv4_addr_unavailable and hostv6

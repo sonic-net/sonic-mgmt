@@ -35,36 +35,39 @@
   gather_facts: no
   tasks:
 
-  # Auto-detect if DUT is IPv6-only by trying to connect
-  # This must run BEFORE any task that connects to the DUT
-  # Save original IPv4 address before potentially switching
-  - name: Save original IPv4 address from inventory
-    set_fact:
-      original_ipv4_address: "{{ ansible_host }}"
-    when:
-      - ansible_host is defined
-      - "':' not in ansible_host"
+  - name: Validate the IPv6 address when supplied
+    assert:
+      that:
+        - ansible_hostv6 is ansible.utils.ipv6_address
+      fail_msg: "ansible_hostv6 must be a valid IPv6 address."
+    when: ansible_hostv6 is defined
+    tags: always
 
-  - name: Try to connect using IPv4 address (pre-task check)
-    wait_for:
-      host: "{{ ansible_host }}"
-      port: 22
-      timeout: 10
-    delegate_to: localhost
-    ignore_errors: true
-    register: ipv4_reachable_precheck
-    when:
-      - "':' not in ansible_host"
+  - name: Repair a primary that is not an IP address
+    when: (ansible_host | default('')) is not ansible.utils.ip_address
+    tags: always
+    block:
+      - name: Require an IPv6 address to replace the invalid primary
+        assert:
+          that:
+            - ansible_hostv6 is defined
+          fail_msg: "ansible_host is not an IP address and ansible_hostv6 is missing."
 
-  - name: Switch to IPv6 if IPv4 is not reachable and IPv6 is available (pre-task)
-    set_fact:
-      ansible_host: "{{ ansible_hostv6 }}"
-      dut_was_ipv6_only: true
+      - name: Use the supplied IPv6 address as the primary
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 }}"
+
+  - name: Reject conflicting IPv6 management addresses
+    assert:
+      that:
+        - >-
+          (ansible_host | ansible.utils.ipaddr('address')) ==
+          (ansible_hostv6 | ansible.utils.ipaddr('address'))
+      fail_msg: "ansible_host and ansible_hostv6 specify different IPv6 addresses."
     when:
-      - ipv4_reachable_precheck is defined
-      - ipv4_reachable_precheck.failed|default(false)
       - ansible_hostv6 is defined
-      - ansible_hostv6 != ''
+      - ansible_host is ansible.utils.ipv6_address
+    tags: always
 
   - block:
     - name: set default testbed file
@@ -82,9 +85,12 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
-    - name: Debug connection mode
-      debug:
-        msg: "Connecting to {{ inventory_hostname }} via {{ ansible_host }} (was IPv6-only: {{ dut_was_ipv6_only|default(false) }}, original IPv4: {{ original_ipv4_address|default('N/A') }})"
+    - name: Require a supplied IPv6 address for IPv6-only deployment
+      assert:
+        that:
+          - ansible_hostv6 is defined or ansible_host is ansible.utils.ipv6_address
+        fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ inventory_hostname }}"
+      when: use_ipv6_mgmt|default(false)|bool
 
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
@@ -111,22 +117,11 @@
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
 
-    # DO NOT override ansible_host here - we need to use IPv4 to connect initially
-    # The DUT will be configured with IPv6 management through the minigraph
-    - name: Set management IP configuration for IPv6-only mode
-      set_fact:
-        target_mgmt_ip: "{{ ansible_hostv6 }}"
-        mgmt_subnet_mask_length: 64
-      when:
-        - use_ipv6_mgmt is defined
-        - use_ipv6_mgmt|bool == true
-        - ansible_hostv6 is defined
-
     - name: Debug IPv6-only management configuration
       debug:
         msg: |
-          IPv6-only management mode enabled for {{ inventory_hostname }}
-          Management IP: {{ ansible_host }}
+          IPv6-only management mode requested for {{ inventory_hostname }}
+          Target management IP: {{ ansible_hostv6 | default(ansible_host, true) }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -1030,23 +1025,15 @@
         become: false
         local_action: wait_for
         args:
-          # When use_ipv6_mgmt is true, wait on IPv6 address
-          # When use_ipv6_mgmt is false/undefined, wait on IPv4 (original_ipv4_address if we auto-switched to IPv6, otherwise ansible_host)
-          host: "{{ ansible_hostv6 if (use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 != '') else (original_ipv4_address if original_ipv4_address is defined else ansible_host) }}"
+          host: >-
+            {{ (ansible_hostv6 | default(ansible_host, true))
+               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
           delay: 10
           timeout: 600
         changed_when: false
-
-      - name: Switch ansible_host to IPv6 after minigraph load (for subsequent tasks)
-        set_fact:
-          ansible_host: "{{ ansible_hostv6 }}"
-        when:
-          - use_ipv6_mgmt|default(false)|bool
-          - ansible_hostv6 is defined
-          - ansible_hostv6 != ''
 
       - name: Validate breakout config params
         assert:
