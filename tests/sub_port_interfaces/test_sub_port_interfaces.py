@@ -6,6 +6,7 @@ import random
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import constants
 from sub_ports_helpers import generate_and_verify_traffic
 from sub_ports_helpers import get_port_mtu
 from sub_ports_helpers import shutdown_port
@@ -154,7 +155,12 @@ class TestSubPorts(object):
         for sub_port in list(sub_ports.keys()):
             sub_port_mtu = int(get_port_mtu(duthost, sub_port))
             # Get name of parent port from name of sub-port
-            port = sub_port.split('.')[0]
+            port = sub_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
+            # Convert abbreviated name to full interface name
+            if port.startswith('Eth'):
+                port = 'Ethernet' + port[3:]
+            elif port.startswith('Po'):
+                port = 'PortChannel' + port[2:]
             port_mtu = int(get_port_mtu(duthost, port))
 
             pytest_assert(sub_port_mtu == port_mtu, "MTU of {} doesn't inherit MTU of {}".format(sub_port, port))
@@ -181,7 +187,7 @@ class TestSubPorts(object):
 
         for sub_port, value in list(sub_ports.items()):
             # Get VLAN ID from name of sub-port
-            vlan_vid = int(sub_port.split('.')[1])
+            vlan_vid = int(sub_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[1])
             # Create a VLAN RIF
             setup_vlan(duthost, vlan_vid)
             # Delete a VLAN RIF
