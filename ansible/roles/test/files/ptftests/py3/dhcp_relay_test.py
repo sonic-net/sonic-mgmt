@@ -1081,7 +1081,7 @@ class DHCPTest(DataplaneBaseTest):
 
         # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
         # client VLAN in every topology.
-        # ISC already does this; sonic-relay-agent requires the corresponding product fix.
+        # Both ISC and sonic-relay-agent use the client VLAN address for BOOTP.
         giaddr = self.relay_iface_ip
 
         bootp_packet = self.create_bootp_packet(src_mac=self.uplink_mac, src_ip=source_ip, giaddr=giaddr,
