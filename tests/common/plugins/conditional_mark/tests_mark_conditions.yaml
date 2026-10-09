@@ -1751,7 +1751,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -1762,7 +1762,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
