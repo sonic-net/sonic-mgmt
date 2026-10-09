@@ -1602,6 +1602,15 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
                                              namespace=asic_value)["ansible_facts"]
 
     queue_cfg_all = config_facts.get("QUEUE") or {}
+    if host_ans.facts.get("switch_type") == "voq":
+        processed_queue_cfg = {}
+        voq_queue_cfg = queue_cfg_all.get(host_ans.hostname, {})
+        for queue, cfg in voq_queue_cfg.items():
+            asic, port_name, tc = queue.split("|", 2)
+            if asic_value not in (None, "None") and asic != asic_value:
+                continue
+            processed_queue_cfg.setdefault(port_name, {})[int(tc)] = cfg
+        queue_cfg_all = processed_queue_cfg
     scheduler_cfg = config_facts.get("SCHEDULER") or {}
 
     dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
