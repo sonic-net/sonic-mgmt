@@ -24,6 +24,11 @@ CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INTERVAL = 20
 CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INITIAL_DELAY = 0
 
 
+def _get_ptf_nn_agent_ip(ptfhost):
+    """Use the IPv4 address on which ptf_nn_agent listens."""
+    return vars(ptfhost).get('_mgmt_ipv4') or ptfhost.mgmt_ip
+
+
 def pytest_addoption(parser):
     parser.addoption("--keep_payload", action="store_true", default=False,
                      help="Keep the original packet payload, do not update payload to default pattern")
@@ -205,7 +210,8 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
         ifaces = get_ifaces(res['stdout'])
         ifaces_map = get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane)
         ptf_nn_agent_port = start_ptf_nn_agent(seq)
-        ptfagents.append(PtfAgent(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, ptf_nn_agent_port, seq, ifaces_map))
+        ptfagents.append(PtfAgent(_get_ptf_nn_agent_ip(ptfhost), ptfhost.mgmt_ipv6,
+                                  ptf_nn_agent_port, seq, ifaces_map))
         assert ptf_nn_agent_port is not None
 
     def check_if_use_minigraph_from_tbinfo(tbinfo):
