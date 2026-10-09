@@ -133,7 +133,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 # 5. Limitation
 1. Packet trimming only supports IPv4 and IPv6 unicast packets. The ARP/NDP/ECMP are not supported. Any encap/decap packets (e.g., VxLAN, GRE, MPLS) are not supported.
 2. Packet trimming only supports "Lossy Queue" and it is configured only on the egress queue.
-3. Packet trimming only supports config reload and cold reboot, does not support warm/fast reboot.
+3. Packet trimming supports config reload, cold reboot and warm reboot. Fast reboot is not supported.
 4. After packet is trimmed, the `checksum` and `IP length` fields in IP header is not recalculated.
 5. The test cases only cover `STATIC` DSCP and Queue mode, which means only `config switch-trimming global --size 256 --dscp 48 --queue 6` is supported to set a specific queue, and `--queue auto` is not supported.
 
@@ -976,3 +976,27 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
     }
     ```
 13. Set switch level counter poll interval 30 seconds, repeat the test.
+
+---
+
+## Test Case 14: Verify Trimming is Hitless During Warm Reboot
+**Objective**: Validate that when packet trimming is enabled, a warm reboot is hitless: the trimmed traffic is not dropped during the warm reboot, and all forwarded packets remain trimmed.
+
+**Applicability**: Only applicable on platforms that support warm reboot. Skip the test otherwise.
+
+**Test Steps**:
+1. Configure packet trimming in global level and bind buffer profile.
+2. Enable trim action in buffer profile.
+3. Create egress queue congestion.
+   1. Create scheduler and apply it to the egress queue.  
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+   2. Send packets to make the buffer full.
+4. Send packets and verify trimming function works well.
+5. Start a continuous traffic from PTF, all packets are trimmed under the congestion.
+   On the same time, start packet capture on the PTF egress port to catch the trimmed packets.
+6. Trigger a warm reboot on the DUT, and keep the traffic and capture running through the whole warm reboot.
+7. After the warm reboot completes, stop the traffic and capture.
+8.  Verify no packet loss during the warm reboot (no missing sequence number).
+9.  Verify all forwarded packets are trimmed (no untrimmed packet is received).
+10. Verify trimming still works after the warm reboot.
