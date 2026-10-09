@@ -51,6 +51,9 @@ class FanoutHost(object):
         elif os == 'aos':
             self.os = os
             self.host = AosHost(ansible_adhoc, hostname, user, passwd)
+        elif os == 'junos':
+            self.os = os
+            self.host = JuniperHost(ansible_adhoc, hostname, user, passwd)
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
