@@ -58,6 +58,24 @@ def collect_resource_snapshot(host):
     return [{"monit": monit, "container": {"raw": container["stdout"].strip()}}]
 
 
+def _route_namespace(facts, vnet_count, link_names):
+    if not 1 <= vnet_count <= 256000:
+        raise ValueError("generated VNET count must be between 1 and 256000")
+    # VNET names become Linux VRF netdev names: IFNAMSIZ includes the trailing NUL.
+    token_length = 15 - len("Vnet_") - len(str(vnet_count - 1))
+    occupied = set(link_names)
+    for table in ("VNET", "VRF", "VNET_ROUTE", "VNET_ROUTE_TUNNEL"):
+        occupied.update(facts.get(table, {}))
+    for _ in range(10):
+        run_id = uuid.uuid4().hex
+        namespace = "Vnet" + run_id[:token_length]
+        artifact_namespace = "VnetBenchmark" + run_id
+        if ("Tunnel" + artifact_namespace not in facts.get("VXLAN_TUNNEL", {})
+                and not any(name.startswith(namespace + "_") for name in occupied)):
+            return namespace, artifact_namespace
+    raise RuntimeError("Unable to allocate an unused benchmark VNET namespace")
+
+
 @contextmanager
 def route_resources(host, distribution, routes_per_request, stub, timeout):
     """Prepare all VNETs/routes before measurement and remove only this run's keys."""
@@ -79,15 +97,20 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         raise ValueError("VNET setup requires Loopback0 IPv4 address")
     used_vnis = {str(entry.get("vni")) for entry in facts.get("VNET", {}).values()}
     available_vnis = (str(v) for v in range(10001, 16777216) if str(v) not in used_vnis)
-    namespace = "VnetBenchmark" + uuid.uuid4().hex
-    tunnel = "Tunnel" + namespace
-    backup = "/tmp/" + namespace + ".config_db.json"
+    links = host.shell("ip -j link show")
+    if links.get("rc") != 0:
+        raise RuntimeError("Unable to read existing interface names for VNET setup")
+    vnet_count = sum(distribution.values())
+    namespace, artifact_namespace = _route_namespace(
+        facts, vnet_count, [link["ifname"] for link in json.loads(links["stdout"])])
+    tunnel = "Tunnel" + artifact_namespace
+    backup = "/tmp/" + artifact_namespace + ".config_db.json"
     vnets = [("{}_{}".format(namespace, index), routes)
              for index, routes in enumerate(routes for routes, count in distribution.items() for _ in range(count))]
     with ExitStack() as cleanup:
         host.shell("cp -a /etc/sonic/config_db.json " + shlex.quote(backup))
         cleanup.callback(_restore_config, host, backup)
-        cleanup.callback(_remove_routes, host, namespace, tunnel)
+        cleanup.callback(_remove_routes, host, namespace, tunnel, vnet_count)
         # Seed empty tables once, then add each VNET without overwriting other entries.
         patch = [{"op": "add", "path": "/" + table, "value": {}}
                  for table in ("VXLAN_TUNNEL", "VNET") if not facts.get(table)]
@@ -125,15 +148,17 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         yield tuple(pair for batch_index in zip(*prepared) for pair in batch_index)
 
 
-def _remove_routes(host, name, tunnel):
+def _remove_routes(host, name, tunnel, vnet_count):
     prefix = "VNET_ROUTE_TUNNEL|" + name + "_*"
     script = (
-        "import redis; r=redis.Redis(unix_socket_path='/var/run/redis/redis.sock',db=4); "
-        "keys=list(r.scan_iter(match=" + repr(prefix) + ")); "
+        "import redis; r=redis.Redis(unix_socket_path='/var/run/redis/redis.sock',db=4,decode_responses=True); "
+        "vnets={" + repr(name + "_") + "+str(i) for i in range(" + str(vnet_count) + ")}; "
+        "owned_routes=lambda: [k for k in r.scan_iter(match=" + repr(prefix) + ") if k.split('|',2)[1] in vnets]; "
+        "keys=owned_routes(); "
         "[r.delete(*keys[i:i+500]) for i in range(0,len(keys),500)]; "
-        "assert not list(r.scan_iter(match=" + repr(prefix) + ")); "
-        "vnets=list(r.scan_iter(match=" + repr("VNET|" + name + "_*") + ")); "
-        "[r.delete(*vnets[i:i+500]) for i in range(0,len(vnets),500)]; "
+        "assert not owned_routes(); "
+        "keys=['VNET|'+vnet for vnet in vnets]; "
+        "[r.delete(*keys[i:i+500]) for i in range(0,len(keys),500)]; "
         "r.delete(" + repr("VXLAN_TUNNEL|" + tunnel) + ")"
     )
     removed = host.shell("python3 -c " + shlex.quote(script), module_ignore_errors=True)
