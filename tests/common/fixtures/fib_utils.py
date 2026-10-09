@@ -73,7 +73,9 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
             asic_index, asic_cfg_facts = asic_cfg_facts_tuple
             asic = duthost.asic_instance(asic_index)
 
-            asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
+            netns_option = " --netns {}".format(asic.namespace) if asic.namespace else ""
+            asic.shell("sonic-db-dump{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
+                netns_option, route_key, timestamp))
             # change fetch to fetch_no_slurp to resolve slow fetch issue
             duthost.fetch_no_slurp(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
@@ -202,7 +204,9 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
 
         asic = duthost.asic_instance(asic_index)
 
-        asic.shell("{} redis-dump -d 0 -k {} -y > /tmp/fib.{}.txt".format(asic.ns_arg, route_key, timestamp))
+        netns_option = " --netns {}".format(asic.namespace) if asic.namespace else ""
+        asic.shell("sonic-db-dump{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
+            netns_option, route_key, timestamp))
         duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
         po = asic_cfg_facts.get('PORTCHANNEL_MEMBER', {})

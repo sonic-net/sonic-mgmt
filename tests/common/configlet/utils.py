@@ -85,7 +85,7 @@ def do_pause(secs, msg):
 #
 scan_dbs = {
         "config-db": {
-            "db_no": 4,
+            "sonic_db_name": "CONFIG_DB",
             "keys_to_compare": set(),
             "keys_to_skip_comp": {
                 "BUFFER_PROFILE|pg_lossless_40000_5m_profile",
@@ -94,7 +94,7 @@ scan_dbs = {
             "keys_skip_val_comp": set()
         },
         "app-db": {
-            "db_no": 0,
+            "sonic_db_name": "APPL_DB",
             "keys_to_compare": set(),
             "keys_to_skip_comp": {
                 "LLDP_ENTRY_TABLE",
@@ -138,7 +138,7 @@ scan_dbs = {
             }
         },
         "state-db": {
-            "db_no": 6,
+            "sonic_db_name": "STATE_DB",
             "keys_to_compare": {
                 "NEIGH_STATE_TABLE",
                 "VLAN_MEMBER_TABLE",
@@ -211,17 +211,17 @@ def match_key(key, kset):
 
 def chk_for_pfc_wd(duthost):
     ret = False
-    res = duthost.shell('redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+    res = duthost.shell('sonic-db-dump -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     log_debug("pfc_status={}".format(pfc_status))
 
     if pfc_status == "enable":
         for namespace in duthost.get_frontend_asic_namespace_list():
-            cmd_prefix = ''
+            cmd_prefix = 'sonic-db-dump '
             if duthost.is_multi_asic:
-                cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
-            res = duthost.shell(cmd_prefix + 'redis-dump -d 4 --pretty -k \"PFC_WD*\"')
+                cmd_prefix = 'sonic-db-dump --netns {} '.format(namespace)
+            res = duthost.shell(cmd_prefix + '-n CONFIG_DB --pretty -k \"PFC_WD*\"')
             pfc_wd_data = json.loads(res["stdout"])
             if len(pfc_wd_data):
                 ret = True
@@ -232,17 +232,17 @@ def chk_for_pfc_wd(duthost):
 
 
 def get_dump(duthost, db_name, db_info, dir_name, data_dir):
-    db_no = db_info["db_no"]
+    sonic_db_name = db_info["sonic_db_name"]
     lst_keys = db_info["keys_to_compare"]
 
     db_read = {}
     if not lst_keys:
-        db_read = dut_dump("redis-dump -d {} --pretty".format(db_no),
+        db_read = dut_dump("sonic-db-dump -n {} --pretty".format(sonic_db_name),
                            duthost, data_dir, db_name)
     else:
         for k in lst_keys:
             fname = "{}_{}.json".format(k, db_name)
-            cmd = 'redis-dump -d {} --pretty -k \"{}*\"'.format(db_no, k)
+            cmd = 'sonic-db-dump -n {} --pretty -k \"{}*\"'.format(sonic_db_name, k)
             db_read.update(dut_dump(cmd, duthost, data_dir, fname))
 
     keys_skip_cmp = db_info["keys_to_skip_comp"]

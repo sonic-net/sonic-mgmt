@@ -688,7 +688,9 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # amd elba dpu specific check; if not, default will be executed in else
     if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
-        cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
+        cmd_output = duthost.shell(
+            'sonic-db-dump -n STATE_DB -k "EEPROM_INFO|0x24" -y | grep Value'
+        )['stdout_lines'][0]
         router_mac = cmd_output.split('"')[3]
         mac = '.'.join(re.findall('.{4}', router_mac.replace(':', '').lower()))
 

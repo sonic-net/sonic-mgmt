@@ -65,7 +65,7 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
     """Enable default PFCWD configuration on the DUT."""
     duthost = ensure_dut_readiness
     res = duthost.shell(
-        'redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+        'sonic-db-dump -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get(
         "default_pfcwd_status", "")

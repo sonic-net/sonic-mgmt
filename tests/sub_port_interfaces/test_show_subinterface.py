@@ -61,7 +61,9 @@ def test_subinterface_status(duthost, subintf_expected_config):
     def _remove_subintf(subintf_config):
         """Remove the created subintf from VLAN_SUB_INTERFACE table."""
         for subintf in subintf_config:
-            entries = json.loads(duthost.shell("redis-dump -d 4 -k \"VLAN_SUB_INTERFACE|%s*\"" % subintf)["stdout"])
+            entries = json.loads(duthost.shell(
+                "sonic-db-dump -n CONFIG_DB -k \"VLAN_SUB_INTERFACE|%s*\"" % subintf
+            )["stdout"])
             for entry in entries:
                 duthost.shell("redis-cli -n 4 del \"%s\"" % entry)
 

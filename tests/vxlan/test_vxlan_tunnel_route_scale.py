@@ -56,16 +56,16 @@ def apply_chunk(duthost, payload, config_name):
 def all_vnet_routes_in_state_db(duthost, num_vnets, routes_per_vnet):
     try:
         total_expected = num_vnets * routes_per_vnet
-        dump_cmd = "redis-dump -d 6 -k 'VNET_ROUTE_TUNNEL_TABLE|*'"
+        dump_cmd = "sonic-db-dump -n STATE_DB -k 'VNET_ROUTE_TUNNEL_TABLE|*'"
         dump_text = duthost.shell(dump_cmd)["stdout"]
-        logger.debug(f"redis-dump full output: {dump_text}")
+        logger.debug(f"sonic-db-dump full output: {dump_text}")
 
         if not dump_text.strip():
-            logger.warning("redis-dump returned empty output")
+            logger.warning("sonic-db-dump returned empty output")
             return False
 
         dump_dict = json.loads(dump_text)
-        logger.debug(f"Parsed redis-dump entries: {len(dump_dict)} keys")
+        logger.debug(f"Parsed sonic-db-dump entries: {len(dump_dict)} keys")
         total_active = 0
 
         for vnet_id in range(1, num_vnets + 1):

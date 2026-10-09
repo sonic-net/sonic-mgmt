@@ -3123,10 +3123,10 @@ def collect_db_dump_on_duts(request, duthosts):
         db_names = ["APPL_DB", "ASIC_DB", "COUNTERS_DB", "CONFIG_DB", "STATE_DB"]
         raw_db_config = duthosts[0].shell("cat /var/run/redis/sonic-db/database_config.json")["stdout"]
         db_config = json.loads(raw_db_config).get("DATABASES", {})
-        db_ids = set()
+        db_names_by_id = {}
         for db_name in db_names:
             # Skip STATE_DB dump on release 201911.
-            # JINJA2_CACHE can't be dumped by "redis-dump", and it is stored in STATE_DB on 201911 release.
+            # JINJA2_CACHE can't be dumped by "sonic-db-dump", and it is stored in STATE_DB on 201911 release.
             # Please refer to issue: https://github.com/sonic-net/sonic-buildimage/issues/5587.
             # The issue has been fixed in https://github.com/sonic-net/sonic-buildimage/pull/5646.
             # However, the fix is not included in 201911 release. So we have to skip STATE_DB on release 201911
@@ -3135,7 +3135,7 @@ def collect_db_dump_on_duts(request, duthosts):
                 continue
 
             if db_name in db_config:
-                db_ids.add(db_config[db_name].get("id", 0))
+                db_names_by_id[db_config[db_name].get("id", 0)] = db_name
 
         namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
         if namespace_list:
@@ -3143,17 +3143,18 @@ def collect_db_dump_on_duts(request, duthosts):
                 # Collect DB dump
                 dump_dest_path = os.path.join(db_dump_path, namespace)
                 dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
-                for db_id in db_ids:
-                    dump_cmd = "ip netns exec {} redis-dump -d {} -y -o {}/{}" \
-                               .format(namespace, db_id, dump_dest_path, db_id)
+                for db_id, db_name in db_names_by_id.items():
+                    dump_cmd = "sonic-db-dump --netns {} -n {} -y -o {}/{}" \
+                               .format(namespace, db_name, dump_dest_path, db_id)
                     dump_cmds.append(dump_cmd)
                 duthosts.shell_cmds(cmds=dump_cmds)
         else:
             # Collect DB dump
             dump_dest_path = db_dump_path
             dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
-            for db_id in db_ids:
-                dump_cmd = "redis-dump -d {} -y -o {}/{}".format(db_id, dump_dest_path, db_id)
+            for db_id, db_name in db_names_by_id.items():
+                dump_cmd = "sonic-db-dump -n {} -y -o {}/{}".format(
+                    db_name, dump_dest_path, db_id)
                 dump_cmds.append(dump_cmd)
             duthosts.shell_cmds(cmds=dump_cmds)
 

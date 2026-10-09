@@ -246,8 +246,8 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             "ONIE Version",
             "CRC-32"]
 
-        # Dump Redis database 6 (EEPROM database) to get all EEPROM-related data
-        cmd = "redis-dump -d 6 -y"
+        # Dump STATE_DB (EEPROM database) to get all EEPROM-related data
+        cmd = "sonic-db-dump -n STATE_DB -y"
         # Example Redis data structure:
         # {
         #     "EEPROM_INFO|0x2d": {
