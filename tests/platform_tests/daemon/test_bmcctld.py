@@ -11,7 +11,6 @@ Tests cover:
 
 import logging
 import pytest
-import re
 import time
 
 from tests.common.helpers.assertions import pytest_assert
@@ -481,7 +480,27 @@ class TestBmcctldDaemon:
             for outlet in outlets:
                 pdu_ctrl.turn_on_outlet(outlet)
 
-            wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
+            pytest_assert(
+                wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started()),
+                "critical services did not fully restart after PDU power-loss"
+            )
+
+            # pmon being up doesn't mean bmcctld itself is RUNNING yet; check the daemon directly.
+            pytest_assert(
+                wait_until(120, 10, 0,
+                           lambda: self.duthost.get_pmon_daemon_status("bmcctld")[0] == "RUNNING"),
+                "bmcctld daemon did not reach RUNNING after PDU power-loss recovery"
+            )
+
+            # bmcctld only issues power_on after power_on_delay, so poll for the log line
+            # instead of checking once right after startup.
+            def _power_on_logged():
+                la.match_regex = [r".*issuing power_on.*"]
+                result = la.analyze(marker_b, fail=False)
+                return result.get("total", {}).get("match", 0) > 0
+
+            log_timeout = test_delay + 90
+            poweron_seen = wait_until(log_timeout, 5, 0, _power_on_logged)
 
             la.match_regex = [r".*issuing power_on.*", r".*STARTUP:.*"]
             b_result = la.analyze(marker_b, fail=False)
@@ -491,11 +510,10 @@ class TestBmcctldDaemon:
             journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
 
-            poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
-                poweron_match,
-                "After PDU-induced BMC power-loss reboot, expected "
-                "'STARTUP: ... issuing power_on' log not found in event.log"
+                poweron_seen,
+                "After PDU-induced BMC power-loss reboot, expected 'STARTUP: ... issuing "
+                f"power_on' log not found in event.log within {log_timeout}s\n{journal_b}"
             )
         finally:
             if orig_delay and orig_delay.isdigit():
