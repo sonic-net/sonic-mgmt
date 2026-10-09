@@ -42,6 +42,15 @@ ONYX_PFC_CONTAINER_NAME = 'storm'
 PFC_RX_OK_ISOLATION_PKT_COUNT = 5000
 """ Allowed RX_OK/RX_DRP increase per interface to tolerate background traffic """
 RX_COUNTER_BACKGROUND_MARGIN = 2000
+""" Raw COUNTERS_DB PFC RX fields, indexed by priority """
+PFC_RX_COUNTER_FIELDS = ['SAI_PORT_STAT_PFC_{}_RX_PKTS'.format(prio) for prio in range(PRIO_COUNT)]
+""" Raw COUNTERS_DB sampling (diagnostics only): sample spacing and max wait for the
+    target priority to reach the expected delta """
+PFC_RAW_SAMPLE_INTERVAL = 0.2
+PFC_RAW_SAMPLE_TIMEOUT = 15
+""" Keep sampling this long after the expected delta is first seen, so late drops /
+    re-adds (non-monotonic settling) are captured too """
+PFC_RAW_SETTLE_WINDOW = 3.0
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +112,7 @@ def _resolve_peer_port_name(peerdev_ans, enum_fanout_graph_facts, peer_port):   
     return peer_port_name, fanout_hwsku
 
 
-def clear_pfc_counters_until_stable(duthost, intf, priority):            # noqa: F811
+def clear_pfc_counters_until_stable(duthost, intf, priority, settle_s: float):            # noqa: F811
     """
     @summary: Clear PFC counters and re-clear until the port reads a stable zero.
 
@@ -116,28 +125,158 @@ def clear_pfc_counters_until_stable(duthost, intf, priority):            # noqa:
     @param duthost: dut host information
     @param intf: Interface being validated
     @param priority: PFC priority index being validated (for diagnostics)
+    @param settle_s: Time in seconds to wait for the port to stabilize after clearing PFC counters
     """
-    clear_deadline = time.monotonic() + PFC_CLEAR_SETTLE_TIMEOUT
+    deadline = time.monotonic() + PFC_CLEAR_SETTLE_TIMEOUT
     while True:
-        dirty_rx = None
-        stable_until = time.monotonic() + PFC_CLEAR_VERIFY_WINDOW
-        while time.monotonic() < stable_until:
-            baseline_rx = duthost.sonic_pfc_counters(
-                method="get")['ansible_facts'][intf]['Rx']
-            if any(v != '0' for v in baseline_rx):
-                dirty_rx = baseline_rx
-                break
-            time.sleep(PFC_CONTINUOUS_POLL_INTERVAL)
-        if dirty_rx is None:
+        duthost.sonic_pfc_counters(method="clear")
+        time.sleep(settle_s)
+        baseline_rx = duthost.sonic_pfc_counters(method="get")['ansible_facts'][intf]['Rx']
+        if all(v == '0' for v in baseline_rx):
             break
-        if time.monotonic() >= clear_deadline:
+        if time.monotonic() >= deadline:
             # Never measure against a known-dirty baseline: a stale value
             # could satisfy the later assertion with no real traffic.
             pytest.fail(
                 "[PFC clear] {} prio {} baseline did not clear within {:.1f}s "
                 "(last Rx={})".format(
-                    intf, priority, PFC_CLEAR_SETTLE_TIMEOUT, dirty_rx))
-        duthost.sonic_pfc_counters(method="clear")
+                    intf, priority, PFC_CLEAR_SETTLE_TIMEOUT, baseline_rx))
+
+
+def get_port_counter_oid(asic, intf):
+    """
+    @summary: Look up the SAI object id used to key a port's COUNTERS_DB entry.
+    @param asic: Asic instance (namespace aware sonic-db-cli wrapper)
+    @param intf: Interface name, e.g. "Ethernet0"
+    @return: OID string (e.g. "oid:0x1000000000012") or None when not present
+    """
+    oid = asic.run_sonic_db_cli_cmd(
+        "COUNTERS_DB hget COUNTERS_PORT_NAME_MAP {}".format(intf))['stdout'].strip()
+    return oid or None
+
+
+def get_raw_pfc_rx_counters(asic, counter_oid):
+    """
+    @summary: Read the raw, un-diffed per-priority PFC RX counters straight from
+              COUNTERS_DB, bypassing pfcstat's cached baseline.
+    @param asic: Asic instance (namespace aware sonic-db-cli wrapper)
+    @param counter_oid: Port OID from `get_port_counter_oid`
+    @return: List of PRIO_COUNT ints, with None for any field missing from the DB
+    """
+    cmd = "COUNTERS_DB hmget COUNTERS:{} {}".format(
+        counter_oid, ' '.join(PFC_RX_COUNTER_FIELDS))
+    lines = asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
+
+    values = []
+    for line in lines[:PRIO_COUNT]:
+        line = line.strip()
+        values.append(int(line) if line.isdigit() else None)
+    values.extend([None] * (PRIO_COUNT - len(values)))
+    return values
+
+
+def sample_raw_pfc_rx_counters(asic, counter_oid, priority, baseline, expected,
+                               timeout=PFC_RAW_SAMPLE_TIMEOUT,
+                               settle_window=PFC_RAW_SETTLE_WINDOW,
+                               interval=PFC_RAW_SAMPLE_INTERVAL):
+    """
+    @summary: Sample raw COUNTERS_DB PFC RX counters across the window in which a
+              burst of frames becomes visible. Sampling continues for
+              `settle_window` after the expected delta is first observed, because
+              the counter has been seen to reach the right value, drop a batch,
+              then re-add it.
+    @param asic: Asic instance (namespace aware sonic-db-cli wrapper)
+    @param counter_oid: Port OID from `get_port_counter_oid`
+    @param priority: PFC priority index that frames were sent on
+    @param baseline: Raw counters read immediately before sending
+    @param expected: Number of frames sent on `priority`
+    @return: List of (monotonic timestamp, raw counter list) samples
+    """
+    samples = []
+    deadline = time.monotonic() + timeout
+    settle_deadline = None
+
+    while True:
+        now = time.monotonic()
+        values = get_raw_pfc_rx_counters(asic, counter_oid)
+        samples.append((now, values))
+
+        reached = (values[priority] is not None and baseline[priority] is not None
+                   and values[priority] - baseline[priority] >= expected)
+        if reached and settle_deadline is None:
+            settle_deadline = now + settle_window
+        if now >= deadline or (settle_deadline is not None and now >= settle_deadline):
+            return samples
+        time.sleep(interval)
+
+
+def check_raw_pfc_counter_sanity(asic, counter_oid, intf, priority, baseline, expected):
+    """
+    @summary: Sample raw COUNTERS_DB across a PFC burst and report counter
+              anomalies: non-monotonic reads (a counter going backwards),
+              double-counting (delta exceeding the number of frames sent) and
+              cross-priority leakage. These are platform-level symptoms, so they
+              are logged rather than asserted -- the test's own tolerance of them
+              is a workaround, not a fix.
+    @param asic: Asic instance (namespace aware sonic-db-cli wrapper)
+    @param counter_oid: Port OID from `get_port_counter_oid`
+    @param intf: Interface being validated
+    @param priority: PFC priority index that frames were sent on
+    @param baseline: Raw counters read immediately before sending
+    @param expected: Number of frames sent on `priority`
+    @return: List of anomaly description strings (empty when the counters behaved)
+    """
+    samples = sample_raw_pfc_rx_counters(asic, counter_oid, priority, baseline, expected)
+    anomalies = []
+
+    start_ts = samples[0][0] if samples else 0
+    prev = baseline
+    for ts, values in samples:
+        for prio in range(PRIO_COUNT):
+            if values[prio] is None or prev[prio] is None:
+                continue
+            if values[prio] < prev[prio]:
+                anomalies.append(
+                    "non-monotonic: prio {} went {} -> {} (-{}) at t+{:.1f}s".format(
+                        prio, prev[prio], values[prio], prev[prio] - values[prio],
+                        ts - start_ts))
+        prev = values
+
+    def delta(values, prio):
+        if values[prio] is None or baseline[prio] is None:
+            return None
+        return values[prio] - baseline[prio]
+
+    peak = max([d for d in (delta(v, priority) for _, v in samples) if d is not None] or [None])
+    final = delta(samples[-1][1], priority) if samples else None
+    if peak is not None and peak > expected:
+        anomalies.append(
+            "double-counted: prio {} peaked at delta {} for {} frames sent".format(
+                priority, peak, expected))
+    if final is not None and final > expected:
+        anomalies.append(
+            "double-counted (settled): prio {} settled at delta {} for {} frames sent".format(
+                priority, final, expected))
+
+    if samples:
+        for prio in range(PRIO_COUNT):
+            if prio == priority:
+                continue
+            other = delta(samples[-1][1], prio)
+            if other:
+                anomalies.append(
+                    "cross-priority: prio {} moved by {} while sending on prio {}".format(
+                        prio, other, priority))
+
+    trace = ' '.join('t+{:.1f}s={}'.format(ts - start_ts, values) for ts, values in samples)
+    if anomalies:
+        logger.warning(
+            "[PFC raw counters] %s prio %d anomalies: %s | baseline=%s | trace: %s",
+            intf, priority, '; '.join(anomalies), baseline, trace)
+    else:
+        logger.debug("[PFC raw counters] %s prio %d clean | baseline=%s | trace: %s",
+                     intf, priority, baseline, trace)
+    return anomalies
 
 
 def send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku, priority,
@@ -277,6 +416,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         """ Retry sending frames once if the counter does not update in time """
         MAX_RETRIES = 2
 
+        # compute needed milliseconds for port stats capture
+        port_poll_ms = duthost.get_counter_poll_status().get('PORT_STAT', {}).get('interval', 1000)
+        settle_s = max(PFC_CLEAR_VERIFY_WINDOW, 1.5 * port_poll_ms / 1000.0)
+
         for intf in active_phy_intfs:
             """only check priority 3 and 4: lossless priorities"""
             for priority in range(3, 5):
@@ -292,9 +435,16 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     peer_port_name, fanout_hwsku = _resolve_peer_port_name(
                         peerdev_ans, enum_fanout_graph_facts, peer_port)
 
-                    clear_pfc_counters_until_stable(duthost, intf, priority)
+                    clear_pfc_counters_until_stable(duthost, intf, priority, settle_s)
+
+                    counter_oid = get_port_counter_oid(asic, intf)
+                    raw_baseline = (get_raw_pfc_rx_counters(asic, counter_oid)
+                                    if counter_oid else None)
                     send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                    priority, pause_time, PKT_COUNT)
+                    if raw_baseline:
+                        check_raw_pfc_counter_sanity(asic, counter_oid, intf, priority,
+                                                     raw_baseline, PKT_COUNT)
 
                     pfc_rx = {}
                     for attempt in range(1, MAX_RETRIES + 1):
@@ -313,9 +463,14 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                                 "Attempt %d: PFC counter not updated for interface %s priority %d "
                                 "(got %s), retrying send", attempt, intf, priority,
                                 pfc_rx[intf]['Rx'][priority])
-                            clear_pfc_counters_until_stable(duthost, intf, priority)
+                            clear_pfc_counters_until_stable(duthost, intf, priority, settle_s)
+                            raw_baseline = (get_raw_pfc_rx_counters(asic, counter_oid)
+                                            if counter_oid else None)
                             send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                            priority, pause_time, PKT_COUNT)
+                            if raw_baseline:
+                                check_raw_pfc_counter_sanity(asic, counter_oid, intf, priority,
+                                                             raw_baseline, PKT_COUNT)
 
                 else:
                     time.sleep(5)
