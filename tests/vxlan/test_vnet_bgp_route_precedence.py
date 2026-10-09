@@ -867,16 +867,14 @@ class Test_VNET_BGP_route_Precedence():
 
         # Do not use wait_for_route_on_dut: the existing VNET route can satisfy it.
         _configure_static_route(duthost, prefix, competing_nexthop, True)
-        py_assert(wait_until(30, 2, 0, _get_app_route_key, duthost, prefix),
-              "Competing route {} did not reach APP_DB".format(prefix))
+        py_assert(wait_until(30, 2, 0, _get_app_route_key, duthost, prefix), "Route did not reach APP_DB")
         route_key = _get_app_route_key(duthost, prefix)
         py_assert(route_key is not None, "Competing route disappeared before withdrawal")
         self.wait_for_route_checks_pass()
         verify_active_route("route addition")
 
         _configure_static_route(duthost, prefix, competing_nexthop, False)
-        py_assert(wait_until(30, 2, 0, _check_redis_key_gone, duthost, 0, route_key),
-              "Competing route {} was not withdrawn from APP_DB".format(prefix))
+        py_assert(wait_until(30, 2, 0, _check_redis_key_gone, duthost, 0, route_key), "Route was not withdrawn")
         # Keep VNET and its monitor Up; repairing either would hide sonic-swss#4910.
         verify_active_route("route withdrawal")
 
