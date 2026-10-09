@@ -58,7 +58,7 @@ from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, s
     is_pfcwd_hw_recovery_enabled
 from tests.common import constants
 from tests.common.system_utils import docker
-from tests.common.testbed import TestbedInfo
+from tests.common.testbed import TestbedInfo, normalize_bool, topology_is_converged
 from tests.common.utilities import get_inventory_files, wait_until
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
@@ -484,7 +484,7 @@ def converge_topo_if_needed(config):
         tb_config = _load_testbed_config(tbfile, tbname)
         if not tb_config:
             return
-        use_converged_peers = tb_config.get('use_converged_peers', False)
+        use_converged_peers = normalize_bool(tb_config.get('use_converged_peers', False))
         if not use_converged_peers:
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
@@ -508,8 +508,7 @@ def converge_topo_if_needed(config):
 
         topo_name = tb_config.get('topo', '').strip()
         if not topo_name:
-            logger.warning(f"No valid topo name found in testbed '{tbname}', skipping converge")
-            return
+            raise ValueError(f"No valid topo name found in convergence-enabled testbed '{tbname}'")
 
         tests_dir = os.path.dirname(os.path.abspath(__file__))
         ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
@@ -518,8 +517,7 @@ def converge_topo_if_needed(config):
         backup_file = f"{topo_file}.bak"
 
         if not os.path.exists(topo_file):
-            logger.warning(f"Topo file not found: {topo_file}")
-            return
+            raise FileNotFoundError(f"Topology file not found for convergence-enabled testbed: {topo_file}")
 
         original_stat = os.stat(topo_file)
         original_mode = original_stat.st_mode
@@ -538,11 +536,21 @@ def converge_topo_if_needed(config):
         ceos_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(ceos_module)
 
-        ceos_module.converge_testbed(backup_file, topo_file)
-        logger.info(f"Topology '{topo_name}' converged successfully")
-
-        os.chmod(topo_file, original_mode)
-        os.chown(topo_file, original_uid, original_gid)
+        try:
+            ceos_module.converge_testbed(backup_file, topo_file)
+            with open(topo_file, 'r') as topo_stream:
+                converged_topology = yaml.safe_load(topo_stream)
+            if not topology_is_converged(converged_topology):
+                raise ValueError(
+                    f"Topology converter did not produce a complete converged topology for '{topo_name}'"
+                )
+            logger.info(f"Topology '{topo_name}' converged successfully")
+        except Exception:
+            shutil.copy(backup_file, topo_file)
+            raise
+        finally:
+            os.chmod(topo_file, original_mode)
+            os.chown(topo_file, original_uid, original_gid)
         logger.info(f"File permissions restored to {original_uid}:{original_gid}")
 
         config.cache.set("converged_topo_file", topo_file)
@@ -647,6 +655,12 @@ def get_parallel_mode(request):
     return request.config.getoption("--parallel_mode")
 
 
+@lru_cache
+def _load_testbed_info(testbed_file):
+    """Parse testbed data once per pytest process, never across test sessions."""
+    return TestbedInfo(testbed_file)
+
+
 def get_tbinfo(request):
     """
     Helper function to create and return testbed information
@@ -656,11 +670,7 @@ def get_tbinfo(request):
     if tbname is None or tbfile is None:
         raise ValueError("testbed and testbed_file are required!")
 
-    testbedinfo = cache.read(tbname, 'tbinfo')
-    if testbedinfo is cache.NOTEXIST:
-        testbedinfo = TestbedInfo(tbfile)
-        cache.write(tbname, 'tbinfo', testbedinfo)
-
+    testbedinfo = _load_testbed_info(os.path.abspath(tbfile))
     return tbname, testbedinfo.testbed_topo.get(tbname, {})
 
 
@@ -766,6 +776,8 @@ def pytest_sessionfinish(session, exitstatus):
             session.config.cache.set("converged_topo_backup", None)
         except Exception as e:
             logger.error(f"Failed to restore topo file: {e}")
+
+    _load_testbed_info.cache_clear()
 
 
 @pytest.fixture(name="duthosts", scope="session")

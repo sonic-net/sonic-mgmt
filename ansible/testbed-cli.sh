@@ -220,7 +220,7 @@ function converge_topo_if_needed
     topo_file="$VARS_DIR/topo_${topo}.yml"
     backup_file="${topo_file}".bak
 
-    if [[ "$use_converged_peers" == "True" ]]; then
+    if [[ "${use_converged_peers,,}" == "true" ]]; then
         # The converged (multi-VRF) peer model is implemented for cEOS
         # neighbors only: a single cEOS VM hosts every merged sub-peer as a VRF,
         # and only the cEOS startup-config templates render that VRF config.
@@ -244,6 +244,7 @@ function converge_topo_if_needed
         fi
 
         python -m ceos_topo_converger "$backup_file" "$topo_file"
+        python -m ceos_topo_converger --validate "$topo_file"
 
     fi
 }

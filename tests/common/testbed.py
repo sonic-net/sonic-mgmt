@@ -17,6 +17,40 @@ from collections import OrderedDict
 logger = logging.getLogger(__name__)
 
 
+def normalize_bool(value):
+    """Normalize booleans stored as YAML values or CSV strings."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() == "true"
+
+
+def topology_is_converged(properties):
+    """Return whether loaded topology properties describe a complete convergence."""
+    if not isinstance(properties, dict):
+        raise ValueError("topology properties must be a mapping")
+
+    marker = properties.get("topo_is_multi_vrf", False)
+    if not isinstance(marker, bool):
+        raise ValueError("topo_is_multi_vrf must be a boolean")
+
+    convergence_data = properties.get("convergence_data")
+    mapping = convergence_data.get("convergence_mapping") if isinstance(convergence_data, dict) else None
+    mapping_is_usable = (
+        isinstance(mapping, dict)
+        and bool(mapping)
+        and all(isinstance(peers, list) and peers for peers in mapping.values())
+    )
+
+    if marker and not mapping_is_usable:
+        raise ValueError(
+            "topo_is_multi_vrf is true but convergence_data.convergence_mapping "
+            "is missing, empty, or invalid"
+        )
+    return marker and mapping_is_usable
+
+
 class TestbedInfo(object):
     """Parse the testbed file used to describe whole testbed info."""
 
@@ -380,6 +414,7 @@ class TestbedInfo(object):
     def parse_topo(self):
         for tb_name, tb in list(self.testbed_topo.items()):
             topo = tb.pop("topo")
+            requested_convergence = normalize_bool(tb.get("use_converged_peers"))
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
@@ -394,6 +429,23 @@ class TestbedInfo(object):
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
                 with open(topo_file, 'r') as fh:
                     tb['topo']['properties'] = yaml.safe_load(fh)
+
+            try:
+                effective_convergence = topology_is_converged(tb['topo']['properties'])
+            except ValueError as error:
+                raise ValueError("Invalid converged topology '{}': {}".format(topo, error))
+            tb["use_converged_peers"] = effective_convergence
+            if requested_convergence != effective_convergence:
+                logger.info(
+                    "Resolved use_converged_peers for testbed '%s' from requested=%s to effective=%s "
+                    "using loaded topology '%s'",
+                    tb_name,
+                    requested_convergence,
+                    effective_convergence,
+                    topo,
+                )
+
+            if not topo.startswith("nut-"):
                 tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
                 tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
                 tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)

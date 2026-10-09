@@ -1819,10 +1819,11 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
 
 
 def testbed_is_multi_vrf(tbinfo):
+    """Return the effective convergence state resolved by ``TestbedInfo``."""
     val = tbinfo.get('use_converged_peers')
-    if val:
-        return str(val).lower() == 'true'
-    return False
+    if isinstance(val, bool):
+        return val
+    return val is not None and str(val).strip().lower() == 'true'
 
 
 def get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, neighbor_name):

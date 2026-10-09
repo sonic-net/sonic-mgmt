@@ -20,6 +20,30 @@ class ListIndentDumper(yaml.Dumper):
         return super().increase_indent(flow, False)
 
 
+def validate_converged_topology(topology: Dict[str, Union[int, str]]) -> None:
+    """Validate the minimum schema required by converged-topology consumers."""
+    if not isinstance(topology, dict) or topology.get("topo_is_multi_vrf") is not True:
+        raise ValueError("Converged topology is missing topo_is_multi_vrf: true")
+
+    convergence_data = topology.get("convergence_data")
+    mapping = convergence_data.get("convergence_mapping") if isinstance(convergence_data, dict) else None
+    if not (
+        isinstance(mapping, dict)
+        and bool(mapping)
+        and all(isinstance(peers, list) and peers for peers in mapping.values())
+    ):
+        raise ValueError(
+            "Converged topology has missing, empty, or invalid "
+            "convergence_data.convergence_mapping"
+        )
+
+
+def validate_converged_topology_file(topology_file: str) -> None:
+    with open(topology_file, "r", encoding="utf-8") as in_file:
+        topology = yaml.safe_load(in_file)
+    validate_converged_topology(topology)
+
+
 class SonicTopoConverger:
 
     def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
@@ -342,13 +366,17 @@ def converge_testbed(input_file: str, output_file: str) -> None:
         topo = yaml.safe_load(in_file)
     if topo.get("topo_is_multi_vrf", False):
         print("Topology already converged, skipping convergence.")
-        return
-    converger = SonicTopoConverger(topo, output_file)
-    converger.run()
+    else:
+        converger = SonicTopoConverger(topo, output_file)
+        converger.run()
+    validate_converged_topology_file(output_file)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python -m ceos_topo_converger <input_topo> <output_topo>")
+    if len(sys.argv) == 3 and sys.argv[1] == "--validate":
+        validate_converged_topology_file(sys.argv[2])
+    elif len(sys.argv) == 3:
+        converge_testbed(sys.argv[1], sys.argv[2])
+    else:
+        print("Usage: python -m ceos_topo_converger <input_topo> <output_topo> | --validate <topo>")
         sys.exit(1)
-    converge_testbed(sys.argv[1], sys.argv[2])
