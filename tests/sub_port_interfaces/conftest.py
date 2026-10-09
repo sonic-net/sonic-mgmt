@@ -288,6 +288,14 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
+    # Make sure the DUT has resolved the PTF neighbors before any traffic is sent.
+    # Otherwise the first packet of a test may be lost while the neighbor is still
+    # being resolved, and the traffic helpers do not retry.
+    for src_port, next_hop_sub_ports in list(new_sub_ports.items()):
+        update_dut_arp_table(duthost, sub_ports[src_port]['neighbor_ip'].split('/')[0])
+        for next_hop_sub_port, _ in next_hop_sub_ports:
+            update_dut_arp_table(duthost, sub_ports[next_hop_sub_port]['neighbor_ip'].split('/')[0])
+
     yield {
         'new_sub_ports': new_sub_ports,
         'sub_ports': sub_ports
@@ -401,6 +409,14 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
             add_static_route_to_ptf(ptfhost, dst_port_network, dut_port_ip)
 
             port_map[ptf_port]['dst_ports'].append((next_hop_sub_port, name_of_namespace))
+
+    # Make sure the DUT has resolved the PTF neighbors before any traffic is sent.
+    # Otherwise the first packet of a test may be lost while the neighbor is still
+    # being resolved, and the traffic helpers do not retry.
+    for port_data in list(port_map.values()):
+        update_dut_arp_table(duthost, port_data['ip'].split('/')[0])
+        for next_hop_sub_port, _ in port_data['dst_ports']:
+            update_dut_arp_table(duthost, sub_ports[next_hop_sub_port]['neighbor_ip'].split('/')[0])
 
     yield {
         'port_map': port_map,
