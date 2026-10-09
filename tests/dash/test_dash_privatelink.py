@@ -94,16 +94,22 @@ def test_privatelink_udp_sport_range_negative(
     ptfadapter,
     dash_pl_config,
     vxlan_security,
-    request
+    request,
+    dpuhosts, dpu_index
 ):
     """
     Validate that when the VXLAN UDP source port is not in the configured
     range, the packet is dropped by the DPU when vxlan_security is true.
     When vxlan_security is false, the packet is not dropped.
     """
+    dpuhost = dpuhosts[dpu_index]
     # vxlan_security is enabled by default, disable it when vxlan_security is false
     if vxlan_security == "false":
-        request.getfixturevalue("disable_vxlan_security")
+        if 'pensando' in dpuhost.facts['asic_type']:
+            pytest.skip("on AMD DPU VXLAN Source port check is always enabled.\
+                         Skipping vxlan source port security check disable test")
+        else:
+            request.getfixturevalue("disable_vxlan_security")
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan")
     min_valid_sport = VXLAN_UDP_BASE_SRC_PORT
