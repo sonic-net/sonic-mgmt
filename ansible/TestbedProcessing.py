@@ -1125,6 +1125,7 @@ def updateDockerRegistry(docker_registry, outfile):
                           docker_registry.get("docker_registry_host"))
             toWrite.write("\n\n")
 
+
 """
 makeSonicLabPduLinks(data, outfile)
 @:parameter data - reads from pdu_links dictionary

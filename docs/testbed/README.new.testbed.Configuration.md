@@ -372,10 +372,10 @@ Ensure that these configurations are correct to facilitate proper communication 
 
 # Credentials management
 
-This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests. 
+This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests.
 
 
-Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files. 
+Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files.
 
 The default ansible group name `all` refers to all the groups. Therefore, we store the shared configs in `ansible/group_vars/all` folder.
 For more information related to variable encryptions and how to use, please refer to [official Ansible variable documentation](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_variables.html) and [official Ansible encryption and decryption guide](https://docs.ansible.com/ansible/latest/vault_guide/vault_encrypting_content.html#encrypting-individual-variables-with-ansible-vault).
@@ -412,7 +412,7 @@ For explanations on how sonic-mgmt works with these variables, refer to [Fanout 
 - `fanout_tacacs_sonic_password`
 
 ### Local credentials
-These local credentials can be used in substitution of TACACS account. 
+These local credentials can be used in substitution of TACACS account.
 
 #### Network credential
 - `fanout_network_user`
