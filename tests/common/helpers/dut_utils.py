@@ -1,9 +1,11 @@
 import logging
+import pathlib
 import allure
 import os
 import jinja2
 import glob
 import re
+import shlex
 import yaml
 import pytest
 from tests.common.helpers.assertions import pytest_assert
@@ -26,9 +28,12 @@ import random
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 NAT_ENABLE_KEY = "nat_enabled_on_{}"
+# Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
+CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+LAB_CONNECTION_GRAPH_PATH = pathlib.Path(
+    os.getenv("ANSIBLE_CONFIG", pathlib.Path(__file__).resolve().parent.joinpath("../../ansible"))).joinpath("files")
 
 BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,6 +100,22 @@ def check_container_state(duthost, container_name, should_be_running):
     """
     is_running = is_container_running(duthost, container_name)
     return is_running == should_be_running
+
+
+def wait_for_container_running(duthost, container_name, timeout=120, check_interval=5):
+    """Wait until `container_name` is in the running state on `duthost`.
+
+    Polls `is_container_running` every `check_interval` seconds, up to
+    `timeout` seconds total. Raises an Exception if the container is still
+    not running when the timeout expires.
+    """
+    logger.info("Waiting for container %s to be running on %s", container_name, duthost.hostname)
+    if not wait_until(timeout, check_interval, 0, is_container_running, duthost, container_name):
+        raise TimeoutError(
+            "Container {} is not running on {} after {} seconds".format(
+                container_name, duthost.hostname, timeout
+            )
+        )
 
 
 def is_hitting_start_limit(duthost, container_name):
@@ -236,7 +257,37 @@ def get_group_program_info(duthost, container_name, group_name):
     return group_program_info
 
 
-def get_program_info(duthost, container_name, program_name):
+def get_container_processes(duthost, container_name, program_name):
+    """Return matching host PIDs and command lines from one container."""
+    result = duthost.shell("docker top {} -eo pid,args".format(container_name))
+    processes = []
+    for line in result["stdout_lines"][1:]:
+        pid, command = line.split(None, 1)
+        if os.path.basename(command.split()[0]) == program_name:
+            processes.append((int(pid), command))
+    return processes
+
+
+def kill_container_processes(duthost, processes):
+    """Kill exact host PIDs previously discovered through docker top."""
+    if processes:
+        pids = " ".join(str(pid) for pid, _ in processes)
+        duthost.shell("sudo kill -9 {} || true".format(pids))
+
+
+def start_container_process(duthost, container_name, command):
+    """Start one detached unmanaged process inside a container."""
+    duthost.shell(
+        "docker exec -d {} sh -c {}".format(
+            container_name,
+            shlex.quote(command),
+        )
+    )
+
+
+def get_program_info(
+    duthost, container_name, program_name, include_uptime=False
+):
     """Gets program running status and its pid by analyzing the command
        output of "docker exec <container_name> supervisorctl status"
 
@@ -244,26 +295,39 @@ def get_program_info(duthost, container_name, program_name):
         duthost: Hostname of DUT.
         container_name: A string shows container name.
         program_name: A string shows process name.
+        include_uptime: When True, also return the uptime field supervisorctl
+            reports for a RUNNING program (e.g. "0:12:34", or "37 days,
+            17:55:12" past the first day). Defaults to False so existing
+            callers keep unpacking a 2-tuple unchanged.
 
     Return:
-        Program running status and its pid.
+        Program running status and its pid. When include_uptime is True, a
+        third value (uptime string, or None if not RUNNING) is also returned.
     """
     program_status = None
     program_pid = -1
+    program_uptime = None
 
     program_list = duthost.shell("docker exec {} supervisorctl status"
                                  .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
-            program_status = program_info.split()[1].strip()
+            fields = program_info.split()
+            program_status = fields[1].strip()
             if program_status == "RUNNING":
-                program_pid = int(program_info.split()[3].strip(','))
+                program_pid = int(fields[3].strip(','))
+                if "uptime" in fields:
+                    program_uptime = " ".join(
+                        fields[fields.index("uptime") + 1:]
+                    )
             break
 
     if program_pid != -1:
         logger.info("Found program '{}' in the '{}' state with pid {}"
                     .format(program_name, program_status, program_pid))
 
+    if include_uptime:
+        return program_status, program_pid, program_uptime
     return program_status, program_pid
 
 
@@ -282,23 +346,22 @@ def kill_process_by_pid(duthost, container_name, program_name, program_pid):
 
 
 def get_disabled_container_list(duthost):
-    """Gets the container/service names which are disabled.
+    """Gets disabled container/service names and features without containers.
 
     Args:
         duthost: Host DUT.
 
     Return:
-        A list includes the names of disabled containers/services
+        Names to exclude from container checks.
     """
-    disabled_containers = []
+    # frr_bmp controls BMP inside bgp; it never owns a Docker container.
+    disabled_containers = ["frr_bmp"]
 
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
     for container_name, status in list(container_status.items()):
-        if "disabled" in status:
-            disabled_containers.append(container_name)
-        if "enabled" in status and container_name == "frr_bmp":
+        if "disabled" in status and container_name not in disabled_containers:
             disabled_containers.append(container_name)
     return disabled_containers
 
@@ -577,7 +640,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds, cancel_event=None):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -598,12 +661,37 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
-        "ansible_altpassword")
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = localhost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        _host_vars = _vm._hostvars[dut_hostname]
+    else:
+        _host_obj = localhost.host.options['inventory_manager'].get_host(dut_hostname)
+        _host_vars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
+    sonicadmin_alt_password = _host_vars.get("ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
 
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
+
+    # Move the DUT's actual current password to the front so the console login succeeds on the first attempt.
+    try:
+        current_passwd = get_dut_current_passwd(
+            duthost.mgmt_ip,
+            duthost.mgmt_ipv6,
+            creds["sonicadmin_user"],
+            [p for p in sonic_password if p],
+        )
+        if current_passwd and current_passwd in sonic_password:
+            sonic_password.remove(current_passwd)
+        if current_passwd:
+            sonic_password.insert(0, current_passwd)
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve current DUT console password, using default "
+            f"order: {e}")
 
     # Attempt to clear the console port
     try:
@@ -612,7 +700,8 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
             console_host=console_host,
             console_port=console_port,
             console_username=console_username,
-            console_password=creds['console_password'][console_type]
+            console_password=creds['console_password'][console_type],
+            enable_password=creds["console_enable_passwd"].get(console_type)
         )
     except Exception as e:
         logger.warning(f"Issue trying to clear console port: {e}")
@@ -629,9 +718,13 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                cancel_event=cancel_event,
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            # Back off so rapid retries do not trip the DUT serial-getty start limit.
+            if attempt < 3:
+                time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
@@ -676,7 +769,15 @@ def creds_on_dut(duthost):
         "docker_registry_password",
         "public_docker_registry_host"
     ]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = duthost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        hostvars = _vm._hostvars[duthost.hostname]
+    else:
+        _host_obj = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        hostvars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
@@ -690,6 +791,7 @@ def creds_on_dut(duthost):
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
+    creds["console_enable_passwd"] = {}
 
     creds["ansible_altpasswords"] = []
 
@@ -708,6 +810,8 @@ def creds_on_dut(duthost):
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
+        if "enable_passwd" in v:
+            creds["console_enable_passwd"][k] = v["enable_passwd"]
 
     return creds
 
@@ -717,7 +821,8 @@ def duthost_clear_console_port(
         console_host: str,
         console_port: str,
         console_username: str,
-        console_password: str
+        console_password: str,
+        enable_password=None
 ):
     """
     Helper function to clear the console port for a given DUT.
@@ -729,6 +834,12 @@ def duthost_clear_console_port(
         console_port: DUT host's console port, to be cleared
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
+        enable_password: Optional enable secret(s) for Cisco IOS console/terminal servers that
+            require privileged EXEC ('#') to run 'clear line'. Sourced from inventory
+            (console_login.<type>.enable_passwd in secrets.json). May be a single string or a
+            list of candidates, tried in order and capped at 3 attempts (Cisco IOS's own limit
+            on password tries per 'enable' invocation). If not configured, the 'enable' elevation
+            step is skipped and a warning is logged instead.
     """
     if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
@@ -750,30 +861,105 @@ def duthost_clear_console_port(
         sonic_password=None
     )
 
-    # Command lists for each config menu type
-    # List of tuples, containing a command to execute, and an optional pattern to wait for
-    command_list = {
-        CONSOLE_SSH_DIGI_CONFIG: [
-            ('2', None),                                                    # Enter serial port config
-            (console_port, None),                                           # Choose DUT console port
-            ('a', None),                                                    # Enter port management
-            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
-        ],
-        CONSOLE_SSH_SONIC_CONFIG: [
-            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
-        ],
-        CONSOLE_SSH_CISCO_CONFIG: [
-            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
-            ('', '[OK]')                                        # Confirm selection
-        ],
-    }
+    # Wrap the clear-port sequence so duthost_config_menu always gets
+    # disconnected. A leftover open session here holds the physical console
+    # line and was found to make the subsequent real console connection
+    # fail with "Socket is closed" on every retry.
+    try:
+        # Cisco IOS rejects 'clear line' from user EXEC ('>'); it requires
+        # privileged EXEC ('#'). Elevate via 'enable' first, but only if not
+        # already at '#' (e.g. leftover privileged session) - sending the
+        # password blindly while already privileged would feed it to IOS as
+        # a bogus command.
+        if menu_type == CONSOLE_SSH_CISCO_CONFIG:
+            current_prompt = duthost_config_menu.find_prompt(pattern=r"(?:>|\#|\$)")
+            if not current_prompt.endswith('#'):
+                if not enable_password:
+                    logger.warning(
+                        "No enable_passwd configured for this console type (set "
+                        "console_login.<type>.enable_passwd in secrets.json to enable this); "
+                        "skipping 'enable' elevation. 'clear line' will likely fail from user EXEC."
+                    )
+                else:
+                    # Cisco IOS allows at most 3 password attempts per 'enable' invocation
+                    # before dropping back to user EXEC - cap candidates accordingly.
+                    candidate_passwords = (
+                        enable_password if isinstance(enable_password, list) else [enable_password]
+                    )[:3]
 
-    for command, wait_for_pattern in command_list[menu_type]:
-        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
-        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+                    # Read until either a password re-prompt or a prompt terminator after each
+                    # write, and branch on what came back. netmiko's read_until_pattern() drops
+                    # whatever it read if it times out waiting for a fixed pattern like r'#' -
+                    # reading a combined pattern instead avoids losing the "Password:" re-prompt
+                    # IOS sends on a wrong guess.
+                    pw_or_prompt = r"[Pp]assword:\s*$|[>#]\s*$"
 
-    duthost_config_menu.disconnect()
-    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+                    duthost_config_menu.write_channel('enable' + duthost_config_menu.RETURN)
+                    try:
+                        out = duthost_config_menu.read_until_pattern(pw_or_prompt)
+                    except Exception as e:
+                        logger.warning(f"No response detected after 'enable': {e}")
+                        out = ""
+
+                    for attempt_num, candidate in enumerate(candidate_passwords, start=1):
+                        if not re.search(r"[Pp]assword:\s*$", out):
+                            break
+                        duthost_config_menu.write_channel(candidate + duthost_config_menu.RETURN)
+                        try:
+                            out = duthost_config_menu.read_until_pattern(pw_or_prompt)
+                        except Exception as e:
+                            logger.warning(
+                                f"Enable password attempt {attempt_num}/{len(candidate_passwords)} "
+                                f"timed out waiting for a response: {e}"
+                            )
+                            out = ""
+                        logger.info(
+                            f"Enable elevation attempt {attempt_num}/{len(candidate_passwords)}: "
+                            + ("re-prompted for password" if re.search(r"[Pp]assword:\s*$", out)
+                               else "reached a prompt terminator")
+                        )
+
+                current_prompt = duthost_config_menu.find_prompt(pattern=r"(?:>|\#|\$)")
+                if not current_prompt.endswith('#'):
+                    raise Exception(
+                        "Failed to elevate to privileged EXEC ('#') via 'enable' "
+                        f"(still at prompt '{current_prompt}'); aborting console port clear "
+                        "to avoid sending further commands into a confused session state."
+                    )
+
+        # Command lists for each config menu type
+        # List of tuples, containing a command to execute, and an optional pattern to wait for
+        command_list = {
+            CONSOLE_SSH_DIGI_CONFIG: [
+                ('2', None),                                                    # Enter serial port config
+                (console_port, None),                                           # Choose DUT console port
+                ('a', None),                                                    # Enter port management
+                ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
+            ],
+            CONSOLE_SSH_SONIC_CONFIG: [
+                (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
+            ],
+            CONSOLE_SSH_CISCO_CONFIG: [
+                # Note: no 'tty' keyword - confirmed working syntax on this terminal
+                # server is 'clear line <n>', not 'clear line tty <n>'.
+                # Patterns are regexes - '[confirm]'/'[OK]' would match any single bracketed
+                # character (e.g. the echoed command's own 'c'), not the literal text, and
+                # read_until_prompt_or_pattern() also returns on base_prompt regardless - so a
+                # failed 'clear line' (e.g. invalid port) could otherwise still look like success.
+                (f'clear line {console_port}', r'\[confirm\]'),    # Clear DUT console port
+                ('', r'\[OK\]')                                     # Confirm selection
+            ],
+        }
+
+        for command, wait_for_pattern in command_list[menu_type]:
+            duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
+            output = duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
+            if menu_type == CONSOLE_SSH_CISCO_CONFIG and wait_for_pattern and not re.search(wait_for_pattern, output):
+                raise Exception(f"Unexpected response to '{command}': {output!r}")
+
+        logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
+    finally:
+        duthost_config_menu.disconnect()
     time.sleep(5)
 
 
@@ -894,7 +1080,11 @@ def get_random_reload_type(duthost):
     :return: a random reload type
     """
     reload_types = ["reload", "cold", "fast", "warm"]
-    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+    if duthost.is_bmc():
+        # BMC does not support fast reboot and warm reboot
+        logger.info("BMC does not support fast reboot and warm reboot, keep only reload and cold")
+        reload_types = ["reload", "cold"]
+    elif is_mellanox_device(duthost) and not is_issu_enabled(duthost):
         logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
         reload_types.remove("warm")
     reboot_type = random.choice(reload_types)

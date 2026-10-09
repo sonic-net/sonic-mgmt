@@ -16,7 +16,7 @@ import ptf.packet as scapy
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import test_params_get, MINSIZE, send_packet, simple_tcp_packet, simple_tcpv6_packet,\
+from ptf.testutils import test_params_get, MINSIZE, send_packet, simple_tcp_packet, simple_tcpv6_packet, \
     verify_packet_any_port, simple_nvgre_packet, simple_vxlan_packet, simple_vxlanv6_packet
 
 import fib

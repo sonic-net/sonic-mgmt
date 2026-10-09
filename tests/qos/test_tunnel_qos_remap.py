@@ -16,17 +16,17 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
 from tests.common.snappi_tests.common_helpers import stop_pfcwd
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, \
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa: F401
 from tests.common.dualtor.nic_simulator_control import active_active_ports                              # noqa: F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
-    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled,\
-    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup,\
-    toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor,\
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, \
+    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled, \
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup, \
+    toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor, \
     toggle_all_aa_ports_to_rand_unselected_tor  # noqa: F401
 
-from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
-    dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host,\
+from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter, \
+    dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host, \
     setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa: F401
 from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, \
     stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging, \
@@ -56,7 +56,7 @@ PFC_PAUSE_TEST_RETRY_MAX = 5
 
 
 @pytest.fixture(scope='module', autouse=True)
-def check_running_condition(tbinfo, duthost):
+def check_running_condition(tbinfo, duthosts):
     """
     The test can only be running on tunnel_qos_remap enabled dualtor testbed
     """
@@ -65,8 +65,12 @@ def check_running_condition(tbinfo, duthost):
         "dualtor" in tbinfo["topo"]["name"], "Only run on dualtor testbed.", True)
 
     # Check tunnel_qos_remap is enabled
-    pytest_require(is_tunnel_qos_remap_enabled(duthost),
-                   "Only run when tunnel_qos_remap is enabled", True)
+    pytest_require(
+        all(is_tunnel_qos_remap_enabled(duthost)
+            for duthost in duthosts.frontend_nodes),
+        "Only run when tunnel_qos_remap is enabled on all frontend DUTs",
+        True
+    )
 
 
 @pytest.fixture(scope='module', autouse=True)

@@ -68,7 +68,7 @@ def test_fwutil_component_update(request, duthost, localhost, pdu_controller,
 
     logging.info("Cold rebooting after firmware update")
     current = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
-    complete_install(duthost, localhost, "cold", res, pdu_controller, False, current)
+    complete_install(duthost, localhost, "cold", res, pdu_controller, component, False, current)
 
     logging.info(f"Checking the status after {component} firmware upgrade")
     output_fwutil_status = duthost.shell(f'fwutil show updates | grep {component}')

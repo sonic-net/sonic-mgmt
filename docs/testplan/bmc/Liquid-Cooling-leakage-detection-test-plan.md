@@ -89,15 +89,15 @@ Verify the number of the liquid sensors equals the configured number and the cor
 
 ###  Test case #7 Platfform API get_num_leak_sensors
 #### Test objective
- Verify get_num_leak_sensors gets the correct value
+ Verify get_num_leak_sensors returns a valid sensor count
 #### Test steps
-* Call get_num_leak_sensors, and verify the return vlaue equals to the leak sensros number defined in pltform.json
+* Call get_num_leak_sensors, and verify the returned value is a positive integer (>0); skip the test if 0
 
 ###  Test case #8 Platfform API get_all_leak_sensors
 #### Test objective
  Verify get_all_leak_sensors gets the correct value
 #### Test steps
-* Call get_all_leak_sensors, and verify the return vlaue equals to the leak sensros number defined in pltform.json
+* Call get_all_leak_sensors, and verify its length equals the value returned by get_num_leak_sensors
 
 
 ## TODO

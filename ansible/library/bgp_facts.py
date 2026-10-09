@@ -107,7 +107,7 @@ class BgpModule(object):
             if remaining <= 0:
                 break
             per_call = min(20, max(5, int(remaining)))
-            docker_cmd = 'timeout -k 5 {t} docker exec -i {inst} vtysh -c "show ip bgp {cmd}" '.format(
+            docker_cmd = 'timeout -k 5 {t} docker exec {inst} vtysh -c "show ip bgp {cmd}" </dev/null'.format(
                 t=per_call, inst=instance, cmd=command_str)
             try:
                 rc, self.out, err = self.module.run_command(

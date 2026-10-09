@@ -1,3 +1,4 @@
+import json
 import time
 import math
 import datetime
@@ -23,7 +24,7 @@ STATS_COLLECT_TIMEOUT = 30
 STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'lma', 'uma'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -259,16 +260,26 @@ def setup_bgp_peers(
 '''
 
 
-def _check_rib_routes_received(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count reaches min_expected_rib."""
-    stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) >= min_expected_rib
+def _get_injector_pfx_count(duthost, is_ipv6, injector_ip):
+    """Return the accepted-prefix count (pfxRcd) for *injector_ip* from the BGP summary."""
+    cmd = "vtysh -c 'show {} bgp summary json'".format('ipv6' if is_ipv6 else 'ip')
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    try:
+        data = json.loads(output)
+    except (json.JSONDecodeError, ValueError):
+        return -1
+    af_key = 'ipv6Unicast' if is_ipv6 else 'ipv4Unicast'
+    return int(data.get(af_key, {}).get('peers', {}).get(injector_ip, {}).get('pfxRcd', -1))
 
 
-def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count drops to or below min_expected_rib."""
-    stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) <= min_expected_rib
+def _check_pfx_received(duthost, is_ipv6, injector_ip, expected_count):
+    """Return True when the injector's pfxRcd reaches *expected_count*."""
+    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip) >= expected_count
+
+
+def _check_pfx_withdrawn(duthost, is_ipv6, injector_ip):
+    """Return True when the injector's pfxRcd drops to 0."""
+    return _get_injector_pfx_count(duthost, is_ipv6, injector_ip) == 0
 
 
 '''
@@ -306,9 +317,7 @@ def test_bgp_update_replication(
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
     results = [measure_stats(duthost, is_ipv6)]
-    base_rib = int(results[0]["num_rib"])
-    min_expected_rib = base_rib + NUM_ROUTES
-    max_expected_rib = base_rib + (2 * NUM_ROUTES)
+    injector_ip = route_injector.ip
 
     # Inject and withdraw routes with a specified interval in between iterations
     for interval in duthost_intervals:
@@ -317,50 +326,42 @@ def test_bgp_update_replication(
             # Inject 10000 routes
             route_injector.announce_routes_batch(
                 generate_routes(
-                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    num_routes=NUM_ROUTES, nexthop=injector_ip,
                     is_ipv6=is_ipv6
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
+                       _check_pfx_received, duthost, is_ipv6, injector_ip, NUM_ROUTES)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been received
-            curr_num_rib = int(results[-1]["num_rib"])
+            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
             pytest_assert(
-                curr_num_rib >= min_expected_rib,
-                f"All routes have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
+                curr_pfx >= NUM_ROUTES,
+                f"All routes have not been received: pfxRcd '{curr_pfx}', expected: '{NUM_ROUTES}'"
             )
-            if curr_num_rib < max_expected_rib:
-                logger.warning(
-                    f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'"
-                )
 
             # Remove routes
             route_injector.withdraw_routes_batch(
                 generate_routes(
-                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    num_routes=NUM_ROUTES, nexthop=injector_ip,
                     is_ipv6=is_ipv6
                 )
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
+                       _check_pfx_withdrawn, duthost, is_ipv6, injector_ip)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been withdrawn
-            curr_num_rib = int(results[-1]["num_rib"])
+            curr_pfx = _get_injector_pfx_count(duthost, is_ipv6, injector_ip)
             pytest_assert(
-                curr_num_rib <= min_expected_rib,
-                f"All withdrawls have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
+                curr_pfx == 0,
+                f"All withdrawals have not been received: pfxRcd '{curr_pfx}', expected: '0'"
             )
-            if curr_num_rib > base_rib:
-                logger.warning(
-                    f"All announcements have not been withdrawn: current '{curr_num_rib}', expected: '{base_rib}'"
-                )
 
     results.append(measure_stats(duthost, is_ipv6))
 

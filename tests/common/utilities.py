@@ -685,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -722,6 +722,16 @@ def str2bool(str):
     return str.lower() not in ["0", "false", "no"]
 
 
+def get_ptf_eth_ports_from_minigraph_interfaces(minigraph_interfaces, port_indices):
+    """Map minigraph L3 interfaces to PTF eth names when no portchannels exist."""
+    net_ports = []
+    for intf in minigraph_interfaces or []:
+        attachto = intf['attachto']
+        if attachto in port_indices:
+            net_ports.append('eth%d' % port_indices[attachto])
+    return net_ports
+
+
 def setup_ferret(duthost, ptfhost, tbinfo):
     '''
         Sets Ferret service on PTF host.
@@ -744,11 +754,16 @@ def setup_ferret(duthost, ptfhost, tbinfo):
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_interfaces': mgFacts['minigraph_interfaces'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
             'dut_mac': duthost.facts['router_mac']
         }
+        if not vxlanConfigData.get('minigraph_portchannels'):
+            vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+                vxlanConfigData['minigraph_interfaces'],
+                vxlanConfigData['minigraph_port_indices'])
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))
 
@@ -1538,14 +1553,17 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     from tests.common.config_reload import config_reload
-    golden_config = "/etc/sonic/golden_config_db.json"
+    golden_config = constants.GOLDEN_CONFIG_DB_PATH
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
         config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
                       wait_for_bgp=True)
     finally:
-        # Cleanup golden config because some other test or device recover may reload config with golden config
+        # Cleanup golden config because some other test or device recover may reload config with golden config,
+        # then restore the original golden config.
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+        if file_exists_on_dut(duthost, constants.GOLDEN_CONFIG_DB_PATH_ORI):
+            duthost.command('cp {} {}'.format(constants.GOLDEN_CONFIG_DB_PATH_ORI, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

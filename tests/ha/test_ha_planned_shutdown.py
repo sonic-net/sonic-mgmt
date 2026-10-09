@@ -7,7 +7,7 @@ import threading
 import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
@@ -16,7 +16,7 @@ from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
 
 logger = logging.getLogger(__name__)
 
-# Distinct inner UDP sport vs default 6789 in outbound_pl_packets — used only after standby shutdown.
+# Distinct inner TCP sport vs default 6789 in outbound_pl_packets — used only after standby shutdown.
 POST_SHUTDOWN_INNER_SPORT = 50001
 
 pytestmark = [
@@ -68,6 +68,11 @@ def test_ha_planned_shutdown(
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[0], encap_proto, recv_ports=rcv_outbound_pl_ports
+    )
 
     if ha_owner == "dpu":
         # shutdown active HA Scope is only applicable to DPU-driven HA
@@ -168,6 +173,7 @@ def test_ha_planned_shutdown(
     time.sleep(1)
     vm_post_sd, exp_post_sd = outbound_pl_packets(
         dash_pl_config[0], encap_proto, inner_sport=POST_SHUTDOWN_INNER_SPORT,
+        tcp_flag_syn=True,  # post-shutdown packet uses a new 5-tuple; SYN creates the flow.
     )
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)

@@ -3,15 +3,15 @@ from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
+from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port, \
     ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                      # noqa: F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
-from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
+from tests.common.ixia.common_helpers import pfc_class_enable_vector, \
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.ixia.port import select_ports
 from tests.common.cisco_data import is_cisco_device
 
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate,\
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate, \
     Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern

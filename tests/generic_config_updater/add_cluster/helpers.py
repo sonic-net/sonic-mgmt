@@ -17,6 +17,40 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 
+def format_sonic_interface_dict(interface_dict, single_entry=True):
+    """
+    Convert a SONiC interface-style dictionary into JSON patch key/value form.
+
+    Ensures interfaces exist as standalone keys and converts IP address children
+    into "Interface|IP" keys.
+    """
+    formatted_interface_dict = {}
+
+    for key, values in interface_dict.items():
+        if isinstance(values, dict):
+            if single_entry:
+                formatted_interface_dict[key] = {}
+            for ip in values.keys():
+                formatted_interface_dict[f"{key}|{ip}"] = {}
+        else:
+            if single_entry:
+                formatted_interface_dict[key] = {}
+
+    return formatted_interface_dict
+
+
+def format_sonic_buffer_pg_dict(buffer_pg_dict):
+    """
+    Convert a SONiC BUFFER_PG dictionary into JSON patch key/value form.
+    """
+    formatted_dict = {}
+    for key, values in buffer_pg_dict.items():
+        if isinstance(values, dict):
+            for pg_num_key, value in values.items():
+                formatted_dict[f"{key}|{pg_num_key}"] = value
+    return formatted_dict
+
+
 # -----------------------------
 # Static Route Helper Functions
 # -----------------------------

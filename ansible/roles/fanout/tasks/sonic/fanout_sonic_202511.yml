@@ -85,7 +85,7 @@
 
 - name: build fanout startup config
   template:
-    src: "sonic_deploy_202505.j2"
+    src: "sonic_deploy_202511.j2"
     dest: "/tmp/base_config.json"
 
 - name: generate config_db.json
@@ -202,3 +202,8 @@
             state: absent
           become: true
       when: lldp_container.stdout != "" and fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox']
+
+- name: Increase Redis busy threshold on 7215 fanouts
+  shell: docker exec database redis-cli CONFIG SET lua-time-limit 15000 && docker exec database redis-cli CONFIG REWRITE
+  become: yes
+  when: "'7215' in device_info[inventory_hostname]['HwSku']"

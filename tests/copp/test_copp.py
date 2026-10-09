@@ -24,6 +24,7 @@ import logging
 import pytest
 import json
 import random
+import re
 import time
 from collections import namedtuple
 
@@ -110,17 +111,26 @@ class TestCOPP(object):
         """
         # If fanout is running 7060x6 and running SONiC, the only supported action for UDLD is trap, which means
         # UDLD packet will not be forwarded to DUT
+        # Nokia H5/H6 fanouts (all port-count variants, e.g. h5_32d, h5_64d, h5_64o, h6_64, h6_128) and
+        # Nexthop 4210 fanouts share the same Broadcom SAI/ASIC limitation and also only support trap
+        # (not forward) for UDLD.
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if (fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts["platform"]
-                        in ['arista_7060x6_64pe', 'x86_64-nokia_ixr7220_h5_64o-r0', 'x86_64-nokia_ixr7220_h6_64-r0']):
-                    pytest.skip("Skip UDLD test for Arista-7060x6 and Nokia-H5/H6 fanout without UDLD forward support")
+                fanout_platform = fanouthost.facts["platform"]
+                if fanouthost.get_fanout_os() == 'sonic' and (
+                    fanout_platform == 'arista_7060x6_64pe'
+                    or re.match(r'x86_64-nokia_ixr7220_h[56]_', fanout_platform)
+                    or re.match(r'x86_64-nexthop_4210-', fanout_platform)
+                ):
+                    pytest.skip("Skip UDLD test for Arista-7060x6, Nokia-H5/H6 and Nexthop-4210 "
+                                "fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
@@ -131,6 +141,7 @@ class TestCOPP(object):
             else:
                 feature_list, _ = duthost.get_feature_status()
                 trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -148,6 +159,7 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type,
+                     has_trap=has_trap,
                      is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.parametrize("protocol", ["IP2ME",
@@ -180,6 +192,14 @@ class TestCOPP(object):
 
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if packet_type == "VlanSubnetIPinIP":
+            ip_decap_status = duthost.shell(
+                "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                module_ignore_errors=True
+            )["stdout"].strip()
+            if ip_decap_status == "disabled":
+                pytest.skip("IP-in-IP decapsulation is disabled on this DUT")
 
         # Access test_params from the class-level variable
         test_params = self.test_params
@@ -352,7 +372,7 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
-                  f"Trap {trap} not found in show copp configuration output")
+                  f"Trap {trap} not found as part of show copp configuration output")
     pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
                   f"Trap group mismatch for trap {trap} (expected: \
                   {trap_group}, actual: {show_copp_config[trap]['trap_group']})")

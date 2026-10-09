@@ -32,12 +32,37 @@ class MinigraphRefactor:
     are no longer referenced in the minigraph configuration.
     """
 
-    def __init__(self, leaf_router):
+    def __init__(self, leaf_router, port_name_to_alias_map=None):
         self.leafrouter_name = leaf_router
         # Ports connected to the target neighbor, collected during link removal
         self.affected_ports = set()
         # PortChannels that use the affected ports, collected during PortChannel removal
         self.affected_portchannels = set()
+        # Maps port name -> alias, e.g. {"Ethernet256": "etp33a"}. Supply
+        # mg_facts['minigraph_port_name_to_alias_map']. See _affected_port_identifiers().
+        self.port_name_to_alias_map = port_name_to_alias_map or {}
+
+    def _affected_port_identifiers(self):
+        """Return the affected ports under every name the minigraph may use for them.
+
+        DeviceInterfaceLinks under PngDec reference ports by SONiC name
+        (<StartPort>Ethernet256</StartPort>), but PortChannelInterfaces and
+        IPInterfaces under DeviceDataPlaneInfo may reference the same port by its
+        platform alias (<AttachTo>etp33a</AttachTo>). Which form is used varies by
+        platform, and the minigraph carries no alias-to-name mapping of its own, so
+        matching on the port name alone silently fails to remove anything on
+        alias-based platforms. Matching both forms is the same approach taken by
+        tests/common/helpers/xml_utils.py.
+
+        Returns:
+            set: affected port names plus their aliases, where known
+        """
+        identifiers = set(self.affected_ports)
+        for port in self.affected_ports:
+            alias = self.port_name_to_alias_map.get(port)
+            if alias:
+                identifiers.add(alias)
+        return identifiers
 
     def remove_bgp_sessions(self, root):
         peering_sessions = root.find(f".//{NS}PeeringSessions")
@@ -115,7 +140,9 @@ class MinigraphRefactor:
 
         Finds PortChannel elements under DeviceDataPlaneInfo/PortChannelInterfaces
         where AttachTo contains any of the affected ports. The AttachTo field can
-        contain multiple ports separated by semicolons (e.g., "Ethernet48;Ethernet56").
+        contain multiple ports separated by semicolons (e.g., "Ethernet48;Ethernet56")
+        and may name ports by alias rather than by SONiC name, so both forms are
+        matched (see _affected_port_identifiers).
 
         Returns:
             int: Number of PortChannel entries removed
@@ -123,6 +150,7 @@ class MinigraphRefactor:
         if not self.affected_ports:
             return 0
 
+        affected_identifiers = self._affected_port_identifiers()
         removed_portchannels = 0
 
         # Find all DeviceDataPlaneInfo elements (there may be multiple for multi-ASIC)
@@ -142,7 +170,7 @@ class MinigraphRefactor:
                 attached_ports = set(attach_to_elem.text.split(';'))
 
                 # Check if any affected port is in this PortChannel
-                if attached_ports & self.affected_ports:
+                if attached_ports & affected_identifiers:
                     pc_name = name_elem.text if name_elem is not None else "unknown"
                     self.affected_portchannels.add(pc_name)
                     portchannel_interfaces.remove(portchannel)
@@ -155,13 +183,15 @@ class MinigraphRefactor:
         """Remove IPInterface entries that reference affected PortChannels or ports.
 
         Finds IPInterface elements under DeviceDataPlaneInfo/IPInterfaces where
-        AttachTo matches any affected PortChannel or affected port.
+        AttachTo matches any affected PortChannel or affected port. As with
+        PortChannelInterfaces, a port may be named by alias here, so both forms
+        are matched (see _affected_port_identifiers).
 
         Returns:
             int: Number of IPInterface entries removed
         """
-        # Combine affected ports and portchannels for lookup
-        affected_attachments = self.affected_ports | self.affected_portchannels
+        # Combine affected ports (under either naming form) and portchannels for lookup
+        affected_attachments = self._affected_port_identifiers() | self.affected_portchannels
         if not affected_attachments:
             return 0
 

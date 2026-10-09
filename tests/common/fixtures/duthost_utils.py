@@ -1,3 +1,5 @@
+from contextlib import ExitStack
+from functools import partial
 from typing import Dict, List
 
 import paramiko
@@ -9,6 +11,7 @@ import ipaddress
 import time
 import json
 
+from _pytest.outcomes import OutcomeException
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
@@ -90,6 +93,43 @@ def backup_and_restore_config_db_session(duthosts):
 
     for func in _backup_and_restore_config_db(duthosts, "session"):
         yield func
+
+
+@pytest.fixture(scope="module")
+def backup_and_restore_ansible_hosts(duthosts):
+    """
+    Back up the current ansible_host config for each duthost and restore it on
+    cleanup and reloads config_db
+    """
+    original_ansible_hosts = get_ansible_hosts(duthosts)
+    logger.info("Backup ansible hosts: {}".format(original_ansible_hosts))
+
+    yield
+
+    # Reload to bring IPv4 mgmt back and then restore the ansible host to IPv4
+    current_ansible_hosts = get_ansible_hosts(duthosts)
+
+    def reload_config_and_addr(duthost, ip_address):
+        try:
+            config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+        except AnsibleConnectionFailure as e:
+            logger.warning(f'Exception after config reload: {e}')
+        finally:
+            host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+            host.vars['ansible_host'] = ip_address
+
+    restoring_ansible = False
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            original_ip = original_ansible_hosts[duthost.hostname]
+            current_ip = current_ansible_hosts[duthost.hostname]
+            if current_ip != original_ip:
+                executor.submit(reload_config_and_addr, duthost, original_ip)
+                restoring_ansible = True
+
+    if restoring_ansible:
+        logger.info("Restore ansible_hosts from {} to {}"
+                    .format(current_ansible_hosts, original_ansible_hosts))
 
 
 def _is_route_checker_in_status(duthost, expected_status_substrings):
@@ -255,6 +295,7 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
 
 
 def duthost_shutdown_ebgp(duthost):
+    """Restore eBGP if shutdown or a readiness check fails."""
     orch_cpu_threshold = 10
 
     orch_cpu_timeout = 60
@@ -265,16 +306,28 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
-    # Shutdown all eBGP neighbors
-    duthost.command("sudo config bgp shutdown all")
+    # Fixture teardown is unavailable when setup fails before yield, so this
+    # helper must restore its own partially applied shutdown.
+    shutdown_complete = False
+    try:
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
 
-    # Verify that the total eBGP routes are 0.
-    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+        # Verify that the total eBGP routes are 0.
+        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
+        shutdown_complete = True
+    finally:
+        if not shutdown_complete:
+            logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
+            try:
+                duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+            except (Exception, OutcomeException):
+                logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
 
     return v4_routes_count, v6_routes_count
 
@@ -296,18 +349,27 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
                       orch_cpu_threshold))
 
 
+def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, exc, traceback):
+    """Restore eBGP without replacing an exception that is already in flight."""
+    try:
+        duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+    except (Exception, OutcomeException):
+        if exc_type is None:
+            raise
+        logger.exception("Failed to restore eBGP on %s while handling %s", duthost.hostname, exc_type.__name__)
+    return False
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
-    # To store the original number of eBGP v4 and v6 routes.
-    v4ebgps = {}
-    v6ebgps = {}
-    for duthost in duthosts.frontend_nodes:
-        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
+    """Restore every quiesced DUT even if a later DUT fails during setup."""
+    # ExitStack also unwinds setup failures that occur before the fixture yields.
+    with ExitStack() as cleanup:
+        for duthost in duthosts.frontend_nodes:
+            v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
+            cleanup.push(partial(restore_ebgp_on_exit, duthost, v4_routes_count, v6_routes_count))
 
-    yield
-
-    for duthost in duthosts.frontend_nodes:
-        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
+        yield
 
 
 @pytest.fixture(scope="module")
@@ -665,6 +727,37 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
         return None
 
 
+def get_pdb_num(duthost):
+    """Return pdb_num from chassis_info in STATE_DB."""
+    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    result = duthost.shell(command, module_ignore_errors=True)
+    if result['rc'] != 0:
+        stderr = result.get('stderr', '').strip()
+        logger.warning("Failed to query pdb_num on '%s' via '%s': rc=%s, stderr=%s",
+                       duthost.hostname, command, result['rc'], stderr)
+        raise RuntimeError(
+            "Failed to query pdb_num from STATE_DB on '{}'".format(duthost.hostname)
+        )
+
+    pdb_num_str = result['stdout'].strip()
+    if pdb_num_str and pdb_num_str.isdigit():
+        return int(pdb_num_str)
+    return 0
+
+
+def check_pdb_support(duthost):
+    """Check if duthost has PDB by querying STATE_DB. Returns True if pdb_num > 0."""
+    return get_pdb_num(duthost) > 0
+
+
+@pytest.fixture(scope='module')
+def is_support_pdb(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has PDB (Power Distribution Board) by querying chassis_info in STATE_DB.
+    """
+    return check_pdb_support(duthosts[rand_one_dut_hostname])
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
@@ -752,23 +845,48 @@ def check_bgp_router_id(duthost, mgFacts):
         logger.error("Error loading BGP routerID - {}".format(e))
 
 
-def wait_bgp_sessions(duthost, timeout=120):
+def wait_bgp_sessions(duthost, timeout=120, asic_index=None):
     """
     A helper function to wait bgp sessions on DUT
     """
-    bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+    if asic_index is None:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        check_bgp_session_state = duthost.check_bgp_session_state_all_asics
+    else:
+        asichost = duthost.asic_instance(asic_index)
+        bgp_neighbors = [
+            neighbor_ip.lower()
+            for neighbor_ip in asichost.bgp_facts()["ansible_facts"]["bgp_neighbors"].keys()
+        ]
+        check_bgp_session_state = asichost.check_bgp_session_state
+
     if duthost.get_facts().get("modular_chassis"):
         timeout = 900
     logging.info("Wait until all bgp sessions are up in {} sec"
                  .format(timeout))
     pt_assert(
-        wait_until(timeout, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+        wait_until(timeout, 10, 0, check_bgp_session_state, bgp_neighbors),
         "Not all bgp sessions are established after config reload",
     )
 
 
+def get_ansible_hosts(duthosts):
+    ansible_hosts = {}
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        ansible_hosts[duthost.hostname] = host.vars['ansible_host']
+    return ansible_hosts
+
+
+def set_ansible_hosts(duthosts, ip_address):
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        addr = ip_address[duthost.hostname]
+        host.vars['ansible_host'] = addr[0] if isinstance(addr, list) else addr
+
+
 @pytest.fixture(scope="module")
-def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
+def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_and_restore_config_db_on_duts):
     """Convert the DUTs mgmt-ip to IPv6 only
 
     Since the change commands is distributed by IPv4 mgmt-ip,
@@ -818,7 +936,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
         # "RuntimeError: dictionary changed size during iteration" error
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        has_available_ipv6_addr = False
+        has_ipv6_config = False
         for key in list(mgmt_interface):
             ip_addr = key.split("|")[1]
             ip_addr_without_mask = ip_addr.split('/')[0]
@@ -826,7 +944,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 is_ipv6 = valid_ipv6(ip_addr_without_mask)
                 if is_ipv6:
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
-                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    has_ipv6_config = True
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
@@ -835,16 +953,16 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
-                        has_available_ipv6_addr = True
+                        ipv6_address[duthost.hostname].append(ip_addr_without_mask)
                     except BaseException as e:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is unavailable, "
                                     f"exception[{type(e)}], msg[{str(e)}]")
                     finally:
                         ssh_client.close()
 
-        if not ipv6_address[duthost.hostname]:
+        if not has_ipv6_config:
             pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        if not has_available_ipv6_addr:
+        if not ipv6_address[duthost.hostname]:
             pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
@@ -903,11 +1021,13 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
 
+    set_ansible_hosts(duthosts, ipv6_address)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts.nodes:
             executor.submit(config_reload_if_modified, duthost)
 
-    duthosts.reset()
+    duthosts.meta("reset_connection")
+    set_ansible_hosts(duthosts, ipv6_address)
 
     def wait_for_processes_and_bgp(dut):
         if config_db_modified[dut.hostname]:
