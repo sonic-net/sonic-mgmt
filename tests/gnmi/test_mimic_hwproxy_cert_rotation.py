@@ -70,7 +70,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
 
     if gnmi_enabled:
         cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
-        result = duthost.command(cmd_feature, module_ignore_errors=True)
+        result = duthost.shell(cmd_feature, module_ignore_errors=True)
         if result["stdout"].strip():
             # disable feature
             disable_feature = 'sudo config feature state gnmi disabled'
