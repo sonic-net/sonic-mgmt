@@ -1,0 +1,146 @@
+# SAI fidelity tiers for libsaivs (SONiC VS)
+#
+# Tier 1 — Fully faithful: behaves the same as hardware on VS.
+#   e.g. route entries, next hops, neighbor entries, host interfaces,
+#   virtual routers, VLANs, LAGs.
+#
+# Tier 2 — Stored but not enforced: SAI object is created in ASIC_DB but
+#   nothing in vslib enforces it in a forwarding pipeline.
+#   e.g. ACL tables/entries/counters, QoS maps, schedulers, WRED,
+#   buffer pools/profiles, policers, mirror sessions.
+#
+# Tier 3 — Stubbed / missing: returns success or not-implemented with no
+#   backing logic.
+#   e.g. hardware counters/stats, ECN/PFC watermarks, PFC deadlock,
+#   ASIC-specific/vendor attributes, anything vslib answers with a canned value.
+#
+# Unknown object types default to tier 3 (visible via rule "default:unknown")
+# so they can be audited and promoted later — they are never silently scored
+# as faithful.
+
+weights:
+  1: 1.0
+  2: 0.5
+  3: 0.0
+
+default_tier: 3
+
+# Operation-level rules (evaluated first). Counter/stat reads are Tier 3
+# evidence regardless of object type.
+operations:
+  - match:
+      operation: [get, stats, clearstats]
+    tier: 3
+    rule: op:get_or_stats
+
+# Object / attribute rules. More specific matches (attribute + object) beat
+# exact object_type, which beats object_type_prefix. When multiple rules
+# match the same change, the worst (highest) tier wins.
+objects:
+  # --- Tier 1: fully faithful on VS ---
+  - match: { object_type: SAI_OBJECT_TYPE_ROUTE_ENTRY }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_NEXT_HOP }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_NEXT_HOP_GROUP }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_NEIGHBOR_ENTRY }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_FDB_ENTRY }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_ROUTER_INTERFACE }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_HOSTIF }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_HOSTIF_TABLE_ENTRY }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_HOSTIF_TRAP }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_VIRTUAL_ROUTER }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_VLAN }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_VLAN_MEMBER }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_LAG }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_LAG_MEMBER }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_BRIDGE }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_BRIDGE_PORT }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_PORT }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_SWITCH }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_TUNNEL }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_TUNNEL_MAP }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_TUNNEL_MAP_ENTRY }
+    tier: 1
+  - match: { object_type: SAI_OBJECT_TYPE_TUNNEL_TERM_TABLE_ENTRY }
+    tier: 1
+
+  # Port / queue / switch counter and watermark attributes → Tier 3
+  - match:
+      object_type: SAI_OBJECT_TYPE_PORT
+      attribute_prefix: SAI_PORT_STAT_
+    tier: 3
+  - match:
+      object_type: SAI_OBJECT_TYPE_PORT
+      attribute_prefix: SAI_PORT_ATTR_PFC_
+    tier: 3
+  - match:
+      object_type: SAI_OBJECT_TYPE_QUEUE
+      attribute_prefix: SAI_QUEUE_STAT_
+    tier: 3
+  - match:
+      object_type: SAI_OBJECT_TYPE_INGRESS_PRIORITY_GROUP
+      attribute_prefix: SAI_INGRESS_PRIORITY_GROUP_STAT_
+    tier: 3
+  - match:
+      attribute_prefix: SAI_SWITCH_ATTR_ECN_
+    tier: 3
+  - match:
+      attribute_prefix: WATERMARK
+    tier: 3
+
+  # --- Tier 2: stored, not enforced in forwarding ---
+  - match: { object_type_prefix: SAI_OBJECT_TYPE_ACL_ }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_QOS_MAP }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_SCHEDULER }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_SCHEDULER_GROUP }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_WRED }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_BUFFER_POOL }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_BUFFER_PROFILE }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_POLICER }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_MIRROR_SESSION }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_QUEUE }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_INGRESS_PRIORITY_GROUP }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_COUNTER }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_DEBUG_COUNTER }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_DEBUG_COUNTER_ENTRY }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_SAMPLEPACKET }
+    tier: 2
+  - match: { object_type: SAI_OBJECT_TYPE_TAM }
+    tier: 2
