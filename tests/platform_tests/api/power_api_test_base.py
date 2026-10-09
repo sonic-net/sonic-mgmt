@@ -23,7 +23,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-class TestPowerApi(PlatformApiTestBase):
+class PowerApiTestBase(PlatformApiTestBase):
     """Shared platform API tests for PSU/PDB-like power units."""
 
     num_power_units = None
