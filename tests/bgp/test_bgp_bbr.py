@@ -15,6 +15,7 @@ from jinja2 import Template
 from natsort import natsorted
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import get_exabgp_url
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
@@ -236,7 +237,7 @@ def update_routes(action, ptfip, port, route):
     else:
         logger.error('Unsupported route update operation.')
         return
-    url = 'http://%s:%d' % (ptfip, port)
+    url = get_exabgp_url(ptfip, port)
     data = {'commands': msg}
     r = requests.post(url, data=data, proxies={"http": None, "https": None})
     assert r.status_code == 200
