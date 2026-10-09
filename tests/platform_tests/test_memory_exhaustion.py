@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.platform.processes_utils import wait_critical_processes, get_critical_processes_status
 from tests.common.reboot import wait_for_startup
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, power_cycle
 from tests.common.errors import RunAnsibleModuleFail
 
 pytestmark = [
@@ -30,18 +30,18 @@ class TestMemoryExhaustion:
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                 localhost, pdu_controller):
+                 localhost, power_controller):
         yield
         # If the SSH connection is not established, or any critical process is exited,
-        # try to recover the DUT by PDU reboot.
+        # try to recover the DUT by external power cycle.
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         hostname = duthost.hostname
         status, _ = get_critical_processes_status(duthost)
         if not status:
-            if pdu_controller is None:
-                logging.error("No PDU controller for {}, failed to recover DUT!".format(hostname))
+            if power_controller is None:
+                logging.error("No power controller for {}, failed to recover DUT!".format(hostname))
                 return
-            self.pdu_reboot(pdu_controller)
+            power_cycle(power_controller)
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
             self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
@@ -85,12 +85,3 @@ class TestMemoryExhaustion:
                 return False
             return dut_up_datetime > datetime_before_reboot
         wait_until(timeout, 10, 0, check_dut_rebooted, duthost, datetime_before_reboot)
-
-    def pdu_reboot(self, pdu_controller):
-        hostname = pdu_controller.dut_hostname
-        if not pdu_controller.turn_off_outlet():
-            logging.error("Turn off the PDU outlets of {} failed".format(hostname))
-            return
-        time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
-        if not pdu_controller.turn_on_outlet():
-            logging.error("Turn on the PDU outlets of {} failed".format(hostname))
