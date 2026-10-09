@@ -143,7 +143,8 @@ class BmcLogAnalyzer:
     def analyze(self, marker, fail=False, log_target=LOG_TARGET_EVENT_LOG):
         """Scan logs from the start marker forward.
 
-        log_target='event_log' (default): scans /host/bmc/event.log only.
+        log_target='event_log' (default): scans /host/bmc/event.log and its
+        rotated files in chronological order.
         log_target='syslog': delegates to LogAnalyzer.analyze() (/var/log/syslog*).
 
         Returns the same dict shape as LogAnalyzer.analyze():
@@ -156,10 +157,12 @@ class BmcLogAnalyzer:
 
         start_line = "start-LogAnalyzer-{}".format(marker)
         self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
+        event_logs = ["{}.{}.gz".format(BMC_EVENT_LOG, index) for index in range(5, 1, -1)]
+        event_logs.extend(["{}.1".format(BMC_EVENT_LOG), BMC_EVENT_LOG])
         result = self.duthost.shell(
-            "sed -n {} {}".format(
+            "zcat -f {} 2>/dev/null | sed -n {}".format(
+                " ".join(shlex.quote(path) for path in event_logs),
                 shlex.quote(r"/{}/,$p".format(start_line)),
-                shlex.quote(BMC_EVENT_LOG)
             ),
             module_ignore_errors=True
         )
