@@ -85,7 +85,14 @@ def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):       
 def verify_neighbor_status(duthost, neigh_ip, expected_status):
     ip_version = 'v4' if ip_address(neigh_ip).version == 4 else 'v6'
     neighbor_table = duthost.switch_arptable()['ansible_facts']['arptable']
-    return expected_status.lower() in neighbor_table[ip_version][str(neigh_ip)]['state'].lower()
+    neighbor_entry = neighbor_table.get(ip_version, {}).get(str(neigh_ip))
+    if not neighbor_entry:
+        logger.info("Neighbor %s is not present in %s ARP table on %s",
+                    neigh_ip, ip_version, duthost.hostname)
+        return False
+
+    neighbor_state = neighbor_entry.get('state', '')
+    return expected_status.lower() in neighbor_state.lower()
 
 
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
@@ -201,10 +208,17 @@ def test_standby_unsolicited_neigh_learning(
     ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
 
     rand_selected_dut.shell(ping_cmd, module_ignore_errors=True)
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_selected_dut, neighbor_ip, REACHABLE)))
+    pytest_assert(
+        wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_selected_dut, neighbor_ip, REACHABLE)),
+        "Neighbor {} should become {} on active ToR {}".format(neighbor_ip, REACHABLE, rand_selected_dut.hostname)
+    )
     rand_unselected_dut.shell("sudo ip neigh flush all")
 
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     rand_selected_dut.shell(arp_update_cmd)
 
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)))
+    pytest_assert(
+        wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)),
+        "Neighbor {} should be learned as {} on standby ToR {} after arp_update on active ToR {}".format(
+            neighbor_ip, REACHABLE, rand_unselected_dut.hostname, rand_selected_dut.hostname)
+    )
