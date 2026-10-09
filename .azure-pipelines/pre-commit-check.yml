@@ -14,10 +14,12 @@ steps:
   displayName: 'checkout sonic-mgmt repo'
 
 - script: |
-    set -x
-    sudo apt-get update
-    sudo apt-get install -y pre-commit
-    pre-commit install-hooks
+    set -eux
+    PRE_COMMIT_VENV="$(Agent.TempDirectory)/pre-commit"
+    python3 -m venv "$PRE_COMMIT_VENV"
+    "$PRE_COMMIT_VENV/bin/python" -m pip install pre-commit
+    "$PRE_COMMIT_VENV/bin/pre-commit" install-hooks
+    echo "##vso[task.prependpath]$PRE_COMMIT_VENV/bin"
   displayName: 'Prepare pre-commit check'
 
 - script: |
@@ -76,18 +78,23 @@ steps:
          docker container.
       2. Ensure that the `pre-commit` package is installed:
       ```
-      sudo apt-get install -y pre-commit
+      python3 -m venv .venv
+      .venv/bin/python -m pip install pre-commit
       ```
-      3. Go to repository root folder
-      4. Install the pre-commit hooks:
+      3. Activate the virtual environment:
+      ```
+      source .venv/bin/activate
+      ```
+      4. Go to repository root folder
+      5. Install the pre-commit hooks:
       ```
       pre-commit install
       ```
-      5. Use pre-commit to check staged file:
+      6. Use pre-commit to check staged file:
       ```
       pre-commit
       ```
-      6. Alternatively, you can check committed files using:
+      7. Alternatively, you can check committed files using:
       ```
       pre-commit run --from-ref <commit_id> --to-ref <commit_id>
       ```
