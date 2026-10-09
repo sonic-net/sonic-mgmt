@@ -10,9 +10,9 @@ from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.gnmi_benchmark.benchmark_report import BenchmarkReport
-from tests.gnmi_benchmark.benchmark_runner import BenchmarkCleanupError, BenchmarkRunner
+from tests.gnmi_benchmark.benchmark_runner import BenchmarkRunner
 from tests.gnmi_benchmark.blaster import RouteTableBlaster
-from tests.gnmi_benchmark.recovery import ConsumerRecovery
+from tests.gnmi_benchmark.helpers import recover_consumer
 
 logger = logging.getLogger(__name__)
 pytestmark = [
@@ -75,12 +75,10 @@ def _emit_report(request, report):
 @pytest.fixture
 def benchmark_consumer_recovery(request):
     """Set up before dynamic gnmi_tls, so its finalizer runs AFTER TLS rollback."""
-    host, report = request.node._benchmark_recovery_context
-    recovery = ConsumerRecovery(host, BENCHMARK_CONFIG["output_dir"], report.cid, **BENCHMARK_CONFIG["recovery"])
-    recovery.prepare()
+    host = request.node._benchmark_host
     yield
     # Finalizer exceptions are pytest teardown errors, outside report-only handling.
-    recovery.finish()
+    recover_consumer(host, **BENCHMARK_CONFIG["recovery"])
 
 
 @pytest.mark.parametrize("runner_factory,blaster_factory", BENCHMARK_CASES)
@@ -105,22 +103,18 @@ def test_gnmi_benchmark(
                         platform=host.facts.get("platform", "unknown"),
                         asic_type=host.facts.get("asic_type", "unknown"),
                         asic_count=host.num_asics()))
-        request.node._benchmark_recovery_context = (host, report)
+        request.node._benchmark_host = host
         # Register before gnmi_tls: pytest unwinds the later fixture first.
-        try:
-            request.getfixturevalue("benchmark_consumer_recovery")
-        except (Exception, pytest.fail.Exception) as error:
-            raise BenchmarkCleanupError("Benchmark recovery precheck failed") from error
+        request.getfixturevalue("benchmark_consumer_recovery")
         # Resolve TLS setup only after checking the selected device.
         connection = request.getfixturevalue("gnmi_tls")
         pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
                        "The benchmark requires the TLS transport")
         runner_factory().run(host, connection, blaster, report)
-    except BenchmarkCleanupError:
-        raise
     except (Exception, pytest.fail.Exception):
         # Runner context managers unwind before logging; skips/interrupts propagate.
         logger.info("gNMI benchmark report-only exception node=%s", request.node.nodeid, exc_info=True)
+        raise
     finally:
         if report is not None and report.measurement is not None:
             path = report.write(BENCHMARK_CONFIG["output_dir"])

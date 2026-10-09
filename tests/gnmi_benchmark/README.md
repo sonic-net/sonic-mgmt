@@ -31,7 +31,6 @@ Edit `BENCHMARK_CONFIG` in [benchmark.py](benchmark.py):
 | Setting | Purpose |
 |---|---|
 | `output_dir` | JSON report directory; default `/tmp/gnmi-benchmark` |
-| `recovery` | Out-of-band Redis drain deadline and optional verified consumer systemd unit |
 | `parameters` | Shared warmup, measurement duration and per-RPC timeout |
 | `load_modes` | Closed-loop or open-loop, with offered iterations/s |
 | `benchmarks` | Runner/Blaster factories, SKU prefixes, inventory and named load profiles |
@@ -116,54 +115,14 @@ response decoding; explicit SetResponse error inspection is outside the timer.
 Failed calls have no successful-latency sample. Warmup data is excluded; warmup
 drops allow measurement, but warmup RPC/response errors stop the run.
 
-The entrypoint logs ordinary workload exceptions and explicit `pytest.fail`
-outcomes from dynamic TLS setup without re-raising. Resource cleanup and recovery
-precheck errors propagate; recovery finalizer failures are pytest teardown errors.
-Skips and interrupts propagate normally. Completed measurements are saved even
-if later resource collection or cleanup fails. No report is fabricated when no
-measurement completed. Report writing errors also propagate.
+The entrypoint logs ordinary exceptions and explicit `pytest.fail` outcomes from
+dynamic TLS setup, Runner execution/cleanup and report writing, without re-raising.
+Runner contexts unwind before logging. Skips and interrupts propagate normally.
+Collection and fixture setup/teardown outside the test body remain pytest-managed.
+No report is fabricated when execution or restoration prevents its generation.
 **A green pytest outcome is not evidence of performance compliance or restored
 device state.** Inspect errors and reports; timed-out server writes can outlive
 the client and require cleanup verification before reuse.
-
-## Consumer backlog recovery (outside performance timing)
-
-The benchmark measures RPC completion, not downstream consumer convergence.
-Nevertheless, restore the shared DUT before the next case or releasing its lock.
-Each case now follows this order:
-
-1. Before TLS/config mutation, record Redis CLIENT LIST diagnostics and require
-   each Redis instance's total client `omem` to be at most 10 MiB (the sanity
-   check limit). Pre-existing backlog fails the precheck instead of being attributed
-   to this run. Capture running configuration for comparison after rollback.
-2. Run the unchanged preload/warmup/measurement. Issued RPCs drain in the blaster.
-   Preserve measured data independently of subsequent cleanup success.
-3. Remove generated routes and restore persistent config; let `gnmi_tls` perform
-   checkpoint rollback. Then verify running config matches the pre-test baseline.
-4. If Redis output remains above 10 MiB, default behavior waits up to 60 seconds.
-   An explicitly configured `recovery.consumer_service` instead restarts that
-   systemd unit once, then polls the same limit for the configured deadline.
-   A consumer restart discards its pending notifications; it is not a delivery
-   guarantee. No Redis/database restart or bulk CLIENT KILL is performed.
-5. Write `<cid>-cleanup.json` with snapshots, whether restart was attempted,
-   outcome/error and elapsed recovery time. Failure is visible to pytest and
-   must prevent reuse/release by the external runner. Existing post-sanity checks
-   remain enabled and are still the broader health check.
-
-`consumer_service` defaults to **None**: no disruptive recovery is enabled by
-default. Before opting in, map the offending subscription to its actual service
-and verify that restart reloads current configuration and restores downstream
-state. Never guess this from `db=4`, `cmd=psubscribe`, or a historical client ID.
-`systemctl is-active` and low `omem` do not prove consumer convergence: a DUT
-canary must verify service-specific resynchronization, BGP/forwarding where
-applicable, and post-sanity health before deploying this option. The specific
-consumer responsible for the observed backlog has not yet been identified.
-
-The receipt is separate from schema-12 RPC data. Always collect both files and
-pytest setup/call/teardown outcomes; a performance report alone cannot certify
-successful recovery. Polling/restart occurs after rollback, outside RPC timers,
-but introduces a new between-case environment policy: label future datasets and
-do not silently mix them with historical runs that retained backlog.
 
 ## Code layout
 

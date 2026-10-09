@@ -12,22 +12,10 @@ from tests.gnmi_benchmark.helpers import collect_resource_snapshot, gnmi_connect
 logger = logging.getLogger(__name__)
 
 
-class BenchmarkCleanupError(RuntimeError):
-    """Restoration failures must not be swallowed by the report-only entrypoint."""
-
-
-class _CleanupStack(ExitStack):
-    def __exit__(self, *args):
-        try:
-            return super().__exit__(*args)
-        except Exception as error:
-            raise BenchmarkCleanupError("Benchmark resource cleanup failed") from error
-
-
 class BenchmarkRunner:
     def run(self, host, fixture, blaster, result):
         """Prepare → warm up → measure → retain samples → clean up."""
-        with _CleanupStack() as cleanup:
+        with ExitStack() as cleanup:
             channel, stub = cleanup.enter_context(gnmi_connection(fixture))
             prepared = cleanup.enter_context(blaster.resources(host, stub))
             if blaster.warmup_seconds or blaster.rate:

@@ -4,14 +4,50 @@ import json
 import ipaddress
 import shlex
 import uuid
+import logging
+import re
 from contextlib import contextmanager, ExitStack
 
 import grpc
 from pygnmi.spec.v080 import gnmi_pb2, gnmi_pb2_grpc
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.utilities import wait_until
 
 BYPASS_METADATA = (("x-sonic-ss-bypass-validation", "true"),)
+
+
+def recover_consumer(host, consumer_service=None, timeout_seconds=60):
+    """After rollback, optionally restart the identified consumer and wait for Redis drain."""
+    if consumer_service is not None:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", consumer_service):
+            raise ValueError("consumer_service must be one systemd unit name")
+        if consumer_service.removesuffix(".service") in ("redis", "redis-server", "database", "gnmi"):
+            raise ValueError("Restart only the identified consumer, not Redis/database/gNMI")
+
+    def drained():
+        if not host.asics:
+            raise RuntimeError("No Redis instances found")
+        for asic in host.asics:
+            response = asic.run_redis_cli_cmd("client list")
+            lines = response.get("stdout_lines", [])
+            if response.get("rc", 0) != 0 or not lines:
+                raise RuntimeError("Cannot inspect Redis client output buffers")
+            total = sum(int(dict(field.split("=", 1) for field in line.split() if "=" in field)["omem"])
+                        for line in lines)
+            logging.info("Benchmark Redis output memory namespace=%s bytes=%s", asic.namespace, total)
+            if total > 10 * 1024 * 1024:
+                return False
+        return True
+
+    if drained():
+        return
+    if consumer_service:
+        logging.info("Benchmark recovery: restarting consumer %s after rollback", consumer_service)
+        host.command("sudo systemctl restart " + consumer_service)
+        host.command("systemctl is-active " + consumer_service)
+    if not wait_until(timeout_seconds, 2, 0, drained):
+        raise RuntimeError("Redis output buffers remain above 10 MiB after benchmark recovery")
 
 
 @contextmanager
