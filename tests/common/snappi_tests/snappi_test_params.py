@@ -55,6 +55,8 @@ class SnappiTestParams():
             num_rx_links (Optional[int]): number of reception links from Ixia chassis. If provided, this will
                 be used to configure the testbed for the specified number of links.
             tx_dscp_values (Optional[list[int]]): list of transmitted DSCP streams from tgen.
+            incrementing_pn_traffic (bool): whether MACsec traffic uses
+                incrementing packet numbers.
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -81,6 +83,7 @@ class SnappiTestParams():
         self.num_tx_links: Optional[int] = 1
         self.num_rx_links: Optional[int] = 1
         self.tx_dscp_values: Optional[list[int]] = []
+        self.incrementing_pn_traffic = False
         # Stop the data flows (only) after in-flight stats, so a flow held under a
         # continuous pause storm reaches 'stopped' instead of timing out the wait loop.
         self.stop_data_flows_before_final_stats: bool = False

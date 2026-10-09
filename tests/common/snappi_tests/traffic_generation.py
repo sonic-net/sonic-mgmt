@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
+INCREMENTING_PN_TRAFFIC_DURATION_SEC = 20
 UDP_PORT_START = 5000
 ECN_CAPABLE_TRANSPORT_1 = 1
 
@@ -171,6 +172,19 @@ def setup_base_traffic_config(testbed_config,
     return base_flow_config
 
 
+def _uses_incrementing_macsec_pn(testbed_config):
+    for device in testbed_config.devices:
+        for ethernet_interface in device.macsec.ethernet_interfaces:
+            crypto_engine = ethernet_interface.secure_entity.data_plane.encapsulation.crypto_engine
+            secure_channels = crypto_engine.encrypt_only.secure_channels
+            if any(
+                channel.tx_pn.choice == 'incrementing_pn'
+                for channel in secure_channels
+            ):
+                return True
+    return False
+
+
 def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
@@ -208,6 +222,11 @@ def generate_test_flows(testbed_config,
         data_flow_config["flow_rate_percent"] = {
             prio: data_flow_config["flow_rate_percent"] for prio in test_flow_prio_list
         }
+
+    snappi_extra_params.incrementing_pn_traffic = (
+        "--snappi_macsec" in sys.argv
+        and _uses_incrementing_macsec_pn(testbed_config)
+    )
 
     for prio in test_flow_prio_list:
         # If flow_index exists, then flow name uses it to identify Stream-name.
@@ -268,7 +287,12 @@ def generate_test_flows(testbed_config,
 
         test_flow.size.fixed = data_flow_config["flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["flow_rate_percent"][prio]
-        if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+        if snappi_extra_params.incrementing_pn_traffic:
+            test_flow.duration.choice = test_flow.duration.CONTINUOUS
+            test_flow.duration.continuous.delay.nanoseconds = int(
+                sec_to_nanosec(data_flow_config["flow_delay_sec"])
+            )
+        elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(
                 sec_to_nanosec(data_flow_config["flow_delay_sec"])
@@ -399,9 +423,15 @@ def generate_background_flows(testbed_config,
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
-        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
-        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                               (bg_flow_config["flow_delay_sec"]))
+        if snappi_extra_params.incrementing_pn_traffic:
+            bg_flow.duration.choice = bg_flow.duration.CONTINUOUS
+            bg_flow.duration.continuous.delay.nanoseconds = int(
+                sec_to_nanosec(bg_flow_config["flow_delay_sec"])
+            )
+        else:
+            bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
+            bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                                   (bg_flow_config["flow_delay_sec"]))
 
         bg_flow.metrics.enable = True
         bg_flow.metrics.loss = True
@@ -771,27 +801,19 @@ def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, sn
     )
 
 
-def _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names):
-    pause_flow_names = set(all_flow_names) - set(data_flow_names)
-    pytest_assert(pause_flow_names,
-                  "Cannot stop MACsec data flows without identifying the pause flow")
-
+def _stop_macsec_data_flows(ixnet, data_flow_names):
     traffic_items = list(ixnet.Traffic.TrafficItem.find())
+    data_flow_name_set = set(data_flow_names)
     pause_traffic_items = [
         traffic_item for traffic_item in traffic_items
-        if traffic_item.Name in pause_flow_names
+        if traffic_item.Name not in data_flow_name_set
     ]
-    pytest_assert(
-        len(pause_traffic_items) == len(pause_flow_names),
-        "Expected MACsec pause traffic items {}, found {}".format(
-            sorted(pause_flow_names),
-            sorted(traffic_item.Name for traffic_item in pause_traffic_items)
-        )
-    )
+    pytest_assert(pause_traffic_items,
+                  "Cannot stop MACsec data flows without identifying the pause flow")
 
     data_traffic_items = [
         traffic_item for traffic_item in traffic_items
-        if traffic_item.Name not in pause_flow_names
+        if traffic_item.Name in data_flow_name_set
     ]
     pytest_assert(data_traffic_items, "No MACsec data traffic items found to stop")
 
@@ -835,6 +857,12 @@ def run_traffic(duthost,
 
     api.set_config(config)
     ptype = "--snappi_macsec" in sys.argv
+    if ptype and snappi_extra_params.incrementing_pn_traffic:
+        exp_dur_sec = INCREMENTING_PN_TRAFFIC_DURATION_SEC
+        logger.info(
+            "Incrementing MACsec PN enabled; traffic will run continuously for %s seconds",
+            exp_dur_sec
+        )
     if ptype:
         ixnet = api._ixnetwork
         for topology in ixnet.Topology.find():
@@ -979,14 +1007,18 @@ def run_traffic(duthost,
     # A flow held under pause flow control never transitions to 'stopped' on its own.
     # In MACsec mode IxNetwork must stop all traffic to quiesce its Quick Flow Groups;
     # this also releases the pause storm so buffered data can drain.
-    if snappi_extra_params.stop_data_flows_before_final_stats:
+    stop_data_flows = (
+        snappi_extra_params.stop_data_flows_before_final_stats
+        or snappi_extra_params.incrementing_pn_traffic
+    )
+    if stop_data_flows:
         logger.info("Stopping transmit on data flows after in-flight stats collection")
         if ptype:
-            _stop_macsec_data_flows(ixnet, all_flow_names, data_flow_names)
+            _stop_macsec_data_flows(ixnet, data_flow_names)
         else:
             set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
 
-    if ptype and snappi_extra_params.stop_data_flows_before_final_stats:
+    if ptype and stop_data_flows:
         logger.info("All MACsec traffic stopped by the blocking IxNetwork operation")
         time.sleep(SNAPPI_POLL_DELAY_SEC)
     else:
