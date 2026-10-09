@@ -670,11 +670,6 @@ platform_tests/sfp/test_sfputil.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/sfp/test_show_intf_xcvr.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/test_auto_negotiation.py:
   skip:
     conditions:
