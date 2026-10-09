@@ -201,6 +201,22 @@ def snmp_physical_entity_and_sensor_info(duthosts, enum_rand_one_per_hwsku_hostn
     return get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
 
 
+# The snmp_facts module walks the entPhysicalTable one MIB column at a time
+# (all entPhysDescr rows, then all entPhysContainedIn rows, ..., then all
+# entPhysName rows, etc.) rather than taking a single atomic snapshot of the
+# whole table. If a physical entity (e.g. a transceiver) is added/removed/
+# reindexed by the SNMP subagent while the walk is in progress, some columns
+# for that entity can end up populated while others (commonly entPhysDescr or
+# entPhysName) are missing entirely, producing a torn/inconsistent read. This
+# is intermittent and platform/timing dependent (see sonic-net/sonic-buildimage
+# #22213 for a related, since-fixed root cause), so retry a few times before
+# treating a torn read as final.
+ENTITY_MIB_RETRY_TIMEOUT = 60
+ENTITY_MIB_RETRY_INTERVAL = 10
+# Mandatory per RFC 2737 for every valid entPhysicalTable row.
+ENTITY_MIB_REQUIRED_KEYS = ('entPhysDescr', 'entPhysName')
+
+
 def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     """
     Get physical entity information from snmp fact
@@ -209,21 +225,39 @@ def get_entity_and_sensor_mib(duthost, localhost, creds_all_duts):
     :param creds_all_duts: Credential for snmp
     :return:
     """
-    mib_info = {}
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    entity_mib = {}
-    sensor_mib = {}
-    for oid, info in list(snmp_facts['snmp_physical_entities'].items()):
-        entity_mib[int(oid)] = info
-    for oid, info in list(snmp_facts['snmp_sensors'].items()):
-        sensor_mib[int(oid)] = info
+    mib_info = {}
 
-    mib_info["entity_mib"] = entity_mib
-    mib_info["sensor_mib"] = sensor_mib
+    def _fetch_and_check_complete():
+        snmp_facts = get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+        entity_mib = {}
+        sensor_mib = {}
+        for oid, info in list(snmp_facts['snmp_physical_entities'].items()):
+            entity_mib[int(oid)] = info
+        for oid, info in list(snmp_facts['snmp_sensors'].items()):
+            sensor_mib[int(oid)] = info
+
+        mib_info["entity_mib"] = entity_mib
+        mib_info["sensor_mib"] = sensor_mib
+
+        incomplete_oids = [
+            oid for oid, info in entity_mib.items()
+            if any(key not in info for key in ENTITY_MIB_REQUIRED_KEYS)
+        ]
+        if incomplete_oids:
+            logging.warning(
+                "SNMP physical entity MIB walk returned incomplete rows for OID(s) %s "
+                "(missing one of %s), likely a torn read caused by a hot-swap/reindex "
+                "event during the walk. Retrying.",
+                incomplete_oids, ENTITY_MIB_REQUIRED_KEYS
+            )
+            return False
+        return True
+
+    wait_until(ENTITY_MIB_RETRY_TIMEOUT, ENTITY_MIB_RETRY_INTERVAL, 0, _fetch_and_check_complete)
 
     return mib_info
 

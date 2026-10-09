@@ -28,7 +28,7 @@ from tests.common.fixtures.fib_utils import (  # noqa: F401
     gen_fib_info_file,
     )
 from tests.common.utilities import wait
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +99,60 @@ def check_default_route_from_fib_info(ptfhost, file_path):
     return ports
 
 
+def get_default_route_nexthop_count(ptfhost, file_path, ipver):
+    """Return the validated default-route nexthop count for one address family."""
+    prefix = {"ipv4": "0.0.0.0/0", "ipv6": "::/0"}.get(ipver)
+    pytest_assert(prefix is not None, "Unsupported address family: {}".format(ipver))
+
+    result = ptfhost.shell("cat {}".format(file_path), module_ignore_errors=True)
+    pytest_assert(
+        result.get("rc", 0) == 0,
+        "Failed to read FIB file {}: {}".format(file_path, result.get("stderr", "")),
+    )
+
+    route_lines = [
+        line.strip()
+        for line in result.get("stdout_lines", [])
+        if line.strip() and line.strip().split(None, 1)[0] == prefix
+    ]
+    pytest_assert(
+        len(route_lines) == 1,
+        "Expected one {} default route in {}, found {}"
+        .format(ipver, file_path, len(route_lines)),
+    )
+
+    route_line = route_lines[0]
+    groups = re.findall(r"\[([^\]]*)\]", route_line[len(prefix):].strip())
+    expected_line = "{} {}".format(prefix, " ".join("[{}]".format(group) for group in groups))
+    pytest_assert(
+        route_line == expected_line and all(re.fullmatch(r"\d+(?: \d+)*", group) for group in groups),
+        "Malformed default route in {}: {}".format(file_path, route_line),
+    )
+    return len(groups)
+
+
+def skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver):
+    """Skip only when every tested DUT has one valid default-route nexthop."""
+    nexthop_counts = [
+        get_default_route_nexthop_count(ptfhost, fib_file, ipver)
+        for fib_file in fib_files
+    ]
+    if all(count == 1 for count in nexthop_counts):
+        pytest.skip(
+            "Hash tests require ECMP, but every {} default route has exactly one nexthop."
+            .format(ipver)
+        )
+
+    pytest_assert(
+        all(count >= 2 for count in nexthop_counts),
+        "Hash tests require consistent {} ECMP state across DUTs; nexthop counts are {}"
+        .format(ipver, nexthop_counts),
+    )
+
+
 def get_all_ptf_port_indices_from_mg_facts(mg_facts):
     """
-    Retrieve all ptf port indices from the minigraph facts.
+    Retrieve all front end ptf port indices from the minigraph facts.
 
     Args:
         mg_facts: The minigraph facts containing ASIC information.
@@ -118,6 +169,9 @@ def get_all_ptf_port_indices_from_mg_facts(mg_facts):
 
         # Store (port_index: (asic_id, port_name)) in the dictionary
         for port_name, port_index in minigraph_indices.items():
+            if port_name.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                logger.debug("Skipping special port {} in ptf port indecies".format(port_name))
+                continue
             all_port_indices[port_index] = (asic_id, port_name)
 
     return all_port_indices
@@ -550,6 +604,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
 
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver)
+
     is_active_active_dualtor = bool(active_active_ports)
     switch_type = duthosts[0].facts.get('switch_type')
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
@@ -658,6 +714,9 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
     hash_keys = ['inner_length']
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
+
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, ipver)
+
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
         ipver, timestamp)
@@ -709,6 +768,10 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
 
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
+
+    outer_ipver = vxlan_ipver.split('-', 1)[0]
+    skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, outer_ipver)
+
     # Query the default VxLAN UDP port from switch's APPL_DB
     vxlan_dport_check = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_dport_check and vxlan_dport_check['stdout'].isdigit():
@@ -851,6 +914,11 @@ def test_ecmp_group_member_flap(
     else:
         test_balancing = True
 
+    convergence_wait = 60
+    if asic_type == "vpp":
+        # VPP can be slower to drop the flapped port's nexthop from the ECMP group.
+        convergence_wait = 120
+
     # --- Load initial FIB files ---
     fib_files = fib_info_files_per_function(
         duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request
@@ -921,7 +989,7 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
@@ -980,7 +1048,7 @@ def test_ecmp_group_member_flap(
         if ptf_port in filtered_ports:
             filtered_ports.remove(ptf_port)
 
-    time.sleep(60)  # Allow time for the state to stabilize
+    time.sleep(convergence_wait)  # Allow time for the state to stabilize
 
     # --- Re-run the PTF test after member is back up ---
     logging.info("Re-verifying ECMP behavior after member up.")
