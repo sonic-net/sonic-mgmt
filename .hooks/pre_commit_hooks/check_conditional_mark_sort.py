@@ -14,6 +14,24 @@ def main():
                 for line in file_contents:
                     if re.match('^[a-zA-Z]', line):
                         conditions.append(line.strip().rstrip(":"))
+
+                seen = set()
+                duplicates = set()
+                for cond in conditions:
+                    if cond in seen:
+                        duplicates.add(cond)
+                    else:
+                        seen.add(cond)
+
+                if duplicates:
+                    print("Duplicate entries found in conditional mark YAML file")
+                    print("===========================================================================")
+                    print("File: {}".format(stage_file))
+                    print("===========================================================================")
+                    print("Duplicate entries: {}".format(sorted(duplicates)))
+                    print("===========================================================================")
+                    return 1
+
                 sorted_conditions = conditions[:]
                 sorted_conditions.sort()
                 for i in range(len(conditions)):
