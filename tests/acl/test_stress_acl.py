@@ -65,7 +65,7 @@ rules_per_platform = {
 def setup_table_and_rules(rand_selected_dut, prepare_test_port):
 
     logger.debug('Setting up rules')
-    _, _, dut_port = prepare_test_port
+    _, _, dut_port, dst_ip_addr = prepare_test_port
     logger.debug(f'dut_port: {dut_port}')
     table_name = 'STRESS_ACL_MANY'
 
@@ -513,7 +513,7 @@ def test_scale_acl_rules(request, rand_selected_dut, prepare_test_port, tbinfo, 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
     logger.debug('Starting ACL scale test')
-    ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
+    ptf_src_port, ptf_dst_ports, dut_port, dst_ip_addr = prepare_test_port
     logger.debug(f'DUT port used in test {dut_port}')
     acl_rules = setup_table_and_rules
     logger.debug(f'Number of rules: {len(acl_rules)}')
