@@ -69,6 +69,12 @@ batch. A failed Get skips Set. Repeated iterations rewrite existing keys rather
 than adding routes. Preload and cleanup are outside measurement. The helper
 registers cleanup before mutation and restores the persistent configuration backup.
 
+Generated VNET names fit Linux's 15-byte interface-name limit, including every
+index in the configured inventory. Namespace allocation avoids existing VNETs,
+VRFs, route owners and interface names; tunnel and backup names retain the full
+run UUID. Cleanup matches the exact generated VNET names, not every name sharing
+their shortened prefix. Exclusive configuration access is still required.
+
 Get uses `ALL` and `JSON_IETF` with explicit CONFIG_DB paths. Set requests validation
 bypass; SKU eligibility alone does not prove the server selected that path.
 The benchmark checks RPC/response errors, not readback equality, forwarding
