@@ -1,6 +1,6 @@
 {#
-  Latency distribution for successful RPCs only. All durations are
-  milliseconds (ms); failed RPCs are included in the method's error count.
+  Latency distribution for successful logical requests only. All durations are
+  milliseconds (ms); failed RPCs are counted separately in grpc_status_counts.
 
   Reading the summary:
     p50: median; at least 50% of successful requests completed within this time.
@@ -30,6 +30,7 @@
   Changing bounds or semantics requires a new histogram profile version.
 #}
 {
+  "sample_population": "successful_logical_requests",
   "samples": {{ samples | tojson }},
   {# Sum of per-request latency; with concurrency this is not wall-clock elapsed. #}
   "sum": {{ total | tojson }},
@@ -38,5 +39,7 @@
   "p95": {{ p95 | tojson }},
   "p99": {{ p99 | tojson }},
   "max": {{ maximum | tojson }},
+  "percentile_method": "nearest_rank",
+  "bucket_semantics": "lower_exclusive_upper_inclusive",
   "bucket_counts": {{ bucket_counts | tojson }}
 }

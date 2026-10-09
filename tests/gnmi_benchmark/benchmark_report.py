@@ -20,23 +20,42 @@ class BenchmarkReport:
         self.connection_type = connection_type
         self.cid = str(uuid.uuid4())
         self.measurement = None
-        self.warmup = None
-        self.load = {}
+        self.execution = {}
         self.resources = []
 
-    def generate(self, *, samples, warmup, resources, marker, blaster, profile=None):
+    def generate(self, *, samples, warmup, connection_ready_seconds, resources, marker, blaster, profile=None):
         """Derive report fields from raw phase data; never control test execution."""
-        self.measurement = _phase_metrics(samples)
-        self.warmup = _phase_metrics(warmup) if warmup is not None else None
-        self.load = dict(concurrency=samples["concurrency"], duration_seconds=samples["duration_seconds"],
-                         warmup_seconds=warmup["duration_seconds"] if warmup is not None else 0,
-                         traffic_pattern="open-loop" if samples["rate"] else "closed-loop")
-        if samples["rate"]:
-            self.load["target_iterations_per_second"] = samples["rate"]
+        self.measurement, self.execution = _phase_metrics(samples)
+        summary = dict(marker=marker, completed=0, admission_seconds=0)
+        if warmup is not None:
+            measured, execution = _phase_metrics(warmup)
+            summary.update(admission_seconds=warmup["duration_seconds"], elapsed_seconds=measured["elapsed_seconds"],
+                           drain_seconds=execution["drain_seconds"], iteration_status_counts=measured["statuses"],
+                           response_errors=measured["response_errors"], completed=sum(measured["statuses"].values()),
+                           dropped=warmup["dropped_capacity"] + warmup["dropped_late"])
+        self.execution.update(
+            warmup=summary, connection_ready_seconds=connection_ready_seconds,
+            connection_setup="ready_before_load" if connection_ready_seconds is not None else "included_in_first_rpc")
         self.resources = resources
         self.marker, self.blaster = marker, blaster
         self.profile = dict(profile or {})
         return self
+
+    @property
+    def counts(self):
+        statuses = Counter()
+        errors = 0
+        for samples in self.measurement["rpc"].values():
+            statuses.update(samples["statuses"])
+            errors += samples["response_errors"]
+        return _outcome_counts(statuses, errors)
+
+    @property
+    def failed(self):
+        scheduling = self.execution.get("scheduling", {})
+        slow = any(value > 1000 for samples in self.measurement["rpc"].values() for value in samples["latencies"])
+        return bool(self.counts["failed"] or slow or scheduling.get("dropped_capacity", 0)
+                    or scheduling.get("dropped_late", 0))
 
     def to_dict(self):
         if self.measurement is None:
@@ -63,6 +82,10 @@ def _phase_metrics(samples):
     end_ns = max([w["finished_ns"] for w in workers] +
                  [samples["start_ns"] + int(samples["admission_elapsed"] * 1_000_000_000)])
     elapsed = (end_ns - start_ns) / 1_000_000_000
+    drain = max(0, elapsed - (samples["admission_elapsed"] if rate else duration)) if rate or duration else 0
+    statuses = Counter()
+    for worker in workers:
+        statuses.update(worker["statuses"])
     rpc = {}
     for worker in workers:
         for method, rpc_samples in worker["rpc"].items():
@@ -71,11 +94,29 @@ def _phase_metrics(samples):
             rpc[method]["statuses"].update(rpc_samples["statuses"])
             rpc[method]["response_errors"] += rpc_samples["response_errors"]
             rpc[method]["latencies"].extend(rpc_samples["latencies"])
-    measurement = dict(started_ts=start_ts.isoformat(), finished_ts=finished_ts.isoformat(),
-                       elapsed_seconds=elapsed, rpc=rpc)
+    measurement = dict(started_ts=start_ts.isoformat(), finished_ts=finished_ts.isoformat(), elapsed_seconds=elapsed,
+                       statuses=dict(statuses), response_errors=sum(w["response_errors"] for w in workers),
+                       rpc=rpc)
+    successes = sum(w["successful_in_window"] for w in workers)
+    execution = dict(
+        concurrency=samples["concurrency"], traffic_pattern="open-loop" if rate else "closed-loop",
+        mode="duration" if duration else "count", admission_seconds=duration or None,
+        drain_seconds=drain, peak_client_inflight=samples["peak_active"],
+        workers_with_requests=sum(bool(w["statuses"]) for w in workers),
+        completed_in_window=sum(w["completed_in_window"] for w in workers) if duration else None,
+        successful_in_window=successes if duration else None,
+        successful_window_rps=successes / duration if duration else None)
     if rate:
-        measurement["dropped_iterations"] = samples["dropped_capacity"] + samples["dropped_late"]
-    return measurement
+        execution["scheduling"] = dict(
+            pattern="uniform", rate_unit="iterations_per_second", target_rate=rate,
+            scheduled=samples["scheduled"], started=sum(statuses.values()),
+            dropped_capacity=samples["dropped_capacity"], dropped_late=samples["dropped_late"],
+            admission_elapsed_seconds=samples["admission_elapsed"],
+            started_in_admission_window=samples["started_in_window"],
+            actual_start_rate=samples["started_in_window"] / samples["admission_elapsed"],
+            scheduling_delays_ms=list(samples["delays"]), max_inflight_iterations=samples["concurrency"],
+            overload_policy="drop_no_catchup")
+    return measurement, execution
 
 
 def _render(template_name, context):
@@ -93,8 +134,11 @@ GRPC_A66_LATENCY_MS_BOUNDS = tuple(_render("grpc_a66_latency_ms_bounds.json.j2",
 
 
 def _outcome_counts(statuses, response_errors=0):
-    count = sum(statuses.values())
-    return dict(count=count, error=count - statuses.get("OK", 0) + response_errors)
+    completed = sum(statuses.values())
+    successful = statuses.get("OK", 0) - response_errors
+    return dict(planned=completed, started=completed, completed=completed,
+                successful=successful, failed=completed - successful, unfinished=0,
+                attempts=completed, response_errors=response_errors)
 
 
 def _percentile(ordered, percentage):
@@ -127,17 +171,40 @@ def _latency_histogram(values):
     })
 
 
-def _metrics(statuses, response_errors, latencies):
+def _metrics(statuses, response_errors, latencies, elapsed):
     """Derive counts once from recorded outcomes, rather than validate duplicate copies."""
+    if not math.isfinite(elapsed) or elapsed <= 0:
+        raise ValueError("measurement_elapsed_seconds must be finite and positive")
     counts = _outcome_counts(statuses, response_errors)
     latency = _latency_histogram(latencies)
-    return dict(counts, latency_ms=latency)
+    if latency["samples"] != counts["successful"]:
+        raise ValueError("Successful latency samples must match successful outcomes")
+    exceeded = sum(value > 1000 for value in latencies)
+    return {
+        "count_unit": "rpc",
+        "measurement_elapsed_seconds": elapsed,
+        "counts": counts,
+        "rates_per_second": {
+            "completed": counts["completed"] / elapsed,
+            "successful": counts["successful"] / elapsed,
+        },
+        "latency_ms": latency,
+        "grpc_status_counts": dict(sorted(statuses.items())),
+        "latency_requirement": {
+            "limit_ms": 1000,
+            "evaluated_successful_requests": len(latencies),
+            "within_limit": len(latencies) - exceeded,
+            "exceeded": exceeded,
+            "passed": not exceeded and not counts["failed"],
+        },
+    }
 
 
 def _resource_summary(values, suffix=""):
     ordered = sorted(values)
     field_suffix = "_{}".format(suffix) if suffix else ""
     return {
+        "samples": len(ordered),
         "average{}".format(field_suffix): sum(ordered) / len(ordered) if ordered else None,
         "p95{}".format(field_suffix): _percentile(ordered, 95),
         "max{}".format(field_suffix): ordered[-1] if ordered else None,
@@ -184,12 +251,22 @@ def _resource_metrics(resources):
 def _build_report(result):
     """Render a single report; connection labels describe the executed setup."""
     measurement = result.measurement
-    warmup = None
-    if result.warmup is not None:
-        warmup = {key: value for key, value in result.warmup.items() if key != "rpc"}
-        warmup["requests"] = _requests(result.warmup, latency=False)
-    profile = dict(result.profile)
-    profile.pop("routes_per_request", None)  # entry_count lives with each RPC method.
+    requests = {}
+    for method, samples in measurement["rpc"].items():
+        operation = _metrics(samples["statuses"], samples["response_errors"], samples["latencies"],
+                             measurement["elapsed_seconds"])
+        operation["latency_ms"]["sample_population"] = "successful_{}_calls".format(method)
+        request_type, _, entries = method.partition(":")
+        operation["request_type"] = request_type
+        if entries:
+            operation["entry_count"] = int(entries)
+        requests[method] = operation
+    execution = _execution_metrics(result)
+    load = dict(iterations=sum(measurement["statuses"].values()), concurrency=execution["concurrency"],
+                duration_seconds=execution["admission_seconds"] or 0,
+                warmup_seconds=execution["warmup"]["admission_seconds"])
+    if "scheduling" in execution:
+        load["scheduled_iterations"] = execution["scheduling"]["scheduled"]
     report = _render("report.json.j2", {
         "cid": result.cid,
         "started_ts": measurement["started_ts"],
@@ -197,27 +274,28 @@ def _build_report(result):
         "device": result.device,
         "marker": result.marker,
         "blaster": result.blaster,
-        "profile": profile,
+        "profile": result.profile,
         "connection_type": result.connection_type,
-        "load": result.load,
-        "requests": _requests(measurement),
-        "warmup": warmup,
-        "elapsed_seconds": measurement["elapsed_seconds"],
-        "dropped_iterations": measurement.get("dropped_iterations"),
+        "load": load,
+        "requests": requests,
+        "execution": execution,
         "resources": _resource_metrics(result.resources),
     })
+    if not result.resources:
+        report["sampling"] = {"method": "none", "sample_positions": [], "measurement_window_sampled": False}
     return report
 
 
-def _requests(phase, latency=True):
-    requests = {}
-    for method, samples in phase["rpc"].items():
-        name, _, entries = method.partition(":")
-        if name in requests:
-            raise ValueError("One entry_count per RPC method is required")
-        operation = (_metrics(samples["statuses"], samples["response_errors"], samples["latencies"])
-                     if latency else _outcome_counts(samples["statuses"], samples["response_errors"]))
-        if entries:
-            operation["entry_count"] = int(entries)
-        requests[name] = operation
-    return requests
+def _execution_metrics(result):
+    execution = dict(result.execution)
+    if "scheduling" in execution:
+        scheduling = dict(execution["scheduling"])
+        delays = scheduling.pop("scheduling_delays_ms")
+        if (scheduling["scheduled"] != scheduling["started"] + scheduling["dropped_capacity"] +
+                scheduling["dropped_late"] or scheduling["started"] != sum(result.measurement["statuses"].values())
+                or len(delays) != scheduling["started"]):
+            raise ValueError("Inconsistent open-loop scheduling counts")
+        scheduling["start_delay_ms"] = _latency_histogram(delays)
+        scheduling["start_delay_ms"]["sample_population"] = "started_iterations"
+        execution["scheduling"] = scheduling
+    return execution

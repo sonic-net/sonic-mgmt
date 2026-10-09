@@ -1,4 +1,4 @@
-"""Explicit pytest entrypoint, excluded from default test_*.py discovery."""
+"""Pytest entrypoint: select a workflow, run it in the environment, then write its result."""
 
 import json
 import logging
@@ -120,3 +120,6 @@ def test_gnmi_benchmark(
             path = report.write(BENCHMARK_CONFIG["output_dir"])
             _emit_report(request, report.to_dict())
             logger.info("gNMI benchmark marker=%s cid=%s report=%s", report.marker, report.cid, path)
+            if report.failed:
+                logger.info("gNMI benchmark report-only marker=%s cid=%s has RPC failures, "
+                            "requests over 1000ms, or dropped arrivals", report.marker, report.cid)
