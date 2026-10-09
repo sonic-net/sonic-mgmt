@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 
 from tools.skip_expiry.skip_issue_expiry_impl.config import SkipExpiryConfig
 from tools.skip_expiry.skip_issue_expiry_impl.expiry import ACTIVE_MARKER, EXPIRED_LABEL
-from tools.skip_expiry.skip_issue_expiry_impl.expiry import EXPIRED_MARKER, SkipExpiryManager
+from tools.skip_expiry.skip_issue_expiry_impl.expiry import EXPIRED_MARKER, SkipExpiryManager, UNREFERENCED_MARKER
 from tools.skip_expiry.skip_issue_expiry_impl.models import IssueRef
 
 
@@ -51,9 +51,9 @@ def _iso_utc(days_ago: int) -> str:
     return dt.isoformat().replace("+00:00", "Z")
 
 
-def _manager(api_client: FakeApiClient, expiry_days: int) -> SkipExpiryManager:
+def _manager(api_client: FakeApiClient, expiry_days: int, no_op: bool = False) -> SkipExpiryManager:
     config = SkipExpiryConfig(maintainers=["maintainer1"], expiry_days=expiry_days)
-    return SkipExpiryManager(api_client=api_client, config=config, bot_login="github-actions[bot]")
+    return SkipExpiryManager(api_client=api_client, config=config, bot_login="github-actions[bot]", no_op=no_op)
 
 
 def _issue_ref() -> IssueRef:
@@ -134,5 +134,55 @@ def test_policy_decrease_to_30_days_marks_issue_expired() -> None:
 
     assert api.added_labels == [EXPIRED_LABEL]
     assert api.removed_labels == []
+    assert len(api.created_comments) == 1
+    assert EXPIRED_MARKER in api.created_comments[0]
+
+
+def test_release_unreferenced_issue_removes_label_and_comments() -> None:
+    api = FakeApiClient(issue_payload={})
+
+    _manager(api, expiry_days=90).release_unreferenced_issue(_issue_ref())
+
+    assert api.removed_labels == [EXPIRED_LABEL]
+    assert len(api.created_comments) == 1
+    assert UNREFERENCED_MARKER in api.created_comments[0]
+
+
+def test_release_unreferenced_issue_no_op_does_not_mutate() -> None:
+    api = FakeApiClient(issue_payload={})
+
+    _manager(api, expiry_days=90, no_op=True).release_unreferenced_issue(_issue_ref())
+
+    assert api.removed_labels == []
+    assert api.created_comments == []
+
+
+def test_rereferenced_issue_after_unreferenced_release_is_marked_expired_again() -> None:
+    api = FakeApiClient(
+        issue_payload={
+            "state": "open",
+            "created_at": _iso_utc(200),
+            "labels": [],
+        },
+        timeline_payload=[
+            {
+                "event": "labeled",
+                "actor": {"login": "github-actions[bot]"},
+                "label": {"name": EXPIRED_LABEL},
+                "created_at": _iso_utc(100),
+            },
+        ],
+        comments_payload=[
+            {
+                "user": {"login": "github-actions[bot]"},
+                "body": f"{UNREFERENCED_MARKER}\nreleased",
+                "created_at": _iso_utc(10),
+            },
+        ],
+    )
+
+    _manager(api, expiry_days=90).process_issue(_issue_ref())
+
+    assert api.added_labels == [EXPIRED_LABEL]
     assert len(api.created_comments) == 1
     assert EXPIRED_MARKER in api.created_comments[0]

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 EXPIRED_LABEL = "skip-wf-issue-expired"
 EXPIRED_MARKER = "<!-- skip-expiry:state=expired -->"
 ACTIVE_MARKER = "<!-- skip-expiry:state=active -->"
+UNREFERENCED_MARKER = "<!-- skip-expiry:state=unreferenced -->"
 
 
 @dataclass
@@ -157,6 +158,20 @@ class SkipExpiryManager:
         self.api_client.create_comment(issue_ref, self._build_active_comment())
         logger.info("Issue %s transitioned back to active from expired", issue_ref.html_url)
 
+    def release_unreferenced_issue(self, issue_ref: IssueRef) -> None:
+        """Drop the expired label from an issue no conditional mark references on any scanned branch."""
+        if self.no_op:
+            logger.info(
+                "NO-OP issue %s is no longer referenced action=remove_label:%s,create_comment:unreferenced",
+                issue_ref.html_url,
+                EXPIRED_LABEL,
+            )
+            return
+
+        self.api_client.remove_label(issue_ref, EXPIRED_LABEL)
+        self.api_client.create_comment(issue_ref, self._build_unreferenced_comment())
+        logger.info("Issue %s is no longer referenced by conditional marks; removed expired label", issue_ref.html_url)
+
     def _is_expired(self, created_at: datetime) -> bool:
         cutoff = created_at + timedelta(days=self.config.expiry_days)
         return datetime.now(timezone.utc) >= cutoff
@@ -216,7 +231,7 @@ class SkipExpiryManager:
             event_ts = self._parse_github_timestamp(comment.get("created_at"))
             if EXPIRED_MARKER in body:
                 apply("expired", event_ts)
-            elif ACTIVE_MARKER in body:
+            elif ACTIVE_MARKER in body or UNREFERENCED_MARKER in body:
                 apply("active", event_ts)
 
         return state
@@ -238,6 +253,14 @@ class SkipExpiryManager:
             "Skip-expiry workflow update: this issue is no longer considered expired under the current policy.\n"
             f"Maintainers: {mentions}\n"
             "The workflow removed its expired status for this issue."
+        )
+
+    @staticmethod
+    def _build_unreferenced_comment() -> str:
+        return (
+            f"{UNREFERENCED_MARKER}\n"
+            "Skip-expiry workflow update: no conditional mark on master or any supported release branch "
+            "references this issue any more, so the workflow removed its expired status."
         )
 
     @staticmethod
