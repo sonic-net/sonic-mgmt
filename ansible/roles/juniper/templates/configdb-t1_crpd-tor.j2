@@ -1,0 +1,119 @@
+{% set mgmt_ip = ansible_host %}
+{% set mgmt_if_index = 1 %}
+{% set ssh_filter = configuration[hostname].get('ssh_filter') %}
+
+system {
+    host-name {{ hostname }};
+    root-authentication {
+        encrypted-password "{{ junos_root_hash }}";
+    }
+    services {
+        netconf {
+            ssh;
+        }
+        ssh {
+            root-login allow;
+        }
+    }
+}
+
+interfaces {
+    eth0 {
+        unit 0 {
+            family inet {
+                address {{ mgmt_ip }}/{{ mgmt_prefixlen }};
+                {% if ssh_filter is defined %}
+                filter {
+                    input {{ ssh_filter }};
+                }
+                {% endif %}
+            }
+        }
+    }
+
+    {% if configuration[hostname].get('bp_interface') is defined %}
+    eth_bp {
+        unit 0 {
+            family inet {
+                address {{ configuration[hostname]['bp_interface']['ipv4'] }};
+            }
+            family inet6 {
+                address {{ configuration[hostname]['bp_interface']['ipv6'] }};
+            }
+        }
+    }
+    {% endif %}
+}
+
+{# DYNAMIC INTERFACE SELECTION #}
+{% set host_config = configuration[hostname] %}
+{% set target_intf = (host_config['interfaces'].keys() | reject('equalto', 'Loopback0') | first) %}
+
+routing-options {
+    router-id {{ host_config['interfaces'][target_intf]['ipv4'] | ipaddr('address') }};
+    autonomous-system {{ host_config['bgp']['asn'] }};
+    static {
+        route 0.0.0.0/0 next-hop {{ mgmt_gw }};
+    }
+}
+
+policy-options {
+    policy-statement EXPORT-ALL {
+        term 1 {
+            from {
+                protocol direct;
+                protocol bgp;
+            }
+            then {
+                next-hop self;
+                accept;
+            }
+        }
+        then reject;
+    }
+}
+
+protocols {
+    bgp {
+        {% set bgp_data = host_config['bgp'] %}
+        group IBGP {
+            {% for peer_asn, peer_ips in bgp_data['peers'].items() %}
+            type {% if peer_asn|int == bgp_data['asn']|int %}internal{% else %}external{% endif %};
+            export EXPORT-ALL;
+            local-as {{ bgp_data['asn'] }};
+            neighbor 10.10.246.254 {
+                peer-as {{ peer_asn }};
+            }
+            {% endfor %}
+        }
+
+        {% if configuration[hostname].get('bgp') is defined %}
+        {% for peer_asn, peer_list in configuration[hostname]['bgp']['peers'].items() %}
+        group ASN_{{ peer_asn }} {
+            type external;
+            description "Peers in ASN {{ peer_asn }}";
+            export EXPORT-ALL;
+            {% for peer_ip in peer_list %}
+            neighbor {{ peer_ip }} {
+                peer-as {{ peer_asn }};
+                description "Peer {{ peer_ip }}";
+                
+                {% if ':' in peer_ip %}
+                local-ipv4-address {{ host_config['interfaces'][target_intf]['ipv4'] | ipaddr('address') }};
+                local-address {{ host_config['interfaces'][target_intf]['ipv6'] | ipaddr('address') }};
+                family inet6 {
+                    unicast;
+                }
+                {% else %}
+                local-address {{ host_config['interfaces'][target_intf]['ipv4'] | ipaddr('address') }};
+                family inet {
+                    unicast;
+                }
+                {% endif %}
+            }
+            {% endfor %}
+        }
+        {% endfor %}
+        {% endif %}
+    }
+}
