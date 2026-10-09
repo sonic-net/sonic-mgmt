@@ -1,3 +1,4 @@
+import ast
 import logging
 import time
 
@@ -12,6 +13,7 @@ from tests.common.macsec.macsec_helper import (
     check_appl_db,
     get_sci,
     getns_prefix,
+    is_ptf_row,
 )
 
 
@@ -146,14 +148,25 @@ def wait_for_mka_converged(duthost, ctrl_links, policy, cipher_suite, send_sci):
 # ---------------------------------------------------------------------------
 
 def _get_appl_db_sa_sak(duthost, port_name, sci, an, egress=True):
-    """Return the SAK from APPL_DB for the given (port, sci, an), or None."""
+    """Return the SAK from APPL_DB for the given (port, sci, an), or None.
+
+    Harness-programmed PTF ingress SAs (macsec_helper.program_ptf_ingress_sa,
+    recognised by ``ptf_sa == sak``) are excluded so SAK-consistency checks
+    only judge what wpa_supplicant programmed. HGETALL is used because both
+    the C++ and the older Python sonic-db-cli print it as a dict literal.
+    """
     table = "MACSEC_EGRESS_SA_TABLE" if egress else "MACSEC_INGRESS_SA_TABLE"
     ns_prefix = getns_prefix(duthost, port_name)
-    cmd = "sonic-db-cli {} APPL_DB HGET '{}:{}:{}:{}' sak".format(
+    cmd = "sonic-db-cli {} APPL_DB HGETALL '{}:{}:{}:{}'".format(
         ns_prefix, table, port_name, sci, an)
     result = duthost.shell(cmd, module_ignore_errors=True)
-    sak = result.get("stdout", "").strip()
-    return sak if sak else None
+    try:
+        row = ast.literal_eval(result.get("stdout", "").strip() or "{}")
+    except (ValueError, SyntaxError):
+        return None
+    if not isinstance(row, dict) or not row.get("sak") or is_ptf_row(row):
+        return None
+    return row["sak"]
 
 
 def snapshot_appl_db_saks(duthost, ctrl_links):
