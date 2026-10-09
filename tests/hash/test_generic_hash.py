@@ -645,6 +645,8 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
     with allure.step('Randomly select one member in each portchannel and remove it from the lag and add it back'):
         # Randomly choose the members to remove/add
         for portchannel in uplink_interfaces:
+            if portchannel not in mg_facts['minigraph_portchannels']:
+                continue
             interface = random.choice(uplink_interfaces[portchannel])
             remove_add_portchannel_member(rand_selected_dut, interface, portchannel)
 
