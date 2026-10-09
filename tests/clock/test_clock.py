@@ -33,17 +33,14 @@ class ClockConsts:
     CMD_SHOW_CLOCK_TIMEZONES = "show clock timezones"
     CMD_CONFIG_CLOCK_TIMEZONE = "config clock timezone"
     CMD_CONFIG_CLOCK_DATE = "config clock date"
-    CMD_NTP_STOP = 'service ntp stop'
-    CMD_NTP_START = 'service ntp start'
-    CMD_NTPDATE = 'ntpdate'
 
     # expected outputs
     OUTPUT_CMD_SUCCESS = ''
 
     # expected errors
     ERR_BAD_TIMEZONE = 'Timezone {} does not conform format'
-    ERR_MISSING_DATE = 'Error: Missing argument "<YYYY-MM-DD>"'
-    ERR_MISSING_TIME = 'Error: Missing argument "<HH:MM:SS>"'
+    ERR_MISSING_DATE = "Error: Missing argument '<YYYY-MM-DD>'"
+    ERR_MISSING_TIME = "Error: Missing argument '<HH:MM:SS>'"
     ERR_BAD_DATE = 'Date {} does not conform format YYYY-MM-DD'
     ERR_BAD_TIME = 'Time {} does not conform format HH:MM:SS'
 
@@ -84,7 +81,8 @@ class ClockUtils:
             except RunAnsibleModuleFail as cmd_err:
                 output = cmd_err.results["stdout"]
                 err = cmd_err.results["stderr"]
-                cmd_output = output if output else err
+                msg = cmd_err.results.get("msg", "")
+                cmd_output = output or err or msg
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
                 if raise_err:
                     raise Exception(cmd_output)
