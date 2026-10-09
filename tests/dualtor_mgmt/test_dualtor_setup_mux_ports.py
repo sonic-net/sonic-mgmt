@@ -10,6 +10,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host                  
 from tests.common.dualtor.dual_tor_utils import lower_tor_host                                              # noqa: F401
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                             # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
 
