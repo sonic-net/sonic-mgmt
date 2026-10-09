@@ -9,6 +9,7 @@ import sys
 import optparse
 import logging
 import logging.handlers
+import os
 from socket import socket, AF_PACKET, SOCK_RAW
 import time
 from ctypes import (
@@ -127,6 +128,40 @@ def main():
     interfaces = options.interface.split(',')
 
     length_of_list = len(interfaces)
+
+    # When multiple interfaces are storming, a single process can only refresh
+    # them one after another (round-robin). Once the per-port revisit interval
+    # exceeds the PFC pause quanta window, the trailing ports drain before they
+    # are re-armed and never sustain a storm. Spread the interfaces across
+    # several worker processes so the ports are refreshed concurrently.
+    #
+    # Cap the number of workers at (CPU cores - 1): each worker busy-polls a
+    # non-blocking socket, so forking more busy senders than cores oversubscribes
+    # the fanout CPU. Oversubscribed workers get descheduled for whole scheduler
+    # slices (milliseconds, far longer than the ~tens-of-microseconds quanta
+    # window) and their ports drop the storm, which makes storm coverage flaky.
+    # Leaving one core free also keeps CPU for kernel TX softirqs. Each worker
+    # round-robins only its small slice of interfaces, which stays within the
+    # quanta window.
+    if length_of_list > 1:
+        num_workers = min(length_of_list, max(1, (os.cpu_count() or 2) - 1))
+        if num_workers > 1:
+            worker_intfs = [interfaces[i::num_workers] for i in range(num_workers)]
+            child_pids = []
+            for group in worker_intfs:
+                pid = os.fork()
+                if pid == 0:
+                    # Child: handle only this slice of interfaces.
+                    interfaces = group
+                    length_of_list = len(group)
+                    break
+                child_pids.append(pid)
+            else:
+                # Parent: wait for all workers to finish, then exit.
+                for pid in child_pids:
+                    os.waitpid(pid, 0)
+                sys.exit(0)
+
     sockets = []
 
     # Configure fanout logging
