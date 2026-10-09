@@ -18,7 +18,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
-    CAUSE_POWER_LOSS,
+    CAUSE_POWER_LOSS_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
@@ -269,7 +269,7 @@ class TestBmcCliCommands:
             verify_bmc_initiated_reboot(
                 host, pre_boot,
                 (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC,
-                 CAUSE_POWER_LOSS))
+                 CAUSE_POWER_LOSS_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
