@@ -7,13 +7,16 @@ and ``links_verified`` (every module under test must start seated and linked
 up); ``gold_fw_verified`` is intentionally NOT requested because OIR behaviour
 is firmware-version independent.
 """
+import http.client
 import logging
 
 import pytest
 
+from tests.common.platform.device_utils import SERVER_PORT, start_platform_api_server
 from tests.common.platform.interface_utils import get_pport_presence_data
 from tests.transceiver.attribute_parser.attribute_keys import PHYSICAL_OIR_ATTRIBUTES_KEY
 from tests.transceiver.common.port_selectors import select_attribute_ports
+from tests.transceiver.common.topology import resolve_remote_peer
 from tests.transceiver.oir import oir_helpers
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,7 @@ _DUT_SCOPED_OIR_ATTRIBUTES = (
     "physical_oir_timeout_min",
     "simultaneous_oir",
     "physical_oir_stress_iteration",
+    "hot_swap_ports_under_test",
 )
 
 
@@ -112,6 +116,51 @@ def oir_pport_to_lports(
 
     logger.info("Physical OIR ports under test: %s", mapping)
     return mapping
+
+
+@pytest.fixture(scope="module")
+def oir_link_peers(duthost, duthosts, conn_graph_facts, oir_pport_to_lports):
+    """``{logical port under test: its link peer}`` for the link peers on this DUT.
+
+    A port's OIR takes its link peer down too, so the other-port checks must not
+    treat the peer as an unrelated port.  A peer that cannot be resolved stays
+    in those checks, where it can only cause a reported failure, never hide one.
+    """
+    link_peers = {}
+    for lports in oir_pport_to_lports.values():
+        for lport in lports:
+            peer, error = resolve_remote_peer(duthost, duthosts, conn_graph_facts, lport)
+            if error:
+                logger.info("No link peer on this DUT for %s: %s", lport, error)
+            elif peer.device == duthost.hostname:
+                link_peers[lport] = peer.port
+    logger.info("Physical OIR link peers on this DUT: %s", link_peers)
+    return link_peers
+
+
+@pytest.fixture(scope="session")
+def hot_swap_ports_under_test(port_attributes_dict, physical_oir_attribute_ports, oir_pport_to_lports):
+    """``[physical index, XcvrApi class name]`` pairs for the TC5/TC6 hot-swap tests."""
+    swaps = port_attributes_dict[
+        physical_oir_attribute_ports[0]
+    ][PHYSICAL_OIR_ATTRIBUTES_KEY]["hot_swap_ports_under_test"]
+    if not swaps:
+        pytest.skip("physical OIR 'hot_swap_ports_under_test' is empty")
+
+    unknown = [pport for pport, _ in swaps if pport not in oir_pport_to_lports]
+    if unknown:
+        pytest.fail(f"hot_swap_ports_under_test physical port(s) {unknown} are not in ports_under_test")
+    return swaps
+
+
+@pytest.fixture
+def oir_platform_api_conn(duthost, localhost):
+    """Platform API server connection; its Sfp objects outlive a hot swap, like xcvrd's."""
+    start_platform_api_server(duthost, localhost)
+    conn = http.client.HTTPConnection(
+        duthost.get_mgmt_ip()["mgmt_ip"], SERVER_PORT, timeout=oir_helpers.PLATFORM_API_TIMEOUT_SEC)
+    yield conn
+    conn.close()
 
 
 @pytest.fixture(autouse=True)
