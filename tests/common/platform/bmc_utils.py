@@ -22,11 +22,13 @@ BMC_EVENT_LOG = '/host/bmc/event.log'
 CAUSE_POWER_DOWN_FROM_BMC = 'power down request from bmc'
 # Graceful shutdown (ACTION_GRACEFUL_SHUTDOWN: CLI config shutdown, rack-mgr GRACEFUL_SHUT)
 CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC = 'graceful shutdown from bmc'
-CAUSE_POWER_LOSS = 'power loss'
+# BMC remote power cycle (BMC drops chassis power); distinct from the explicit
+# "power down request from bmc" command.
+CAUSE_POWER_LOSS_FROM_BMC = 'power loss (bmc remote power cycle)'
 BMC_INITIATED_REBOOT_CAUSES = (
     CAUSE_POWER_DOWN_FROM_BMC,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
-    CAUSE_POWER_LOSS,
+    CAUSE_POWER_LOSS_FROM_BMC,
 )
 
 
