@@ -122,7 +122,7 @@ vm_host_1:
 
 **cEOS Image (for neighbor VMs):**
 
-Download the cEOS lab image from the [Arista software download page](https://www.arista.com/en/support/software-download) (requires an Arista account). The image file is named like `cEOS64-lab-4.32.5M.tar`. Place it under `~/veos-vm/images/`. The testbed automation will load it automatically.
+Download the cEOS lab image from the [Arista software download page](https://www.arista.com/en/support/software-download) (requires an Arista account). The image file is named like `cEOS64-lab-4.35.2F.tar`. Place it under `~/veos-vm/images/`. The testbed automation will load it automatically.
 
 **SONiC VS Image:**
 
