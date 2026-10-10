@@ -202,32 +202,50 @@ def setup_authorization_tacacs_local(duthosts, enum_rand_one_per_hwsku_hostname)
 
 @pytest.fixture
 def setup_authentication_tacacs_local(
-        duthosts, enum_rand_one_per_hwsku_hostname, check_tacacs):  # noqa: F811
+        duthosts, enum_rand_one_per_hwsku_hostname, check_tacacs, request):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     get_login_mode = (
         r'show aaa | grep -Po "AAA authentication login \K.*"')
     previous_login_mode = duthost.shell(get_login_mode)["stdout"]
 
-    change_and_wait_aaa_config_update(
-        duthost,
-        "sudo config aaa authentication login tacacs+ local",
-    )
-    login_mode = duthost.shell(get_login_mode)["stdout"]
-    pytest_assert(
-        login_mode == "tacacs+,local",
-        "Failed to configure TACACS-to-local authentication fallback",
-    )
+    if previous_login_mode.endswith(" (default)"):
+        restore_mode = "default"
+    else:
+        restore_mode = previous_login_mode.replace(",", " ")
+    restore_command = (
+        "sudo config aaa authentication login {}".format(restore_mode))
+
     try:
-        yield
-    finally:
-        if previous_login_mode.endswith(" (default)"):
-            restore_mode = "default"
-        else:
-            restore_mode = previous_login_mode.replace(",", " ")
         change_and_wait_aaa_config_update(
             duthost,
-            "sudo config aaa authentication login {}".format(restore_mode),
+            "sudo config aaa authentication login tacacs+ local",
         )
+        login_mode = duthost.shell(get_login_mode)["stdout"]
+        pytest_assert(
+            login_mode == "tacacs+,local",
+            "Failed to configure TACACS-to-local authentication fallback",
+        )
+        yield
+    finally:
+        failure_in_progress = sys.exc_info()[0] is not None
+        test_failed = (
+            hasattr(request.node, "rep_call") and request.node.rep_call.failed)
+        if failure_in_progress or test_failed:
+            try:
+                restore_result = duthost.shell(
+                    restore_command, module_ignore_errors=True)
+                if restore_result["rc"] != 0:
+                    logger.error(
+                        "Failed to restore AAA authentication login mode: %s",
+                        restore_result,
+                    )
+            except Exception as error:
+                logger.error(
+                    "Failed to restore AAA authentication login mode: %r",
+                    error,
+                )
+        else:
+            change_and_wait_aaa_config_update(duthost, restore_command)
 
 
 def verify_show_aaa(remote_user_client):
@@ -468,8 +486,8 @@ def test_tacacs_fallback_requires_local_password(
 
 def test_authorization_tacacs_and_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs_local, setup_authentication_tacacs_local,
-        tacacs_creds, check_tacacs, remote_user_client):  # noqa: F811
+        setup_authorization_tacacs_local, tacacs_creds,
+        check_tacacs, remote_user_client):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     """
@@ -495,8 +513,7 @@ def test_authorization_tacacs_and_local(
 
 def test_authorization_tacacs_and_local_then_server_down_after_login(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs_local, setup_authentication_tacacs_local,
-        tacacs_creds, ptfhost,
+        setup_authorization_tacacs_local, tacacs_creds, ptfhost,
         check_tacacs, remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -537,7 +554,7 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
 
 def test_authorization_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authentication_tacacs_local, tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
+        tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
         remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -632,7 +649,7 @@ def test_bypass_authorization(
 
 def test_backward_compatibility_disable_authorization(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authentication_tacacs_local, tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
+        tacacs_creds, ptfhost, check_tacacs,  # noqa: F811
         remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
