@@ -1,0 +1,50 @@
+{
+  "ARS_PROFILE": {
+    "ars_profile_default": {
+      "algorithm": "ewma",
+      "ars_nhg_path_selector_mode": "global",
+      "default_ars_object": "ars_obj_name",
+      "ipv4_enable": "true",
+      "ipv6_enable": "true"
+    }
+  },
+  "ARS_OBJECT": {
+    "ars_obj_name": {
+      "assign_mode": "per_packet_quality",
+      "flowlet_idle_time": "1000",
+      "max_flows": "512"
+    }
+  },
+  "ARS_NEXTHOP": {
+    "|10.0.0.57": {
+      "ars_obj_name": "ars_obj_name"
+    },
+    "|10.0.0.59": {
+      "ars_obj_name": "ars_obj_name"
+    },
+    "|10.0.0.61": {
+      "ars_obj_name": "ars_obj_name"
+    },
+    "|10.0.0.63": {
+      "ars_obj_name": "ars_obj_name"
+    }
+  },
+  "ARS_INTERFACE": {
+    "Ethernet28": {
+      "scaling_factor": "1",
+      "ars_obj_name": "ars_obj_name"
+    },
+    "Ethernet29": {
+      "scaling_factor": "1",
+      "ars_obj_name": "ars_obj_name"
+    },
+    "Ethernet30": {
+      "scaling_factor": "1",
+      "ars_obj_name": "ars_obj_name"
+    },
+    "Ethernet31": {
+      "scaling_factor": "1",
+      "ars_obj_name": "ars_obj_name"
+    }
+  }
+}
