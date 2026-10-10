@@ -254,7 +254,7 @@
 
 - name: Set default value for topo_is_multi_vrf
   set_fact:
-    topo_is_multi_vrf: False
+    topo_is_multi_vrf: false
   when: topo_is_multi_vrf is not defined
 
 # Honor the converger-provided front-panel count for EVERY vm_set action, not

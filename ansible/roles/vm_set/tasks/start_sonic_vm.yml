@@ -6,10 +6,6 @@
     disable_updategraph: False
   when: disable_updategraph is not defined
 
-- set_fact:
-    use_uefi: False
-  when: use_uefi is not defined
-
 - name: Check if images folder exists
   stat: path={{ sonic_vm_storage_location }}/images
   register: images_folder_stat
@@ -62,13 +58,45 @@
   stat: path={{ disk_image }}
   register: file_stat
 
+- name: Check source EFI vars for {{ dut_name }}
+  stat:
+    path: "{{ src_disk_efi_vars }}"
+  register: src_disk_efi_vars_stat
+
+- name: Enable UEFI when EFI vars are available
+  set_fact:
+    use_uefi: "{{ src_disk_efi_vars_stat.stat.exists }}"
+  when: use_uefi is not defined
+
+- name: Check sonic EFI vars for {{ dut_name }}
+  stat:
+    path: "{{ efi_vars }}"
+  register: efi_vars_stat
+  when: use_uefi | bool
+
+- name: Check Secure Boot firmware for {{ dut_name }}
+  stat:
+    path: /usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+  register: secure_boot_firmware_stat
+  when: use_uefi | bool
+
+- name: Validate Secure Boot artifacts for {{ dut_name }}
+  assert:
+    that:
+      - secure_boot_firmware_stat.stat.exists
+      - src_disk_efi_vars_stat.stat.exists
+    fail_msg: >-
+      Secure Boot requires /usr/share/OVMF/OVMF_CODE_4M.secboot.fd and
+      {{ src_disk_efi_vars }} on the VM host.
+  when: use_uefi | bool
+
 - name: Copy sonic disk image for {{ dut_name }}
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
 
 - name: Copy sonic EFI vars for {{ dut_name }}
   copy: src={{ src_disk_efi_vars }} dest={{ efi_vars }} remote_src=True
-  when: not file_stat.stat.exists and use_uefi
+  when: use_uefi | bool and not efi_vars_stat.stat.exists
 
 - name: Get DUT port alias
   port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}
