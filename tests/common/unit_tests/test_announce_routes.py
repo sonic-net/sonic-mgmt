@@ -4,6 +4,7 @@ import importlib.util
 from pathlib import Path
 import sys
 from types import ModuleType
+from unittest.mock import patch
 
 import pytest
 
@@ -28,17 +29,18 @@ def _load_announce_routes():
     basic.AnsibleModule = object
     debug_utils.config_module_logging = lambda *args, **kwargs: None
     multi_servers_utils.MultiServersUtils = object
-    sys.modules.update({
+    stubs = {
         "ansible": ansible,
         "ansible.module_utils": module_utils,
         "ansible.module_utils.basic": basic,
         "ansible.module_utils.debug_utils": debug_utils,
         "ansible.module_utils.multi_servers_utils": multi_servers_utils,
-    })
-    spec = importlib.util.spec_from_file_location(
-        "announce_routes", MODULE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    }
+    with patch.dict(sys.modules, stubs):
+        spec = importlib.util.spec_from_file_location(
+            "announce_routes", MODULE_PATH)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
     return module
 
 
