@@ -31,16 +31,33 @@ def create_gnmi_config(duthost):
 
 
 def delete_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
+    # Delete the whole CONFIG_DB entries rather than one field at a time. gnmi-native.sh
+    # re-reads CONFIG_DB every time supervisord starts the gnmi program, and it exits with
+    # "Incorrect port value null, expecting positive integers" whenever 'GNMI|gnmi' still
+    # exists but 'port' has already been removed. Removing the entries whole keeps the
+    # config either complete or absent for any restart that overlaps with the cleanup.
+    cmd = "sonic-db-cli CONFIG_DB del 'GNMI|certs'"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
+    cmd = "sonic-db-cli CONFIG_DB del 'GNMI|gnmi'"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_crt"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
-    duthost.shell(cmd, module_ignore_errors=True)
+
+
+def wait_gnmi_ready(duthost, env):
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+              "%s not started." % (env.gnmi_container))
+
+    def _program_running():
+        cmd = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+        return "RUNNING" in duthost.shell(cmd, module_ignore_errors=True)['stdout']
+
+    py_assert(wait_until(60, 5, 0, _program_running),
+              "%s is not running in container %s." % (env.gnmi_program, env.gnmi_container))
+
+
+def restart_gnmi(duthost, env):
+    duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+    duthost.service(name=env.gnmi_container, state="restarted")
+    wait_gnmi_ready(duthost, env)
 
 
 def setup_telemetry_forpyclient(duthost):
@@ -76,8 +93,23 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
         duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
                       % (env.gnmi_config_table, default_client_auth),
                       module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-        duthost.service(name=env.gnmi_container, state="restarted")
+        restart_gnmi(duthost, env)
+
+
+def restore_gnmi_state(duthost, env, has_gnmi_config, default_client_auth):
+    """ Undo everything setup_streaming_telemetry_context changed.
+
+        The order matters. When this helper created the GNMI config, putting client_auth back
+        would recreate 'GNMI|gnmi' without 'port', which is the state gnmi-native.sh rejects.
+        The config is therefore removed first and the container is restarted once afterwards,
+        so no restart ever observes a partially deleted GNMI config.
+    """
+    if not has_gnmi_config:
+        delete_gnmi_config(duthost)
+        if env is not None:
+            restart_gnmi(duthost, env)
+    elif default_client_auth is not None:
+        restore_telemetry_forpyclient(duthost, default_client_auth)
 
 
 @contextmanager
@@ -85,6 +117,9 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
+    env = None
+    has_gnmi_config = True
+    default_client_auth = None
     try:
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
@@ -108,10 +143,8 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
             py_assert(file_exists["stat"]["exists"] is True)
     except RunAnsibleModuleFail as e:
         logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
-        restore_telemetry_forpyclient(duthost, default_client_auth)
+        restore_gnmi_state(duthost, env, has_gnmi_config, default_client_auth)
         raise e
 
     yield
-    restore_telemetry_forpyclient(duthost, default_client_auth)
-    if not has_gnmi_config:
-        delete_gnmi_config(duthost)
+    restore_gnmi_state(duthost, env, has_gnmi_config, default_client_auth)
