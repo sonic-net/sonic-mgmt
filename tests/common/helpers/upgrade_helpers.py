@@ -5,7 +5,6 @@ import json
 import re
 from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
-import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
