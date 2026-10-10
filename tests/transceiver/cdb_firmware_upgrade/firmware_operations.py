@@ -486,7 +486,7 @@ def distinct_version_upgrade_op(duthost, port, port_context, metadata_map):
 
 
 def old_gold_upgrade_op(duthost, port, port_context, metadata_map):
-    """TC15 per-port op: downgrade to old gold, then upgrade to current gold."""
+    """TC14 per-port op: downgrade to old gold, then upgrade to current gold."""
     cdb_attrs = port_context["cdb_attrs"]
     old_gold = cdb_attrs["old_gold_firmware_version"]
     gold = cdb_attrs["gold_firmware_version"]
@@ -785,6 +785,28 @@ def download_interruption_op(duthost, port, port_context, metadata_map):
                 elif cleanup_status != "True":
                     result_failures.append(f"{phase} CDB abort returned {cleanup_status}")
     return result_failures
+
+
+def download_stress_op(duthost, port, port_context, metadata_map):
+    """TC11 per-port op: repeat firmware download, stopping at the first bad iteration."""
+    iterations = port_context["cdb_attrs"]["firmware_download_stress_iterations"]
+    for iteration in range(1, iterations + 1):
+        logger.info("Port %s: firmware download stress iteration %d/%d", port, iteration, iterations)
+        failures = perform_firmware_download(duthost, port, port_context, metadata_map)
+        if failures:
+            return [f"iteration {iteration}/{iterations}: {failure}" for failure in failures]
+    return []
+
+
+def activation_stress_op(duthost, port, port_context, metadata_map):
+    """TC12 per-port op: repeat firmware activation, stopping at the first bad iteration."""
+    iterations = port_context["cdb_attrs"]["firmware_activation_stress_iterations"]
+    for iteration in range(1, iterations + 1):
+        logger.info("Port %s: firmware activation stress iteration %d/%d", port, iteration, iterations)
+        failures = activation_op(duthost, port, port_context, metadata_map)
+        if failures:
+            return [f"iteration {iteration}/{iterations}: {failure}" for failure in failures]
+    return []
 
 
 def upgrade_stress_op(duthost, port, port_context, metadata_map):

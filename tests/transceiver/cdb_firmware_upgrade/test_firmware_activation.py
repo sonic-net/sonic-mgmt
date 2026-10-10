@@ -24,3 +24,22 @@ def test_firmware_activation(
     logger.info("Firmware activation exercised %d port(s)", num_ports)
     if all_failures:
         pytest.fail("Firmware activation failures:\n" + "\n".join(all_failures))
+
+
+def test_firmware_activation_stress(
+    duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
+    required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
+    dom_polling_disabled,
+):
+    """Repeat firmware activation and verify every iteration."""
+    all_failures, num_ports = firmware_operations.execute_on_ports(
+        duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
+        get_lport_to_pport_mapping,
+        required_firmware_metadata_for_all_transceivers,
+        firmware_operations.activation_stress_op,
+        lport_to_first_subport_mapping,
+        verify_post_operation=True,
+    )
+    logger.info("Firmware activation stress exercised %d port(s)", num_ports)
+    if all_failures:
+        pytest.fail("Firmware activation stress failures:\n" + "\n".join(all_failures))
