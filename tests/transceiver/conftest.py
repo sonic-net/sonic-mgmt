@@ -415,7 +415,7 @@ def lport_to_first_subport_mapping(duthost):
 def presence_verified(duthost, port_attributes_dict):
     """Gate: all transceivers in port_attributes_dict are present.
 
-    Opted into by DOM, System, CDB FW (via their category conftests).
+    Opted into by DOM, VDM, System, CDB FW (via their category conftests).
     EEPROM does NOT opt in — it owns the presence test cases directly.
     """
     result = check_presence_show_cli(duthost, port_attributes_dict)
@@ -434,7 +434,7 @@ def gold_fw_verified(duthost, port_attributes_dict):
     MUST be configured AND must match the active firmware reported by the CLI.
     Other ports are out of scope (no expectation to compare against).
 
-    Opted into by DOM, System (via their category conftests). CDB FW does
+    Opted into by DOM, VDM, System (via their category conftests). CDB FW does
     NOT opt in — it owns the gold-firmware test case directly.
     """
     result = check_gold_firmware(duthost, port_attributes_dict)
@@ -448,7 +448,7 @@ def gold_fw_verified(duthost, port_attributes_dict):
 def links_verified(duthost, port_attributes_dict):
     """Gate: every transceiver port in port_attributes_dict is admin-up and oper-up.
 
-    Opted into by EEPROM, DOM, System, CDB FW (via their category
+    Opted into by EEPROM, DOM, VDM, System, CDB FW (via their category
     conftests). Port Config does NOT opt in — its tests query CONFIG_DB
     only and do not require live links.
     """
