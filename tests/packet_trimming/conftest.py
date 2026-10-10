@@ -2,12 +2,13 @@ import logging
 import pytest
 import copy
 
-from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import configure_packet_aging
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, peer_links    # noqa F401
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.srv6_helper import create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid
+from tests.common.gu_utils import (
+    create_checkpoint, delete_checkpoint, rollback_or_reload)
 from tests.packet_trimming.constants import (
     SERVICE_PORT, DEFAULT_DSCP, SRV6_TUNNEL_MODE, SRV6_MY_LOCATOR_LIST, SRV6_MY_SID_LIST,
     COUNTER_TYPE, SRV6_ROUTE_PREFIX)
@@ -187,8 +188,8 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
     platform = duthost.facts['platform']
 
     with allure.step("Backup configuration"):
-        logger.info("Backup configuration before trimming test")
-        duthost.shell("sudo config save -y /etc/sonic/config_db_before_trimming_test.json")
+        logger.info("Create config checkpoint before trimming test")
+        create_checkpoint(duthost)
 
     # For Nvidia sn5600 platform, the service port will be used as packets trimming feature.
     # So need to check trimming capability and prepare service port before test tests.
@@ -252,34 +253,33 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
 
     yield
 
-    with allure.step("Disable trimming in buffer profile"):
-        for buffer_profile in test_params['trim_buffer_profiles']:
-            configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
-        for buffer_profile in trim_counter_params['trim_buffer_profiles']:
-            configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+    try:
+        with allure.step("Disable trimming in buffer profile"):
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
+            for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
 
-    with allure.step("Delete trim queue test buffer profile"):
-        delete_trim_queue_test_buffer_profile(duthost)
+        with allure.step("Delete trim queue test buffer profile"):
+            delete_trim_queue_test_buffer_profile(duthost)
 
-    with allure.step("Delete the blocking scheduler"):
-        delete_blocking_scheduler(duthost)
+        with allure.step("Delete the blocking scheduler"):
+            delete_blocking_scheduler(duthost)
 
-    if is_mellanox_device(duthost):
-        with allure.step("Enable packet aging"):
-            configure_packet_aging(duthost, disabled=False)
-
-    with allure.step("Restore original configuration"):
-        logger.info("Restoring original configuration")
-        duthost.shell(
-            "sudo cp /etc/sonic/config_db_before_trimming_test.json /etc/sonic/config_db.json"
-        )
-        config_reload(
-            duthost,
-            config_source="config_db",
-            safe_reload=True,
-            wait_for_bgp=True,
-            check_intf_up_ports=True
-        )
+        if is_mellanox_device(duthost):
+            with allure.step("Enable packet aging"):
+                configure_packet_aging(duthost, disabled=False)
+    finally:
+        # Always roll back to the checkpoint, even if any of the specific
+        # cleanup steps above failed or were skipped, so persistent CONFIG_DB
+        # state (e.g. a queue scheduler left blocked by a mid-test failure)
+        # never leaks into the next test module.
+        with allure.step("Restore original configuration"):
+            logger.info("Rolling back to original checkpoint")
+            try:
+                rollback_or_reload(duthost)
+            finally:
+                delete_checkpoint(duthost)
 
 
 @pytest.fixture(params=SRV6_TUNNEL_MODE)
