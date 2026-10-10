@@ -25,6 +25,28 @@ VRF_SCENARIOS = [
 ]
 
 
+def pytest_addoption(parser):
+    group = parser.getgroup("Healthz qualification")
+    group.addoption("--healthz-controlled-episodes", action="store_true",
+                    help="Run bounded Healthz producer episodes on the selected lab DUT")
+    group.addoption("--healthz-dldd-component", default="",
+                    help="Isolated installed DLDD component for the optional archived-fault case")
+    group.addoption("--healthz-dldd-signal", default="",
+                    help="Approved installed demo signal file accepting HEALTHY/FAULT; rules are not changed")
+
+
+@pytest.fixture
+def healthz_tls(request, duthosts):
+    """Check installed Healthz before the standard TLS setup changes configuration."""
+    from tests.common.fixtures.grpc_fixtures import _get_target_duthost
+
+    duthost = _get_target_duthost(duthosts, request)
+    catalog = "/var/lib/sonic/healthz/catalog.sqlite3"
+    if duthost.shell("sudo test -f " + catalog, module_ignore_errors=True)["rc"] != 0:
+        pytest.skip("Installed Healthz catalog is absent: " + catalog)
+    return request.getfixturevalue("gnmi_tls")
+
+
 @pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
 def vrf_config(request):
     return request.param
