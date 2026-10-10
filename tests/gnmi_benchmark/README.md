@@ -69,6 +69,16 @@ batch. A failed Get skips Set. Repeated iterations rewrite existing keys rather
 than adding routes. Preload and cleanup are outside measurement. The helper
 registers cleanup before mutation and restores the persistent configuration backup.
 
+Generated VNET names, including their numeric index, fit the Linux 15-character
+interface-name limit. Setup rejects a namespace that overlaps existing VNETs,
+routes or a tunnel before changing configuration. On `cisco-8000`, the VXLAN
+tunnel uses pipe TTL mode to match the base topology's IP-in-IP decap tunnels.
+
+Cleanup waits up to 600 seconds for the run's route entries in STATE_DB and
+CONFIG_DB subscriber output buffers to drain before removing VNETs and their
+tunnel. This wait is outside measurement; a timeout reports incomplete cleanup
+rather than treating CONFIG_DB deletion as completed downstream cleanup.
+
 Get uses `ALL` and `JSON_IETF` with explicit CONFIG_DB paths. Set requests validation
 bypass; SKU eligibility alone does not prove the server selected that path.
 The benchmark checks RPC/response errors, not readback equality, forwarding
