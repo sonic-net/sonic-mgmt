@@ -56,6 +56,17 @@ If you request a backport/cherry-pick, provide both:
 Tracking issue/work item for backport/cherry-pick request (GitHub issue or Microsoft ADO):
 Failure type: <!-- day-one issue / regression / other -->
 
+### Backport metadata (optional)
+<!--
+Fill these fields only for a release backport PR; leave them blank for ordinary
+PRs targeting master. Replace the inline comments with the original same-repo
+PR URL and target release branch. Repeat Backport-of for multiple originals.
+Keep each field on its own plain line, outside quotes and code fences.
+GitHub's actual PR base branch is authoritative; Target-branch should match it.
+-->
+Backport-of: <!-- https://github.com/sonic-net/sonic-mgmt/pull/NUMBER -->
+Target-branch: <!-- release branch -->
+
 ### Tested branch
 <!--
 Select each branch where the change was tested. If you request a
