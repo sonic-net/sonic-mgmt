@@ -1,0 +1,358 @@
+{#
+  Shared converged (multi-VRF) cSONiC CONFIG_DB renderer.
+
+  A converged prime hosts every logical neighbor in its own Linux VRF.  The
+  topology converger has already assigned globally unique Ethernet,
+  Port-Channel, Loopback and backplane VLAN names; this template flattens that
+  recipe into the SONiC CONFIG_DB tables consumed by orchagent/vrfmgrd and
+  frrcfgd.
+#}
+{% set host = configuration[hostname] %}
+{% set conv = convergence_data['converged_peers'][hostname] %}
+{% set logical_peers = convergence_data['convergence_mapping'][hostname] %}
+{% set vrf_names = convergence_data['vrf_name_mapping'] %}
+{% set ptf_bp_addrs = convergence_data['ptf_backplane_addrs'] %}
+{% set lane_map = {1: '25,26,27,28', 2: '29,30,31,32', 3: '33,34,35,36', 4: '37,38,39,40', 5: '45,46,47,48'} %}
+{% set role_type_map = {'leaf': 'LeafRouter', 'spine': 'SpineRouter', 'tor': 'ToRRouter', 'core': 'SpineRouter'} %}
+{% set device_type = role_type_map.get(props.swrole | default('leaf'), 'LeafRouter') %}
+{% set fp_eths = [] %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Ethernet') %}{% if fp_eths.append(if_name) %}{% endif %}{% endif %}
+{% endfor %}
+{% endfor %}
+{% set bp_num = (fp_eths | length) + 1 %}
+{% set bp_eth = 'Ethernet' ~ bp_num %}
+{
+    "PORT": {
+{% set comma = joiner(',') %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Ethernet') %}
+{% set if_index = if_name | replace('Ethernet', '') | int %}
+{{ comma() }}
+        "{{ if_name }}": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/{{ (if_index - 1) * 4 }}",
+            "lanes": "{{ lane_map[if_index] }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+{% endfor %}
+{% endfor %}
+{{ comma() }}
+        "{{ bp_eth }}": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/{{ (bp_num - 1) * 4 }}",
+            "lanes": "{{ lane_map[bp_num] }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "{{ conv['bgp']['asn'] }}",
+            "hostname": "{{ hostname }}",
+            "type": "{{ device_type }}",
+            "hwsku": "SONiC-VM",
+            "platform": "x86_64-kvm_x86_64-r0",
+            "frr_mgmt_framework_config": "true",
+            "docker_routing_config_mode": "unified",
+            "use_template_render_for_restore": "false"
+        }
+    },
+    "VRF": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{{ comma() }}
+        "{{ vrf_names[logical_peer] }}": {}
+{% endfor %}
+    },
+    "LOOPBACK_INTERFACE": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Loopback') %}
+{{ comma() }}
+        "{{ if_name }}": {"vrf_name": "{{ vrf }}"}
+{% if if_data.get('ipv4') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv4'] }}": {}
+{% endif %}
+{% if if_data.get('ipv6') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "PORTCHANNEL": {
+{% set comma = joiner(',') %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Port-Channel') %}
+{% set pc_name = if_name | replace('Port-Channel', 'PortChannel') %}
+{{ comma() }}
+        "{{ pc_name }}": {
+            "admin_status": "up",
+            "mtu": "9100",
+            "min_links": "1",
+            "lacp_key": "auto"
+        }
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "PORTCHANNEL_MEMBER": {
+{% set comma = joiner(',') %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Ethernet') and if_data is mapping and if_data.get('lacp') is not none %}
+{{ comma() }}
+        "PortChannel{{ if_data['lacp'] }}|{{ if_name }}": {}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Port-Channel') %}
+{% set pc_name = if_name | replace('Port-Channel', 'PortChannel') %}
+{{ comma() }}
+        "{{ pc_name }}": {"vrf_name": "{{ vrf }}"}
+{% if if_data.get('ipv4') %}
+{{ comma() }}
+        "{{ pc_name }}|{{ if_data['ipv4'] }}": {}
+{% endif %}
+{% if if_data.get('ipv6') %}
+{{ comma() }}
+        "{{ pc_name }}|{{ if_data['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "INTERFACE": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Ethernet') and (if_data is not mapping or if_data.get('lacp') is none) %}
+{{ comma() }}
+        "{{ if_name }}": {"vrf_name": "{{ vrf }}"}
+{% if if_data is mapping and if_data.get('ipv4') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv4'] }}": {}
+{% endif %}
+{% if if_data is mapping and if_data.get('ipv6') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "VLAN": {
+{% set comma = joiner(',') %}
+{% if host.get('bp_interface') %}
+{{ comma() }}
+        "Vlan1": {"vlanid": "1"}
+{% endif %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Vlan') %}
+{{ comma() }}
+        "{{ if_name }}": {"vlanid": "{{ if_name | replace('Vlan', '') }}"}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "VLAN_MEMBER": {
+{% set comma = joiner(',') %}
+{% if host.get('bp_interface') %}
+{{ comma() }}
+        "Vlan1|{{ bp_eth }}": {"tagging_mode": "untagged"}
+{% endif %}
+{% for vrf_name in logical_peers %}
+{% for if_name, if_data in conv['vrf'][vrf_name].items() %}
+{% if if_name.startswith('Vlan') %}
+{{ comma() }}
+        "{{ if_name }}|{{ bp_eth }}": {"tagging_mode": "tagged"}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "VLAN_INTERFACE": {
+{% set comma = joiner(',') %}
+{% if host.get('bp_interface') %}
+{{ comma() }}
+        "Vlan1": {"vrf_name": "{{ vrf_names[hostname] }}"}
+{% if host['bp_interface'].get('ipv4') %}
+{{ comma() }}
+        "Vlan1|{{ host['bp_interface']['ipv4'] }}": {}
+{% endif %}
+{% if host['bp_interface'].get('ipv6') %}
+{{ comma() }}
+        "Vlan1|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Vlan') %}
+{{ comma() }}
+        "{{ if_name }}": {"vrf_name": "{{ vrf }}"}
+{% if if_data.get('ipv4') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv4'] }}": {}
+{% endif %}
+{% if if_data.get('ipv6') %}
+{{ comma() }}
+        "{{ if_name }}|{{ if_data['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+    },
+    "SNMP_COMMUNITY": {
+        "{{ snmp_rocommunity | default('public') }}": {"TYPE": "RO"}
+    },
+    "ROUTE_MAP": {
+        "CSONIC_ALLOW_ALL|10": {"route_operation": "permit"}
+    },
+    "BGP_GLOBALS": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% set peer = configuration[logical_peer] %}
+{% set router = namespace(id=peer['bgp'].get('router-id', '')) %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if not router.id and if_name.startswith('Loopback') and if_data.get('ipv4') %}{% set router.id = if_data['ipv4'].split('/')[0] %}{% endif %}
+{% endfor %}
+{{ comma() }}
+        "{{ vrf }}": {
+            "local_asn": "{{ peer['bgp']['asn'] }}",
+{% if router.id %}
+            "router_id": "{{ router.id }}",
+{% endif %}
+            "log_nbr_state_changes": "true",
+            "keepalive": "3",
+            "holdtime": "10"
+        }
+{% endfor %}
+    },
+    "BGP_GLOBALS_AF": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{{ comma() }}
+        "{{ vrf }}|ipv4_unicast": {}
+{{ comma() }}
+        "{{ vrf }}|ipv6_unicast": {}
+{% endfor %}
+    },
+    "BGP_GLOBALS_AF_NETWORK": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Loopback') and if_data.get('ipv4') %}
+{{ comma() }}
+        "{{ vrf }}|ipv4_unicast|{{ if_data['ipv4'] }}": {}
+{% endif %}
+{% if if_name.startswith('Loopback') and if_data.get('ipv6') %}
+{{ comma() }}
+        "{{ vrf }}|ipv6_unicast|{{ if_data['ipv6'] }}": {}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% if host.get('bp_interface') and host['bp_interface'].get('ipv4') %}
+{{ comma() }}
+        "{{ vrf_names[hostname] }}|ipv4_unicast|{{ host['bp_interface']['ipv4'] | ansible.utils.ipaddr('subnet') }}": {}
+{% endif %}
+{% if host.get('bp_interface') and host['bp_interface'].get('ipv6') %}
+{{ comma() }}
+        "{{ vrf_names[hostname] }}|ipv6_unicast|{{ host['bp_interface']['ipv6'] | ansible.utils.ipaddr('subnet') }}": {}
+{% endif %}
+    },
+    "BGP_NEIGHBOR": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% set peer = configuration[logical_peer] %}
+{% for asn, remote_ips in peer['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{{ comma() }}
+        "{{ vrf }}|{{ remote_ip }}": {
+            "asn": "{{ asn }}",
+            "name": "{{ asn }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endfor %}
+{% endfor %}
+{% set bp = namespace(ipv4='', ipv6='') %}
+{% for if_name, if_data in conv['vrf'][logical_peer].items() %}
+{% if if_name.startswith('Vlan') %}
+{% if if_data.get('ipv4') %}{% set bp.ipv4 = if_data['ipv4'].split('/')[0] %}{% endif %}
+{% if if_data.get('ipv6') %}{% set bp.ipv6 = if_data['ipv6'].split('/')[0] %}{% endif %}
+{% endif %}
+{% endfor %}
+{% if (props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation) and ptf_bp_addrs[logical_peer].get('ipv4') %}
+{{ comma() }}
+        "{{ vrf }}|{{ ptf_bp_addrs[logical_peer]['ipv4'].split('/')[0] }}": {
+            "asn": "{{ peer['bgp']['asn'] }}",
+            "local_addr": "{{ bp.ipv4 }}",
+            "name": "exabgp_v4",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+{% if (props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation) and ptf_bp_addrs[logical_peer].get('ipv6') %}
+{{ comma() }}
+        "{{ vrf }}|{{ ptf_bp_addrs[logical_peer]['ipv6'].split('/')[0] }}": {
+            "asn": "{{ peer['bgp']['asn'] }}",
+            "local_addr": "{{ bp.ipv6 }}",
+            "name": "exabgp_v6",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endif %}
+{% endfor %}
+    },
+    "BGP_NEIGHBOR_AF": {
+{% set comma = joiner(',') %}
+{% for logical_peer in logical_peers %}
+{% set vrf = vrf_names[logical_peer] %}
+{% set peer = configuration[logical_peer] %}
+{% for asn, remote_ips in peer['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{{ comma() }}
+        "{{ vrf }}|{{ remote_ip }}|{{ 'ipv6_unicast' if ':' in remote_ip else 'ipv4_unicast' }}": {
+            "admin_status": "up",
+            "nhself": "true",
+            "route_map_in": ["CSONIC_ALLOW_ALL"],
+            "route_map_out": ["CSONIC_ALLOW_ALL"]
+        }
+{% endfor %}
+{% endfor %}
+{% if (props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation) and ptf_bp_addrs[logical_peer].get('ipv4') %}
+{{ comma() }}
+        "{{ vrf }}|{{ ptf_bp_addrs[logical_peer]['ipv4'].split('/')[0] }}|ipv4_unicast": {"admin_status": "up"}
+{% endif %}
+{% if (props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation) and ptf_bp_addrs[logical_peer].get('ipv6') %}
+{{ comma() }}
+        "{{ vrf }}|{{ ptf_bp_addrs[logical_peer]['ipv6'].split('/')[0] }}|ipv6_unicast": {"admin_status": "up"}
+{% endif %}
+{% endfor %}
+    }
+}

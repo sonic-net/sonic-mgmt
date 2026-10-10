@@ -6,15 +6,147 @@ inside the cSONiC container. This avoids the need for sshd, admin user, or mgmt 
 inside the container.
 """
 
+import ipaddress
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 
 from tests.common.devices.base import NeighborDevice
 
 logger = logging.getLogger(__name__)
+
+
+def _sonic_intf_name(name):
+    """Translate topology/EOS Port-Channel spelling to SONiC spelling."""
+    return name.replace('Port-Channel', 'PortChannel')
+
+
+def _apply_intf_map(value, intf_map):
+    """Translate logical interface tokens to this converged prime's names."""
+    if not intf_map or value is None:
+        return value
+
+    token_map = {}
+    for logical, actual in intf_map.items():
+        actual = _sonic_intf_name(actual)
+        token_map[logical] = actual
+        token_map[_sonic_intf_name(logical)] = actual
+    token_re = re.compile(
+        r'(?<![A-Za-z0-9_-])(?:{})(?![A-Za-z0-9_-])'.format(
+            '|'.join(re.escape(token) for token in sorted(
+                token_map, key=len, reverse=True))))
+
+    def _rewrite_text(text):
+        # One regex pass avoids cascading when an actual converged name is also
+        # an original name in the same logical peer's mapping.
+        return token_re.sub(lambda match: token_map[match.group(0)], text)
+
+    def _rewrite(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            result = dict(item)
+            result['command'] = _rewrite_text(item['command'])
+            return result
+        return item
+
+    if isinstance(value, list):
+        return [_rewrite(item) for item in value]
+    return _rewrite(value)
+
+
+_BGP_SHOW_RE = re.compile(
+    r'^\s*(?:sudo\s+)?show\s+(ip|ipv6)\s+bgp(?:\s+(.*?))?\s*$',
+    re.IGNORECASE,
+)
+
+
+def _vrf_scope_bgp_reads(value, vrf):
+    """Scope legacy SONiC ``show * bgp`` commands to a logical peer VRF."""
+    if not vrf or value is None:
+        return value
+
+    def _rewrite_text(text):
+        command, separator, pipe = text.partition('|')
+        match = _BGP_SHOW_RE.match(command)
+        if not match:
+            return text
+        afi = 'ipv4' if match.group(1).lower() == 'ip' else 'ipv6'
+        suffix = (match.group(2) or '').strip()
+        if re.search(r'(^|\s)vrf\s+', suffix, re.IGNORECASE):
+            return text
+        if suffix.lower().startswith('summary'):
+            scoped = 'vtysh -c "show bgp vrf {} {} {}"'.format(
+                vrf, afi, suffix)
+        else:
+            scoped = 'vtysh -c "show bgp vrf {} {} unicast{}"'.format(
+                vrf, afi, ' {}'.format(suffix) if suffix else '')
+        return '{} |{}'.format(scoped, pipe) if separator else scoped
+
+    def _rewrite(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            result = dict(item)
+            result['command'] = _rewrite_text(item['command'])
+            return result
+        return item
+
+    if isinstance(value, list):
+        return [_rewrite(item) for item in value]
+    return _rewrite(value)
+
+
+_VTYSH_CLEAR_RE = re.compile(
+    r"(?P<prefix>(?:sudo\s+)?vtysh\s+-c\s+)(?P<quote>['\"])(?P<command>clear\s+bgp\s+)(?P<rest>.*?)(?P=quote)",
+    re.IGNORECASE,
+)
+_VTYSH_ROUTER_RE = re.compile(
+    r"(?P<prefix>-c\s+)(?P<quote>['\"])(?P<command>router\s+bgp\s+\d+)(?P=quote)",
+    re.IGNORECASE,
+)
+
+
+def _vrf_scope_vtysh_mutations(value, vrf):
+    """Confine legacy vtysh mutations to one converged logical-peer VRF."""
+    if not vrf or value is None:
+        return value
+
+    def _rewrite_text(text):
+        def _clear(match):
+            rest = match.group('rest')
+            if rest.lower().startswith('vrf '):
+                return match.group(0)
+            return "{}{}{}vrf {} {}{}".format(
+                match.group('prefix'), match.group('quote'),
+                match.group('command'), vrf, rest, match.group('quote'))
+
+        def _router(match):
+            command = match.group('command')
+            if ' vrf ' in command.lower():
+                return match.group(0)
+            return "{}{}{} vrf {}{}".format(
+                match.group('prefix'), match.group('quote'), command, vrf,
+                match.group('quote'))
+
+        text = _VTYSH_CLEAR_RE.sub(_clear, text)
+        return _VTYSH_ROUTER_RE.sub(_router, text)
+
+    def _rewrite(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            result = dict(item)
+            result['command'] = _rewrite_text(item['command'])
+            return result
+        return item
+
+    if isinstance(value, list):
+        return [_rewrite(item) for item in value]
+    return _rewrite(value)
 
 
 class CsonicHost(NeighborDevice):
@@ -25,17 +157,24 @@ class CsonicHost(NeighborDevice):
     executing commands via 'docker exec' on the VM host rather than SSH.
     """
 
-    def __init__(self, container_name, vm_host_ip=None, vm_host_user=None):
+    def __init__(self, container_name, vm_host_ip=None, vm_host_user=None,
+                 bgp_vrf=None, intf_map=None, bgp_prime_asn=None):
         """
         Args:
             container_name: Docker container name (e.g., 'csonic_vms6-1_VM0100')
             vm_host_ip: IP of the host running the container (default: localhost)
             vm_host_user: SSH user for the VM host (only needed if remote)
+            bgp_vrf: Logical peer VRF when this is a converged prime
+            intf_map: Original-to-converged interface mapping for that peer
+            bgp_prime_asn: Prime ASN metadata (kept for host API parity)
         """
         self.container_name = container_name
         self.hostname = container_name
         self.vm_host_ip = vm_host_ip
         self.vm_host_user = vm_host_user
+        self.bgp_vrf = bgp_vrf
+        self.intf_map = intf_map
+        self.bgp_prime_asn = bgp_prime_asn
         self.is_local = vm_host_ip is None or vm_host_ip in ('localhost', '127.0.0.1')
 
     def __str__(self):
@@ -44,18 +183,41 @@ class CsonicHost(NeighborDevice):
     def __repr__(self):
         return self.__str__()
 
+    def _interface_name(self, name):
+        """Return the actual SONiC interface name for a logical peer name."""
+        if not self.intf_map:
+            return name
+        topology_name = (name.replace('PortChannel', 'Port-Channel')
+                         if name.startswith('PortChannel') else name)
+        mapped = self.intf_map.get(
+            name, self.intf_map.get(topology_name, name))
+        return _sonic_intf_name(mapped)
+
+    def _translate_command(self, command):
+        command = _apply_intf_map(command, self.intf_map)
+        command = _vrf_scope_bgp_reads(command, self.bgp_vrf)
+        return _vrf_scope_vtysh_mutations(command, self.bgp_vrf)
+
     def __hash__(self):
         # CsonicHost is stored as the ['host'] value of a NeighborDevice and is
         # used interchangeably with EosHost/SonicHost, which are hashable plain
         # objects. CsonicHost inherits NeighborDevice(dict), which is unhashable,
         # so some tests (e.g. iface_loopback_action) that place neighbor hosts in
         # a set or use them as dict keys raise "unhashable type: 'CsonicHost'".
-        # Identity is the container name, so hash/eq on that keep host objects
-        # hashable and distinct without relying on dict contents.
+        # A converged prime exposes one logical host per VRF. Include that VRF
+        # in the host key so those handles do not collapse in sets/dictionaries.
+        if self.bgp_vrf:
+            return hash((self.container_name, self.bgp_vrf))
         return hash(self.container_name)
 
     def __eq__(self, other):
-        return isinstance(other, CsonicHost) and self.container_name == other.container_name
+        if not self.bgp_vrf:
+            return (isinstance(other, CsonicHost)
+                    and not other.bgp_vrf
+                    and self.container_name == other.container_name)
+        return (isinstance(other, CsonicHost)
+                and (self.container_name, self.bgp_vrf)
+                == (other.container_name, other.bgp_vrf))
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -116,19 +278,28 @@ class CsonicHost(NeighborDevice):
 
     def command(self, cmd, **kwargs):
         """Run a command (compatible with Ansible command module interface)."""
-        return self._docker_exec(cmd, **kwargs)
+        if not self.bgp_vrf and not self.intf_map:
+            return self._docker_exec(cmd, **kwargs)
+        return self._docker_exec(self._translate_command(cmd), **kwargs)
 
     def shell(self, cmd, **kwargs):
         """Run a shell command (compatible with Ansible shell module interface)."""
-        return self._docker_exec(cmd, **kwargs)
+        if not self.bgp_vrf and not self.intf_map:
+            return self._docker_exec(cmd, **kwargs)
+        return self._docker_exec(self._translate_command(cmd), **kwargs)
 
     def run_command(self, cmd, **kwargs):
         """Run a single command inside the container and return its result."""
-        return self._docker_exec(cmd, **kwargs)
+        if not self.bgp_vrf and not self.intf_map:
+            return self._docker_exec(cmd, **kwargs)
+        return self._docker_exec(self._translate_command(cmd), **kwargs)
 
     def run_command_list(self, cmds, **kwargs):
         """Run a list of commands inside the container, returning a result per command."""
-        return [self._docker_exec(cmd, **kwargs) for cmd in cmds]
+        if not self.bgp_vrf and not self.intf_map:
+            return [self._docker_exec(cmd, **kwargs) for cmd in cmds]
+        return [self._docker_exec(cmd, **kwargs)
+                for cmd in self._translate_command(cmds)]
 
     def shell_cmds(self, cmds=None, continue_on_fail=False, **kwargs):
         """Run a sequence of shell commands, one result per command.
@@ -141,6 +312,8 @@ class CsonicHost(NeighborDevice):
         ``continue_on_fail=False`` default) unless ``continue_on_fail`` is set.
         """
         cmds = cmds or []
+        if self.bgp_vrf or self.intf_map:
+            cmds = self._translate_command(cmds)
         results = []
         failed = False
         for cmd in cmds:
@@ -171,34 +344,106 @@ class CsonicHost(NeighborDevice):
         driving the port through the SONiC CLI updates CONFIG_DB and lets the
         orchestration (portchannel/BGP) react correctly, which
         ``ip link set ... down`` would bypass.
+
+        On the opt-in userspace OVS LAG backend teamd is stopped and the bond
+        is built on the mapped kernel device (ethN), so the CONFIG_DB port
+        alone does not stop LACP; additionally down the bond member.
         """
+        ifname = self._interface_name(ifname)
         logger.info("CsonicHost [%s] shutting down %s", self.container_name, ifname)
-        return self._docker_exec("config interface shutdown {}".format(ifname),
-                                 module_ignore_errors=True)
+        result = self._docker_exec("config interface shutdown {}".format(ifname),
+                                   module_ignore_errors=True)
+        self._set_ovs_bond_member_link(ifname, "down")
+        return result
 
     def no_shutdown(self, ifname):
         """Bring up an interface.
 
         Mirrors ``SonicHost.no_shutdown`` (``config interface startup``); see
-        :meth:`shutdown` for why the SONiC CLI is used instead of ``ip link``.
+        :meth:`shutdown` for why the SONiC CLI is used instead of ``ip link``
+        and why the userspace OVS LAG bond member is toggled as well.
         """
+        ifname = self._interface_name(ifname)
         logger.info("CsonicHost [%s] bringing up %s", self.container_name, ifname)
-        return self._docker_exec("config interface startup {}".format(ifname),
-                                 module_ignore_errors=True)
+        result = self._docker_exec("config interface startup {}".format(ifname),
+                                   module_ignore_errors=True)
+        self._set_ovs_bond_member_link(ifname, "up")
+        return result
 
-    def get_route(self, prefix):
-        """Get route info from FRR."""
-        result = self._docker_exec("vtysh -c 'show ip route {} json'".format(prefix))
-        if result['rc'] == 0 and result['stdout']:
-            try:
-                return json.loads(result['stdout'])
-            except json.JSONDecodeError:
-                pass
-        return {}
+    def _ovs_bond_member(self, interface_name, bond):
+        """Return the kernel device of interface_name that bond actually enslaves.
+
+        The EthernetN -> ethN convention is duplicated from ``kernel_member()`` in
+        ansible/roles/sonic/files/csonic_ovs_lag.py, which is the source of truth
+        but ships into the container as an Ansible module and cannot be imported
+        here; keep the two in sync. The regex only supplies the correspondence,
+        so confirm the derived device against the bond's OVS member list and
+        raise when it is absent rather than silently toggling EthernetN only.
+        """
+        match = re.fullmatch(r"Ethernet(\d+)", interface_name)
+        if not match:
+            raise Exception(
+                "Unable to map unsupported cSONiC LAG member [{}] to a kernel device "
+                "of bond [{}]".format(interface_name, bond))
+        device = "eth{}".format(match.group(1))
+        # ovs_portchannel() creates each PortChannel as its own bridge and puts the
+        # members into a Port named '<PortChannel>-bond'.
+        bridge = bond[:-len("-bond")]
+        result = self._docker_exec("ovs-vsctl list-ifaces {}".format(bridge),
+                                   module_ignore_errors=True)
+        members = result['stdout_lines'] if result['rc'] == 0 else []
+        if device not in members:
+            raise Exception(
+                "Interface [{}] maps to kernel device [{}], which is not a member of "
+                "OVS bond [{}] (members: {}); refusing to toggle only [{}] because that "
+                "would leave the bond member up and LACP active".format(
+                    interface_name, device, bond, ",".join(members) or "none",
+                    interface_name))
+        return device
+
+    def _set_ovs_bond_member_link(self, interface_name, state):
+        """Bring the userspace OVS LAG bond member of interface_name up/down.
+
+        No-op (returns None) on any other backend, so teamd-backed neighbors keep
+        the SONiC-CLI-only behaviour.
+        """
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            return None
+        device = self._ovs_bond_member(interface_name, bond)
+        logger.info("CsonicHost [%s] setting OVS bond [%s] member %s (%s) %s",
+                    self.container_name, bond, device, interface_name, state)
+        return self._docker_exec("ip link set {} {}".format(device, state))
+
+    def get_route(self, prefix, vrf=None):
+        """Get BGP route info for a prefix from FRR.
+
+        Stock cSONiC keeps its historical default-instance command. A converged
+        logical host scopes the same query to its runtime VRF.
+        """
+        afi = 'ipv6' if ipaddress.ip_network(prefix, strict=False).version == 6 else 'ipv4'
+        effective_vrf = vrf or self.bgp_vrf
+        if not effective_vrf:
+            result = self._docker_exec(
+                'vtysh -c "show bgp {} unicast {} json"'.format(afi, prefix),
+                module_ignore_errors=True)
+        else:
+            result = self._docker_exec(
+                'vtysh -c "show bgp vrf {} {} unicast {} json"'.format(
+                    effective_vrf, afi, prefix),
+                module_ignore_errors=True)
+        if result.get('rc') != 0 or not result.get('stdout'):
+            return {}
+        try:
+            data = json.loads(result['stdout'])
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def get_port_channel_status(self, pc_name=None):
         """Get PortChannel status."""
         if pc_name:
+            pc_name = self._interface_name(pc_name)
             result = self._docker_exec("teamdctl {} state dump".format(pc_name))
         else:
             result = self._docker_exec("show interfaces portchannel")
@@ -208,6 +453,64 @@ class CsonicHost(NeighborDevice):
             except (json.JSONDecodeError, ValueError):
                 return result['stdout']
         return {}
+
+    def _lacp_bond_for_member(self, interface_name):
+        """Return the OVS bond port of the PortChannel that has interface_name as a member.
+
+        Only the userspace OVS LAG backend creates these bonds (``<PortChannel>-bond``);
+        returns None when the member has no PortChannel or the bond does not exist.
+        """
+        result = self._docker_exec(
+            "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
+            module_ignore_errors=True)
+        keys = result['stdout_lines'] if result['rc'] == 0 else []
+        if not keys:
+            return None
+        bond = "{}-bond".format(keys[0].split('|')[1])
+        result = self._docker_exec("ovs-vsctl --if-exists get Port {} name".format(bond),
+                                   module_ignore_errors=True)
+        if result['rc'] != 0 or not result['stdout']:
+            return None
+        return bond
+
+    def get_interface_lacp_rate_mode(self, interface_name):
+        """Return the LACP rate ('fast' or 'normal') of the LAG containing interface_name."""
+        interface_name = self._interface_name(interface_name)
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            raise NotImplementedError(
+                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
+                "{} is not one".format(interface_name))
+        result = self._docker_exec(
+            "ovs-vsctl --if-exists get Port {} other_config:lacp-time".format(bond),
+            module_ignore_errors=True)
+        # --if-exists makes an unset key succeed with empty output (= OVS default
+        # 'slow'), so only a non-zero rc is a real failure (e.g. ovsdb-server or
+        # ovs-vswitchd unavailable). Raise instead of reporting a bogus 'normal'.
+        if result['rc'] != 0:
+            raise Exception("Unable to get interface [{}] lacp rate from bond [{}]: {}".format(
+                interface_name, bond, result['stderr']))
+        return "fast" if result['stdout'].strip().strip('"') == "fast" else "normal"
+
+    def set_interface_lacp_rate_mode(self, interface_name, mode):
+        """Set the LACP rate of the LAG containing interface_name ('fast', or 'normal'/'slow')."""
+        interface_name = self._interface_name(interface_name)
+        if mode not in ("fast", "normal", "slow"):
+            raise ValueError("Unsupported LACP rate mode: {}".format(mode))
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            raise NotImplementedError(
+                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
+                "{} is not one".format(interface_name))
+        lacp_time = "fast" if mode == "fast" else "slow"
+        logger.info("CsonicHost [%s] setting LACP rate of %s (%s) to %s",
+                    self.container_name, interface_name, bond, lacp_time)
+        result = self._docker_exec(
+            "ovs-vsctl set Port {} other_config:lacp-time={}".format(bond, lacp_time))
+        if result['rc'] != 0:
+            raise Exception("Unable to set interface [{}] lacp rate to [{}]: {}".format(
+                interface_name, mode, result['stderr']))
+        return result
 
     def config(self, lines=None, parents=None, **kwargs):
         """
@@ -222,17 +525,36 @@ class CsonicHost(NeighborDevice):
         """
         if not lines:
             return {}
+
+        if not self.bgp_vrf and not self.intf_map:
+            cmds = ['configure terminal']
+            if parents:
+                for p in parents:
+                    cmds.append(p)
+            for line in lines:
+                cmds.append(line)
+
+            vtysh_cmd = "vtysh"
+            for c in cmds:
+                vtysh_cmd += " -c '{}'".format(c)
+            return self._docker_exec(vtysh_cmd, **kwargs)
+
+        lines = self._translate_command(lines)
+        parents = self._translate_command(parents)
+        if parents and not isinstance(parents, list):
+            parents = [parents]
         cmds = ['configure terminal']
         if parents:
-            for p in parents:
-                cmds.append(p)
+            for parent in parents:
+                if (self.bgp_vrf and re.match(r'^\s*router\s+bgp\s+\d+\s*$', parent)):
+                    parent = '{} vrf {}'.format(parent.rstrip(), self.bgp_vrf)
+                cmds.append(parent)
         for line in lines:
             cmds.append(line)
 
         vtysh_cmd = "vtysh"
         for c in cmds:
             vtysh_cmd += " -c '{}'".format(c)
-
         return self._docker_exec(vtysh_cmd, **kwargs)
 
     def kill_bgpd(self):
@@ -246,17 +568,33 @@ class CsonicHost(NeighborDevice):
     def start_bgpd(self):
         """Start the BGP daemon inside the cSONiC container.
 
-        Mirrors SonicHost.start_bgpd: after starting bgpd, restart bgpcfgd so
-        the CONFIG_DB-derived BGP configuration is re-applied to FRR (starting
-        bgpd alone leaves FRR without the config bgpcfgd renders). Waits for
-        bgpd to report RUNNING (bounded) before restarting bgpcfgd, and surfaces
-        a non-zero bgpcfgd-restart rc so a failed config re-apply is not silent.
+        Stock peers retain the existing bgpcfgd path. Converged logical peers
+        use an independent frrcfgd path and verify their runtime VRF.
         """
+        if not self.bgp_vrf:
+            result = self._docker_exec("supervisorctl start bgpd", module_ignore_errors=True)
+            if result.get('rc', 1) != 0:
+                return result
+            # Wait for bgpd to actually be RUNNING before restarting bgpcfgd, rather
+            # than relying on timing luck.
+            deadline = time.time() + 30
+            while time.time() < deadline:
+                status = self._docker_exec("supervisorctl status bgpd", module_ignore_errors=True)
+                if 'RUNNING' in str(status.get('stdout', '')):
+                    break
+                time.sleep(2)
+            else:
+                logger.warning("CsonicHost [%s] start_bgpd: bgpd did not reach RUNNING "
+                               "within timeout; restarting bgpcfgd anyway", self.container_name)
+            cfg = self._docker_exec("supervisorctl restart bgpcfgd", module_ignore_errors=True)
+            if cfg.get('rc', 1) != 0:
+                logger.warning("CsonicHost [%s] start_bgpd: bgpcfgd restart failed rc=%s stderr=%s",
+                               self.container_name, cfg.get('rc'), cfg.get('stderr', ''))
+            return result
+
         result = self._docker_exec("supervisorctl start bgpd", module_ignore_errors=True)
         if result.get('rc', 1) != 0:
             return result
-        # Wait for bgpd to actually be RUNNING before restarting bgpcfgd, rather
-        # than relying on timing luck.
         deadline = time.time() + 30
         while time.time() < deadline:
             status = self._docker_exec("supervisorctl status bgpd", module_ignore_errors=True)
@@ -265,12 +603,29 @@ class CsonicHost(NeighborDevice):
             time.sleep(2)
         else:
             logger.warning("CsonicHost [%s] start_bgpd: bgpd did not reach RUNNING "
-                           "within timeout; restarting bgpcfgd anyway", self.container_name)
-        cfg = self._docker_exec("supervisorctl restart bgpcfgd", module_ignore_errors=True)
+                           "within timeout; restarting frrcfgd anyway", self.container_name)
+
+        cfg = self._docker_exec("supervisorctl restart frrcfgd", module_ignore_errors=True)
         if cfg.get('rc', 1) != 0:
-            logger.warning("CsonicHost [%s] start_bgpd: bgpcfgd restart failed rc=%s stderr=%s",
+            logger.warning("CsonicHost [%s] start_bgpd: frrcfgd restart failed rc=%s stderr=%s",
                            self.container_name, cfg.get('rc'), cfg.get('stderr', ''))
-        return result
+            return cfg
+
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            vrf_status = self._docker_exec(
+                "vtysh -c 'show bgp vrf {} summary json'".format(self.bgp_vrf),
+                module_ignore_errors=True)
+            if vrf_status.get('rc', 1) == 0 and vrf_status.get('stdout'):
+                return result
+            time.sleep(2)
+        return {
+            'rc': 1,
+            'failed': True,
+            'stdout': '',
+            'stderr': 'BGP VRF {} did not reappear after restarting frrcfgd'.format(
+                self.bgp_vrf),
+        }
 
     def _bgp_summary_peers(self, afi, vrf):
         """Return the FRR BGP summary peers dict for an address family.
@@ -305,9 +660,11 @@ class CsonicHost(NeighborDevice):
         @param neigh_ips: list of BGP neighbor IPs to verify
         @param neigh_desc: optional list of expected neighbor descriptions
         @param state: target peer state (default "established")
-        @param vrf: VRF name (default "default")
+        @param vrf: explicit VRF; defaults to this logical peer's VRF, then default
         @return: True if all neigh_ips are in the target state
         """
+        if self.bgp_vrf and vrf == "default":
+            vrf = self.bgp_vrf
         neigh_ips = [ip.lower() for ip in neigh_ips]
         neigh_desc = neigh_desc or []
         neigh_ips_ok = []
@@ -353,10 +710,15 @@ class CsonicHost(NeighborDevice):
                     and len(neigh_desc) == len(neigh_desc_ok))
         return len(set(neigh_ips)) == len(set(neigh_ips_ok))
 
-    def _bgp_neighbors_json(self, afi):
-        """Return FRR's ``show <afi> bgp neighbors json`` mapping (ip -> info)."""
-        show = 'show ip bgp neighbors json' if afi == 'ipv4' \
-            else 'show bgp ipv6 neighbors json'
+    def _bgp_neighbors_json(self, afi, vrf=None):
+        """Return FRR's BGP neighbors mapping, optionally scoped to a VRF."""
+        effective_vrf = vrf or self.bgp_vrf
+        if effective_vrf:
+            show = 'show bgp vrf {} {} unicast neighbors json'.format(
+                effective_vrf, afi)
+        else:
+            show = 'show ip bgp neighbors json' if afi == 'ipv4' \
+                else 'show bgp ipv6 neighbors json'
         result = self._docker_exec("vtysh -c '{}'".format(show),
                                    module_ignore_errors=True)
         if result.get('rc') != 0 or not result.get('stdout'):
@@ -387,7 +749,7 @@ class CsonicHost(NeighborDevice):
         bgp_sessions = []
         seen = set()
         for afi in ('ipv4', 'ipv6'):
-            for ip, info in self._bgp_neighbors_json(afi).items():
+            for ip, info in self._bgp_neighbors_json(afi, self.bgp_vrf).items():
                 key = ip.lower() if isinstance(ip, str) else ip
                 if not isinstance(info, dict) or key in seen:
                     continue
