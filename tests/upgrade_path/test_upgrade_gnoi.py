@@ -59,7 +59,7 @@ def test_upgrade_via_gnoi(
         # setup_upgrade_test reboots the DUT which restores CONFIG_DB from disk,
         # and without this save the gnmi_tls fixture's config would be wiped.
         duthost.shell("sudo config save -y")
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+        setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
         # Installing the base image replaces the DUT rootfs, so the gnmi_tls
         # fixture's server certs under /etc/sonic/telemetry/ and its CONFIG_DB
