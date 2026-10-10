@@ -99,6 +99,8 @@ function usage
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
+  echo "    Optional argument for set-l2:"
+  echo "        -e max_l2_vlan_members=<count> # Override the default VLAN member limit of 32"
   echo "To deploy L1 (OCS) config for a testbed: $0 deploy-l1 'testbed-name' 'inventory' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
   echo "To install an image on DPUs of a testbed: $0 install-dpu-image 'testbed-name' 'inventory' 'image-url' [dpu-index]"
