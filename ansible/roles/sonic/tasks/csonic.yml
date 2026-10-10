@@ -11,13 +11,49 @@
        | map('extract', convergence_data['vrf_name_mapping']) | list }}
   when: topo_is_multi_vrf | default(false) | bool
 
-- name: Load host Linux VRF support for converged cSONiC peers
+- name: Probe host Linux VRF support for converged cSONiC peers
+  become: yes
+  command: modprobe vrf
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_vrf_modprobe
+  changed_when: false
+  failed_when: false
+  when: topo_is_multi_vrf | default(false) | bool
+
+- name: Read host kernel release when the VRF module is absent
+  command: uname -r
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_host_kernel
+  changed_when: false
+  when:
+    - topo_is_multi_vrf | default(false) | bool
+    - csonic_vrf_modprobe.rc != 0
+
+- name: Install host kernel extra modules for converged cSONiC peers
+  become: yes
+  apt:
+    name: "linux-modules-extra-{{ csonic_host_kernel.stdout | trim }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 86400
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_kernel_modules
+  retries: 2
+  delay: 30
+  until: csonic_kernel_modules is success
+  when:
+    - topo_is_multi_vrf | default(false) | bool
+    - csonic_vrf_modprobe.rc != 0
+
+- name: Load installed host Linux VRF support for converged cSONiC peers
   become: yes
   modprobe:
     name: vrf
     state: present
   delegate_to: "{{ VM_host[0] }}"
-  when: topo_is_multi_vrf | default(false) | bool
+  when:
+    - topo_is_multi_vrf | default(false) | bool
+    - csonic_vrf_modprobe.rc != 0
 
 - name: Create cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}
   become: yes
