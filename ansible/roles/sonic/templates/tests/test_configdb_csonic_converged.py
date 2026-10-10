@@ -133,6 +133,7 @@ def test_enables_frrcfgd_and_builds_one_bgp_instance_per_vrf():
 
 def test_dut_and_exabgp_neighbors_are_vrf_scoped_and_activated():
     cfg = _render_json()
+    assert cfg["ROUTE_MAP"]["CSONIC_ALLOW_ALL|10"] == {"route_operation": "permit"}
     dut = cfg["BGP_NEIGHBOR"]["VrfARISTA02T1|10.0.0.58"]
     assert dut["asn"] == "65100"
     assert "local_asn" not in dut
@@ -142,7 +143,11 @@ def test_dut_and_exabgp_neighbors_are_vrf_scoped_and_activated():
     assert exabgp["local_addr"] == "10.10.246.102"
     assert cfg["BGP_NEIGHBOR_AF"][
         "VrfARISTA02T1|fc00::75|ipv6_unicast"] == {
-            "admin_status": "up", "nhself": "true"}
+            "admin_status": "up",
+            "nhself": "true",
+            "route_map_in": ["CSONIC_ALLOW_ALL"],
+            "route_map_out": ["CSONIC_ALLOW_ALL"],
+        }
     assert cfg["BGP_NEIGHBOR_AF"][
         "VrfARISTA02T1|fc0a::67|ipv6_unicast"] == {"admin_status": "up"}
 

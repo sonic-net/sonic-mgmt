@@ -223,6 +223,9 @@
     "SNMP_COMMUNITY": {
         "{{ snmp_rocommunity | default('public') }}": {"TYPE": "RO"}
     },
+    "ROUTE_MAP": {
+        "CSONIC_ALLOW_ALL|10": {"route_operation": "permit"}
+    },
     "BGP_GLOBALS": {
 {% set comma = joiner(',') %}
 {% for logical_peer in logical_peers %}
@@ -336,7 +339,9 @@
 {{ comma() }}
         "{{ vrf }}|{{ remote_ip }}|{{ 'ipv6_unicast' if ':' in remote_ip else 'ipv4_unicast' }}": {
             "admin_status": "up",
-            "nhself": "true"
+            "nhself": "true",
+            "route_map_in": ["CSONIC_ALLOW_ALL"],
+            "route_map_out": ["CSONIC_ALLOW_ALL"]
         }
 {% endfor %}
 {% endfor %}

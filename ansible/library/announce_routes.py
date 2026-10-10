@@ -597,8 +597,22 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             if "PT" in vm_name:
                 tor_default_route = True
         port, port6 = get_change_routes_ports(vm_name, topo)
+        route_nhipv4 = nhipv4
+        route_nhipv6 = nhipv6
+        if multi_vrf:
+            # Every logical peer has an isolated backplane subnet.  The shared
+            # topology next hops (10.10.246.254/fc0a::ff for T0) are reachable
+            # only from the prime peer's legacy compatibility subnet, so using
+            # them makes routes learned in the other VRFs invalid.  Announce
+            # each logical peer's own PTF-side address as its next hop instead.
+            ptf_backplane = multi_vrf_data['ptf_backplane_addrs'][vm_name]
+            route_nhipv4 = ptf_backplane.get('ipv4', nhipv4).split('/')[0]
+            route_nhipv6 = ptf_backplane.get('ipv6', nhipv6).split('/')[0]
         aggregate_prefixes = topo['configuration'][vm_name].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
-        aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+        aggregate_routes = [
+            (prefix, route_nhipv4 if "." in prefix else route_nhipv6, "")
+            for prefix in aggregate_prefixes
+        ]
         aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
         aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
         topo_routes[vm_name] = {}
@@ -606,7 +620,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         if enable_ipv4_routes_generation:
             routes_v4, last_suffix = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                                      spine_asn, leaf_asn_start, tor_asn_start,
-                                                     nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                                     route_nhipv4, route_nhipv4, tor_subnet_size,
+                                                     max_tor_subnet_number, "t0",
                                                      router_type=router_type,
                                                      no_default_route=no_default_route, offset=current_routes_offset,
                                                      tor_default_route=tor_default_route)
@@ -619,7 +634,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         if enable_ipv6_routes_generation:
             routes_v6, last_suffix = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                                      spine_asn, leaf_asn_start, tor_asn_start,
-                                                     nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                                     route_nhipv6, route_nhipv6, tor_subnet_size,
+                                                     max_tor_subnet_number, "t0",
                                                      router_type=router_type,
                                                      no_default_route=no_default_route,
                                                      ipv6_address_pattern=ipv6_address_pattern,
