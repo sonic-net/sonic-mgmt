@@ -578,6 +578,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
 
     multi_vrf = topo.get('topo_is_multi_vrf', False)
     multi_vrf_data = topo.get('convergence_data', {})
+    csonic_multi_vrf = multi_vrf and 'vrf_name_mapping' in multi_vrf_data
 
     vms = topo['topology']['VMs']
     if multi_vrf:
@@ -599,12 +600,13 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         port, port6 = get_change_routes_ports(vm_name, topo)
         route_nhipv4 = nhipv4
         route_nhipv6 = nhipv6
-        if multi_vrf:
-            # Every logical peer has an isolated backplane subnet.  The shared
-            # topology next hops (10.10.246.254/fc0a::ff for T0) are reachable
-            # only from the prime peer's legacy compatibility subnet, so using
-            # them makes routes learned in the other VRFs invalid.  Announce
-            # each logical peer's own PTF-side address as its next hop instead.
+        if csonic_multi_vrf:
+            # Every logical cSONiC peer has an isolated backplane subnet.  The
+            # shared topology next hops (10.10.246.254/fc0a::ff for T0) are
+            # reachable only from the prime peer's legacy compatibility subnet,
+            # so using them makes routes learned in the other VRFs invalid.
+            # Keep the established cEOS announcement payload unchanged; cEOS
+            # already rewrites these routes with its next-hop-peer setting.
             ptf_backplane = multi_vrf_data['ptf_backplane_addrs'][vm_name]
             route_nhipv4 = ptf_backplane.get('ipv4', nhipv4).split('/')[0]
             route_nhipv6 = ptf_backplane.get('ipv6', nhipv6).split('/')[0]

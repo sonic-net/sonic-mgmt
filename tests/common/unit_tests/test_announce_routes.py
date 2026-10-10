@@ -42,7 +42,17 @@ def _load_announce_routes():
     return module
 
 
-def test_multi_vrf_t0_uses_each_logical_peers_reachable_backplane_next_hop():
+@pytest.mark.parametrize(
+    ("csonic", "v4_next_hops", "v6_next_hops"),
+    [
+        (True, ("10.10.246.101", "10.10.246.103"),
+         ("fc0a::65", "fc0a::67")),
+        (False, ("10.10.246.254", "10.10.246.254"),
+         ("fc0a::ff", "fc0a::ff")),
+    ],
+)
+def test_multi_vrf_t0_isolates_csonic_next_hop_change(
+        csonic, v4_next_hops, v6_next_hops):
     announce_routes = _load_announce_routes()
     topo = {
         "topo_is_multi_vrf": True,
@@ -78,6 +88,11 @@ def test_multi_vrf_t0_uses_each_logical_peers_reachable_backplane_next_hop():
             },
         },
     }
+    if csonic:
+        topo["convergence_data"]["vrf_name_mapping"] = {
+            "ARISTA01T1": "VrfARISTA01T1",
+            "ARISTA02T1": "VrfARISTA02T1",
+        }
     generated = {}
 
     announce_routes.fib_t0(
@@ -88,10 +103,10 @@ def test_multi_vrf_t0_uses_each_logical_peers_reachable_backplane_next_hop():
     )
 
     assert generated["ARISTA01T1"]["ipv4"][0][0:2] == (
-        "0.0.0.0/0", "10.10.246.101")
+        "0.0.0.0/0", v4_next_hops[0])
     assert generated["ARISTA02T1"]["ipv4"][0][0:2] == (
-        "0.0.0.0/0", "10.10.246.103")
+        "0.0.0.0/0", v4_next_hops[1])
     assert generated["ARISTA01T1"]["ipv6"][0][0:2] == (
-        "::/0", "fc0a::65")
+        "::/0", v6_next_hops[0])
     assert generated["ARISTA02T1"]["ipv6"][0][0:2] == (
-        "::/0", "fc0a::67")
+        "::/0", v6_next_hops[1])
