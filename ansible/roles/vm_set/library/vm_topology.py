@@ -1553,7 +1553,41 @@ class VMTopology(object):
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.add_dut_if_to_docker(ptf_if, fp_port)
             else:
-                fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
+                # --- GUARD: check that this host-interface index actually has
+                #     a front-panel port mapping before we try to use it.
+                #
+                # WHY THIS IS NEEDED:
+                #   device_vlan_map_list is built from sonic_lab_links.csv.
+                #   If a DUT port (e.g. Ethernet200) is not cabled to the
+                #   fanout in a given lab, it will NOT appear as a link in
+                #   the CSV.  That creates a gap in the index->VLAN mapping,
+                #   which means duts_fp_ports[dut][intf_key] has no entry
+                #   for that index.
+                #
+                #   The topology usually marks such indices as disabled
+                #   (disabled_host_interfaces), but the lookup below would
+                #   dereference the mapping BEFORE the disabled list is
+                #   checked, so we would hit a KeyError.
+                #
+                # WHAT WE DO:
+                #   - If the key is missing AND the index is disabled
+                #     -> skip gracefully (warning log + return).
+                #   - If the key is missing AND the index is NOT disabled
+                #     -> raise ValueError so a real mis-configuration is
+                #       caught immediately rather than silently ignored.
+                dut_name = self.duts_name[0]
+                if str(intf) not in self.duts_fp_ports[dut_name]:
+                    if intf in self.disabled_host_interfaces:
+                        logging.warning(
+                            "add_host_ports: interface index %d is disabled and has "
+                            "no fp_port mapping for DUT %s, skipping.", intf, dut_name)
+                        return
+                    else:
+                        raise ValueError(
+                            "add_host_ports: interface index %d has no fp_port mapping "
+                            "for DUT %s and is NOT in disabled_host_interfaces. Check "
+                            "sonic_lab_links.csv / topo file." % (intf, dut_name))
+                fp_port = self.duts_fp_ports[dut_name][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.add_dut_if_to_docker(ptf_if, fp_port)
                 # only create sub interface for enabled ports defined in t0-backend
@@ -1648,7 +1682,26 @@ class VMTopology(object):
                     ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
                     self.remove_dut_if_from_docker(ptf_if, fp_port)
             else:
-                fp_port = self.duts_fp_ports[self.duts_name[0]][str(intf)]
+                # --- GUARD (mirror of the add_host_ports guard above).
+                #
+                # The same gap in device_vlan_map_list that can cause a
+                # KeyError during add_host_ports will also cause one
+                # during remove_host_ports when the topology is torn
+                # down.  Apply the identical "missing-key + disabled"
+                # logic so that teardown succeeds cleanly.
+                dut_name = self.duts_name[0]
+                if str(intf) not in self.duts_fp_ports[dut_name]:
+                    if intf in self.disabled_host_interfaces:
+                        logging.warning(
+                            "remove_host_ports: interface index %d is disabled and has "
+                            "no fp_port mapping for DUT %s, skipping.", intf, dut_name)
+                        return
+                    else:
+                        raise ValueError(
+                            "remove_host_ports: interface index %d has no fp_port mapping "
+                            "for DUT %s and is NOT in disabled_host_interfaces. Check "
+                            "sonic_lab_links.csv / topo file." % (intf, dut_name))
+                fp_port = self.duts_fp_ports[dut_name][str(intf)]
                 ptf_if = PTF_FP_IFACE_TEMPLATE % intf
                 self.remove_dut_if_from_docker(ptf_if, fp_port)
                 if self.dut_type == BACKEND_TOR_TYPE:
