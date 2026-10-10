@@ -25,6 +25,10 @@ pytestmark = [
 
 LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
+# These are the critical services that are not included in the golden config under test
+# nor the default config. After the minigraph load they will be disabled.
+SMARTSWITCH_SAFE_RELOAD_IGNORED_DOCKERS = ["dhcp_relay", "dhcp_server"]
+
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -68,7 +72,8 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True,
+                  safe_reload_ignored_dockers=SMARTSWITCH_SAFE_RELOAD_IGNORED_DOCKERS)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -89,13 +94,14 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
-def load_minigraph_with_golden_empty_input(duthost):
+def load_minigraph_with_golden_empty_input(duthost, safe_reload_ignored_dockers):
     """Test Golden Config with empty input
     """
     initial_config = get_running_config(duthost)
 
     empty_input = {}
-    reload_minigraph_with_golden_config(duthost, empty_input)
+    reload_minigraph_with_golden_config(
+        duthost, empty_input, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
     current_config = get_running_config(duthost)
     problem_tables = []
@@ -113,7 +119,7 @@ def load_minigraph_with_golden_empty_input(duthost):
     pytest_assert(not problem_tables, "empty input compare fail: {}".format(problem_tables))
 
 
-def load_minigraph_with_golden_partial_config(duthost):
+def load_minigraph_with_golden_partial_config(duthost, safe_reload_ignored_dockers):
     """Test Golden Config with partial config.
 
     Here we assume all config contain SYSLOG_SERVER table
@@ -124,7 +130,8 @@ def load_minigraph_with_golden_partial_config(duthost):
             "10.0.0.200": {}
         }
     }
-    reload_minigraph_with_golden_config(duthost, partial_config)
+    reload_minigraph_with_golden_config(
+        duthost, partial_config, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
     current_config = get_running_config(duthost)
     pytest_assert(
@@ -133,11 +140,12 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_full_config(duthost, full_config):
+def load_minigraph_with_golden_full_config(duthost, full_config, safe_reload_ignored_dockers):
     """Test Golden Config fully override minigraph config
     """
     # Test if the config has been override by full_config
-    reload_minigraph_with_golden_config(duthost, full_config)
+    reload_minigraph_with_golden_config(
+        duthost, full_config, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
     current_config = get_running_config(duthost)
     for table in full_config:
@@ -156,7 +164,7 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
             )
 
 
-def load_minigraph_with_golden_empty_table_removal(duthost):
+def load_minigraph_with_golden_empty_table_removal(duthost, safe_reload_ignored_dockers):
     """Test Golden Config with empty table removal.
 
     Here we assume all config contain SYSLOG_SERVER table
@@ -165,7 +173,8 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
         "SYSLOG_SERVER": {
         }
     }
-    reload_minigraph_with_golden_config(duthost, empty_table_removal)
+    reload_minigraph_with_golden_config(
+        duthost, empty_table_removal, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
     current_config = get_running_config(duthost)
     pytest_assert(
@@ -186,8 +195,13 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
         loganalyzer[duthost.hostname].expect_regex = []
         loganalyzer[duthost.hostname].ignore_regex = []
 
-    load_minigraph_with_golden_empty_input(duthost)
-    load_minigraph_with_golden_partial_config(duthost)
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        safe_reload_ignored_dockers = SMARTSWITCH_SAFE_RELOAD_IGNORED_DOCKERS
+    else:
+        safe_reload_ignored_dockers = []
+
+    load_minigraph_with_golden_empty_input(duthost, safe_reload_ignored_dockers)
+    load_minigraph_with_golden_partial_config(duthost, safe_reload_ignored_dockers)
     full_config = setup_env
-    load_minigraph_with_golden_full_config(duthost, full_config)
-    load_minigraph_with_golden_empty_table_removal(duthost)
+    load_minigraph_with_golden_full_config(duthost, full_config, safe_reload_ignored_dockers)
+    load_minigraph_with_golden_empty_table_removal(duthost, safe_reload_ignored_dockers)
