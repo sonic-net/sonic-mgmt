@@ -30,9 +30,34 @@ def create_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
 
 
+def _diag_capture(duthost, tag):
+    # DIAGNOSTIC ONLY. Dump the state that decides whether gnmi-native survives the
+    # CONFIG_DB cleanup, so every forced cycle leaves process/config/syslog evidence.
+    cmds = [
+        "date -u +%Y-%m-%dT%H:%M:%S.%NZ",
+        "sonic-db-cli CONFIG_DB hgetall 'GNMI|gnmi'",
+        "sonic-db-cli CONFIG_DB hgetall 'GNMI|certs'",
+        "docker exec gnmi supervisorctl status",
+        "docker exec gnmi ps -ef",
+        "grep -a 'supervisor-proc-exit-listener\\|gnmi-native\\|Incorrect port value' /var/log/syslog | tail -n 25",
+    ]
+    for cmd in cmds:
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        logger.warning("GNMI-RACE-DIAG [%s] $ %s\n%s", tag, cmd, res.get('stdout', ''))
+
+
 def delete_gnmi_config(duthost):
+    # !!! DIAGNOSTIC-ONLY BRANCH - FORCED REPRODUCTION - NEVER MERGE !!!
+    # Identical to 202605 except for the instrumentation and the sleep below.
+    # The sleep widens the "GNMI|gnmi exists without port" window from the ~3 s measured
+    # on an idle KVM testbed to ~20 s, past the measured 5-6 s gnmi container re-render
+    # delay, which turns the intermittent race into a deterministic kill.
+    _diag_capture(duthost, "before delete_gnmi_config")
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
     duthost.shell(cmd, module_ignore_errors=True)
+    logger.warning("GNMI-RACE-DIAG forced window OPEN - sleeping 20s with 'GNMI|gnmi' present and portless")
+    duthost.shell("sleep 20", module_ignore_errors=True)
+    _diag_capture(duthost, "inside forced window")
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
     duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
@@ -41,6 +66,7 @@ def delete_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
     duthost.shell(cmd, module_ignore_errors=True)
+    _diag_capture(duthost, "after delete_gnmi_config")
 
 
 def setup_telemetry_forpyclient(duthost):
