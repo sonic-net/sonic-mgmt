@@ -722,6 +722,27 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(29, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
                 idx += 8
+        elif hwsku in ["Mellanox-SN4280-O4X96"]:
+            split_alias_list = ["a", "b", "c", "d"]
+            idx = 0
+            for i in range(1, 13):  # etp1 - etp12: 4x25G
+                for j, suffix in enumerate(split_alias_list):
+                    port_alias_to_name_map["etp%d%s" % (i, suffix)] = "Ethernet%d" % (idx + j)
+                idx += 8
+            for i in range(13, 17):  # etp13 - etp16: 400G (8-lane)
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
+            for i in range(17, 21):  # etp17 - etp20: 4x25G
+                for j, suffix in enumerate(split_alias_list):
+                    port_alias_to_name_map["etp%d%s" % (i, suffix)] = "Ethernet%d" % (idx + j)
+                idx += 8
+            for i in range(21, 29):  # etp21 - etp28: 4x25G
+                for j, suffix in enumerate(split_alias_list):
+                    port_alias_to_name_map["etp%d%s" % (i, suffix)] = "Ethernet%d" % (idx + j)
+                idx += 8
+            for i in range(29, 33):  # etp29 - etp32: 400G (8-lane)
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
         elif hwsku == "ACS-SN4280":
             for i in range(0, 256, 8):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
