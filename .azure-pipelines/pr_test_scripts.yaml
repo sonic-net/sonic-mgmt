@@ -842,6 +842,11 @@ t0-vpp:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vlan/test_vlan_ports_down.py
+  - vxlan/test_vnet_decap.py
+  - vxlan/test_vnet_route_leak.py
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_decap_ttl.py
 
 
 multi-asic-t1-lag:

@@ -115,16 +115,19 @@ def create_vnet(duthost, create_vxlan_tunnel):
                   "The VxLAN tunnel is not removed from ASIC DB.")
 
 
-def select_ingress_port(duthost):
+def select_ingress_port(duthost, minigraph_facts, outer_ip_version):
     """
-        Returns the name of an oper UP Ethernet interface to be used as ingress port in tests.
+        Returns an oper UP Ethernet interface and a topology-derived remote source IP
+        that is reachable through that interface.
     """
     interfaces_status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     for intf, info in interfaces_status.items():
         if info["oper_state"].lower() == "up" and intf.startswith("Ethernet"):
-            logger.info(f"Selected {intf} as ingress port.")
-            return intf
-    pytest.skip("No oper UP Ethernet interface found on the DUT to be used as ingress port.")
+            outer_src_ip = ecmp_utils.get_ingress_src_ip(minigraph_facts, intf, outer_ip_version)
+            if outer_src_ip:
+                logger.info(f"Selected {intf} as ingress port with remote source IP {outer_src_ip}.")
+                return intf, outer_src_ip
+    pytest.skip("No oper UP Ethernet interface with a reachable remote source IP was found on the DUT.")
 
 
 def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac):
@@ -139,8 +142,13 @@ def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac):
         the frame at L2 and it gets flooded in the VLAN instead of being decapsulated.
     """
     if tbinfo["topo"]["type"] == "t0" and ingress_intf is not None:
+        logical_intfs = {ingress_intf}
+        for portchannel, portchannel_info in minigraph_facts.get("minigraph_portchannels", {}).items():
+            if ingress_intf in portchannel_info.get("members", []):
+                logical_intfs.add(portchannel)
+
         for vlan_name, vlan_info in minigraph_facts.get("minigraph_vlans", {}).items():
-            if ingress_intf in vlan_info.get("members", []):
+            if logical_intfs.intersection(vlan_info.get("members", [])):
                 return duthost.get_dut_iface_mac(vlan_name)
     return router_mac
 
@@ -193,12 +201,13 @@ def get_inner_packet(dst_mac, src_mac, ip_version, dst_ip, ttl):
         return testutils.simple_udpv6_packet(eth_dst=dst_mac, eth_src=src_mac, ipv6_dst=dst_ip, ipv6_hlim=ttl)
 
 
-def get_outer_packet(eth_dst, eth_src, ip_version, ip_dst, inner_pkt):
+def get_outer_packet(eth_dst, eth_src, ip_version, ip_src, ip_dst, inner_pkt):
     if ip_version == "v4":
-        return testutils.simple_vxlan_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst,
+        return testutils.simple_vxlan_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src=ip_src, ip_dst=ip_dst,
                                              udp_dport=VXLAN_DST_PORT, vxlan_vni=VNI, inner_frame=inner_pkt)
     else:
-        return testutils.simple_vxlanv6_packet(eth_dst=eth_dst, eth_src=eth_src, ipv6_dst=ip_dst,
+        return testutils.simple_vxlanv6_packet(eth_dst=eth_dst, eth_src=eth_src,
+                                               ipv6_src=ip_src, ipv6_dst=ip_dst,
                                                udp_dport=VXLAN_DST_PORT, vxlan_vni=VNI, inner_frame=inner_pkt)
 
 
@@ -249,7 +258,7 @@ def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_vers
     router_mac = duthost.facts["router_mac"]
     vnet_endpoint = ecmp_utils.get_dut_loopback_address(duthost, minigraph_facts, outer_ip_version)
     ptf_indices = minigraph_facts["minigraph_ptf_indices"]
-    ingress_port = select_ingress_port(duthost)
+    ingress_port, outer_src_ip = select_ingress_port(duthost, minigraph_facts, outer_ip_version)
     inner_dst_ip, egress_ports = select_egress_ip_and_ports(duthost, minigraph_facts,
                                                             inner_ip_version, exclude_ports=[ingress_port])
     egress_port_indices = [ptf_indices[port] for port in egress_ports]
@@ -263,7 +272,7 @@ def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_vers
     inner_pkt = get_inner_packet(dst_mac=router_mac, src_mac=ptf_src_mac, ip_version=inner_ip_version,
                                  dst_ip=inner_dst_ip, ttl=2)
     outer_pkt = get_outer_packet(eth_dst=outer_dst_mac, eth_src=ptf_src_mac, ip_version=outer_ip_version,
-                                 ip_dst=vnet_endpoint, inner_pkt=inner_pkt)
+                                 ip_src=outer_src_ip, ip_dst=vnet_endpoint, inner_pkt=inner_pkt)
 
     exp_pkt_mask = get_expected_packet_mask(inner_pkt, inner_ip_version)
     ptfadapter.dataplane.flush()

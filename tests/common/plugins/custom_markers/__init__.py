@@ -100,7 +100,7 @@ def check_feature(item):
 
 
 def check_asic(item):
-    asic = [mark.args[0] for mark in item.iter_markers(name="asic")]
+    asic = [supported for mark in item.iter_markers(name="asic") for supported in mark.args]
     if asic:
         if item.config.getoption("--asic") not in asic:
             pytest.skip("test requires asic in {!r}".format(asic))
