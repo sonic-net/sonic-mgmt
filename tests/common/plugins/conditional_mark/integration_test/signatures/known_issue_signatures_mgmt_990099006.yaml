@@ -1,0 +1,12 @@
+signatures:
+  - name: custom_high_low_threshold
+    exception_type: Failed
+    message: |-
+      Failed: LLDP neighbor not found on interface Ethernet0. Expected neighbor r-sn2700-90 but got none after 60 seconds.
+    stack_trace: |-
+      tests/lldp/test_lldp.py:85: in test_lldp_neighbor
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about LLDP neighbor not found, it is the same issue.
+    xfail_similarity_high_th: "0.95"
+    xfail_similarity_low_th: "0.85"

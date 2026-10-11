@@ -1,0 +1,13 @@
+signatures:
+  - name: setup_teardown_failure
+    exception_type: Failed
+    message: |-
+      Failed: Fixture setup/teardown failed: DUT health check did not pass. Services not running: swss, syncd.
+    stack_trace: |-
+      tests/common/fixtures/health.py:45: in dut_health_check
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about DUT health check with services not running,
+      it is the same issue.
+    xfail_similarity_high_th: "0.55"
+    xfail_similarity_low_th: "0.30"

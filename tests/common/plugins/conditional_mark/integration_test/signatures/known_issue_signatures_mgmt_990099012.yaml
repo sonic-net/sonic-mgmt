@@ -1,0 +1,14 @@
+signatures:
+  - name: close_score_candidate_1
+    exception_type: Failed
+    message: |-
+      Failed: Route not found in routing table after redistribution. Expected prefix 10.0.0.0/24 in BGP RIB but it was missing after 60 seconds.
+    stack_trace: |-
+      tests/bgp/test_bgp_redistribute.py:150: in test_route_redistribution
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about a missing route after BGP redistribution,
+      it is the same issue.
+    xfail_similarity_high_th: "0.95"
+    xfail_similarity_low_th: "0.30"
+    xfail_ai_agent_timeout: "10"
