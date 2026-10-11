@@ -7,7 +7,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, \
     get_snappi_ports, tgen_port_info, is_snappi_multidut, \
     get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    snappi_multi_base_config                                                                        # noqa: F401
+    snappi_multi_base_config, fabric_counter_context                                                # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test, get_test_subtype_from_ports
@@ -41,6 +41,7 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
                                  conn_graph_facts,              # noqa: F811
                                  fanout_graph_facts_multidut,   # noqa: F811
                                  duthosts,
+                                 fabric_counter_context,        # noqa: F811
                                  prio_dscp_map,                 # noqa: F811
                                  lossless_prio_list,            # noqa: F811
                                  lossy_prio_list,               # noqa: F811
@@ -62,6 +63,7 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -124,8 +126,7 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -142,8 +143,8 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
+
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -152,6 +153,7 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
                                 conn_graph_facts,               # noqa: F811
                                 fanout_graph_facts_multidut,    # noqa: F811
                                 duthosts,
+                                fabric_counter_context,         # noqa: F811
                                 prio_dscp_map,                  # noqa: F811
                                 lossless_prio_list,             # noqa: F811
                                 lossy_prio_list,                # noqa: F811
@@ -173,6 +175,7 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -239,8 +242,7 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -257,8 +259,8 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
+
     finally:
         cleanup_config(dut_list, snappi_ports)
 
@@ -267,6 +269,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                               conn_graph_facts,             # noqa: F811
                               fanout_graph_facts_multidut,  # noqa: F811
                               duthosts,
+                              fabric_counter_context,       # noqa: F811
                               prio_dscp_map,                # noqa: F811
                               lossless_prio_list,           # noqa: F811
                               lossy_prio_list,              # noqa: F811
@@ -287,6 +290,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -355,8 +359,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -373,7 +376,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
+
     finally:
         cleanup_config(dut_list, snappi_ports)
