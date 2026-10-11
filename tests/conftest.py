@@ -119,7 +119,8 @@ GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
 RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
-pytest_plugins = ('tests.common.plugins.ptfadapter',
+pytest_plugins = ('tests.common.plugins.nasa_debug',
+                  'tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
