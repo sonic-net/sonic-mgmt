@@ -175,6 +175,53 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
         pytest.skip("Skip test for lossy only pool")
 
 
+# Maps a TestQosSai parameter set (select_src_dst_dut_and_asic value) to the
+# nodeid of a seed test whose fixture failed during setup, so downstream cases
+# in that set xfail instead of re-erroring on the same root cause. Per-worker
+# under xdist: only suppresses when seed and derivatives share a worker (serial
+# or --dist loadscope/loadgroup); plain --dist load falls back to per-case ERROR.
+_qos_sai_fixture_failures = {}
+
+
+def pytest_sessionstart(session):
+    """Reset tracking so stale entries can't leak across reused pytest-xdist workers."""
+    _qos_sai_fixture_failures.clear()
+
+
+def _is_qos_sai_item(item):
+    return bool(getattr(item, 'cls', None)) and item.cls.__name__ == 'TestQosSai'
+
+
+def _qos_sai_param_set(item):
+    """Return the select_src_dst_dut_and_asic parameter set for a TestQosSai item, or 'default'."""
+    callspec = getattr(item, 'callspec', None)
+    if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+        return callspec.params['select_src_dst_dut_and_asic']
+    return 'default'
+
+
+def pytest_runtest_makereport(item, call):
+    """Record a seed (testParameter) setup failure to suppress cascades in the same parameter set."""
+    if not _is_qos_sai_item(item) or 'fixture_seed' not in item.keywords:
+        return
+    if call.when == "setup" and call.excinfo is not None:
+        _qos_sai_fixture_failures[_qos_sai_param_set(item)] = item.nodeid
+
+
+def pytest_runtest_setup(item):
+    """xfail downstream TestQosSai cases whose parameter set already failed its seed fixture."""
+    if not _is_qos_sai_item(item):
+        return
+
+    # Seed tests must fail naturally so the root cause surfaces as an ERROR.
+    if 'fixture_seed' in item.keywords:
+        return
+
+    seed = _qos_sai_fixture_failures.get(_qos_sai_param_set(item))
+    if seed:
+        pytest.xfail(f"seed fixture failed for this parameter set; see {seed}")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
