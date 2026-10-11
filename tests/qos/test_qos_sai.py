@@ -2122,6 +2122,12 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
 
+        # The egress path holds a different number of packets past the MMU for a
+        # watermark fill than for the trigger tests the speed block is calibrated
+        # against, so a per-profile value wins over the speed-block one.
+        if "pkts_num_egr_mem" in list(qosConfig[queueProfile].keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig[queueProfile]["pkts_num_egr_mem"]
+
         if "packet_size" in list(qosConfig[queueProfile].keys()):
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
 
