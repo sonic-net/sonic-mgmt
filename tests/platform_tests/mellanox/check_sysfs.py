@@ -163,10 +163,12 @@ def check_sysfs(dut, expected_module_temp_fault_value=['0']):
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in list(sysfs_facts['sfp_info'].items()):
-        # Skip when the sfp is missing
-        if not sfp_info["temp_fault"]:
+        # An absent module reads "0", so all values empty means the sysfs nodes are missing
+        if not any(sfp_info.values()):
             continue
 
+        assert '' not in sfp_info.values(), \
+            "SFP{} sysfs read returned an empty value: {}".format(sfp_id, sfp_info)
         assert sfp_info["temp_fault"] in expected_module_temp_fault_value, "SFP%d temp fault" % int(sfp_id)
         sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
         sfp_temp_crit = float(
