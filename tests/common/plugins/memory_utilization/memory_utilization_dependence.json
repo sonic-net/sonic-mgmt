@@ -8,7 +8,8 @@
     "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
     "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"],
     "Cisco-C8220TG": ["Cisco-C8220TG-48A-O", "Cisco-C8220TG-G1S2"],
-    "Mellanox-SN6600":["Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"]
+    "Mellanox-SN6600":["Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"],
+    "Mellanox-SN4280": ["Mellanox-SN4280-O4X96"]
   },
   "COMMON": [
     {
@@ -434,6 +435,61 @@
           "memory_high_threshold": {
             "type": "value",
             "value": 134
+          }
+        }
+      },
+      "memory_check": "parse_frr_memory_output"
+    }
+  ],
+  "Mellanox-SN4280": [
+    {
+      "name": "top",
+      "cmd": "top -b -n 1",
+      "memory_params": {
+        "bgpd": {
+          "memory_increase_threshold": {
+            "type": "value",
+            "value": 512
+          },
+          "memory_high_threshold": null
+        },
+        "zebra": {
+          "memory_increase_threshold": {
+            "type": "value",
+            "value": 256
+          },
+          "memory_high_threshold": null
+        }
+      },
+      "memory_check": "parse_top_output"
+    },
+    {
+      "name": "free",
+      "cmd": "free -m",
+      "memory_params": {
+        "used": {
+          "memory_increase_threshold": {
+            "type": "percentage",
+            "value": "100%"
+          },
+          "memory_high_threshold": null
+        }
+      },
+      "memory_check": "parse_free_output"
+    },
+    {
+      "name": "frr_bgp",
+      "cmd": "vtysh -c \"show memory bgp\"",
+      "memory_params": {
+        "used": {
+          "memory_increase_threshold": [
+            {"type": "percentage", "value": "100%"},
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
+          ],
+          "memory_high_threshold": {
+            "type": "value",
+            "value": 1536
           }
         }
       },
