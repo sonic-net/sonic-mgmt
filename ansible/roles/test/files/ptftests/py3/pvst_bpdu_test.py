@@ -300,13 +300,20 @@ class PvstBpduTest(BaseTest):
         self.bpdu_type = 'config'
         self.vlan_id = self.test_params.get('vlan_id', self.DEFAULT_VLAN_ID)
 
-        for src_port in self.test_params['send_port']:
-            self.port_id = src_port
+        # One PTF run can stand in for a neighbour with a real hello cadence:
+        # send_count frames send_interval seconds apart on every send port.
+        count = int(self.test_params.get('send_count', 1))
+        interval = float(self.test_params.get('send_interval', 0))
+        for i in range(count):
+            for src_port in self.test_params['send_port']:
+                self.port_id = src_port
 
-            # Create BPDU packet
-            packet = self.create_pvst_bpdu_packet()
-            testutils.send_packet(self, src_port, packet)
-            self.logger.info(f"Sent BPDU on port {src_port} successfully")
+                # Create BPDU packet
+                packet = self.create_pvst_bpdu_packet()
+                testutils.send_packet(self, src_port, packet)
+                self.logger.info(f"Sent BPDU on port {src_port} successfully")
+            if interval and i < count - 1:
+                time.sleep(interval)
 
     def test_send_tcn_bpdu(self):
         """
@@ -707,9 +714,11 @@ class PvstBpduTest(BaseTest):
 
         self.logger.info(f"BPDU capture completed. Captured {len(captured_bpdus)} BPDUs")
 
-        if not captured_bpdus:
-            self.logger.warning("No BPDUs captured for replay")
-            return
+        # Nothing captured means the DUT was not sending on this port, so the
+        # self-loop was never exercised. Returning here would let the caller
+        # read that as a pass.
+        assert captured_bpdus, "no BPDU captured on port {} in {}s, nothing to replay".format(
+            capture_port, capture_duration)
 
         # Wait before starting replay
         self.logger.info(f"Waiting {replay_delay} seconds before starting BPDU replay")

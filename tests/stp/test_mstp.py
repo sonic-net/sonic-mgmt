@@ -30,6 +30,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.stp import stp_base
 from tests.stp import stp_utils
 from tests.stp.stp_base import StpTestBase
 
@@ -61,6 +62,15 @@ BEATABLE_PRIORITY = 8192
 # (0x40). A BPDU with role "Unknown" (flags 0x00) is discarded by the daemon, so
 # injected superior BPDUs must carry a valid designated role to be acted on.
 CIST_FLAGS_DESIGNATED = 0x7E
+# A designated port that is neither learning nor forwarding: what a bridge
+# sends while it still loses the election, and nothing a designated port
+# disputes.
+CIST_FLAGS_QUIET_DESIGNATED = 0x0C
+# A neighbour that loses to everything: the worst priority and a high MAC.
+INFERIOR_PRIORITY = 0xF000
+INFERIOR_BRIDGE_MAC = "02:ff:ff:ff:ff:ff"
+# Source prefix of the PTF's L2 probe frames (StpBpduBase.L2_SRC_PREFIX).
+PROBE_MAC_PREFIX = "00:11:22:33:55"
 
 
 class TestMstp(StpTestBase):
@@ -159,7 +169,7 @@ class TestMstp(StpTestBase):
         # An MSTI is created by setting its priority. A build without that CLI
         # refuses with "does not exist", which is the real capability gate.
         create = duthost.shell(
-            "config spanning-tree mst instance priority {} 32768".format(inst),
+            "config spanning-tree mst instance {} priority 32768".format(inst),
             module_ignore_errors=True)
         if create["rc"] != 0:
             pytest.skip("this build cannot create MST instance {}: {}".format(
@@ -167,7 +177,7 @@ class TestMstp(StpTestBase):
 
         try:
             duthost.shell(
-                "config spanning-tree mst instance vlan add {} {}".format(inst, vlan_id))
+                "config spanning-tree mst instance {} vlan add {}".format(inst, vlan_id))
 
             pytest_assert(
                 wait_until(30, 2, 0,
@@ -191,14 +201,11 @@ class TestMstp(StpTestBase):
                      capture_duration=self.PKT_CAPTURE_DURATION),
                 "/tmp/mstp_region_instance.log")
         finally:
-            # Unmap, then drop the instance row. There is no CLI delete verb for
-            # an instance yet, so the row is removed directly.
+            # Unmap, then delete the instance.
             duthost.shell(
-                "config spanning-tree mst instance vlan del {} {}".format(inst, vlan_id),
+                "config spanning-tree mst instance {} vlan del {}".format(inst, vlan_id),
                 module_ignore_errors=True)
-            duthost.shell(
-                "redis-cli -n 4 del 'STP_MST_INST|{}'".format(inst),
-                module_ignore_errors=True)
+            stp_base.delete_mst_instance(duthost, inst)
 
     def test_mstp_boundary_on_region_mismatch(self, duthosts, rand_one_dut_hostname, ptfhost,
                                               setup_stp_test_data):
@@ -351,19 +358,19 @@ class TestMstp(StpTestBase):
         self.verify_stp_state(duthost, CIST, [dut_port_1], "FORWARDING")
         self.verify_stp_state(duthost, CIST, [dut_port_2], self.BLOCK_STATE)
 
-        # Better (lower) CIST port priority on port_2 -> root port moves to port_2.
-        for _ in range(15):
-            self.run_bpdu(ptfhost, duthost, "config",
-                          self._superior_params(d, [ptf_port_2], port_priority=0x60),
-                          "/tmp/mstp_port_priority_p2.log")
-            self.run_bpdu(ptfhost, duthost, "config",
-                          self._superior_params(d, [ptf_port_1]),
-                          "/tmp/mstp_port_priority_p1.log")
-
-        pytest_assert(self.wait_root_port(duthost, CIST, dut_port_2),
-                      "root port did not move to {}".format(dut_port_2))
-        self.verify_stp_state(duthost, CIST, [dut_port_1], self.BLOCK_STATE)
-        self.verify_stp_state(duthost, CIST, [dut_port_2], "FORWARDING")
+        # Better (lower) CIST port priority on port_2 -> root port moves to
+        # port_2. Both neighbours keep talking at hello cadence while the DUT
+        # re-elects; the DUT drops a neighbour it has not heard from for three
+        # hellos, so the two streams must run at the same time.
+        with self.bpdu_streams(ptfhost, duthost, [
+                (self._superior_params(d, [ptf_port_2], port_priority=0x60),
+                 "/tmp/mstp_port_priority_p2.log"),
+                (self._superior_params(d, [ptf_port_1]),
+                 "/tmp/mstp_port_priority_p1.log")]):
+            pytest_assert(self.wait_root_port(duthost, CIST, dut_port_2),
+                          "root port did not move to {}".format(dut_port_2))
+            self.verify_stp_state(duthost, CIST, [dut_port_1], self.BLOCK_STATE)
+            self.verify_stp_state(duthost, CIST, [dut_port_2], "FORWARDING")
 
     def test_mstp_path_cost_validation(self, duthosts, rand_one_dut_hostname, ptfhost,
                                        setup_stp_test_data):
@@ -392,7 +399,8 @@ class TestMstp(StpTestBase):
                 self.run_bpdu(
                     ptfhost, duthost, "validate_path_cost",
                     {"capture_port": ptf_port_2, "capture_duration": self.PKT_CAPTURE_DURATION,
-                     "expected_root_path_cost": default_port_cost},
+                     "expected_root_path_cost": default_port_cost,
+                     "expected_bridge_mac": d["dut_ports"]["mac"]},
                     "/tmp/mstp_path_cost_default.log")
 
                 self.set_port_cost(duthost, CIST, dut_port_1, self.PORT_COST)
@@ -404,7 +412,8 @@ class TestMstp(StpTestBase):
                 self.run_bpdu(
                     ptfhost, duthost, "validate_path_cost",
                     {"capture_port": ptf_port_2, "capture_duration": self.PKT_CAPTURE_DURATION,
-                     "expected_root_path_cost": self.PORT_COST},
+                     "expected_root_path_cost": self.PORT_COST,
+                     "expected_bridge_mac": d["dut_ports"]["mac"]},
                     "/tmp/mstp_path_cost_updated.log")
         finally:
             if default_port_cost is not None:
@@ -590,13 +599,11 @@ class TestMstp(StpTestBase):
             # Restore SONiC defaults (hello 2, max_age 20, forward_delay 15).
             self.set_timers(duthost, vlan_id, hello=2, max_age=20, fwd_delay=15)
 
-    @pytest.mark.xfail(strict=False,
-                       reason="hardware MAC learning is disabled while MSTP is enabled, "
-                              "so the learn step cannot pass")
     def test_mstp_mac_flush(self, duthosts, rand_one_dut_hostname, ptfhost,
                             setup_stp_test_data):
         """Mirror of test_pvst_mac_flush: learn a MAC via L2 traffic, then a
-        topology-change (TC-flagged CIST) BPDU flushes it."""
+        topology-change (TC-flagged CIST) BPDU received on the other port
+        flushes it."""
         duthost = duthosts[rand_one_dut_hostname]
         d = setup_stp_test_data
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
@@ -606,9 +613,26 @@ class TestMstp(StpTestBase):
         pytest_assert(self.is_self_root(duthost, CIST), "precondition: DUT should be CIST root")
         self.verify_stp_state(duthost, CIST, [dut_port_1, dut_port_2], "FORWARDING")
 
+        # A port that has never received a BPDU is an edge port (auto edge is
+        # on by default), and a topology change leaves an edge port's entries
+        # alone, because its hosts did not move. The port the MAC is learned
+        # on faces the PTF, so give it a bridge to talk to first: one quiet
+        # BPDU it outranks, which the daemon remembers for good.
+        self.run_bpdu(ptfhost, duthost, "send_cist",
+                      self._superior_params(d, [ptf_port_1],
+                                            cist_flags=CIST_FLAGS_QUIET_DESIGNATED,
+                                            cist_root_priority=INFERIOR_PRIORITY,
+                                            cist_root_mac=INFERIOR_BRIDGE_MAC,
+                                            cist_bridge_priority=INFERIOR_PRIORITY,
+                                            cist_bridge_mac=INFERIOR_BRIDGE_MAC),
+                      "/tmp/mstp_mac_flush_neighbour.log")
+        pytest_assert(self.is_self_root(duthost, CIST),
+                      "the inferior neighbour on {} took the root".format(dut_port_1))
+
         def _mac_count():
+            # Only the probe's own source address, see the PVST twin.
             lines = duthost.shell("show mac").get("stdout_lines", [])
-            return sum(1 for ln in lines if dut_port_1 in ln)
+            return sum(1 for ln in lines if dut_port_1 in ln and PROBE_MAC_PREFIX in ln.lower())
 
         before = _mac_count()
         self.run_bpdu(
@@ -621,8 +645,14 @@ class TestMstp(StpTestBase):
         pytest_assert(after > before,
                       "MACs not learned on {} (before {}, after {})".format(dut_port_1, before, after))
 
+        # A TC is only honoured from a bridge whose information the port
+        # accepts, and a designated port disputes an inferior neighbour, so
+        # the TC-flagged BPDU comes from a superior root on port_2. A TC
+        # flushes every non-edge port except the one it arrived on, which is
+        # where the topology just changed and the entries are still valid, so
+        # the flush is observed on port_1.
         self.run_bpdu(ptfhost, duthost, "tcn",
-                      dict(self._region_params(d), send_port=[ptf_port_1]),
+                      self._superior_params(d, [ptf_port_2]),
                       "/tmp/mstp_mac_flush_tcn.log")
 
         # A real flush removes the learned entries; `<=` would pass when the

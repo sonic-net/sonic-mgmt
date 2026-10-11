@@ -26,6 +26,10 @@ MST_TEST_INSTANCE = 1
 # Spare VLAN ids the config/enrolment tests (test_*_config.py) create as "VLAN B".
 CANDIDATE_VLAN_B = [2000, 2100, 3000, 3100]
 
+# Spare PortChannel names those tests create. High numbers, so they do not
+# collide with the minigraph's PortChannel0001..000N.
+CANDIDATE_PORTCHANNEL = ["PortChannel990", "PortChannel991", "PortChannel992"]
+
 
 def _mode(request):
     mode = getattr(request.cls, "STP_MODE", None)
@@ -38,7 +42,10 @@ def _mode(request):
 def check_stp_feature_status(duthost):
     """Ensure the STP feature is enabled. The image ships it `disabled` by
     default, so enable it (and wait for the container) rather than skipping;
-    only skip when the feature is genuinely absent."""
+    only skip when the feature is genuinely absent. Afterwards put every
+    STP-owned CONFIG_DB row back as the module found it: a disable keeps the
+    configuration, so the tests' own teardowns leave rows behind."""
+    before = stp_base.snapshot_stp_config(duthost)
     feature_status = duthost.show_and_parse("show feature status")
     stp = next((f for f in feature_status if f["feature"] == "stp"), None)
     if not stp:
@@ -50,6 +57,10 @@ def check_stp_feature_status(duthost):
         # enables, and force-starts the container if needed.
         py_assert(stp_base.ensure_stp_feature_up(duthost),
                   "stp container did not come up after enabling the feature")
+    yield
+    left = stp_base.restore_stp_config(duthost, before)
+    if left:
+        logger.warning("STP CONFIG_DB rows not restored: %s", left)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -167,14 +178,98 @@ def enable_stp_and_verify(request, duthosts, rand_one_dut_hostname, setup_stp_te
     stp_base.disable_stp(duthost, mode)
 
 
+def _run(duthost, cmd, tolerate=False):
+    """Run a config command and fail loudly unless the caller says otherwise."""
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    if res.get("rc", 0) != 0:
+        msg = "command failed: {} (rc={}, stderr={!r})".format(
+            cmd, res.get("rc"), (res.get("stderr") or "").strip())
+        if tolerate:
+            logger.warning("%s", msg)
+        else:
+            py_assert(False, msg)
+    return res
+
+
+def _vlan_ids_on_dut(duthost):
+    """VLAN ids actually configured on the switch, from CONFIG_DB.
+
+    The minigraph only describes how the testbed was built, so anything
+    created outside it is invisible there.
+    """
+    out = duthost.shell("redis-cli -n 4 keys 'VLAN|Vlan*'",
+                        module_ignore_errors=True).get("stdout", "")
+    vids = set()
+    for key in out.splitlines():
+        name = key.strip().split("|")[-1]
+        if name.startswith("Vlan") and name[4:].isdigit():
+            vids.add(int(name[4:]))
+    return vids
+
+
+def _portchannels_on_dut(duthost):
+    """PortChannel names actually configured on the switch, from CONFIG_DB."""
+    out = duthost.shell("redis-cli -n 4 keys 'PORTCHANNEL|PortChannel*'",
+                        module_ignore_errors=True).get("stdout", "")
+    return {key.strip().split("|")[-1] for key in out.splitlines() if key.strip()}
+
+
+def _port_memberships(duthost, ports):
+    """{port: {vlan_id: tagging_mode}} for these ports, read from CONFIG_DB."""
+    out = duthost.shell("redis-cli -n 4 keys 'VLAN_MEMBER|*'",
+                        module_ignore_errors=True).get("stdout", "")
+    wanted = set(ports)
+    memberships = {p: {} for p in ports}
+    for key in out.splitlines():
+        key = key.strip()
+        parts = key.split("|")
+        if len(parts) != 3:
+            continue
+        _table, vlan_name, port = parts
+        if port not in wanted or not vlan_name[4:].isdigit():
+            continue
+        mode = duthost.shell("redis-cli -n 4 hget '{}' tagging_mode".format(key),
+                             module_ignore_errors=True).get("stdout", "").strip()
+        memberships[port][int(vlan_name[4:])] = mode or "untagged"
+    return memberships
+
+
+def _restore_memberships(duthost, before, now):
+    """Put each port back exactly as it was found, tagging included."""
+    for port, wanted in before.items():
+        current = now.get(port, {})
+        for vlan, mode in sorted(current.items()):
+            if wanted.get(vlan) != mode:
+                _run(duthost, "config vlan member del {} {}".format(vlan, port), tolerate=True)
+        for vlan, mode in sorted(wanted.items()):
+            if current.get(vlan) != mode:
+                flag = " --untagged" if mode == "untagged" else ""
+                _run(duthost, "config vlan member add {} {}{}".format(vlan, port, flag))
+
+
+def _delete_vlan(duthost, vlan_id):
+    """Remove a VLAN this fixture created, members first."""
+    out = duthost.shell("redis-cli -n 4 keys 'VLAN_MEMBER|Vlan{}|*'".format(vlan_id),
+                        module_ignore_errors=True).get("stdout", "")
+    for key in out.splitlines():
+        parts = key.strip().split("|")
+        if len(parts) == 3:
+            _run(duthost, "config vlan member del {} {}".format(vlan_id, parts[2]), tolerate=True)
+    _run(duthost, "config vlan del {}".format(vlan_id))
+
+
 @pytest.fixture
 def stp_config_env(request, duthosts, rand_one_dut_hostname, tbinfo):
     """Per-test topology for the config/enrolment tests (test_*_config.py): the
     minigraph default VLAN (VLAN A) with >=4 physical members, plus a spare VLAN
     id (VLAN B) these tests create. Establishes the baseline (STP feature enabled
-    + the class's STP mode enabled) and clears any leftover VLAN B / stray
-    membership on both setup and teardown. Mode-agnostic; the caller supplies the
-    per-mode scope (CIST 0 for MST, VLAN id for PVST)."""
+    + the class's STP mode enabled). Mode-agnostic; the caller supplies the
+    per-mode scope (CIST 0 for MST, VLAN id for PVST).
+
+    Only ever removes what it created: VLAN B comes from ids unconfigured on
+    the switch, and each port's real pre-state is restored. Teardown fails the
+    module if the switch does not match what it found.
+    """
     mode = _mode(request)
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -187,21 +282,29 @@ def stp_config_env(request, duthosts, rand_one_dut_hostname, tbinfo):
         pytest.skip("need >=4 VLAN member ports for the STP config tests, have {}".format(len(members)))
     ports = members[:4]
 
-    existing_vids = {int(v["vlanid"]) for v in mg_facts["minigraph_vlans"].values()}
-    vlan_b = next((v for v in CANDIDATE_VLAN_B if v != vlan_a and v not in existing_vids), None)
-    py_assert(vlan_b is not None, "no spare VLAN id available for VLAN B")
+    # Ask the switch, not just the minigraph: a VLAN configured outside the
+    # minigraph is invisible there and must still count as taken.
+    taken = _vlan_ids_on_dut(duthost) | {int(v["vlanid"]) for v in mg_facts["minigraph_vlans"].values()}
+    vlan_b = next((v for v in CANDIDATE_VLAN_B if v != vlan_a and v not in taken), None)
+    if vlan_b is None:
+        pytest.skip(
+            "no spare VLAN id available for VLAN B; candidates {} are all in use on {}".format(
+                CANDIDATE_VLAN_B, duthost.hostname))
 
-    def _clean():
-        # remove any residue from a prior/aborted run and put the 4 ports back
-        # as untagged members of VLAN A
-        for p in ports:
-            duthost.shell("config vlan member del {} {}".format(vlan_b, p), module_ignore_errors=True)
-        duthost.shell("config vlan del {}".format(vlan_b), module_ignore_errors=True)
-        for p in ports:
-            duthost.shell("config vlan member add {} {} --untagged".format(vlan_a, p),
-                          module_ignore_errors=True)
+    # Whatever the tests do to these ports, this is what they go back to.
+    before = _port_memberships(duthost, ports)
+    logger.info("stp_config_env: VLAN A %s, VLAN B %s, ports %s, pre-state %s",
+                vlan_a, vlan_b, ports, before)
 
-    _clean()
+    # The config tests assume the minigraph shape, every port a member of
+    # VLAN A. Drift left by an earlier failed teardown is reported here, where
+    # it is first seen, instead of as a product failure in the next test.
+    drifted = [p for p in ports if vlan_a not in before[p]]
+    if drifted:
+        pytest.fail("{} are not members of VLAN {} on {}; the testbed has drifted from "
+                    "its minigraph baseline".format(drifted, vlan_a, duthost.hostname),
+                    pytrace=False)
+
     # baseline: feature up + the class's STP mode enabled. Clear whatever mode is
     # currently active first -- `config spanning-tree enable pvst` hard-fails when
     # the box is already in `mst` (and vice versa), so without this a box left in
@@ -220,4 +323,51 @@ def stp_config_env(request, duthosts, rand_one_dut_hostname, tbinfo):
 
     yield {"vlan_a": vlan_a, "vlan_b": vlan_b, "ports": ports}
 
-    _clean()
+    # It did not exist at setup, so if it exists now the test made it. A
+    # failed delete must not skip the membership restore or the check below.
+    try:
+        if vlan_b in _vlan_ids_on_dut(duthost):
+            _delete_vlan(duthost, vlan_b)
+    finally:
+        _restore_memberships(duthost, before, _port_memberships(duthost, ports))
+
+        after = _port_memberships(duthost, ports)
+        py_assert(after == before,
+                  "stp_config_env left the DUT changed.\n  before: {}\n  after:  {}".format(before, after))
+
+
+@pytest.fixture
+def spare_portchannel(duthosts, rand_one_dut_hostname):
+    """A PortChannel name that does not exist on the switch, for tests that
+    create and delete one.
+
+    Teardown removes whatever the test left: VLAN membership first (a PortChannel
+    with one cannot be deleted), then the interface. The STP row is dropped last
+    and directly, because a row outliving its interface is the very thing under
+    test here, and a failing test must not hand the next one a stale one.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    taken = _portchannels_on_dut(duthost)
+    name = next((pc for pc in CANDIDATE_PORTCHANNEL if pc not in taken), None)
+    if name is None:
+        pytest.skip("no spare PortChannel name available; candidates {} are all in use on {}".format(
+            CANDIDATE_PORTCHANNEL, duthost.hostname))
+    logger.info("spare_portchannel: using %s on %s", name, duthost.hostname)
+
+    yield name
+
+    if name in _portchannels_on_dut(duthost):
+        out = duthost.shell("redis-cli -n 4 keys 'VLAN_MEMBER|*|{}'".format(name),
+                            module_ignore_errors=True).get("stdout", "")
+        for key in out.splitlines():
+            parts = key.strip().split("|")
+            if len(parts) == 3 and parts[1][4:].isdigit():
+                _run(duthost, "config vlan member del {} {}".format(parts[1][4:], name), tolerate=True)
+        _run(duthost, "config portchannel del {}".format(name), tolerate=True)
+
+    for table in ("STP_PORT", "STP_VLAN_PORT"):
+        out = duthost.shell("redis-cli -n 4 keys '{}|*{}'".format(table, name),
+                            module_ignore_errors=True).get("stdout", "")
+        for key in out.splitlines():
+            if key.strip().split("|")[-1] == name:
+                _run(duthost, "redis-cli -n 4 del '{}'".format(key.strip()), tolerate=True)

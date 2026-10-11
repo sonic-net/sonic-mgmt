@@ -20,10 +20,20 @@ and the lifecycle semantics:
     it from one VLAN drops only that VLAN's state; the other VLAN's state stays
     until the port leaves that VLAN too. (This is the PVST analogue of the MST
     single-CIST lifecycle test.)
+  * ``test_pvst_portchannel_delete_leaves_no_stp_state`` (testlet 3) -- the
+    config-leak counterpart: a deleted interface must take its CONFIG_DB
+    spanning-tree rows with it. Covers PortChannels because they are the only
+    interface class the CLI can create and delete outright. The cleanup itself
+    is mode-agnostic, so there is deliberately no MST duplicate.
+  * ``test_pvst_disable_leaves_valid_config_and_no_tree`` (testlet 4) -- a
+    disable stops the protocol: the per-VLAN tables go, the per-VLAN config
+    stays, and the running config still validates.
 """
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+from tests.stp import stp_utils
 from tests.stp.stp_base import StpTestBase
 
 pytestmark = [
@@ -35,6 +45,21 @@ pytestmark = [
     # staged ignore_regex once that infra bug is fixed.
     pytest.mark.disable_loganalyzer,
 ]
+
+
+def _config_db_exists(duthost, key):
+    return duthost.shell("redis-cli -n 4 exists '{}'".format(key),
+                         module_ignore_errors=True).get("stdout", "").strip() == "1"
+
+
+def _stp_keys_for(duthost, intf):
+    """Every CONFIG_DB STP row keyed on `intf`, across both interface-keyed tables."""
+    keys = []
+    for table in ("STP_PORT", "STP_VLAN_PORT"):
+        out = duthost.shell("redis-cli -n 4 keys '{}|*'".format(table),
+                            module_ignore_errors=True).get("stdout", "")
+        keys += [k.strip() for k in out.splitlines() if k.strip().split("|")[-1] == intf]
+    return keys
 
 
 class TestPvstConfig(StpTestBase):
@@ -154,3 +179,153 @@ class TestPvstConfig(StpTestBase):
             duthost.shell("config vlan del {}".format(vlan_b), module_ignore_errors=True)
             duthost.shell("config vlan member add {} {} --untagged".format(vlan_a, p4),
                           module_ignore_errors=True)
+
+    # =========================================================== testlet 3
+    def test_pvst_portchannel_delete_leaves_no_stp_state(self, duthosts, rand_one_dut_hostname,
+                                                         stp_config_env, spare_portchannel):
+        """Deleting an interface must take its spanning-tree configuration with it.
+
+        A PortChannel that joins a PVST VLAN has an STP_PORT row seeded for it.
+        Once the PortChannel is deleted CONFIG_DB must hold no STP row keyed on
+        that name: a row for an interface that no longer exists is what makes a
+        later config replace fail validation, and it would silently re-apply if a
+        PortChannel of the same name were recreated.
+
+        Three phases, because the row has three lifetimes. A PortChannel that
+        never joined a VLAN never gets one. A row holding only the seeded
+        defaults goes when the PortChannel leaves its last VLAN. A row the
+        operator customized survives that leave by design -- so removing the
+        interface is the only thing left that can clear it.
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        vlan_a = stp_config_env["vlan_a"]
+        pc = spare_portchannel
+        stp_port_key = "STP_PORT|{}".format(pc)
+
+        def _hget(field):
+            return duthost.shell("redis-cli -n 4 hget '{}' {}".format(stp_port_key, field),
+                                 module_ignore_errors=True).get("stdout", "").strip()
+
+        # --- phase 1: never a VLAN member, so no row is ever created ---
+        duthost.shell("config portchannel add {}".format(pc))
+        # Give a late write the same 30 s the positive checks below get.
+        pytest_assert(not wait_until(30, 2, 0, lambda: _config_db_exists(duthost, stp_port_key)),
+                      "{} was given an STP_PORT row without ever joining a VLAN".format(pc))
+        duthost.shell("config portchannel del {}".format(pc))
+        pytest_assert(not _stp_keys_for(duthost, pc),
+                      "create-then-delete of {} left STP rows behind: {}".format(
+                          pc, _stp_keys_for(duthost, pc)))
+
+        # --- phase 2: the seeded row goes when the PortChannel leaves its last VLAN ---
+        duthost.shell("config portchannel add {}".format(pc))
+        duthost.shell("config vlan member add {} {} --untagged".format(vlan_a, pc))
+        pytest_assert(wait_until(30, 2, 0, lambda: _config_db_exists(duthost, stp_port_key)),
+                      "PVST did not seed an STP_PORT row for {} on joining VLAN {}".format(pc, vlan_a))
+        pytest_assert(_hget("enabled") == "true",
+                      "STP_PORT row seeded for {} is not enabled".format(pc))
+
+        duthost.shell("config vlan member del {} {}".format(vlan_a, pc))
+        pytest_assert(wait_until(30, 2, 0, lambda: not _stp_keys_for(duthost, pc)),
+                      "STP rows for {} survived it leaving its last VLAN: {}".format(
+                          pc, _stp_keys_for(duthost, pc)))
+        duthost.shell("config portchannel del {}".format(pc))
+
+        # --- phase 3: a customized row outlives the VLAN and must go with the
+        #     interface. ---
+        duthost.shell("config portchannel add {}".format(pc))
+        duthost.shell("config vlan member add {} {} --untagged".format(vlan_a, pc))
+        pytest_assert(wait_until(30, 2, 0, lambda: _config_db_exists(duthost, stp_port_key)),
+                      "PVST did not seed an STP_PORT row for {} on re-joining VLAN {}".format(pc, vlan_a))
+
+        # Customize it while the PortChannel is still a VLAN member -- the STP
+        # interface commands refuse an interface with no VLAN.
+        duthost.shell("config spanning-tree interface bpdu-guard enable {}".format(pc))
+        pytest_assert(_hget("bpdu_guard") == "true",
+                      "could not customize the STP_PORT row for {}: bpdu_guard did not take".format(pc))
+
+        duthost.shell("config vlan member del {} {}".format(vlan_a, pc))
+        pytest_assert(_config_db_exists(duthost, stp_port_key),
+                      "customized STP_PORT row for {} was dropped when it left the VLAN; "
+                      "it is meant to survive membership changes".format(pc))
+
+        duthost.shell("config portchannel del {}".format(pc))
+        pytest_assert(not _config_db_exists(duthost, "PORTCHANNEL|{}".format(pc)),
+                      "{} was not deleted".format(pc))
+        orphaned = _stp_keys_for(duthost, pc)
+        pytest_assert(not orphaned,
+                      "deleting {} left orphaned STP rows in CONFIG_DB: {}".format(pc, orphaned))
+
+    # =========================================================== testlet 4
+    def test_pvst_disable_leaves_valid_config_and_no_tree(self, duthosts, rand_one_dut_hostname,
+                                                          stp_config_env):
+        """Disabling PVST stops the protocol and nothing else. Every per-VLAN
+        and per-port row the daemon wrote to APPL_DB is gone, so no show
+        command can report a live tree; the per-VLAN priority stays in
+        CONFIG_DB for the next enable; and the kept config still passes the
+        YANG validation every config patch runs."""
+        duthost = duthosts[rand_one_dut_hostname]
+        vlan_a = stp_config_env["vlan_a"]
+        p1 = stp_config_env["ports"][0]
+        priority = 8192
+
+        try:
+            self.set_bridge_priority(duthost, vlan_a, priority)
+            pytest_assert(self.wait_enrolled(duthost, vlan_a, p1),
+                          "{} is not in VLAN {}'s tree before the disable".format(p1, vlan_a))
+
+            self.disable_stp(duthost)
+            self.assert_mode_cleared(duthost)
+            self.assert_tree_cleared(duthost)
+
+            kept = duthost.shell("redis-cli -n 4 hget 'STP_VLAN|Vlan{}' priority".format(vlan_a),
+                                 module_ignore_errors=True).get("stdout", "").strip()
+            pytest_assert(kept == str(priority),
+                          "the disable did not keep VLAN {}'s priority: {!r}".format(vlan_a, kept))
+            self.assert_config_validates(duthost)
+        finally:
+            if duthost.shell("redis-cli -n 4 hget 'STP|GLOBAL' mode",
+                             module_ignore_errors=True).get("stdout", "").strip() != self.STP_MODE:
+                self.enable_stp(duthost)
+            self.set_bridge_priority(duthost, vlan_a, 32768)
+
+    # =========================================================== testlet 5
+    def test_pvst_config_replace_round_trip(self, duthosts, rand_one_dut_hostname, stp_config_env):
+        """The spanning-tree tables must survive a config replace of the running
+        configuration: the replace is accepted, every STP row reads back as it
+        was, and the tree is still there afterwards. A table missing from the
+        replace path would either be refused by validation or silently dropped,
+        and both show up here."""
+        duthost = duthosts[rand_one_dut_hostname]
+        vlan_a = stp_config_env["vlan_a"]
+        p1 = stp_config_env["ports"][0]
+        rows = ("STP|GLOBAL", "STP_VLAN|Vlan{}".format(vlan_a), "STP_PORT|{}".format(p1))
+
+        def _snapshot():
+            return {key: stp_utils._hgetall(duthost, key, dbnum=4) for key in rows}
+
+        try:
+            # Something non-default in every table, so a dropped table is visible.
+            self.set_bridge_priority(duthost, vlan_a, 8192)
+            duthost.shell("config spanning-tree interface bpdu-guard enable {}".format(p1))
+            pytest_assert(self.wait_enrolled(duthost, vlan_a, p1),
+                          "{} is not in VLAN {}'s tree before the replace".format(p1, vlan_a))
+            before = _snapshot()
+            pytest_assert(all(before.values()), "an STP table is empty before the replace: {}".format(before))
+
+            duthost.shell("sonic-cfggen -d --print-data > /tmp/stp_running_config.json")
+            res = duthost.shell("config replace /tmp/stp_running_config.json", module_ignore_errors=True)
+            pytest_assert(res.get("rc", 1) == 0,
+                          "config replace of the running config failed: {}".format(
+                              (res.get("stderr") or res.get("stdout") or "").strip()[-600:]))
+
+            after = _snapshot()
+            pytest_assert(after == before, "STP tables changed across a replace of the same config.\n"
+                          "  before: {}\n  after:  {}".format(before, after))
+            pytest_assert(self.wait_enrolled(duthost, vlan_a, p1),
+                          "{} left VLAN {}'s tree after the replace".format(p1, vlan_a))
+            pytest_assert(self.wait_self_root(duthost, vlan_a),
+                          "DUT is not the root of VLAN {} after the replace".format(vlan_a))
+        finally:
+            duthost.shell("config spanning-tree interface bpdu-guard disable {}".format(p1),
+                          module_ignore_errors=True)
+            self.set_bridge_priority(duthost, vlan_a, 32768)

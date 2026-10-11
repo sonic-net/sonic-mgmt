@@ -25,6 +25,7 @@ Params (via ptf_runner `-t`):
   expected_*       expected values for the validate_* scenarios
 """
 import json
+import time
 
 from scapy.all import Dot3, LLC, Raw   # noqa: F401
 
@@ -35,6 +36,10 @@ import mstp_lib
 class MstpBpduTest(StpBpduBase):
 
     BPDU_DST_MAC = mstp_lib.MST_DST_MAC
+
+    # Enough BPDUs to find one from the DUT when other bridges are also
+    # advertising on the capture port.
+    DUT_BPDU_CAPTURE_COUNT = 5
 
     # Defaults
     DEFAULT_PRIORITY = 32768
@@ -143,10 +148,20 @@ class MstpBpduTest(StpBpduBase):
         assert sp, "validate scenario needs capture_port or send_port"
         return sp[0]
 
+    def _send_repeatedly(self, pkt):
+        """Send `pkt` on every send_port, `send_count` times `send_interval`
+        seconds apart. One PTF run then behaves like a neighbour with a real
+        hello cadence, instead of a single frame that ages out between runs."""
+        count = int(self.param('send_count', 1))
+        interval = float(self.param('send_interval', 0))
+        for i in range(count):
+            for port in self._send_ports():
+                self.send_bpdu(port, pkt)
+            if interval and i < count - 1:
+                time.sleep(interval)
+
     def scenario_send_cist(self):
-        pkt = self.create_bpdu_packet(with_mstis=False)
-        for port in self._send_ports():
-            self.send_bpdu(port, pkt)
+        self._send_repeatedly(self.create_bpdu_packet(with_mstis=False))
 
     # PVST-parity alias: the shared tests drive the superior-BPDU sender thread
     # with scenario "config". For MST that is a (superior, in-region) CIST BPDU;
@@ -221,10 +236,34 @@ class MstpBpduTest(StpBpduBase):
             "DUT did not adopt injected CIST root {} (last BPDU: {})".format(expected_root, bpdu))
 
     def _capture_dut_bpdu(self):
+        """Capture a BPDU the DUT originated.
+
+        When `expected_bridge_mac` is given, BPDUs from any other bridge are
+        discarded: the fields these scenarios assert are properties of the
+        DUT's own advertisement, so validating a neighbour's BPDU would report
+        a mismatch that says nothing about the DUT.
+        """
         port = self._capture_port()
-        bpdu = self.capture_one(port, timeout=int(self.param('capture_duration', 15)))
-        assert bpdu is not None, "no MST BPDU captured on port {}".format(port)
-        return bpdu
+        timeout = int(self.param('capture_duration', 15))
+        want = self.param('expected_bridge_mac')
+        if want is None:
+            bpdu = self.capture_one(port, timeout=timeout)
+            assert bpdu is not None, "no MST BPDU captured on port {}".format(port)
+            return bpdu
+
+        want = str(want).lower()
+        self.start_capture(port, count=self.DUT_BPDU_CAPTURE_COUNT, timeout=timeout)
+        self.stop_capture(join_timeout=timeout + 5)
+        captured = list(self.captured_bpdus)
+        assert captured, "no MST BPDU captured on port {}".format(port)
+
+        mine = [b for b in captured
+                if str(b.get('cist_bridge_mac', '')).lower() == want]
+        assert mine, (
+            "no MST BPDU from bridge {} on port {}; captured bridges: {}".format(
+                want, port, sorted({str(b.get('cist_bridge_mac', 'N/A'))
+                                    for b in captured})))
+        return mine[-1]
 
     def scenario_validate_timers(self):
         """Capture the DUT's own BPDU and assert its CIST timer fields."""
@@ -245,6 +284,21 @@ class MstpBpduTest(StpBpduBase):
         bpdu = self._capture_dut_bpdu()
         expected = int(self.param('expected_root_path_cost', 0))
         actual = int(bpdu.get('cist_int_cost'))
+
+        # The internal cost is only accumulated for information received from
+        # inside the region. If the DUT is still its own regional root, the
+        # peer was treated as a boundary and this field is 0 whatever cost is
+        # configured, so report the region rather than the number.
+        reg_root = str(bpdu.get('cist_reg_root_mac', '')).lower()
+        bridge = str(bpdu.get('cist_bridge_mac', '')).lower()
+        if expected and actual == 0 and reg_root == bridge:
+            raise AssertionError(
+                "DUT is still the regional root ({}), so the CIST internal path "
+                "cost is 0 by definition: the peer is outside the region. "
+                "region={!r} revision={} digest={} external cost={}".format(
+                    bridge, bpdu.get('region_name'), bpdu.get('revision'),
+                    bpdu.get('digest'), bpdu.get('cist_ext_cost')))
+
         assert actual == expected, \
             "CIST internal root path cost mismatch: expected {}, got {}".format(expected, actual)
         self.logger.info("validate_path_cost OK: cist_int_cost=%d", actual)
