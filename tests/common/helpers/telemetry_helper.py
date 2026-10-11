@@ -112,6 +112,6 @@ def setup_streaming_telemetry_context(is_ipv6, duthost, localhost, ptfhost, gnxi
         raise e
 
     yield
-    restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
+    restore_telemetry_forpyclient(duthost, default_client_auth)
