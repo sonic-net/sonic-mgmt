@@ -1,0 +1,541 @@
+# =============================================================================
+# SONiC T1 Topology for KNE — Full upstream-style (32 neighbors) + PTF
+#
+# Topology (namespace / TOPO_ID 101):
+#   1 × DUT     (SONiC VS as Leaf/Spine DUT, 64 meshnet ifaces)
+#  16 × T2      (upstream neighbors)  — DUT eth1–eth16
+#  16 × T0      (downstream neighbors)— DUT eth17–eth32
+#   1 × PTF     (injected/mirror ports for all 32 neighbor links)
+#
+# Port layout (matches sonic-mgmt topo_t1.yml vlan offsets 0–31):
+#   DUT eth1–eth16   → t2-1..t2-16
+#   DUT eth17–eth32  → t0-1..t0-16
+#   DUT eth33–eth64  → PTF eth1–eth32  (TC mirrors of eth1–eth32)
+#
+# Does NOT modify namespace 100 / T0.
+# =============================================================================
+
+name: "101"
+
+# ----- DUT -----
+nodes: {
+  name: "dut"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"      value: "2" }
+    env: { key: "TOPO_ID"        value: "101" }
+    env: { key: "QEMU_RAM"       value: "4G" }
+    env: { key: "SERVER_PORTS"   value: "0" }
+    env: { key: "UPLINK_PORTS"   value: "32" }
+    env: { key: "MIRROR_ENABLED" value: "1" }
+  }
+}
+
+
+nodes: {
+  name: "t2-1"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "10" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-2"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "11" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-3"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "12" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-4"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "13" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-5"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "14" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-6"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "15" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-7"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "16" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-8"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "17" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-9"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "18" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-10"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "19" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-11"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "20" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-12"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "21" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-13"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "22" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-14"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "23" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-15"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "24" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t2-16"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "25" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-1"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "26" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-2"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "27" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-3"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "28" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-4"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "29" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-5"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "30" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-6"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "31" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-7"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "32" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-8"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "33" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-9"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "34" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-10"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "35" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-11"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "36" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-12"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "37" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-13"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "38" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-14"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "39" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-15"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "40" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+nodes: {
+  name: "t0-16"
+  vendor: HOST
+  config: {
+    image: "sonic-vs:community"
+    command: "/startup.sh"
+    env: { key: "SWITCH_ID"  value: "41" }
+    env: { key: "TOPO_ID"   value: "101" }
+    env: { key: "QEMU_RAM"  value: "4G" }
+  }
+}
+
+
+# ----- PTF -----
+nodes: {
+  name: "ptf"
+  vendor: HOST
+  config: {
+    image: "docker-ptf:latest"
+    env: { key: "SWITCH_ID"  value: "200" }
+    env: { key: "TOPO_ID"   value: "101" }
+  }
+}
+
+# =====================================================================
+# Links: DUT → T2 neighbors (eth1–eth16)
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth1" z_node: "t2-1" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth2" z_node: "t2-2" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth3" z_node: "t2-3" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth4" z_node: "t2-4" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth5" z_node: "t2-5" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth6" z_node: "t2-6" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth7" z_node: "t2-7" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth8" z_node: "t2-8" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth9" z_node: "t2-9" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth10" z_node: "t2-10" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth11" z_node: "t2-11" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth12" z_node: "t2-12" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth13" z_node: "t2-13" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth14" z_node: "t2-14" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth15" z_node: "t2-15" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth16" z_node: "t2-16" z_int: "eth1" }
+
+# =====================================================================
+# Links: DUT → T0 neighbors (eth17–eth32)
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth17" z_node: "t0-1" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth18" z_node: "t0-2" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth19" z_node: "t0-3" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth20" z_node: "t0-4" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth21" z_node: "t0-5" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth22" z_node: "t0-6" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth23" z_node: "t0-7" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth24" z_node: "t0-8" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth25" z_node: "t0-9" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth26" z_node: "t0-10" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth27" z_node: "t0-11" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth28" z_node: "t0-12" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth29" z_node: "t0-13" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth30" z_node: "t0-14" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth31" z_node: "t0-15" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth32" z_node: "t0-16" z_int: "eth1" }
+
+# =====================================================================
+# Links: DUT mirror ports → PTF (eth33–eth64 ↔ PTF eth1–eth32)
+# =====================================================================
+
+links: { a_node: "dut" a_int: "eth33" z_node: "ptf" z_int: "eth1" }
+links: { a_node: "dut" a_int: "eth34" z_node: "ptf" z_int: "eth2" }
+links: { a_node: "dut" a_int: "eth35" z_node: "ptf" z_int: "eth3" }
+links: { a_node: "dut" a_int: "eth36" z_node: "ptf" z_int: "eth4" }
+links: { a_node: "dut" a_int: "eth37" z_node: "ptf" z_int: "eth5" }
+links: { a_node: "dut" a_int: "eth38" z_node: "ptf" z_int: "eth6" }
+links: { a_node: "dut" a_int: "eth39" z_node: "ptf" z_int: "eth7" }
+links: { a_node: "dut" a_int: "eth40" z_node: "ptf" z_int: "eth8" }
+links: { a_node: "dut" a_int: "eth41" z_node: "ptf" z_int: "eth9" }
+links: { a_node: "dut" a_int: "eth42" z_node: "ptf" z_int: "eth10" }
+links: { a_node: "dut" a_int: "eth43" z_node: "ptf" z_int: "eth11" }
+links: { a_node: "dut" a_int: "eth44" z_node: "ptf" z_int: "eth12" }
+links: { a_node: "dut" a_int: "eth45" z_node: "ptf" z_int: "eth13" }
+links: { a_node: "dut" a_int: "eth46" z_node: "ptf" z_int: "eth14" }
+links: { a_node: "dut" a_int: "eth47" z_node: "ptf" z_int: "eth15" }
+links: { a_node: "dut" a_int: "eth48" z_node: "ptf" z_int: "eth16" }
+links: { a_node: "dut" a_int: "eth49" z_node: "ptf" z_int: "eth17" }
+links: { a_node: "dut" a_int: "eth50" z_node: "ptf" z_int: "eth18" }
+links: { a_node: "dut" a_int: "eth51" z_node: "ptf" z_int: "eth19" }
+links: { a_node: "dut" a_int: "eth52" z_node: "ptf" z_int: "eth20" }
+links: { a_node: "dut" a_int: "eth53" z_node: "ptf" z_int: "eth21" }
+links: { a_node: "dut" a_int: "eth54" z_node: "ptf" z_int: "eth22" }
+links: { a_node: "dut" a_int: "eth55" z_node: "ptf" z_int: "eth23" }
+links: { a_node: "dut" a_int: "eth56" z_node: "ptf" z_int: "eth24" }
+links: { a_node: "dut" a_int: "eth57" z_node: "ptf" z_int: "eth25" }
+links: { a_node: "dut" a_int: "eth58" z_node: "ptf" z_int: "eth26" }
+links: { a_node: "dut" a_int: "eth59" z_node: "ptf" z_int: "eth27" }
+links: { a_node: "dut" a_int: "eth60" z_node: "ptf" z_int: "eth28" }
+links: { a_node: "dut" a_int: "eth61" z_node: "ptf" z_int: "eth29" }
+links: { a_node: "dut" a_int: "eth62" z_node: "ptf" z_int: "eth30" }
+links: { a_node: "dut" a_int: "eth63" z_node: "ptf" z_int: "eth31" }
+links: { a_node: "dut" a_int: "eth64" z_node: "ptf" z_int: "eth32" }
