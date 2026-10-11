@@ -283,6 +283,13 @@ autorestart/test_container_autorestart.py::test_containers_autorestart.*teamd.*:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
 
+autorestart/test_container_autorestart.py::test_containers_autorestart[.*-syncd]:
+  regex: true
+  xfail:
+    reason: "syncd fails to reinitialize after ASIC reset due to translateRidToVid runtime error"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/29377"
+
 #######################################
 #####            bfd              #####
 #######################################
