@@ -304,7 +304,7 @@ def _wait_for_snmp_match(duthost, localhost, creds_all_duts, initial_snmp_facts,
 
 
 def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
-                        port_counters, num_port_intfs):
+                        port_counters, num_port_intfs, port_interfaces):
     """
     Verify correctness of SNMP counters with tolerance for live traffic.
 
@@ -336,6 +336,22 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
                         f"(expected {expected} + margin {margin})")
             return False
         return True
+
+    # SNMP exposes ifTable error/discard counters only for physical ports; PortChannel (LAG)
+    # ifIndexes are not enumerated by the counter-column walk, so validate on the member ports.
+    if 'PortChannel' in rif_interface:
+        member_totals = {'ifInDiscards': 0, 'ifOutDiscards': 0, 'ifInErrors': 0, 'ifOutErrors': 0}
+        for member in port_interfaces:
+            member_snmp = snmp_facts['snmp_interfaces'][snmp_port_map[minigraph_port_name_to_alias_map[member]]]
+            for counter in member_totals:
+                member_totals[counter] += int(member_snmp[counter])
+        return (check_counter_with_margin(member_totals['ifInDiscards'], port_counters['rx_drp'], 'ifInDiscards')
+                and check_counter_with_margin(member_totals['ifOutDiscards'], port_counters['tx_drp'],
+                                              'ifOutDiscards')
+                and check_counter_with_margin(member_totals['ifInErrors'], COUNTER_VALUE * num_port_intfs,
+                                              'ifInErrors')
+                and check_counter_with_margin(member_totals['ifOutErrors'], COUNTER_VALUE * num_port_intfs,
+                                              'ifOutErrors'))
 
     expected_in_discards = int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])
     if not check_counter_with_margin(int(rif_snmp_facts['ifInDiscards']), expected_in_discards, 'ifInDiscards'):
@@ -501,7 +517,7 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
         f"rx_drp value is {port_counters['rx_drp']} not set to {COUNTER_VALUE * num_port_intfs}"
 
     pytest_assert(wait_until(60, 10, 0, verify_snmp_counter, duthost, localhost, creds_all_duts, hostip, mg_facts,
-                             rif_interface, rif_counters, port_counters, num_port_intfs),
+                             rif_interface, rif_counters, port_counters, num_port_intfs, port_interfaces),
                   "SNMP counter validate Failure")
     # clear all counters after the test
     duthost.shell('sonic-clear counters')
