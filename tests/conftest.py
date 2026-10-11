@@ -3270,6 +3270,8 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
         for m in request.node.iter_markers():
             if m.name == "skip_check_dut_health":
                 check_flag = False
+        use_running_config_baseline = request.node.get_closest_marker(
+            "use_running_config_baseline") is not None
 
         module_name = request.node.name
 
@@ -3293,26 +3295,37 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
                 logger.info("Collecting running config before test on {}".format(dut.hostname))
                 duts_data[dut.hostname]["pre_running_config"] = {}
-                if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
-                    logger.info("Collecting running golden config before test on {}".format(dut.hostname))
-                    dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-                duts_data[dut.hostname]["pre_running_config"][None] = \
-                    json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+                if use_running_config_baseline:
+                    duts_data[dut.hostname]["pre_running_config"][None] = \
+                        json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                else:
+                    if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
+                        logger.info("Collecting running golden config before test on {}".format(dut.hostname))
+                        dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+                    duts_data[dut.hostname]["pre_running_config"][None] = \
+                        json.loads(dut.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
                 if dut.is_multi_asic:
                     for asic_index in range(0, dut.facts.get('num_asic')):
                         asic_ns = "asic{}".format(asic_index)
-                        if not dut.stat(
-                                path="/etc/sonic/running_golden_config{}.json".format(asic_index))['stat']['exists']:
-                            dut.shell(
-                                "sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".format(
-                                    asic_ns,
-                                    asic_index,
+                        if use_running_config_baseline:
+                            duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
+                                json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                                     verbose=False)['stdout'])
+                        else:
+                            stat_result = dut.stat(
+                                path="/etc/sonic/running_golden_config{}.json".format(asic_index))
+                            if not stat_result['stat']['exists']:
+                                dut.shell(
+                                    "sonic-cfggen -n {} -d --print-data > "
+                                    "/etc/sonic/running_golden_config{}.json".format(
+                                        asic_ns,
+                                        asic_index,
+                                    )
                                 )
-                            )
-                        duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
-                            json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
-                                                 verbose=False)['stdout'])
+                            duts_data[dut.hostname]['pre_running_config'][asic_ns] = \
+                                json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
+                                                     verbose=False)['stdout'])
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:

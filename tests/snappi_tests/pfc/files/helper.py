@@ -56,7 +56,8 @@ def run_pfc_test(api,
                  test_flow_is_lossless=True,
                  snappi_extra_params=None,
                  flow_factor=1,
-                 validate_pfc_src_mac=False):
+                 validate_pfc_src_mac=False,
+                 data_flow_pkt_count=None):
     """
     Run a multidut PFC test
     Args:
@@ -76,6 +77,7 @@ def run_pfc_test(api,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
         validate_pfc_src_mac (bool): if the PFC pause frame source MAC address should be validated
             against the peer port's gateway MAC (Cisco capture validation only)
+        data_flow_pkt_count (int): packets to send per data flow; use duration when unset
 
     Returns:
         N/A
@@ -167,28 +169,30 @@ def run_pfc_test(api,
     if snappi_extra_params.traffic_flow_config.data_flow_config is None:
         snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_name": TEST_FLOW_NAME,
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC if data_flow_pkt_count is None else None,
             "flow_rate_percent": test_flow_rate_percent,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": data_flow_pkt_size,
-            "flow_pkt_count": None,
+            "flow_pkt_count": data_flow_pkt_count,
             "flow_delay_sec": data_flow_delay_sec,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+            "flow_traffic_type": (traffic_flow_mode.FIXED_DURATION if data_flow_pkt_count is None
+                                  else traffic_flow_mode.FIXED_PACKETS)
         }
 
     if snappi_extra_params.traffic_flow_config.background_flow_config is None and \
        snappi_extra_params.gen_background_traffic:
         snappi_extra_params.traffic_flow_config.background_flow_config = {
             "flow_name": BG_FLOW_NAME,
-            "flow_dur_sec": DATA_FLOW_DURATION_SEC,
+            "flow_dur_sec": DATA_FLOW_DURATION_SEC if data_flow_pkt_count is None else None,
             "flow_rate_percent": bg_flow_rate_percent,
             "flow_rate_pps": None,
             "flow_rate_bps": None,
             "flow_pkt_size": data_flow_pkt_size,
-            "flow_pkt_count": None,
+            "flow_pkt_count": data_flow_pkt_count,
             "flow_delay_sec": data_flow_delay_sec,
-            "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+            "flow_traffic_type": (traffic_flow_mode.FIXED_DURATION if data_flow_pkt_count is None
+                                  else traffic_flow_mode.FIXED_PACKETS)
         }
 
     if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
@@ -211,10 +215,11 @@ def run_pfc_test(api,
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
 
-    # A paused test flow is backpressured by the continuous pause storm and never reaches
-    # 'stopped' on its own, so run_traffic must stop the data flows explicitly. Cisco's
-    # valid-PFC-frame path is excluded to keep its existing behavior unchanged.
-    if test_traffic_pause and not (valid_pfc_frame_test and is_cisco_device(egress_duthost)):
+    # A continuous pause storm can prevent data flows from reaching 'stopped' on their
+    # own. This also applies to global-pause tests even though test_traffic_pause is False.
+    # Cisco's valid-PFC-frame path is excluded to keep its existing behavior unchanged.
+    if (test_traffic_pause or global_pause) and \
+            not (valid_pfc_frame_test and is_cisco_device(egress_duthost)):
         snappi_extra_params.stop_data_flows_before_final_stats = True
 
     no_of_streams = 1
