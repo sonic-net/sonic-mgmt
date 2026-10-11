@@ -287,7 +287,7 @@ class BasePacketTrimming:
         with allure.step("Verify packet trimming counter"):
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
-                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL / 1000, TRIMMING_COUNTER_INTERVAL / 1000, 0,
                                              has_non_zero_trim_counters, duthost, port),
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
@@ -343,7 +343,7 @@ class BasePacketTrimming:
         with allure.step("Verify packet trimming counter"):
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
-                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL / 1000, TRIMMING_COUNTER_INTERVAL / 1000, 0,
                                              has_non_zero_trim_counters, duthost, port),
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
@@ -422,7 +422,7 @@ class BasePacketTrimming:
             # Verify the consistency of the trim counter on the queue and the port level
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
-                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL / 1000, TRIMMING_COUNTER_INTERVAL / 1000, 0,
                                              has_non_zero_trim_counters, duthost, port),
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
@@ -530,6 +530,10 @@ class BasePacketTrimming:
             verify_trimmed_packet(**counter_kwargs)
 
         with allure.step("Verify trimming counter when trimming feature toggles"):
+            sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+            logger.info(f"Waiting {sleep_time} seconds for the trim counter to be updated")
+            time.sleep(sleep_time)
+
             trim_queue = 'UC' + str(PacketTrimmingConfig.get_trim_queue(duthost))
 
             # Get queue level and port level counter when trimming is enabled
