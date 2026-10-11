@@ -2,7 +2,6 @@ import logging
 import queue
 import threading
 import time
-import concurrent.futures
 from datetime import timedelta
 
 logger = logging.getLogger(__name__)
@@ -35,30 +34,38 @@ def cancel_on_event(call, stop_event: threading.Event):
 
 def wait_for_all_futures(futures, timeout: timedelta):
     """
-    Waits for all futures to complete within the specified timeout.
+    Waits for all multiprocessing ApplyResult objects to complete within the specified timeout.
     """
     total_seconds = timeout.total_seconds()
-    try:
-        done, not_done = concurrent.futures.wait(futures, timeout=total_seconds)
-        if not not_done:
-            logger.debug("All tasks completed within the timeout.")
-        else:
-            logger.debug("Some tasks did not complete within the timeout.")
+    deadline = time.monotonic() + total_seconds
+    done = set()
+    not_done = set(futures)
 
-        for future in done:
-            try:
-                result = future.result()
-                logger.debug(f"Task {futures[future]} completed: {result}")
-            except Exception as e:
-                logger.debug(f"Task {futures[future]} raised an exception: {e}")
+    while not_done:
+        completed = {future for future in not_done if future.ready()}
+        done.update(completed)
+        not_done.difference_update(completed)
 
-        for future in not_done:
-            logger.debug(f"Task {futures[future]} not completed.")
-    except concurrent.futures.TimeoutError:
-        logger.debug(f"Timeout occurred after {timeout} seconds.")
-        for future in futures:
-            if future not in done:
-                logger.debug(f"Task {futures[future]} not completed.")
+        if not_done:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(0.1, remaining))
+
+    if not not_done:
+        logger.debug("All tasks completed within the timeout.")
+    else:
+        logger.debug("Some tasks did not complete within the timeout.")
+
+    for future in done:
+        try:
+            result = future.get()
+            logger.debug(f"Task {futures[future]} completed: {result}")
+        except Exception as e:
+            logger.debug(f"Task {futures[future]} raised an exception: {e}")
+
+    for future in not_done:
+        logger.debug(f"Task {futures[future]} not completed.")
 
 
 def _wait_until_condition(event_queue: queue.Queue,
@@ -104,5 +111,5 @@ def _wait_until_keys_match(q: queue.Queue,
                            key: str,
                            expected_value: str):
 
-    return _wait_until_condition(q=q, prefix=prefix, keys=hashes,
+    return _wait_until_condition(event_queue=q, prefix=prefix, keys=hashes,
                                  condition_cb=lambda k, v: v.get(key) == expected_value)

@@ -11,6 +11,10 @@ import json
 
 logger = logging.getLogger(__name__)
 
+_GRPC_CHANNEL_OPTIONS = (
+    ("grpc.enable_http_proxy", 0),
+)
+
 # Lazy imports for generated modules - only imported when functions are called
 # This prevents import errors during pytest collection when SAI validation is disabled
 _gnmi_pb2 = None
@@ -44,10 +48,16 @@ def create_gnmi_stub(ip, port, secure=False, root_cert_path=None, client_cert_pa
         channel = None
         target = f"{ip}:{port}"
         if not secure:
-            channel = _gnmi_pb2_grpc.grpc.insecure_channel(target)
+            channel = _gnmi_pb2_grpc.grpc.insecure_channel(target, options=_GRPC_CHANNEL_OPTIONS)
             logger.debug("Insecure channel created for target: %s", target)
         else:
-            channel = _internal.create_secure_channel(target, root_cert_path, client_cert_path, client_key_path)
+            channel = _internal.create_secure_channel(
+                target,
+                root_cert_path,
+                client_cert_path,
+                client_key_path,
+                options=_GRPC_CHANNEL_OPTIONS
+            )
         stub = _gnmi_pb2_grpc.gNMIStub(channel)
         logger.debug("gNMI stub created successfully")
         return channel, stub

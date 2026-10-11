@@ -211,7 +211,7 @@ def test_something(gnmi_connection):
     if gnmi_connection is None:
         pytest.skip("SAI validation is disabled")
 
-    executor = ThreadPoolExecutor(max_workers=2)
+    executor = SafeThreadPoolExecutor(max_workers=2)
     event_queue = queue.Queue()
     monitor_context = start_db_monitor(executor, gnmi_connection, "SOME_DB_PATH", event_queue)
     # ... rest of the test logic using monitor_context and gnmi_connection ...
