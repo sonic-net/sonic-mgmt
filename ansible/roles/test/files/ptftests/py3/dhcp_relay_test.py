@@ -165,7 +165,7 @@ class DHCPTest(DataplaneBaseTest):
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
         self.switch_loopback_ip = self.test_params['switch_loopback_ip']
-        self.upstream_relay_giaddr = self.test_params.get('upstream_relay_giaddr', self.switch_loopback_ip)
+        self.downstream_relay_giaddr = self.test_params.get('downstream_relay_giaddr', self.switch_loopback_ip)
         self.relay_agent = self.test_params['relay_agent']
         self.link_selection = self.test_params.get('link_selection', None)
         self.source_interface = self.test_params.get('source_interface', None)
@@ -281,8 +281,8 @@ class DHCPTest(DataplaneBaseTest):
     def expected_relay_giaddr(self):
         """Derive giaddr from the incoming packet or configured return interface."""
         if self.agent_relay_mode:
-            # A relay must preserve a nonzero giaddr supplied by an upstream relay.
-            return self.upstream_relay_giaddr
+            # A relay must preserve a nonzero giaddr supplied by a downstream relay.
+            return self.downstream_relay_giaddr
         if self.dual_tor:
             return self.switch_loopback_ip
         if self.source_interface:
@@ -369,7 +369,7 @@ class DHCPTest(DataplaneBaseTest):
             discover_packet[scapy.IP].src = self.client_ip
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
             discover_packet[scapy.BOOTP].hops = self.max_hop_count if self.max_hop_count == self.MAX_HOP_COUNT else 1
-            discover_packet[scapy.BOOTP].giaddr = self.upstream_relay_giaddr
+            discover_packet[scapy.BOOTP].giaddr = self.downstream_relay_giaddr
             discover_packet[scapy.DHCP].options.insert(
                 discover_packet[scapy.DHCP].options.index("end"),
                 (82, relay_option82)
