@@ -1182,9 +1182,14 @@ class GenerateGoldenConfigDBModule(object):
         non-storage backend devices; it is enabled everywhere else. The knob is
         consumed by ipinip.json.j2 in swss, which runs per ASIC, so on multi-ASIC
         platforms the entry is injected into each ASIC namespace's CONFIG_DB.
+
+        config load_minigraph --override_config replaces each golden table as a
+        whole (delete-then-write), so the minigraph SYSTEM_DEFAULTS entries are
+        seeded into the golden table to avoid dropping existing entries such as
+        tunnel_qos_remap and mux_tunnel_egress_acl.
         """
-        metadata = json.loads(self.get_config_from_minigraph()).get(
-            "DEVICE_METADATA", {}).get("localhost", {})
+        minigraph_config = json.loads(self.get_config_from_minigraph())
+        metadata = minigraph_config.get("DEVICE_METADATA", {}).get("localhost", {})
         switch_type = metadata.get("switch_type")
         device_type = metadata.get("type")
         is_storage_device = metadata.get("storage_device") == "true"
@@ -1202,14 +1207,24 @@ class GenerateGoldenConfigDBModule(object):
             enable_ip_decap = False
 
         ip_decap_value = {"ip_decap": {"status": "enabled" if enable_ip_decap else "disabled"}}
+
+        def _seed_and_set(system_defaults, seed):
+            # Carry minigraph entries that aren't already in the golden table, then
+            # apply the computed ip_decap policy (which overrides any existing one).
+            for key, value in seed.items():
+                system_defaults.setdefault(key, copy.deepcopy(value))
+            system_defaults.update(ip_decap_value)
+
         ori_config_db = json.loads(config)
         if multi_asic.is_multi_asic():
+            ns_config = self.get_config_from_minigraph_multiasic()
             for asic in range(multi_asic.get_num_asics()):
                 ns = "asic{}".format(asic)
-                ori_config_db.setdefault(ns, {}).setdefault(
-                    "SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+                seed = ns_config.get(ns, {}).get("SYSTEM_DEFAULTS", {})
+                _seed_and_set(ori_config_db.setdefault(ns, {}).setdefault("SYSTEM_DEFAULTS", {}), seed)
         else:
-            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+            _seed_and_set(ori_config_db.setdefault("SYSTEM_DEFAULTS", {}),
+                          minigraph_config.get("SYSTEM_DEFAULTS", {}))
         return json.dumps(ori_config_db, indent=4)
 
     def generate_drh_golden_config_db(self):
