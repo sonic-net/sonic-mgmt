@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     back_up_device_state,
+    best_effort,
     BMCWEB_CONTAINER,
     BMCWEB_READY_POLL,
     BMCWEB_READY_TIMEOUT,
@@ -17,7 +18,6 @@ from tests.redfish.redfish_utils import (
     CLIENT_CN,
     CLIENT_KEY_NAME,
     configured_port,
-    CREDENTIALS_DIR,
     db_set,
     deliver_certs,
     DELIVERED_CA_CRT,
@@ -30,7 +30,6 @@ from tests.redfish.redfish_utils import (
     redfish_url,
     RedfishClient,
     reset_to_bootstrap,
-    _safe,
     SERVER_CERT_NAME,
     SERVER_KEY_NAME,
     set_trusted_cnames,
@@ -161,9 +160,9 @@ def redfish_feature_enabled(bmc_duthost):
 
     if not was_enabled:
         logger.info("Restoring redfish feature to its shipped disabled state")
-        _safe(bmc_duthost.shell,
-              "sudo config feature state {} disabled".format(BMCWEB_CONTAINER),
-              module_ignore_errors=True)
+        best_effort(bmc_duthost.shell,
+                    "sudo config feature state {} disabled".format(BMCWEB_CONTAINER),
+                    module_ignore_errors=True)
 
 
 @pytest.fixture(scope="session")
@@ -179,8 +178,8 @@ def redfish_port(bmc_duthost, redfish_feature_enabled):
 
 
 @pytest.fixture(scope="session")
-def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enabled, redfish_port,
-                  tmp_path_factory):
+def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enabled,
+                  redfish_port, tmp_path_factory):
     """Provision TLS certificates through the staging pipeline, clean up at session end.
 
     Certificates are delivered to the paths configured in CONFIG_DB, the way a
@@ -200,6 +199,13 @@ def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enable
     snapshot = snapshot_redfish_config(bmc_duthost)
     saved = back_up_device_state(bmc_duthost)
 
+    # Registered before the device is touched, so it also runs when a setup
+    # step below fails: code after the yield would be skipped in that case.
+    def restore():
+        logger.info("Returning the BMC to the unprovisioned state")
+        reset_to_bootstrap(bmc_duthost, snapshot, saved)
+    request.addfinalizer(restore)
+
     cert_dir = tmp_path_factory.mktemp("bmc_certs")
     logger.info("Generating TLS certificates in {}".format(cert_dir))
 
@@ -207,7 +213,7 @@ def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enable
     # client_crt_cname below.
     generator = build_cert_chain(cert_dir, bmc_ip, client_cn=CLIENT_CN)
 
-    bmc_duthost.shell("mkdir -p {} {}".format(DELIVERY_DIR, CREDENTIALS_DIR))
+    bmc_duthost.shell("mkdir -p {}".format(DELIVERY_DIR))
     db_set(bmc_duthost, "CONFIG_DB", REDFISH_CERTS_TABLE,
            server_crt=DELIVERED_SERVER_CRT,
            server_key=DELIVERED_SERVER_KEY,
@@ -235,6 +241,3 @@ def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enable
         "generator": generator,
         "port": redfish_port,
     }
-
-    logger.info("Returning the BMC to the unprovisioned state")
-    reset_to_bootstrap(bmc_duthost, snapshot, saved)

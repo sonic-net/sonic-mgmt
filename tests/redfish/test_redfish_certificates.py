@@ -42,7 +42,6 @@ from tests.redfish.redfish_utils import (
     CLIENT_CERT_NAME,
     CLIENT_CN,
     CLIENT_KEY_NAME,
-    CREDENTIALS_DIR,
     corrupt_delivered_file,
     corrupt_staged_cert,
     db_set,
@@ -53,11 +52,15 @@ from tests.redfish.redfish_utils import (
     DELIVERED_SERVER_CRT,
     DELIVERED_SERVER_KEY,
     DELIVERY_DIR,
+    file_serial,
     GUARD_RESTAGE_LOG,
     issue_client_cert,
     issue_server_cert,
+    applied_fingerprint,
     listening_port,
+    live_serial,
     logged_since,
+    place_file,
     PRIVILEGED_PATH,
     program_state,
     PROVISIONED_MARKER,
@@ -160,12 +163,20 @@ def endpoint_is_down(bmc_ip, port):
     distinguishes: any completed TLS handshake here would be a failure.
     """
     try:
+        # Unverified on purpose: the question is whether anything answers,
+        # whatever certificate it presents.
         requests.get(redfish_url(bmc_ip, SERVICE_ROOT_PATH, port), verify=False, timeout=5)
     except requests.exceptions.SSLError:
         return False        # a handshake happened: something is serving
     except requests.exceptions.RequestException:
         return True         # refused / unreachable, as expected
     return False
+
+
+def reports_failure(duthost):
+    """True once the device reports out of sync with a reason."""
+    return (cert_status(duthost, "in_sync") == "false" and
+            cert_status(duthost, "last_error") != "")
 
 
 # sonic-dbus-bridge logs every refused common name at ERR. These tests refuse
@@ -294,16 +305,20 @@ class TestRedfishCertProvisioning:
         before = served_serial(bmc_duthost)
 
         # Re-issue the server certificate from the same CA, then deliver it.
+        applied_before = applied_fingerprint(bmc_duthost)
         rotate_server_cert(bmc_tls_certs["generator"], bmc_tls_certs["dir"])
         deliver_certs(bmc_duthost, bmc_tls_certs["dir"])
 
-        pytest_assert(wait_for_staging(bmc_duthost),
+        pytest_assert(wait_for_staging(bmc_duthost, changed_from=applied_before),
                       "Rotation was not applied; last_error={}".format(
                           cert_status(bmc_duthost, "last_error")))
 
         after = served_serial(bmc_duthost)
         pytest_assert(after != before,
                       "Served serial did not change after rotation: {}".format(after))
+        pytest_assert(live_serial(bmc_ip, bmc_tls_certs["port"]) ==
+                      file_serial(bmc_tls_certs["server_crt"]),
+                      "bmcweb is not presenting the rotated certificate")
         pytest_assert(cert_status(bmc_duthost, "served_serial") == after,
                       "STATE_DB served_serial does not match the served certificate")
 
@@ -323,9 +338,8 @@ class TestRedfishCertProvisioning:
 
         # Issue a new pair but deliver only the certificate half.
         rotate_server_cert(bmc_tls_certs["generator"], bmc_tls_certs["dir"])
-        bmc_duthost.copy(src=str(bmc_tls_certs["dir"] / SERVER_CERT_NAME),
-                         dest="/tmp/half-rotation.cer")
-        bmc_duthost.shell("mv -f /tmp/half-rotation.cer {}".format(DELIVERED_SERVER_CRT))
+        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"] / SERVER_CERT_NAME,
+                            DELIVERED_SERVER_CRT)
 
         # Give the watcher more than one reconcile interval to look at it.
         time.sleep(RECONCILE_WINDOW)
@@ -342,9 +356,8 @@ class TestRedfishCertProvisioning:
                          SERVICE_ROOT_PATH)
 
         # Completing the rotation lets it land.
-        bmc_duthost.copy(src=str(bmc_tls_certs["dir"] / SERVER_KEY_NAME),
-                         dest="/tmp/half-rotation.key")
-        bmc_duthost.shell("mv -f /tmp/half-rotation.key {}".format(DELIVERED_SERVER_KEY))
+        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"] / SERVER_KEY_NAME,
+                            DELIVERED_SERVER_KEY)
 
         pytest_assert(wait_for_staging(bmc_duthost),
                       "Completed rotation was not applied")
@@ -430,7 +443,10 @@ class TestRedfishCertAuth:
                 "Expected 401 or 403 on {} for an untrusted certificate, got {}".format(
                     FIRMWARE_INVENTORY_PATH, response.status_code))
         except (requests.exceptions.SSLError, ssl.SSLError):
-            logger.info("TLS handshake rejected for an untrusted client certificate, as expected")
+            # A TLS failure only counts as a rejection if the service is up:
+            # a dead or wedged listener fails the same way.
+            logger.info("TLS handshake rejected for an untrusted client certificate")
+            assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, PRIVILEGED_PATH), PRIVILEGED_PATH)
 
 
 class TestRedfishCommonNameValidation:
@@ -661,12 +677,13 @@ class TestRedfishFailClosed:
 
 class TestRedfishContainerRecreate:
 
-    def test_recreate_with_certificates_has_no_self_signed_window(
+    def test_recreate_with_certificates_comes_back_provisioned(
             self, bmc_duthost, bmc_ip, bmc_tls_certs, bmc_exec):
-        """A recreate with certificates present comes up serving them directly.
+        """A recreate with certificates present comes back serving them.
 
-        The oneshot stages before bmcweb's first start, so the device never
-        serves a self-signed certificate on the way back up.
+        Checks the state once bmcweb is running again: the delivered
+        certificate is staged, the marker survived and mTLS is enforced. It
+        does not observe the start-up sequence itself.
         """
         recreate_container(bmc_duthost)
         pytest_assert(wait_for_program(bmc_duthost, "bmcweb", "RUNNING"),
@@ -720,7 +737,7 @@ class TestRedfishNegativeInput:
                       "bmcweb was bounced while a corrupt CA was present")
         pytest_assert(cert_status(bmc_duthost, "in_sync") == "false",
                       "A corrupt CA should report out of sync")
-        pytest_assert(program_state(bmc_duthost, "credentials-watcher") == "RUNNING",
+        pytest_assert(program_state(bmc_duthost, WATCHER) == "RUNNING",
                       "The watcher should survive a corrupt CA")
         assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, PRIVILEGED_PATH), PRIVILEGED_PATH)
 
@@ -736,7 +753,7 @@ class TestRedfishNegativeInput:
         remove_delivered_certs(bmc_duthost)
         time.sleep(RECONCILE_WINDOW)
 
-        pytest_assert(program_state(bmc_duthost, "credentials-watcher") == "RUNNING",
+        pytest_assert(program_state(bmc_duthost, WATCHER) == "RUNNING",
                       "The watcher should stay up when the source is deleted")
         pytest_assert(served_serial(bmc_duthost) == before,
                       "The served certificate changed after the source was deleted")
@@ -762,11 +779,10 @@ class TestRedfishFirstInstallMismatch:
         # A certificate and a key from two different pairs, plus a valid CA.
         crt, _ = issue_server_cert(bmc_tls_certs["generator"], bmc_tls_certs["dir"], "firstA")
         _, key = issue_server_cert(bmc_tls_certs["generator"], bmc_tls_certs["dir"], "firstB")
-        bmc_duthost.shell("mkdir -p {} {}".format(DELIVERY_DIR, CREDENTIALS_DIR))
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], crt, DELIVERED_SERVER_CRT)
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], key,
-                            DELIVERED_SERVER_KEY)
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], CA_CERT_NAME, DELIVERED_CA_CRT)
+        bmc_duthost.shell("mkdir -p {}".format(DELIVERY_DIR))
+        deliver_single_file(bmc_duthost, crt, DELIVERED_SERVER_CRT)
+        deliver_single_file(bmc_duthost, key, DELIVERED_SERVER_KEY)
+        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"] / CA_CERT_NAME, DELIVERED_CA_CRT)
         time.sleep(RECONCILE_WINDOW)
 
         _, _, rc = bmc_exec("test -f {}".format(PROVISIONED_MARKER))
@@ -790,7 +806,7 @@ class TestRedfishFirstInstallMismatch:
 @pytest.mark.usefixtures("healthy_watcher_after_test")
 class TestRedfishWatcherResilience:
 
-    def test_change_made_while_down_is_reconciled(self, bmc_duthost, bmc_tls_certs):
+    def test_change_made_while_down_is_reconciled(self, bmc_duthost, bmc_ip, bmc_tls_certs):
         """A rotation delivered while the watcher is stopped is applied when it starts.
 
         No inotify event can have been acted on, because the process was not
@@ -798,6 +814,7 @@ class TestRedfishWatcherResilience:
         blocks for events.
         """
         before = served_serial(bmc_duthost)
+        applied_before = applied_fingerprint(bmc_duthost)
 
         supervisor(bmc_duthost, "stop", WATCHER)
         pytest_assert(program_state(bmc_duthost, WATCHER) != "RUNNING",
@@ -805,9 +822,8 @@ class TestRedfishWatcherResilience:
 
         crt, key = issue_server_cert(bmc_tls_certs["generator"],
                                      bmc_tls_certs["dir"], "whiledown")
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], crt, DELIVERED_SERVER_CRT)
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], key,
-                            DELIVERED_SERVER_KEY)
+        deliver_single_file(bmc_duthost, crt, DELIVERED_SERVER_CRT)
+        deliver_single_file(bmc_duthost, key, DELIVERED_SERVER_KEY)
 
         # Nothing should have moved while the watcher is down.
         time.sleep(STAGING_POLL)
@@ -817,10 +833,12 @@ class TestRedfishWatcherResilience:
         supervisor(bmc_duthost, "start", WATCHER)
         pytest_assert(wait_for_program(bmc_duthost, WATCHER, "RUNNING"),
                       "The watcher did not come back")
-        pytest_assert(wait_for_staging(bmc_duthost),
+        pytest_assert(wait_for_staging(bmc_duthost, changed_from=applied_before),
                       "The change made while the watcher was down was never applied")
         pytest_assert(served_serial(bmc_duthost) != before,
                       "The startup reconcile did not stage the missed change")
+        pytest_assert(live_serial(bmc_ip, bmc_tls_certs["port"]) == file_serial(crt),
+                      "bmcweb is not presenting the certificate delivered while the watcher was down")
 
     def test_unchanged_content_does_not_bounce_bmcweb(self, bmc_duthost, bmc_tls_certs):
         """Re-delivering identical bytes causes no restage and no restart.
@@ -859,7 +877,7 @@ class TestRedfishObservability:
         """
         # Missing files
         remove_delivered_certs(bmc_duthost)
-        time.sleep(RECONCILE_WINDOW)
+        wait_until(RECONCILE_WINDOW, STAGING_POLL, 0, reports_failure, bmc_duthost)
         pytest_assert(cert_status(bmc_duthost, "in_sync") == "false",
                       "Missing files should report out of sync")
         missing_reason = cert_status(bmc_duthost, "last_error")
@@ -869,7 +887,7 @@ class TestRedfishObservability:
         restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
         pytest_assert(wait_for_staging(bmc_duthost), "Could not restore a good state")
         corrupt_delivered_file(bmc_duthost, DELIVERED_CA_CRT)
-        time.sleep(RECONCILE_WINDOW)
+        wait_until(RECONCILE_WINDOW, STAGING_POLL, 0, reports_failure, bmc_duthost)
         pytest_assert(cert_status(bmc_duthost, "in_sync") == "false",
                       "A corrupt CA should report out of sync")
         pytest_assert(cert_status(bmc_duthost, "last_error") != "",
@@ -880,8 +898,8 @@ class TestRedfishObservability:
         pytest_assert(wait_for_staging(bmc_duthost), "Could not restore a good state")
         crt, _ = issue_server_cert(bmc_tls_certs["generator"],
                                    bmc_tls_certs["dir"], "reasoncheck")
-        deliver_single_file(bmc_duthost, bmc_tls_certs["dir"], crt, DELIVERED_SERVER_CRT)
-        time.sleep(RECONCILE_WINDOW)
+        deliver_single_file(bmc_duthost, crt, DELIVERED_SERVER_CRT)
+        wait_until(RECONCILE_WINDOW, STAGING_POLL, 0, reports_failure, bmc_duthost)
         pytest_assert(cert_status(bmc_duthost, "in_sync") == "false",
                       "A mismatched pair should report out of sync")
         pytest_assert(cert_status(bmc_duthost, "last_error") != "",
@@ -951,15 +969,29 @@ class TestRedfishBootstrap:
 class TestRedfishConfiguredPaths:
 
     def test_certificates_are_read_from_the_configured_paths(self, bmc_duthost, bmc_ip,
-                                                             bmc_tls_certs):
+                                                             bmc_tls_certs, tmp_path):
         """Delivery paths come from CONFIG_DB, including split directories.
 
         The server pair and the CA may be delivered to different places, so
-        the watcher has to watch both.
+        the watcher has to watch both. A separate chain is delivered there, so
+        the certificate served and the client accepted afterwards can only
+        have come from the configured paths.
         """
-        alt_dir = "/etc/sonic/redfish-alt"
-        alt_ca_dir = "/etc/sonic/credentials-alt"
-        bmc_duthost.shell("mkdir -p {} {}".format(alt_dir, alt_ca_dir))
+        alt = build_cert_chain(
+            tmp_path, bmc_ip, client_cn=CLIENT_CN, ca_cn="SONiC BMC Test CA alt",
+            ca_cert_name="alt-CA-cert.pem", ca_key_name="alt-CA-key.pem",
+            server_cert_name="alt-server-cert.pem", server_key_name="alt-server-key.pem",
+            client_cert_name="alt-client-cert.pem", client_key_name="alt-client-key.pem")
+        logger.info("Issued a chain for the configured paths: %s", alt.ca_cn)
+        alt_certs = dict(bmc_tls_certs,
+                         cert=str(tmp_path / "alt-client-cert.pem"),
+                         key=str(tmp_path / "alt-client-key.pem"),
+                         ca=str(tmp_path / "alt-CA-cert.pem"))
+
+        # Directories owned by this test, so the cleanup cannot touch anything else.
+        alt_dir = bmc_duthost.shell("mktemp -d /etc/sonic/redfish-alt.XXXXXX")["stdout"].strip()
+        alt_ca_dir = bmc_duthost.shell("mktemp -d /etc/sonic/credentials-alt.XXXXXX")["stdout"].strip()
+        applied_before = applied_fingerprint(bmc_duthost)
         try:
             db_set(bmc_duthost, "CONFIG_DB", REDFISH_CERTS_TABLE,
                    server_crt="{}/server.cer".format(alt_dir),
@@ -968,16 +1000,18 @@ class TestRedfishConfiguredPaths:
 
             # The watcher re-reads its configuration on each wake, so the new paths
             # take effect without restarting anything.
-            for local, remote in ((SERVER_CERT_NAME, "{}/server.cer".format(alt_dir)),
-                                  (SERVER_KEY_NAME, "{}/server.key".format(alt_dir)),
-                                  (CA_CERT_NAME, "{}/ca.pem".format(alt_ca_dir))):
-                bmc_duthost.copy(src=str(bmc_tls_certs["dir"] / local), dest="/tmp/alt-file")
-                bmc_duthost.shell("mv -f /tmp/alt-file {}".format(remote))
+            for local, remote in (("alt-server-cert.pem", "{}/server.cer".format(alt_dir)),
+                                  ("alt-server-key.pem", "{}/server.key".format(alt_dir)),
+                                  ("alt-CA-cert.pem", "{}/ca.pem".format(alt_ca_dir))):
+                place_file(bmc_duthost, tmp_path / local, remote)
 
-            pytest_assert(wait_for_staging(bmc_duthost),
+            pytest_assert(wait_for_staging(bmc_duthost, changed_from=applied_before),
                           "Certificates at the configured paths were not staged; last_error={}".format(
                               cert_status(bmc_duthost, "last_error")))
-            assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, PRIVILEGED_PATH), PRIVILEGED_PATH)
+            pytest_assert(live_serial(bmc_ip, bmc_tls_certs["port"]) ==
+                          file_serial(tmp_path / "alt-server-cert.pem"),
+                          "bmcweb is not presenting the server certificate from the configured path")
+            assert_status_ok(mtls_get(bmc_ip, alt_certs, PRIVILEGED_PATH), PRIVILEGED_PATH)
         finally:
             bmc_duthost.shell("rm -rf {} {}".format(alt_dir, alt_ca_dir), module_ignore_errors=True)
 
@@ -1002,11 +1036,12 @@ class TestRedfishConfiguredPaths:
                           DEFAULT_PORT))
         pytest_assert(wait_for_staging(bmc_duthost),
                       "Default paths were not used to stage certificates")
-        assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, SERVICE_ROOT_PATH), SERVICE_ROOT_PATH)
+        assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, SERVICE_ROOT_PATH, DEFAULT_PORT),
+                         SERVICE_ROOT_PATH)
 
         # Deleting REDFISH|certs also removed the trusted names, and an unset
         # list refuses every common name.
-        response = mtls_get(bmc_ip, bmc_tls_certs, PRIVILEGED_PATH)
+        response = mtls_get(bmc_ip, bmc_tls_certs, PRIVILEGED_PATH, DEFAULT_PORT)
         pytest_assert(response.status_code == 403,
                       "With no trusted common names configured, expected 403 on {}, got {}".format(
                           PRIVILEGED_PATH, response.status_code))
@@ -1045,11 +1080,12 @@ class TestRedfishConfiguredPort:
 
         # The old port is no longer served.
         try:
+            # Unverified on purpose: any answer at all on the old port is the failure.
             requests.get(redfish_url(bmc_ip, SERVICE_ROOT_PATH, bmc_tls_certs["port"]),
                          verify=False, timeout=5)
             pytest.fail("The previous port is still answering after the change")
         except requests.exceptions.RequestException:
-            pass
+            pass  # refused or unreachable, as expected
 
         pytest_assert(wait_for_staging(bmc_duthost),
                       "Certificates were not re-staged after the port change")

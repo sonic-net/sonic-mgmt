@@ -4,9 +4,11 @@ Shared Redfish test utilities for SONiC BMC Redfish API tests.
 import ipaddress
 import logging
 import os
-import subprocess
+import socket
+import ssl
 
 import requests
+from cryptography import x509
 
 from tests.common.cert_utils import TlsCertificateGenerator
 from tests.common.helpers.assertions import pytest_assert
@@ -33,7 +35,7 @@ def redfish_netloc(host, port=DEFAULT_PORT):
         if ipaddress.ip_address(host).version == 6:
             host = "[{}]".format(host)
     except ValueError:
-        pass
+        pass  # a hostname rather than an address literal: used as is
     return host if int(port) == DEFAULT_PORT else "{}:{}".format(host, port)
 
 
@@ -170,7 +172,7 @@ def assert_redfish_error(response, status, message, message_args=None, prop=None
         )
 
 
-def _safe(fn, *args, **kwargs):
+def best_effort(fn, *args, **kwargs):
     """Run a teardown step, log and swallow any exception so later steps still run."""
     try:
         return fn(*args, **kwargs)
@@ -178,12 +180,6 @@ def _safe(fn, *args, **kwargs):
         logger.warning("Teardown step %s(%s) failed: %s",
                        getattr(fn, "__name__", fn), args, e)
         return None
-
-
-def _run(cmd, cwd=None):
-    """Run a shell command locally inside the sonic-mgmt container."""
-    subprocess.run(cmd, shell=True, check=True, cwd=cwd,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def _bmcweb_running(bmc_duthost):
@@ -222,10 +218,9 @@ OWNED_FIELDS = {
 # Delivery paths used by the tests. These are the documented defaults, so using
 # them also covers what an unconfigured device would look for.
 DELIVERY_DIR = "/etc/sonic/credentials"
-CREDENTIALS_DIR = "/etc/sonic/credentials"
 DELIVERED_SERVER_CRT = "{}/restapiserver.crt".format(DELIVERY_DIR)
 DELIVERED_SERVER_KEY = "{}/restapiserver.key".format(DELIVERY_DIR)
-DELIVERED_CA_CRT = "{}/restapica.crt".format(CREDENTIALS_DIR)
+DELIVERED_CA_CRT = "{}/restapica.crt".format(DELIVERY_DIR)
 
 # Local file names the generator writes, and that deliver_certs() copies to the
 # configured paths above.
@@ -289,7 +284,7 @@ def db_set(duthost, db, key, **fields):
 
 def db_hdel(duthost, db, key, field):
     """Remove one hash field. Redis drops the key when its last field goes."""
-    _safe(duthost.shell, 'sonic-db-cli {db} hdel "{key}" {field}'.format(
+    best_effort(duthost.shell, 'sonic-db-cli {db} hdel "{key}" {field}'.format(
         db=db, key=key, field=field), module_ignore_errors=True)
 
 
@@ -346,9 +341,23 @@ def deliver_certs(duthost, cert_dir, server_crt=SERVER_CERT_NAME,
         place_file(duthost, cert_dir / local, remote)
 
 
-def wait_for_staging(duthost, timeout=STAGING_TIMEOUT):
-    """Wait until the pipeline reports the delivered certificates as applied."""
-    return wait_until(timeout, STAGING_POLL, 0, _in_sync, duthost)
+def applied_fingerprint(duthost):
+    """Fingerprint of the certificate set the pipeline last applied."""
+    return cert_status(duthost, "applied_fingerprint")
+
+
+def wait_for_staging(duthost, timeout=STAGING_TIMEOUT, changed_from=None):
+    """Wait until the pipeline reports the delivered certificates as applied.
+
+    in_sync can still be true from the previous delivery until the watcher
+    handles the new one. A caller that has just delivered different content
+    passes the fingerprint read before the delivery, and the wait then also
+    requires the applied set to have moved off it.
+    """
+    def applied():
+        return _in_sync(duthost) and (changed_from is None or
+                                      applied_fingerprint(duthost) != changed_from)
+    return wait_until(timeout, STAGING_POLL, 0, applied)
 
 
 # Files the suite overwrites or removes. A device that arrives provisioned keeps
@@ -376,8 +385,8 @@ def back_up_device_state(duthost):
 def restore_device_state(duthost, saved):
     """Put back what back_up_device_state() set aside."""
     for path in saved:
-        _safe(duthost.shell, "mv -f {0}{1} {0}".format(path, BACKUP_SUFFIX),
-              module_ignore_errors=True)
+        best_effort(duthost.shell, "mv -f {0}{1} {0}".format(path, BACKUP_SUFFIX),
+                    module_ignore_errors=True)
 
 
 def reset_to_bootstrap(duthost, snapshot, saved=()):
@@ -390,15 +399,15 @@ def reset_to_bootstrap(duthost, snapshot, saved=()):
     the staged files and bmcweb's persistent configuration with them.
     """
     for path in DEVICE_STATE_FILES:
-        _safe(duthost.shell, "rm -f {}".format(path), module_ignore_errors=True)
+        best_effort(duthost.shell, "rm -f {}".format(path), module_ignore_errors=True)
     restore_device_state(duthost, saved)
     restore_redfish_config(duthost, snapshot)
-    _safe(duthost.shell, "systemctl stop redfish", module_ignore_errors=True)
-    _safe(duthost.shell, "docker rm -f {}".format(BMCWEB_CONTAINER),
-          module_ignore_errors=True)
-    _safe(duthost.shell, "systemctl start redfish", module_ignore_errors=True)
-    _safe(wait_until, BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
-          _bmcweb_running, duthost)
+    best_effort(duthost.shell, "systemctl stop redfish", module_ignore_errors=True)
+    best_effort(duthost.shell, "docker rm -f {}".format(BMCWEB_CONTAINER),
+                module_ignore_errors=True)
+    best_effort(duthost.shell, "systemctl start redfish", module_ignore_errors=True)
+    best_effort(wait_until, BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
+                _bmcweb_running, duthost)
 
 
 # --- Lifecycle helpers -------------------------------------------------------
@@ -478,7 +487,7 @@ def logged_since(duthost, start, text):
 
 def restore_delivered_certs(duthost, cert_dir):
     """Put the generated certificates back at the delivery paths."""
-    duthost.shell("mkdir -p {} {}".format(DELIVERY_DIR, CREDENTIALS_DIR))
+    duthost.shell("mkdir -p {}".format(DELIVERY_DIR))
     deliver_certs(duthost, cert_dir)
 
 
@@ -509,21 +518,50 @@ def bmcweb_pid(duthost):
 
     Used to prove bmcweb was not bounced: a changed PID means a restart.
     """
-    out = supervisor(duthost, "status", "bmcweb")
-    for token in out.split():
-        if token.startswith("pid"):
-            continue
-        if token.rstrip(",").isdigit():
-            return token.rstrip(",")
+    tokens = supervisor(duthost, "status", "bmcweb").split()
+    # RUNNING reads "bmcweb RUNNING pid 123, uptime ...". Any other state has
+    # no pid token, and a date in its description must not be taken for one.
+    if "pid" in tokens[:-1]:
+        value = tokens[tokens.index("pid") + 1].rstrip(",")
+        if value.isdigit():
+            return value
     return ""
 
 
 def served_serial(duthost):
-    """Serial of the certificate bmcweb is serving, read inside the container."""
+    """Serial of the staged server certificate, read inside the container.
+
+    This is what bmcweb loads when it starts, not necessarily what it is
+    serving now; live_serial() reads the certificate from the listener.
+    """
     out = duthost.shell(
         "docker exec {} openssl x509 -noout -serial -in {}".format(
             BMCWEB_CONTAINER, STAGED_SERVER_PEM), module_ignore_errors=True)["stdout"]
     return out.strip().split("=")[-1]
+
+
+def live_serial(bmc_ip, port):
+    """Serial of the certificate bmcweb presents in a TLS handshake, or None.
+
+    Nothing is verified: the point is to see which certificate is on the
+    wire, whoever issued it. None means nothing completed a handshake.
+    """
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    try:
+        with socket.create_connection((bmc_ip, int(port)), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=bmc_ip) as tls:
+                der = tls.getpeercert(binary_form=True)
+    except (OSError, ssl.SSLError):
+        return None
+    return x509.load_der_x509_certificate(der).serial_number
+
+
+def file_serial(path):
+    """Serial of a certificate file on the test runner."""
+    with open(str(path), "rb") as handle:
+        return x509.load_pem_x509_certificate(handle.read()).serial_number
 
 
 def corrupt_delivered_file(duthost, path):
@@ -531,13 +569,13 @@ def corrupt_delivered_file(duthost, path):
     duthost.shell("printf 'not a certificate' > {}".format(path))
 
 
-def deliver_single_file(duthost, cert_dir, local_name, remote_path):
+def deliver_single_file(duthost, local_path, remote_path):
     """Deliver one file, leaving the rest of the trio as it is.
 
     Used for the partial upload and mid-rotation cases, where the point is
     that the delivered set is incomplete or inconsistent.
     """
-    place_file(duthost, cert_dir / local_name, remote_path)
+    place_file(duthost, local_path, remote_path)
 
 
 def unprovision(duthost):
