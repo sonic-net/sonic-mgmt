@@ -2,3 +2,9 @@
   loop: "{{ VM_targets }}"
   loop_control:
     loop_var: vm_item
+
+- name: Remove persisted cSONiC LAG backend selection
+  become: yes
+  file:
+    path: "/var/tmp/sonic-mgmt/csonic-lag-backend-{{ vm_set_name }}"
+    state: absent
