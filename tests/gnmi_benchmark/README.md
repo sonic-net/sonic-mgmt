@@ -101,13 +101,6 @@ dynamic TLS setup, Runner execution/cleanup and report writing, without re-raisi
 Runner contexts unwind before logging. Skips and interrupts propagate normally.
 Collection and fixture setup/teardown outside the test body remain pytest-managed.
 No report is fabricated when execution or restoration prevents its generation.
-After all selected cases and their TLS finalizers, module recovery logs pre-reload
-Redis memory, restores the saved pre-benchmark `config_db.json`, and calls the
-existing config reload helper once before module post-sanity. Reload failures fail
-teardown; existing reports are retained and sanity checks remain enabled.
-This is final recovery, not a fix for VNET/tunnel deletion ordering. Per-case direct
-deletion and TLS rollback do not guarantee downstream cleanup, so later cases can
-still inherit pending work or broken runtime state from earlier cases.
 **A green pytest outcome is not evidence of performance compliance or restored
 device state.** Inspect errors and reports; timed-out server writes can outlive
 the client and require cleanup verification before reuse.
