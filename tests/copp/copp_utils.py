@@ -4,12 +4,17 @@
     Todo:
         Refactor ptfadapter so it can be leveraged in these test cases.
 """
+import atexit
 import re
 import logging
 import json
 import ipaddress
 import ast
+import os
 import random
+import shutil
+import subprocess
+import tempfile
 
 from tests.common.config_reload import config_reload
 
@@ -27,6 +32,16 @@ _PTF_NN_AGENT_URL = (
 _PTF_AFPACKET_URL = (
     "https://raw.githubusercontent.com/p4lang/ptf"
     "/{}/src/ptf/afpacket.py".format(_PTF_COMMIT))
+
+_NN_AGENT_BUNDLE_BUILDER = os.path.join(
+    os.path.dirname(__file__), "files", "build_nn_agent_bundle.sh")
+_NN_AGENT_BUNDLE_DUT = "/tmp/copp-nn-agent-bundle.tar.gz"
+# Docker cp into a container's mounted /tmp writes outside the runtime-visible
+# mount, which can also be noexec. Stage at the root and extract under /opt.
+_NN_AGENT_BUNDLE_SYNCD = "/copp-nn-agent-bundle.tar.gz"
+_NN_AGENT_BUNDLE_DIR = "/opt/copp-nn-agent-bundle"
+_NN_AGENT_BUNDLE_CACHE = {}
+_NN_AGENT_BUNDLE_WORKDIR = None
 
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
 _APP_DB_COPP_CONFIG = ":/etc/swss/config.d/00-copp.config.json"
@@ -190,7 +205,6 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
         "nn_target_interface": nn_target_interface,
         "nn_target_vlanid": nn_target_vlanid
     }
-    dut.host.options["variable_manager"].extra_vars.update(facts)
 
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
 
@@ -199,6 +213,8 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     if not swap_syncd:
         _install_nano(dut, creds, syncd_docker_name)
 
+    facts["nn_agent_python"] = _get_nn_agent_python(dut, syncd_docker_name)
+    dut.host.options["variable_manager"].extra_vars.update(facts)
     dut.template(src=_SYNCD_NN_TEMPLATE, dest=_SYNCD_NN_DEST)
 
     dut.command("docker cp {} {}:/etc/supervisor/conf.d/".format(_SYNCD_NN_DEST, syncd_docker_name))
@@ -238,30 +254,175 @@ def restore_syncd(dut, nn_target_namespace):
     asichost.delete_container(syncd_docker_name)
 
 
-def _install_nano_bookworm(dut, creds, syncd_docker_name):
-    output = dut.command("docker exec {} bash -c '[ -d /usr/include/nanomsg ] || \
-        echo copp'".format(syncd_docker_name))
+def _get_nn_agent_python(dut, syncd_docker_name):
+    """Return an interpreter that can run the installed DUT-side NN agent."""
+    cmd = (
+        "docker exec {} bash -c '"
+        "for candidate in python3 python python2; do "
+        "interpreter=$(command -v $candidate 2>/dev/null) || continue; "
+        "$interpreter -c \"import nnpy; nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)\" "
+        ">/dev/null 2>&1 || continue; "
+        "$interpreter /opt/ptf_nn_agent.py --help >/dev/null 2>&1 || continue; "
+        "echo $interpreter; exit 0; "
+        "done; exit 1'"
+    ).format(syncd_docker_name)
+    result = dut.command(cmd, module_ignore_errors=True)
+    if result["rc"] != 0 or not result["stdout"].strip():
+        raise RuntimeError(
+            "No Python interpreter can run the DUT-side PTF NN agent in {}"
+            .format(syncd_docker_name)
+        )
+    return result["stdout"].strip().splitlines()[0]
 
-    if output["stdout"] == "copp":
-        http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
-        https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-        # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
-        cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
-                mkdir -p /var/tmp_build \
-                && rm -rf /var/lib/apt/lists/* \
-                && apt-get update \
-                && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
-                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
-                && rm -rf /var/tmp_build \
-                && mkdir -p /opt && cd /opt && wget {3} \
-                && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
-                && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                python3-setuptools wget \
-                " '''.format(http_proxy, https_proxy, syncd_docker_name,
-                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
-        dut.command(cmd)
+
+def _nn_agent_runtime_ready(dut, syncd_docker_name):
+    """Return whether syncd already has a usable Python 3 NN-agent runtime."""
+    cmd = (
+        "docker exec {} bash -c '"
+        "python3 -c \"import nnpy; nnpy.Socket(nnpy.AF_SP, nnpy.PAIR)\" "
+        "&& test -f /opt/ptf_nn_agent.py "
+        "&& test -f /opt/ptf/afpacket.py'"
+    ).format(syncd_docker_name)
+    return dut.command(cmd, module_ignore_errors=True)["rc"] == 0
+
+
+def _get_nn_agent_bundle_target(dut, syncd_docker_name, codename):
+    architecture = dut.command(
+        "docker exec {} dpkg --print-architecture".format(syncd_docker_name)
+    )["stdout"].strip()
+    python_abi = dut.command(
+        (
+            "docker exec {} python3 -c 'import sys; "
+            "print(\"cp{{}}{{}}\".format(sys.version_info.major, "
+            "sys.version_info.minor))'"
+        ).format(syncd_docker_name)
+    )["stdout"].strip()
+    if architecture != "amd64":
+        return None
+    return codename, architecture, python_abi
+
+
+def _cleanup_nn_agent_bundle_workdir():
+    if _NN_AGENT_BUNDLE_WORKDIR:
+        shutil.rmtree(_NN_AGENT_BUNDLE_WORKDIR, ignore_errors=True)
+
+
+def _build_nn_agent_bundle(codename, architecture, python_abi):
+    """Build and cache an NN-agent bundle in a matching Debian container."""
+    global _NN_AGENT_BUNDLE_WORKDIR
+
+    target = (codename, architecture, python_abi)
+    if target in _NN_AGENT_BUNDLE_CACHE:
+        return _NN_AGENT_BUNDLE_CACHE[target]
+
+    if _NN_AGENT_BUNDLE_WORKDIR is None:
+        _NN_AGENT_BUNDLE_WORKDIR = tempfile.mkdtemp(
+            prefix="copp-nn-agent-bundles-")
+        atexit.register(_cleanup_nn_agent_bundle_workdir)
+
+    bundle = os.path.join(
+        _NN_AGENT_BUNDLE_WORKDIR,
+        "copp-nn-agent-bundle-{}-{}-{}.tar.gz".format(
+            codename, architecture, python_abi),
+    )
+    try:
+        subprocess.check_call([
+            _NN_AGENT_BUNDLE_BUILDER,
+            codename,
+            architecture,
+            python_abi,
+            bundle,
+        ])
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise RuntimeError(
+            "Failed to build CoPP NN-agent bundle for {}/{}/{}: {}".format(
+                codename, architecture, python_abi, error)
+        )
+
+    _NN_AGENT_BUNDLE_CACHE[target] = bundle
+    return bundle
+
+
+def _install_offline_nn_agent_bundle(dut, syncd_docker_name, bundle):
+    """Stage a locally built NN-agent runtime without syncd network access."""
+    dut.copy(src=bundle, dest=_NN_AGENT_BUNDLE_DUT)
+    try:
+        dut.command("docker cp {} {}:{}".format(
+            _NN_AGENT_BUNDLE_DUT, syncd_docker_name, _NN_AGENT_BUNDLE_SYNCD))
+        dut.command(
+            "docker exec {} bash -c 'test -s {} "
+            "&& rm -rf {} "
+            "&& tar -xzf {} -C /opt "
+            "&& {}/install.sh'".format(
+                syncd_docker_name,
+                _NN_AGENT_BUNDLE_SYNCD,
+                _NN_AGENT_BUNDLE_DIR,
+                _NN_AGENT_BUNDLE_SYNCD,
+                _NN_AGENT_BUNDLE_DIR,
+            )
+        )
+    finally:
+        dut.command(
+            "rm -f {}".format(_NN_AGENT_BUNDLE_DUT),
+            module_ignore_errors=True,
+        )
+        dut.command(
+            "docker exec {} rm -rf {} {}".format(
+                syncd_docker_name,
+                _NN_AGENT_BUNDLE_SYNCD,
+                _NN_AGENT_BUNDLE_DIR,
+            ),
+            module_ignore_errors=True,
+        )
+
+    if not _nn_agent_runtime_ready(dut, syncd_docker_name):
+        raise RuntimeError(
+            "Offline CoPP NN-agent installation did not produce a usable "
+            "runtime"
+        )
+
+
+def _install_nano_bookworm(dut, creds, syncd_docker_name, codename):
+    if _nn_agent_runtime_ready(dut, syncd_docker_name):
+        return
+
+    target = _get_nn_agent_bundle_target(dut, syncd_docker_name, codename)
+    if target:
+        try:
+            bundle = _build_nn_agent_bundle(*target)
+        except RuntimeError as error:
+            logging.warning(
+                "%s; falling back to the legacy syncd network installer",
+                error,
+            )
+        else:
+            _install_offline_nn_agent_bundle(
+                dut, syncd_docker_name, bundle)
+            return
+    else:
+        logging.warning(
+            "The CoPP NN-agent builder does not support this syncd "
+            "architecture; falling back to the legacy network installer"
+        )
+    http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+    https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+    # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
+    cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
+            mkdir -p /var/tmp_build \
+            && rm -rf /var/lib/apt/lists/* \
+            && apt-get update \
+            && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
+            python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
+            && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
+            && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
+            && rm -rf /var/tmp_build \
+            && mkdir -p /opt && cd /opt && wget {3} \
+            && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+            && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
+            python3-setuptools wget \
+            " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                         _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
+    dut.command(cmd)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):
@@ -276,7 +437,8 @@ def _install_nano(dut, creds,  syncd_docker_name):
     codename = dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
                          .format(syncd_docker_name))['stdout'].lower()
     if "bookworm" in codename or "trixie" in codename:
-        _install_nano_bookworm(dut, creds, syncd_docker_name)
+        codename = codename.split("=", 1)[-1].strip().strip('"')
+        _install_nano_bookworm(dut, creds, syncd_docker_name, codename)
         return
 
     if dut.facts["asic_type"] == "cisco-8000":

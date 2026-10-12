@@ -109,6 +109,7 @@ class QosParamCisco(object):
         asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3),
                        "gr": (24576000, 18000, 384, 1350, 2, 3),
                        "gr2": (None, 2, 512, 64, 3, 4),
+                       "gr2x": (None, 2, 512, 64, 3, 4),
                        "p200": (None, 1, 512, 64, 2, 2)}
         # gb can offload lossless and/or lossy traffic to HBM (e.g. on t2 chassis line
         # cards). Each offloaded direction uses the larger HBM geometry (queue depth,
