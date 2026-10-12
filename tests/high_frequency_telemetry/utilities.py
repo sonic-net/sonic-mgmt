@@ -31,6 +31,15 @@ HftSeries = namedtuple(
     ["measurement", "object_name", "sai_type", "sai_stat", "counter_name"],
 )
 
+# Removing an HFT session does not discard samples that countersyncd has
+# already queued for OTLP export. The export path can stay silent for up to 10s
+# while samples are still in flight: the collector's InfluxDB write timeout and
+# countersyncd's export retry backoff are both capped at 10s. The quiet period
+# adds margin for the 1s countersyncd, collector batch, and InfluxDB WAL flushes.
+HFT_EXPORT_DRAIN_QUIET_PERIOD = 15
+# Bound for draining a high-fanout case, such as every counter of every port.
+HFT_EXPORT_DRAIN_TIMEOUT = 300
+
 
 def get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=None):
     """Return admin-up, PTF-mapped ports that are not PortChannel members."""
@@ -846,6 +855,55 @@ class InfluxDbSink:
             for row in measurement_rows
             if row.get("name")
         }
+
+    def total_points(self):
+        """Return the number of samples stored across all measurements."""
+        measurements = sorted(self.measurements())
+        if not measurements:
+            return 0
+        body = self._query(";".join(
+            f'SELECT COUNT("gauge") AS "sample_count" FROM "{measurement}"'
+            for measurement in measurements
+        ))
+        return sum(
+            int(row.get("sample_count") or 0)
+            for rows in parse_influxdb_json(json.dumps(body)).values()
+            for row in rows
+        )
+
+    def wait_until_drained(self, quiet_period=HFT_EXPORT_DRAIN_QUIET_PERIOD,
+                           timeout=HFT_EXPORT_DRAIN_TIMEOUT, poll_interval=1):
+        """Wait until no new sample reaches this database for quiet_period.
+
+        Call this after the HFT session is removed and while the collector
+        still targets this database. countersyncd keeps exporting the samples
+        it has already queued and retries a failed export for minutes, so
+        stopping the collector earlier replays the backlog into whatever
+        database the collector targets next.
+        """
+        start = time.monotonic()
+        total = self.total_points()
+        last_change = start
+        while True:
+            now = time.monotonic()
+            if now - last_change >= quiet_period:
+                logger.info(
+                    "HFT export drained into InfluxDB database %s: %d samples, "
+                    "none new for %ds, after %.1fs",
+                    self.bucket, total, quiet_period, now - start,
+                )
+                return total
+            if now - start >= timeout:
+                raise AssertionError(
+                    f"HFT export into InfluxDB database {self.bucket} did not "
+                    f"drain within {timeout}s: it holds {total} samples and "
+                    f"received new samples {now - last_change:.1f}s ago"
+                )
+            time.sleep(poll_interval)
+            current = self.total_points()
+            if current != total:
+                total = current
+                last_change = time.monotonic()
 
     def drop(self):
         """Hard-delete this sink's database."""

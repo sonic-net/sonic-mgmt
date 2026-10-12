@@ -83,6 +83,47 @@ def _run_cleanup_steps(steps):
     return first_error
 
 
+def _cleanup_test_hft_profiles(duthost):
+    """Remove the HFT profiles and groups owned by this test suite."""
+    profile_keys = duthost.shell(
+        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
+        module_ignore_errors=False,
+    )["stdout_lines"]
+    group_keys = duthost.shell(
+        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
+        module_ignore_errors=False,
+    )["stdout_lines"]
+    existing_profiles = {
+        key.split("|", 1)[1] for key in profile_keys
+        if "|" in key
+    }
+    existing_profiles.update(
+        key.split("|", 2)[1] for key in group_keys
+        if key.count("|") >= 2
+    )
+    for profile_name in set(TEST_HFT_PROFILES) & existing_profiles:
+        cleanup_hft_config(duthost, profile_name)
+
+
+def _drain_hft_export(duthost, sink):
+    """Let every queued HFT sample reach the case database before the collector stops.
+
+    Draining needs a stopped stream, so first remove any session a failed case
+    left behind. If the backlog does not drain, restart countersyncd to discard
+    it, so it cannot reach the next case's database, and fail this teardown.
+    """
+    _cleanup_test_hft_profiles(duthost)
+    try:
+        sink.wait_until_drained()
+    except (Exception, OutcomeException):
+        logger.error(
+            "Restarting countersyncd to discard the HFT export backlog that "
+            "did not drain into InfluxDB database %s", sink.bucket,
+        )
+        restart_countersyncd_daemon(duthost)
+        raise
+
+
 def _get_otel_container_running(duthost):
     result = duthost.shell(
         r"docker inspect -f \{\{.State.Running\}\} otel",
@@ -373,6 +414,10 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
     sink = InfluxDbSink(ptfhost, bucket=bucket, port=INFLUXDB_PORT)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     database_created = False
+    collector_configured = False
+
+    def cleanup_drain_export():
+        _drain_hft_export(duthost, sink)
 
     def cleanup_stop_collector():
         stop_otel_collector(duthost)
@@ -397,6 +442,7 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
             influxdb_bucket=bucket,
         )
         install_otel_collector_config(duthost, rendered_config)
+        collector_configured = True
         restart_otel_service(duthost)
         time.sleep(2)
         if not sink.is_empty():
@@ -410,9 +456,15 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_steps = [
-            ("stop OTEL collector", cleanup_stop_collector),
-        ]
+        cleanup_steps = []
+        if collector_configured:
+            # Drain while the collector still targets this database, so late
+            # samples never reach the next case's database.
+            cleanup_steps.append(
+                (f"drain HFT export into InfluxDB database {bucket}",
+                 cleanup_drain_export)
+            )
+        cleanup_steps.append(("stop OTEL collector", cleanup_stop_collector))
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)
@@ -541,22 +593,4 @@ def cleanup_high_frequency_telemetry(
     duthosts, enum_rand_one_per_hwsku_hostname, ensure_swss_ready
 ):
     """Remove stale profiles owned by this test suite before each test."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    profile_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
-        module_ignore_errors=False,
-    )["stdout_lines"]
-    group_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
-        module_ignore_errors=False,
-    )["stdout_lines"]
-    existing_profiles = {
-        key.split("|", 1)[1] for key in profile_keys
-        if "|" in key
-    }
-    existing_profiles.update(
-        key.split("|", 2)[1] for key in group_keys
-        if key.count("|") >= 2
-    )
-    for profile_name in set(TEST_HFT_PROFILES) & existing_profiles:
-        cleanup_hft_config(duthost, profile_name)
+    _cleanup_test_hft_profiles(duthosts[enum_rand_one_per_hwsku_hostname])

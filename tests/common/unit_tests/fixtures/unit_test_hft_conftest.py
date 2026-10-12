@@ -190,3 +190,90 @@ def test_cleanup_runner_captures_pytest_failures(
 
     assert calls == ["failing", "final"]
     assert isinstance(result, OutcomeException)
+
+
+def test_test_profile_cleanup_ignores_profiles_owned_by_others(
+        hft_conftest, monkeypatch):
+    keys = {
+        "PROFILE": [
+            "HIGH_FREQUENCY_TELEMETRY_PROFILE|queue_profile",
+            "HIGH_FREQUENCY_TELEMETRY_PROFILE|production_profile",
+        ],
+        "GROUP": [
+            "HIGH_FREQUENCY_TELEMETRY_GROUP|e2e_port_profile|PORT",
+            "HIGH_FREQUENCY_TELEMETRY_GROUP|production_profile|QUEUE",
+        ],
+    }
+    duthost = MagicMock()
+    duthost.shell.side_effect = lambda command, **kwargs: {
+        "stdout_lines": keys["PROFILE" if "PROFILE" in command else "GROUP"],
+    }
+    cleanup = MagicMock()
+    monkeypatch.setattr(hft_conftest, "cleanup_hft_config", cleanup)
+
+    hft_conftest._cleanup_test_hft_profiles(duthost)
+
+    assert sorted(call.args for call in cleanup.call_args_list) == [
+        (duthost, "e2e_port_profile"),
+        (duthost, "queue_profile"),
+    ]
+
+
+def test_export_drain_removes_sessions_before_waiting(
+        hft_conftest, monkeypatch):
+    calls = []
+    duthost = MagicMock()
+    sink = MagicMock()
+    sink.wait_until_drained.side_effect = lambda: calls.append("drain")
+    restart = MagicMock()
+    monkeypatch.setattr(
+        hft_conftest, "_cleanup_test_hft_profiles",
+        lambda host: calls.append(("cleanup", host)),
+    )
+    monkeypatch.setattr(hft_conftest, "restart_countersyncd_daemon", restart)
+
+    hft_conftest._drain_hft_export(duthost, sink)
+
+    assert calls == [("cleanup", duthost), "drain"]
+    restart.assert_not_called()
+
+
+def _raise_pytest_failure():
+    pytest.fail("InfluxDB query failed")
+
+
+@pytest.mark.parametrize("drain_error,expected_error", [
+    (AssertionError("still receiving samples"), AssertionError),
+    (_raise_pytest_failure, OutcomeException),
+])
+def test_export_drain_discards_undrained_backlog(
+        hft_conftest, monkeypatch, drain_error, expected_error):
+    duthost = MagicMock()
+    sink = MagicMock(bucket="hft_test_1")
+    sink.wait_until_drained.side_effect = drain_error
+    restart = MagicMock()
+    monkeypatch.setattr(hft_conftest, "_cleanup_test_hft_profiles", MagicMock())
+    monkeypatch.setattr(hft_conftest, "restart_countersyncd_daemon", restart)
+    monkeypatch.setattr(hft_conftest.logger, "error", MagicMock())
+
+    with pytest.raises(expected_error):
+        hft_conftest._drain_hft_export(duthost, sink)
+
+    restart.assert_called_once_with(duthost)
+
+
+def test_export_drain_skips_wait_when_session_cleanup_fails(
+        hft_conftest, monkeypatch):
+    sink = MagicMock()
+    restart = MagicMock()
+    monkeypatch.setattr(
+        hft_conftest, "_cleanup_test_hft_profiles",
+        MagicMock(side_effect=RuntimeError("cleanup failed")),
+    )
+    monkeypatch.setattr(hft_conftest, "restart_countersyncd_daemon", restart)
+
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        hft_conftest._drain_hft_export(MagicMock(), sink)
+
+    sink.wait_until_drained.assert_not_called()
+    restart.assert_not_called()
