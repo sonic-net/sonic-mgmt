@@ -121,7 +121,7 @@ def run(inst, config=None):
     ({"type": "LeafRouter"}, "Arista-7060X6-64PE-B-C448O16", "x86_64-arista_7060x6_64pe_b", "disabled"),
     # Mellanox/NVIDIA non-storage backend -> disabled
     ({"type": "BackEndToRRouter"}, "Mellanox-SN4700", "x86_64-mlnx_msn4700-r0", "disabled"),
-    ({"type": "BackEndLeafRouter"}, "Nvidia-9009", "x86_64-nvidia_sn5600-r0", "disabled"),
+    ({"type": "BackEndLeafRouter"}, "Nvidia-SN5600", "x86_64-nvidia_sn5600-r0", "disabled"),
     ({"type": "BackEndSpineRouter"}, "Mellanox-SN4700", "x86_64-mlnx_msn4700-r0", "disabled"),
     # Mellanox backend WITH storage_device -> enabled
     ({"type": "BackEndToRRouter", "storage_device": "true"}, "Mellanox-SN4700",
