@@ -820,6 +820,7 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname,
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
@@ -909,6 +910,7 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
