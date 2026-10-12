@@ -1015,27 +1015,44 @@ class TestRedfishConfiguredPaths:
         finally:
             bmc_duthost.shell("rm -rf {} {}".format(alt_dir, alt_ca_dir), module_ignore_errors=True)
 
-    def test_defaults_apply_with_no_configuration(self, bmc_duthost, bmc_ip, bmc_tls_certs):
-        """A device with no REDFISH tables still boots and can be provisioned.
+    def test_nothing_is_staged_without_configuration(self, bmc_duthost, bmc_ip, bmc_exec,
+                                                     bmc_tls_certs):
+        """With no REDFISH|certs entry, delivered files are not picked up.
 
-        Production may ship with nothing configured, so the built-in defaults
-        are what such a device runs on.
+        There are no default delivery paths, so a device with nothing
+        configured stays on its self-signed certificate even when certificates
+        sit where the REST API server reads them. Configuring the paths later
+        provisions it without a restart.
         """
         bmc_duthost.shell('sonic-db-cli CONFIG_DB del "{}"'.format(REDFISH_CERTS_TABLE),
                           module_ignore_errors=True)
         bmc_duthost.shell('sonic-db-cli CONFIG_DB del "{}"'.format(REDFISH_CONFIG_TABLE),
                           module_ignore_errors=True)
-
-        # The defaults are the paths the fixture already delivers to.
-        restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-        recreate_container(bmc_duthost)
-        pytest_assert(wait_for_program(bmc_duthost, "bmcweb", "RUNNING"),
+        pytest_assert(unprovision(bmc_duthost),
                       "Device did not come up with no Redfish configuration")
         pytest_assert(listening_port(bmc_duthost) == DEFAULT_PORT,
                       "With no configuration the published port should be {}".format(
                           DEFAULT_PORT))
+
+        # The REST API server's certificate paths, which are not a fallback.
+        restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
+        time.sleep(RECONCILE_WINDOW)
+
+        pytest_assert(staged_is_self_signed(bmc_exec),
+                      "Certificates were staged with no REDFISH|certs configured")
+        _, _, rc = bmc_exec("test -f {}".format(PROVISIONED_MARKER))
+        pytest_assert(rc != 0, "An unconfigured device must not be marked provisioned")
+        pytest_assert(cert_status(bmc_duthost, "last_error") == "REDFISH|certs not configured",
+                      "Status should report the missing configuration, got {!r}".format(
+                          cert_status(bmc_duthost, "last_error")))
+
+        # Configuring the paths is picked up by the watcher.
+        db_set(bmc_duthost, "CONFIG_DB", REDFISH_CERTS_TABLE,
+               server_crt=DELIVERED_SERVER_CRT,
+               server_key=DELIVERED_SERVER_KEY,
+               ca_crt=DELIVERED_CA_CRT)
         pytest_assert(wait_for_staging(bmc_duthost),
-                      "Default paths were not used to stage certificates")
+                      "Configuring REDFISH|certs did not stage the delivered certificates")
         assert_status_ok(mtls_get(bmc_ip, bmc_tls_certs, SERVICE_ROOT_PATH, DEFAULT_PORT),
                          SERVICE_ROOT_PATH)
 

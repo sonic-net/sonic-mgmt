@@ -215,8 +215,8 @@ OWNED_FIELDS = {
     REDFISH_CONFIG_TABLE: ("port",),
 }
 
-# Delivery paths used by the tests. These are the documented defaults, so using
-# them also covers what an unconfigured device would look for.
+# Delivery paths the tests configure in REDFISH|certs. They are where the REST
+# API server's certificates live, which an unconfigured device must ignore.
 DELIVERY_DIR = "/etc/sonic/credentials"
 DELIVERED_SERVER_CRT = "{}/restapiserver.crt".format(DELIVERY_DIR)
 DELIVERED_SERVER_KEY = "{}/restapiserver.key".format(DELIVERY_DIR)
