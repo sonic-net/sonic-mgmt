@@ -47,6 +47,7 @@ DEFAULT_LOGROTATE_COUNT = "10"
 LOGGING_FIELDS = ("logging_enabled", "log_file", "logrotate_size", "logrotate_count")
 
 SETTLE_SEC = 20         # Allow console-monitor to process CONFIG_DB changes and restart the proxy
+SWITCH_HOST_ONLINE_TIMEOUT = 180  # Wait for SWITCH-HOST before driving the host CPU console
 MARKER_DRAIN_SEC = 3    # Allow echoed marker bytes to reach the log file
 
 # Small logrotate threshold for tests that exercise rotation without huge fills.
@@ -192,6 +193,44 @@ def wait_for_proxy_active(duthost, line, timeout=SETTLE_SEC):
         "console-monitor-proxy@{}.service did not become active within {}s".format(line, timeout))
 
 
+def get_switch_host_oper_admin(duthost):
+    """
+    Return (oper-status, admin-status) for SWITCH-HOST from chassis module status, or (None, None).
+    """
+    rows = duthost.show_and_parse("show chassis module status")
+    for row in rows or []:
+        name = (row.get('name') or '').strip()
+        if name.startswith('SWITCH-HOST'):
+            oper = (row.get('oper-status') or '').strip().lower()
+            admin = (row.get('admin-status') or '').strip().lower()
+            return oper, admin
+    return None, None
+
+
+def is_switch_host_online(duthost):
+    """
+    True when SWITCH-HOST is present with oper-status Online and admin on/up.
+
+    Oper/admin strings are compared case-insensitively (CLI may print ``Online`` / ``up``).
+    """
+    oper, admin = get_switch_host_oper_admin(duthost)
+    if oper is None:
+        return False
+    return oper == 'online' and admin in ('on', 'up')
+
+
+def wait_for_switch_host_online(duthost, timeout=SWITCH_HOST_ONLINE_TIMEOUT, interval=5, delay=0):
+    """
+    Wait until SWITCH-HOST reports oper-status online (host CPU console is reachable).
+    """
+    pytest_assert(
+        get_switch_host_oper_admin(duthost)[0] is not None,
+        "SWITCH-HOST not found in 'show chassis module status'")
+    pytest_assert(
+        wait_until(timeout, interval, delay, lambda: is_switch_host_online(duthost)),
+        "SWITCH-HOST did not reach Online/on within {}s before console marker".format(timeout))
+
+
 def emit_console_marker(duthost, creds, line):
     """
     Send a unique marker through the console session and return it.
@@ -202,6 +241,7 @@ def emit_console_marker(duthost, creds, line):
     submitted as a command to the host CPU.
     """
     marker = "cslog_{}".format(generate_random_string(10))
+    wait_for_switch_host_online(duthost)
     ip, user, password = get_host_ip_and_creds(duthost, creds)
     client = None
     try:
@@ -272,10 +312,11 @@ def target_line(duthost, console_facts):
 @pytest.fixture(scope="function", autouse=True)
 def require_proxy_running(duthost, target_line):
     """
-    Verify whether the console monitor proxy service is active and running.
+    Wait for console-monitor-proxy@<line> to be active before each test.
+
+    The proxy may still be restarting after logging config teardown from the prior test.
     """
-    pytest_require(is_proxy_service_active(duthost, target_line),
-                   "console-monitor-proxy@{}.service is not active".format(target_line))
+    wait_for_proxy_active(duthost, target_line)
     yield
 
 
