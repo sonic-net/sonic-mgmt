@@ -30,7 +30,7 @@ def _check_firmware_versions(duthost, port, port_context, metadata_map):
     cdb_attrs = port_context["cdb_attrs"]
     expected_active = cdb_attrs.get("gold_firmware_version")
     dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
-    expected_inactive = cdb_attrs.get("inactive_firmware_version")
+    expected_inactive = cdb_attrs.get("inactive_firmware_version") if dual_bank_supported else None
 
     if not expected_active:
         return ["gold_firmware_version not defined"]
