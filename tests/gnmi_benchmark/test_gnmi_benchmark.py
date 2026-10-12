@@ -12,6 +12,7 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.gnmi_benchmark.benchmark_report import BenchmarkReport
 from tests.gnmi_benchmark.benchmark_runner import BenchmarkRunner
 from tests.gnmi_benchmark.blaster import RouteTableBlaster
+from tests.gnmi_benchmark.helpers import recover_consumer
 
 logger = logging.getLogger(__name__)
 pytestmark = [
@@ -25,6 +26,8 @@ pytestmark = [
 # Default automation settings. Blaster constructor defaults remain available to direct callers.
 BENCHMARK_CONFIG = {
     "output_dir": "/tmp/gnmi-benchmark",
+    # Set only after mapping the Redis subscriber to a service with verified restart/resync behavior.
+    "recovery": {"consumer_service": None, "timeout_seconds": 60},
     "parameters": {
         "warmup_seconds": 60,
         "duration_seconds": 60,
@@ -69,6 +72,15 @@ def _emit_report(request, report):
         request.node.user_properties.append(("CustomMsg", json.dumps({"gnmi_benchmark": {report["cid"]: report}})))
 
 
+@pytest.fixture
+def benchmark_consumer_recovery(request):
+    """Set up before dynamic gnmi_tls, so its finalizer runs AFTER TLS rollback."""
+    host = request.node._benchmark_host
+    yield
+    # Finalizer exceptions are pytest teardown errors, outside report-only handling.
+    recover_consumer(host, **BENCHMARK_CONFIG["recovery"])
+
+
 @pytest.mark.parametrize("runner_factory,blaster_factory", BENCHMARK_CASES)
 def test_gnmi_benchmark(
     runner_factory,
@@ -77,6 +89,7 @@ def test_gnmi_benchmark(
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
 ):
+    report = None
     try:
         host = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         blaster = blaster_factory()
@@ -84,23 +97,29 @@ def test_gnmi_benchmark(
         pytest_require(device_sku, "DUT HwSKU is unavailable")
         if blaster.hwsku_prefixes:
             pytest_require(device_sku.startswith(blaster.hwsku_prefixes), "Unsupported HwSKU: " + device_sku)
-        # Resolve TLS setup only after checking the selected device.
-        connection = request.getfixturevalue("gnmi_tls")
-        pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
-                       "The benchmark requires the TLS transport")
         report = BenchmarkReport(
-            connection_type=connection.transport.upper(),
+            connection_type="TLS",
             device=dict(hostname=host.hostname, os_version=host.os_version, sku=device_sku,
                         platform=host.facts.get("platform", "unknown"),
                         asic_type=host.facts.get("asic_type", "unknown"),
                         asic_count=host.num_asics()))
-        result = runner_factory().run(host, connection, blaster, report)
-        path = result.write(BENCHMARK_CONFIG["output_dir"])
-        _emit_report(request, result.to_dict())
-        logger.info("gNMI benchmark marker=%s cid=%s report=%s", result.marker, result.cid, path)
-        if result.failed:
-            logger.info("gNMI benchmark report-only marker=%s cid=%s has RPC failures, "
-                        "requests over 1000ms, or dropped arrivals", result.marker, result.cid)
+        request.node._benchmark_host = host
+        # Register before gnmi_tls: pytest unwinds the later fixture first.
+        request.getfixturevalue("benchmark_consumer_recovery")
+        # Resolve TLS setup only after checking the selected device.
+        connection = request.getfixturevalue("gnmi_tls")
+        pytest_require(connection.transport == "tls" and connection.pygnmi_client is not None,
+                       "The benchmark requires the TLS transport")
+        runner_factory().run(host, connection, blaster, report)
     except (Exception, pytest.fail.Exception):
         # Runner context managers unwind before logging; skips/interrupts propagate.
         logger.info("gNMI benchmark report-only exception node=%s", request.node.nodeid, exc_info=True)
+        raise
+    finally:
+        if report is not None and report.measurement is not None:
+            path = report.write(BENCHMARK_CONFIG["output_dir"])
+            _emit_report(request, report.to_dict())
+            logger.info("gNMI benchmark marker=%s cid=%s report=%s", report.marker, report.cid, path)
+            if report.failed:
+                logger.info("gNMI benchmark report-only marker=%s cid=%s has RPC failures, "
+                            "requests over 1000ms, or dropped arrivals", report.marker, report.cid)

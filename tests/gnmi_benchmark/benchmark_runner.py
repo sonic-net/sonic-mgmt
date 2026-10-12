@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class BenchmarkRunner:
     def run(self, host, fixture, blaster, result):
-        """Prepare → warm up → measure → clean up → generate the chosen report."""
+        """Prepare → warm up → measure → retain samples → clean up."""
         with ExitStack() as cleanup:
             channel, stub = cleanup.enter_context(gnmi_connection(fixture))
             prepared = cleanup.enter_context(blaster.resources(host, stub))
@@ -42,7 +42,8 @@ class BenchmarkRunner:
                     raise RuntimeError("Warmup failed; measured phase not started: {}".format(summary))
             resources = collect_resource_snapshot(host)
             samples = blaster.blast(stub, prepared)
+            # Preserve measured data even when later snapshots or restoration fail.
+            result.generate(samples=samples, warmup=warmup, connection_ready_seconds=ready_seconds, resources=resources,
+                            marker=blaster.marker, blaster=blaster.name, profile=blaster.profile())
             resources += collect_resource_snapshot(host)
-        return result.generate(samples=samples, warmup=warmup, connection_ready_seconds=ready_seconds,
-                               resources=resources,
-                               marker=blaster.marker, blaster=blaster.name, profile=blaster.profile())
+        return result
