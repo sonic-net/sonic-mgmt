@@ -2,7 +2,6 @@
 
 import json
 import logging
-import time
 from collections import Counter
 from contextlib import ExitStack
 
@@ -19,11 +18,8 @@ class BenchmarkRunner:
         with ExitStack() as cleanup:
             channel, stub = cleanup.enter_context(gnmi_connection(fixture))
             prepared = cleanup.enter_context(blaster.resources(host, stub))
-            ready_seconds = None
             if blaster.warmup_seconds or blaster.rate:
-                started = time.perf_counter_ns()
                 grpc.channel_ready_future(channel).result(timeout=blaster.timeout_seconds)
-                ready_seconds = (time.perf_counter_ns() - started) / 1_000_000_000
             logger.info("GNMI_BENCHMARK_START %s", json.dumps(
                 {"marker": blaster.marker, "blaster": blaster.name, "profile": blaster.profile()}))
             warmup = None
@@ -43,6 +39,6 @@ class BenchmarkRunner:
             resources = collect_resource_snapshot(host)
             samples = blaster.blast(stub, prepared)
             resources += collect_resource_snapshot(host)
-        return result.generate(samples=samples, warmup=warmup, connection_ready_seconds=ready_seconds,
+        return result.generate(samples=samples, warmup=warmup,
                                resources=resources,
                                marker=blaster.marker, blaster=blaster.name, profile=blaster.profile())

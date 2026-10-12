@@ -1,13 +1,13 @@
 # gNMI benchmark
 
 An opt-in, **report-only** benchmark for VNET route Get→bypass Set requests.
-There is one pytest entrypoint: `test_gnmi_benchmark.py`. Configuration, SKU
+There is one explicitly selected pytest entrypoint: `benchmark.py`. Configuration, SKU
 selection and error handling live there; no benchmark-specific `conftest.py`
 or `--benchmark-*` CLI options are needed.
 
 ## Run
 
-Run `gnmi_benchmark/test_gnmi_benchmark.py` with the normal sonic-mgmt
+Explicitly run `gnmi_benchmark/benchmark.py` with the normal sonic-mgmt
 inventory/testbed arguments and `--run-stress-tests`. Use pytest `-k` to select
 cases, for example:
 
@@ -26,7 +26,7 @@ Run cases sequentially on one DUT. The route workload requires:
 
 ## Configure
 
-Edit `BENCHMARK_CONFIG` in [test_gnmi_benchmark.py](test_gnmi_benchmark.py):
+Edit `BENCHMARK_CONFIG` in [benchmark.py](benchmark.py):
 
 | Setting | Purpose |
 |---|---|
@@ -81,15 +81,34 @@ results. The marker is `<benchmark>-<profile>-<load-mode>`; `cid` distinguishes
 repeated runs. Logs include both. Compare actual profile/load settings as well as
 the marker.
 
-Schema 10 contains separate bodies such as `requests["get:1000"]` and
-`requests["set:1000"]`:
+Schema 12 uses `requests.get` and `requests.set`. Each has `entry_count`,
+`count` (all issued RPCs that returned success/error), `error` (transport failures
+plus response-level failures, counted once per RPC), and `latency_ms`.
+`count - error` is the successful population represented by latency statistics.
+No separate planned/started/unfinished counters, status breakdown, RPS or latency
+threshold/pass-fail result is emitted. Nearest-rank percentiles and histogram
+bounds retain their previous meaning; milliseconds are indicated by `latency_ms`.
 
-- Per-RPC outcome counts, successful-call latency in **ms**, percentiles and histogram.
-- **1,000ms per-request** evaluation. Slow requests, RPC/response errors and measured
-  drops produce an error log, without failing pytest. A low average/P95 is not a pass.
-- Scheduling in **iterations**: open-loop arrivals, drops, start delay and drain.
-  One iteration contains Get plus Set; it is not one RPC.
-- Resource snapshots before/after measurement, not peaks during load.
+`load` records concurrency once, configured measurement/warmup durations and
+traffic pattern; open-loop also records `target_iterations_per_second`.
+Measurement start/end and `elapsed_seconds` describe actual elapsed time including
+waiting for issued RPCs. There is no separate drain/window timing output.
+`warmup` records its own start/end, elapsed time, and per-method count/error/entry_count,
+or null if disabled. Its requests are not included in measured latency.
+
+Open-loop `dropped_iterations` is one total for planned Get→Set iterations that
+were never issued. It is not an RPC error. Detailed scheduling delay/capacity/late
+statistics remain internal to the blaster, not in the JSON. One iteration may
+issue Get and Set; a failed Get prevents Set. Resource data remains boundary
+snapshots, not continuously sampled peaks.
+
+Resource snapshot counts and the top-level sampling descriptor are omitted from
+the JSON. RPC timing implementation, backend-path labels and response-validation
+descriptors are also omitted. Their removal does not change measurement or prove
+a particular backend path. Latency `samples` and all 42 histogram buckets remain.
+
+The schema version changes because keys/semantics changed. Existing reports are
+unchanged; use `schema_version` to distinguish formats when reading mixed history.
 
 Request timing includes serialization, queueing, transport, server work and
 response decoding; explicit SetResponse error inspection is outside the timer.
@@ -111,7 +130,7 @@ the client and require cleanup verification before reuse.
 |---|---|
 | [benchmark_runner.py](benchmark_runner.py) | Connection/resources, warmup, measurement and cleanup |
 | [blaster.py](blaster.py) | Workload, open/closed scheduling and raw RPC measurements |
-| [benchmark_report.py](benchmark_report.py) | Aggregation, performance evaluation and JSON output |
+| [benchmark_report.py](benchmark_report.py) | Measurement aggregation and JSON output |
 | [helpers.py](helpers.py) | TLS, request construction and device resource helpers |
 
 To add a workload, implement `Blaster.workload()` and, if needed, its resource

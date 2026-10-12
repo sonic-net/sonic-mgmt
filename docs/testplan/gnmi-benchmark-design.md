@@ -1,5 +1,11 @@
 # gNMI benchmark
 
+> The report examples below describe historical schema 10. New runs emit the
+> simplified schema 12 documented in [the benchmark README](../../tests/gnmi_benchmark/README.md#results-and-error-handling):
+> get/set keys, entry_count, count/error, latency, phase times and one concurrency
+> setting. Threshold verdicts, rate/window/drain and detailed scheduling fields
+> are no longer serialized. The traffic-generation algorithm is unchanged.
+
 ## Purpose
 
 Measure how SONiC gNMI request latency and throughput change with request size
