@@ -103,8 +103,8 @@ Per-platform supported counters are defined in `tests/high_frequency_telemetry/c
 Each HFT test module starts one test-owned in-memory InfluxDB process. Every
 case creates a uniquely named database, proves it is empty, installs an OTEL
 configuration targeting it, restarts the systemd-managed OTEL service, proves
-the database is still empty after startup, drains the export path into it during
-teardown, and then hard-deletes it. Unique databases detect delayed
+the database is still empty after startup, and hard-deletes the database during
+teardown. Unique databases detect delayed
 high-fanout exporter data from leaking across hardware sessions without paying
 the process startup cost for every case. The fixture stops only the InfluxDB PID
 it owns at module teardown. Multi-phase cases retain data between phases and
@@ -131,23 +131,13 @@ end-to-end cadence checks use at least 100 samples and a 5% tolerance.
 
 Session cleanup first disables the profile and waits for `STATE_DB` to report
 the stream as disabled. It then deletes the group, waits for the session entry
-to disappear, and deletes the profile. Removing a session does not discard
-samples that `countersyncd` has already queued for OTLP export, and
-`countersyncd` retries a failed export for several minutes. If the collector
-were stopped while such a backlog exists, the retried export would land in the
-next case's database. Therefore the `hft_influxdb` fixture drains the export
-path at the end of every case, before it stops the collector: it removes any
-HFT session the case left behind, then waits while the collector still targets
-the case database until no new sample arrives for 15 seconds. That quiet period
-exceeds both the collector's 10-second InfluxDB write timeout and the 10-second
-cap on the `countersyncd` export retry backoff. If the database is still
-receiving samples after 300 seconds, the fixture restarts only the
-supervisor-owned `countersyncd` process to discard the backlog and fails the
-case teardown. The Queue fixture also restarts `countersyncd` right after
-removing the exhaustive Queue session, so that drain only waits for the
-collector to finish writing; SWSS, orchagent, syncd, and ports remain running.
-The Queue case runs before the other active cases so the full directory verifies
-that a non-Queue session can start after this isolation boundary.
+to disappear, and deletes the profile. On older images, `countersyncd` can keep
+an in-flight OTLP request across collector reconfiguration after the exhaustive
+Queue export. The Queue fixture therefore restarts only the supervisor-owned
+`countersyncd` process after session removal; SWSS, orchagent, syncd, and ports
+remain running. The Queue case runs before the other active cases so the full
+directory verifies that a non-Queue session can start after this isolation
+boundary.
 
 ### Basic Functionality Tests
 
@@ -402,7 +392,7 @@ cadence validation to two port series.
 5. **Configure HFT**: Get available ports (desired: 2, minimum: 1). Atomically create HFT profile `e2e_port_profile` (poll interval 10ms, stream `enabled`) and its PORT group monitoring `IF_IN_OCTETS`.
 6. **Poll InfluxDB for metrics**: Query the exact expected measurements and object tags.
 7. **Verify data arrived**: Require complete series coverage, values, interval, and CPS within 5%.
-8. **Cleanup**: Remove HFT config, drain the export path into the case database, stop the collector, hard-delete the case database, stop the owned InfluxDB PID at module teardown, and restore OTEL state.
+8. **Cleanup**: Remove HFT config, stop the collector, hard-delete the case database, stop the owned InfluxDB PID at module teardown, and restore OTEL state.
 
 **Otel Collector Config** (`otel_collector_influxdb.yaml.j2`)
 ```
