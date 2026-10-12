@@ -138,6 +138,22 @@ def cdb_firmware_qualifying_ports(
     return qualifying_ports
 
 
+@pytest.fixture(scope="session")
+def cdb_firmware_abort_supported_ports(
+    port_attributes_dict, cdb_firmware_qualifying_ports,
+):
+    """Qualifying ports whose modules support aborting a firmware download."""
+    ports = [
+        port for port in cdb_firmware_qualifying_ports
+        if port_attributes_dict[port][CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY].get(
+            "firmware_download_cdb_abort_support", True
+        )
+    ]
+    if not ports:
+        pytest.skip("No qualifying ports support CDB firmware download abort")
+    return ports
+
+
 @contextmanager
 def dom_polling_disabled_on_ports(duthost, port_attributes_dict, ports):
     """Disable DOM polling on ``ports`` for the duration of the block.

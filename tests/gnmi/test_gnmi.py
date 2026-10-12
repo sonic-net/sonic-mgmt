@@ -7,11 +7,11 @@ import threading
 import json
 import os
 
+from tests.common.helpers import gnmi_cli_helpers as helper
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
                     apply_cert_config, \
                     gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
-from . import cli_helpers as helper
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
