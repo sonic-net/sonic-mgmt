@@ -13,7 +13,6 @@
   - [Out of scope](#out-of-scope)
 - [References](#references)
 - [Testbed and topology](#testbed-and-topology)
-- [Prerequisites / setup](#prerequisites--setup)
 - [Counter semantics](#counter-semantics)
 - [Conventions](#conventions)
 - [Test cases](#test-cases)
@@ -24,9 +23,6 @@
   - [Area 5 — Scale](#area-5--scale)
   - [Area 6 — Installation, Setup, Upgrade](#area-6--installation-setup-upgrade)
   - [Areas without a dedicated test](#areas-without-a-dedicated-test)
-- [Known limitations](#known-limitations)
-- [Open items](#open-items)
-- [Future automation](#future-automation)
 
 
 
