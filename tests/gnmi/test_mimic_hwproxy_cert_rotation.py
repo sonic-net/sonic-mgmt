@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import PygnmiClient
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, delete_gnmi_certs, \
+from tests.common.helpers.gnmi_utils import delete_gnmi_certs, \
     prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_ptf, \
     create_revoked_cert_and_crl, copy_certificate_to_dut
 from tests.common.utilities import get_image_type
@@ -30,13 +30,13 @@ pytestmark = [
 
 
 def check_gnmi_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+    dut_command = "docker exec gnmi supervisorctl status gnmi-native"
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
 
 
-def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls):  # noqa: F811
+def test_mimic_hwproxy_cert_rotation(
+        duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls, loganalyzer):  # noqa: F811
     """Verify gnmi cert rotation across a feature restart: disable the gnmi feature,
     rotate the server cert and rewrite the GNMI cert config, re-enable the feature,
     and confirm the server comes back and serves (gnmi capabilities succeed).
@@ -72,6 +72,8 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
         cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
         result = duthost.shell(cmd_feature, module_ignore_errors=True)
         if result["stdout"].strip():
+            unit_file_state = duthost.command(
+                "systemctl show gnmi.service --property=UnitFileState --value")["stdout"].strip()
             # disable feature
             disable_feature = 'sudo config feature state gnmi disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
@@ -81,8 +83,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
                 duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
                 duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
                 # set gnmi table
-                env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-                port = env.gnmi_port
+                port = gnmi_tls.port
                 set_table = (
                     f'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" '
                     f'client_auth "true" '
@@ -105,5 +106,10 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
                 msg = client.capabilities()
                 assert "sonic-db" in [model["name"] for model in msg["supported_models"]], msg
                 assert "json_ietf" in msg["supported_encodings"], msg
+                if loganalyzer and unit_file_state == "generated":
+                    # featured logs enable failure for generated units even when start succeeds.
+                    loganalyzer[duthost.hostname].ignore_regex.append(
+                        r" ERR featured: \['sudo', 'systemctl', 'enable', 'gnmi\.service'\]"
+                        r" - failed: return code - 1, output:\s*$")
             finally:
                 delete_gnmi_certs(localhost)
