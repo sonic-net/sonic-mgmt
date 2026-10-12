@@ -1,0 +1,182 @@
+- name: Validate requested cSONiC LAG backend
+  assert:
+    that:
+      - csonic_lag_backend in ['auto', 'teamd', 'userspace_ovs']
+    fail_msg: >-
+      Unsupported csonic_lag_backend={{ csonic_lag_backend }};
+      expected auto, teamd, or userspace_ovs
+
+- name: Read prior cSONiC LAG backend selection
+  become: yes
+  slurp:
+    src: "/var/tmp/sonic-mgmt/csonic-lag-backend-{{ vm_set_name }}"
+  register: csonic_prior_lag_backend_state
+  changed_when: false
+  failed_when: false
+
+- name: Initialize cSONiC backend selection diagnostics
+  set_fact:
+    csonic_backend_setup_error: ''
+    csonic_lag_fallback_reason: ''
+    csonic_prior_lag_backend: >-
+      {{ (csonic_prior_lag_backend_state.content | default('') |
+          b64decode | trim) }}
+
+- name: Provision cSONiC host kernel prerequisites
+  block:
+    - name: Create temporary cSONiC kernel-module helper directory
+      become: yes
+      tempfile:
+        state: directory
+        suffix: csonic-kernel-modules
+      register: csonic_kmodule_helper_dir
+      when:
+        - csonic_lag_backend != 'userspace_ovs' or
+          (topo_is_multi_vrf | default(false) | bool)
+
+    - name: Copy cSONiC kernel-module helper to VM host
+      become: yes
+      copy:
+        src: csonic_kernel_modules.py
+        dest: "{{ csonic_kmodule_helper_dir.path }}/csonic_kernel_modules.py"
+        mode: '0755'
+      when: csonic_kmodule_helper_dir is not skipped
+
+    - name: Provision native team/loadbalance modules
+      become: yes
+      command: >-
+        python3 {{ csonic_kmodule_helper_dir.path }}/csonic_kernel_modules.py
+        ensure team team_mode_loadbalance
+      register: csonic_team_module_setup
+      changed_when: >-
+        'Installing exact running-kernel package' in
+        csonic_team_module_setup.stdout or
+        'Building team' in csonic_team_module_setup.stdout or
+        'Loaded module(s)' in csonic_team_module_setup.stdout
+      failed_when: false
+      when: csonic_lag_backend in ['auto', 'teamd']
+
+    - name: Probe native team/loadbalance operation
+      become: yes
+      command: >-
+        python3 {{ csonic_kmodule_helper_dir.path }}/csonic_kernel_modules.py
+        probe-team --image {{ csonic_image }}
+      register: csonic_team_probe
+      changed_when: false
+      failed_when: false
+      when:
+        - csonic_lag_backend in ['auto', 'teamd']
+        - csonic_team_module_setup.rc == 0
+
+    # Linux VRFs are independent of the LAG backend. A converged topology
+    # cannot fall back around a missing VRF module.
+    - name: Provision Linux VRF module for converged cSONiC
+      become: yes
+      command: >-
+        python3 {{ csonic_kmodule_helper_dir.path }}/csonic_kernel_modules.py
+        ensure vrf
+      register: csonic_vrf_module_setup
+      changed_when: >-
+        'Installing exact running-kernel package' in
+        csonic_vrf_module_setup.stdout or
+        'Building vrf' in csonic_vrf_module_setup.stdout or
+        'Loaded module(s)' in csonic_vrf_module_setup.stdout
+      failed_when: false
+      when: topo_is_multi_vrf | default(false) | bool
+  rescue:
+    - name: Record cSONiC backend setup infrastructure error
+      set_fact:
+        csonic_backend_setup_error: >-
+          {{ ansible_failed_result.msg |
+             default(ansible_failed_result | string) }}
+  always:
+    - name: Remove temporary cSONiC kernel-module helper directory
+      become: yes
+      file:
+        path: "{{ csonic_kmodule_helper_dir.path }}"
+        state: absent
+      when: csonic_kmodule_helper_dir.path is defined
+
+- name: Select effective cSONiC LAG backend
+  set_fact:
+    csonic_effective_lag_backend: >-
+      {{ 'userspace_ovs'
+         if csonic_lag_backend == 'userspace_ovs' or
+            (csonic_lag_backend == 'auto' and
+             (csonic_backend_setup_error | length > 0 or
+              (csonic_team_module_setup.rc | default(1)) != 0 or
+              (csonic_team_probe.rc | default(1)) != 0))
+         else 'teamd' }}
+
+- name: Prevent an in-place cSONiC LAG backend change
+  assert:
+    that:
+      - csonic_prior_lag_backend | length == 0 or
+        csonic_prior_lag_backend == csonic_effective_lag_backend
+    fail_msg: >-
+      cSONiC LAG backend for {{ vm_set_name }} was previously selected as
+      '{{ csonic_prior_lag_backend }}', but this run selected
+      '{{ csonic_effective_lag_backend }}'. Run remove-topo before changing the
+      backend so no live container or network namespace is switched in place.
+
+- name: Record automatic userspace-OVS fallback reason
+  set_fact:
+    csonic_lag_fallback_reason: >-
+      {{ ([csonic_backend_setup_error] +
+          (csonic_team_module_setup.stdout_lines | default([])) +
+          (csonic_team_module_setup.stderr_lines | default([])) +
+          (csonic_team_probe.stdout_lines | default([])) +
+          (csonic_team_probe.stderr_lines | default([]))) |
+         reject('equalto', '') | list | last | default('unknown error') }}
+  when:
+    - csonic_lag_backend == 'auto'
+    - csonic_effective_lag_backend == 'userspace_ovs'
+
+- name: Require Linux VRF support for converged cSONiC
+  assert:
+    that:
+      - csonic_backend_setup_error | length == 0
+      - (csonic_vrf_module_setup.rc | default(1)) == 0
+    fail_msg: >-
+      Converged cSONiC requires the host Linux VRF module; provisioning failed:
+      {{ csonic_backend_setup_error or
+         (csonic_vrf_module_setup.stderr | default('')) or
+         (csonic_vrf_module_setup.stdout | default('no output')) }}
+  when: topo_is_multi_vrf | default(false) | bool
+
+- name: Require native team backend when explicitly selected
+  assert:
+    that:
+      - csonic_backend_setup_error | length == 0
+      - (csonic_team_module_setup.rc | default(1)) == 0
+      - (csonic_team_probe.rc | default(1)) == 0
+    fail_msg: >-
+      Explicit cSONiC teamd backend could not be provisioned and probed:
+      {{ csonic_backend_setup_error or
+         (csonic_team_module_setup.stderr | default('')) or
+         (csonic_team_probe.stderr | default('')) or
+         (csonic_team_probe.stdout | default('no output')) }}
+  when: csonic_lag_backend == 'teamd'
+
+- name: Create cSONiC backend state directory
+  become: yes
+  file:
+    path: /var/tmp/sonic-mgmt
+    state: directory
+    mode: '0755'
+
+- name: Persist selected cSONiC LAG backend for later playbook runs
+  become: yes
+  copy:
+    content: "{{ csonic_effective_lag_backend }}\n"
+    dest: "/var/tmp/sonic-mgmt/csonic-lag-backend-{{ vm_set_name }}"
+    mode: '0644'
+
+- name: Report selected cSONiC LAG backend
+  debug:
+    msg: >-
+      Requested cSONiC LAG backend '{{ csonic_lag_backend }}'; selected
+      '{{ csonic_effective_lag_backend }}'{%
+      if csonic_lag_fallback_reason | length > 0 %}.
+      Native-team fallback reason:
+      {{ csonic_lag_fallback_reason }}{% endif %}

@@ -8,13 +8,14 @@
   loop_control:
     loop_var: item
 
-- name: Validate cSONiC LAG backend
-  assert:
-    that:
-      - csonic_lag_backend in ['teamd', 'userspace_ovs']
-    fail_msg: >-
-      Unsupported csonic_lag_backend={{ csonic_lag_backend }};
-      expected teamd or userspace_ovs
+- name: Select cSONiC LAG backend and provision host prerequisites
+  include_tasks:
+    file: select_csonic_lag_backend.yml
+    apply:
+      tags:
+        - csonic_lag_backend_setup
+  tags:
+    - csonic_lag_backend_setup
 
 - name: Create temporary userspace OVS image build context
   become: yes
@@ -22,7 +23,7 @@
     state: directory
     suffix: csonic-userspace-ovs
   register: csonic_ovs_build_context
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 - name: Copy userspace OVS Dockerfile to VM host
   become: yes
@@ -30,7 +31,7 @@
     src: csonic-userspace-ovs.Dockerfile
     dest: "{{ csonic_ovs_build_context.path }}/Dockerfile"
     mode: '0644'
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 - name: Build cSONiC userspace OVS image
   become: yes
@@ -42,14 +43,14 @@
       path: "{{ csonic_ovs_build_context.path }}"
       args:
         CSONIC_BASE_IMAGE: "{{ csonic_image }}"
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 - name: Remove temporary userspace OVS image build context
   become: yes
   file:
     path: "{{ csonic_ovs_build_context.path }}"
     state: absent
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 - name: Create VMs network
   become: yes
@@ -66,7 +67,7 @@
   loop_control:
     loop_var: vm_item
   failed_when: false
-  when: csonic_lag_backend == 'teamd'
+  when: csonic_effective_lag_backend == 'teamd'
 
 - include_tasks: add_csonic.yml
   loop: "{{ VM_targets }}"

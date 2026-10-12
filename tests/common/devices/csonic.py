@@ -264,61 +264,190 @@ class CsonicHost(NeighborDevice):
                 return result['stdout']
         return {}
 
-    def _lacp_bond_for_member(self, interface_name):
-        """Return the OVS bond port of the PortChannel that has interface_name as a member.
-
-        Only the userspace OVS LAG backend creates these bonds (``<PortChannel>-bond``);
-        returns None when the member has no PortChannel or the bond does not exist.
-        """
+    def _portchannel_for_member(self, interface_name):
+        """Return the CONFIG_DB PortChannel containing interface_name."""
         result = self._docker_exec(
             "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
             module_ignore_errors=True)
         keys = result['stdout_lines'] if result['rc'] == 0 else []
         if not keys:
             return None
-        bond = "{}-bond".format(keys[0].split('|')[1])
+        return keys[0].strip('"').split('|')[1]
+
+    def _lacp_bond_for_member(self, interface_name):
+        """Return the userspace-OVS bond containing interface_name, if any."""
+        portchannel = self._portchannel_for_member(interface_name)
+        if portchannel is None:
+            return None
+        bond = "{}-bond".format(portchannel)
         result = self._docker_exec("ovs-vsctl --if-exists get Port {} name".format(bond),
                                    module_ignore_errors=True)
         if result['rc'] != 0 or not result['stdout']:
             return None
         return bond
 
-    def get_interface_lacp_rate_mode(self, interface_name):
-        """Return the LACP rate ('fast' or 'normal') of the LAG containing interface_name."""
-        bond = self._lacp_bond_for_member(interface_name)
-        if bond is None:
-            raise NotImplementedError(
-                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
-                "{} is not one".format(interface_name))
+    def _teamd_lacp_rate_mode(self, portchannel):
         result = self._docker_exec(
-            "ovs-vsctl --if-exists get Port {} other_config:lacp-time".format(bond),
+            "teamdctl {} state dump".format(portchannel),
             module_ignore_errors=True)
-        # --if-exists makes an unset key succeed with empty output (= OVS default
-        # 'slow'), so only a non-zero rc is a real failure (e.g. ovsdb-server or
-        # ovs-vswitchd unavailable). Raise instead of reporting a bogus 'normal'.
-        if result['rc'] != 0:
-            raise Exception("Unable to get interface [{}] lacp rate from bond [{}]: {}".format(
-                interface_name, bond, result['stderr']))
-        return "fast" if result['stdout'].strip().strip('"') == "fast" else "normal"
+        if result.get('rc') != 0 or not result.get('stdout'):
+            raise Exception("Unable to read teamd state for [{}]: {}".format(
+                portchannel, result.get('stderr', 'no output')))
+        try:
+            state = json.loads(result['stdout'])
+        except (json.JSONDecodeError, ValueError) as error:
+            raise Exception("Unable to parse teamd state for [{}]: {}".format(
+                portchannel, error))
+        return "fast" if state.get('runner', {}).get('fast_rate') else "normal"
+
+    def _required_docker_exec(self, command, ignore_errors=False):
+        result = self._docker_exec(command, module_ignore_errors=True)
+        if result.get('rc') != 0 and not ignore_errors:
+            raise Exception("cSONiC command failed [{}]: {}".format(
+                command, result.get('stderr', 'no output')))
+        return result
+
+    def _teamd_portchannel_snapshot(self, portchannel):
+        attrs = {}
+        for field, default in (("min_links", "1"), ("fallback", "false")):
+            result = self._docker_exec(
+                "sonic-db-cli CONFIG_DB HGET 'PORTCHANNEL|{}' {}".format(
+                    portchannel, field), module_ignore_errors=True)
+            value = result.get('stdout', '').strip().strip('"')
+            attrs[field] = value if value and value != '(nil)' else default
+
+        vrf_result = self._docker_exec(
+            "sonic-db-cli CONFIG_DB HGET 'PORTCHANNEL_INTERFACE|{}' vrf_name".format(
+                portchannel), module_ignore_errors=True)
+        vrf_name = vrf_result.get('stdout', '').strip().strip('"')
+        attrs['vrf_name'] = '' if vrf_name == '(nil)' else vrf_name
+
+        members_result = self._docker_exec(
+            "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|{}|*'".format(
+                portchannel), module_ignore_errors=True)
+        members = []
+        if members_result.get('rc') == 0:
+            for key in members_result.get('stdout_lines', []):
+                parts = key.strip('"').split('|', 2)
+                if len(parts) == 3:
+                    members.append(parts[2])
+
+        ips_result = self._docker_exec(
+            "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_INTERFACE|{}|*'".format(
+                portchannel), module_ignore_errors=True)
+        ips = []
+        if ips_result.get('rc') == 0:
+            for key in ips_result.get('stdout_lines', []):
+                parts = key.strip('"').split('|', 2)
+                if len(parts) == 3:
+                    ips.append(parts[2])
+
+        if not members:
+            raise Exception("PortChannel [{}] has no CONFIG_DB members".format(
+                portchannel))
+        attrs['members'] = sorted(members)
+        attrs['ips'] = sorted(ips)
+        return attrs
+
+    def _recreate_teamd_portchannel(self, portchannel, snapshot, mode,
+                                    tolerate_delete_errors=False):
+        for member in snapshot['members']:
+            self._required_docker_exec(
+                "config portchannel member del {} {}".format(portchannel, member),
+                ignore_errors=tolerate_delete_errors)
+        self._required_docker_exec(
+            "config portchannel del {}".format(portchannel),
+            ignore_errors=tolerate_delete_errors)
+
+        add = "config portchannel add {} --min-links={}".format(
+            portchannel, snapshot['min_links'])
+        if snapshot['fallback'].lower() == 'true':
+            add += " --fallback=true"
+        if mode == 'fast':
+            add += " --fast-rate=true"
+        result = self._required_docker_exec(add)
+        for member in snapshot['members']:
+            result = self._required_docker_exec(
+                "config portchannel member add {} {}".format(portchannel, member))
+        if snapshot['vrf_name']:
+            result = self._required_docker_exec(
+                "config interface vrf bind {} {}".format(
+                    portchannel, snapshot['vrf_name']))
+        for prefix in snapshot['ips']:
+            result = self._required_docker_exec(
+                "config interface ip add {} {}".format(portchannel, prefix))
+
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            try:
+                if self._teamd_lacp_rate_mode(portchannel) == mode:
+                    return result
+            except Exception:
+                pass
+            time.sleep(2)
+        raise Exception("PortChannel [{}] did not reach [{}] LACP rate".format(
+            portchannel, mode))
+
+    def get_interface_lacp_rate_mode(self, interface_name):
+        """Return the LACP rate of a userspace-OVS or native-team LAG."""
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is not None:
+            result = self._docker_exec(
+                "ovs-vsctl --if-exists get Port {} other_config:lacp-time".format(bond),
+                module_ignore_errors=True)
+            # An unset key succeeds with empty output (= OVS default 'slow').
+            if result['rc'] != 0:
+                raise Exception("Unable to get interface [{}] lacp rate from bond [{}]: {}".format(
+                    interface_name, bond, result['stderr']))
+            return "fast" if result['stdout'].strip().strip('"') == "fast" else "normal"
+
+        portchannel = self._portchannel_for_member(interface_name)
+        if portchannel is None:
+            raise NotImplementedError(
+                "Interface [{}] is not a cSONiC LAG member".format(interface_name))
+        return self._teamd_lacp_rate_mode(portchannel)
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
-        """Set the LACP rate of the LAG containing interface_name ('fast', or 'normal'/'slow')."""
+        """Set the LACP rate of a userspace-OVS or native-team LAG."""
         if mode not in ("fast", "normal", "slow"):
             raise ValueError("Unsupported LACP rate mode: {}".format(mode))
+        requested = "fast" if mode == "fast" else "normal"
         bond = self._lacp_bond_for_member(interface_name)
-        if bond is None:
+        if bond is not None:
+            lacp_time = "fast" if requested == "fast" else "slow"
+            logger.info("CsonicHost [%s] setting LACP rate of %s (%s) to %s",
+                        self.container_name, interface_name, bond, lacp_time)
+            result = self._docker_exec(
+                "ovs-vsctl set Port {} other_config:lacp-time={}".format(bond, lacp_time))
+            if result['rc'] != 0:
+                raise Exception("Unable to set interface [{}] lacp rate to [{}]: {}".format(
+                    interface_name, mode, result['stderr']))
+            return result
+
+        portchannel = self._portchannel_for_member(interface_name)
+        if portchannel is None:
             raise NotImplementedError(
-                "LACP rate is only supported on cSONiC userspace OVS LAG members; "
-                "{} is not one".format(interface_name))
-        lacp_time = "fast" if mode == "fast" else "slow"
-        logger.info("CsonicHost [%s] setting LACP rate of %s (%s) to %s",
-                    self.container_name, interface_name, bond, lacp_time)
-        result = self._docker_exec(
-            "ovs-vsctl set Port {} other_config:lacp-time={}".format(bond, lacp_time))
-        if result['rc'] != 0:
-            raise Exception("Unable to set interface [{}] lacp rate to [{}]: {}".format(
-                interface_name, mode, result['stderr']))
-        return result
+                "Interface [{}] is not a cSONiC LAG member".format(interface_name))
+        original = self._teamd_lacp_rate_mode(portchannel)
+        if original == requested:
+            return {'rc': 0, 'stdout': '', 'stderr': '', 'changed': False}
+        snapshot = self._teamd_portchannel_snapshot(portchannel)
+        logger.info("CsonicHost [%s] recreating native teamd %s at %s rate",
+                    self.container_name, portchannel, requested)
+        try:
+            return self._recreate_teamd_portchannel(
+                portchannel, snapshot, requested)
+        except Exception:
+            logger.exception("Failed to set %s to %s; restoring %s rate",
+                             portchannel, requested, original)
+            try:
+                self._recreate_teamd_portchannel(
+                    portchannel, snapshot, original,
+                    tolerate_delete_errors=True)
+            except Exception:
+                logger.exception("Failed to restore %s after LACP-rate error",
+                                 portchannel)
+            raise
 
     def config(self, lines=None, parents=None, **kwargs):
         """

@@ -1,10 +1,40 @@
+- name: Read persisted cSONiC LAG backend selection
+  become: yes
+  slurp:
+    src: "/var/tmp/sonic-mgmt/csonic-lag-backend-{{ vm_set_name }}"
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_lag_backend_state
+  changed_when: false
+  failed_when: false
+
+- name: Decode persisted cSONiC LAG backend selection
+  set_fact:
+    csonic_persisted_lag_backend: >-
+      {{ (csonic_lag_backend_state.content | default('') | b64decode | trim) }}
+
+- name: Require prior backend selection for automatic mode
+  assert:
+    that:
+      - csonic_lag_backend != 'auto' or
+        csonic_persisted_lag_backend in ['teamd', 'userspace_ovs']
+    fail_msg: >-
+      cSONiC automatic LAG backend has not been selected for {{ vm_set_name }};
+      rerun add-topo before configuring the neighbor containers
+
+- name: Set effective cSONiC LAG backend
+  set_fact:
+    csonic_effective_lag_backend: >-
+      {{ csonic_persisted_lag_backend
+         if csonic_persisted_lag_backend in ['teamd', 'userspace_ovs']
+         else csonic_lag_backend }}
+
 - include_tasks: csonic_config.yml
 
 - name: Create cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}
   become: yes
   docker_container:
     name: csonic_{{ vm_set_name }}_{{ inventory_hostname }}
-    image: "{{ csonic_userspace_ovs_image if csonic_lag_backend == 'userspace_ovs' else csonic_image }}"
+    image: "{{ csonic_userspace_ovs_image if csonic_effective_lag_backend == 'userspace_ovs' else csonic_image }}"
     pull: no
     state: started
     restart: yes
@@ -91,7 +121,7 @@
     docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
     python3 /var/sonic/csonic_ovs_lag.py apply
   delegate_to: "{{ VM_host[0] }}"
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 # The DUT PortChannels are only configured later by deploy-mg, so during
 # add-topo the DUT side does not answer LACP yet. Report the OVS LACP state
@@ -106,7 +136,7 @@
   register: csonic_ovs_lacp
   changed_when: false
   failed_when: false
-  when: csonic_lag_backend == 'userspace_ovs'
+  when: csonic_effective_lag_backend == 'userspace_ovs'
 
 - name: Note pending cSONiC userspace OVS LACP negotiation
   debug:
@@ -114,7 +144,7 @@
       OVS LACP on {{ inventory_hostname }} has not converged yet; this is
       expected until deploy-mg configures the DUT PortChannels.
   when:
-    - csonic_lag_backend == 'userspace_ovs'
+    - csonic_effective_lag_backend == 'userspace_ovs'
     - csonic_ovs_lacp.rc is defined
     - csonic_ovs_lacp.rc != 0
 
