@@ -25,6 +25,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.dhcp_relay_utils import check_routes_to_dhcp_server
 from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
+from tests.common.dhcp_relay_cleanup import restart_standby_dhcp_service
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'dualtor'),
@@ -282,6 +283,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -322,8 +324,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
         relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
         restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost, relay_types)
-            pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
+            restart_standby_dhcp_service(
+                standby_duthost, restart_dhcp_service, wait_until, check_interface_status)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
 
@@ -402,6 +404,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "enable_source_port_ip_in_relay": True,
                                "kvm_support": True,
@@ -444,8 +447,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
         relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
         restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost, relay_types)
-            pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
+            restart_standby_dhcp_service(
+                standby_duthost, restart_dhcp_service, wait_until, check_interface_status)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
 
@@ -491,6 +494,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -567,6 +571,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -607,6 +612,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -646,6 +652,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "client_udp_src_port": RANDOM_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,
@@ -693,6 +700,7 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -755,6 +763,7 @@ def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_r
                            "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "host_mac": str(duthost.facts["router_mac"]),
                            "testing_mode": testing_mode,
                            "kvm_support": True,
                            "relay_agent": relay_agent,

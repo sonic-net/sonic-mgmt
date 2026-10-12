@@ -41,12 +41,13 @@ def invocation_type(request):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global MAX_WAIT_TIME_FOR_INTERFACES
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
@@ -112,8 +113,12 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if "6000" in dut.facts['hwsku']:
         interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
 
-    if dut.is_supervisor_node():
-        logging.info("skipping interfaces related check for supervisor")
+    skip_interface_check = dut.is_supervisor_node() or dut.is_bmc()
+    if skip_interface_check:
+        logging.info(
+            "Skipping interface and transceiver checks for %s",
+            "supervisor" if dut.is_supervisor_node() else "BMC",
+        )
     else:
         logging.info("Wait {} seconds for all the transceivers to be detected".format(
             interfaces_wait_time))
@@ -131,11 +136,13 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_transceiver_basic(
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
+    # Retain the existing PMON check for BMC, but not for supervisors.
+    if not dut.is_supervisor_node():
         logging.info("Check pmon daemon status")
-        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0" or dut.is_bmc():
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
         else:
-            result = check_pmon_daemon_status(dut)
+            result = wait_until(60, 5, 0, check_pmon_daemon_status, dut)
         assert result, "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
@@ -236,7 +243,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -255,7 +262,8 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                 "ISSU is not supported on this DUT, skip this test case")
 
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts)
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts,
+                     invocation_type=invocation_type, ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,

@@ -15,10 +15,19 @@ import logging
 
 import pytest
 
-from tests.transceiver.attribute_parser.attribute_keys import SYSTEM_ATTRIBUTES_KEY
+from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
+from tests.transceiver.common import scenario_ops
+from tests.transceiver.common.port_selectors import select_attribute_ports
 from tests.transceiver.common.prerequisites import check_links_up
 from tests.transceiver.common.state_management import post_state_restoration
 from tests.transceiver.common.verification import check_lldp_neighbors_present
+from tests.transceiver.dom.dom_helpers import (
+    build_dom_sensor_plan,
+    dom_field_available,
+    read_dom_sensor_data,
+    validate_dom_plan_fields,
+)
+from tests.transceiver.eeprom.eeprom_content import verify_eeprom_static_recovered
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +50,12 @@ def _system_session_prerequisites(presence_verified, gold_fw_verified, links_ver
 # After the full System suite has run we do, in order:
 #   0. State Restoration      - run post_state_restoration() to put the
 #                               testbed back into a known-good state
-#                               (admin-up + high power mode + DPActivated)
+#                               (admin-up + high power mode, with one batched
+#                               bounce attempt for remaining down links)
 #                               before we verify anything below.
-#   1. STATE_DB consistency   - TRANSCEIVER_INFO and TRANSCEIVER_DOM_SENSOR
-#                               entries exist for every port in
-#                               port_attributes_dict.
+#   1. STATE_DB consistency   - TRANSCEIVER_INFO exists for every modeled port;
+#                               TRANSCEIVER_DOM_SENSOR exists for every
+#                               DOM-capable primary subport.
 #   2. End-to-end link + LLDP - every port back oper-up and (if enabled)
 #                               its LLDP neighbor rediscovered after the
 #                               disruptive test sequence.
@@ -55,21 +65,12 @@ def _system_session_prerequisites(presence_verified, gold_fw_verified, links_ver
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _find_state_db_ports(duthost, keys):
-    """Return the set of ports that have a STATE_DB entry under ``keys``.
-    Uses a single ``KEYS`` scan per prefix for all ports
-    """
-    cmd = f"sonic-db-cli STATE_DB KEYS '{keys}*'"
-    out = duthost.shell(cmd, module_ignore_errors=True)
-    if out.get("rc", 1) != 0:
-        return set()
-    matched_keys = (out.get("stdout") or "").splitlines()
-    prefix = f"{keys}|"
-    return {key[len(prefix):] for key in matched_keys if key.startswith(prefix)}
-
-
 @pytest.fixture(autouse=True, scope="session")
-def _system_post_session_checks(duthost, port_attributes_dict):
+def _system_post_session_checks(
+    duthost,
+    port_attributes_dict,
+    lport_to_first_subport_mapping,
+):
     """Run the Post-Session State Restoration + Checks from
     system_test_plan.md at session teardown.
 
@@ -85,7 +86,7 @@ def _system_post_session_checks(duthost, port_attributes_dict):
     logger.info("System suite: running post-session state restoration on %d port(s)",
                 len(port_attributes_dict))
 
-    # 0. State Restoration  - admin-up, high power mode, DPActivated.
+    # 0. State Restoration - admin-up, high power mode, and link recovery.
     try:
         restoration_summary = post_state_restoration(duthost, port_attributes_dict)
     except Exception as e:
@@ -98,38 +99,83 @@ def _system_post_session_checks(duthost, port_attributes_dict):
         actions_taken = (
             restoration_summary["admin_up_restored"]
             or restoration_summary["lpmode_high_restored"]
-            or restoration_summary["datapath_recycled"]
+            or restoration_summary["link_bounced"]
         )
         if actions_taken:
             logger.warning(
                 "Post-session restoration actions taken: "
-                "startup=%s lpmode_off=%s transceivers_recycled=%s",
+                "startup=%s lpmode_off=%s link_bounced=%s",
                 restoration_summary["admin_up_restored"],
                 restoration_summary["lpmode_high_restored"],
-                restoration_summary["datapath_recycled"],
+                restoration_summary["link_bounced"],
             )
         if restoration_summary["still_failing"]:
             logger.warning(
-                "Post-session restoration: %d port(s) did NOT recover: %s",
-                len(restoration_summary["still_failing"]),
-                "; ".join(restoration_summary["still_failing"]),
+                "Post-session restoration failures:\n%s",
+                "\n".join(restoration_summary["still_failing"]),
             )
-
     logger.info("System suite: running post-session consistency checks on %d port(s)",
                 len(port_attributes_dict))
 
     # 1. STATE_DB consistency.
-    info_ports = _find_state_db_ports(duthost, "TRANSCEIVER_INFO")
-    dom_ports = _find_state_db_ports(duthost, "TRANSCEIVER_DOM_SENSOR")
-    missing_info = [port for port in sorted(port_attributes_dict.keys()) if port not in info_ports]
-    missing_dom = [port for port in sorted(port_attributes_dict.keys()) if port not in dom_ports]
-    if missing_info:
-        logger.warning("Post-session: TRANSCEIVER_INFO missing in STATE_DB for: %s",
-                       ", ".join(missing_info))
-    if missing_dom:
-        logger.warning("Post-session: TRANSCEIVER_DOM_SENSOR missing in STATE_DB for: %s",
-                       ", ".join(missing_dom))
-    if not missing_info and not missing_dom:
+    eeprom_failures = verify_eeprom_static_recovered(
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        wait_sec=0,
+        live_i2c_confirm=False,
+    )
+    expected_dom_ports = select_attribute_ports(
+        port_attributes_dict,
+        DOM_ATTRIBUTES_KEY,
+        lport_to_first_subport_mapping,
+    ).primary_ports
+    sensor_plan_by_port = build_dom_sensor_plan(
+        port_attributes_dict,
+        expected_dom_ports,
+        lport_to_first_subport_mapping,
+    )
+
+    def _check_dom_consistency():
+        sensor_by_port, sensor_read_errors = read_dom_sensor_data(
+            duthost, expected_dom_ports
+        )
+        failures, _, _ = validate_dom_plan_fields(
+            duthost,
+            expected_dom_ports,
+            sensor_by_port,
+            sensor_plan_by_port,
+            dom_field_available,
+            include_freshness_only=True,
+        )
+        return [
+            "STATE_DB read: {}".format(error) for error in sensor_read_errors
+        ] + failures
+
+    dom_recovery_wait = max(
+        (
+            port_attributes_dict[port][DOM_ATTRIBUTES_KEY]["dom_info_recover_sec"]
+            for port in expected_dom_ports
+        ),
+        default=0,
+    )
+    dom_failures = scenario_ops.poll_ports_recovered(
+        _check_dom_consistency,
+        dom_recovery_wait,
+        interval_sec=5,
+        label="Post-session DOM",
+    )
+    if eeprom_failures:
+        logger.warning(
+            "Post-session EEPROM consistency check FAILED:\n%s",
+            "\n".join(eeprom_failures),
+        )
+    if dom_failures:
+        logger.warning(
+            "Post-session DOM consistency check FAILED:\n%s",
+            "\n".join(dom_failures),
+        )
+    if not eeprom_failures and not dom_failures:
         logger.info("Post-session: STATE_DB consistency check PASSED")
 
     # 2. Final link + LLDP.
