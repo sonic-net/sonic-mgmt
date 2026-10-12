@@ -17,7 +17,7 @@ Pre-checks:
 Workflow:
     1. Configure console settings on DUT and fanout:
        - ``sudo config console enable``
-       - For lines 1..48:
+             - For each wired console line:
          - ``sudo config console baud "$line" 115200``
          - ``sudo config console flow_control disable "$line"``
     2. Start fanout loopback server:
@@ -36,7 +36,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import get_dut_console_lines
 
 logger = logging.getLogger(__name__)
@@ -71,14 +71,60 @@ def _is_supported_platform(host):
     return platform.startswith('arm64-c8220tg_48a')
 
 
-@pytest.fixture(autouse=True, scope="module")
-def restore_console_config(setup_c0):
-    dut_host, fanout_host = setup_c0
-    required_list = list(set([dut_host, fanout_host]))
+@pytest.fixture(scope="module")
+def cisco8000_stress_prerequisites(setup_c0, conn_graph_facts):
+    """Check test prerequisites without changing device state."""
+    duthost, console_fanout = setup_c0
 
-    def _read_field(field, default):
+    pytest_require(
+        _is_supported_platform(duthost),
+        "Skipping: DUT '{}' platform '{}' does not start with required prefix 'arm64-c8220tg_48a'.".format(
+            duthost.hostname,
+            duthost.facts.get('platform', ''),
+        ),
+    )
+
+    lines = get_dut_console_lines(conn_graph_facts, duthost)
+    pytest_require(
+        lines,
+        "No console lines found for DUT '{}' in *_serial_links.csv. "
+        "At least one console line must be wired for the stress test.".format(duthost.hostname),
+    )
+
+    dut_script = _find_console_loopback_script(duthost)
+    pytest_require(
+        dut_script is not None,
+        "Skipping: '{}' not found on DUT '{}'. "
+        "Ensure the cisco-8000 platform specific script is installed.".format(
+            _SCRIPT_PATH, duthost.hostname
+        ),
+    )
+    fanout_script = _find_console_loopback_script(console_fanout)
+    pytest_require(
+        fanout_script is not None,
+        "Skipping: '{}' not found on fanout '{}'. "
+        "Ensure the cisco-8000 platform utility is installed.".format(
+            _SCRIPT_PATH, console_fanout.hostname
+        ),
+    )
+
+    return duthost, console_fanout, lines, dut_script, fanout_script
+
+
+@pytest.fixture(scope="module")
+def cleanup_modules(cisco8000_stress_prerequisites, cleanup_modules):
+    """Run shared module cleanup only after read-only prerequisite checks."""
+    yield
+
+
+@pytest.fixture(autouse=True, scope="module")
+def restore_console_config(cisco8000_stress_prerequisites):
+    dut_host, fanout_host, lines, _, _ = cisco8000_stress_prerequisites
+    required_hosts = list(set([dut_host, fanout_host]))
+
+    def _read_field(host, target_line, field, default):
         try:
-            res = duthost.command(
+            res = host.command(
                 "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(target_line, field),
                 module_ignore_errors=True)
             val = (res.get('stdout') or '').strip()
@@ -88,36 +134,56 @@ def restore_console_config(setup_c0):
             return default
 
     data = {}
-    for duthost in required_list:
-        data[duthost] = []
-        for target_line in range(48):
-            orig_baud = _read_field("baud_rate", "9600")
-            orig_flow_control_int = _read_field("flow_control", "0")
+    for host in required_hosts:
+        enabled_result = host.command(
+            "sonic-db-cli CONFIG_DB hget 'CONSOLE_SWITCH|console_mgmt' enabled",
+            module_ignore_errors=True)
+        enabled_value = (enabled_result.get('stdout') or '').strip().lower()
+        pytest_assert(
+            enabled_result.get('rc') == 0 and enabled_value in ('yes', 'no'),
+            "Failed to read original console-enabled state from '{}' (rc={}, value='{}').".format(
+                host.hostname, enabled_result.get('rc'), enabled_value
+            ),
+        )
+        data[host] = {'enabled': enabled_value == 'yes', 'lines': {}}
+        for target_line in lines:
+            orig_baud = _read_field(host, target_line, "baud_rate", "9600")
+            orig_flow_control_int = _read_field(host, target_line, "flow_control", "0")
             orig_flow_control = "enable" if orig_flow_control_int == "1" else "disable"
-            data[duthost].append({'baud': orig_baud, 'flow_control': orig_flow_control})
+            data[host]['lines'][target_line] = {
+                'baud': orig_baud,
+                'flow_control': orig_flow_control,
+            }
 
     yield
 
-    for duthost in required_list:
-        for target_line in range(48):
+    for host in required_hosts:
+        for target_line in lines:
             try:
-                duthost.command(
-                    f"config console baud {target_line} {data[duthost][target_line]['baud']}",
+                host.command(
+                    "config console baud {} {}".format(
+                        target_line, data[host]['lines'][target_line]['baud']),
                     module_ignore_errors=True)
             except Exception as e:
                 logger.warn("Failed to restore baud_rate for line %s: %s", target_line, e)
             try:
-                duthost.command(
-                    f"config console flow_control {data[duthost][target_line]['flow_control']} {target_line}",
+                host.command(
+                    "config console flow_control {} {}".format(
+                        data[host]['lines'][target_line]['flow_control'], target_line),
                     module_ignore_errors=True)
             except Exception as e:
                 logger.warn("Failed to restore flow_control for line %s: %s", target_line, e)
+        try:
+            command = "config console enable" if data[host]['enabled'] else "config console disable"
+            host.command(command, module_ignore_errors=True)
+        except Exception as e:
+            logger.warning("Failed to restore console-enabled state on %s: %s", host.hostname, e)
 
 
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
-def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_modules):  # noqa: F811
+def test_console_cisco8000_loopback_stress(cisco8000_stress_prerequisites, cleanup_modules):
     """Stress-test all wired console lines on the DUT using the platform
     ``console_loopback.py`` utility.
 
@@ -130,55 +196,18 @@ def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_m
     3. Locate ``console_loopback.py`` on both the DUT and the fanout.
     4. Configure console settings on DUT and fanout:
         - ``config console enable``
-        - Set 115200 baud and disable flow control on lines 1..48.
+        - Set 115200 baud and disable flow control on discovered wired lines.
     5. Start the fanout loopback server (``fanout start``).
-    6. Run the DUT loopback stress client (``dut <baud> ...``).
+    6. Run the DUT loopback stress client (``dut <baud> --continue-on-fail --delay-factor 12.8``).
     7. Stop the fanout server unconditionally in teardown.
     8. Assert the DUT client exited with rc=0.
     """
-    duthost, console_fanout = setup_c0
-
-    if not _is_supported_platform(duthost):
-        pytest.skip(
-            "Skipping: DUT '{}' platform '{}' does not start with required prefix 'arm64-c8220tg_48a'.".format(
-                duthost.hostname,
-                duthost.facts.get('platform', ''),
-            )
-        )
-
-    # ------------------------------------------------------------------ #
-    # Verify console lines are wired                                       #
-    # ------------------------------------------------------------------ #
-    lines = get_dut_console_lines(conn_graph_facts, duthost)
-    pytest_assert(
-        lines,
-        "No console lines found for DUT '{}' in *_serial_links.csv. "
-        "At least one console line must be wired for the stress test.".format(duthost.hostname),
-    )
+    duthost, console_fanout, lines, dut_script, fanout_script = cisco8000_stress_prerequisites
     logger.info(
         "[cisco8000_stress] DUT '%s': %d console line(s) found: %s",
         duthost.hostname, len(lines), lines,
     )
 
-    # ------------------------------------------------------------------ #
-    # Locate the platform script on both hosts                             #
-    # ------------------------------------------------------------------ #
-    dut_script = _find_console_loopback_script(duthost)
-    if dut_script is None:
-        pytest.skip(
-            "Skipping: '{}' not found on DUT '{}'. "
-            "Ensure the cisco-8000 platform specific script is installed.".format(
-                _SCRIPT_PATH, duthost.hostname
-            )
-        )
-    fanout_script = _find_console_loopback_script(console_fanout)
-    if fanout_script is None:
-        pytest.skip(
-            "Skipping: '{}' not found on fanout '{}'. "
-            "Ensure the cisco-8000 platform package (PR #4525) is installed.".format(
-                _SCRIPT_PATH, console_fanout.hostname
-            )
-        )
     logger.info(
         "[cisco8000_stress] DUT script path    : %s (host: %s)",
         dut_script, duthost.hostname,
