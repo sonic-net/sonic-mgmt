@@ -39,9 +39,11 @@ Failure handling: failures are accumulated per test case and reported in a singl
 pytest.fail at the end, so a single run shows all issues across all ports.
 """
 import logging
+import time
 
 import pytest
 
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY
 )
@@ -172,9 +174,10 @@ def _reboot_link_recovery(
     # A reboot restarts every monitored process; tell the autouse per-test
     # health check to expect it rather than flag it as a regression.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
-    health_baseline = capture_baseline(duthost)
+    pre_op = capture_baseline(duthost)
 
     reboot_wait = system_attributes.get(f"{attr_prefix}_settle_sec")
+    deadline = time.monotonic() + reboot_wait
 
     logger.info("Verifying link states for %d port(s) before reboot", len(ports))
     if not check_links_up(duthost, port_attributes_dict)["passed"]:
@@ -187,6 +190,10 @@ def _reboot_link_recovery(
     else:
         operation = getattr(scenario_ops, f"perform_{reboot_type}_reboot")
         operation(duthost, localhost)
+
+    wait_critical_processes(duthost, timeout=max(1, int(deadline - time.monotonic())))
+    post_op = capture_baseline(duthost)
+    health_baseline = {"pid_baselines": post_op["pid_baselines"], "core_files": pre_op["core_files"]}
 
     logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
     result = standard_port_recovery_and_verification(
