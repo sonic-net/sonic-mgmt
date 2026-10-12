@@ -1126,10 +1126,16 @@ class GenerateGoldenConfigDBModule(object):
 
         ori_config_db = json.loads(config)
         if multi_asic.is_multi_asic():
-            ns_config = self.get_config_from_minigraph_multiasic()
             for asic in range(multi_asic.get_num_asics()):
                 ns = "asic{}".format(asic)
-                seed = ns_config.get(ns, {}).get("SYSTEM_DEFAULTS", {})
+                # Same command load_minigraph uses (no -p): works for fabric ASICs
+                # on chassis supervisors, which have no per-ASIC port_config.ini.
+                rc, out, err = self.module.run_command(
+                    "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json -n {} --print-data".format(ns))
+                if rc != 0:
+                    self.module.fail_json(
+                        msg="Failed to get config from minigraph for namespace {}: {}".format(ns, err))
+                seed = json.loads(out).get("SYSTEM_DEFAULTS", {})
                 _seed_and_set(ori_config_db.setdefault(ns, {}).setdefault("SYSTEM_DEFAULTS", {}), seed)
         else:
             _seed_and_set(ori_config_db.setdefault("SYSTEM_DEFAULTS", {}),
