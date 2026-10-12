@@ -81,6 +81,12 @@ def _vrf_scope_bgp_reads(value, vrf):
         if suffix.lower().startswith('summary'):
             scoped = 'vtysh -c "show bgp vrf {} {} {}"'.format(
                 vrf, afi, suffix)
+        elif re.match(r'^neighbors?\b', suffix, re.IGNORECASE):
+            # FRR accepts per-neighbor detail queries at the VRF level, without
+            # an intervening address-family.  The otherwise-canonical
+            # ``<afi> unicast neighbors <peer>`` form is incomplete unless a
+            # trailing detail subcommand is supplied.
+            scoped = 'vtysh -c "show bgp vrf {} {}"'.format(vrf, suffix)
         else:
             scoped = 'vtysh -c "show bgp vrf {} {} unicast{}"'.format(
                 vrf, afi, ' {}'.format(suffix) if suffix else '')
