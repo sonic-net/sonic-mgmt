@@ -54,7 +54,12 @@
   # container, so that subcommand takes the extra-var again.
   - name: Set default PTF BGP speaker
     set_fact:
-      ptf_bgp_speaker: "{{ 'gobgp' if ptf_gobgp_installed else 'exabgp' }}"
+      ptf_bgp_speaker: >-
+        {{ 'gobgp' if ptf_gobgp_installed else
+           'exabgp' if ptf_exabgp_installed else
+           'gobgp' if topo.split('_')[0].split('-')[0] in
+              ['t2', 'lt2', 'ft2', 'lrh', 'urh'] else
+           'exabgp' }}
     when: ptf_bgp_speaker is not defined
 
   # Every configure and start task is gated on one of the two names, so an
@@ -65,6 +70,10 @@
         ptf_bgp_speaker is {{ ptf_bgp_speaker }}. Supported values are
         exabgp and gobgp.
     when: ptf_bgp_speaker not in ['exabgp', 'gobgp']
+
+  - name: Set route batch size for the selected speaker
+    set_fact:
+      ptf_routes_batch_size: "{{ 5000 if ptf_bgp_speaker == 'gobgp' else 200 }}"
 
   # Both speakers bind the same neighbor ports. Whichever loses the bind dies,
   # and the surviving one answers `wait_for`, so the mismatch is otherwise
@@ -316,6 +325,7 @@
     announce_routes:
       topo_name: "{{ topo }}"
       ptf_ip: "{{ ptf_host_ip }}"
+      routes_batch_size: "{{ ptf_routes_batch_size | int }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       upstream_neighbor_groups: "{{ upstream_neighbor_groups | default(0) | int }}"
       downstream_neighbor_groups: "{{ downstream_neighbor_groups | default(0) | int }}"

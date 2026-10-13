@@ -45,7 +45,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
                          'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
-                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
+                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2", "Mellanox-SN4280-O4X96"})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -1141,6 +1141,77 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
+    def update_swss_zmq_config(self, config):
+        """Enable SWSS ZMQ on T2 and DRH topologies via SYSTEM_DEFAULTS|swss_zmq.
+
+        The knob drives both the northbound (fpmsyncd<->orchagent) and southbound
+        (orchagent<->syncd) route ZMQ channels, which run per ASIC. On multi-ASIC
+        platforms the entry must therefore land in each ASIC namespace's CONFIG_DB,
+        so it is injected under the per-namespace ``asicN`` keys of the golden
+        config. The ASIC count is autodetected because the golden config module is
+        not always invoked with a reliable ``num_asics`` value.
+
+        Applies to the T2 family (``t2``, ``ft2``, ``lt2``, ``t2_single_node``)
+        and the disaggregated Regional Hub family (``lrh``, ``urh``, ``drh``),
+        which are the route-scaling roles that rely on the ZMQ route datapath.
+        Chassis supervisors are excluded: they hold no BGP sessions and run no
+        per-ASIC route programming, so the ZMQ knob does not apply to them.
+        """
+        topo = self.topo_name
+        if not any(t in topo for t in ("t2", "lrh", "urh", "drh")):
+            return config
+        if device_info.is_supervisor():
+            return config
+        ori_config_db = json.loads(config)
+        zmq_value = {"swss_zmq": {"status": "enabled"}}
+        if multi_asic.is_multi_asic():
+            for asic in range(multi_asic.get_num_asics()):
+                ns = "asic{}".format(asic)
+                ori_config_db.setdefault(ns, {}).setdefault(
+                    "SYSTEM_DEFAULTS", {}).update(zmq_value)
+        else:
+            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(zmq_value)
+        return json.dumps(ori_config_db, indent=4)
+
+    def update_ip_decap_config(self, config):
+        """Set SYSTEM_DEFAULTS|ip_decap to mirror the IP-in-IP decap default that
+        sonic-buildimage PR #28693 generates in minigraph.py.
+
+        IP-in-IP decap is disabled for DPU switches, the lossy
+        Arista-7060X6-64PE-B-C512S2 / -C448O16 hwskus, and NVIDIA/Mellanox
+        non-storage backend devices; it is enabled everywhere else. The knob is
+        consumed by ipinip.json.j2 in swss, which runs per ASIC, so on multi-ASIC
+        platforms the entry is injected into each ASIC namespace's CONFIG_DB.
+        """
+        metadata = json.loads(self.get_config_from_minigraph()).get(
+            "DEVICE_METADATA", {}).get("localhost", {})
+        switch_type = metadata.get("switch_type")
+        device_type = metadata.get("type")
+        is_storage_device = metadata.get("storage_device") == "true"
+        hwsku = self.hwsku or metadata.get("hwsku")
+        platform = self.platform or metadata.get("platform")
+
+        enable_ip_decap = True
+        if switch_type == "dpu":
+            enable_ip_decap = False
+        elif hwsku in ("Arista-7060X6-64PE-B-C512S2", "Arista-7060X6-64PE-B-C448O16"):
+            enable_ip_decap = False
+        elif (platform and platform.startswith(("x86_64-nvidia", "x86_64-mlnx"))
+                and device_type in ("BackEndToRRouter", "BackEndLeafRouter", "BackEndSpineRouter")
+                and not is_storage_device):
+            enable_ip_decap = False
+
+        ip_decap_value = {"ip_decap": {"status": "enabled" if enable_ip_decap else "disabled"}}
+        ori_config_db = json.loads(config)
+        if multi_asic.is_multi_asic():
+            for asic in range(multi_asic.get_num_asics()):
+                ns = "asic{}".format(asic)
+                ori_config_db.setdefault(ns, {}).setdefault(
+                    "SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+        else:
+            ori_config_db.setdefault("SYSTEM_DEFAULTS", {}).update(ip_decap_value)
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
@@ -1169,7 +1240,7 @@ class GenerateGoldenConfigDBModule(object):
         Enables FEC for high-speed ports. PORT table rebuild from platform.json
         is handled separately by override_port_table_from_platform().
         """
-        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
+        SUPPORTED_TOPO = ["lt2-min", "ft2-64", "ft2-cpo-64", "ft2-cpo-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
                           "ft2-o128", "lt2-o256-u32d224", "lt2-u32d128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
@@ -1437,6 +1508,8 @@ class GenerateGoldenConfigDBModule(object):
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+        config = self.update_swss_zmq_config(config)
+        config = self.update_ip_decap_config(config)
 
         # Rebuild PORT table from port_speeds + platform.json when port override is active
         if self.port_override_from_links:
@@ -1470,7 +1543,9 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         # BMC runs only these services. Disable any other feature present in the image.
-        if self.is_bmc_device():
+        # DEVICE_METADATA may still be "not-provisioned" before the first
+        # minigraph load, so also identify BMC from the requested topology.
+        if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
                 "telemetry", "acms"
