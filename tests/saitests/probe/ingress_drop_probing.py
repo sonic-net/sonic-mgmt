@@ -113,7 +113,8 @@ class IngressDropProbing(ProbingBase):
     def get_probe_config(self):
         """Return standardized probe configuration."""
         return ProbeConfig(
-            probing_port_ids=self.probing_port_ids,
+            src_port_ids=self.probing_port_ids[:1],
+            dst_port_ids=self.probing_port_ids[1:],
             thrift_client=self.dst_client,
             asic_type=self.asic_type
         )
@@ -140,16 +141,15 @@ class IngressDropProbing(ProbingBase):
             return
 
         # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
-        dut_idx = next(iter(self.test_port_ips))
-        asic_idx = next(iter(self.test_port_ips[dut_idx]))
-        port_ips = self.test_port_ips[dut_idx][asic_idx]
+        src_port_ips = self.test_port_ips[self.src_dut_index][self.src_asic_index]
+        dst_port_ips = self.test_port_ips[self.dst_dut_index][self.dst_asic_index]
 
         # 1 src -> N dst: First is src, rest are dst
         srcport = PortInfo(
             self.probing_port_ids[0],
             mac=self.dataplane.get_mac(0, self.probing_port_ids[0]),
-            ip=port_ips[self.probing_port_ids[0]]["peer_addr"],
-            vlan=port_ips[self.probing_port_ids[0]].get("vlan_id", None)
+            ip=src_port_ips[self.probing_port_ids[0]]["peer_addr"],
+            vlan=src_port_ips[self.probing_port_ids[0]].get("vlan_id", None)
         )
 
         dstports = []
@@ -157,8 +157,8 @@ class IngressDropProbing(ProbingBase):
             dstports.append(PortInfo(
                 dpid,
                 mac=self.dataplane.get_mac(0, dpid),
-                ip=port_ips[dpid]["peer_addr"],
-                vlan=port_ips[dpid].get("vlan_id", None)
+                ip=dst_port_ips[dpid]["peer_addr"],
+                vlan=dst_port_ips[dpid].get("vlan_id", None)
             ))
 
         # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)

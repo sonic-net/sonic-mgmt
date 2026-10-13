@@ -94,7 +94,8 @@ class EgressDropProbing(ProbingBase):
         Uses dst_client for both BufferOccupancyController and executor counter reads.
         """
         return ProbeConfig(
-            probing_port_ids=self.probing_port_ids,
+            src_port_ids=self.probing_port_ids[:1],
+            dst_port_ids=self.probing_port_ids[1:],
             thrift_client=self.dst_client,
             asic_type=self.asic_type
         )
@@ -151,23 +152,22 @@ class EgressDropProbing(ProbingBase):
             return
 
         # Use first available dut/asic index from test_port_ips
-        dut_idx = next(iter(self.test_port_ips))
-        asic_idx = next(iter(self.test_port_ips[dut_idx]))
-        port_ips = self.test_port_ips[dut_idx][asic_idx]
+        src_port_ips = self.test_port_ips[self.src_dut_index][self.src_asic_index]
+        dst_port_ips = self.test_port_ips[self.dst_dut_index][self.dst_asic_index]
 
         # 1 src -> 1 dst
         srcport = PortInfo(
             self.probing_port_ids[0],
             mac=self.dataplane.get_mac(0, self.probing_port_ids[0]),
-            ip=port_ips[self.probing_port_ids[0]]["peer_addr"],
-            vlan=port_ips[self.probing_port_ids[0]].get("vlan_id", None)
+            ip=src_port_ips[self.probing_port_ids[0]]["peer_addr"],
+            vlan=src_port_ips[self.probing_port_ids[0]].get("vlan_id", None)
         )
 
         dstport = PortInfo(
             self.probing_port_ids[1],
             mac=self.dataplane.get_mac(0, self.probing_port_ids[1]),
-            ip=port_ips[self.probing_port_ids[1]]["peer_addr"],
-            vlan=port_ips[self.probing_port_ids[1]].get("vlan_id", None)
+            ip=dst_port_ips[self.probing_port_ids[1]]["peer_addr"],
+            vlan=dst_port_ips[self.probing_port_ids[1]].get("vlan_id", None)
         )
 
         # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)

@@ -61,7 +61,8 @@ class ConcreteProbingBase(ProbingBase):
     def get_probe_config(self):
         """Return mock config"""
         return ProbeConfig(
-            probing_port_ids=[1, 2, 3],
+            src_port_ids=[1],
+            dst_port_ids=[2, 3],
             thrift_client=Mock(),
             asic_type='test_asic'
         )
@@ -714,6 +715,7 @@ class TestProbingBaseRunTest:
         pb = ConcreteProbingBase()
 
         call_order = []
+        tx_enable_port_lists = []
 
         # Track method calls
         original_get_probe_config = pb.get_probe_config
@@ -726,6 +728,7 @@ class TestProbingBaseRunTest:
 
         def tracked_sai_thrift_port_tx_enable(*args, **kwargs):
             call_order.append('sai_thrift_port_tx_enable')
+            tx_enable_port_lists.append(args[2])
 
         def tracked_setup_traffic():
             call_order.append('setup_traffic')
@@ -761,7 +764,8 @@ class TestProbingBaseRunTest:
             'setup_traffic',                 # Line 30
             'BufferOccupancyController',     # Line 31
             'probe',                         # Line 33
-            'assert_probing_result'          # Line 33 (implied)
+            'assert_probing_result',         # Line 33 (implied)
+            'sai_thrift_port_tx_enable'      # Final cleanup
         ]
 
         print(f"  Expected sequence: {expected_sequence}")
@@ -769,6 +773,8 @@ class TestProbingBaseRunTest:
 
         assert call_order == expected_sequence, \
             f"Call sequence mismatch!\nExpected: {expected_sequence}\nActual: {call_order}"
+        assert tx_enable_port_lists == [[2, 3], [2, 3]], \
+            "Only destination ports should have TX enabled"
 
         print("[OK] runTest() call sequence verified (matches lines 28-33)")
 
