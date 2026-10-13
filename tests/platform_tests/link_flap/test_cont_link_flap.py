@@ -37,6 +37,10 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
+    # Allow limited error/drop counter noise from control-plane traffic during convergence.
+    COUNTER_ABS_TOLERANCE = 2000
+    COUNTER_REL_TOLERANCE = 0.05
+
     @staticmethod
     def get_candidates(duthost, fanouthosts, completeness_level="confident"):
         candidates = build_test_candidates(duthost, fanouthosts, 'all_ports', completeness_level=completeness_level)
@@ -88,50 +92,51 @@ class TestContLinkFlap(object):
             return value
 
     def save_counter_values(self, dut, stage):
-        if not hasattr(self, "drop_counters"):
-            self.drop_counters = {}
-            self.intf_counters = {}
-
         self.drop_counters[stage] = dut.show_and_parse(show_cmd="show dropcounter count")
-        self.intf_counters[stage] = dut.show_and_parse(show_cmd="show interface counter")
+        self.intf_counters[stage] = dut.show_and_parse(show_cmd="show interfaces counters")
 
     def check_all_counters(self, dut):
-        if not hasattr(self, "drop_counters"):
-            raise RuntimeError("Checking counters without collecting them first. This shouldn't happen!")
+        pytest_assert(
+            all(stage in self.drop_counters and stage in self.intf_counters for stage in ("pre", "post")),
+            "Checking counters without collecting both pre- and post-test values.")
 
         # First drop counter's check.
         def compare_counters(counter_type, pre_list, post_list):
             failed_counters = []
-            if len(pre_list) != len(post_list):
-                raise RuntimeError(
-                    f"Mismatch in number of interfaces before and after test."
-                    f" pre_list(len:{len(pre_list)})={pre_list},"
-                    f"post_list(len:{len(post_list)})={post_list}")
-
             if counter_type == "drop":
                 check_list = ['rx_err', 'rx_drops', 'tx_err', 'tx_drops']
-            if counter_type == "intf":
-                check_list = ['rx_drp', 'rx_err', 'tx_drp', 'tx_err', 'rx_ok', 'rx_ovr', 'tx_ok', 'tx_ovr']
-            for i in range(len(pre_list)):
-                # Give 5% tolerance
-                pre_line = pre_list[i]
-                post_line = post_list[i]
+            elif counter_type == "intf":
+                check_list = ['rx_drp', 'rx_err', 'tx_drp', 'tx_err']
+            else:
+                raise ValueError(f"unknown counter_type {counter_type!r}")
+
+            pre_by_iface = {entry['iface']: entry for entry in pre_list}
+            post_by_iface = {entry['iface']: entry for entry in post_list}
+            pytest_assert(
+                len(pre_by_iface) == len(pre_list),
+                f"Duplicate interface in pre-test {counter_type} counters")
+            pytest_assert(
+                len(post_by_iface) == len(post_list),
+                f"Duplicate interface in post-test {counter_type} counters")
+            missing_interfaces = pre_by_iface.keys() - post_by_iface.keys()
+            added_interfaces = post_by_iface.keys() - pre_by_iface.keys()
+            pytest_assert(
+                not missing_interfaces and not added_interfaces,
+                f"Interface mismatch in {counter_type} counters: missing after test "
+                f"{sorted(missing_interfaces)}, added after test {sorted(added_interfaces)}")
+
+            for iface, pre_line in pre_by_iface.items():
+                post_line = post_by_iface[iface]
                 # drop Counters: line format:
                 # {'iface': 'Ethernet0', 'state': 'X', 'rx_err': '0', 'rx_drops': '0', 'tx_err': '0', 'tx_drops': '0'}
-                pytest_assert(
-                    pre_line['iface'] == post_line['iface'],
-                    f"Interface names before and after counter checks don't "
-                    f"match. pre:{pre_line}, post:{post_line}")
                 for entry in check_list:
-                    # math.isclose(int("1,000,000".replace(",", "_")), int("1,000,000".replace(",", "_")))
-
                     if not math.isclose(
-                            int(pre_line[entry].replace(",", "_")),
-                            int(post_line[entry].replace(",", "_")),
-                            abs_tol=2000,
-                            rel_tol=0.05):
+                            int(pre_line[entry].replace(",", "")),
+                            int(post_line[entry].replace(",", "")),
+                            abs_tol=TestContLinkFlap.COUNTER_ABS_TOLERANCE,
+                            rel_tol=TestContLinkFlap.COUNTER_REL_TOLERANCE):
                         failed_counters.append(
-                            f"{counter_type}:{pre_line['iface']}:"
+                            f"{counter_type}:{iface}:"
                             f"{entry}:pre_value({pre_line[entry]}) post_value({post_line[entry]})")
 
             pytest_assert(
@@ -155,8 +160,11 @@ class TestContLinkFlap(object):
                 orchagent CPU Utilization and Redis_memory.
 
         Pass Criteria: All routes must be re-learned with < 10% increase in Redis/FRR memory usage and
-            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
+            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps. Error and drop
+            counter deltas must remain within the configured tolerances.
         """
+        self.drop_counters = {}
+        self.intf_counters = {}
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.command("sonic-clear arp")
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
