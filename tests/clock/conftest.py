@@ -1,35 +1,12 @@
-import re
-import time
 import pytest
 import logging
 
 from tests.clock.test_clock import ClockConsts, ClockUtils
+from tests.common.helpers.ntp_helper import get_ntp_daemon_in_use, run_ntp, stop_ntp
 
 
 def pytest_addoption(parser):
     parser.addoption("--ntp_server", action="store", default=None, required=False, help="IP of NTP server to use")
-
-
-@pytest.fixture(scope='module', autouse=True)
-def ntp_server(request, duthosts, rand_one_dut_hostname):
-    """
-    @summary: Return NTP server's ip if given, otherwise skip the test
-    """
-    ntp_server_ip = request.config.getoption("ntp_server")
-    logging.info(f'NTP server ip from execution parameter: {ntp_server_ip}')
-
-    duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    ntp_servers = config_facts.get('NTP_SERVER', {})
-
-    if ntp_server_ip is None:
-        # if ntp_server_ip is not given, try to get it from DUT config
-        if ntp_servers:
-            ntp_server_ip = list(ntp_servers.keys())[0]
-            logging.info(f'NTP server ip from DUT: {ntp_server_ip}')
-        else:
-            pytest.skip("IP of NTP server was not given")
-    return ntp_server_ip
 
 
 @pytest.fixture(scope="function")
@@ -56,71 +33,28 @@ def init_timezone(duthosts):
 
 
 @pytest.fixture(scope="function")
-def restore_time(duthosts, ntp_server):
+def restore_time(duthosts):
     """
-    @summary: fixture to restore time after test (using ntp)
+    @summary:
+        Fixture that restores the DUT system time after a test that deliberately
+        changes the clock.
+
+        Before the test the NTP daemon is stopped so it does not correct the clock
+        mid-test. After the test the DUT is re-synchronised with its configured NTP
+        server(s) via run_ntp(), which restarts the daemon and asserts that the DUT
+        becomes synchronised again. Any failure to re-sync is surfaced as a real
+        test error instead of being skipped or hidden.
+
+        Supports ntpsec, chrony and classic ntp based images.
     """
-    logging.info('Check NTP server reachability')
-    try:
-        ClockUtils.run_cmd(duthosts, f'{ClockConsts.CMD_NTPDATE} -q {ntp_server}', raise_err=True)
-    except Exception as e:
-        pytest.skip(f'Unreachable NTP server {ntp_server}: {str(e)}')
+    duthost = duthosts[0]
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+    logging.info(f'NTP daemon in use on DUT: {ntp_daemon.name}')
 
-    logging.info('Check if there is ntp configured before test')
-    show_ntp_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_NTP)
-    if 'unsynchronised' in show_ntp_output:
-        logging.info('There is no NTP server configured before test')
-        orig_ntp_server = None
-    else:
-        synchronized_str = 'synchronised to'
-        logging.info('There is NTP server configured before test')
-        assert synchronized_str in show_ntp_output, f'There is NTP configured but output do not contain ' \
-                                                    f'"{synchronized_str}"'
-        # primary ntp server is the one with astrix (*) in front of it
-        orig_ntp_server = re.findall(r'\d+.\d+.\d+.\d+',
-                                     re.findall(r'\*\d+.\d+.\d+.\d+',
-                                                show_ntp_output)[0])[0]
-        logging.info(f'Original NTP: {orig_ntp_server}')
-
-    if orig_ntp_server:
-        logging.info('Disable original NTP before test')
-        output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_DEL, orig_ntp_server)
-        assert ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(orig_ntp_server) in output, \
-            f'Error: The given string does not contain the expected substring.\n' \
-            f'Expected substring: "{ClockConsts.OUTPUT_CMD_NTP_DEL_SUCCESS.format(orig_ntp_server)}"\n' \
-            f'Given (whole) string: "{output}"'
+    logging.info('Stopping NTP daemon so it does not correct the clock during the test')
+    stop_ntp(duthost, ntp_daemon)
 
     yield
 
-    logging.info(f'Reset time after test. Sync with NTP server: {ntp_server}')
-
-    logging.info('Stopping NTP service')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTP_STOP)
-
-    logging.info(f'Syncing datetime with NTP server {ntp_server}')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTPDATE, f'-s {ntp_server}')
-
-    logging.info('Starting NTP service')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTP_START)
-
-    if orig_ntp_server:
-        logging.info('Restore original NTP server after test')
-        output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, orig_ntp_server)
-        assert ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(orig_ntp_server) in output, \
-            f'Error: The given string does not contain the expected substring.\n' \
-            f'Expected substring: "{ClockConsts.OUTPUT_CMD_NTP_ADD_SUCCESS.format(orig_ntp_server)}"\n' \
-            f'Given (whole) string: "{output}"'
-
-        logging.info('Check polling time')
-        show_ntp_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_NTP)
-        match = re.search(ClockConsts.REGEX_NTP_POLLING_TIME, show_ntp_output)
-        if match:
-            polling_time_seconds = int(match.group(1))
-        else:
-            logging.info('Could not match the regex.\nPattern: "{}"\nShow ntp output string: "{}"'
-                         .format(ClockConsts.REGEX_NTP_POLLING_TIME, show_ntp_output))
-            polling_time_seconds = ClockConsts.RANDOM_NUM
-        logging.info(f'Polling time (in seconds): {polling_time_seconds + 1}')
-
-        logging.info('Wait for the sync')
-        time.sleep(polling_time_seconds)
+    logging.info(f'Restore DUT time by re-syncing with NTP ({ntp_daemon.name})')
+    run_ntp(duthost, ntp_daemon)
