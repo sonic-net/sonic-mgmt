@@ -547,6 +547,7 @@ def live_serial(bmc_ip, port):
     wire, whoever issued it. None means nothing completed a handshake.
     """
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     try:

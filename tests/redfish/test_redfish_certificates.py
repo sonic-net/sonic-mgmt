@@ -1144,10 +1144,12 @@ class TestRedfishCaRotation:
             client_cert_name="client2-cert.pem", client_key_name="client2-key.pem")
         logger.info("Issued a second CA: %s", rotated.ca_cn)
 
+        applied_before = applied_fingerprint(bmc_duthost)
         deliver_certs(bmc_duthost, bmc_tls_certs["dir"],
                       server_crt="server2-cert.pem", server_key="server2-key.pem",
                       ca_crt="CA2-cert.pem")
-        pytest_assert(wait_for_staging(bmc_duthost), "The rotated CA was not staged")
+        pytest_assert(wait_for_staging(bmc_duthost, changed_from=applied_before),
+                      "The rotated CA was not staged")
 
         new_client = (str(d / "client2-cert.pem"), str(d / "client2-key.pem"))
         new_ca = str(d / "CA2-cert.pem")
@@ -1169,8 +1171,10 @@ class TestRedfishCaRotation:
             logger.info("TLS handshake rejected for the old CA's client, as expected")
 
         # Restore the original chain for the modules that follow.
+        applied_before = applied_fingerprint(bmc_duthost)
         restore_delivered_certs(bmc_duthost, bmc_tls_certs["dir"])
-        pytest_assert(wait_for_staging(bmc_duthost), "Could not restore the original CA")
+        pytest_assert(wait_for_staging(bmc_duthost, changed_from=applied_before),
+                      "Could not restore the original CA")
         assert_status_ok(
             requests.get(redfish_url(bmc_ip, PRIVILEGED_PATH, bmc_tls_certs["port"]),
                          cert=old_client, verify=old_ca, timeout=30),
