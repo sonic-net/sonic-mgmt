@@ -22,8 +22,10 @@ Execution order::
        each test:
          |- run_pre_check  (health OK)         <- _per_test_health_check
          |- <body>: _link_recovery -> verify links up -> operation (scenario_ops)
+            -> re-establish health baseline   <- reestablish_health_baseline
+                                                 (recovery/conftest.py)
             -> Standard Port Recovery and Verification
-         `- run_post_check
+         `- run_post_check (against the re-established baseline)
   session end
     `- _system_post_session_checks (system/conftest.py)
          |- post_state_restoration()
@@ -38,15 +40,10 @@ import time
 
 import pytest
 
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY
 )
 from tests.transceiver.common import scenario_ops
-from tests.transceiver.common.health_checks import (
-    DEFAULT_MONITORED_PROCESSES,
-    capture_baseline,
-)
 from tests.transceiver.common.prerequisites import check_links_up
 from tests.transceiver.common.verification import (
     standard_port_recovery_and_verification
@@ -63,7 +60,7 @@ def _system_attributes(port_attributes_dict):
 
 def _link_recovery(
     duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-    op_name, settle_attr, operation,
+    reestablish_health_baseline, op_name, settle_attr, operation,
 ):
     """Run a system-wide disruption and verify all transceiver ports recover cleanly.
 
@@ -72,8 +69,8 @@ def _link_recovery(
       * verify all ports are oper-up before the operation (skip otherwise),
       * run ``operation()`` - a ``scenario_ops`` call shared with
         ``tests/transceiver/eeprom/test_eeprom_scenario.py``,
-      * wait for critical processes and capture a fresh post-operation PID
-        baseline (core files are still compared against the pre-op baseline),
+      * re-establish the health baseline via ``reestablish_health_baseline``
+        (recovery/conftest.py) once critical processes are back,
       * run Standard Port Recovery and Verification for every port within
         ``settle_attr`` seconds.
 
@@ -86,19 +83,12 @@ def _link_recovery(
     if not check_links_up(duthost, port_attributes_dict)["passed"]:
         pytest.skip(f"Validation on Start FAILED: some ports are down, not running {op_name}")
 
-    # The operation restarts every monitored process; tell the autouse per-test
-    # health check to expect it rather than flag it as a regression.
-    expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
-    pre_op = capture_baseline(duthost)
-
     deadline = time.monotonic() + settle_sec
     logger.info("Performing %s on %s, verifying recovery within %ss",
                 op_name, duthost.hostname, settle_sec)
     operation()
 
-    wait_critical_processes(duthost, timeout=max(1, int(deadline - time.monotonic())))
-    post_op = capture_baseline(duthost)
-    health_baseline = {"pid_baselines": post_op["pid_baselines"], "core_files": pre_op["core_files"]}
+    health_baseline = reestablish_health_baseline(max(1, int(deadline - time.monotonic())))
 
     logger.info("Running Standard Port Recovery and Verification for %d port(s)", len(ports))
     result = standard_port_recovery_and_verification(
@@ -125,11 +115,12 @@ def _link_recovery(
 @pytest.mark.disable_loganalyzer
 def test_system_config_reload_link_recovery(
     duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+    reestablish_health_baseline,
 ):
     """Config reload the DUT and verify all transceiver ports recover cleanly."""
     _link_recovery(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-        "config reload", "config_reload_settle_sec",
+        reestablish_health_baseline, "config reload", "config_reload_settle_sec",
         lambda: scenario_ops.perform_config_reload(duthost),
     )
 
@@ -139,7 +130,7 @@ def test_system_config_reload_link_recovery(
 @pytest.mark.parametrize("reboot_type", ["cold", "warm", "fast"])
 def test_system_reboot_link_recovery(
     duthost, localhost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-    reboot_type,
+    reestablish_health_baseline, reboot_type,
 ):
     """Cold / warm / fast reboot the DUT and verify all transceiver ports recover cleanly."""
     # Cold reboot is always supported; warm/fast are gated by a platform attr.
@@ -151,7 +142,7 @@ def test_system_reboot_link_recovery(
     operation = getattr(scenario_ops, f"perform_{reboot_type}_reboot")
     _link_recovery(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-        f"{reboot_type} reboot", f"{reboot_type}_reboot_settle_sec",
+        reestablish_health_baseline, f"{reboot_type} reboot", f"{reboot_type}_reboot_settle_sec",
         lambda: operation(duthost, localhost),
     )
 
@@ -160,7 +151,7 @@ def test_system_reboot_link_recovery(
 @pytest.mark.disable_loganalyzer
 def test_system_power_cycle_link_recovery(
     duthost, localhost, pdu_controller, port_attributes_dict,
-    lport_to_first_subport_mapping, expected_pid_changes,
+    lport_to_first_subport_mapping, expected_pid_changes, reestablish_health_baseline,
 ):
     """Power cycle the DUT via its PDU and verify all transceiver ports recover cleanly."""
     if not _system_attributes(port_attributes_dict).get("power_cycle_supported", False):
@@ -170,6 +161,6 @@ def test_system_power_cycle_link_recovery(
 
     _link_recovery(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-        "power cycle", "power_cycle_settle_sec",
+        reestablish_health_baseline, "power cycle", "power_cycle_settle_sec",
         lambda: scenario_ops.perform_power_cycle(duthost, localhost, pdu_controller),
     )
