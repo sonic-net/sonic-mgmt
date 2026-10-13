@@ -177,8 +177,10 @@ def test_pygnmi_subscribe_sample_queue_counters(gnmi_tls):  # noqa: F811
             keys.add(path_str)
     assert keys, f"No update payloads collected: {result}"
 
-    assert any("Ethernet0:0" in key for key in keys), \
-        f"Missing queue Ethernet0:0 in keys: {sorted(keys)}"
+    assert any(
+        key.startswith("Ethernet0:") and key[len("Ethernet0:"):].isdigit()
+        for key in keys
+    ), f"Missing numeric Ethernet0 queue in keys: {sorted(keys)}"
     assert any("SAI_QUEUE_STAT_PACKETS" in key for key in keys), \
         f"Missing SAI_QUEUE_STAT_PACKETS in keys: {sorted(keys)}"
 

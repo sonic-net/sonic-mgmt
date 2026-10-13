@@ -79,7 +79,8 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         raise ValueError("VNET setup requires Loopback0 IPv4 address")
     used_vnis = {str(entry.get("vni")) for entry in facts.get("VNET", {}).values()}
     available_vnis = (str(v) for v in range(10001, 16777216) if str(v) not in used_vnis)
-    namespace = "VnetBenchmark" + uuid.uuid4().hex
+    # Leave room for the VNET index within Linux's 15-character interface-name limit.
+    namespace = "Vnet" + uuid.uuid4().hex[:8]
     tunnel = "Tunnel" + namespace
     backup = "/tmp/" + namespace + ".config_db.json"
     vnets = [("{}_{}".format(namespace, index), routes)
