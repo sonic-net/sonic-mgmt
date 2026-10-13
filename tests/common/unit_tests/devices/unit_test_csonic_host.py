@@ -606,6 +606,8 @@ class TestShutdownBackendAware:
                 host.shutdown("Ethernet-BP0")
         assert "Ethernet-BP0" in str(excinfo.value)
         assert not [c for c in calls if c.startswith("ip link set")]
+
+
 # --- get_route --------------------------------------------------------------
 
 # Trimmed ``show bgp ipv4|ipv6 unicast <prefix> json`` output.
