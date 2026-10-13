@@ -676,12 +676,17 @@ t1-lag-vpp:
   - bgp/test_bgp_port_disable.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_vnet.py
-  - bgp/test_bgpmon_v6.py
+  - bgp/test_bgp_max_route.py
+  - bgp/test_bgp_route_weight.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_prefix_list_suppress.py
   - bgp/test_traffic_shift_sup.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
+  - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -781,6 +786,7 @@ t0-vpp:
   - clock/test_clock.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - crm/test_crm.py
   - crm/test_crm_available.py
   - database/test_db_config.py
   - database/test_db_scripts.py
@@ -998,6 +1004,10 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_extended.py
+  - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
+  - dualtor/test_switchover_failure.py
   - dualtor_io/test_grpc_server_failure.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py

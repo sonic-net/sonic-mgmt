@@ -23,6 +23,7 @@ pytestmark = [
 TEST_ITERATIONS = 5
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
 WAIT_TIMEOUT = 120
+SYSLOG_WAIT_TIMEOUT = 30
 NEIGHBOR_ASN0 = 61000
 NEIGHBOR_PORT0 = 11000
 
@@ -210,9 +211,9 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
         "grep \"[b]gp{}#bgpcfgd: Peer 'default|{}' admin state is set to 'down'\" /var/log/syslog | tail -1"
     ).format(namespace.split("asic")[1] if namespace else "", peer_ip)
 
-    bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
+    bgp_down_msg_list = duthost.shell(cmd, module_ignore_errors=True)['stdout'].split()
     if not bgp_down_msg_list:
-        pytest.fail("Could not find the BGP session down message in syslog")
+        return None
 
     try:
         timestamp = " ".join(bgp_down_msg_list[1:4])
@@ -220,14 +221,25 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
     except RunAnsibleModuleFail:
         timestamp = " ".join(bgp_down_msg_list[0:3])
         timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
-    except Exception as e:
-        logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-        pytest.fail("Failed to parse syslog message timestamp")
 
     if timestamp_in_sec < timestamp_before_teardown:
-        pytest.fail("Could not find the BGP session down time")
+        return None
 
     return timestamp_in_sec
+
+
+def wait_for_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardown):
+    timestamp = [None]
+
+    def _get_timestamp():
+        timestamp[0] = get_bgp_down_timestamp(
+            duthost, namespace, peer_ip, timestamp_before_teardown
+        )
+        return timestamp[0] is not None
+
+    if not wait_until(SYSLOG_WAIT_TIMEOUT, 2, 0, _get_timestamp):
+        pytest.fail("Could not find a current BGP session down message in syslog")
+    return timestamp[0]
 
 
 def is_neighbor_removed(duthost, neighbor):
@@ -323,11 +335,15 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                if not use_vtysh:
-                    bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)  # noqa: E501
-                else:
-                    # There is no syslog if use vtysh to manage BGP neigh
-                    bgp_session_down_time = None
+            if not use_vtysh:
+                bgp_session_down_time = wait_for_bgp_down_timestamp(
+                    duthost, n0.namespace, n0.ip, timestamp_before_teardown
+                )
+            else:
+                # There is no syslog if use vtysh to manage BGP neigh
+                bgp_session_down_time = None
+
+            for bgp_packet in bpg_notifications:
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
                                               is_v6_topo):
                     pytest.fail("BGP notification packet does not match expected values")
