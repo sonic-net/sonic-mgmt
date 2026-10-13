@@ -7,6 +7,7 @@ LAG implementation; CONFIG_DB and the normal SONiC control plane remain in use.
 """
 
 import argparse
+import ipaddress
 import os
 import re
 import subprocess
@@ -33,6 +34,18 @@ def config_db_tables():
         "members": config_db.get_table("PORTCHANNEL_MEMBER"),
         "interfaces": config_db.get_table("PORTCHANNEL_INTERFACE"),
     }
+
+
+def _missing_addresses(expected_prefixes, address_output):
+    """Return prefixes missing from canonical ``ip -o addr`` output."""
+    configured = {
+        ipaddress.ip_interface(match.group(1)).ip
+        for match in re.finditer(r"\binet6?\s+(\S+)", address_output)
+    }
+    return [
+        prefix for prefix in expected_prefixes
+        if ipaddress.ip_interface(prefix).ip not in configured
+    ]
 
 
 def kernel_member(config_db_member):
@@ -128,9 +141,8 @@ def check_portchannels(tables, settle=5):
         if "does not exist" in addresses or not addresses:
             problems.append("{} device missing".format(name))
             continue
-        for prefix in expected:
-            if prefix.split("/")[0] not in addresses:
-                problems.append("{} lacks {}".format(name, prefix))
+        for prefix in _missing_addresses(expected, addresses):
+            problems.append("{} lacks {}".format(name, prefix))
     if problems:
         raise RuntimeError("cSONiC PortChannel check failed: {}".format(
             "; ".join(problems)))

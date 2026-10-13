@@ -18,6 +18,7 @@ Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 """
 
 import os
+import shlex
 import sys
 from unittest.mock import patch
 
@@ -43,6 +44,35 @@ def make_host():
 def docker_ok(stdout):
     """Shape a successful _docker_exec return with the given stdout."""
     return {"rc": 0, "stdout": stdout, "stderr": ""}
+
+
+# --- command execution -----------------------------------------------------
+
+class TestDockerExec:
+    def test_remote_command_preserves_nested_shell_syntax(self):
+        host = CsonicHost("csonic_test_VM0100", vm_host_ip="192.0.2.10",
+                          vm_host_user="admin")
+        command = (
+            "sonic-db-cli CONFIG_DB keys "
+            "'PORTCHANNEL_MEMBER|*|Ethernet1'"
+        )
+        completed = type("Completed", (), {
+            "stdout": "", "stderr": "", "returncode": 0,
+        })()
+
+        with patch("tests.common.devices.csonic.subprocess.run",
+                   return_value=completed) as run:
+            host._docker_exec(command)
+
+        remote_argv = run.call_args.args[0]
+        assert remote_argv[:-1] == [
+            "ssh", "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-l", "admin", "192.0.2.10",
+        ]
+        assert shlex.split(remote_argv[-1]) == [
+            "docker", "exec", "csonic_test_VM0100", "bash", "-c", command,
+        ]
 
 
 # --- FRR JSON fixtures -----------------------------------------------------
