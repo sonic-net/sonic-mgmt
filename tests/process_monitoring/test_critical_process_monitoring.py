@@ -15,7 +15,7 @@ from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import wait_for_startup
-from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
+from tests.common.utilities import power_cycle, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -626,7 +626,7 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
 
 @pytest.fixture(scope='function')
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
-                               get_pdu_controller, localhost):
+                               get_power_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
@@ -672,26 +672,25 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                     logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
         else:
             # For physical testbed, use PDU reboot
-            logger.info("Physical testbed - performing power cycle via PDU...")
+            logger.info("Physical testbed - performing power cycle...")
             try:
-                pdu_ctrl = get_pdu_controller(duthost)
-                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+                power_ctrl = get_power_controller(duthost)
+                logger.info("Power controller obtained: {}".format(power_ctrl))
 
-                if pdu_ctrl is None:
-                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                if power_ctrl is None:
+                    logger.error("No power controller available for {}, cannot recover from database container test"
                                  .format(duthost.hostname))
-                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                    pytest.fail("No power controller available for {}, cannot recover from database container test"
                                 .format(duthost.hostname))
 
-                # Perform PDU reboot (power cycle)
-                logger.info("Starting PDU reboot...")
-                if not pdu_reboot(pdu_ctrl):
-                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
-                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+                logger.info("Starting power cycle...")
+                if not power_cycle(power_ctrl):
+                    logger.error("Power cycle failed for {}".format(duthost.hostname))
+                    pytest.fail("Power cycle failed for {}".format(duthost.hostname))
 
-                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+                logger.info("Power cycle completed, waiting for DUT to boot up...")
             except Exception as e:
-                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                logger.error("Exception during power cycle: {}".format(str(e)))
                 raise
 
         logger.info("Waiting for DUT to boot up after power cycle...")
