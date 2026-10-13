@@ -1,3 +1,5 @@
+from contextlib import ExitStack
+from functools import partial
 from typing import Dict, List
 
 import paramiko
@@ -9,6 +11,7 @@ import ipaddress
 import time
 import json
 
+from _pytest.outcomes import OutcomeException
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
@@ -292,6 +295,7 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
 
 
 def duthost_shutdown_ebgp(duthost):
+    """Restore eBGP if shutdown or a readiness check fails."""
     orch_cpu_threshold = 10
 
     orch_cpu_timeout = 60
@@ -302,16 +306,28 @@ def duthost_shutdown_ebgp(duthost):
     if v4_routes_count > 10000 or v6_routes_count > 10000:
         orch_cpu_timeout = 120
 
-    # Shutdown all eBGP neighbors
-    duthost.command("sudo config bgp shutdown all")
+    # Fixture teardown is unavailable when setup fails before yield, so this
+    # helper must restore its own partially applied shutdown.
+    shutdown_complete = False
+    try:
+        # Shutdown all eBGP neighbors
+        duthost.command("sudo config bgp shutdown all")
 
-    # Verify that the total eBGP routes are 0.
-    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                      orch_cpu_threshold))
+        # Verify that the total eBGP routes are 0.
+        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                          orch_cpu_threshold))
+        shutdown_complete = True
+    finally:
+        if not shutdown_complete:
+            logger.exception("Failed to quiesce eBGP on %s; restoring the original route state", duthost.hostname)
+            try:
+                duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+            except (Exception, OutcomeException):
+                logger.exception("Failed to restore eBGP on %s after shutdown setup failed", duthost.hostname)
 
     return v4_routes_count, v6_routes_count
 
@@ -333,18 +349,27 @@ def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
                       orch_cpu_threshold))
 
 
+def restore_ebgp_on_exit(duthost, v4_routes_count, v6_routes_count, exc_type, exc, traceback):
+    """Restore eBGP without replacing an exception that is already in flight."""
+    try:
+        duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count)
+    except (Exception, OutcomeException):
+        if exc_type is None:
+            raise
+        logger.exception("Failed to restore eBGP on %s while handling %s", duthost.hostname, exc_type.__name__)
+    return False
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
-    # To store the original number of eBGP v4 and v6 routes.
-    v4ebgps = {}
-    v6ebgps = {}
-    for duthost in duthosts.frontend_nodes:
-        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
+    """Restore every quiesced DUT even if a later DUT fails during setup."""
+    # ExitStack also unwinds setup failures that occur before the fixture yields.
+    with ExitStack() as cleanup:
+        for duthost in duthosts.frontend_nodes:
+            v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
+            cleanup.push(partial(restore_ebgp_on_exit, duthost, v4_routes_count, v6_routes_count))
 
-    yield
-
-    for duthost in duthosts.frontend_nodes:
-        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
+        yield
 
 
 @pytest.fixture(scope="module")
@@ -700,6 +725,37 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
     else:
         # For single-ASIC, return None
         return None
+
+
+def get_pdb_num(duthost):
+    """Return pdb_num from chassis_info in STATE_DB."""
+    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    result = duthost.shell(command, module_ignore_errors=True)
+    if result['rc'] != 0:
+        stderr = result.get('stderr', '').strip()
+        logger.warning("Failed to query pdb_num on '%s' via '%s': rc=%s, stderr=%s",
+                       duthost.hostname, command, result['rc'], stderr)
+        raise RuntimeError(
+            "Failed to query pdb_num from STATE_DB on '{}'".format(duthost.hostname)
+        )
+
+    pdb_num_str = result['stdout'].strip()
+    if pdb_num_str and pdb_num_str.isdigit():
+        return int(pdb_num_str)
+    return 0
+
+
+def check_pdb_support(duthost):
+    """Check if duthost has PDB by querying STATE_DB. Returns True if pdb_num > 0."""
+    return get_pdb_num(duthost) > 0
+
+
+@pytest.fixture(scope='module')
+def is_support_pdb(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has PDB (Power Distribution Board) by querying chassis_info in STATE_DB.
+    """
+    return check_pdb_support(duthosts[rand_one_dut_hostname])
 
 
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):

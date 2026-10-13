@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_image_type
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ KUBELET_DEFAULT_CONFIG_BAK = f"{KUBELET_DEFAULT_CONFIG}.bak"
 DAEMONSET_NODE_LABEL = "deployDaemonset"
 DAEMONSET_POD_LABEL = "test-ds-pod"
 DAEMONSET_CONTAINER_NAME = "mock-ds-container"
+DAEMONSET_POD_TIMEOUT_SECOND = 120
+DAEMONSET_POD_CHECK_INTERVAL = 5
 VMHOST_PARAM_DEFAULT = None
 DUT_CERT_DIR = "/etc/sonic/credentials"
 DUT_CERT_BAK = f"{DUT_CERT_DIR}.bak"
@@ -240,6 +243,7 @@ spec:
       hostNetwork: true
       containers:
       - image: {DUT_PAUSE_IMAGE}
+        imagePullPolicy: Never
         name: {DAEMONSET_CONTAINER_NAME}
     '''
 
@@ -407,12 +411,14 @@ def setup_and_teardown(duthost, vmhost, creds):
 
 def trigger_join_and_check(duthost, vmhost):
     logger.info("Start to join duthost to k8s cluster and check the status")
+    # Kubelet registers node names in lowercase per RFC-1123, regardless of the DUT's actual hostname case.
+    k8s_node_name = duthost.hostname.lower()
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
     for _ in range(12):
         time.sleep(10)
-        nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
-        if duthost.hostname in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
+        nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {k8s_node_name}", module_ignore_errors=True)
+        if k8s_node_name in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
             logger.info("Duthost is successfully joined to k8s cluster")
             return
     pytest_assert(False, "Failed to join duthost to k8s cluster")
@@ -420,36 +426,74 @@ def trigger_join_and_check(duthost, vmhost):
 
 def trigger_disjoin_and_check(duthost, vmhost):
     logger.info("Start to disjoin duthost from k8s cluster and check the status")
+    # Kubelet registers node names in lowercase per RFC-1123, regardless of the DUT's actual hostname case.
+    k8s_node_name = duthost.hostname.lower()
     duthost.shell("sudo config kube server disable on")
     time.sleep(20)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
-    pytest_assert(duthost.hostname not in nodes["stdout"], "Failed to disjoin duthost from k8s cluster")
+    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {k8s_node_name}", module_ignore_errors=True)
+    pytest_assert(k8s_node_name not in nodes["stdout"], "Failed to disjoin duthost from k8s cluster")
     pytest_assert("Error from server (NotFound)" in nodes["stderr"], "Failed to disjoin duthost from k8s cluster")
     logger.info(f"Successfully disjoined duthost {duthost.hostname} from k8s cluster")
 
 
+def _get_daemonset_pod_status(duthost, vmhost):
+    # Kubelet registers node names in lowercase per RFC-1123, regardless of the DUT's actual hostname case.
+    k8s_node_name = duthost.hostname.lower()
+    return vmhost.shell(
+        f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} "
+        f"--field-selector spec.nodeName={k8s_node_name}",
+        module_ignore_errors=True)
+
+
+def _is_daemonset_pod_running(duthost, vmhost):
+    status = _get_daemonset_pod_status(duthost, vmhost)
+    return "1/1" in status["stdout"] and "Running" in status["stdout"]
+
+
+def _is_daemonset_container_present(duthost):
+    result = duthost.shell(f"docker ps | grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
+    return result["stdout"].strip() != ""
+
+
+def _is_daemonset_pod_deleted(duthost, vmhost):
+    status = _get_daemonset_pod_status(duthost, vmhost)
+    return "No resources found" in status["stderr"]
+
+
+def _is_daemonset_container_absent(duthost):
+    result = duthost.shell(f"docker ps | grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
+    return result["stdout"].strip() == ""
+
+
 def deploy_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to label node and check if the daemonset pod is deployed")
-    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}=true")
-    time.sleep(15)
-    ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
-    pytest_assert("1/1" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
-    pytest_assert("Running" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
-    container_status = duthost.shell(f"docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
-    pytest_assert(container_status["stdout"] != "", "Failed to find daemonset pod from duthost")
+    # Kubelet registers node names in lowercase per RFC-1123, regardless of the DUT's actual hostname case.
+    k8s_node_name = duthost.hostname.lower()
+    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {k8s_node_name} {DAEMONSET_NODE_LABEL}=true")
+    pytest_assert(
+        wait_until(DAEMONSET_POD_TIMEOUT_SECOND, DAEMONSET_POD_CHECK_INTERVAL, 0,
+                   _is_daemonset_pod_running, duthost, vmhost),
+        "Failed to find daemonset pod from k8s")
+    pytest_assert(
+        wait_until(DAEMONSET_POD_TIMEOUT_SECOND, DAEMONSET_POD_CHECK_INTERVAL, 0,
+                   _is_daemonset_container_present, duthost),
+        "Failed to find daemonset pod from duthost")
     logger.info("Successfully deployed daemonset pod")
 
 
 def delete_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to unlabel node and check if the daemonset pod is deleted")
-    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}-")
-    time.sleep(15)
-    ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
-    pytest_assert("No resources found" in ds_pod_status["stderr"], "Failed to delete daemonset")
-    container_status = duthost.shell("docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
-    pytest_assert(container_status["stdout"] == "", "Failed to delete daemonset pod")
+    # Kubelet registers node names in lowercase per RFC-1123, regardless of the DUT's actual hostname case.
+    k8s_node_name = duthost.hostname.lower()
+    vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {k8s_node_name} {DAEMONSET_NODE_LABEL}-")
+    pytest_assert(
+        wait_until(DAEMONSET_POD_TIMEOUT_SECOND, DAEMONSET_POD_CHECK_INTERVAL, 0,
+                   _is_daemonset_pod_deleted, duthost, vmhost),
+        "Failed to delete daemonset")
+    pytest_assert(
+        wait_until(DAEMONSET_POD_TIMEOUT_SECOND, DAEMONSET_POD_CHECK_INTERVAL, 0,
+                   _is_daemonset_container_absent, duthost),
+        "Failed to delete daemonset pod")
     logger.info("Successfully deleted daemonset pod")
 
 

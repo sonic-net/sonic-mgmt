@@ -5,7 +5,12 @@ WARNING: GracefulShutdown and PowerCycle tests trigger actual power state change
 on the BMC DUT. They restore the system to its original power state after each test.
 """
 import logging
+import time
+
 import pytest
+
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module as module_api
@@ -27,8 +32,9 @@ POWER_ON_TIMEOUT = 120    # seconds to wait for x86 CPU to come out of reset
 POWER_OFF_TIMEOUT = 120   # seconds to wait for x86 CPU to be held in reset
 POLL_INTERVAL = 5         # seconds between CPU-state polls
 
-POWER_CYCLE_OFF_TIMEOUT = 30
-POWER_CYCLE_OFF_POLL = 1
+HOST_BOOT_TIMEOUT = 600      # seconds for the switch host to boot back to SSH after PowerCycle
+HOST_RESOLVE_TIMEOUT = 300   # seconds to resolve the switch host before the test issues a reset
+HOST_POLL_INTERVAL = 10      # seconds between boot-id polls
 
 SWITCH_HOST_MODULE_NAME = "SWITCH-HOST"
 MODULE_STATUS_ONLINE = "Online"
@@ -86,6 +92,48 @@ def _cpu_state_matches(cpu_running, want_running):
     running = cpu_running()
     logger.info("CPU running=%s (waiting for running=%s)", running, want_running)
     return running == want_running
+
+
+@pytest.fixture(scope="function")
+def switch_host(bmc_duthost):
+    """Return a callable resolving the host-side switch once it answers over SSH.
+
+    Building the host object gathers facts over SSH, so it cannot run while the
+    host is still booting. A preceding test in this class may have just cycled
+    the host, and the CPU leaving reset does not mean the host is up yet, so
+    resolve it lazily from the test body and retry the connection rather than
+    erroring during fixture setup. Only connection failures are retried; a
+    device that is not a BMC, or a testbed file with no host-side switch, fails
+    immediately.
+    """
+    def _switch_host():
+        deadline = time.time() + HOST_RESOLVE_TIMEOUT
+        while True:
+            try:
+                return bmc_duthost.get_bmc_host()
+            except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as e:
+                if time.time() >= deadline:
+                    pytest.fail(
+                        "Switch host was still unreachable {}s into this test, before any reset "
+                        "was issued, so it did not come back from an earlier power operation: "
+                        "{}".format(HOST_RESOLVE_TIMEOUT, e))
+                logger.info("Switch host not reachable yet, retrying in %ss", HOST_POLL_INTERVAL)
+                time.sleep(HOST_POLL_INTERVAL)
+
+    return _switch_host
+
+
+def _host_boot_id(switch_host):
+    """Return the switch host's boot id, or None while it is unreachable (e.g. mid-reboot)."""
+    try:
+        res = switch_host.command("cat /proc/sys/kernel/random/boot_id", module_ignore_errors=True)
+    except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure):
+        return None
+    if res.get("rc", 1) != 0:
+        return None
+    # An empty read is not an identity: returning "" would compare unequal to the
+    # id captured before the reset and report a reboot that never happened.
+    return res.get("stdout", "").strip() or None
 
 
 def _ensure_system_on(redfish_client, cpu_running):
@@ -204,15 +252,19 @@ class TestRedfishComputerReset:
 
         _ensure_system_on(redfish_client, cpu_running)
 
-    def test_reset_power_cycle(self, redfish_client, cpu_running):
+    def test_reset_power_cycle(self, redfish_client, cpu_running, switch_host):
         """
         Reset with valid ResetType "PowerCycle".
 
-        Observes BOTH transitions — CPU enters reset, then exits reset — so
-        the test cannot pass trivially if the BMC silently no-ops the API and
-        leaves the CPU running the whole time.
+        Proves the cycle by the switch host's boot id changing, which happens
+        only on an actual restart, so a BMC that no-ops the API still fails.
         """
         _ensure_system_on(redfish_client, cpu_running)
+
+        host = switch_host()
+        boot_id_before = _host_boot_id(host)
+        pytest_assert(boot_id_before is not None,
+                      "Could not read the switch host boot id before PowerCycle")
 
         response = redfish_client.post(RESET_PATH, json={"ResetType": "PowerCycle"})
         logger.info("POST {} ResetType=PowerCycle -> {}".format(RESET_PATH, response.status_code))
@@ -222,22 +274,15 @@ class TestRedfishComputerReset:
             "Expected HTTP 200 or 204, got: {}".format(response.status_code)
         )
 
-        # First observe the off-transition. The off-window is brief (~1-2s),
-        # so poll faster than POLL_INTERVAL to avoid missing it.
-        entered_reset = wait_until(POWER_CYCLE_OFF_TIMEOUT, POWER_CYCLE_OFF_POLL, 0,
-                                   _cpu_state_matches, cpu_running, False)
-        pytest_assert(
-            entered_reset,
-            "x86 CPU did not enter reset after PowerCycle within {}s — "
-            "BMC may have silently no-op'd the API".format(POWER_CYCLE_OFF_TIMEOUT),
-        )
+        def _host_rebooted():
+            boot_id = _host_boot_id(host)
+            return boot_id is not None and boot_id != boot_id_before
 
-        # Then wait for it to come back out.
-        reached = wait_until(POWER_ON_TIMEOUT, POLL_INTERVAL, 0,
-                             _cpu_state_matches, cpu_running, True)
-        pytest_assert(reached,
-                      "x86 CPU did not return to OUT OF RESET after PowerCycle within {}s".format(
-                          POWER_ON_TIMEOUT))
+        pytest_assert(
+            wait_until(HOST_BOOT_TIMEOUT, HOST_POLL_INTERVAL, 0, _host_rebooted),
+            "Switch host boot id did not change within {}s of PowerCycle: either the BMC "
+            "silently no-op'd the API or the host did not boot back".format(HOST_BOOT_TIMEOUT),
+        )
 
     def test_reset_invalid_type(self, redfish_client):
         """
