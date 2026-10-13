@@ -33,6 +33,7 @@
           't1-isolated-d510u2s2',
           't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
           't1-isolated-d56u2', 't1-isolated-v6-d56u2',
+          't1-d96u4',
           't2-isolated-d128s2' ]
     - &noVxlanTopos |
         topo_name in [
@@ -4015,7 +4016,7 @@ packet_trimming:
     conditions:
       - "release in ['202505']"
       - "asic_type in ['vs']"
-      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - "asic_type not in ['mellanox'] and hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5470,6 +5471,12 @@ span:
     reason: "Skipping span test on broadcom/cisco-8000 platform."
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+
+span/test_erspan_sampling_truncation.py:
+  skip:
+    reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
+    conditions:
+      - "asic_gen != 'spc5' or topo_type not in ['t0', 't1']"
 
 span/test_port_mirroring.py:
   xfail:
