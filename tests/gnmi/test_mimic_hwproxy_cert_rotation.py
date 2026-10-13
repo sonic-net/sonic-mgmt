@@ -1,25 +1,36 @@
 import pytest
 import logging
 
-from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.pygnmi_client import PygnmiClient
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, delete_gnmi_certs, \
+    prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_ptf, \
+    create_revoked_cert_and_crl, copy_certificate_to_dut
 from tests.common.utilities import get_image_type
+
+
+def _rotate_gnmi_certs(duthost, localhost, ptfhost):
+    """Regenerate the GNMI PKI and push the fresh certs to the DUT and ptf."""
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
 
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp")
 ]
 
 
 def check_gnmi_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+    dut_command = "docker exec gnmi supervisorctl status gnmi-native"
     output = duthost.shell(dut_command, module_ignore_errors=True)
     return "RUNNING" in output['stdout']
 
@@ -31,7 +42,8 @@ def check_telemetry_status(duthost):
     return "RUNNING" in output['stdout']
 
 
-def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def test_mimic_hwproxy_cert_rotation(
+        duthosts, rand_one_dut_hostname, localhost, ptfhost, request, loganalyzer):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Use bash -c to run the pipeline properly
@@ -62,63 +74,84 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
         )
 
     if gnmi_enabled:
+        # The managed fixture requires gnmi; retain legacy setup for telemetry-only DUTs.
+        gnmi_tls = request.getfixturevalue("gnmi_tls")  # noqa: F811
         cmd_feature = "docker images | grep 'docker-sonic-gnmi'"
-        result = duthost.command(cmd_feature, module_ignore_errors=True)
+        result = duthost.shell(cmd_feature, module_ignore_errors=True)
         if result["stdout"].strip():
+            unit_file_state = duthost.command(
+                "systemctl show gnmi.service --property=UnitFileState --value")["stdout"].strip()
             # disable feature
             disable_feature = 'sudo config feature state gnmi disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
-            # rotate gnmi cert
-            setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
-            # set gnmi table
-            env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-            port = env.gnmi_port
-            set_table = (
-                f'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" '
-                f'client_auth "true" '
-                f'log_level "2" '
-                f'port "{port}"'
-            )
-            duthost.command(set_table, module_ignore_errors=True)
-            set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
-                    ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
-                    server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
+            try:
+                # rotate gnmi cert
+                _rotate_gnmi_certs(duthost, localhost, ptfhost)
+                duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
+                duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
+                # set gnmi table
+                port = gnmi_tls.port
+                set_table = (
+                    f'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" '
+                    f'client_auth "true" '
+                    f'log_level "2" '
+                    f'port "{port}"'
+                )
+                duthost.command(set_table, module_ignore_errors=True)
+                set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
+                    ca_crt "/etc/sonic/telemetry/gnmiCA.cer"   \
+                    server_crt "/etc/sonic/telemetry/gnmiserver.cer"   \
                     server_key "/etc/sonic/telemetry/gnmiserver.key"'
-            duthost.command(set_table_cert, module_ignore_errors=True)
-            # enable feature
-            enable_feature = 'sudo config feature state gnmi enabled'
-            duthost.command(enable_feature, module_ignore_errors=True)
-            assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
-            ret, msg = gnmi_capabilities(duthost, localhost)
-            assert ret == 0, msg
-            assert "sonic-db" in msg, msg
-            assert "JSON_IETF" in msg, msg
+                duthost.command(set_table_cert, module_ignore_errors=True)
+                # enable feature
+                enable_feature = 'sudo config feature state gnmi enabled'
+                duthost.command(enable_feature, module_ignore_errors=True)
+                assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+                client = PygnmiClient(gnmi_tls.host, port,
+                                      ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+                                      client_key="gnmiclient.key", connect=False)
+                msg = client.capabilities()
+                assert "sonic-db" in [model["name"] for model in msg["supported_models"]], msg
+                assert "json_ietf" in msg["supported_encodings"], msg
+                if loganalyzer and unit_file_state == "generated":
+                    # featured logs enable failure for generated units even when start succeeds.
+                    loganalyzer[duthost.hostname].ignore_regex.append(
+                        r" ERR featured: \['sudo', 'systemctl', 'enable', 'gnmi\.service'\]"
+                        r" - failed: return code - 1, output:\s*$")
+            finally:
+                delete_gnmi_certs(localhost)
 
     if telemetry_enabled:
+        if not gnmi_enabled:
+            request.getfixturevalue("setup_gnmi_server")
+            request.getfixturevalue("setup_gnmi_rotated_server")
         cmd_feature = "docker images | grep 'docker-sonic-telemetry'"
         result = duthost.command(cmd_feature, module_ignore_errors=True)
         if result["stdout"].strip():
             # disable feature
             disable_feature = 'sudo config feature state telemetry disabled'
             duthost.command(disable_feature, module_ignore_errors=True)
-            # rotate telemetry cert
-            setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost)
-            # set telemetry table
-            env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-            port = env.gnmi_port
-            set_table = (
-                f'sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" '
-                f'client_auth "true" '
-                f'log_level "2" '
-                f'port "{port}"'
-            )
-            duthost.command(set_table, module_ignore_errors=True)
-            set_table_cert = 'sonic-db-cli CONFIG_DB hset "TELEMETRY|certs"   \
+            try:
+                # rotate telemetry cert
+                _rotate_gnmi_certs(duthost, localhost, ptfhost)
+                # set telemetry table
+                env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+                port = env.gnmi_port
+                set_table = (
+                    f'sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" '
+                    f'client_auth "true" '
+                    f'log_level "2" '
+                    f'port "{port}"'
+                )
+                duthost.command(set_table, module_ignore_errors=True)
+                set_table_cert = 'sonic-db-cli CONFIG_DB hset "TELEMETRY|certs"   \
                     ca_crt "/etc/sonic/telemetry/gnmiCA.pem"   \
                     server_crt "/etc/sonic/telemetry/gnmiserver.crt"   \
                     server_key "/etc/sonic/telemetry/gnmiserver.key"'
-            duthost.command(set_table_cert, module_ignore_errors=True)
-            # enable feature
-            enable_feature = 'sudo config feature state telemetry enabled'
-            duthost.command(enable_feature, module_ignore_errors=True)
-            assert wait_until(60, 3, 0, check_telemetry_status, duthost), "TELEMETRY service failed to start"
+                duthost.command(set_table_cert, module_ignore_errors=True)
+                # enable feature
+                enable_feature = 'sudo config feature state telemetry enabled'
+                duthost.command(enable_feature, module_ignore_errors=True)
+                assert wait_until(60, 3, 0, check_telemetry_status, duthost), "TELEMETRY service failed to start"
+            finally:
+                delete_gnmi_certs(localhost)
