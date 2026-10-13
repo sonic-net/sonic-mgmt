@@ -1806,9 +1806,9 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
 def testbed_is_multi_vrf(tbinfo):
     """Return True only when the topology was actually converged (multi-VRF).
 
-    ``use_converged_peers`` is intent only: converge is gated on cEOS/EOS
-    neighbors, so non-cEOS testbeds never get the convergence metadata.
-    Fall back to that flag when topo properties are unavailable.
+    ``use_converged_peers`` is intent only: each supported backend must run its
+    converger before the topology carries convergence metadata. Fall back to
+    that flag only when topology properties are unavailable.
     """
     props = tbinfo.get('topo', {}).get('properties', {})
     if props:

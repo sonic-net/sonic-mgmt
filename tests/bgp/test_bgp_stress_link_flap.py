@@ -138,16 +138,77 @@ def get_dut_listen_range(tbinfo):
     return ipv4_subnet, ipv6_subnet, spine_bp_addr
 
 
-def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
-    """Add routes on PTF to reach DUT loopback addresses via spine backplane"""
+def get_bgp_monitor_backplane(tbinfo):
+    """Return PTF monitor addresses and reachable neighbor next hops.
+
+    Ordinary topologies keep the historical shared backplane addresses.  A
+    converged cSONiC topology instead gives every logical peer an isolated
+    point-to-point backplane; the shared addresses and the original per-VM
+    ``bp_interface`` next hops are not reachable from those VRFs.  Select one
+    logical peer and use both ends of its converged backplane link.
+    """
+    properties = tbinfo['topo']['properties']
+    common = properties['configuration_properties']['common']
+    ptf_bp_v4 = common.get('nhipv4', '')
+    ptf_bp_v6 = common.get('nhipv6', '').lower()
+    _, _, spine_bp_addr = get_dut_listen_range(tbinfo)
+
+    convergence_data = properties.get('convergence_data', {})
+    if not (properties.get('topo_is_multi_vrf')
+            and convergence_data.get('vrf_name_mapping')):
+        return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, False
+
+    ptf_backplanes = convergence_data.get('ptf_backplane_addrs', {})
+    if not ptf_backplanes:
+        return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, False
+
+    logical_peer = sorted(ptf_backplanes)[0]
+    selected = ptf_backplanes[logical_peer]
+
+    def _link_endpoints(prefix):
+        interface = ipaddress.ip_interface(prefix)
+        peers = [address for address in interface.network.hosts()
+                 if address != interface.ip]
+        if len(peers) != 1:
+            raise ValueError("Expected a point-to-point backplane, got {}".format(prefix))
+        return str(interface.ip), str(peers[0])
+
+    ptf_bp_v4, neighbor_bp_v4 = _link_endpoints(selected['ipv4'])
+    ptf_bp_v6, neighbor_bp_v6 = _link_endpoints(selected['ipv6'])
+    spine_bp_addr = {
+        logical_peer: {'ipv4': neighbor_bp_v4, 'ipv6': neighbor_bp_v6}
+    }
+    logger.info(
+        "Using converged BGP Monitor backplane for %s: PTF %s/%s via %s/%s",
+        logical_peer, ptf_bp_v4, ptf_bp_v6, neighbor_bp_v4, neighbor_bp_v6)
+    return ptf_bp_v4, ptf_bp_v6, spine_bp_addr, True
+
+
+def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+                        ptf_bp_v4=None, ptf_bp_v6=None,
+                        use_converged_backplane=False):
+    """Add routes on PTF to reach DUT loopbacks via a backplane peer.
+
+    For a converged backplane, bind each reachability probe to the address
+    ExaBGP will use. Binding to the parent ``backplane`` device forces untagged
+    traffic and bypasses the VLAN subinterface selected by a converged next
+    hop. Preserve the historical commands for ordinary topologies.
+    """
     logger.info("Adding routes on PTF to reach DUT loopback addresses")
     ipv4_nh, ipv6_nh = None, None
     for spine_name, v in spine_bp_addr.items():
         # Add ptf route to dut lo address (IPv4)
         if ipv4_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
+            if use_converged_backplane:
+                route_cmd = "ip route replace {} via {} src {}".format(
+                    lo_ipv4_addr, v['ipv4'], ptf_bp_v4)
+                probe_cmd = "ping {} -c 3 -I {}".format(lo_ipv4_addr, ptf_bp_v4)
+            else:
+                route_cmd = "ip route add {} via {}".format(lo_ipv4_addr, v['ipv4'])
+                probe_cmd = "ping {} -c 3 -I backplane".format(lo_ipv4_addr)
+            ptfhost.shell(route_cmd, module_ignore_errors=True)
             time.sleep(5)
-            ipv4_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv4_addr), module_ignore_errors=True)
+            ipv4_res = ptfhost.shell(probe_cmd, module_ignore_errors=True)
             if ipv4_res['rc'] != 0:
                 ptfhost.shell("ip route del {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
             else:
@@ -156,11 +217,18 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
 
         # Add ptf route to dut lo address (IPv6)
         if ipv6_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+            if use_converged_backplane:
+                route_cmd = "ip -6 route replace {} via {} src {}".format(
+                    lo_ipv6_addr, v['ipv6'], ptf_bp_v6)
+                probe_cmd = "ping {} -c 3 -I {}".format(lo_ipv6_addr, ptf_bp_v6)
+            else:
+                route_cmd = "ip route add {} via {}".format(lo_ipv6_addr, v['ipv6'])
+                probe_cmd = "ping {} -c 3 -I backplane".format(lo_ipv6_addr)
+            ptfhost.shell(route_cmd, module_ignore_errors=True)
             time.sleep(5)
-            ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
+            ipv6_res = ptfhost.shell(probe_cmd, module_ignore_errors=True)
             if ipv6_res['rc'] != 0:
-                ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+                ptfhost.shell("ip -6 route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
             else:
                 ipv6_nh = v['ipv6']
                 logger.info("Added route to DUT loopback IPv6 {} via {}".format(lo_ipv6_addr, ipv6_nh))
@@ -752,18 +820,16 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname,
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
-        ptf_bp_v4 = common_config.get('nhipv4', '')
-        ptf_bp_v6 = common_config.get('nhipv6', '').lower()
+        ptf_bp_v4, ptf_bp_v6, spine_bp_addr, use_converged_backplane = get_bgp_monitor_backplane(tbinfo)
     except KeyError as e:
         pytest.skip("BGP Monitor test requires topology configuration_properties: missing {}".format(e))
 
     if not dut_asn or not ptf_bp_v4 or not ptf_bp_v6:
         pytest.skip("BGP Monitor test requires dut_asn and PTF backplane addresses (nhipv4/nhipv6)")
-
-    _, _, spine_bp_addr = get_dut_listen_range(tbinfo)
 
     if not spine_bp_addr:
         pytest.skip("BGP Monitor test requires spine topology with backplane interfaces")
@@ -786,7 +852,9 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname,
 
     try:
         # Add routes on PTF to reach DUT loopback addresses
-        ipv4_nh, ipv6_nh = add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr)
+        ipv4_nh, ipv6_nh = add_route_to_dut_lo(
+            ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+            ptf_bp_v4, ptf_bp_v6, use_converged_backplane)
         bgp_monitor_routes = {'ipv4_nh': ipv4_nh, 'ipv6_nh': ipv6_nh}
 
         # Setup BGP Monitor
@@ -842,18 +910,18 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_
         normalized_level = 'debug'
 
     # Get required topology information with safe key access
+    use_converged_backplane = False
     try:
         common_config = tbinfo['topo']['properties']['configuration_properties']['common']
         dut_asn = common_config.get('dut_asn')
-        ptf_bp_v4 = common_config.get('nhipv4', '')
-        ptf_bp_v6 = common_config.get('nhipv6', '').lower()
+        ptf_bp_v4, ptf_bp_v6, spine_bp_addr, use_converged_backplane = get_bgp_monitor_backplane(tbinfo)
     except KeyError as e:
         pytest.skip("BGP Sentinel and Monitor test requires topology configuration_properties: missing {}".format(e))
 
     if not dut_asn or not ptf_bp_v4 or not ptf_bp_v6:
         pytest.skip("BGP Sentinel and Monitor test requires dut_asn and PTF backplane addresses (nhipv4/nhipv6)")
 
-    ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
+    ipv4_subnet, ipv6_subnet, _ = get_dut_listen_range(tbinfo)
 
     if not ipv4_subnet or not ipv6_subnet or not spine_bp_addr:
         pytest.skip("BGP Sentinel and Monitor test requires spine topology with backplane interfaces")
@@ -879,7 +947,9 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_
         setup_bgp_sentinel(duthost, ipv4_subnet, ipv6_subnet, lo_ipv4_addr, lo_ipv6_addr, ptf_bp_v4, ptf_bp_v6)
 
         # Add routes on PTF to reach DUT loopback addresses
-        ipv4_nh, ipv6_nh = add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr)
+        ipv4_nh, ipv6_nh = add_route_to_dut_lo(
+            ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr,
+            ptf_bp_v4, ptf_bp_v6, use_converged_backplane)
         bgp_monitor_routes = {'ipv4_nh': ipv4_nh, 'ipv6_nh': ipv6_nh}
 
         # Setup BGP Monitor

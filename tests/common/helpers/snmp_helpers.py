@@ -108,23 +108,42 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         # avoids this via the EosHost branch above).
         community = creds_all_duts[duthost.hostname]['snmp_rocommunity']
         # The neighbor Loopback is not routable back from the DUT, so bind the
-        # query to the DUT-facing PortChannel1 global address via --clientaddr.
+        # query to a DUT-facing interface address via --clientaddr.
         addr_family = "-6" if isinstance(ipaddr, ipaddress.IPv6Address) else "-4"
-        # Pick the first globally-scoped address on the DUT-facing PortChannel1
-        # regardless of its prefix (IPv4 need not be in 10/8, IPv6 ULAs may be
-        # fc.. or fd..), then strip the /mask.
-        src_lookup = (
-            "ip {af} -o addr show PortChannel1 scope global 2>/dev/null | "
-            "awk '{{print $4}}' | head -n1 | cut -d/ -f1"
-        ).format(af=addr_family)
+        source_intf = "PortChannel1"
+        csonic_vrf = ""
+        if nbr.get("is_multi_vrf_peer", False):
+            csonic_vrf = nbr.get("multi_vrf_data", {}).get("vrf", "")
+            family_key = "ipv6" if isinstance(ipaddr, ipaddress.IPv6Address) else "ipv4"
+            intf_config = nbr.get("multi_vrf_data", {}).get("intf_config", {})
+            candidates = [
+                name for name, attrs in intf_config.items()
+                if isinstance(attrs, dict) and attrs.get(family_key)
+                and (name.startswith("Port-Channel") or name.startswith("Ethernet"))
+            ]
+            if candidates:
+                source_intf = candidates[0].replace("Port-Channel", "PortChannel")
+        # Keep the stock command unchanged; converged peers use the remapped
+        # interface belonging to their own VRF.
+        if csonic_vrf:
+            src_lookup = (
+                "ip {af} -o addr show dev {intf} scope global 2>/dev/null | "
+                "awk '{{print $4}}' | head -n1 | cut -d/ -f1"
+            ).format(af=addr_family, intf=shlex.quote(source_intf))
+        else:
+            src_lookup = (
+                "ip {af} -o addr show PortChannel1 scope global 2>/dev/null | "
+                "awk '{{print $4}}' | head -n1 | cut -d/ -f1"
+            ).format(af=addr_family)
         src_out = nbr['host'].command(src_lookup, module_ignore_errors=True)
         client_addr = ""
         src_stdout = src_out.get('stdout', '') if isinstance(src_out, dict) else ""
         if src_stdout and src_stdout.strip():
             client_addr = "--clientaddr={} ".format(shlex.quote(src_stdout.strip()))
-        command = "snmpwalk -v 2c -c {} {}{} {}".format(
-            shlex.quote(community), client_addr, shlex.quote(str(ip)),
-            shlex.quote(oid))
+        vrf_exec = "ip vrf exec {} ".format(shlex.quote(csonic_vrf)) if csonic_vrf else ""
+        command = "{}snmpwalk -v 2c -c {} {}{} {}".format(
+            vrf_exec, shlex.quote(community), client_addr,
+            shlex.quote(str(ip)), shlex.quote(oid))
         out = nbr['host'].command(command)
     else:
         command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(
