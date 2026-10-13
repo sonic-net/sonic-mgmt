@@ -1,11 +1,11 @@
 """System / System Recovery - config reload / reboot / power cycle link recovery validations.
 
-Implements the System Recovery test cases (C1-C5) from
+Implements the System Recovery test cases from
     ``docs/testplan/transceiver/system_test_plan.md``:
 
-  * C1    — config reload impact.
-  * C2-C4 — cold / warm / fast reboot link recovery.
-  * C5    — power cycle link recovery.
+  * test_system_config_reload_link_recovery — config reload impact.
+  * test_system_reboot_link_recovery        — cold / warm / fast reboot link recovery.
+  * test_system_power_cycle_link_recovery   — power cycle link recovery.
 
 Execution order::
 
@@ -77,8 +77,7 @@ def _link_recovery(
       * run Standard Port Recovery and Verification for every port within
         ``settle_attr`` seconds.
 
-    All per-port failures are reported in a single ``pytest.fail`` so one run
-    surfaces every issue.
+    All per-port failures are reported in a single ``pytest.fail``
     """
     ports = sorted(port_attributes_dict.keys())
     settle_sec = _system_attributes(port_attributes_dict)[settle_attr]
@@ -127,7 +126,7 @@ def _link_recovery(
 def test_system_config_reload_link_recovery(
     duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
 ):
-    """C1: Config reload the DUT and verify all transceiver ports recover cleanly."""
+    """Config reload the DUT and verify all transceiver ports recover cleanly."""
     _link_recovery(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
         "config reload", "config_reload_settle_sec",
@@ -142,7 +141,7 @@ def test_system_reboot_link_recovery(
     duthost, localhost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
     reboot_type,
 ):
-    """C2-C4: Cold / warm / fast reboot the DUT and verify all transceiver ports recover cleanly."""
+    """Cold / warm / fast reboot the DUT and verify all transceiver ports recover cleanly."""
     # Cold reboot is always supported; warm/fast are gated by a platform attr.
     if reboot_type != "cold":
         gate = f"{reboot_type}_reboot_supported"
@@ -163,7 +162,7 @@ def test_system_power_cycle_link_recovery(
     duthost, localhost, pdu_controller, port_attributes_dict,
     lport_to_first_subport_mapping, expected_pid_changes,
 ):
-    """C5: Power cycle the DUT via its PDU and verify all transceiver ports recover cleanly."""
+    """Power cycle the DUT via its PDU and verify all transceiver ports recover cleanly."""
     if not _system_attributes(port_attributes_dict).get("power_cycle_supported", False):
         pytest.skip("power_cycle_supported is False - skipping power cycle link recovery test")
     if not pdu_controller:
