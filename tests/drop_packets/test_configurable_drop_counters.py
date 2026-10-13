@@ -51,7 +51,8 @@ LINK_LOCAL_IP = "169.254.0.1"
 
 # For dualtor
 @pytest.fixture(scope='module')
-def vlan_mac(duthost):
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
     for vlan in list(config_facts.get('VLAN', {}).values()):

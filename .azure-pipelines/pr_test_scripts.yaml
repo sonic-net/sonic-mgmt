@@ -676,8 +676,16 @@ t1-lag-vpp:
   - bgp/test_bgp_port_disable.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_vnet.py
-  - bgp/test_bgpmon_v6.py
+  - bgp/test_bgp_max_route.py
+  - bgp/test_bgp_route_weight.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_prefix_list_suppress.py
   - bgp/test_traffic_shift_sup.py
+  - cacl/test_cacl_application.py
+  - cacl/test_cacl_function.py
+  - cacl/test_ebtables_application.py
+  - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -709,6 +717,7 @@ t1-lag-vpp:
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - log_fidelity/test_bgp_shutdown.py
+  - mpls/test_mpls.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py
@@ -736,6 +745,7 @@ t1-lag-vpp:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_underlay_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_ecmp_switchover.py
@@ -744,6 +754,9 @@ t1-lag-vpp:
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
   - vxlan/test_vxlan_multi_tunnel.py
+  - vxlan/test_vxlan_route_advertisement.py
+  - vxlan/test_vxlan_multiple_tunnels.py
+  - vxlan/test_vxlan_bfd_tsa.py
 
 
 t0-vpp:
@@ -772,6 +785,7 @@ t0-vpp:
   - clock/test_clock.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - crm/test_crm.py
   - crm/test_crm_available.py
   - database/test_db_config.py
   - database/test_db_scripts.py
@@ -820,7 +834,14 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - sflow/test_sflow.py
   - span/test_port_mirroring.py
+  - vlan/test_autostate_disabled.py
+  - vlan/test_host_vlan.py
+  - vlan/test_secondary_subnet.py
+  - vlan/test_vlan.py
+  - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 
 multi-asic-t1-lag:
@@ -982,6 +1003,10 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_extended.py
+  - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
+  - dualtor/test_switchover_failure.py
   - dualtor_io/test_grpc_server_failure.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
