@@ -435,6 +435,38 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
     pytest_assert(wait_until(600, 10, 0, asichost.check_bgp_session_state, neigh_ips),
                   "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
+    # Wait for route programming to complete after link flap stress.
+    # After BGP sessions re-establish, routes are re-advertised but take
+    # time to be programmed to ASIC. Without this wait, the next test's
+    # sanity check sees routeCheck failing and reboots the DUT.
+    route_check = "sudo /usr/local/bin/route_check.py"
+    for attempt in range(20):
+        result = duthost.shell(
+            route_check, module_ignore_errors=True)
+        if result.get('rc', 1) == 0:
+            logger.info(
+                "routeCheck passed (attempt %d)",
+                attempt + 1)
+            for monit_wait in range(12):
+                monit_out = duthost.shell(
+                    "sudo monit status routeCheck",
+                    module_ignore_errors=True
+                ).get('stdout', '')
+                if 'status' in monit_out and 'OK' in monit_out:
+                    logger.info(
+                        "monit routeCheck OK (poll %d)",
+                        monit_wait + 1)
+                    break
+                logger.info(
+                    "monit routeCheck refresh (%d/12)",
+                    monit_wait + 1)
+                time.sleep(30)
+            break
+        logger.info(
+            "routeCheck not ready, 15s (%d/20)",
+            attempt + 1)
+        time.sleep(15)
+
 
 async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
     logger.info("flap dut {} interface {} delay time {} timeout {}".format(
