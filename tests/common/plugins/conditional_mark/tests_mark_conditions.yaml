@@ -104,14 +104,6 @@ acl/test_acl.py::TestMultiBindingAcl:
     conditions:
       - "'dualtor' not in topo_name"
 
-acl/test_src_mac_rewrite.py:
-  skip:
-    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
-    conditions_logical_operator: or
-    conditions:
-      - "platform.startswith('x86_64-8223')"
-      - "platform.startswith('x86_64-8122')"
-
 acl/test_acl_dscp_rewrite.py:
   skip:
     reason: "Egress ACL DSCP rewrite tests only supported on Cisco 8101/8102 platforms"
@@ -148,6 +140,14 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+acl/test_src_mac_rewrite.py:
+  skip:
+    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "platform.startswith('x86_64-8223')"
+      - "platform.startswith('x86_64-8122')"
 
 acl/test_stress_acl.py:
   skip:
