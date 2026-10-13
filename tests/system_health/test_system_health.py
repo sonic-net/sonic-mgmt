@@ -49,6 +49,8 @@ FAST_INTERVAL = 10
 THERMAL_CHECK_INTERVAL = 70
 PSU_CHECK_INTERVAL = FAST_INTERVAL + 5
 WAIT_TIMEOUT = 180
+# Default polling_interval on BMC is 300s; healthd reloads config only on the next loop.
+BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT = 300
 STATE_DB = 6
 
 SERVICE_EXPECT_STATUS_DICT = {
@@ -405,7 +407,12 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                      dest=os.path.join('/tmp', EXTERNAL_CHECKER_MOCK_FILE))
         # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
         # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
-        result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info,
+        external_checker_timeout = (
+            BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT
+            if duthost.is_bmc()
+            else WAIT_TIMEOUT
+        )
+        result = wait_until(external_checker_timeout, 10, 2, check_system_health_info,
                             duthost, 'ExternalService', 'Service is not working')
         assert result is True, 'External checker does not work'
         value = redis_get_field_value(

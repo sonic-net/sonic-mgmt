@@ -208,6 +208,10 @@ def fixture_setUp(duthosts,
     # incrementing ports uniformly and keep the tighter 3% checks with the
     # shorter (1000-packet) runtime.
     if asic_type == "vpp":
+        # VPP represents a 6-way equal-cost group with 32 buckets split
+        # 7/5/5/5/5/5. Allow that structural 31.25% skew plus sampling noise
+        # while still requiring every underlay path to carry traffic.
+        data['underlay_tolerance'] = 0.40
         data['ecmp_hash_tolerance'] = 0.07
         data['ecmp_random_hash_tolerance'] = 0.20
         data['ecmp_hash_packet_count'] = 2000
