@@ -10,6 +10,7 @@ strings so the caller can aggregate them into a single ``pytest.fail``, matching
 the pattern used across the transceiver suite.
 """
 import http.client
+import json
 import logging
 import select
 import sys
@@ -65,6 +66,53 @@ POLL_INTERVAL_SEC = 2
 # the hot-swap restoration's included.
 PLATFORM_API_TIMEOUT_SEC = 60
 
+# Run with the DUT's python3 by probe_missing_xcvr_api(), as sfputil reads
+# modules.  It cannot go through the platform API server, whose JSON encoder
+# fails on the bytearray read_eeprom() returns.  The synthetic reader serves the
+# module's identifier byte and zeros for every other read, so the platform's
+# XcvrApi factory then decides on the identifier alone; it never writes the
+# module.  The factory prints, and returns no XcvrApi, when building one
+# raises, so its output is captured to tell that from an unsupported identifier.
+_XCVR_API_PROBE_PREFIX = "OIR_XCVR_API_PROBE "
+_XCVR_API_PROBE = r'''
+import contextlib
+import io
+import json
+import sys
+
+result = {"identifier": None, "xcvr_api": None, "output": "",
+          "factory_api": None, "factory_output": "", "error": None}
+output = io.StringIO()
+factory_output = io.StringIO()
+try:
+    with contextlib.redirect_stdout(output):
+        import sonic_platform.platform
+        sfp = sonic_platform.platform.Platform().get_chassis().get_sfp(int(sys.argv[1]))
+        raw = sfp.read_eeprom(0, 1)
+        if raw is None or len(raw) != 1:
+            raise ValueError("identifier read returned {!r}".format(raw))
+        identifier = raw[0]
+        result["identifier"] = identifier
+        api = sfp.get_xcvr_api()
+        result["xcvr_api"] = type(api).__name__ if api is not None else None
+
+    def read_synthetic(offset, num_bytes):
+        data = bytearray(num_bytes)
+        if offset == 0 and num_bytes:
+            data[0] = identifier
+        return data
+
+    with contextlib.redirect_stdout(factory_output):
+        factory = type(sfp._xcvr_api_factory)(read_synthetic, lambda offset, num_bytes, write_buffer: True)
+        api = factory.create_xcvr_api(**({"bank": sfp.bank} if hasattr(sfp, "bank") else {}))
+    result["factory_api"] = type(api).__name__ if api is not None else None
+except Exception as exc:
+    result["error"] = repr(exc)
+result["output"] = output.getvalue()[-1000:]
+result["factory_output"] = factory_output.getvalue()[-1000:]
+print("OIR_XCVR_API_PROBE " + json.dumps(result))
+'''
+
 TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
 STATUS_SW_REMOVED = {"cmis_state": "REMOVED", "status": "0", "error": "N/A"}
@@ -84,17 +132,33 @@ def _sfputil_show_eeprom_dom_cmd(port=None):
 
 
 # (label, command builder, lines->{port: status} reducer, empty-cage status,
-#  seated status or ``None`` for "anything but the empty-cage status",
-#  whether the CLI reads the module itself rather than xcvrd's TRANSCEIVER_INFO).
+#  seated status or ``None`` for "anything but the empty-cage status").
 # These whole-switch commands return all frontend ASICs when unqualified.
 # ``sfputil show eeprom -d`` covers both the EEPROM dump and TC1 step 3's "DOM
 # values read back empty", so the empty cage is proven without a second dump.
 _STATUS_CLIS = (
     ("sfputil show presence", cli_helpers.sfputil_show_presence_cmd,
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT),
+    ("show interfaces transceiver presence", cli_helpers.show_interfaces_transceiver_presence_cmd,
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT),
+    ("sfputil show eeprom -d", _sfputil_show_eeprom_dom_cmd,
+     reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None),
+    ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
+     reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None),
+)
+
+# The _STATUS_CLIS entries plus whether each must report the module present, for
+# a seated module the platform builds no XcvrApi for (TC6).  The sfputil CLIs
+# read the module itself and see it; the show CLIs report xcvrd's
+# TRANSCEIVER_INFO, which such a module never gets.  DOM needs an XcvrApi, so
+# the EEPROM dump is taken without it: ``-d`` exits ERROR_NOT_IMPLEMENTED on
+# platforms whose get_transceiver_info() needs no XcvrApi.
+_UNSUPPORTED_MODULE_CLIS = (
+    ("sfputil show presence", cli_helpers.sfputil_show_presence_cmd,
      parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, True),
     ("show interfaces transceiver presence", cli_helpers.show_interfaces_transceiver_presence_cmd,
      parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, False),
-    ("sfputil show eeprom -d", _sfputil_show_eeprom_dom_cmd,
+    ("sfputil show eeprom", cli_helpers.sfputil_show_eeprom_cmd,
      reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None, True),
     ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
      reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None, False),
@@ -189,20 +253,14 @@ def perform_oir(request, duthost, oir_attrs, pports, present, action=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def verify_presence_clis(duthost, lports, present, published=None):
-    """Verify the presence / EEPROM / DOM CLIs all agree with the expected seated state.
+def _verify_cli_statuses(duthost, lports, clis):
+    """Run each ``(label, command builder, reducer, empty-cage status, seated status,
+    expect present)`` CLI without a port argument and match every port's status line.
 
-    Each CLI is run without a port argument (whole-switch dump) and must exit 0;
-    the unqualified commands return all frontend ASICs. The per-port status line
-    is then matched against the expected token.  The ``sfputil`` CLIs read the
-    module itself and must report ``present``; the ``show`` CLIs report xcvrd's
-    ``TRANSCEIVER_INFO`` and must report ``published`` (default: ``present``),
-    which is ``False`` for a seated module xcvrd cannot build an XcvrApi for.
+    Each CLI must exit 0; the unqualified commands return all frontend ASICs.
     """
-    published = present if published is None else published
     failures = []
-    for label, build_cmd, reduce_output, absent_status, present_status, reads_module in _STATUS_CLIS:
-        expect_present = present if reads_module else published
+    for label, build_cmd, reduce_output, absent_status, present_status, expect_present in clis:
         result = duthost.command(build_cmd(), module_ignore_errors=True)
         if result.get("rc", RC_FAILURE) != 0:
             failures.append(
@@ -220,6 +278,26 @@ def verify_presence_clis(duthost, lports, present, published=None):
             elif not actual or actual == absent_status:
                 failures.append(f"{port} [{label}]: EEPROM not readable, got {actual!r}")
     return failures
+
+
+def verify_presence_clis(duthost, lports, present):
+    """Verify the presence / EEPROM / DOM CLIs all agree with the expected seated state.
+
+    Each CLI is run without a port argument (whole-switch dump) and must exit 0;
+    the unqualified commands return all frontend ASICs. The per-port status line
+    is then matched against the expected token.
+    """
+    return _verify_cli_statuses(duthost, lports, [cli + (present,) for cli in _STATUS_CLIS])
+
+
+def verify_unsupported_module_clis(duthost, lports):
+    """Verify the CLIs of a seated module the platform builds no XcvrApi for (TC6).
+
+    The ``sfputil`` presence and EEPROM (without DOM) CLIs must report the
+    module present, and the ``show`` CLIs must report the cage empty; see
+    :data:`_UNSUPPORTED_MODULE_CLIS`.
+    """
+    return _verify_cli_statuses(duthost, lports, _UNSUPPORTED_MODULE_CLIS)
 
 
 def _transceiver_state_tables(duthost, lports):
@@ -411,16 +489,49 @@ def wait_module_presence(conn, pport, present=True):
     return poll_ports_recovered(_check, PRESENCE_SETTLE_SEC, POLL_INTERVAL_SEC, "platform presence")
 
 
-def is_identifier_readable(conn, pport):
-    """Return whether the identifier byte (EEPROM offset 0) of the module in ``pport`` reads back.
+def probe_missing_xcvr_api(duthost, pport):
+    """Return the evidence for why the platform builds no XcvrApi for the module in ``pport``.
 
-    The XcvrApi factory picks the API class from this byte, so a module whose
-    identifier reads back yet gets no XcvrApi is unsupported, while an
-    unreadable identifier is a read error.  The server returns ``None`` for a
-    failed read and a raised call alike, and serializes the ``bytearray`` of a
-    successful read as its class name.
+    Runs :data:`_XCVR_API_PROBE` with the DUT's ``python3``, as ``sfputil``
+    reads modules: it reads the identifier byte, retries the XcvrApi in a fresh
+    process, and asks the platform's XcvrApi factory whether it builds one for
+    that identifier when every other EEPROM read succeeds.  Returns the probe's
+    ``{"identifier", "xcvr_api", "output", "factory_api", "factory_output",
+    "error"}`` result.
     """
-    return _sfp_api(conn, pport, "read_eeprom", [0, 1]) is not None
+    result = duthost.command(argv=["python3", "-c", _XCVR_API_PROBE, str(pport)], module_ignore_errors=True)
+    for line in reversed(result.get("stdout_lines", [])):
+        if line.startswith(_XCVR_API_PROBE_PREFIX):
+            return json.loads(line[len(_XCVR_API_PROBE_PREFIX):])
+    return {"error": f"XcvrApi probe exited rc={result.get('rc')} without a result: "
+                     f"{(result.get('stderr') or '')[-500:]}"}
+
+
+def missing_xcvr_api_failure(probe):
+    """Return why ``probe`` is no evidence that the module is unsupported, or ``None`` if it is.
+
+    Only an identifier the platform's factory builds no XcvrApi for, without
+    error, even with every other EEPROM read succeeding, shows that the module
+    is unsupported.  The factory also returns no XcvrApi when building one
+    raises, e.g. on a failed EEPROM read: an error, not an unsupported module.
+    """
+    if probe.get("error"):
+        return f"cannot tell why the swapped-in module has no XcvrApi: {probe['error']}"
+    identifier = f"0x{probe['identifier']:02x}"
+    if probe.get("xcvr_api"):
+        return (f"no XcvrApi for the swapped-in module (identifier {identifier}), "
+                f"yet a retry built {probe['xcvr_api']}")
+    if probe.get("factory_api"):
+        output = (probe.get("output") or "").strip()
+        return (f"no XcvrApi for the swapped-in module although the platform builds {probe['factory_api']} "
+                f"for its identifier {identifier}: a read or construction error, not an unsupported module"
+                + (f" ({output})" if output else ""))
+    factory_output = (probe.get("factory_output") or "").strip()
+    if factory_output:
+        return (f"no XcvrApi for the swapped-in module (identifier {identifier}), and building one from "
+                f"identifier {identifier} alone reported: {factory_output}; cannot tell an unsupported "
+                "module from a construction error")
+    return None
 
 
 def get_flap_counts(duthost, lports):

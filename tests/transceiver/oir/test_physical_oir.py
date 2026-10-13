@@ -92,12 +92,15 @@ def _verify_removal(duthost, port_attributes_dict, lports, link_peers, flap_base
     Only ``up_lports`` (default: all of ``lports``) had a link to lose, so only
     their flap count must move.  ``seated`` applies them to a module the
     platform builds no XcvrApi for (TC6): SONiC must treat its port as empty,
-    yet the ``sfputil`` CLIs read the module itself and xcvrd records its
-    insertion in ``TRANSCEIVER_STATUS_SW``.
+    yet the ``sfputil`` presence and EEPROM (without DOM) CLIs read the module
+    itself and xcvrd records its insertion in ``TRANSCEIVER_STATUS_SW``.
     """
     up_lports = lports if up_lports is None else up_lports
     failures = wait_ports_oper_status(duthost, lports, "down", wait_sec)
-    failures += oir_helpers.verify_presence_clis(duthost, lports, present=seated, published=False)
+    if seated:
+        failures += oir_helpers.verify_unsupported_module_clis(duthost, lports)
+    else:
+        failures += oir_helpers.verify_presence_clis(duthost, lports, present=False)
     failures += oir_helpers.verify_state_tables_removed(
         duthost, lports, wait_sec,
         status_sw=oir_helpers.STATUS_SW_INSERTED if seated else oir_helpers.STATUS_SW_REMOVED)
@@ -415,9 +418,11 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
     Returns ``(failures, up_lports)``, the lanes the module brought up.  Raises
     :class:`_TransitionNotObserved` unless the platform's presence signal sees a
     module once the operator confirms.  A TC6 module counts as unsupported only
-    if its identifier reads back yet the platform builds no XcvrApi for it;
-    SONiC must then treat its port like an empty cage (TC1).  A failed read
-    fails the step instead.
+    if its identifier reads back and the platform's XcvrApi factory builds
+    none for that identifier, without error, even when every other EEPROM read
+    succeeds; SONiC must then treat its port like an empty cage (TC1).  Any
+    other missing XcvrApi fails the step: a failed read or construction is no
+    evidence of an unsupported module.
     """
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
@@ -434,9 +439,12 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
     _require_observed(oir_helpers.wait_module_presence(conn, pport))
     api, serial = oir_helpers.read_xcvr_api(conn, pport, startup_wait)
     if api is None and expected_class != original_api["__class__"]:
-        if not oir_helpers.is_identifier_readable(conn, pport):
-            return ["no XcvrApi for the swapped-in module and its identifier byte cannot be read: "
-                    "a read error, not evidence of an unsupported module"], []
+        probe = oir_helpers.probe_missing_xcvr_api(duthost, pport)
+        failure = oir_helpers.missing_xcvr_api_failure(probe)
+        if failure:
+            return [failure], []
+        logger.info("Physical port %s: the platform builds no XcvrApi for identifier 0x%02x, "
+                    "so the swapped-in module is unsupported", pport, probe["identifier"])
         return _verify_removal(duthost, port_attributes_dict, lports, link_peers, flap_baseline, watermark,
                                shutdown_wait, up_lports=[], seated=True), []
 
