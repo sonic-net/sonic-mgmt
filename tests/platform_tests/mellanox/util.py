@@ -1,6 +1,9 @@
 import re
 import logging
 
+# Known vendor pn's that does not support Channel Monitor values.
+CHANNEL_MONITOR_DISABLED_VENDOR_PNS = {"980-9IAM2-00X001", "980-9IAM1-00X001", "NMA4OPT-XRJALMU0"}
+
 
 def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_cmd, is_flat_memory):
     """
@@ -43,6 +46,11 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
         excluded_keys = excluded_keys | {"ChannelMonitorValues", "ChannelThresholdValues", "ModuleMonitorValues",
                                          "ModuleThresholdValues", "MonitorData", "ThresholdData"}
         expected_keys = expected_keys - excluded_keys
+
+    vendor_pn = (sfp_eeprom_info.get("Vendor PN", "") or "").strip().upper()
+    if vendor_pn in CHANNEL_MONITOR_DISABLED_VENDOR_PNS:
+        excluded_keys = excluded_keys | {"ChannelMonitorValues"}
+        expected_keys = expected_keys - {"ChannelMonitorValues"}
 
     for key in expected_keys:
         assert key in sfp_eeprom_info, "key {} doesn't exist in {}".format(
@@ -119,12 +127,13 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
                 check_dom_monitor_key_and_data_format(expected_module_threshold_values_keys_and_value_pattern,
                                                       sfp_eeprom_info["ModuleThresholdValues"])
 
-            logging.info(
-                "Check if ChannelMonitorValues's value format is correct")
-            for k, v in list(sfp_eeprom_info["ChannelMonitorValues"].items()):
-                pattern = pattern_power if "Power" in k else pattern_bias
-                assert re.match(
-                    pattern, v), "Value of {}:{} format is not correct. pattern is {}".format(k, v, pattern)
+            if "ChannelMonitorValues" not in excluded_keys:
+                logging.info(
+                    "Check if ChannelMonitorValues's value format is correct")
+                for k, v in list(sfp_eeprom_info["ChannelMonitorValues"].items()):
+                    pattern = pattern_power if "Power" in k else pattern_bias
+                    assert re.match(
+                        pattern, v), "Value of {}:{} format is not correct. pattern is {}".format(k, v, pattern)
 
             logging.info(
                 "Check ModuleMonitorValues keys exist and the corresponding value format is correct")
