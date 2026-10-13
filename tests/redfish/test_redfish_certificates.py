@@ -362,7 +362,10 @@ class TestRedfishCertProvisioning:
         pytest_assert(wait_for_staging(bmc_duthost),
                       "Completed rotation was not applied")
         pytest_assert(served_serial(bmc_duthost) != before,
-                      "Completed rotation did not change the served certificate")
+                      "Completed rotation did not change the staged certificate")
+        pytest_assert(live_serial(bmc_ip, bmc_tls_certs["port"]) ==
+                      file_serial(bmc_tls_certs["server_crt"]),
+                      "bmcweb is not presenting the rotated certificate")
 
 
 class TestRedfishCertAuth:
