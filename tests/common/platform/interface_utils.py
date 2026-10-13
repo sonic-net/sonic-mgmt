@@ -15,6 +15,8 @@ from .transceiver_utils import all_transceivers_detected
 import ast
 from tests.common.mellanox_data import is_mellanox_device
 
+logger = logging.getLogger(__name__)
+
 
 def parse_intf_status(lines):
     """
@@ -48,6 +50,14 @@ def parse_intf_status(lines):
     return result
 
 
+def get_last_intf_up_ports_failure_detail(duthost):
+    """
+    After check_interface_status_of_up_ports returns False, holds a human-readable
+    reason (set on duthost by that check). Used to enrich reboot/config_reload errors.
+    """
+    return getattr(duthost, "_last_intf_up_ports_failure_detail", "")
+
+
 def get_dut_interfaces_status(duthost):
     output = duthost.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
@@ -75,8 +85,17 @@ def check_interface_status_of_up_ports(duthost):
         up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
 
     intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
-    if len(intf_facts['ansible_interface_link_down_ports']) != 0:
+    down_ports = intf_facts.get("ansible_interface_link_down_ports") or []
+    if len(down_ports) != 0:
+        detail = (
+            "admin-up ports still link-down ({}): "
+            "{}".format(len(down_ports), ", ".join(down_ports))
+        )
+        duthost._last_intf_up_ports_failure_detail = detail
+        logger.error("%s: %s", duthost.hostname, detail)
         return False
+    if hasattr(duthost, "_last_intf_up_ports_failure_detail"):
+        delattr(duthost, "_last_intf_up_ports_failure_detail")
     return True
 
 
