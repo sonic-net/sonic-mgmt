@@ -64,8 +64,8 @@ from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
-from tests.sonic_inventory import get_sonic_neighbor_vars
-from tests.sonic_inventory import register_neighbor_inventory_host
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut

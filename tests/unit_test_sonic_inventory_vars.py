@@ -7,8 +7,8 @@ Run with:
 
 import pytest
 
-from tests.sonic_inventory import get_sonic_neighbor_vars
-from tests.sonic_inventory import register_neighbor_inventory_host
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 
 
 class ContainerHost:
