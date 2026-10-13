@@ -88,7 +88,7 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
     return []
 
 
-def _perform_reboot(duthost, localhost, reboot_type):
+def _perform_reboot(duthost, localhost, reboot_type, warmboot_wait=False):
     """Reboot the DUT via the repo helper, returning once SSH reconnects.
 
     Args:
@@ -101,6 +101,7 @@ def _perform_reboot(duthost, localhost, reboot_type):
         localhost,
         reboot_type=reboot_type,
         return_after_reconnect=True,
+        wait_warmboot_finalizer=warmboot_wait,
     )
 
 
@@ -111,12 +112,12 @@ def perform_cold_reboot(duthost, localhost):
 
 def perform_warm_reboot(duthost, localhost):
     """Perform a warm reboot and return when DUT SSH connectivity is restored."""
-    _perform_reboot(duthost, localhost, "warm")
+    _perform_reboot(duthost, localhost, "warm", warmboot_wait=True)
 
 
 def perform_fast_reboot(duthost, localhost):
     """Perform a fast reboot and return when DUT SSH connectivity is restored."""
-    _perform_reboot(duthost, localhost, "fast")
+    _perform_reboot(duthost, localhost, "fast", warmboot_wait=True)
 
 
 def perform_power_cycle(duthost, localhost, pdu_controller):
