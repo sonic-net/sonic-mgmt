@@ -95,8 +95,8 @@ def configure_dut(minigraph_facts, duthosts, rand_one_dut_hostname, vnet_config,
             duthost.shell(RESTART_BGP_CMD)
 
             if not wait_until(BGP_WAIT_TIMEOUT, BGP_POLL_RATE, 0, bgp_connected, duthost):
-                logger.warning("BGP sessions not up {} seconds after BGP restart, restoring with `config_reload`".format(
-                    BGP_WAIT_TIMEOUT))
+                logger.warning("BGP sessions not up {} seconds after BGP restart, "
+                               "restoring with `config_reload`".format(BGP_WAIT_TIMEOUT))
                 config_reload(duthost)
         else:
             logger.info("Skipping cleanup")
