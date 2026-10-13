@@ -21,6 +21,42 @@ def bgp_container_name(duthost, asic_index):
     return "bgp"
 
 
+def test_zebra_uses_local_vty_socket(
+    duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index
+):
+    """Verify Zebra has no TCP VTY listener while local vtysh remains usable."""
+    duthost = duthosts[enum_frontend_dut_hostname]
+    container = bgp_container_name(duthost, enum_frontend_asic_index)
+
+    listener_cmd = (
+        "docker exec -i {} "
+        "awk '$2 ~ /:0A29$/ && $4 == \"0A\" {{ print }}' "
+        "/proc/net/tcp /proc/net/tcp6"
+    ).format(container)
+    listener_result = duthost.shell(listener_cmd, module_ignore_errors=True)
+    pytest_assert(
+        listener_result["rc"] == 0,
+        "Failed to inspect TCP listeners in {}: {}".format(
+            container, listener_result.get("stderr", "")
+        ),
+    )
+    pytest_assert(
+        not listener_result["stdout"].strip(),
+        "Zebra TCP VTY port 2601 is listening in {}: {}".format(
+            container, listener_result["stdout"]
+        ),
+    )
+
+    vtysh_cmd = 'docker exec -i {} vtysh -d zebra -c "show version"'.format(container)
+    vtysh_result = duthost.shell(vtysh_cmd, module_ignore_errors=True)
+    pytest_assert(
+        vtysh_result["rc"] == 0,
+        "Zebra is not reachable through its local vtysh socket in {}: {}".format(
+            container, vtysh_result.get("stderr", "")
+        ),
+    )
+
+
 # Function to parse the "Displayed X routes and Y total paths" line
 def parse_routes_and_paths(output):
     match = re.search(r"Displayed\s+(\d+)\s+routes\s+and\s+(\d+)\s+total paths", output)
