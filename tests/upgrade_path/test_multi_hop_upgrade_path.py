@@ -13,6 +13,7 @@ from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, chec
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa: F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa: F401
+from tests.common.fixtures.advanced_reboot import ErrorType, set_upgrade_path_error_result_custom_msg
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -58,16 +59,24 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         cleanup_prev_images(duthost)
 
         # Install base image
-        boot_into_base_image(duthost, localhost, base_image, tbinfo)
-        logger.info("Base image setup complete")
+        try:
+            boot_into_base_image(duthost, localhost, base_image, tbinfo)
+            logger.info("Base image setup complete")
+        except Exception:
+            set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
+            raise
 
     def pre_hop_setup(hop_index):
         """Run before each hop in the multi-hop upgrade path"""
         # Install target image
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
-        install_sonic(duthost, to_image, tbinfo)
-        logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
+        try:
+            install_sonic(duthost, to_image, tbinfo)
+            logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
+        except Exception:
+            set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
+            raise
 
     def post_hop_teardown(hop_index):
         """Run after each hop in the multi-hop upgrade path"""
@@ -117,16 +126,24 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         cleanup_prev_images(duthost)
 
         # Install base image
-        boot_into_base_image(duthost, localhost, base_image, tbinfo)
-        logger.info("Base image setup complete")
+        try:
+            boot_into_base_image(duthost, localhost, base_image, tbinfo)
+            logger.info("Base image setup complete")
+        except Exception:
+            set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
+            raise
 
     def pre_hop_setup(hop_index):
         """Run before each hop in the multi-hop upgrade path"""
         # Install target image
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
-        install_sonic(duthost, to_image, tbinfo)
-        logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
+        try:
+            install_sonic(duthost, to_image, tbinfo)
+            logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
+        except Exception:
+            set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
+            raise
 
     def post_hop_teardown(hop_index):
         """Run after each hop in the multi-hop upgrade path"""
