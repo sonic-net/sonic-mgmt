@@ -28,13 +28,37 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
 
+    # Back up the original ntp config so we can restore it verbatim in
+    # teardown. This avoids fragile lineinfile-based removals that can
+    # inadvertently drop directives that shipped with the package (for
+    # example ntpsec's default `restrict 127.0.0.1` / `restrict ::1`).
+    ntp_conf_backup_path = ntp_conf_path + ".sonicmgmt.bak"
+    ptfhost.command(
+        "cp -a --no-clobber {} {}".format(ntp_conf_path, ntp_conf_backup_path))
+
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         # Limit listening to the mgmt interface, to prevent socket allocation
-        # exhaustion
-        ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+        # exhaustion.  Standalone Docker PTF containers may not have a "mgmt"
+        # interface (only eth0/veth) and ntpsec cannot bind to those aliases,
+        # so only apply interface restrictions when mgmt actually exists.
+        res = ptfhost.command("ip link show mgmt", module_ignore_errors=True)
+        if res.get("rc", 1) == 0:
+            ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
+            ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+            # ntpsec resolves the "mgmt" interface name to its IPv4 address only,
+            # so add an explicit listen directive for IPv6.
+            if ptf_use_ipv6 and ptfhost.mgmt_ipv6:
+                ptfhost.lineinfile(path=ntp_conf_path, line="interface listen %s" % ptfhost.mgmt_ipv6)
 
-    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        # ntpsec dropped the classic "server 127.127.1.0" local clock address
+        # syntax; use the refclock directive and add restrict lines for ntpq.
+        ptfhost.lineinfile(path=ntp_conf_path, line="refclock local stratum 3 prefer",
+                           regexp="^(server 127\\.127\\.1\\.0|refclock local)")
+        ptfhost.lineinfile(path=ntp_conf_path, line="restrict 127.0.0.1")
+        ptfhost.lineinfile(path=ntp_conf_path, line="restrict ::1")
+    else:
+        ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # Comment out the default pool configuration
     ptfhost.lineinfile(
@@ -52,7 +76,11 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     ptfhost.lineinfile(
         path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
 
-    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ptfhost.lineinfile(path=ntp_conf_path, line="refclock local stratum 3 prefer",
+                           regexp="^(server 127\\.127\\.1\\.0|refclock local)")
+    else:
+        ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
     ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
@@ -88,21 +116,11 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     # stop ntp server
     ptfhost.service(name=ntp_service_name, state="stopped")
 
-    # restore the default pool configuration
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 0.debian.pool.ntp.org iburst", regexp="#pool.*0.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 1.debian.pool.ntp.org iburst", regexp="#pool.*1.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 2.debian.pool.ntp.org iburst", regexp="#pool.*2.debian.*pool.*ntp.*org.*")
-    ptfhost.lineinfile(
-        path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
-
-    ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
-
-    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
-        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
+    # Restore the ntp config from the backup taken during setup, then remove
+    # the backup. Using an atomic move here means any pre-existing package
+    # defaults (e.g. ntpsec's `restrict 127.0.0.1` / `restrict ::1`) are
+    # preserved regardless of what setup added or modified.
+    ptfhost.command("mv -f {} {}".format(ntp_conf_backup_path, ntp_conf_path))
 
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
