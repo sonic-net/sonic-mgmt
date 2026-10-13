@@ -171,6 +171,10 @@ def _reboot_link_recovery(
     if is_power_cycle and not pdu_controller:
         pytest.skip(f"No PDU controller for {duthost.hostname} - skipping power cycle link recovery test")
 
+    logger.info("Verifying link states for %d port(s) before reboot", len(ports))
+    if not check_links_up(duthost, port_attributes_dict)["passed"]:
+        pytest.skip("Validation on Start FAILED: some ports are down")
+
     # A reboot restarts every monitored process; tell the autouse per-test
     # health check to expect it rather than flag it as a regression.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
@@ -178,10 +182,6 @@ def _reboot_link_recovery(
 
     reboot_wait = system_attributes.get(f"{attr_prefix}_settle_sec")
     deadline = time.monotonic() + reboot_wait
-
-    logger.info("Verifying link states for %d port(s) before reboot", len(ports))
-    if not check_links_up(duthost, port_attributes_dict)["passed"]:
-        logger.warning("Validation on Start FAILED: some ports are down")
 
     logger.info("Performing %s on %s, verifying recovery within %ss",
                 op_name, duthost.hostname, reboot_wait)
