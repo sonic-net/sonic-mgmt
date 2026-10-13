@@ -42,6 +42,7 @@ DUMMY_MAC_COUNT_SLIM = 2
 FDB_POPULATE_SLEEP_TIMEOUT = 2
 FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 20
+FDB_WAIT_BETWEEN_PACKETS_TIMEOUT = 0.1
 PKT_TYPES = ["ethernet", "arp_request", "arp_reply", "cleanup"]
 
 logger = logging.getLogger(__name__)
@@ -277,7 +278,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
                         send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
                     else:
                         pytest.fail("Unknown option '{}'".format(pkt_type))
-
+                    time.sleep(FDB_WAIT_BETWEEN_PACKETS_TIMEOUT)
                 # put in set learned dummy MACs
                 fdb[port_index].update(dummy_macs)
 
