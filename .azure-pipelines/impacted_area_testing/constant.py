@@ -39,6 +39,8 @@ PR_CHECKER_TOPOLOGY_NAME = {
 # are always kept in both.
 # Rules are evaluated against the *original* checker contents
 # (order-independent).
+# Only PR builds apply these rules (get_test_scripts.py --dedup-control-plane);
+# the baseline keeps every script.
 #
 # To extend: add more pairs to cover additional topology overlaps,
 # e.g. ("t1_checker", "t2_checker") once t2 tests are stable.
