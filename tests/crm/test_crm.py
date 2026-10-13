@@ -865,15 +865,15 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after adding {total_routes} routes...")
-    expected_min_used = crm_stats_route_used + max(1, total_routes - CRM_COUNTER_TOLERANCE)
+    expected_used_after_add = crm_stats_route_used + total_routes
 
     def check_route_added():
-        return get_route_used() >= expected_min_used
+        return get_route_used() == expected_used_after_add
 
     pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added),
                   f"Route counter did not update after adding {total_routes} routes "
                   f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
-                  f"Expected: used >= {expected_min_used}, Actual: used={get_route_used()}")
+                  f"Expected: used == {expected_used_after_add}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
@@ -908,15 +908,13 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used + min(total_routes - 1, CRM_COUNTER_TOLERANCE)
-
     def check_route_deleted():
-        return get_route_used() <= expected_max_used
+        return get_route_used() == crm_stats_route_used
 
     pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_deleted),
                   f"Route counter did not update after deleting {total_routes} routes "
                   f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
-                  f"Expected: used <= {expected_max_used}, Actual: used={get_route_used()}")
+                  f"Expected: used == {crm_stats_route_used}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
