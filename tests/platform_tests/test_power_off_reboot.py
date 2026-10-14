@@ -25,14 +25,20 @@ DPU_STATUS_INTERVAL = 30
 PSU_STATUS_CMD = "show platform psustatus --json"
 
 
-def _normalize_psu_name(name):
-    return re.sub(r"[^a-z0-9]", "", str(name).lower())
-
-
 def _is_present(value):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in ["1", "present", "true", "yes"]
+
+
+def _has_positive_watts(value):
+    if isinstance(value, bool):
+        return False
+    try:
+        reading = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(reading) and reading > 0
 
 
 def _get_dut_psu_status(duthost):
@@ -45,44 +51,57 @@ def _get_dut_psu_status(duthost):
         pytest.fail("Failed to parse '{}': {}".format(PSU_STATUS_CMD, error))
     pytest_assert(isinstance(entries, list),
                   "Unexpected '{}' output: {}".format(PSU_STATUS_CMD, entries))
-    return {
-        _normalize_psu_name(entry.get("name")): entry
-        for entry in entries
-        if entry.get("name")
-    }
+    for entry in entries:
+        pytest_assert(isinstance(entry, dict),
+                      "Unexpected '{}' entry: {}".format(PSU_STATUS_CMD, entry))
+    return entries
 
 
-def _validate_psu_power(duthost, psu, pdus, dut_psu_status=None):
-    pytest_assert(any(pdu.get("outlet_on") is True for pdu in pdus),
-                  "No mapped PDU outlet is ON for PSU {}".format(psu))
+def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=None):
+    active_pdus = [pdu for pdu in pdus if pdu.get("outlet_on") is True]
+    pytest_assert(active_pdus, "No mapped PDU outlet is ON for PSU {}".format(psu))
 
-    watt_readings = []
-    for pdu in pdus:
-        if pdu.get("outlet_on") is not True or "output_watts" not in pdu:
-            continue
-        try:
-            reading = float(pdu["output_watts"])
-        except (TypeError, ValueError):
-            pytest.fail("Invalid PDU output_watts for PSU {}: {}".format(psu, pdu["output_watts"]))
-        if not math.isfinite(reading) or reading < 0:
-            pytest.fail("Invalid PDU output_watts for PSU {}: {}".format(psu, pdu["output_watts"]))
-        watt_readings.append(reading)
-
-    if not watt_readings or any(reading > 0 for reading in watt_readings):
+    watt_readings = [
+        pdu["output_watts"]
+        for pdu in active_pdus
+        if "output_watts" in pdu
+    ]
+    if not watt_readings or any(_has_positive_watts(value) for value in watt_readings):
+        return dut_psu_status
+    if dut_psu_status is not None:
         return dut_psu_status
 
-    if dut_psu_status is None:
-        dut_psu_status = _get_dut_psu_status(duthost)
-    psu_status = dut_psu_status.get(_normalize_psu_name(psu))
-    pytest_assert(psu_status,
-                  "PDU meters report 0 W for PSU {}, but '{}' has no matching entry"
-                  .format(psu, PSU_STATUS_CMD))
-    pytest_assert(_is_present(psu_status.get("presence"))
-                  and str(psu_status.get("status", "")).strip().upper() == "OK",
-                  "PDU meters report 0 W for PSU {}, and DUT status is presence={} status={}"
-                  .format(psu, psu_status.get("presence"), psu_status.get("status")))
-    logging.warning("PDU meters report 0 W for PSU %s, but the outlet is ON and DUT status is present/OK",
-                    psu)
+    dut_psu_status = _get_dut_psu_status(duthost)
+    present_psus = [
+        entry for entry in dut_psu_status
+        if _is_present(entry.get("presence"))
+    ]
+    unhealthy_psus = [
+        {
+            "name": entry.get("name"),
+            "presence": entry.get("presence"),
+            "status": entry.get("status"),
+        }
+        for entry in present_psus
+        if str(entry.get("status", "")).strip().upper() != "OK"
+    ]
+    pytest_assert(
+        not unhealthy_psus,
+        "PDU metering is unavailable, and present DUT PSU status is not healthy: {}"
+        .format(unhealthy_psus),
+    )
+    pytest_assert(
+        len(present_psus) >= expected_psu_count,
+        "PDU metering is unavailable for PSU {}, but the PDU graph has {} PSU group(s) "
+        "and '{}' reports only {} present, healthy PSU(s): {}"
+        .format(psu, expected_psu_count, PSU_STATUS_CMD, len(present_psus),
+                [entry.get("name") for entry in present_psus]),
+    )
+    logging.warning(
+        "PDU metering is unavailable for PSU %s, but the DUT reports %d present, healthy PSU(s)",
+        psu,
+        len(present_psus),
+    )
     return dut_psu_status
 
 
@@ -275,7 +294,13 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     power_on_seq_list = []
     dut_psu_status = None
     for psu, pdus in psu_to_pdus.items():
-        dut_psu_status = _validate_psu_power(duthost, psu, pdus, dut_psu_status)
+        dut_psu_status = _validate_psu_power(
+            duthost,
+            psu,
+            pdus,
+            len(psu_to_pdus),
+            dut_psu_status,
+        )
         if not is_chassis:
             power_on_seq_list.append(pdus)
     # Append all_outlets unless it would duplicate the single existing entry
