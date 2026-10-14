@@ -6238,6 +6238,12 @@ vxlan/test_vxlan_l2.py:
     conditions:
       - "'dualtor' in topo_name"
 
+vxlan/test_vxlan_l2_warm_reboot.py:
+  skip:
+    reason: "The warm-reboot rig configures one DUT, so a dual-ToR testbed skips. (The module itself skips Broadcom DNX and multi-ASIC DUTs.)"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vxlan_multi_tunnel.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. The test is not supported on SPC3 devices due to missing feature"
