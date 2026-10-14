@@ -39,6 +39,7 @@ from tests.common.platform.bmc_utils import (
     wait_host_on,
 )
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -447,6 +448,7 @@ class TestBmcctldDaemon:
             ).get('stdout', '').strip()
             pytest_assert(readback == str(test_delay),
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
+            self.duthost.shell("sudo config save -y")
 
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
             # The PDU/PSU connection graph is defined for the switch chassis, not the BMC
@@ -481,21 +483,27 @@ class TestBmcctldDaemon:
             for outlet in outlets:
                 pdu_ctrl.turn_on_outlet(outlet)
 
-            wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
+            wait_critical_processes(self.duthost, timeout=600)
 
             la.match_regex = [r".*issuing power_on.*", r".*STARTUP:.*"]
-            b_result = la.analyze(marker_b, fail=False)
             b_lines = []
-            for lines in (b_result.get("match_messages") or {}).values():
-                b_lines.extend(lines)
+
+            def power_on_logged():
+                result = la.analyze(marker_b, fail=False)
+                b_lines.clear()
+                for lines in (result.get("match_messages") or {}).values():
+                    b_lines.extend(lines)
+                return re.search(r"issuing power_on", "\n".join(b_lines)) is not None
+
+            poweron_match = wait_until(90, 5, 0, power_on_logged)
             journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
 
-            poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
                 poweron_match,
                 "After PDU-induced BMC power-loss reboot, expected "
-                "'STARTUP: ... issuing power_on' log not found in event.log"
+                "'STARTUP: ... issuing power_on' log not found in event.log; "
+                f"observed STARTUP entries: {b_lines}"
             )
         finally:
             if orig_delay and orig_delay.isdigit():
@@ -503,6 +511,13 @@ class TestBmcctldDaemon:
                     f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
                     module_ignore_errors=True
                 )
+            else:
+                self.duthost.shell(
+                    "sonic-db-cli CONFIG_DB HDEL "
+                    "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
+                    module_ignore_errors=True
+                )
+            self.duthost.shell("sudo config save -y", module_ignore_errors=True)
 
     def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
         """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.

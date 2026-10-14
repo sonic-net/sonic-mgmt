@@ -32,6 +32,24 @@ stages:
         value: $(Build.SourceBranchName)
 
     jobs:
+      - job: t0_vpp_elastictest
+        displayName: "kvmtest-t0-vpp by Elastictest"
+        timeoutInMinutes: 480
+        continueOnError: false
+        pool: sonic-ubuntu-1c
+        steps:
+          - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+            parameters:
+              TOPOLOGY: t0-vpp
+              MIN_WORKER: $(T0_VPP_INSTANCE_NUM)
+              MAX_WORKER: $(T0_VPP_INSTANCE_NUM)
+              KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+              MGMT_BRANCH: $(BUILD_BRANCH)
+              ASIC_TYPE: "vpp"
+              KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+              COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
+              STOP_ON_FAILURE: "False"
+
       - job: t1_lag_vpp_elastictest
         displayName: "kvmtest-t1-lag-vpp by Elastictest"
         timeoutInMinutes: 480
