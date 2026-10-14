@@ -83,7 +83,8 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
             # Tests may save while the management VRF is enabled.
             duthost.shell("sudo config save -y")
             duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
-        duthost.shell("config save -y")
+        if vrf_name != MGMT_VRF_NAME or mgmt_vrf_enabled:
+            duthost.shell("config save -y")
         duthost.shell("sudo systemctl restart gnmi")
 
 
@@ -142,7 +143,7 @@ def wait_bgp_neighbor(duthost):
                   "Not all BGP sessions are established on DUT")
 
 
-def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):  # noqa: F811
+def test_gnmi_configdb_incremental_01(gnmi_tls, rand_one_dut_hostname, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write, incremental config for configDB
     Toggle interface admin status
@@ -150,7 +151,7 @@ def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):  # noqa: F811
     duthost = gnmi_tls.duthost
     client = gnmi_tls.pygnmi_client
     if duthost.is_supervisor_node():
-        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % duthost.hostname)
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
     interface = get_first_interface(duthost, [vrf_config['dut_intf']])
     assert interface is not None, "Invalid interface"
     path_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status" % (interface)]
@@ -162,8 +163,8 @@ def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):  # noqa: F811
     # Check interface status and gnmi_get result
     status = get_interface_status(duthost, "admin_status", interface)
     assert status == "down", "Incremental config failed to toggle interface %s status" % interface
-    msg_list = client.get(path_list)["notification"][0]["update"]
-    assert msg_list[0]["val"] == "down", msg_list[0]
+    msg_list = [json.dumps(update["val"]) for update in client.get(path_list)["notification"][0]["update"]]
+    assert msg_list[0] == "\"down\"", msg_list[0]
 
     # Startup interface
     text = "\"up\""
@@ -172,8 +173,8 @@ def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):  # noqa: F811
     # Check interface status and gnmi_get result
     status = get_interface_status(duthost, "admin_status", interface)
     assert status == "up", "Incremental config failed to toggle interface %s status" % interface
-    msg_list = client.get(path_list)["notification"][0]["update"]
-    assert msg_list[0]["val"] == "up", msg_list[0]
+    msg_list = [json.dumps(update["val"]) for update in client.get(path_list)["notification"][0]["update"]]
+    assert msg_list[0] == "\"up\"", msg_list[0]
     # Wait for BGP neighbor to be up
     wait_bgp_neighbor(duthost)
 
@@ -323,7 +324,7 @@ def test_gnmi_configdb_streaming_onchange_02(gnmi_tls, vrf_config):  # noqa: F81
         assert "bgp_asn" in result["localhost"], "Invalid result: " + match
 
 
-def test_gnmi_configdb_full_replace_01(gnmi_tls, vrf_config):  # noqa: F811
+def test_gnmi_configdb_full_replace_01(gnmi_tls, rand_one_dut_hostname, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write, full config replace for configDB
     Toggle interface admin status
@@ -331,7 +332,7 @@ def test_gnmi_configdb_full_replace_01(gnmi_tls, vrf_config):  # noqa: F811
     duthost = gnmi_tls.duthost
     client = gnmi_tls.pygnmi_client
     if duthost.is_supervisor_node():
-        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % duthost.hostname)
+        pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
     interface = get_first_interface(duthost, [vrf_config['dut_intf']])
     assert interface is not None, "Invalid interface"
 
