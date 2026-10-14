@@ -546,6 +546,29 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
     return get_cfg_facts(duthost)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        loganalyzer_ignore_regex = [
+            ".*ERR syncd#syncd: :- addPlugins: Plugin.* already registered.*",
+            ".*ERR lag_keepalive: Failed to send LACPDU packet from interface .*",
+            ".*ERR swss#intfmgrd: :- setIntfIp: Command '/sbin/ip .*address .* failed with rc 2",
+            ".*ERR swss#intfmgrd: :- addLoopbackIntf: Command '/sbin/ip link add Loopback. "
+            "mtu 65536 type dummy' failed with rc 2",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
+
+
 def restore_config_db(localhost, duthost, ptfhost):
     # PTF-side cleanup is independent of the DUT and is the source of cross-test
     # ARP/MAC pollution if it leaks (see cleanup_vlan_peer docstring). Run it in
