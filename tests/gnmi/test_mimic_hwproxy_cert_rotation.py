@@ -160,11 +160,9 @@ def test_mimic_hwproxy_cert_rotation(
                 duthost.command(enable_feature, module_ignore_errors=True)
                 assert wait_until(60, 3, 0, check_telemetry_status, duthost, env), "TELEMETRY service failed to start"
             finally:
-                try:
-                    delete_gnmi_certs(localhost)
-                finally:
-                    output = rollback(duthost, "hwproxy_telemetry_rotation")
-                    assert output['rc'] == 0 and "Config rolled back successfully" in output['stdout'], output
-                    duthost.service(name="telemetry", state="restarted")
-                    assert wait_until(60, 3, 0, check_telemetry_status, duthost, env), \
-                        "TELEMETRY service failed to recover"
+                delete_gnmi_certs(localhost)
+                output = rollback(duthost, "hwproxy_telemetry_rotation")
+                assert output['rc'] == 0 and "Config rolled back successfully" in output['stdout'], output
+                duthost.service(name="telemetry", state="restarted")
+                assert wait_until(60, 3, 0, check_telemetry_status, duthost, env), \
+                    "TELEMETRY service failed to recover"
