@@ -141,14 +141,25 @@
   until: arp_update_result.rc == 0
 
 - name: Wait for SWSS CoppOrch default trap initialization
+  # Cold SWSS startup clears ASIC_DB; syncd publishes VIDTORID only after
+  # vendor SAI successfully creates CoppOrch's default TTL_ERROR trap.
   shell: |
-    for key in $(sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:*'); do
-      if [ "$(sonic-db-cli ASIC_DB HGET "$key" SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE)" = "SAI_HOSTIF_TRAP_TYPE_TTL_ERROR" ]; then
-        exit 0
+    set -e
+    trap_keys=$(sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:*')
+    for key in $trap_keys; do
+      trap_type=$(sonic-db-cli ASIC_DB HGET "$key" SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE)
+      if [ "$trap_type" = "SAI_HOSTIF_TRAP_TYPE_TTL_ERROR" ]; then
+        vid=${key#ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:}
+        rid=$(sonic-db-cli ASIC_DB HGET VIDTORID "$vid")
+        if [ -n "$rid" ] && [ "$rid" != "oid:0x0" ]; then
+          exit 0
+        fi
       fi
     done
+    echo "Waiting for syncd to create the default TTL_ERROR trap" >&2
     exit 1
   become: yes
+  changed_when: false
   register: copp_init_result
   until: copp_init_result.rc == 0
   retries: 60
