@@ -6,7 +6,7 @@ import shlex
 import time
 
 from .helper import is_mgmt_vrf_enabled
-from tests.common.fixtures.grpc_fixtures import gnmi_tls as managed_gnmi_tls  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import DEFAULT_VRF_NAME, MGMT_VRF_NAME, wait_until
@@ -28,46 +28,6 @@ VRF_SCENARIOS = [
     {"name": "default_2", "vrf": DEFAULT_VRF_NAME, "description": f"Default (explicit '{DEFAULT_VRF_NAME}')"},
     {"name": "mgmt", "vrf": MGMT_VRF_NAME, "description": "Management VRF"},
 ]
-
-
-def configure_gnmi_vrf(duthost, vrf_name):
-    """Set the listener VRF before managed TLS starts and probes the server."""
-    if vrf_name not in (None, DEFAULT_VRF_NAME, MGMT_VRF_NAME):
-        raise ValueError("Unsupported gNMI VRF: {}".format(vrf_name))
-
-    if vrf_name is None:
-        duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
-    else:
-        duthost.shell(
-            'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf "{}"'.format(vrf_name)
-        )
-
-
-@pytest.fixture
-def configdb_vrf(request, duthosts, rand_one_dut_hostname, vrf_config, setup_vrf_configuration):
-    """Prepare VRF before TLS readiness and restore it after managed rollback."""
-    duthost = duthosts[rand_one_dut_hostname]
-    original_vrf = duthost.shell('sonic-db-cli CONFIG_DB hget "GNMI|gnmi" vrf')["stdout"]
-    original_vrf_exists = duthost.shell('sonic-db-cli CONFIG_DB hexists "GNMI|gnmi" vrf')["stdout"] == "1"
-
-    def restore_server():
-        if original_vrf_exists:
-            duthost.shell(
-                'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(shlex.quote(original_vrf))
-            )
-        else:
-            duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
-        duthost.shell("config save -y")
-        duthost.shell("sudo systemctl restart gnmi")
-
-    request.addfinalizer(restore_server)
-    configure_gnmi_vrf(duthost, vrf_config["vrf"])
-
-
-@pytest.fixture
-def gnmi_tls(request, configdb_vrf):
-    """Resolve managed TLS only after the outer VRF fixture is active."""
-    return request.getfixturevalue("managed_gnmi_tls")
 
 
 @pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
@@ -97,15 +57,25 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
     duthost = duthosts[rand_one_dut_hostname]
     vrf_name = vrf_config["vrf"]
     mgmt_vrf_enabled = is_mgmt_vrf_enabled(duthost)
+    original_vrf = duthost.shell('sonic-db-cli CONFIG_DB hget "GNMI|gnmi" vrf')["stdout"]
+    original_vrf_exists = duthost.shell('sonic-db-cli CONFIG_DB hexists "GNMI|gnmi" vrf')["stdout"] == "1"
 
     try:
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell('sudo systemctl stop snmpd snmp-subagent', module_ignore_errors=True)
             duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"')
             duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
+        if vrf_name is None:
+            duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
+        else:
+            duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf "{}"'.format(vrf_name))
         yield vrf_config
 
     finally:
+        if original_vrf_exists:
+            duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(shlex.quote(original_vrf)))
+        else:
+            duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell('sudo systemctl stop snmpd snmp-subagent', module_ignore_errors=True)
             duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
@@ -113,6 +83,8 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
             # Tests may save while the management VRF is enabled.
             duthost.shell("sudo config save -y")
             duthost.shell('sudo systemctl start snmpd snmp-subagent', module_ignore_errors=True)
+        duthost.shell("config save -y")
+        duthost.shell("sudo systemctl restart gnmi")
 
 
 def get_first_interface(duthost, excluded_interfaces=[]):
@@ -170,7 +142,7 @@ def wait_bgp_neighbor(duthost):
                   "Not all BGP sessions are established on DUT")
 
 
-def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):
+def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write, incremental config for configDB
     Toggle interface admin status
@@ -206,7 +178,7 @@ def test_gnmi_configdb_incremental_01(gnmi_tls, vrf_config):
     wait_bgp_neighbor(duthost)
 
 
-def test_gnmi_configdb_incremental_02(gnmi_tls, vrf_config):
+def test_gnmi_configdb_incremental_02(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
@@ -241,7 +213,7 @@ test_data_metadata = [
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_polling_01(gnmi_tls, test_data, vrf_config):
+def test_gnmi_configdb_polling_01(gnmi_tls, test_data, vrf_config):  # noqa: F811
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe polling mode
@@ -256,7 +228,7 @@ def test_gnmi_configdb_polling_01(gnmi_tls, test_data, vrf_config):
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_streaming_sample_01(gnmi_tls, test_data, vrf_config):
+def test_gnmi_configdb_streaming_sample_01(gnmi_tls, test_data, vrf_config):  # noqa: F811
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe streaming sample mode
@@ -272,7 +244,7 @@ def test_gnmi_configdb_streaming_sample_01(gnmi_tls, test_data, vrf_config):
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
-def test_gnmi_configdb_streaming_onchange_01(gnmi_tls, test_data, vrf_config):
+def test_gnmi_configdb_streaming_onchange_01(gnmi_tls, test_data, vrf_config):  # noqa: F811
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe streaming onchange mode
@@ -308,7 +280,7 @@ def test_gnmi_configdb_streaming_onchange_01(gnmi_tls, test_data, vrf_config):
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
-def test_gnmi_configdb_streaming_onchange_02(gnmi_tls, vrf_config):
+def test_gnmi_configdb_streaming_onchange_02(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe table, and verify gnmi output has table key
@@ -351,7 +323,7 @@ def test_gnmi_configdb_streaming_onchange_02(gnmi_tls, vrf_config):
         assert "bgp_asn" in result["localhost"], "Invalid result: " + match
 
 
-def test_gnmi_configdb_full_replace_01(gnmi_tls, vrf_config):
+def test_gnmi_configdb_full_replace_01(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write, full config replace for configDB
     Toggle interface admin status
@@ -400,7 +372,7 @@ def test_gnmi_configdb_full_replace_01(gnmi_tls, vrf_config):
     wait_bgp_neighbor(duthost)
 
 
-def test_gnmi_configdb_set_authenticate(gnmi_tls, vrf_config):
+def test_gnmi_configdb_set_authenticate(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native write with authentication
     '''
@@ -449,7 +421,7 @@ def test_gnmi_configdb_set_authenticate(gnmi_tls, vrf_config):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-def test_gnmi_configdb_get_authenticate(gnmi_tls, vrf_config):
+def test_gnmi_configdb_get_authenticate(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native read with authentication
     '''
@@ -497,7 +469,7 @@ def test_gnmi_configdb_get_authenticate(gnmi_tls, vrf_config):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-def test_gnmi_configdb_subscribe_authenticate(gnmi_tls, vrf_config):
+def test_gnmi_configdb_subscribe_authenticate(gnmi_tls, vrf_config):  # noqa: F811
     '''
     Verify GNMI native read with authentication
     '''
