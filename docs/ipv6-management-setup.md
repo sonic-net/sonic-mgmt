@@ -297,6 +297,8 @@ proxy behavior is unchanged.
 During `deploy-mg --ipv6-only-mgmt`, `proxy_env_ipv6` is used for the DUT
 Docker proxy configuration. During test execution, `--ipv6_only_mgmt` or `-6`
 selects it for tests that consume the shared `creds` fixtures.
+Redeploying without a configured proxy removes the playbook-managed Docker
+proxy drop-in and restores direct access.
 
 ### Important notes
 
