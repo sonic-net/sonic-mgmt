@@ -119,7 +119,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 | sleep_after_dom_disable_sec | Int | 5 | O | transceivers | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
 | thermalctld_disabling_required | Bool | False | O | transceivers or platform | A flag indicating whether to disable `thermalctld` during the test. |
 | dual_bank_supported | Bool | True | O | transceivers | Whether the transceiver supports dual-bank firmware. Used to determine if both active and inactive firmware versions should be validated. |
-| gold_firmware_version | String | - | M | transceivers | The expected active/gold firmware version for modules. Used as the baseline reference for firmware version validation. |
+| gold_firmware_version | String | - | O | transceivers | The expected active/gold firmware version. Required and validated for every qualifying port with `firmware_versions`. |
 | inactive_firmware_version | String | - | O | transceivers | The expected inactive bank firmware version. Required and validated only when `dual_bank_supported` is true. |
 | old_gold_firmware_version | String | - | O | transceivers | The previously deployed gold firmware version. Used to reproduce the upgrade from the old gold to `gold_firmware_version`. |
 | cdb_background_mode_supported | Bool | - | O | transceivers | CDB background mode support. |
