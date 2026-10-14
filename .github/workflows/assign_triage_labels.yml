@@ -2,6 +2,11 @@ name: "Assign Triage Labels"
 
 on:
   pull_request_target:
+    # Release branches carry this workflow once cut, and pull_request_target
+    # runs the base branch's copy, so restrict it to master: PRs against
+    # release branches (mostly automated cherry-picks) are not labelled.
+    branches:
+      - master
     # Company labels are drawn once, when the PR has none; synchronize and
     # edited re-check the topic labels, which depend on the title and files.
     types: [opened, reopened, synchronize, edited]

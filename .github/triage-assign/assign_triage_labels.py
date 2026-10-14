@@ -6,7 +6,14 @@ the PR author belongs to.
 
 The draw is seeded from the repository name and the PR number, so it needs no
 persistent state: the same PR always yields the same companies, which makes the
-backstop scan idempotent, while the distribution across PRs stays even.
+backstop scan idempotent.
+
+The draw is uniform over the companies left after the author's is excluded, so
+load is even only among PRs with the same eligible set. Across all PRs, a
+company's share of triage falls as its share of authored PRs rises: it is
+never drawn for its own PRs, and the other companies absorb them. That is
+deliberate rather than corrected for, since weighting the draw would need each
+company's authorship share, which this stateless draw does not track.
 
 Company labels are permanent ownership markers: a PR that carries any of them is
 never redrawn, and one that carries none is labelled again by the next scan.
@@ -37,6 +44,11 @@ Modes:
   PR_NUMBER unset -> scan open pull requests against the default branch, newest
                      first, and label up to LABEL_LIMIT of the ones that carry no
                      company label yet (company and topic labels)
+
+The workflow's pull_request_target trigger is limited to the master branch, so
+PRs against release branches (mostly automated cherry-picks of already-reviewed
+changes) are never labelled, even though those branches carry this workflow
+once they are cut.
 """
 
 import csv
@@ -197,6 +209,19 @@ def load_author_map(config: dict) -> dict[str, str]:
     if not author_map:
         logger.error("%s lists no authors with a known organization; not labelling anything.", AUTHOR_MAP_URL)
         sys.exit(1)
+
+    # Organizations are matched exactly, so a new spelling of a configured
+    # company (e.g. "Microsoft Corporation") would silently match nothing.
+    # Flag any organization that names a company without being listed under it.
+    for organization in sorted(set(author_map.values())):
+        for company in config["companies"]:
+            name = company["name"].lower()
+            if name in organization and organization not in company["organizations"]:
+                logger.warning(
+                    "%s lists organization '%s', which looks like %s but is not one of its configured "
+                    "organizations; authors under it are not matched to %s.",
+                    AUTHOR_MAP_URL, organization, company["name"], company["name"],
+                )
 
     for author, organizations in sorted(seen_organizations.items()):
         if len(organizations) > 1:
@@ -376,8 +401,8 @@ def main() -> None:
     logger.info("Scanning open pull requests against %s for missing triage labels...", repo.default_branch)
     scanned = 0
     assigned = 0
-    # Release branches do not carry this workflow, so PRs against them (mostly
-    # automated cherry-picks of already-reviewed changes) are left alone.
+    # PRs against release branches (mostly automated cherry-picks of
+    # already-reviewed changes) are left alone, as the PR trigger does.
     for pull_request in repo.get_pulls(state="open", sort="created", direction="desc", base=repo.default_branch):
         if LABEL_LIMIT and assigned >= LABEL_LIMIT:
             logger.info("Reached LABEL_LIMIT of %d labelled pull requests, stopping.", LABEL_LIMIT)

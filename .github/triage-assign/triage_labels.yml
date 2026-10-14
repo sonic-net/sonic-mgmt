@@ -14,8 +14,8 @@ assignments_per_pr: 2
 # Organization values in the author map that mean "unknown", rather than "some
 # company other than the ones below". Authors carrying one of these are treated
 # as absent from the map, so the username suffix heuristic still gets a shot --
-# without this, the ~30 suffixed authors the CSV files under "Others" would
-# never be matched to their company. "author_org_dup" is a placeholder the CSV
+# without this, suffixed authors the CSV files under "Others" would never be
+# matched to their company. "author_org_dup" is a placeholder the CSV
 # uses on some duplicated rows.
 unknown_organizations:
   - Others
@@ -27,9 +27,10 @@ companies:
     # sii_author_predict.csv in sonic-net/sonic-tsc.
     organizations:
       - Arista
-    # Fallback heuristic used when the author map is unavailable or does not
-    # list the PR author: a GitHub username ending in one of these suffixes is
-    # treated as belonging to this company.
+    # Heuristic for authors the author map does not list, or files under one
+    # of the `unknown_organizations`: a GitHub username ending in one of these
+    # suffixes is treated as belonging to this company. It is not a fallback
+    # for an unavailable map; the run fails instead.
     username_suffixes:
       - "-arista"
 
