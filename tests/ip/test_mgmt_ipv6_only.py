@@ -16,7 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, tacacs_v6_context
 from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_context, ntp_daemon_in_use     # noqa: F401
-from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
+from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.syslog_helpers import run_syslog, check_default_route     # noqa: F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.fixtures.duthost_utils import duthosts_ipv6_mgmt_only  # noqa: F401
@@ -238,15 +238,15 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
     def verify_telemetry_output_ipv6_only(dut):
-        env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
+        env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
         user_auth_cmd = 'sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
         default_user_auth = dut.shell(user_auth_cmd, module_ignore_errors=False)['stdout']
 
         try:
-            with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
+            with setup_gnmi_streaming_context(True, dut, localhost, ptfhost, gnxi_path):
                 # Refresh the environment after the context has created any missing
                 # GNMI configuration so that connection parameters are current.
-                env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
+                env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
                 dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
                           % (env.gnmi_config_table), module_ignore_errors=False)
                 dut.shell("systemctl reset-failed %s" % (env.gnmi_container))

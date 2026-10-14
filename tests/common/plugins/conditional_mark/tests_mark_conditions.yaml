@@ -33,6 +33,7 @@
           't1-isolated-d510u2s2',
           't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
           't1-isolated-d56u2', 't1-isolated-v6-d56u2',
+          't1-d96u4',
           't2-isolated-d128s2' ]
     - &noVxlanTopos |
         topo_name in [
@@ -139,6 +140,14 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+acl/test_src_mac_rewrite.py:
+  skip:
+    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "platform.startswith('x86_64-8223')"
+      - "platform.startswith('x86_64-8122')"
 
 acl/test_stress_acl.py:
   skip:
@@ -481,6 +490,7 @@ bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
     conditions_logical_operator: and
+    conditions:
       - "is_multi_asic==True"
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
@@ -1108,6 +1118,15 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/21090"
       - "release in ['202012', '202205', '202305', '202311']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+
+#######################################
+#####      device_ops_agent      #####
+#######################################
+device_ops_agent/test_device_ops_agent.py:
+  skip:
+    reason: "device-ops-agent container is not present on BMC, so these tests are not applicable."
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####         dhcp_relay        #####
@@ -3532,9 +3551,9 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
+    reason: "Platform or hwsku doesn't support speed change. Skipping this test."
     conditions:
-      - "'Arista-7060X6' in hwsku"
+      - "'Arista-7060X6' in hwsku or platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
   skip:
@@ -3761,11 +3780,20 @@ kubesonic/test_k8s_join_disjoin.py:
       - "branch in ['master']"
       - "asic_type in ['vs']"
 
+#######################################
+#####            layer1           #####
+#######################################
 layer1/:
   skip:
     reason: 'Layer 1 tests require physical port interfaces, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+layer1/test_fec_error.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
 
 #######################################
 #####           lldp              #####
@@ -3996,7 +4024,7 @@ packet_trimming:
     conditions:
       - "release in ['202505']"
       - "asic_type in ['vs']"
-      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - "asic_type not in ['mellanox'] and hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5452,6 +5480,12 @@ span:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+span/test_erspan_sampling_truncation.py:
+  skip:
+    reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
+    conditions:
+      - "asic_gen != 'spc5' or topo_type not in ['t0', 't1']"
+
 span/test_port_mirroring.py:
   xfail:
     reason: "Testcase ignored on dualtor topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9647"
@@ -5669,6 +5703,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_system_status.py::test_system_is_running:
+  skip:
+    reason: "watchdog-control can not load on kvm testbed, leaving the system in 'degraded' state so 'systemctl is-system-running' never returns 'running'."
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 system_health/test_watchdog.py::test_orchagent_watchdog:
   skip:

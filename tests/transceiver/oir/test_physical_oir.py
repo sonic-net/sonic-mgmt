@@ -114,7 +114,7 @@ def _verify_removal(duthost, port_attributes_dict, lports, link_peers, flap_base
 
 def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapping,
                       lports, health_baseline, watermark, wait_sec,
-                      baseline_tables=None, baseline_sensor_data=None,
+                      *, port_peers, baseline_tables=None, baseline_sensor_data=None,
                       insert_flap_baseline=None, expected_flap_increment=1):
     """TC2 expected results for the ports whose module was just inserted."""
     recovery_start = time.monotonic()
@@ -127,6 +127,7 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
         link_up_timeout_sec=_remaining_wait(startup_deadline),
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
+        port_peers=port_peers,
     )
     failures = []
     if not port_recovery["passed"]:
@@ -227,7 +228,7 @@ def test_physical_oir_removal(
 
 def test_physical_oir_insertion(
     request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
-    oir_link_peers,
+    oir_link_peers, port_peers,
 ):
     """TC2: verify DUT state after every module under test is physically inserted."""
     pports, lports = _all_ports(oir_pport_to_lports)
@@ -260,6 +261,7 @@ def test_physical_oir_insertion(
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
             lports, health_baseline, watermark, startup_wait,
+            port_peers=port_peers,
             baseline_tables=baseline_tables,
             baseline_sensor_data=baseline_sensor_data,
             insert_flap_baseline=insert_flap_baseline)
@@ -271,7 +273,7 @@ def test_physical_oir_insertion(
 
 def test_physical_oir_simultaneous(
     request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
-    oir_link_peers,
+    oir_link_peers, port_peers,
 ):
     """TC3: remove and re-insert every module under test simultaneously."""
     pports, lports = _all_ports(oir_pport_to_lports)
@@ -304,6 +306,7 @@ def test_physical_oir_simultaneous(
     all_failures += insert_failures or _verify_insertion(
         duthost, port_attributes_dict, lport_to_first_subport_mapping,
         lports, health_baseline, watermark, startup_wait,
+        port_peers=port_peers,
         baseline_tables=baseline_tables,
         baseline_sensor_data=baseline_sensor_data,
         insert_flap_baseline=insert_flap_baseline)
@@ -315,7 +318,7 @@ def test_physical_oir_simultaneous(
 
 def test_physical_oir_stress(
     request, duthost, port_attributes_dict, oir_pport_to_lports, lport_to_first_subport_mapping,
-    oir_link_peers,
+    oir_link_peers, port_peers,
 ):
     """TC4: OIR every module repeatedly and verify recovery after the last insertion."""
     pports, lports = _all_ports(oir_pport_to_lports)
@@ -363,6 +366,7 @@ def test_physical_oir_stress(
         all_failures = _verify_insertion(
             duthost, port_attributes_dict, lport_to_first_subport_mapping,
             lports, health_baseline, watermark, startup_wait,
+            port_peers=port_peers,
             baseline_tables=baseline_tables,
             baseline_sensor_data=baseline_sensor_data,
             insert_flap_baseline=insert_flap_baseline)
