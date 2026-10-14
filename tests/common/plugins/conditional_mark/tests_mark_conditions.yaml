@@ -141,6 +141,14 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_src_mac_rewrite.py:
+  skip:
+    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "platform.startswith('x86_64-8223')"
+      - "platform.startswith('x86_64-8122')"
+
 acl/test_stress_acl.py:
   skip:
     reason: "skip for IPv6-only topologies"
