@@ -14,7 +14,6 @@ import json
 import logging
 import select
 import sys
-import time
 from collections import defaultdict
 
 from natsort import natsorted
@@ -323,11 +322,19 @@ def _transceiver_state_tables(duthost, lports):
     return tables_by_port, errors
 
 
-def _check_status_sw(duthost, port, expected):
-    entry = db_helpers.hgetall_dict(
-        duthost, "STATE_DB", f"{TRANSCEIVER_STATUS_SW}|{port}",
-        namespace=db_helpers.resolve_port_namespace(duthost, port),
-    )
+def _status_sw_entries(duthost, lports):
+    """Return ``({port: TRANSCEIVER_STATUS_SW entry}, errors)``, one STATE_DB read per ASIC namespace."""
+    entries, errors = {}, []
+    for namespace, ports in db_helpers.group_ports_by_namespace(duthost, lports).items():
+        table, err = db_helpers.get_state_db_table(duthost, TRANSCEIVER_STATUS_SW, namespace=namespace)
+        if err:
+            errors.append(f"{TRANSCEIVER_STATUS_SW} read failed: {err}")
+            continue
+        entries.update((port, table.get(port, {})) for port in ports)
+    return entries, errors
+
+
+def _check_status_sw(port, entry, expected):
     mismatches = [
         f"{field}={entry.get(field)!r} (expected {value!r})"
         for field, value in expected.items() if entry.get(field) != value
@@ -351,11 +358,14 @@ def verify_state_tables_removed(duthost, lports, wait_sec, status_sw=STATUS_SW_R
     seated module it cannot build an XcvrApi for."""
     def _check():
         tables_by_port, failures = _transceiver_state_tables(duthost, lports)
+        status_sw_entries, status_sw_errors = _status_sw_entries(duthost, lports)
+        failures += status_sw_errors
         for port in lports:
             stale = natsorted(tables_by_port.get(port, set()) - {TRANSCEIVER_STATUS_SW})
             if stale:
                 failures.append(f"{port}: STATE_DB table(s) not deleted after removal: {', '.join(stale)}")
-            failures += _check_status_sw(duthost, port, status_sw)
+            if port in status_sw_entries:
+                failures += _check_status_sw(port, status_sw_entries[port], status_sw)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB removal")
@@ -374,6 +384,8 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
 
     def _check():
         tables_by_port, failures = _transceiver_state_tables(duthost, lports)
+        status_sw_entries, status_sw_errors = _status_sw_entries(duthost, lports)
+        failures += status_sw_errors
         for port in lports:
             expected = set(baseline_tables.get(port, set()))
             if port in parents:
@@ -383,7 +395,9 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
                 failures.append(
                     f"{port}: STATE_DB table(s) not republished after insertion: {', '.join(missing)}"
                 )
-            failures += _check_status_sw(duthost, port, STATUS_SW_READY if ready else STATUS_SW_INSERTED)
+            if port in status_sw_entries:
+                failures += _check_status_sw(
+                    port, status_sw_entries[port], STATUS_SW_READY if ready else STATUS_SW_INSERTED)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
@@ -539,25 +553,39 @@ def get_flap_counts(duthost, lports):
     return {port: sentinel[0] for port, sentinel in capture_flap_sentinels(duthost, lports).items()}
 
 
-def _other_ports(duthost, port_attributes_dict, affected_lports, port_peers):
-    """Return the inventory ports neither under OIR nor linked to a port that is.
+def get_link_peers(duthost, lports, port_peers):
+    """Return ``{port: link peer}`` for the ``lports`` cabled to another port of this DUT.
 
-    A port's link peer on this DUT loses its link along with the port, so it is
-    not an unrelated port.  ``port_peers`` (the fixture of the same name) holds
-    the peers of LLDP-verified ports only; any other peer stays among these
-    ports, where it can only cause a reported failure, never hide one.
+    Such a peer loses and regains its link along with the port.  ``port_peers``
+    (the fixture of the same name) holds the peers of LLDP-verified ports only,
+    so the peer of any other port goes unnoticed.  A peer in ``lports`` is left
+    out, being under OIR itself.
     """
-    related = set(affected_lports)
-    for port in affected_lports:
+    link_peers = {}
+    for port in lports:
         peer, _ = port_peers.get(port, (None, None))
-        if peer is not None and peer.device == duthost.hostname:
-            related.add(peer.port)
-    return natsorted(set(port_attributes_dict) - related)
+        if peer is not None and peer.device == duthost.hostname and peer.port not in lports:
+            link_peers[port] = peer.port
+    return link_peers
 
 
-def get_other_ports_flap_counts(duthost, port_attributes_dict, affected_lports, port_peers):
-    """Return :func:`get_flap_counts` for every inventory port unrelated to the OIR."""
-    return get_flap_counts(duthost, _other_ports(duthost, port_attributes_dict, affected_lports, port_peers))
+def with_link_peers(duthost, lports, port_peers):
+    """Return ``lports`` followed by their :func:`get_link_peers` link peers."""
+    return lports + list(get_link_peers(duthost, lports, port_peers).values())
+
+
+def _other_ports(duthost, port_attributes_dict, affected_lports, port_peers):
+    """Return the inventory ports neither under OIR nor the link peer of a port that is.
+
+    A peer :func:`get_link_peers` misses stays among these ports, where it can
+    only cause a reported failure, never hide one.
+    """
+    return natsorted(set(port_attributes_dict) - set(with_link_peers(duthost, affected_lports, port_peers)))
+
+
+def get_other_ports_flap_sentinels(duthost, port_attributes_dict, affected_lports, port_peers):
+    """Return :func:`capture_flap_sentinels` for every inventory port unrelated to the OIR."""
+    return capture_flap_sentinels(duthost, _other_ports(duthost, port_attributes_dict, affected_lports, port_peers))
 
 
 def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1):
@@ -572,30 +600,6 @@ def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1)
             failures.append(f"{port}: flap_count not published (before={before!r}, after={after!r})")
         elif int(after) - int(before) != expected:
             failures.append(f"{port}: flap_count {before}->{after}, expected +{expected}")
-    return failures
-
-
-def verify_no_link_flap(duthost, port_attributes_dict, lports,
-                        sentinels=None, observation_start=None):
-    """Verify each port stays stable for its configured observation window."""
-    lports_by_timeout = defaultdict(list)
-    for port in lports:
-        attrs = port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]
-        lports_by_timeout[attrs["link_flap_monitor_timeout_sec"]].append(port)
-
-    if sentinels is None:
-        sentinels = capture_flap_sentinels(duthost, lports)
-    if observation_start is None:
-        observation_start = time.monotonic()
-
-    failures = []
-    for monitor_sec in sorted(lports_by_timeout):
-        elapsed_sec = time.monotonic() - observation_start
-        time.sleep(max(0, monitor_sec - elapsed_sec))
-        monitored_lports = lports_by_timeout[monitor_sec]
-        results = assert_no_flap_since(
-            duthost, monitored_lports, sentinels, elapsed_sec=monitor_sec)
-        failures += [result["details"] for result in results.values() if not result["passed"]]
     return failures
 
 
@@ -619,14 +623,15 @@ def verify_other_ports_up(duthost, port_attributes_dict, affected_lports, port_p
 def verify_other_ports_no_flap(duthost, baseline):
     """Verify no port in ``baseline`` flapped since it was captured.
 
-    ``baseline`` is :func:`get_other_ports_flap_counts`.  Those ports keep their
-    module seated and their link peer untouched throughout, so any
-    ``flap_count`` change (a single down or up transition included) means
+    ``baseline`` is :func:`get_other_ports_flap_sentinels`.  Those ports keep
+    their module seated and their link peer untouched throughout, so any change
+    of their ``flap_count``, ``last_up_time`` or ``last_down_time`` means
     another port's OIR disturbed their link.
     """
     return [
-        f"{failure} while another port's transceiver was inserted/removed"
-        for failure in verify_flap_count_increment(duthost, list(baseline), baseline, expected_increment=0)
+        f"{result['details']} while another port's transceiver was inserted/removed"
+        for result in assert_no_flap_since(duthost, list(baseline), baseline).values()
+        if not result["passed"]
     ]
 
 

@@ -44,7 +44,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 4. `port_startup_wait_sec` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is to be used to get the wait time before checking the interface operational status after the optics insertion or remote reseat.
 
-5. A port under test cabled to another port of the same DUT (self loopback topology) takes that peer port down with it, so the physical OIR checks on the other interfaces exclude the peer port. The peer port is identified only when the `verify_lldp_on_link_up` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is enabled; otherwise, it is checked like any other interface.
+5. A port under test cabled to another port of the same DUT (self loopback topology) takes that peer port down with it, so the physical OIR checks on the other interfaces exclude the peer port, which is checked against the peer port expected results instead. The peer port is identified only when the `verify_lldp_on_link_up` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is enabled; otherwise, it is checked like any other interface.
 
 #### 1.1 Online Insertion and Removal Testing
 

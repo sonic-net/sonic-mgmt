@@ -7,11 +7,13 @@ Every insertion / removal is performed by a human: the test prints a prompt on
 the terminal (pytest capture suspended) and blocks until the operator confirms,
 then waits for the DUT to observe the new presence state before verifying it.
 TC1-TC4 prompt once for every port under test; the TC5/TC6 hot swaps go one
-port at a time.  The link flap count of every other inventory port must not
-change across a whole test (a whole hot swap for TC5/TC6), set-up and re-seat
-steps included; a link peer on this DUT of a port under OIR is not "other", as
-it loses its link too.  Per-port failures are aggregated into a single
-``pytest.fail`` so one run surfaces every issue across every port under test.
+port at a time.  No other inventory port may flap across a whole test (a whole
+hot swap for TC5/TC6), set-up and re-seat steps included.  A link peer on this
+DUT of a port under OIR is not "other": it must lose and regain its link along
+with the port, which is all that is verified of a peer port; its DOM / PM /
+flag tables, and a peer on another device, are not.  Per-port failures are
+aggregated into a single ``pytest.fail`` so one run surfaces every issue across
+every port under test.
 """
 import logging
 import time
@@ -85,17 +87,40 @@ def _capture_recovery_baseline(duthost, port_attributes_dict,
     return baseline_tables, baseline_sensor_data, failures
 
 
+def _flap_monitor_sec(port_attributes_dict, lports):
+    """Return the longest ``link_flap_monitor_timeout_sec`` of ``lports``: a bulk
+    insertion is watched until the slowest port's window has passed."""
+    return max(port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]["link_flap_monitor_timeout_sec"]
+               for port in lports)
+
+
+def _verify_link_peers(duthost, peers, status, wait_sec, flap_baseline, expected_increment):
+    """The peer-port results for the link ``peers`` on this DUT of the ports under OIR:
+    each one reaches oper ``status`` and, given a ``flap_baseline``, its flap count
+    moves by ``expected_increment`` (see :func:`oir_helpers.verify_flap_count_increment`)."""
+    if not peers:
+        return []
+    failures = wait_ports_oper_status(duthost, peers, status, wait_sec)
+    if flap_baseline is not None:
+        failures += oir_helpers.verify_flap_count_increment(duthost, peers, flap_baseline, expected_increment)
+    return [f"link peer {failure}" for failure in failures]
+
+
 def _verify_removal(duthost, port_attributes_dict, lports, port_peers, flap_baseline, watermark, wait_sec,
                     up_lports=None, seated=False):
-    """TC1 expected results for the ports whose module was just removed.
+    """TC1 expected results for the ports whose module was just removed, and for
+    their link peers on this DUT.
 
+    ``flap_baseline`` holds the flap counts of the ports and their link peers.
     Only ``up_lports`` (default: all of ``lports``) had a link to lose, so only
-    their flap count must move.  ``seated`` applies them to a module the
-    platform builds no XcvrApi for (TC6): SONiC must treat its port as empty,
-    yet the ``sfputil`` presence and EEPROM (without DOM) CLIs read the module
-    itself and xcvrd records its insertion in ``TRANSCEIVER_STATUS_SW``.
+    their flap count, and their link peers', must move.  ``seated`` applies
+    them to a module the platform builds no XcvrApi for (TC6): SONiC must treat
+    its port as empty, yet the ``sfputil`` presence and EEPROM (without DOM)
+    CLIs read the module itself and xcvrd records its insertion in
+    ``TRANSCEIVER_STATUS_SW``.
     """
     up_lports = lports if up_lports is None else up_lports
+    link_peers = oir_helpers.get_link_peers(duthost, lports, port_peers)
     failures = wait_ports_oper_status(duthost, lports, "down", wait_sec)
     if seated:
         failures += oir_helpers.verify_unsupported_module_clis(duthost, lports)
@@ -108,6 +133,9 @@ def _verify_removal(duthost, port_attributes_dict, lports, port_peers, flap_base
     failures += oir_helpers.verify_flap_count_increment(
         duthost, lports, flap_baseline,
         expected_increment={port: int(port in up_lports) for port in lports})
+    failures += _verify_link_peers(
+        duthost, list(link_peers.values()), "down", wait_sec, flap_baseline,
+        {peer: int(port in up_lports) for port, peer in link_peers.items()})
     failures += oir_helpers.verify_no_kernel_errors(duthost, watermark)
     return failures
 
@@ -116,18 +144,25 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
                       lports, health_baseline, watermark, wait_sec,
                       *, port_peers, baseline_tables=None, baseline_sensor_data=None,
                       insert_flap_baseline=None, expected_flap_increment=1):
-    """TC2 expected results for the ports whose module was just inserted."""
+    """TC2 expected results for the ports whose module was just inserted, and for
+    their link peers on this DUT.
+
+    ``insert_flap_baseline`` holds the flap counts of the ports and their link
+    peers from before the insertion.
+    """
     recovery_start = time.monotonic()
     startup_deadline = recovery_start + wait_sec
     publication_deadline = recovery_start + _dom_recover_wait(
         port_attributes_dict, lports, wait_sec)
 
+    # TC2 step 4 is the shared stability sub-check, held for the flap monitoring window.
     port_recovery = standard_port_recovery_and_verification(
         duthost, lports, {port: port_attributes_dict[port] for port in lports},
         link_up_timeout_sec=_remaining_wait(startup_deadline),
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
         port_peers=port_peers,
+        stability_window_sec=_flap_monitor_sec(port_attributes_dict, lports),
     )
     failures = []
     if not port_recovery["passed"]:
@@ -147,6 +182,10 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
     if insert_flap_baseline is not None:
         failures += oir_helpers.verify_flap_count_increment(
             duthost, lports, insert_flap_baseline, expected_increment=expected_flap_increment)
+    # TC2 steps 7 and 8 for the link peers on this DUT.
+    failures += _verify_link_peers(
+        duthost, list(oir_helpers.get_link_peers(duthost, lports, port_peers).values()), "up",
+        _remaining_wait(startup_deadline), insert_flap_baseline, expected_flap_increment)
 
     failures += recovery.verify_transceiver_recovery(
         duthost,
@@ -179,13 +218,6 @@ def _verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapp
     if dom_failures:
         failures.append("DOM sensor data:\n  " + "\n  ".join(dom_failures))
 
-    failures += oir_helpers.verify_no_link_flap(
-        duthost,
-        port_attributes_dict,
-        lports,
-        sentinels=port_recovery["post_recovery_sentinels"],
-        observation_start=port_recovery["post_recovery_started_at"],
-    )
     failures += oir_helpers.verify_no_kernel_errors(duthost, watermark)
     return failures
 
@@ -196,11 +228,12 @@ def test_physical_oir_removal(
 ):
     """TC1: verify DUT state after every module under test is physically removed."""
     pports, lports = _all_ports(oir_pport_to_lports)
+    lports_and_peers = oir_helpers.with_link_peers(duthost, lports, port_peers)
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
-    flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
-    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(
+    flap_baseline = oir_helpers.get_flap_counts(duthost, lports_and_peers)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
@@ -216,7 +249,7 @@ def test_physical_oir_removal(
     all_failures += oir_helpers.perform_oir(
         request, duthost, oir_attrs, pports, present=True,
         action="INSERT the transceiver back into every port listed below")
-    all_failures += wait_ports_oper_status(duthost, lports, "up", startup_wait)
+    all_failures += wait_ports_oper_status(duthost, lports_and_peers, "up", startup_wait)
     all_failures += dom_helpers.verify_dom_thresholds_after_operation(
         duthost, port_attributes_dict, _parents_of(lports, lport_to_first_subport_mapping),
     )
@@ -232,6 +265,7 @@ def test_physical_oir_insertion(
 ):
     """TC2: verify DUT state after every module under test is physically inserted."""
     pports, lports = _all_ports(oir_pport_to_lports)
+    lports_and_peers = oir_helpers.with_link_peers(duthost, lports, port_peers)
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
 
@@ -239,21 +273,21 @@ def test_physical_oir_insertion(
     # dependent tables (flag / VDM / PM) must be republished after insertion.
     baseline_tables, baseline_sensor_data, setup_failures = _capture_recovery_baseline(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
-    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(
+    other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
 
     # Setup: every cage has to be empty before the insertion under test.
     setup_failures += oir_helpers.perform_oir(
         request, duthost, oir_attrs, pports, present=False,
         action="REMOVE the transceiver from every port listed below")
-    setup_failures += wait_ports_oper_status(duthost, lports, "down", shutdown_wait)
+    setup_failures += wait_ports_oper_status(duthost, lports_and_peers, "down", shutdown_wait)
     if setup_failures:
         pytest.fail("Physical OIR insertion (TC2) setup failures:\n  - " + "\n  - ".join(setup_failures))
 
     health_baseline = capture_baseline(duthost)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
-    insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports_and_peers)
     all_failures = oir_helpers.perform_oir(
         request, duthost, oir_attrs, pports, present=True,
         action="INSERT the transceiver into every port listed below")
@@ -277,6 +311,7 @@ def test_physical_oir_simultaneous(
 ):
     """TC3: remove and re-insert every module under test simultaneously."""
     pports, lports = _all_ports(oir_pport_to_lports)
+    lports_and_peers = oir_helpers.with_link_peers(duthost, lports, port_peers)
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     if not oir_attrs["simultaneous_oir"]:
         pytest.skip("simultaneous_oir is False")
@@ -284,8 +319,8 @@ def test_physical_oir_simultaneous(
 
     baseline_tables, baseline_sensor_data, all_failures = _capture_recovery_baseline(
         duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
-    flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
-    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(
+    flap_baseline = oir_helpers.get_flap_counts(duthost, lports_and_peers)
+    other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
@@ -299,7 +334,7 @@ def test_physical_oir_simultaneous(
     health_baseline = capture_baseline(duthost)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
-    insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports_and_peers)
     insert_failures = oir_helpers.perform_oir(
         request, duthost, oir_attrs, pports, present=True,
         action="INSERT ALL the transceivers simultaneously")
@@ -322,6 +357,7 @@ def test_physical_oir_stress(
 ):
     """TC4: OIR every module repeatedly and verify recovery after the last insertion."""
     pports, lports = _all_ports(oir_pport_to_lports)
+    lports_and_peers = oir_helpers.with_link_peers(duthost, lports, port_peers)
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     iterations = oir_attrs["physical_oir_stress_iteration"]
     if not isinstance(iterations, int) or iterations < 1:
@@ -338,7 +374,7 @@ def test_physical_oir_stress(
     health_baseline = capture_baseline(duthost)
     watermark = oir_helpers.capture_kernel_error_watermark(
         duthost, port_attributes_dict, lports)
-    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(
+    other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
     insert_flap_baseline = None
     # Only the last insertion is verified; the earlier cycles just have to
@@ -355,7 +391,7 @@ def test_physical_oir_stress(
         health_baseline = capture_baseline(duthost)
         watermark = oir_helpers.capture_kernel_error_watermark(
             duthost, port_attributes_dict, lports)
-        insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+        insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports_and_peers)
         all_failures = oir_helpers.perform_oir(
             request, duthost, oir_attrs, pports, present=True,
             action=f"INSERT ALL the transceivers (stress iteration {iteration}/{iterations})")
@@ -406,7 +442,7 @@ def _remove_module(request, duthost, port_attributes_dict, conn, pport, lports, 
     """
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, _ = _bulk_waits(port_attributes_dict, lports)
-    flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    flap_baseline = oir_helpers.get_flap_counts(duthost, oir_helpers.with_link_peers(duthost, lports, port_peers))
     watermark = oir_helpers.capture_kernel_error_watermark(duthost, port_attributes_dict, lports)
     _require_observed(oir_helpers.perform_oir(request, duthost, oir_attrs, [pport], present=False, action=action))
     _require_observed(oir_helpers.wait_module_presence(conn, pport, present=False))
@@ -430,7 +466,7 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
     """
     oir_attrs = port_attributes_dict[lports[0]][PHYSICAL_OIR_ATTRIBUTES_KEY]
     shutdown_wait, startup_wait = _bulk_waits(port_attributes_dict, lports)
-    flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+    flap_baseline = oir_helpers.get_flap_counts(duthost, oir_helpers.with_link_peers(duthost, lports, port_peers))
     watermark = oir_helpers.capture_kernel_error_watermark(duthost, port_attributes_dict, lports)
     error = oir_helpers.prompt_operator(
         request, f"INSERT a DIFFERENT transceiver of XcvrApi class {expected_class}",
@@ -471,7 +507,8 @@ def _insert_swapped_module(request, duthost, port_attributes_dict, lport_to_firs
     return failures, oir_helpers.get_oper_up_ports(duthost, lports)
 
 
-def _restore_original_module(request, duthost, port_attributes_dict, conn, pport, lports, original_serial):
+def _restore_original_module(request, duthost, port_attributes_dict, conn, pport, lports, port_peers,
+                             original_serial):
     """Hot-swap cleanup: make sure the original module is back in ``pport``.
 
     Runs whenever a hot swap ends without having seen the original module back
@@ -502,8 +539,9 @@ def _restore_original_module(request, duthost, port_attributes_dict, conn, pport
             + "; ".join(failures or [f"serial number is {serial!r}"]),
             returncode=1,
         )
-    # Let the lanes link up again so they do not flap during a later hot swap.
-    return wait_ports_oper_status(duthost, lports, "up", startup_wait)
+    # Let the lanes and their link peers link up again so they do not flap during a later hot swap.
+    return wait_ports_oper_status(
+        duthost, oir_helpers.with_link_peers(duthost, lports, port_peers), "up", startup_wait)
 
 
 def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_mapping,
@@ -529,7 +567,7 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
     if failures:
         return failures
 
-    other_flap_baseline = oir_helpers.get_other_ports_flap_counts(
+    other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
     restored = False
     try:
@@ -548,7 +586,8 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
         # Step 4: re-insert the original module; the TC2 checks apply.
         health_baseline = capture_baseline(duthost)
         watermark = oir_helpers.capture_kernel_error_watermark(duthost, port_attributes_dict, lports)
-        insert_flap_baseline = oir_helpers.get_flap_counts(duthost, lports)
+        insert_flap_baseline = oir_helpers.get_flap_counts(
+            duthost, oir_helpers.with_link_peers(duthost, lports, port_peers))
         _require_observed(oir_helpers.perform_oir(
             request, duthost, oir_attrs, [pport], present=True,
             action=f"INSERT the ORIGINAL transceiver (serial {original_serial})"))
@@ -568,7 +607,7 @@ def _hot_swap(request, duthost, port_attributes_dict, lport_to_first_subport_map
     finally:
         if not restored:
             failures += _restore_original_module(
-                request, duthost, port_attributes_dict, conn, pport, lports, original_serial)
+                request, duthost, port_attributes_dict, conn, pport, lports, port_peers, original_serial)
     failures += oir_helpers.verify_other_ports_no_flap(duthost, other_flap_baseline)
     return failures
 
