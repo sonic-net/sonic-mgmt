@@ -3,30 +3,40 @@ qos_params:
         topo-t0-standalone: &topo-t0-standalone
             cell_size: 420
             hdrm_pool_wm_multiplier: 1
+            # Sized for the NH-4210 ingress service pool (305,950 cells; one
+            # PG alone XOFFs at ~153,448). Lossless PGs are ALPHA_1, so the
+            # last PG XOFFs at (pool - filled) / 2. Its count lands ~845 cells
+            # past that, inside the smallest (30m, 1,697-cell) PG headroom.
+            # The test sends 1 + 2 * pkts_num_margin for the last PG and
+            # subtracts the margin from pkt_counts[-2], so the margin sets the
+            # last count. shared_limit_bytes only sanity-checks the counts and
+            # is the midpoint between the pre-final and total byte sums.
             shared_res_size_1:
                 ecn: 1
                 packet_size: 1500
                 cell_size: 420
-                pkts_num_margin: 2
+                pkts_num_margin: 13538
                 dscps: [3, 4]
                 pgs: [3, 4]
                 queues: [3, 4]
                 src_port_i: [0, 1]
                 dst_port_i: [3, 4]
-                pkt_counts: [1000, 1]
-                shared_limit_bytes: 1683360
+                pkt_counts: [36538, 1]
+                shared_limit_bytes: 61384680
+            # dscp 5 maps to lossy PG 0 (AZURE), which never sends PFC; reuse
+            # PG 3 on a third port as the last PG instead.
             shared_res_size_2:
                 ecn: 1
                 packet_size: 1500
                 cell_size: 420
-                pkts_num_margin: 2
-                dscps: [3, 4, 5]
-                pgs: [3, 4, 5]
-                queues: [3, 4, 5]
+                pkts_num_margin: 11789
+                dscps: [3, 4, 3]
+                pgs: [3, 4, 3]
+                queues: [3, 4, 3]
                 src_port_i: [0, 1, 2]
                 dst_port_i: [3, 4, 5]
-                pkt_counts: [800, 800, 1]
-                shared_limit_bytes: 2691360
+                pkt_counts: [15000, 26789, 1]
+                shared_limit_bytes: 70206360
             pg_min_threshold:
                 pg0_dscp: 3
                 pg1_dscp: 4
@@ -335,12 +345,12 @@ qos_params:
                     - 3
                     - 4
                     pgs_num: 2
-                    pkts_num_hdrm_full: 4494 # profile xoff (4495 cells) - 1
+                    pkts_num_hdrm_full: 4400 # under profile xoff (4495) less the PG3 trig_pfc overshoot
                     pkts_num_hdrm_partial: 4200
                     pkts_num_trig_pfc: 153448
                     pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
                     - 153448
-                    - 76724
+                    - 76500 # (pool - PG3) / 2; measured XOFF 76480
                     src_port_ids:
                     - 0
                 lossy_queue_1:
@@ -374,9 +384,9 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    # xoff_1's trig_ingr_drp less the 296-cell drop offset
-                    # measured on this chip.
-                    pkts_num_trig_ingr_drp: 157647
+                    # Lossless PG drops at 157893 cells (XOFF ~153398 + 4495 headroom);
+                    # minus the 375-pkt egress prefill the queue holds 157518.
+                    pkts_num_trig_ingr_drp: 157519
                     cell_size: 420
                     pkts_num_margin: 2
                     pkts_num_egr_mem: 374
@@ -385,7 +395,7 @@ qos_params:
                     ecn: 1
                     queue: 0
                     pkts_num_fill_min: 0
-                    pkts_num_trig_egr_drp: 153105
+                    pkts_num_trig_egr_drp: 152975 # lossy PG caps at pool / 2 (ALPHA_1)
                     cell_size: 420
                     pkts_num_margin: 2
                     pkts_num_egr_mem: 374
@@ -637,6 +647,8 @@ qos_params:
                     pkts_num_margin: 500
                     pkts_num_trig_pfc: 154848
             400000_30m:
+                # Calibrated on NH-4210 HW. Per-PG headroom is profile.xoff/cell
+                # (TM_ING_THD_PORT_PRI_GRP.HEADROOM_LIMIT_CELLS = 1697).
                 hdrm_pool_size:
                     dscps:
                     - 3
@@ -648,12 +660,17 @@ qos_params:
                     - 3
                     - 4
                     pgs_num: 2
-                    pkts_num_hdrm_full: 1696 # Actual Heardoom pool size - 1 (One packet is sent to detect the PFC)
-                    pkts_num_hdrm_partial: 1250 # Headroom Partial < Actual Heardoom pool size < Headroom Partial + 2 * margin + 1
-                    pkts_num_trig_pfc: 207822
-                    pkts_num_trig_pfc_multi: # Max packets that can be sent without invoking PFC.
-                    - 207822
-                    - 104950
+                    # Two PGs cannot exhaust the 287680-cell headroom pool, so
+                    # the final drop comes from the last PG's own 1697-cell
+                    # headroom: partial + 2 * margin + 1 overruns it.
+                    pkts_num_hdrm_full: 1500
+                    pkts_num_hdrm_partial: 1000
+                    pkts_num_trig_pfc: 153448
+                    # PG 4 shares the pool PG 3 already holds: (pool - PG3) / 2.
+                    # Measured XOFF 153398 / 76480.
+                    pkts_num_trig_pfc_multi:
+                    - 153448
+                    - 76500
                     src_port_ids:
                     - 0
                 lossy_queue_1:
@@ -687,8 +704,9 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    # Measured: filling to 155144 held 154848 and dropped 296.
-                    pkts_num_trig_ingr_drp: 154849
+                    # Lossless PG drops at 155095 cells (XOFF ~153398 + 1697 headroom);
+                    # minus the 375-pkt egress prefill the queue holds 154720.
+                    pkts_num_trig_ingr_drp: 154721
                     cell_size: 420
                     pkts_num_margin: 2
                     pkts_num_egr_mem: 374
@@ -697,8 +715,8 @@ qos_params:
                     ecn: 1
                     queue: 0
                     pkts_num_fill_min: 0
-                    # Measured: filling to 153436 held 153104 and dropped 333.
-                    pkts_num_trig_egr_drp: 153105
+                    # Lossy PG caps at pool / 2 (ALPHA_1): queue holds 152974.
+                    pkts_num_trig_egr_drp: 152975
                     cell_size: 420
                     pkts_num_margin: 2
                     pkts_num_egr_mem: 374
@@ -707,7 +725,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_margin: 300
-                    pkts_num_trig_ingr_drp: 155145 # trig_pfc + chip headroom (12747)
+                    pkts_num_trig_ingr_drp: 155145 # trig_pfc + PG headroom (1697)
                     pkts_num_trig_pfc: 153448
                 xoff_2:
                     dscp: 4
