@@ -2,6 +2,7 @@ import logging
 import pytest
 import copy
 
+from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import configure_packet_aging
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, peer_links    # noqa F401
@@ -17,7 +18,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
     get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
-    is_queue_level_trim_sent_drop_supported)
+    is_queue_level_trim_sent_drop_supported, stop_warm_reboot_traffic)
 
 
 logger = logging.getLogger(__name__)
@@ -269,8 +270,16 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
 
     with allure.step("Restore original configuration"):
         logger.info("Restoring original configuration")
-        duthost.shell("sudo config load -y /etc/sonic/config_db_before_trimming_test.json")
-        duthost.shell("sudo config save -y")
+        duthost.shell(
+            "sudo cp /etc/sonic/config_db_before_trimming_test.json /etc/sonic/config_db.json"
+        )
+        config_reload(
+            duthost,
+            config_source="config_db",
+            safe_reload=True,
+            wait_for_bgp=True,
+            check_intf_up_ports=True
+        )
 
 
 @pytest.fixture(params=SRV6_TUNNEL_MODE)
@@ -334,6 +343,18 @@ def clean_trimming_acl_tables(duthost):
 
     logger.info("Cleaning up ACL tables after testing")
     cleanup_trimming_acl(duthost)
+
+
+@pytest.fixture(scope="function")
+def clean_warm_reboot_traffic(ptfhost):
+    """
+    Stop the traffic and the capture started on the PTF host after testing.
+    """
+
+    yield
+
+    logger.info("Stopping the traffic and the capture on the PTF host after testing")
+    stop_warm_reboot_traffic(ptfhost)
 
 
 def pytest_addoption(parser):

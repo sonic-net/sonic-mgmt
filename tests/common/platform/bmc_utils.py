@@ -203,14 +203,20 @@ def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
     LogAnalyzer.analyze() instead so the scan is bounded by markers.
 
     Returns the matching lines (tail-N) as a string; empty if no match.
+
+    Ansible logs every shell/command module invocation to syslog, echoing the
+    full command line (including this search pattern) in a line tagged with
+    ``ansible-ansible.legacy.command`` / ``ansible-ansible.legacy.shell``.
+    Those lines are filtered out before ``tail`` so the scan cannot self-match
+    its own command-invocation syslog entry.
     """
     r = duthost.shell(
-        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null | tail -{tail}",
+        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null "
+        f"| grep -vE 'ansible-ansible\\.legacy\\.(command|shell)' "
+        f"| tail -{tail}",
         module_ignore_errors=True,
     )
-    if r.get('rc') == 0:
-        return (r.get('stdout', '') or '').strip()
-    return ''
+    return (r.get('stdout', '') or '').strip()
 
 
 # --- Leak-sensor injection helpers ----------------------------------------
@@ -263,6 +269,14 @@ def set_system_leak_status(duthost, status):
 def get_host_uptime(host):
     """Return `uptime -s` (boot timestamp) of the paired Switch-Host; '' on failure."""
     return host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+
+
+def get_host_boot_id(host):
+    """Return the kernel boot ID; and '' on failure."""
+    return host.shell(
+        "cat /proc/sys/kernel/random/boot_id",
+        module_ignore_errors=True
+    ).get('stdout', '').strip()
 
 
 def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
