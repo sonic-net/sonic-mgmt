@@ -12,9 +12,8 @@ import ptf.testutils as testutils
 from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.portstat_utilities import parse_portstat
+from tests.common.portstat_utilities import parse_portstat, counter_value, sum_ifaces_counts
 from tests.common.utilities import parse_rif_counters, wait_until
-from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -432,9 +431,9 @@ class TestLinkLocalIPacket:
     def check_portstat_rx_ok(duthost, dut_rx_iface):
         """Check if portstat rx_ok counter has converged to expected packet count."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
+        rx_ok = counter_value(portstat_out, dut_rx_iface, "rx_ok")
         logger.debug(f"portstat rx_ok={rx_ok} on {dut_rx_iface}, expected >= {PKT_NUM}")
-        return rx_ok >= PKT_NUM
+        return rx_ok is not None and rx_ok >= PKT_NUM
 
     @staticmethod
     def validate_counters(duthost, ptfadapter, exp_pkt, dut_rx_iface, rif_rx_ifaces, out_ptf_indices,
@@ -445,13 +444,15 @@ class TestLinkLocalIPacket:
                       f"portstat rx_ok on {dut_rx_iface} did not converge to >= {PKT_NUM} within 3s timeout")
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        if rif_support:
-            rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+        rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"]) \
+            if rif_support else {}
 
         # Rx counters Validations
-        rx_drp = int(portstat_out[dut_rx_iface]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
+        rx_drp = counter_value(portstat_out, dut_rx_iface, "rx_drp")
+        rx_err = counter_value(rif_counter_out, rif_rx_ifaces, "rx_err") \
             if rif_support and rif_rx_ifaces else 0
+        pytest_assert(rx_drp is not None and rx_err is not None,
+                      f"Rx counters not published yet: rx_drp={rx_drp}, rx_err={rx_err}")
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
                       f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}, expected both <= {PKT_NUM_ZERO}")
 
@@ -466,6 +467,8 @@ class TestLinkLocalIPacket:
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") \
             if rif_support and out_rif_ifaces else 0
+        pytest_assert(None not in (tx_ok, tx_drp, tx_err),
+                      "Tx counters not published yet: tx_ok={}, tx_drp={}, tx_err={}".format(tx_ok, tx_drp, tx_err))
         pytest_assert(tx_ok >= PKT_NUM,
                       "Forwarded {} packets in tx, expected >= {}".format(tx_ok, PKT_NUM))
         pytest_assert(max(tx_drp, tx_err) <= PKT_NUM_ZERO,
