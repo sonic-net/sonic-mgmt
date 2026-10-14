@@ -10,13 +10,6 @@ bgp/test_bgp_update_replication.py:
       - "topo_type == 't0' and asic_type in ['vs']"
 
 
-copp/test_copp.py:
-  skip:
-    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
-    conditions:
-      - "topo_type == 't0' and asic_type in ['vs']"
-
-
 drop_packets/drop_packets.py:
   skip:
     reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
