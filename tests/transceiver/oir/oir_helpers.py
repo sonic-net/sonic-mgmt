@@ -539,20 +539,25 @@ def get_flap_counts(duthost, lports):
     return {port: sentinel[0] for port, sentinel in capture_flap_sentinels(duthost, lports).items()}
 
 
-def _other_ports(port_attributes_dict, affected_lports, link_peers):
+def _other_ports(duthost, port_attributes_dict, affected_lports, port_peers):
     """Return the inventory ports neither under OIR nor linked to a port that is.
 
-    ``link_peers`` maps a port to its link peer on this DUT; the peer loses its
-    link along with the port, so it is not an unrelated port.
+    A port's link peer on this DUT loses its link along with the port, so it is
+    not an unrelated port.  ``port_peers`` (the fixture of the same name) holds
+    the peers of LLDP-verified ports only; any other peer stays among these
+    ports, where it can only cause a reported failure, never hide one.
     """
     related = set(affected_lports)
-    related.update(link_peers[port] for port in affected_lports if port in link_peers)
+    for port in affected_lports:
+        peer, _ = port_peers.get(port, (None, None))
+        if peer is not None and peer.device == duthost.hostname:
+            related.add(peer.port)
     return natsorted(set(port_attributes_dict) - related)
 
 
-def get_other_ports_flap_counts(duthost, port_attributes_dict, affected_lports, link_peers):
+def get_other_ports_flap_counts(duthost, port_attributes_dict, affected_lports, port_peers):
     """Return :func:`get_flap_counts` for every inventory port unrelated to the OIR."""
-    return get_flap_counts(duthost, _other_ports(port_attributes_dict, affected_lports, link_peers))
+    return get_flap_counts(duthost, _other_ports(duthost, port_attributes_dict, affected_lports, port_peers))
 
 
 def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1):
@@ -600,13 +605,13 @@ def get_oper_up_ports(duthost, lports):
     return [port for port in lports if (intf_status.get(port) or {}).get("oper") == "up"]
 
 
-def verify_other_ports_up(duthost, port_attributes_dict, affected_lports, link_peers):
+def verify_other_ports_up(duthost, port_attributes_dict, affected_lports, port_peers):
     """Verify every inventory port unrelated to the OIR stayed oper up."""
     intf_status = get_dut_interfaces_status(duthost)
     return [
         f"{port}: oper {(intf_status.get(port) or {}).get('oper', 'missing')}, expected up "
         "while another port's transceiver was out of its cage"
-        for port in _other_ports(port_attributes_dict, affected_lports, link_peers)
+        for port in _other_ports(duthost, port_attributes_dict, affected_lports, port_peers)
         if (intf_status.get(port) or {}).get("oper") != "up"
     ]
 
