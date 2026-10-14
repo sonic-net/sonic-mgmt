@@ -870,10 +870,12 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     def check_route_added():
         return get_route_used() == expected_used_after_add
 
-    pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added),
-                  f"Route counter did not update after adding {total_routes} routes "
-                  f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
-                  f"Expected: used == {expected_used_after_add}, Actual: used={get_route_used()}")
+    if not wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added):
+        for i in range(total_routes):
+            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
+        pytest.fail(f"Route counter did not update after adding {total_routes} routes "
+                    f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
+                    f"Expected: used == {expected_used_after_add}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
