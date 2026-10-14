@@ -24,6 +24,9 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+          # Must stay above expiry.default_days in .github/SKIP_EXPIRY_CONFIG.yaml,
+          # so every skip-tracked issue idle this long already carries
+          # skip-wf-issue-expired (checked by tools/skip_expiry/tests).
           days-before-stale: 365
           days-before-close: 14
 

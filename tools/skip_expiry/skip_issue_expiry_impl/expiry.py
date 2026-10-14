@@ -138,7 +138,13 @@ class SkipExpiryManager:
 
     def _handle_expired_transition(self, issue_ref: IssueRef, labels: set, managed_state: ManagedState) -> None:
         if managed_state.value == "expired":
-            logger.info("Issue %s already managed as expired; no action", issue_ref.html_url)
+            if EXPIRED_LABEL in labels:
+                logger.info("Issue %s already managed as expired; no action", issue_ref.html_url)
+                return
+            # The label is what the stale-issue workflow exempts, so put back one that was removed by hand.
+            # The expired comment was already posted, so don't post it again.
+            self.api_client.add_label(issue_ref, EXPIRED_LABEL)
+            logger.info("Issue %s is managed as expired but lost %s; re-added it", issue_ref.html_url, EXPIRED_LABEL)
             return
 
         if EXPIRED_LABEL not in labels:
@@ -267,6 +273,8 @@ class SkipExpiryManager:
     def _determine_action(expired_now: bool, labels: set, managed_state: ManagedState) -> str:
         if expired_now:
             if managed_state.value == "expired":
+                if EXPIRED_LABEL not in labels:
+                    return f"add_label:{EXPIRED_LABEL}"
                 return "no_action_already_expired"
 
             planned = []

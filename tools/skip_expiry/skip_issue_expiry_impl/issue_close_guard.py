@@ -2,8 +2,10 @@ import json
 import logging
 import re
 import subprocess
-from pathlib import Path
-from typing import Callable, Iterable, List, Set
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path, PurePosixPath
+from typing import Callable, ContextManager, Iterable, Iterator, List, Set
 
 from .conditional_marks import collect_github_issues_from_conditional_marks
 from .config import SkipExpiryConfig
@@ -55,7 +57,7 @@ def build_branches_to_scan(release_branches: Iterable[str]) -> List[str]:
     return ordered
 
 
-def _checkout_branch(repo_root: Path, branch: str) -> None:
+def _fetch_branch(repo_root: Path, branch: str) -> None:
     # An explicit refspec: a shallow or single-branch clone's default one only maps the cloned branch.
     subprocess.run(
         ["git", "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}", "--depth", "1"],
@@ -64,28 +66,68 @@ def _checkout_branch(repo_root: Path, branch: str) -> None:
         capture_output=True,
         text=True,
     )
-    subprocess.run(
-        ["git", "checkout", "--force", "--detach", f"origin/{branch}"],
+
+
+def _repo_relative_dir(repo_root: Path, conditional_mark_dir: str) -> str:
+    raw = Path(conditional_mark_dir)
+    if raw.is_absolute():
+        raw = raw.resolve().relative_to(repo_root.resolve())
+    return raw.as_posix().strip("/")
+
+
+@contextmanager
+def _export_branch_mark_dir(repo_root: Path, branch: str, conditional_mark_dir: str) -> Iterator[Path]:
+    """Yield a temporary copy of `conditional_mark_dir` as it is on origin/<branch>.
+
+    The files are read from git objects, so the caller's working tree and HEAD are never touched.
+    """
+    _fetch_branch(repo_root, branch)
+    ref = f"refs/remotes/origin/{branch}"
+    rel_dir = _repo_relative_dir(repo_root, conditional_mark_dir)
+    listing = subprocess.run(
+        ["git", "ls-tree", "-z", ref, "--", f"{rel_dir}/"],
         check=True,
         cwd=repo_root,
         capture_output=True,
         text=True,
     )
+    with tempfile.TemporaryDirectory(prefix="skip-expiry-") as tmp:
+        export_dir = Path(tmp)
+        for record in listing.stdout.split("\0"):
+            if not record:
+                continue
+            # "<mode> <type> <object>\t<path>"; the glob is not recursive, so only this directory's files matter.
+            meta, _, path = record.partition("\t")
+            _, object_type, object_id = meta.split()
+            if object_type != "blob":
+                continue
+            blob = subprocess.run(
+                ["git", "cat-file", "blob", object_id],
+                check=True,
+                cwd=repo_root,
+                capture_output=True,
+            )
+            (export_dir / PurePosixPath(path).name).write_bytes(blob.stdout)
+        yield export_dir
 
 
 def collect_issues_from_branches(
     repo_root: Path,
     conditional_mark_dir: str,
     branches: Iterable[str],
-    checkout_branch: Callable[[Path, str], None] = _checkout_branch,
+    export_branch: Callable[[Path, str, str], ContextManager[Path]] = _export_branch_mark_dir,
 ) -> Set[IssueRef]:
+    """Issues referenced by the conditional marks on each of `branches`, read without checking anything out.
+
+    A mark file that fails to parse on any branch raises, so the caller treats the scan as failed rather than
+    acting on a partial set.
+    """
     branch_list = list(branches)
     issues: Set[IssueRef] = set()
     for branch in branch_list:
         logger.info("Scanning conditional marks on branch %s", branch)
-        checkout_branch(repo_root, branch)
-        branch_dir = repo_root / conditional_mark_dir
-        issues.update(collect_github_issues_from_conditional_marks(branch_dir))
+        with export_branch(repo_root, branch, conditional_mark_dir) as branch_dir:
+            issues.update(collect_github_issues_from_conditional_marks(branch_dir, strict=True))
     logger.info("Collected %d unique issue(s) from %d branch(es)", len(issues), len(branch_list))
     return issues
 
@@ -138,7 +180,7 @@ def collect_tracked_issues(
 ) -> Set[IssueRef]:
     """Issues in `target_repo` referenced by conditional marks on master or any configured release branch.
 
-    Checks out each scanned branch in `repo_root` in turn, so the working tree is left on the last one.
+    Each branch is fetched into `repo_root` and read from git objects; the working tree is left untouched.
     """
     owner, _, repo = normalize_repo_name(target_repo).partition("/")
     all_branches = api_client.list_repo_branches(owner, repo)

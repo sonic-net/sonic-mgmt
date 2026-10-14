@@ -4,13 +4,12 @@ from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
-import subprocess
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 from .reporting import TestReportData, create_reporter_from_env
 
 from .conditional_marks import collect_report_entries_from_conditional_marks
-from .config import SkipExpiryConfig, load_skip_expiry_config
+from .config import load_skip_expiry_config
 from .expiry import EXPIRED_LABEL, IssueEvaluation, SkipExpiryManager
 from .github_api import GitHubApiClient
 from .issue_close_guard import collect_tracked_issues
@@ -258,45 +257,6 @@ def _build_report_row(
     )
 
 
-def _current_checkout(repo_root: Path) -> str:
-    """The branch name checked out in `repo_root`, or the commit SHA when HEAD is detached."""
-    for command in (["git", "symbolic-ref", "-q", "--short", "HEAD"], ["git", "rev-parse", "HEAD"]):
-        result = subprocess.run(command, cwd=repo_root, capture_output=True, text=True)
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    raise RuntimeError(f"Unable to determine the current checkout of {repo_root}")
-
-
-def _collect_tracked_issues_across_branches(
-    api_client: GitHubApiClient,
-    config: SkipExpiryConfig,
-    repo_root: Path,
-    conditional_mark_dir: str,
-    target_repo: str,
-) -> Set[IssueRef]:
-    """Same-repo issues referenced on master or any configured release branch, as the close guard computes them.
-
-    The scan checks out each branch in turn; the original checkout is restored afterwards.
-    """
-    original_checkout = _current_checkout(repo_root)
-    try:
-        return collect_tracked_issues(
-            api_client=api_client,
-            config=config,
-            repo_root=repo_root,
-            conditional_mark_dir=conditional_mark_dir,
-            target_repo=target_repo,
-        )
-    finally:
-        subprocess.run(
-            ["git", "checkout", "--force", original_checkout],
-            check=True,
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-        )
-
-
 def _release_unreferenced_issues(
     api_client: Any,
     manager: SkipExpiryManager,
@@ -311,8 +271,14 @@ def _release_unreferenced_issues(
         return True
 
     owner, repo = _normalize_repo_name(target_repo)
+    try:
+        labelled_issues = api_client.list_open_issues_with_label(owner, repo, EXPIRED_LABEL)
+    except Exception:
+        logger.exception("Failed to list open issues labelled %s; not removing it from any issue", EXPIRED_LABEL)
+        return True
+
     had_errors = False
-    for issue_ref in api_client.list_open_issues_with_label(owner, repo, EXPIRED_LABEL):
+    for issue_ref in labelled_issues:
         if issue_ref in tracked_issues:
             continue
         try:
@@ -404,7 +370,7 @@ def run() -> int:
     # the expired label must stay on any issue still referenced anywhere (the stale bot exempts it).
     tracked_issues: Optional[Set[IssueRef]] = None
     try:
-        tracked_issues = _collect_tracked_issues_across_branches(
+        tracked_issues = collect_tracked_issues(
             api_client=api_client,
             config=config,
             repo_root=repo_root,
@@ -422,10 +388,11 @@ def run() -> int:
             "Found %d same-repo issue(s) referenced only on release branches", len(release_only_issues)
         )
         issues = sorted(set(issues).union(release_only_issues))
+    total_references = set(all_issues).union(tracked_issues or set())
     logging.getLogger(__name__).info(
         "Evaluating %d same-repo issue(s) from %d total reference(s) for target %s",
         len(issues),
-        len(all_issues),
+        len(total_references),
         args.target_repo,
     )
     if skipped_issues:
@@ -465,7 +432,8 @@ def run() -> int:
             logging.getLogger(__name__).exception("Failed to process %s", issue_ref.html_url)
 
     if tracked_issues is not None:
-        if _release_unreferenced_issues(api_client, manager, args.target_repo, set(issues)):
+        # The branch scan alone, not unioned with the current checkout, so an empty scan keeps every label.
+        if _release_unreferenced_issues(api_client, manager, args.target_repo, tracked_issues):
             had_errors = True
 
     if reporter:
