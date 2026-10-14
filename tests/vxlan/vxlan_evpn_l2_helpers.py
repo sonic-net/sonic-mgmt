@@ -189,6 +189,13 @@ class Leaves(object):
         self.remove_files()
         return "LEAVES_DOWN" in out
 
+    def uplink_mac(self, leaf):
+        """The MAC of the leaf's uplink: the outer destination MAC of what the DUT sends to the leaf."""
+        mac = self.run("ulmac", leaf).strip().lower()
+        if not re.match(r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$", mac):
+            raise RuntimeError("leaf {}: no uplink MAC ('{}')".format(leaf, mac))
+        return mac
+
     def fdb(self, op, leaf, mac, vid, dev="hb", static=False):
         """Add or remove a local MAC on the leaf; static=True adds it static and sticky (FRR advertises it with the
         MAC mobility sticky bit, and the receiving zebra installs it so that no local learning can move it)."""

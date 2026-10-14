@@ -11,6 +11,17 @@
 #   vxlan_evpn_l2_leaves.sh <env-file> vnidel <leaf> <vid> <vni>   (undoes vniadd)
 #   vxlan_evpn_l2_leaves.sh <env-file> send <leaf> <dst-mac> <src-mac> <count> <tag>   (untagged, from the host)
 #   vxlan_evpn_l2_leaves.sh <env-file> fdbshow <leaf>        (bridge -j fdb show of the leaf)
+#   vxlan_evpn_l2_leaves.sh <env-file> show <leaf> <words...>   (vtysh -c 'show <words...>' on the leaf)
+#   vxlan_evpn_l2_leaves.sh <env-file> svi add <leaf> <vid> <vrf|default> [<addr/len> ...] | svi del <leaf> <vid>
+#       (SVI vl<vid> on br0, in <vrf> unless default; IPv6 on, without a link-local address)
+#   vxlan_evpn_l2_leaves.sh <env-file> neigh add|del <leaf> <vid> <mac> <ip> [<ip> ...]
+#       (permanent neighbours on vl<vid>: with <mac> local on the leaf, FRR advertises a Type-2 MAC/IP for each)
+#   vxlan_evpn_l2_leaves.sh <env-file> l3vni add|del <leaf> <vrf> <vid> <vni>
+#       (VRF <vrf> (table <vid>) with L3 VNI <vni> on vx<vni> in VLAN <vid>, its SVI vl<vid>, and a BGP instance in
+#       the VRF that exports Type-5 routes; route targets RT_ASN:vni)
+#   vxlan_evpn_l2_leaves.sh <env-file> prefix add|del <leaf> <vrf> <prefix>   (a Type-5 route from the VRF, blackholed)
+#   vxlan_evpn_l2_leaves.sh <env-file> vrfcheck   (VRF_OK, or VRF_MISSING <error>: whether this kernel makes VRF devices)
+#   vxlan_evpn_l2_leaves.sh <env-file> ulmac <leaf>   (the MAC of the leaf's uplink ul0: the DUT's next hop toward it)
 #
 # Each leaf is an FRR container (the stock frrouting/frr image) with its own network namespace:
 #
@@ -303,6 +314,110 @@ print("SENT", count)
   ;;
 fdbshow)
   l=${1:?leaf}; cx "$l" "bridge -j fdb show"
+  ;;
+show)
+  l=${1:?leaf}; shift; cx "$l" "vtysh -c 'show $*'"
+  ;;
+svi)
+  # add: on any failure, what was built is removed before the error
+  op=${1:?add|del}; l=${2:?leaf}; vid=${3:?vid}
+  undo="ip link del vl$vid 2>/dev/null; bridge vlan del vid $vid dev br0 self 2>/dev/null; true"
+  case $op in
+    add)
+      vrf=${4:?vrf or default}; shift 4; modprobe 8021q 2>/dev/null
+      for a in "$@"; do case $a in *[!0-9a-fA-F:./]*) die "svi: not an address/len: $a" ;; esac; done
+      cx "$l" "
+set -e
+bridge vlan add vid $vid dev br0 self
+ip link add link br0 name vl$vid type vlan id $vid
+sysctl -w net.ipv6.conf.vl$vid.addr_gen_mode=1 net.ipv6.conf.vl$vid.disable_ipv6=0 >/dev/null
+$([ "$vrf" = default ] || echo "ip link set vl$vid master $vrf")
+ip link set vl$vid up
+$(for a in "$@"; do case $a in *:*) echo "ip -6 addr add $a dev vl$vid nodad" ;; *) echo "ip addr add $a dev vl$vid" ;; esac; done)
+" || { cx "$l" "$undo"; die "SVI vl$vid in $(cname "$l")"; }
+      ;;
+    del) cx "$l" "$undo" ;;
+    *) die "svi add|del" ;;
+  esac
+  ;;
+neigh)
+  # add: all addresses or none (a failure removes the ones added before it)
+  op=${1:?add|del}; l=${2:?leaf}; vid=${3:?vid}; mac=${4:?mac}; shift 4
+  [ $# -gt 0 ] || die "neigh: no address"
+  case $op in add|del) ;; *) die "neigh add|del" ;; esac
+  done_ips=""
+  for a in "$@"; do
+    if [ "$op" = del ]; then cx "$l" "ip neigh del $a dev vl$vid 2>/dev/null; true"; continue; fi
+    if ! cx "$l" "ip neigh replace $a lladdr $mac dev vl$vid nud permanent"; then
+      for b in $done_ips; do cx "$l" "ip neigh del $b dev vl$vid 2>/dev/null; true"; done
+      die "neigh $a in $(cname "$l")"
+    fi
+    done_ips="$done_ips $a"
+  done
+  ;;
+l3vni)
+  # add: on any failure, the FRR config and the netdevs are removed before the error
+  op=${1:?add|del}; l=${2:?leaf}; vrf=${3:?vrf}; vid=${4:?vid}; vni=${5:?vni}; asn=$(v "$l" ASN)
+  # FRR keeps a VRF's BGP instance while the VRF has its L3 VNI: the VNI goes first, in its own vtysh call
+  frr_undo="rc=0; vtysh -c 'configure terminal' -c 'vrf $vrf' -c 'no vni $vni' || rc=1; \
+vtysh -c 'configure terminal' -c 'no router bgp $asn vrf $vrf' || rc=1; exit \$rc"
+  dev_undo="ip link del vl$vid 2>/dev/null; ip link del vx$vni 2>/dev/null; \
+bridge vlan del vid $vid dev br0 self 2>/dev/null; ip link del $vrf 2>/dev/null; true"
+  case $op in
+    add)
+      modprobe vrf 2>/dev/null; modprobe 8021q 2>/dev/null
+      cx "$l" "
+set -e
+ip link add $vrf type vrf table $vid
+ip link set $vrf up
+ip link add vx$vni type vxlan id $vni local $(v "$l" VTEP) dstport 4789 nolearning
+ip link set vx$vni master br0 up
+bridge vlan add vid $vid dev vx$vni pvid untagged
+bridge link set dev vx$vni learning off
+bridge vlan add vid $vid dev br0 self
+ip link add link br0 name vl$vid type vlan id $vid
+ip link set vl$vid master $vrf up
+" || { cx "$l" "$dev_undo"; die "L3 VNI $vni in $(cname "$l")"; }
+      cx "$l" "vtysh -c 'configure terminal' -c 'vrf $vrf' -c 'vni $vni' -c 'exit-vrf' -c 'router bgp $asn vrf $vrf' \
+        -c 'bgp router-id $(v "$l" VTEP)' -c 'no bgp network import-check' -c 'address-family l2vpn evpn' \
+        -c 'advertise ipv4 unicast' -c 'advertise ipv6 unicast' -c 'route-target import $RT_ASN:$vni' \
+        -c 'route-target export $RT_ASN:$vni'" \
+        || { cx "$l" "$frr_undo"; cx "$l" "$dev_undo"; die "FRR L3 VNI $vni in $(cname "$l")"; }
+      ;;
+    del)
+      rc=0
+      cx "$l" "$frr_undo" || rc=1
+      cx "$l" "$dev_undo" || rc=1
+      exit $rc
+      ;;
+    *) die "l3vni add|del" ;;
+  esac
+  ;;
+prefix)
+  op=${1:?add|del}; l=${2:?leaf}; vrf=${3:?vrf}; p=${4:?prefix}; af=ipv4; no=""
+  case $p in *:*) af=ipv6 ;; esac
+  case $op in
+    add) cx "$l" "ip route replace blackhole $p vrf $vrf" || die "blackhole $p in $vrf of $(cname "$l")" ;;
+    del) no="no "; cx "$l" "ip route del blackhole $p vrf $vrf 2>/dev/null; true" ;;
+    *) die "prefix add|del" ;;
+  esac
+  cx "$l" "vtysh -c 'configure terminal' -c 'router bgp $(v "$l" ASN) vrf $vrf' -c 'address-family $af unicast' \
+    -c '${no}network $p'" || {
+    [ "$op" = add ] && cx "$l" "ip route del blackhole $p vrf $vrf 2>/dev/null; true"
+    die "prefix $op $p in $(cname "$l")"
+  }
+  ;;
+ulmac)
+  l=${1:?leaf}; cx "$l" "ip -o link show dev ul0" | sed -n 's/.* link\/ether \([0-9a-fA-F:]*\) .*/\1/p'
+  ;;
+vrfcheck)
+  # the leaves share this kernel: a VRF device in a scratch namespace tells whether l3vni add can work
+  modprobe vrf 2>/dev/null
+  n="${PREFIX}_vrfcheck"
+  ip netns del "$n" 2>/dev/null
+  ip netns add "$n" || die "netns $n"
+  if err=$(ip -n "$n" link add vrfcheck type vrf table 10 2>&1); then echo VRF_OK; else echo "VRF_MISSING $err"; fi
+  ip netns del "$n"
   ;;
 *) die "unknown command $CMD" ;;
 esac
