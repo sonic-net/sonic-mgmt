@@ -33,6 +33,7 @@
           't1-isolated-d510u2s2',
           't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
           't1-isolated-d56u2', 't1-isolated-v6-d56u2',
+          't1-d96u4',
           't2-isolated-d128s2' ]
     - &noVxlanTopos |
         topo_name in [
@@ -139,6 +140,14 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+acl/test_src_mac_rewrite.py:
+  skip:
+    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "platform.startswith('x86_64-8223')"
+      - "platform.startswith('x86_64-8122')"
 
 acl/test_stress_acl.py:
   skip:
@@ -3542,9 +3551,9 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
+    reason: "Platform or hwsku doesn't support speed change. Skipping this test."
     conditions:
-      - "'Arista-7060X6' in hwsku"
+      - "'Arista-7060X6' in hwsku or platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
   skip:
@@ -4015,7 +4024,7 @@ packet_trimming:
     conditions:
       - "release in ['202505']"
       - "asic_type in ['vs']"
-      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - "asic_type not in ['mellanox'] and hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5470,6 +5479,12 @@ span:
     reason: "Skipping span test on broadcom/cisco-8000 platform."
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+
+span/test_erspan_sampling_truncation.py:
+  skip:
+    reason: "ERSPAN sampling/truncation tests are not supported on the current platform/topology."
+    conditions:
+      - "asic_gen != 'spc5' or topo_type not in ['t0', 't1']"
 
 span/test_port_mirroring.py:
   xfail:

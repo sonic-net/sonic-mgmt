@@ -17,6 +17,29 @@ SNMP_DEFAULT_TIMEOUT = 20
 global_snmp_facts = {}
 
 
+def resolve_snmp_host(duthost, host):
+    if not duthost.is_ipv6_only_mgmt():
+        return host
+
+    inventory_host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+    if host == inventory_host.vars.get('ansible_host') and duthost.mgmt_ipv6:
+        logger.info("Using IPv6 management address %s for SNMP polling", duthost.mgmt_ipv6)
+        return duthost.mgmt_ipv6
+
+    return host
+
+
+def format_snmp_cli_target(host):
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return host
+
+    if isinstance(address, ipaddress.IPv6Address):
+        return "udp6:[{}]".format(host)
+    return host
+
+
 def is_snmp_subagent_running(duthost):
     cmd = "docker exec snmp supervisorctl status snmp-subagent"
     output = duthost.shell(cmd)
@@ -54,6 +77,8 @@ def _update_snmp_facts(localhost, host, version, community, is_dell, include_swa
 def get_snmp_facts(duthost, localhost, host, version, community, is_dell=False, module_ignore_errors=False,
                    wait=False, include_swap=False, timeout=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL,
                    snmp_timeout=SNMP_DEFAULT_TIMEOUT):
+    host = resolve_snmp_host(duthost, host)
+
     if not wait:
         return _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors,
                                timeout=snmp_timeout)
