@@ -3,15 +3,17 @@ name: "Triage Linked Issues"
 # When a pull request is linked to an issue it will close ("Fixes #123",
 # "Closes #123", or the PR's Development sidebar), label the issue "Triaged"
 # and "auto-triaged" and assign it to the PR author; when the PR is closed
-# without merging, undo that. See .github/triage-assign/triage_linked_issues.py.
+# without merging or the link is removed, undo that. See .github/triage-assign/triage_linked_issues.py.
 
 on:
   pull_request_target:
     # "edited" catches closing keywords added to the description after opening;
     # "closed" undoes the automatic triage when the PR is closed unmerged.
     types: [opened, reopened, edited, closed]
-  # GitHub fires no event for links made from the Development sidebar, so a
-  # weekly scan of untriaged issues with a linked PR picks those up.
+  # GitHub fires no event for links made or removed from the Development
+  # sidebar, or for a closing keyword edited out, so a weekly scan reconciles
+  # auto-triaged issues with their current links and triages untriaged issues
+  # with a linked PR.
   schedule:
     - cron: '43 6 * * 1'
   workflow_dispatch:

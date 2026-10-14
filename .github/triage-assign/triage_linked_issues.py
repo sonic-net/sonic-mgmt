@@ -15,28 +15,35 @@ TRIAGED_LABEL (default "Triaged"), the script:
     issue mentioning them instead.
 
 AUTO_TRIAGED_LABEL records that the triage was automatic. Triagers can tell it
-apart from a human triage with `label:Triaged -label:auto-triaged`, and
-removing it confirms the triage: the script never touches the issue again.
+apart from a human triage with `label:Triaged -label:auto-triaged`. Removing
+AUTO_TRIAGED_LABEL confirms the triage: the script never touches the issue
+again. Removing TRIAGED_LABEL rejects it: once anyone other than this script
+has removed TRIAGED_LABEL from an issue, the script never triages it again.
 
-When a pull request is closed without being merged, each issue it linked that
-still carries AUTO_TRIAGED_LABEL, and that no other open pull request links,
-loses both labels, and the PR author is unassigned if this script assigned
-them.
+An automatic triage is undone when no open pull request links the issue any
+more: the PR was closed without merging, or the link was removed from its
+description or sidebar. The issue loses both labels, and every assignee this
+script assigned is unassigned. When another open PR still links the issue, the
+labels stay and the assignment passes to that PR's author.
 
-GitHub fires no workflow event when an issue is linked from the sidebar, so
-the workflow also runs a weekly scan of open, untriaged issues that have a
-linked pull request.
+GitHub fires no workflow event when an issue is linked or unlinked from the
+sidebar, or when a closing keyword is removed, so the workflow also runs a
+scheduled scan. It first reconciles every open issue labelled
+AUTO_TRIAGED_LABEL with its current links, then triages the open, untriaged
+issues that have a linked pull request.
 
 Modes:
   PR_NUMBER set   -> handle that single pull request: triage its linked issues
-                     when it is open, undo the automatic triage when it was
-                     closed without merging, nothing when it was merged
-  PR_NUMBER unset -> scan open issues with a linked pull request and no
+                     when it is open, reconcile them when it was closed
+                     without merging, nothing when it was merged
+  PR_NUMBER unset -> scan: reconcile AUTO_TRIAGED_LABEL issues, then triage
+                     open issues with a linked pull request and no
                      TRIAGED_LABEL
 """
 
 import logging
 import os
+import time
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -61,6 +68,15 @@ HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
 }
+REST_TIMEOUT = 30
+GRAPHQL_TIMEOUT = 60
+# Rate-limited responses (403 or 429) are retried this many times, waiting as
+# long as GitHub asks, but giving up when it asks for more than
+# RATE_LIMIT_MAX_WAIT seconds.
+RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_MAX_WAIT = 300
+# GitHub's advice for a secondary rate limit that names no wait.
+SECONDARY_RATE_LIMIT_WAIT = 60
 COMMENT_MARKER = "<!-- triage-linked-issues:author={login} pr={pr_number} -->"
 
 logger = logging.getLogger("triage_linked_issues")
@@ -71,6 +87,9 @@ ISSUE_FIELDS = """
     repository { nameWithOwner }
     labels(first: 50) { nodes { name } }
     assignees(first: 10) { nodes { login } }
+    closedByPullRequestsReferences(first: 10, includeClosedPrs: false) {
+      nodes { number state repository { nameWithOwner } author { login __typename } }
+    }
 """
 
 PULL_REQUEST_QUERY = """
@@ -81,47 +100,40 @@ query($owner: String!, $name: String!, $number: Int!) {
       state
       author { login __typename }
       closingIssuesReferences(first: 25) {
-        nodes {
-          %s
-          closedByPullRequestsReferences(first: 10, includeClosedPrs: false) {
-            nodes { number repository { nameWithOwner } }
-          }
-        }
+        nodes { %s }
       }
     }
   }
 }
 """ % ISSUE_FIELDS
 
-# Searching from the issue side keeps the scan's cost proportional to the
-# issues that still need triage, rather than to the open-PR backlog.
-SCAN_QUERY = """
+SEARCH_QUERY = """
 query($search: String!, $after: String) {
   search(type: ISSUE, query: $search, first: 50, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes {
-      ... on Issue {
-        %s
-        closedByPullRequestsReferences(first: 10, includeClosedPrs: false) {
-          nodes { number state repository { nameWithOwner } author { login __typename } }
-        }
-      }
-    }
+    nodes { ... on Issue { %s } }
   }
 }
 """ % ISSUE_FIELDS
 
-ASSIGNMENT_QUERY = """
+HISTORY_QUERY = """
 query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     issue(number: $number) {
-      timelineItems(last: 100, itemTypes: [ASSIGNED_EVENT]) {
-        nodes { ... on AssignedEvent { actor { login } assignee { ... on User { login } } } }
+      timelineItems(last: 100, itemTypes: [ASSIGNED_EVENT, UNLABELED_EVENT]) {
+        nodes {
+          ... on AssignedEvent { actor { login } assignee { ... on User { login } } }
+          ... on UnlabeledEvent { actor { login } label { name } }
+        }
       }
     }
   }
 }
 """
+
+
+class GraphQLError(Exception):
+    """GitHub answered a GraphQL request with errors (in an HTTP 200)."""
 
 
 def make_session(retry: Retry) -> requests.Session:
@@ -133,18 +145,48 @@ def make_session(retry: Retry) -> requests.Session:
 
 # Every write except the comment is idempotent (adding a label or assignee that
 # is already there, or removing one that is gone), so it is safe to retry on
-# rate limiting and server errors.
+# server errors. Rate limiting is retried by send().
 SESSION = make_session(Retry(
-    total=3, backoff_factor=2, status_forcelist=(429, 500, 502, 503, 504),
-    allowed_methods=None, respect_retry_after_header=True, raise_on_status=False,
+    total=3, backoff_factor=2, status_forcelist=(500, 502, 503, 504),
+    allowed_methods=None, raise_on_status=False,
 ))
 # A comment POST that failed with a server error may still have been created,
-# so it is retried only when GitHub rejected it outright (rate limiting) or the
-# connection never got through.
-COMMENT_SESSION = make_session(Retry(
-    total=3, connect=3, read=0, backoff_factor=2, status_forcelist=(429,),
-    allowed_methods=None, respect_retry_after_header=True, raise_on_status=False,
-))
+# so it is retried only when the connection never got through, or (by send())
+# when GitHub rejected it outright for rate limiting.
+COMMENT_SESSION = make_session(Retry(total=3, connect=3, read=0, status=0, backoff_factor=2))
+
+
+def rate_limit_wait(response: requests.Response):
+    """Seconds GitHub asks us to wait before retrying, or None if not rate limited.
+
+    GitHub reports rate limiting as a 429 or as a 403: with Retry-After, with
+    X-RateLimit-Remaining at 0 (primary limit), or with a "secondary rate
+    limit" message and no header.
+    """
+    if response.status_code not in (403, 429):
+        return None
+    retry_after = response.headers.get("Retry-After", "")
+    if retry_after.isdigit():
+        return float(retry_after)
+    if response.headers.get("X-RateLimit-Remaining") == "0":
+        reset = response.headers.get("X-RateLimit-Reset", "")
+        return max(0.0, float(reset) - time.time()) + 1 if reset.isdigit() else SECONDARY_RATE_LIMIT_WAIT
+    if response.status_code == 429 or "rate limit" in response.text.lower():
+        return SECONDARY_RATE_LIMIT_WAIT
+    return None
+
+
+def send(method: str, url: str, session: requests.Session = SESSION,
+         timeout: int = REST_TIMEOUT, **kwargs) -> requests.Response:
+    """Make a request, waiting out and retrying rate limiting. Does not raise on HTTP errors."""
+    for attempt in range(RATE_LIMIT_RETRIES + 1):
+        response = session.request(method, url, timeout=timeout, **kwargs)
+        wait = rate_limit_wait(response)
+        if wait is None or attempt == RATE_LIMIT_RETRIES or wait > RATE_LIMIT_MAX_WAIT:
+            return response
+        logger.warning("%s %s rate limited (%d), retrying in %.0fs.", method, url, response.status_code, wait)
+        time.sleep(wait)
+    return response
 
 
 def is_bot(login: str) -> bool:
@@ -152,16 +194,17 @@ def is_bot(login: str) -> bool:
 
 
 def graphql(query: str, variables: dict) -> dict:
-    response = SESSION.post(f"{API_URL}/graphql", json={"query": query, "variables": variables}, timeout=60)
+    response = send("POST", f"{API_URL}/graphql", timeout=GRAPHQL_TIMEOUT,
+                    json={"query": query, "variables": variables})
     response.raise_for_status()
     payload = response.json()
     if payload.get("errors"):
-        raise SystemExit(f"GraphQL query failed: {payload['errors']}")
+        raise GraphQLError(f"GraphQL query failed: {payload['errors']}")
     return payload["data"]
 
 
 def rest(method: str, path: str, session: requests.Session = SESSION, **kwargs) -> requests.Response:
-    response = session.request(method, f"{API_URL}{path}", timeout=30, **kwargs)
+    response = send(method, f"{API_URL}{path}", session=session, **kwargs)
     response.raise_for_status()
     return response
 
@@ -174,27 +217,68 @@ def label_names(issue: dict) -> set:
     return {label["name"] for label in issue["labels"]["nodes"]}
 
 
+def assignee_logins(issue: dict) -> dict:
+    """The issue's assignees, keyed by lower-cased login."""
+    return {assignee["login"].lower(): assignee["login"] for assignee in issue["assignees"]["nodes"]}
+
+
 def in_this_repo(node: dict) -> bool:
     return node["repository"]["nameWithOwner"].lower() == GITHUB_REPOSITORY.lower()
 
 
+def open_linking_prs(issue: dict, exclude_pr: int = 0) -> list:
+    """The open PRs in this repository that link the issue, oldest first."""
+    return sorted(
+        (pull_request for pull_request in issue["closedByPullRequestsReferences"]["nodes"]
+         if in_this_repo(pull_request) and pull_request["state"] == "OPEN"
+         and pull_request["number"] != exclude_pr),
+        key=lambda pull_request: pull_request["number"],
+    )
+
+
+def user_login(author: dict) -> str:
+    """The author's login if it is a user; "" for bots (dependabot, ...) and deleted accounts."""
+    return author.get("login", "") if author.get("__typename") == "User" else ""
+
+
 def ensure_auto_triaged_label() -> None:
-    response = SESSION.get(f"{API_URL}/repos/{GITHUB_REPOSITORY}/labels/{AUTO_TRIAGED_LABEL}", timeout=30)
+    response = send("GET", f"{API_URL}/repos/{GITHUB_REPOSITORY}/labels/{AUTO_TRIAGED_LABEL}")
     if response.status_code != 404:
         response.raise_for_status()
         return
     logger.info("Creating missing label '%s'.", AUTO_TRIAGED_LABEL)
     if DRY_RUN:
         return
-    response = SESSION.post(
-        f"{API_URL}/repos/{GITHUB_REPOSITORY}/labels",
+    response = send(
+        "POST", f"{API_URL}/repos/{GITHUB_REPOSITORY}/labels",
         json={"name": AUTO_TRIAGED_LABEL, "color": AUTO_TRIAGED_COLOR,
               "description": "Triaged automatically because a pull request is linked to fix it"},
-        timeout=30,
     )
     # 422 is "already_exists": another run created it in the meantime.
     if response.status_code != 422:
         response.raise_for_status()
+
+
+def issue_history(issue_number: int) -> tuple:
+    """Return (bot_assignees, rejected) from the issue's timeline.
+
+    bot_assignees: lower-cased logins whose most recent assignment was made by
+    this script. rejected: whether anyone other than this script has removed
+    TRIAGED_LABEL from the issue.
+    """
+    owner, name = GITHUB_REPOSITORY.split("/", 1)
+    data = graphql(HISTORY_QUERY, {"owner": owner, "name": name, "number": issue_number})
+    assigned_by = {}
+    rejected = False
+    for event in data["repository"]["issue"]["timelineItems"]["nodes"]:
+        actor = (event.get("actor") or {}).get("login") or ""
+        if "assignee" in event:
+            assignee = ((event.get("assignee") or {}).get("login") or "").lower()
+            if assignee:
+                assigned_by[assignee] = actor
+        elif (event.get("label") or {}).get("name") == TRIAGED_LABEL and not is_bot(actor):
+            rejected = True
+    return {login for login, actor in assigned_by.items() if is_bot(actor)}, rejected
 
 
 def can_be_assigned(issue_number: int, login: str) -> bool:
@@ -203,7 +287,7 @@ def can_be_assigned(issue_number: int, login: str) -> bool:
     Assigning someone GitHub does not allow does not fail: it drops them and
     still returns 201, hence the explicit check.
     """
-    response = SESSION.get(f"{API_URL}{issue_path(issue_number)}/assignees/{login}", timeout=30)
+    response = send("GET", f"{API_URL}{issue_path(issue_number)}/assignees/{login}")
     if response.status_code == 404:
         return False
     response.raise_for_status()
@@ -212,10 +296,12 @@ def can_be_assigned(issue_number: int, login: str) -> bool:
 
 def already_commented(issue_number: int, login: str) -> bool:
     """Whether this script already posted its comment about `login` on the issue."""
-    marker_prefix = COMMENT_MARKER.split(" pr=", 1)[0].format(login=login)
+    # Cut before "pr=", keeping the space that ends the login, so that
+    # "author=foo " does not match "author=foobar ".
+    marker_prefix = COMMENT_MARKER.split("pr=", 1)[0].format(login=login)
     url = f"{API_URL}{issue_path(issue_number)}/comments?per_page=100"
     while url:
-        response = SESSION.get(url, timeout=30)
+        response = send("GET", url)
         response.raise_for_status()
         for comment in response.json():
             if is_bot((comment.get("user") or {}).get("login", "")) and marker_prefix in (comment.get("body") or ""):
@@ -234,6 +320,32 @@ def unassignable_comment(pr_number: int, login: str) -> str:
     )
 
 
+def plan_assignment(issue: dict, login: str) -> tuple:
+    """Return (assign, comment): how to give the issue to `login` ("" for nobody)."""
+    if not login or login.lower() in assignee_logins(issue):
+        return False, False
+    assign = can_be_assigned(issue["number"], login)
+    comment = not assign and not already_commented(issue["number"], login)
+    return assign, comment
+
+
+def describe_assignment(login: str, assign: bool, comment: bool) -> list:
+    return ([f"assign @{login}"] if assign else []) + ([f"comment for @{login} (cannot be assigned)"] if comment else [])
+
+
+def apply_assignment(issue_number: int, pr_number: int, login: str, assign: bool, comment: bool) -> None:
+    if assign:
+        result = rest("POST", f"{issue_path(issue_number)}/assignees", json={"assignees": [login]}).json()
+        # Checked before, but GitHub drops an unassignable user silently
+        # rather than failing, so fall back to the comment if it did.
+        if login.lower() not in {assignee["login"].lower() for assignee in result.get("assignees", [])}:
+            logger.warning("GitHub did not assign issue #%s to @%s.", issue_number, login)
+            comment = not already_commented(issue_number, login)
+    if comment:
+        rest("POST", f"{issue_path(issue_number)}/comments", session=COMMENT_SESSION,
+             json={"body": unassignable_comment(pr_number, login)})
+
+
 def triage_issue(issue: dict, pr_number: int, author: dict) -> bool:
     """Label `issue` and assign (or mention) the PR author. Returns True when it changed."""
     issue_number = issue["number"]
@@ -244,86 +356,84 @@ def triage_issue(issue: dict, pr_number: int, author: dict) -> bool:
         return False
     if issue["state"] != "OPEN" or TRIAGED_LABEL in label_names(issue):
         return False
+    if issue_history(issue_number)[1]:
+        logger.info("PR #%s links issue #%s, but '%s' was removed from it by hand; skipping.",
+                    pr_number, issue_number, TRIAGED_LABEL)
+        return False
 
-    login = author.get("login", "")
     # Bot-authored PRs (dependabot, ...) label what they fix but assign no one.
-    is_user = bool(login) and author.get("__typename") == "User"
-    assignees = {assignee["login"].lower() for assignee in issue["assignees"]["nodes"]}
-    assign = is_user and login.lower() not in assignees and can_be_assigned(issue_number, login)
-    comment = is_user and login.lower() not in assignees and not assign
-    if comment and already_commented(issue_number, login):
-        comment = False
-
-    actions = [f"label '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"]
-    if assign:
-        actions.append(f"assign @{login}")
-    if comment:
-        actions.append(f"comment for @{login} (cannot be assigned)")
+    login = user_login(author)
+    assign, comment = plan_assignment(issue, login)
+    actions = [f"label '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"] + describe_assignment(login, assign, comment)
     logger.info("PR #%s links issue #%s: %s.", pr_number, issue_number, ", ".join(actions))
     if DRY_RUN:
         return True
 
-    path = issue_path(issue_number)
-    if assign:
-        result = rest("POST", f"{path}/assignees", json={"assignees": [login]}).json()
-        # Checked above, but GitHub drops an unassignable user silently
-        # rather than failing, so fall back to the comment if it did.
-        if login.lower() not in {assignee["login"].lower() for assignee in result.get("assignees", [])}:
-            logger.warning("GitHub did not assign issue #%s to @%s.", issue_number, login)
-            comment = not already_commented(issue_number, login)
-    if comment:
-        rest("POST", f"{path}/comments", session=COMMENT_SESSION, json={"body": unassignable_comment(pr_number, login)})
+    apply_assignment(issue_number, pr_number, login, assign, comment)
     # Labelled last: the label is what marks the issue as handled, so a
     # failure above leaves it to be retried by the next run.
-    rest("POST", f"{path}/labels", json={"labels": [TRIAGED_LABEL, AUTO_TRIAGED_LABEL]})
+    rest("POST", f"{issue_path(issue_number)}/labels", json={"labels": [TRIAGED_LABEL, AUTO_TRIAGED_LABEL]})
     return True
 
 
-def assigned_by_bot(issue_number: int, login: str) -> bool:
-    """Whether the most recent assignment of `login` to the issue was made by this script."""
-    owner, name = GITHUB_REPOSITORY.split("/", 1)
-    data = graphql(ASSIGNMENT_QUERY, {"owner": owner, "name": name, "number": issue_number})
-    events = [
-        event for event in data["repository"]["issue"]["timelineItems"]["nodes"]
-        if ((event.get("assignee") or {}).get("login") or "").lower() == login.lower()
-    ]
-    return bool(events) and is_bot((events[-1].get("actor") or {}).get("login") or "")
+def reconcile_issue(issue: dict, closed_pr: int = 0) -> bool:
+    """Bring an automatic triage in line with the issue's current links. Returns True when it changed.
 
-
-def untriage_issue(issue: dict, pr_number: int, login: str) -> bool:
-    """Undo the automatic triage of `issue` for a PR closed unmerged. Returns True when it changed."""
+    With no open PR linking the issue, both labels are removed and the bot's
+    assignees unassigned. Otherwise the bot's assignees who no longer author
+    a linking PR are unassigned, and if that leaves no linking PR's author
+    assigned, the issue passes to the author of the oldest linking PR.
+    `closed_pr` is a PR just closed unmerged, never counted as linking.
+    """
     issue_number = issue["number"]
     if not in_this_repo(issue) or issue["state"] != "OPEN":
         return False
     # Without AUTO_TRIAGED_LABEL the triage was a human's, or a human confirmed it.
     if AUTO_TRIAGED_LABEL not in label_names(issue):
         return False
-    other_prs = [
-        pull_request["number"] for pull_request in issue["closedByPullRequestsReferences"]["nodes"]
-        if in_this_repo(pull_request) and pull_request["number"] != pr_number
-    ]
-    if other_prs:
-        logger.info("PR #%s closed unmerged, but issue #%s is still linked from #%s; leaving it triaged.",
-                    pr_number, issue_number, ", #".join(map(str, other_prs)))
+
+    pull_requests = open_linking_prs(issue, exclude_pr=closed_pr)
+    authors = {user_login(pr.get("author") or {}).lower() for pr in pull_requests} - {""}
+    assignees = assignee_logins(issue)
+    stale = [assignee for key, assignee in assignees.items() if key not in authors]
+    if stale:
+        bot_assignees = issue_history(issue_number)[0]
+        stale = [assignee for assignee in stale if assignee.lower() in bot_assignees]
+
+    # Hand over only an assignment the bot is taking away, so an issue a
+    # human unassigned is not reassigned.
+    successor = None
+    login = ""
+    assign = comment = False
+    if pull_requests and stale and not authors & assignees.keys():
+        successor = pull_requests[0]
+        login = user_login(successor.get("author") or {})
+        assign, comment = plan_assignment(issue, login)
+
+    actions = [] if pull_requests else [f"remove '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"]
+    actions += [f"unassign @{assignee}" for assignee in stale] + describe_assignment(login, assign, comment)
+    if not actions:
         return False
-
-    assignees = {assignee["login"].lower() for assignee in issue["assignees"]["nodes"]}
-    unassign = bool(login) and login.lower() in assignees and assigned_by_bot(issue_number, login)
-
-    actions = [f"remove '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"]
-    if unassign:
-        actions.append(f"unassign @{login}")
-    logger.info("PR #%s closed unmerged, issue #%s: %s.", pr_number, issue_number, ", ".join(actions))
+    if pull_requests:
+        reason = "linked from #" + ", #".join(str(pull_request["number"]) for pull_request in pull_requests)
+    else:
+        reason = "no open pull request links it"
+    logger.info("Issue #%s (%s): %s.", issue_number, reason, ", ".join(actions))
     if DRY_RUN:
         return True
 
     path = issue_path(issue_number)
-    if unassign:
-        rest("DELETE", f"{path}/assignees", json={"assignees": [login]})
-    for label in (TRIAGED_LABEL, AUTO_TRIAGED_LABEL):
-        response = SESSION.delete(f"{API_URL}{path}/labels/{label}", timeout=30)
-        if response.status_code != 404:
-            response.raise_for_status()
+    # The new assignment goes first and the labels come off last, so a failure
+    # part way leaves the issue in a state the next run picks up again.
+    if successor:
+        apply_assignment(issue_number, successor["number"], login, assign, comment)
+    if stale:
+        rest("DELETE", f"{path}/assignees", json={"assignees": stale})
+    if not pull_requests:
+        for label in (TRIAGED_LABEL, AUTO_TRIAGED_LABEL):
+            response = send("DELETE", f"{API_URL}{path}/labels/{label}")
+            if response.status_code != 404:
+                response.raise_for_status()
     return True
 
 
@@ -331,7 +441,7 @@ def handle_issue(handler, issue: dict, *args) -> tuple:
     """Run `handler` on one issue, isolating failures. Returns (changed, failed)."""
     try:
         return int(handler(issue, *args)), 0
-    except requests.RequestException as exc:
+    except (requests.RequestException, GraphQLError) as exc:
         logger.error("Issue #%s: %s", issue["number"], exc)
         return 0, 1
 
@@ -344,6 +454,7 @@ def handle_pull_request(pr_number: int) -> int:
         raise SystemExit(f"PR #{pr_number} not found in {GITHUB_REPOSITORY}")
 
     author = pull_request.get("author") or {}
+    # Only the PR's current links: one removed earlier is reconciled by the scan.
     issues = pull_request["closingIssuesReferences"]["nodes"]
     changed = failed = 0
     if pull_request["state"] == "OPEN":
@@ -354,7 +465,7 @@ def handle_pull_request(pr_number: int) -> int:
             changed, failed = changed + result[0], failed + result[1]
     elif pull_request["state"] == "CLOSED":
         for issue in issues:
-            result = handle_issue(untriage_issue, issue, pr_number, author.get("login", ""))
+            result = handle_issue(reconcile_issue, issue, pr_number)
             changed, failed = changed + result[0], failed + result[1]
     else:
         logger.info("PR #%s is merged; nothing to do.", pr_number)
@@ -362,36 +473,54 @@ def handle_pull_request(pr_number: int) -> int:
     return failed
 
 
-def scan() -> int:
-    search = f"repo:{GITHUB_REPOSITORY} is:issue is:open linked:pr -label:{TRIAGED_LABEL}"
-    logger.info("Scanning: %s", search)
-    ensure_auto_triaged_label()
-    scanned = changed = failed = 0
+def search_issues(search: str) -> list:
+    """Every issue matching `search` (up to SCAN_LIMIT), fetched before any is changed.
+
+    Search cursors are offsets, and changing an issue's labels can move it out
+    of the results, so processing page by page would skip issues.
+    """
+    issues = []
     after = None
     while True:
-        page = graphql(SCAN_QUERY, {"search": search, "after": after})["search"]
-        for issue in page["nodes"]:
-            if SCAN_LIMIT and scanned >= SCAN_LIMIT:
-                logger.info("Reached SCAN_LIMIT of %d issues, stopping.", SCAN_LIMIT)
-                logger.info("Scanned %d issues, triaged %d, %d failed.", scanned, changed, failed)
-                return failed
-            scanned += 1
-            # The earliest open PR in this repository that links the issue.
-            pull_requests = sorted(
-                (pull_request for pull_request in issue["closedByPullRequestsReferences"]["nodes"]
-                 if in_this_repo(pull_request) and pull_request["state"] == "OPEN"),
-                key=lambda pull_request: pull_request["number"],
-            )
-            if not pull_requests:
-                continue
-            pull_request = pull_requests[0]
-            result = handle_issue(triage_issue, issue, pull_request["number"], pull_request.get("author") or {})
-            changed, failed = changed + result[0], failed + result[1]
-        if not page["pageInfo"]["hasNextPage"]:
+        page = graphql(SEARCH_QUERY, {"search": search, "after": after})["search"]
+        issues.extend(issue for issue in page["nodes"] if issue)
+        if (SCAN_LIMIT and len(issues) >= SCAN_LIMIT) or not page["pageInfo"]["hasNextPage"]:
             break
         after = page["pageInfo"]["endCursor"]
+    if SCAN_LIMIT and len(issues) > SCAN_LIMIT:
+        logger.info("Limiting to the first %d matching issues (SCAN_LIMIT).", SCAN_LIMIT)
+        issues = issues[:SCAN_LIMIT]
+    return issues
 
-    logger.info("Scanned %d issues, triaged %d, %d failed.", scanned, changed, failed)
+
+def scan() -> int:
+    ensure_auto_triaged_label()
+    failed = 0
+
+    # Undo or hand over automatic triages whose links changed without a PR
+    # event: a closing keyword edited out, or a sidebar link removed.
+    search = f'repo:{GITHUB_REPOSITORY} is:issue is:open label:"{AUTO_TRIAGED_LABEL}"'
+    logger.info("Reconciling: %s", search)
+    issues = search_issues(search)
+    changed = 0
+    for issue in issues:
+        result = handle_issue(reconcile_issue, issue)
+        changed, failed = changed + result[0], failed + result[1]
+    logger.info("Reconciled %d issues, changed %d.", len(issues), changed)
+
+    search = f'repo:{GITHUB_REPOSITORY} is:issue is:open linked:pr -label:"{TRIAGED_LABEL}"'
+    logger.info("Scanning: %s", search)
+    issues = search_issues(search)
+    changed = 0
+    for issue in issues:
+        pull_requests = open_linking_prs(issue)
+        if not pull_requests:
+            continue
+        # Triaged for the earliest open PR in this repository that links it.
+        pull_request = pull_requests[0]
+        result = handle_issue(triage_issue, issue, pull_request["number"], pull_request.get("author") or {})
+        changed, failed = changed + result[0], failed + result[1]
+    logger.info("Scanned %d issues, triaged %d.", len(issues), changed)
     return failed
 
 
