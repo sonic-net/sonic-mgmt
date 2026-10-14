@@ -273,9 +273,11 @@ class TestBmcctldDaemon:
         # so force a clean down->up transition, then confirm it came back up with a
         # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
         recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
-        # A BMC hard power_off can be reported by the Switch-Host either as an explicit
-        # "power down request from bmc" or, on platforms where the BMC drops chassis power,
-        # as "power loss (bmc remote power cycle)"; accept both.
+        # A BMC hard power_off is reported differently depending on how the platform's
+        # BMC removes power: an explicit soft power-down shows as "power down request
+        # from bmc", while a BMC that drops chassis power (remote power cycle) shows as
+        # the generic "power loss (bmc remote power cycle)". Both mean the same
+        # BMC-initiated power off, so accept either.
         verify_bmc_initiated_reboot(host, critical_pre_boot,
                                     (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
 
@@ -341,9 +343,11 @@ class TestBmcctldDaemon:
             wait_host_on(host)
             pytest_assert(hget_status(on_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
-            # A BMC hard POWER_OFF can be reported by the Switch-Host either as an explicit
-            # "power down request from bmc" or, on platforms where the BMC drops chassis
-            # power, as "power loss (bmc remote power cycle)"; accept both.
+            # A BMC hard POWER_OFF is reported differently depending on how the
+            # platform's BMC removes power: an explicit soft power-down shows as
+            # "power down request from bmc", while a BMC that drops chassis power
+            # (remote power cycle) shows as the generic "power loss (bmc remote power
+            # cycle)". Both mean the same BMC-initiated power off, so accept either.
             verify_bmc_initiated_reboot(host, pre_boot,
                                         (CAUSE_POWER_DOWN_FROM_BMC, CAUSE_POWER_LOSS_FROM_BMC))
         finally:

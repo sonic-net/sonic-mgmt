@@ -17,13 +17,29 @@ logger = logging.getLogger(__name__)
 # BMC event log on-disk path
 BMC_EVENT_LOG = '/host/bmc/event.log'
 
-# Reboot causes accepted as "BMC-initiated" by Switch-Host
+# Reboot causes accepted as "BMC-initiated" by the Switch-Host.
+#
+# The exact reboot-cause wording is NOT identical across platforms: it depends on
+# how the BMC physically removes power and how the Switch-Host's platform reboot-
+# cause provider classifies the resulting hardware reset. The strings below are the
+# lower-cased forms the Switch-Host's `show reboot-cause` emits; matching is
+# substring-based (see verify_bmc_initiated_reboot), so each entry must appear
+# verbatim in the reported cause.
+#
 # Hard power off (ACTION_POWER_OFF: rack-mgr POWER_OFF, CRITICAL-leak power_off)
+# can surface two different ways depending on the platform:
+#   - The BMC issues an explicit soft power-down command to the host, which the host
+#     records as "Power down request from BMC" -> CAUSE_POWER_DOWN_FROM_BMC.
+#   - The BMC instead drops chassis power (remote power cycle). The host cannot tell
+#     this apart from a real power loss, so its platform provider reports the generic
+#     "Power Loss" cause with a BMC-remote-power-cycle qualifier
+#     -> CAUSE_POWER_LOSS_FROM_BMC.
+# Both describe the same BMC-initiated hard power off, so tests accept either.
 CAUSE_POWER_DOWN_FROM_BMC = 'power down request from bmc'
 # Graceful shutdown (ACTION_GRACEFUL_SHUTDOWN: CLI config shutdown, rack-mgr GRACEFUL_SHUT)
 CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC = 'graceful shutdown from bmc'
-# BMC remote power cycle (BMC drops chassis power); distinct from the explicit
-# "power down request from bmc" command.
+# BMC remote power cycle (BMC drops chassis power); platform-dependent wording,
+# distinct from the explicit "power down request from bmc" command above.
 CAUSE_POWER_LOSS_FROM_BMC = 'power loss (bmc remote power cycle)'
 BMC_INITIATED_REBOOT_CAUSES = (
     CAUSE_POWER_DOWN_FROM_BMC,
