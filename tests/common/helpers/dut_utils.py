@@ -41,6 +41,20 @@ BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
 
+def select_proxy_env(creds, ipv6_only_mgmt):
+    """Select the proxy configuration matching the management network mode."""
+    if not ipv6_only_mgmt or "proxy_env_ipv6" not in creds:
+        return creds
+
+    proxy_env_ipv6 = creds["proxy_env_ipv6"]
+    if not isinstance(proxy_env_ipv6, dict):
+        raise ValueError("proxy_env_ipv6 must be a dictionary")
+
+    selected_creds = dict(creds)
+    selected_creds["proxy_env"] = dict(proxy_env_ipv6)
+    return selected_creds
+
+
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
      @param inv_files: List of inventory file paths, In tests,

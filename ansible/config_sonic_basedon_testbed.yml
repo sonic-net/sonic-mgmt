@@ -593,6 +593,13 @@
         cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
+  - name: Select IPv6 proxy for IPv6-only management
+    set_fact:
+      proxy_env: "{{ proxy_env_ipv6 }}"
+    when:
+      - use_ipv6_mgmt | default(false) | bool
+      - proxy_env_ipv6 is defined
+
   - name: Set docker proxy
     block:
       - name: Ensures /etc/systemd/system/docker.service.d dir exists
