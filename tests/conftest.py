@@ -68,6 +68,7 @@ from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    select_proxy_env, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
     get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
@@ -1491,8 +1492,8 @@ def pdu(ansible_root):
 
 
 @pytest.fixture(scope="session")
-def creds(duthost):
-    return creds_on_dut(duthost)
+def creds(duthost, ipv6_only_mgmt_enabled):
+    return select_proxy_env(creds_on_dut(duthost), ipv6_only_mgmt_enabled)
 
 
 @pytest.fixture(scope="session")
@@ -1529,10 +1530,13 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
 
 
 @pytest.fixture(scope='module')
-def creds_all_duts(duthosts):
+def creds_all_duts(duthosts, ipv6_only_mgmt_enabled):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = select_proxy_env(
+            creds_on_dut(duthost),
+            ipv6_only_mgmt_enabled
+        )
     return creds_all_duts
 
 

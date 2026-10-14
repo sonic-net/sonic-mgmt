@@ -588,6 +588,13 @@
         cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
+  - name: Select IPv6 proxy for IPv6-only management
+    set_fact:
+      proxy_env: "{{ proxy_env_ipv6 }}"
+    when:
+      - use_ipv6_mgmt | default(false) | bool
+      - proxy_env_ipv6 is defined
+
   - name: Set docker proxy
     block:
       - name: Ensures /etc/systemd/system/docker.service.d dir exists
@@ -613,6 +620,30 @@
           seconds: 60
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
+
+  - name: Remove docker proxy when no proxy is configured
+    block:
+      - name: Remove docker proxy config
+        file:
+          path: /etc/systemd/system/docker.service.d/http-proxy.conf
+          state: absent
+        register: docker_proxy_removed
+
+      - name: Restart docker service after removing proxy
+        systemd:
+          state: restarted
+          daemon_reload: yes
+          name: docker
+        when: docker_proxy_removed.changed
+
+      - name: Wait 60s for docker containers to restart
+        pause:
+          seconds: 60
+        when: docker_proxy_removed.changed
+    become: true
+    when:
+      - proxy_env is not defined
+      - deploy is defined and deploy|bool == true
 
   - name: Enable PTF tacacs server by default
     set_fact:
