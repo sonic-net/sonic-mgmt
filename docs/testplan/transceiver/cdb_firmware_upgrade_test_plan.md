@@ -104,7 +104,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |-----------|------|---------|-----------|-------------|-------------|
-| ports_under_test | List | All | O | dut | A list of physical port names (e.g., `[1, 2, 6]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade test only. This attribute must exist only under the `dut` field. |
+| ports_under_test | List | None | O | dut | A list of physical port indices (e.g., `[1, 2, 6]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade testing. The suite is skipped when this attribute is absent or empty. This attribute must exist only under the `dut` field. |
 | firmware_versions | List | None | O | transceivers | A list containing firmware versions to be tested. The last value in the list represents the final active firmware version after the test is completed. CMIS active-optical ports without this attribute are excluded from CDB firmware testing. |
 | firmware_download_timeout_minutes | Int | 30 | O | transceivers | Maximum time in minutes to wait for a firmware download to complete. |
 | firmware_download_stress_iterations | Int | 5 | O | dut | The number of iterations to stress test the firmware download process. |
