@@ -164,9 +164,7 @@
   until: copp_init_result.rc == 0
   retries: 60
   delay: 1
-  when:
-    - "'broadcom' in fanout_sonic_version.asic_type"
-    - "'202311' in fanout_sonic_version.build_version"
+  when: "'broadcom' in fanout_sonic_version.asic_type"
 
 - name: Setup broadcom based fanouts
   block:
