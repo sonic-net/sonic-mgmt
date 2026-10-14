@@ -138,6 +138,33 @@ adds FEC. This is the existing behavior and requires no extra flags:
 ./testbed-cli.sh deploy-mg <testbed-name> <inventory> <password>
 ```
 
+### Generic HWSKU directory mapping (opt-in)
+
+For Generic HWSKU deployment, keep the base HWSKU in inventory (for example,
+`hwsku: Mellanox-SN5640`) and put the requested breakout-specific HWSKU in the
+matching `devices.csv` row (for example, `Mellanox-SN5640-C512S2`). Enable both:
+
+```bash
+./testbed-cli.sh deploy-mg <testbed-name> <inventory> <password> \
+    -e port_override_from_links=true -e generic_hwsku_enabled=true \
+    -e lab_name=<lab>
+```
+
+Before loading minigraph with the golden-config override, the playbook creates
+`/usr/share/sonic/device/<platform>/Mellanox-SN5640-C512S2` as a symlink to the
+existing `Mellanox-SN5640` directory. The inventory HWSKU and minigraph retain the
+base name; the golden-config override sets `DEVICE_METADATA.localhost.hwsku` to
+the requested CSV HWSKU. The symlink only resolves directory lookups; it does not
+generate the breakout layout or re-render buffer/QoS templates.
+
+The base directory must exist. Missing or ambiguous device entries, empty port
+inputs, invalid names, and conflicting symlinks/files fail explicitly. Existing
+real HWSKU directories and matching symlinks are preserved. When the requested
+HWSKU equals the base, no link is created. This option requires the standard
+minigraph/golden-config deployment path, without MACsec or `init_cfg_profile`.
+Without `generic_hwsku_enabled=true`, no directory mapping is performed and
+legacy CSV behavior is unchanged.
+
 ### Standalone generation (optional)
 
 For debugging or offline use, the standalone script `generate_port_config.py`
