@@ -142,9 +142,22 @@
 
 - name: Setup broadcom based fanouts
   block:
-    - name: reinit fp entries
-      shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
+    - name: Reinitialize and verify FP entries
+      shell: |
+        set -e
+        bcmcmd 'fp detach'
+        bcmcmd 'fp init'
+        sleep 10
+        fp_state=$(bcmcmd 'fp show')
+        if printf '%s\n' "$fp_state" | grep -q '^EID '; then
+          printf '%s\n' "$fp_state"
+          exit 1
+        fi
       become: yes
+      register: fp_reinit_result
+      until: fp_reinit_result.rc == 0
+      retries: 6
+      delay: 5
   when: "'broadcom' in fanout_sonic_version.asic_type"
 
 - block:
