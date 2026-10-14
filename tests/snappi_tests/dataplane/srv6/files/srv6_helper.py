@@ -1406,7 +1406,7 @@ def config_snake_vlan_mac_port(Common_vars):
         # mac address follows the vlan ID number
         two_bytes = vlan_id.to_bytes(2, byteorder='big')
         suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
-        mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+        hw_address = f'{Common_vars.hw_address_prefix}:{suffix}'
 
         logger.info(f'sudo config vlan add {vlan_id}')
         cli_commands.append(f'sudo config vlan add {vlan_id}')
@@ -1430,8 +1430,8 @@ def config_snake_vlan_mac_port(Common_vars):
         logger.info(f'sudo config vlan member add -u {vlan_id} {port}')
         cli_commands.append(f'sudo config vlan member add -u {vlan_id} {port}')
 
-        logger.info(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{mac_address}'")
-        cli_commands.append(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{mac_address}'")
+        logger.info(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{hw_address}'")
+        cli_commands.append(f"sonic-db-cli CONFIG_DB hset 'VLAN|Vlan{vlan_id}' mac '{hw_address}'")
         logger.info('')
 
     # Pass in a list of cli commands to perform in batch, instead of one at a time, to
@@ -1643,7 +1643,7 @@ def config_snake_vrf_bindings(Common_vars):
                 # mac address follows the vlan ID number
                 two_bytes = vlan_id.to_bytes(2, byteorder='big')
                 suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
-                mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+                mac_address = f'{Common_vars.hw_address_prefix}:{suffix}'
 
                 # group1 faces the stage its block was entered on and group2 the stage it is
                 # left on, so Vrf(k) group2 and Vrf(k + vrfs_per_group) group1 - the two
@@ -1669,14 +1669,14 @@ def config_snake_vrf_bindings(Common_vars):
                               'sid': sid,
                               'snake_index': snake_index,
                               'dut_port': dut_port,
-                              'mac_address': mac_address,
+                              'hw_address': mac_address,
                               'ip_prefix': Common_vars.ip_subnet_prefix,
                               'gateway_ip_address': f'{gateway_ip_address}'})
 
                 # Generate VLAN Mac Address for tgen's dest mac
                 two_bytes = vlan_id.to_bytes(2, byteorder='big')
                 suffix = ':'.join(f'{byte:02x}' for byte in two_bytes)
-                mac_address = f'{Common_vars.mac_address_prefix}:{suffix}'
+                mac_address = f'{Common_vars.hw_address_prefix}:{suffix}'
 
                 if vrf_block_index == first_vrf_block and subgroup_index == first_subgroup:
                     # tgen_ports_left holds the .1 of the /126 this group1 vlan took the .2
@@ -1984,11 +1984,11 @@ def config_ip_neighbor_add_lladd_dev(Common_vars):
         # The neighbour sitting on the far side of local_vlan is peer_vlan, so peer_vlan
         # hands over the mac_address and the gateway_ip_address
         vlan_id = local_vlan['vlan_id']
-        mac_address = peer_vlan['mac_address']
+        hw_address = peer_vlan['hw_address']
         gateway_ip_address = peer_vlan['gateway_ip_address']
 
-        cli_command = (f"sudo ip neigh add dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}' || "
-                       f"sudo ip neigh replace dev 'Vlan{vlan_id}' lladdr '{mac_address}' '{gateway_ip_address}'")
+        cli_command = (f"sudo ip neigh add dev 'Vlan{vlan_id}' lladdr '{hw_address}' '{gateway_ip_address}' || "
+                       f"sudo ip neigh replace dev 'Vlan{vlan_id}' lladdr '{hw_address}' '{gateway_ip_address}'")
         logger.info(cli_command)
         cli_commands.append(cli_command)
 
@@ -2089,7 +2089,7 @@ def add_details_to_snappi_ports(Common_vars):
                  dst_snappi_ports=Common_vars.snappi_tx_ports)
 
 
-def _log_snake_flow_stats(flow_index, tgen_tx_stat, tgen_rx_stat, hops, port_stats, direction,
+def _log_snake_flow_stats(Common_vars, flow_index, tgen_tx_stat, tgen_rx_stat, hops, port_stats, direction,
                           next_hop_subgroup, failures):
     """
     Trace one direction of a snake flow: each port's ingress (RX_OK) -> egress (TX_OK).
@@ -2110,20 +2110,31 @@ def _log_snake_flow_stats(flow_index, tgen_tx_stat, tgen_rx_stat, hops, port_sta
         rx_ok = stats.get('RX_OK')
         tx_ok = stats.get('TX_OK')
         next_hop_label = 'next-hop' if subgroup_index == next_hop_subgroup else ''
+        acceptable_pkt_loss = 0
+        if Common_vars.loss_pct_threshold != 0:
+            # tgen_tx_stat x .01 = pket_loss_threshold, so 1% of 1000 packets = 10 packets, which is the number
+            # of packets that can be lost and still be considered a pass.
+            acceptable_threshold_pct = tgen_tx_stat * Common_vars.loss_pct_threshold
+            acceptable_pkt_loss = round(tgen_tx_stat - acceptable_threshold_pct)
 
+        # Flow 1 Vrf1 -> Vrf29: TGEN_TX:676414061  TGEN_RX:676414061   Acceptable_Pkt_loss={acceptable_pkt_loss}
+        # Vrf1  Vlan2  sid:1    Ethernet0    next-hop  ingress=676414090  ->  egress=676414072
         logger.info(f'Flow {flow_index+1} {direction}: TGEN_TX:{tgen_tx_stat}  TGEN_RX:{tgen_rx_stat}   '
+                    f'Pkt_loss_OK={acceptable_pkt_loss}={Common_vars.loss_pct_threshold}%  '
                     f'{vrf_name:5} Vlan{vlan["vlan_id"]:<5} sid:{vlan["sid"]:<4x} {port:12} '
                     f'{next_hop_label:9} ingress={rx_ok}  ->  egress={tx_ok}')
 
         for counter_name, counter in [('ingress', rx_ok), ('egress', tx_ok)]:
-            if counter is not None and counter >= tgen_tx_stat:
-                continue
+            if counter is not None:
+                if counter >= tgen_tx_stat or counter >= acceptable_pkt_loss:
+                    continue
 
             # Failed dut snake port counter is less than tgen_tx_stat
             failures.append(f'Failed: Flow {flow_index+1} {direction}: '
                             f'{vrf_name:5} Vlan{vlan["vlan_id"]:<5} sid:{vlan["sid"]:<4x} {port:12} '
                             f'{next_hop_label:9} {counter_name}={counter}  is less than  '
-                            f'TGEN_TX:{tgen_tx_stat}')
+                            f'TGEN_TX:{tgen_tx_stat}  '
+                            f'Pkt_Loss_Threshold={acceptable_pkt_loss}={Common_vars.loss_pct_threshold}%')
 
 
 def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
@@ -2219,7 +2230,7 @@ def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
         # tgen_ports_left[flow_index] and leaving out group2 to
         # tgen_ports_right[flow_index], so group1 is the next-hop
         logger.info(f'Flow {flow_index+1} SID path: {sid_path}')
-        _log_snake_flow_stats(flow_index, int(forward_stat.frames_tx), int(forward_stat.frames_rx),
+        _log_snake_flow_stats(Common_vars, flow_index, int(forward_stat.frames_tx), int(forward_stat.frames_rx),
                               hops, port_stats,
                               direction=f'{hops[0][0]} -> {hops[-1][0]}',
                               next_hop_subgroup=first_subgroup,
@@ -2230,7 +2241,7 @@ def verify_dut_stat_counters_snake(Common_vars, tgen_stats):
         # tgen_ports_left[flow_index], so this time group2 is the next-hop.  This
         # direction is its own flow, so it is checked against its own tgen counters
         logger.info(f'Flow {flow_index+1} reverse SID path: {reverse_sid_path}')
-        _log_snake_flow_stats(flow_index + reverse_stat_offset,
+        _log_snake_flow_stats(Common_vars, flow_index + reverse_stat_offset,
                               int(reverse_stat.frames_tx), int(reverse_stat.frames_rx),
                               reverse_hops, port_stats,
                               direction=f'{hops[-1][0]} -> {hops[0][0]}',
