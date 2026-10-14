@@ -29,9 +29,9 @@
   dut:
     - vlab-01
   inv_name: veos_vtb
-  # Enable convergence only for the validated cSONiC T0 rollout. Other cSONiC
-  # topology entries remain disabled until their own CI qualification.
-  use_converged_peers: True
+  # DNM qualification override: keep this source identical to #28552 while
+  # exercising the ordinary, non-converged cSONiC T0 path.
+  use_converged_peers: False
   auto_recover: 'False'
   comment: Tests cSONiC virtual switch VMs without PortChannels
 
