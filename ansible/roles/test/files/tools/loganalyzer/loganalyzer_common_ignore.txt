@@ -340,6 +340,9 @@ r, ".* ERR rsyslogd:\s*(message repeated \d+ times: \[)?imrelp.*error 'error whe
 # Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
 r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
+# Ignore omrelp errors during late-stage 202605 qualification.
+r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp.*"
+
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
