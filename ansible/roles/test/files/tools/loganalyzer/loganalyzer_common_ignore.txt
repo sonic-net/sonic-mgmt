@@ -340,6 +340,13 @@ r, ".* ERR rsyslogd:\s*(message repeated \d+ times: \[)?imrelp.*error 'error whe
 # Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
 r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
+# 202605 restarts host rsyslog for docker0 during config reload; container
+# senders can emit these transient loopback RELP errors while services restart.
+r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'error opening connection to remote peer', object\s+.* - action may not work as intended.*"
+r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'server closed relp session, session broken', object\s+.* - action may not work as intended.*"
+r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'error waiting on required session state, session broken', object\s+.* - action may not work as intended.*"
+r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp: could not connect to remote server, librelp error 10014.*"
+
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
 # SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
