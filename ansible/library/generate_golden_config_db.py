@@ -980,6 +980,25 @@ class GenerateGoldenConfigDBModule(object):
 
         return ha_config
 
+    def _set_bgp_confed_config(self, config):
+        """Write BGP confederation config for both FRR config daemons.
+
+        bgpcfgd reads BGP_DEVICE_GLOBAL.CONFED; frrcfgd only reads
+        BGP_GLOBALS.<vrf>.confed_id / confed_peers. Emit both so the DUT gets
+        confederation regardless of which daemon the image runs.
+        """
+        peers = str(self.bgp_confd_peers).split()
+
+        bgp_device_global = config.setdefault("BGP_DEVICE_GLOBAL", {})
+        bgp_device_global["CONFED"] = {
+            "asn": str(self.bgp_confd_asn),
+            "peers": ";".join(peers)
+        }
+
+        bgp_globals_default = config.setdefault("BGP_GLOBALS", {}).setdefault("default", {})
+        bgp_globals_default["confed_id"] = str(self.bgp_confd_asn)
+        bgp_globals_default["confed_peers"] = peers
+
     def generate_ut2_golden_config_db(self):
         full_config = {}
         if self.num_asics > 1:
@@ -996,19 +1015,11 @@ class GenerateGoldenConfigDBModule(object):
                     full_config[asic_name].update(macsec_config[asic_name])
 
                 if self.bgp_confd_asn and self.bgp_confd_peers:
-                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
-                    bgp_device_global["CONFED"] = {
-                        "asn": str(self.bgp_confd_asn),
-                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                    }
+                    self._set_bgp_confed_config(full_config[asic_name])
         else:
             full_config.update(macsec_config)
             if self.bgp_confd_asn and self.bgp_confd_peers:
-                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
-                bgp_device_global["CONFED"] = {
-                    "asn": str(self.bgp_confd_asn),
-                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                }
+                self._set_bgp_confed_config(full_config)
 
         return json.dumps(full_config, indent=4)
 
