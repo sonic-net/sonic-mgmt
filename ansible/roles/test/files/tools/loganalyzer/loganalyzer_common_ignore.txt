@@ -342,10 +342,11 @@ r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken',
 
 # 202605 restarts host rsyslog for docker0 during config reload; container
 # senders can emit these transient loopback RELP errors while services restart.
+# The targetless 10014 line is safe to ignore only for container rsyslog.
 r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'error opening connection to remote peer', object\s+.* - action may not work as intended.*"
 r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'server closed relp session, session broken', object\s+.* - action may not work as intended.*"
 r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp\[127\.0\.0\.1:2514\]: error 'error waiting on required session state, session broken', object\s+.* - action may not work as intended.*"
-r, ".* ERR (?:[^ #]+#)*rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp: could not connect to remote server, librelp error 10014.*"
+r, ".* ERR (?:[^ #]+#)+rsyslogd:\s*(?:message repeated \d+ times: \[)?omrelp: could not connect to remote server, librelp error 10014.*"
 
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
