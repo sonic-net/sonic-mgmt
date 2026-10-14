@@ -158,8 +158,8 @@
       changed_when: false
       register: copp_init_result
       until: copp_init_result.rc == 0
-      retries: 60
-      delay: 1
+      retries: 12
+      delay: 5
 
     - name: reinit fp entries
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
