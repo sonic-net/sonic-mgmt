@@ -13,7 +13,9 @@
     - vlab-01
   inv_name: veos_vtb
   auto_recover: 'False'
-  use_converged_peers: True
+  # DNM qualification override: Elastictest selects this row and supplies
+  # vm_type=csonic separately for ordinary cSONiC T0 plans.
+  use_converged_peers: False
   comment: Tests virtual switch vm
 
 - conf-name: vms-kvm-t0-csonic
