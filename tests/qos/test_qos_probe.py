@@ -693,6 +693,12 @@ class TestQosProbe(QosSaiBase):
         if platform_asic == "broadcom-dnx":
             pytest.skip("Egress drop probing is not supported on broadcom-dnx")
 
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        th6_hwskus = hostvars.get("broadcom_th6_hwskus", [])
+        hwsku = duthost.facts.get("hwsku", "")
+        if hwsku in th6_hwskus:
+            pytest.skip("Egress drop probing is not supported on TH6 (no egress_lossy_pool)")
+
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
         src_port_id = dutConfig["testPorts"]["src_port_id"]
