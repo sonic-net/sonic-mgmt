@@ -9,6 +9,7 @@ import os
 
 from tests.common.helpers import gnmi_cli_helpers as helper
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
+from tests.common.pygnmi_client import PygnmiClient
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
                     apply_cert_config, \
                     gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
@@ -208,8 +209,17 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
     SONiC build_version.
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    msg_list = gnmi_get(duthost, ptfhost, ["osversion/build"], target="OTHERS", origin=None)
-    result = "\n".join(msg_list)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
+    msg_list = client.get(["osversion/build"], target="OTHERS")
+    result = "\n".join(
+        json.dumps(update["val"])
+        for notification in msg_list["notification"] for update in notification["update"]
+    )
 
     assert len(re.findall(r'"build_version": "SONiC\.', result)) == 1, (
         "build_version value not found in gnmi output: {}".format(result))
