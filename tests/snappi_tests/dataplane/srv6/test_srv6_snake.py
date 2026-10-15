@@ -8,6 +8,7 @@ REQUIREMENTS:
         - TGEN port connection to DUT port example:
             - switch-t0-1,Ethernet480,snappi-sonic,Port5.1,100000,482,Access
             - 482 is the VLAN ID of the DUT port, which is used to create the VRF and SID.
+
         - Snake ports example:
             - switch-t0-1,Ethernet479,switch-t0-1,Ethernet479,100000,481,Access
             - 481 is the VLAN ID of the DUT port, which is used to create the VRF and SID.
@@ -32,10 +33,9 @@ from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
 from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
 from tests.snappi_tests.dataplane.srv6.files.srv6_helper import config_snake_traffic_flows, \
-    snappi_port_name_mapper_snake, verify_dut_stat_counters_snake, clear_dut_stats, \
-    config_snake_vlan_mac_port, config_snake_vrf, config_snake_vrf_bindings, config_snake_sids, \
-    create_snake_tgen_sid_list, config_snake_static_routes, config_ip_neighbor_add_lladd_dev, \
-    add_details_to_snappi_ports
+    snappi_port_name_mapper_snake, verify_dut_stat_counters_snake, clear_dut_stats, config_snake_vlan_mac_port, \
+    config_snake_vrf, config_snake_vrf_bindings, config_snake_sids, create_snake_tgen_sid_list, \
+    config_snake_static_routes, config_ip_neighbor_add_lladd_dev, add_details_to_snappi_ports
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class Common_vars:
     dut_host = None
     dut_hostname = None
     conn_graph_facts = None  # noqa F811
-    mac_address_prefix = '00:11:00:00'
+    hw_address_prefix = '00:11:00:00'
     mac_src_prefix = '00:11:01:00'
     mac_src_byte = '00'
     ip_prefix = 'fc0a'
@@ -80,12 +80,16 @@ class Common_vars:
     config_dut_already = False
     debug_mode = False
 
+    # Set to 0 if you want to test for 0% packet loss.
+    # Set to 0.01 if you want to allow for 1% packet loss.
+    loss_pct_threshold = 0.01
+
 
 srv6_param_values = {
     "subnet_type":     ["IPv6"],
     "test_duration":    [60],
     "packet_size":      [1500],
-    "line_rate":        [95],
+    "line_rate":        [100],
     "collect_interval": [30],
     "topology":         ["snake"],
 }
@@ -212,9 +216,18 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
     logger.info(snappi_stats)
 
     tgen_flow_failures = []
+    acceptable_pkt_loss = 0
     for snappi_flow_stat in snappi_stats:
-        if int(snappi_flow_stat.frames_rx) < int(snappi_flow_stat.frames_tx):
+        if Common_vars.loss_pct_threshold != 0:
+            # tgen_tx_stat x .01 = pket_loss_threshold, so 1% of 1000 packets = 10 packets, which is the number
+            # of packets that can be lost and still be considered a pass.
+            acceptable_threshold_pct = snappi_flow_stat.frames_tx * Common_vars.loss_pct_threshold
+            acceptable_pkt_loss = round(snappi_flow_stat.frames_tx - acceptable_threshold_pct)
+
+        min_acceptable_rx = acceptable_pkt_loss if acceptable_pkt_loss != 0 else int(snappi_flow_stat.frames_tx)
+        if int(snappi_flow_stat.frames_rx) < min_acceptable_rx:
             message = (f'TGEN ports: {snappi_flow_stat.name}: RX={snappi_flow_stat.frames_rx}  '
+                       f'Loss_Allowed_Threshold={acceptable_pkt_loss}  '
                        f'less than  TX={snappi_flow_stat.frames_tx}')
             tgen_flow_failures.append(message)
             logger.warning(message)
