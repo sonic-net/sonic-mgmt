@@ -27,6 +27,7 @@ from tests.generic_config_updater.dt2.dt2_helpers import (
     build_add_patches,
     build_remove_patch,
     pick_target_neighbor,
+    remove_peer_via_gcu,
 )
 
 pytestmark = [
@@ -117,6 +118,7 @@ def test_neighbor_remove_and_readd_scheduler(
     duthosts,
     loganalyzer,
     enum_downstream_dut_hostname,
+    enum_rand_one_frontend_asic_index,
     enum_rand_one_asic_namespace,
     mg_facts,
     config_facts,
@@ -156,9 +158,9 @@ def test_neighbor_remove_and_readd_scheduler(
             remove_patch_main, remove_patch_extra = build_remove_patch(
                 config_facts, config_facts_localhost, mg_facts, namespace, neighbor_ctx,
             )
-            apply_patch_or_assert(duthost, remove_patch_main)
-            if remove_patch_extra:
-                apply_patch_or_assert(duthost, remove_patch_extra)
+            remove_peer_via_gcu(
+                duthost, enum_rand_one_frontend_asic_index, neighbor_ctx, remove_patch_main, remove_patch_extra,
+            )
             mismatches = diff_qos_rows(duthost, namespace, baseline, expect_absent=("PORT_QOS_MAP",))
             pytest_assert(
                 not mismatches,
