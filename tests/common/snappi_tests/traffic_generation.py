@@ -27,7 +27,7 @@ from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
-from tests.common.macsec.macsec_helper import get_macsec_counters, clear_macsec_counters, \
+from tests.common.macsec.macsec_helper import clear_macsec_counters, \
     get_dict_macsec_counters  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.port import SnappiPortConfig
@@ -443,7 +443,6 @@ def generate_pause_flows(testbed_config,
 
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
     pause_flow.tx_rx.port.rx_name = testbed_config.ports[base_flow_config["tx_port_id"]].name
-
     if global_pause:
         pause_pkt = pause_flow.packet.ethernetpause()[-1]
         pause_pkt.dst.value = "01:80:C2:00:00:01"
@@ -781,7 +780,6 @@ def run_traffic(duthost,
         in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
                                                         (right before flows end)
     """
-
     api.set_config(config)
     ptype = "--snappi_macsec" in sys.argv
     if ptype:
@@ -870,17 +868,14 @@ def run_traffic(duthost,
         clear_dut_que_counters(host)
         clear_dut_pfc_counters(host)
 
+    logger.info("Starting transmit on all flows ...")
     if not ptype:
-        logger.info("Starting transmit on all flows ...")
         set_flow_transmit_state(api, "start")
     else:
-        print('Generating Traffic Item')
         trafficItems = ixnet.Traffic.TrafficItem.find()
         for trafficItem in trafficItems:
             trafficItem.Generate()
-        print('Applying Traffic')
         ixnet.Traffic.Apply()
-        print('Starting Traffic')
         ixnet.Traffic.StartStatelessTrafficBlocking()
 
     if snappi_extra_params.reboot_type:
@@ -949,6 +944,12 @@ def run_traffic(duthost,
                 time.sleep(1)
                 attempts += 1
         else:
+            flow_stat_view = api._ixnetwork.Statistics.View.find(Caption='Flow Statistics')
+            if flow_stat_view:
+                flow_stat_view.Page.PageSize = 1000
+                logger.info("Flow Statistics page size set to {}".format(flow_stat_view.Page.PageSize))
+            else:
+                logger.warning("'Flow Statistics' view not found, page size not changed")
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
             transmit_states = [
                 int(float(metric['Tx Frame Rate']))
@@ -956,7 +957,7 @@ def run_traffic(duthost,
                 if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
                 and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
             ]
-            if list(set(transmit_states)) != [0]:   # Issue encountered, workaround is != instead of ==
+            if all(state == 0 for state in transmit_states):
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
