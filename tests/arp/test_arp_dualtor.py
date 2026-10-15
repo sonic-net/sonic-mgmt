@@ -164,9 +164,12 @@ def get_neighbor_entry(duthost, neigh_ip):
 
 
 def verify_neighbor_status(duthost, neigh_ip, expected_status):
-    neighbor_entry = get_neighbor_entry(duthost, neigh_ip)
-    return neighbor_entry is not None and \
-        expected_status.lower() in neighbor_entry.get('state', '').lower()
+    ip_version = 'v4' if ip_address(neigh_ip).version == 4 else 'v6'
+    neighbor_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    if str(neigh_ip) not in neighbor_table[ip_version]:
+        logger.debug("Neighbor %s is not present on %s", neigh_ip, duthost.hostname)
+        return False
+    return expected_status.lower() in neighbor_table[ip_version][str(neigh_ip)]['state'].lower()
 
 
 def verify_neighbor_resolution(
@@ -801,16 +804,24 @@ def test_standby_unsolicited_neigh_learning(
     4. Confirm that the standby ToR learned the entry and it is REACHABLE
     """
     neighbor_ip = selected_mux_port[1]
-    if ip_address(neighbor_ip).version == 6 and rand_unselected_dut.facts["asic_type"] == "vs":
+    ip_version = ip_address(neighbor_ip).version
+    if ip_version == 6 and rand_unselected_dut.facts["asic_type"] == "vs":
         pytest.skip("Temporarily skipped to let the sonic-swss submodule be updated.")
+    # IPv6 NUD can spend five seconds in DELAY, and arp_update processes IPv4
+    # neighbors before refreshing IPv6. Allow both paths time to converge.
+    reachable_timeout = 15 if ip_version == 6 else 5
     ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
 
     clear_neighbor_entry(rand_selected_dut, neighbor_ip)
     rand_selected_dut.shell(ping_cmd, module_ignore_errors=True)
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_selected_dut, neighbor_ip, REACHABLE)))
-    clear_neighbor_entry(rand_unselected_dut, neighbor_ip)
+    pytest_assert(
+        wait_until(reachable_timeout, 1, 0, verify_neighbor_status, rand_selected_dut, neighbor_ip, REACHABLE),
+        "Neighbor {} did not become REACHABLE on active ToR {}".format(neighbor_ip, rand_selected_dut.hostname))
+    rand_unselected_dut.shell("sudo ip neigh flush all")
 
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     rand_selected_dut.shell(arp_update_cmd)
 
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)))
+    pytest_assert(
+        wait_until(reachable_timeout, 1, 0, verify_neighbor_status, rand_unselected_dut, neighbor_ip, REACHABLE),
+        "Neighbor {} did not become REACHABLE on standby ToR {}".format(neighbor_ip, rand_unselected_dut.hostname))
