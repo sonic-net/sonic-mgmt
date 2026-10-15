@@ -17,6 +17,7 @@ artifact_size = 0
 NOT_FOUND_BUILD_ID = -999
 MAX_DOWNLOAD_TIMES = 3
 BACKOFF_BASE_SECONDS = 30
+SECURE_BOOT_VS_PIPELINE_ID = 3442
 
 
 def reporthook(count, block_size, total_size):
@@ -285,7 +286,9 @@ def main():
 
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
-    if args.content == 'image' and args.platform == 'vs' and args.num_asic == 1:
+    if (args.content == 'image' and args.platform == 'vs' and
+            args.num_asic == 1 and
+            args.build_pipeline_id == SECURE_BOOT_VS_PIPELINE_ID):
         companion_filename = 'sonic-vs_vars.fd'
         companion_directory = os.path.join('sonic-vm', 'images')
         companion_path = (

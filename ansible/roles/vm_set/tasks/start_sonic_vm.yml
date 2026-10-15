@@ -6,6 +6,10 @@
     disable_updategraph: False
   when: disable_updategraph is not defined
 
+- set_fact:
+    use_uefi: False
+  when: use_uefi is not defined
+
 - name: Check if images folder exists
   stat: path={{ sonic_vm_storage_location }}/images
   register: images_folder_stat
@@ -62,11 +66,7 @@
   stat:
     path: "{{ src_disk_efi_vars }}"
   register: src_disk_efi_vars_stat
-
-- name: Enable UEFI when EFI vars are available
-  set_fact:
-    use_uefi: "{{ src_disk_efi_vars_stat.stat.exists }}"
-  when: use_uefi is not defined
+  when: use_uefi | bool
 
 - name: Check sonic EFI vars for {{ dut_name }}
   stat:

@@ -22,7 +22,6 @@
       - python3-libvirt
       - python3-lxml
       - libvirt-daemon-system
-      - ovmf
       - qemu-system-x86
       - acl
   register: apt_res
