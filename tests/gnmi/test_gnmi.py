@@ -6,13 +6,14 @@ import random
 import threading
 import json
 import os
+from contextlib import closing
 
 from tests.common.helpers import gnmi_cli_helpers as helper
-from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
-from tests.common.pygnmi_client import PygnmiClient
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.pygnmi_client import Encoding, PygnmiClient, StreamMode
+from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, \
                     apply_cert_config, \
-                    gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
+                    gnmi_subscribe_stream_connections
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -45,18 +46,19 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     Verify GNMI capabilities
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost)
-    assert ret == 0, (
-        "GNMI capabilities command failed (non-zero return code).\n"
-        "- Error message: {}"
-    ).format(msg)
-
-    assert "sonic-db" in msg, (
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
+    msg = client.capabilities()
+    assert any(model.get("name") == "sonic-db" for model in msg.get("supported_models", [])), (
         "'sonic-db' not found in GNMI capabilities response message.\n"
         "- Actual message: {}"
     ).format(msg)
 
-    assert "JSON_IETF" in msg, (
+    assert "json_ietf" in msg.get("supported_encodings", []), (
         "'JSON_IETF' not found in GNMI capabilities response message.\n"
         "- Actual message: {}"
     ).format(msg)
@@ -136,38 +138,35 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
 
     interval_ms = 5000  # 5 second interval
     count = 5
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
 
-    def validates_subscribe_sample(output: str):
-        respCnt = output.count("response received")
-
-        # expected <count> responses + 1 sync response
-        assert respCnt == count + 1, f"expected {count + 1} responses, got {respCnt}"
-
-        timestamps = [ts for ts in output.split("\n") if "timestamp" in ts]
-        for i in range(len(timestamps) - 1):
-            if i == 0:
-                break
-            # format "timestamp: <timestamp in nanoseconds>"
-            currTs = int(timestamps[i].split(': ')[1])
-            nextTs = int(timestamps[i + 1].split(': ')[1])
-            # round to the nearest second
-            assert round(nextTs - currTs, -8) == 5000000000, (
-                "expected 5 second timestamp diff," f"currTs: {currTs}, nextTs: {nextTs}"
-            )
+    def validates_subscribe_sample(output):
+        # The initial synchronized batch must contain data; a sync-only shell
+        # does not count as a sample. Multiple fields still count as one batch.
+        respCnt = sum(bool(response.get("update", {}).get("update")) for response in output)
+        assert respCnt == count, f"expected {count} update responses, got {respCnt}"
+        assert output[0].get("sync_response"), "Initial SAMPLE response did not synchronize"
 
         logger.info(f"Successfully received exactly {count} gNMI subscribe sample responses")
 
     with allure.step("Perform gNMI subscribe sample request to state DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost,  ["/PSU_INFO"], interval_ms, count, target="STATE_DB"
-        )
+        stdout_msg = list(client.subscribe(
+            ["/PSU_INFO"], sample_interval=interval_ms / 1000, count=count,
+            collect_seconds=30, target="STATE_DB", encoding=Encoding.JSON_IETF,
+        ))
         logger.debug("gNMI subscribe response: %s", stdout_msg)
         validates_subscribe_sample(stdout_msg)
 
     with allure.step("Perform gNMI subscribe sample request to sonic DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost, ["/COUNTERS_DB/localhost/COUNTERS"], interval_ms, count, origin="sonic-db"
-        )
+        stdout_msg = list(client.subscribe(
+            ["/COUNTERS_DB/localhost/COUNTERS"], sample_interval=interval_ms / 1000, count=count,
+            collect_seconds=30, prefix="sonic-db://", encoding=Encoding.JSON_IETF,
+        ))
         logger.debug("gNMI subscribe response: %s", stdout_msg)
         validates_subscribe_sample(stdout_msg)
 
@@ -229,8 +228,17 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
 
 def _get_sysuptime_total(duthost, ptfhost):
     """GET OTHERS/proc/uptime and return the 'total' field as a float."""
-    msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
-    result = "\n".join(msg_list)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
+    msg_list = client.get(["proc/uptime"], target="OTHERS")
+    result = "\n".join(
+        json.dumps(update["val"])
+        for notification in msg_list["notification"] for update in notification["update"]
+    )
     match = re.search(r'"total":\s*([0-9.]+)', result)
     assert match is not None, (
         "system uptime 'total' field not found in gnmi output: {}".format(result))
@@ -253,13 +261,6 @@ def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
             uptime_first, uptime_second))
 
 
-def _gnmi_client_connected(duthost, ptfhost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port),
-                        module_ignore_errors=True)
-    return res["rc"] == 0
-
-
 def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
     '''
     Verify GNMI subscribe ON_CHANGE on STATE_DB NEIGH_STATE_TABLE reports a BGP
@@ -278,30 +279,30 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
     namespace_name = ns if ns else "localhost"
     path_list = ["/sonic-db:STATE_DB/{}/NEIGH_STATE_TABLE".format(namespace_name)]
 
-    result_holder = {}
-
-    def subscribe_worker():
-        msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, 2)
-        result_holder["msg"] = msg
-
-    client_thread = threading.Thread(target=subscribe_worker)
-    client_thread.start()
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
     try:
-        # Wait for the subscribe client to connect before triggering the change,
-        # otherwise the on-change update can be missed.
-        wait_until(60, 1, 0, _gnmi_client_connected, duthost, ptfhost)
-        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
-        cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-        duthost.shell(cmd)
-        client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
+        with closing(client.subscribe(
+                path_list, stream_mode=StreamMode.ON_CHANGE, count=2, collect_seconds=60)) as subscription:
+            # The native client runs on the runner, not the PTF. Its initial
+            # synchronized response establishes readiness before changing state.
+            msg = [next(subscription)]
+            cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+            cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
+            duthost.shell(cmd)
+            msg.extend(subscription)
     finally:
-        # Restore the original neighbor state.
+        # Restore the original neighbor state after closing the subscription.
         cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
 
-    msg = result_holder.get("msg", "")
-    assert msg != "", "Did not get output from PTF on-change client"
+    msg = json.dumps(msg)
+    assert msg != "", "Did not get output from native on-change client"
     assert bgp_neighbor in msg, (
         "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
 
@@ -348,6 +349,12 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
     against the SHOW target, and verify.
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PygnmiClient(
+        duthost.mgmt_ip, env.gnmi_port,
+        ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
+        client_key="gnmiclient.key", connect=False,
+    )
 
     # Resolve "duthost" to the DUT selected for this test so setup/verify act on
     # the same host the GET queries (request.getfixturevalue("duthost") would
@@ -366,9 +373,9 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
             # cert server; re-apply it so the SHOW GET runs against the configured server.
             apply_cert_config(duthost)
 
-        show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
+        show_gnmi_out = client.get([path], target="SHOW")
 
         if test_config["verify"]:
-            output = helper.get_json_from_gnmi_output(show_gnmi_out)
+            output = show_gnmi_out["notification"][0]["update"][0]["val"]
             verify_fixtures = [resolve_fixture(fx) for fx in test_config["verify_fixtures"]]
             getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
