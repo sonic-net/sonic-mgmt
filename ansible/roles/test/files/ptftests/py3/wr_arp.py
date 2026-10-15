@@ -294,6 +294,7 @@ class ArpTest(BaseTest):
         packet_filter = 'arp and not ether dst ff:ff:ff:ff:ff:ff'
         if self.advance:
             self.asic_type = self.get_param('asic_type')
+            self.asic_name = self.get_param('asic_name') or ''
             self.ferret_endpoint_ip = self.get_param('ferret_endpoint_ip')
             for data in graph['minigraph_lo_interfaces']:
                 if int(data['prefixlen']) == 32:
@@ -538,6 +539,12 @@ class ArpTest(BaseTest):
         stop_at = time.time() + self.how_long
         reachable = None
         reboot_downtime_observed = False
+        # L2 VXLAN is not fully supported on Tomahawk ASICs. The decapsulated
+        # unicast ARP reply may be flooded, so only require it to reach the requester.
+        allow_flooding = False
+        if self.asic_type == 'broadcom' and self.asic_name.startswith('th'):
+            self.log("WARNING: Allowing unicast ARP reply flooding on ASIC {}".format(self.asic_name))
+            allow_flooding = True
 
         while time.time() < stop_at:
             send_pkt = False
@@ -578,14 +585,18 @@ class ArpTest(BaseTest):
 
             self.log("Polling for mirrored ARP request and ARP reply")
             arp_reply_ports, erspan_request_ports = self.poll_erspan_and_arp_reply(
-                exp_pkt, exp_erspan_pkt)
+                exp_pkt, exp_erspan_pkt, port)
 
-            # The ARP reply should always reach only the requester, including
-            # when CPA is being disabled and the DUT control plane has resumed.
-            self.assertTrue(
-                arp_reply_ports == {port},
-                "Expected ARP reply only on requester port {}, received on {}".format(
-                    port, sorted(arp_reply_ports)))
+            if allow_flooding:
+                self.assertTrue(
+                    port in arp_reply_ports,
+                    "Expected ARP reply on requester port {}, received on {}".format(
+                        port, sorted(arp_reply_ports)))
+            else:
+                self.assertTrue(
+                    arp_reply_ports == {port},
+                    "Expected ARP reply only on requester port {}, received on {}".format(
+                        port, sorted(arp_reply_ports)))
 
             unexpected_erspan_ports = (erspan_request_ports - set(self.portchannel_ports))
             self.assertTrue(
@@ -606,13 +617,13 @@ class ArpTest(BaseTest):
 
         self.assertTrue(False, "Timed out waiting for CPA teardown")
 
-    def poll_erspan_and_arp_reply(self, exp_pkt, exp_erspan_pkt):
-        '''Polls each received packet once and matches both CPA packet types.'''
+    def poll_erspan_and_arp_reply(self, exp_pkt, exp_erspan_pkt, requester_port):
+        '''Polls until the requester receives an ARP reply and an ERSPAN request is found.'''
         arp_reply_ports = set()
         erspan_request_ports = set()
         stop_at = time.time() + 2 * ptf.ptfutils.default_timeout
 
-        while not (arp_reply_ports and erspan_request_ports):
+        while not (requester_port in arp_reply_ports and erspan_request_ports):
             timeout = stop_at - time.time()
             if timeout <= 0:
                 break
