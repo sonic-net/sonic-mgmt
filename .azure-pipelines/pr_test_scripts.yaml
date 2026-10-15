@@ -836,6 +836,9 @@ t0-vpp:
   - pc/test_po_update.py
   - sflow/test_sflow.py
   - span/test_port_mirroring.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_secondary_subnet.py
