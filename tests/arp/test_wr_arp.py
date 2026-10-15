@@ -107,6 +107,7 @@ def test_wr_arp_advance(request, duthost, ptfhost, creds, setupFerretFixture):
             'ferret_ip': ptfIp,
             'ferret_endpoint_ip': setupFerretFixture,
             'asic_type': duthost.facts['asic_type'],
+            'asic_name': duthost.get_asic_name(),
             'dut_ssh': dutIp,
             'dut_username': creds['sonicadmin_user'],
             'dut_password': creds['sonicadmin_password'],
