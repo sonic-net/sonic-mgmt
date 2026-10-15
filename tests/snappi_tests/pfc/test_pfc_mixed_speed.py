@@ -2,17 +2,17 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
-    fanout_graph_facts          # noqa: F401
+    fanout_graph_facts                                                                      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut      # noqa: F401
+    get_snappi_ports_single_dut, fabric_counter_context                                     # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
+    lossy_prio_list, all_prio_list, disable_pfcwd                                           # noqa: F401
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                            # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
@@ -30,6 +30,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
                                     duthosts,
+                                    fabric_counter_context,       # noqa: F811
                                     prio_dscp_map,                # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
@@ -52,6 +53,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -135,8 +137,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -154,8 +155,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
                      snappi_extra_params=snappi_extra_params)
 
         # Check the fabric counter for the line-cards.
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
 
     finally:
         cleanup_config(dut_list, snappi_ports)
@@ -167,6 +167,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
                                    duthosts,
+                                   fabric_counter_context,       # noqa: F811
                                    prio_dscp_map,                # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
@@ -189,6 +190,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -271,8 +273,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -289,8 +290,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
 
     finally:
         cleanup_config(dut_list, snappi_ports)
@@ -302,6 +302,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
                                    duthosts,
+                                   fabric_counter_context,       # noqa: F811
                                    prio_dscp_map,                # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
@@ -322,6 +323,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        fabric_counter_context (pytest fixture): check fabric counters for DNX platforms.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
@@ -405,8 +407,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
     else:
         dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
-    for dut in duthosts:
-        clear_fabric_counters(dut)
+    clear_fabric_counters(fabric_counter_context)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -423,8 +424,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
                      test_def=test_def,
                      snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
+        check_fabric_counters(fabric_counter_context)
 
     finally:
         cleanup_config(dut_list, snappi_ports)
