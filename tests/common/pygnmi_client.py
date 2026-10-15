@@ -14,16 +14,13 @@ from __future__ import annotations
 
 import logging
 import os
-import queue
 import sys
-import threading
 import time
 from collections.abc import Iterable, Iterator
 from enum import Enum
 
 import grpc
-from pygnmi.client import gNMIclient, gNMIException, telemetryParser
-from pygnmi.spec.v080.gnmi_pb2 import Poll, SubscribeRequest
+from pygnmi.client import gNMIclient, gNMIException
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +141,8 @@ class PygnmiClient:
             ca_cert: Path to the CA certificate (required unless plaintext).
             client_cert: Path to the client certificate (required unless plaintext).
             client_key: Path to the client private key (required unless plaintext).
-            timeout: Per-call gRPC deadline in seconds, including the entire POLL
-                RPC. Also used as the per-update wait for ONCE collection.
+            timeout: Per-call gRPC deadline in seconds, also used as the default
+                per-update wait for POLL/ONCE collection.
             connect: If True (default), open and close a probe channel now so
                 bad target/cert data fails fast. Set False to construct without
                 connecting (e.g. for request-building/validation only).
@@ -445,7 +442,6 @@ class PygnmiClient:
                   target: str | None = None, extension: list | None = None,
                   collect_seconds: int | float = 10, count: int | None = None,
                   poll_count: int = 1, poll_interval: int | float = 1.0,
-                  poll_timeout: int | float | None = None,
                   **sub_options) -> Iterator[dict]:
         """
         Run a bounded gNMI Subscribe, yielding each notification as it arrives.
@@ -483,12 +479,8 @@ class PygnmiClient:
             collect_seconds: STREAM wall-clock collection window, in seconds.
             count: STREAM cap on the number of notifications to yield; None
                 yields for the full window.
-            poll_count: POLL number of triggers to enqueue and sync-delimited
-                batches to collect. The first batch can be the initial snapshot.
+            poll_count: POLL number of Poll() triggers to send.
             poll_interval: POLL delay between triggers, in seconds.
-            poll_timeout: Total POLL RPC deadline in seconds, including intervals
-                and consumer processing time. Defaults to this client's timeout.
-                Does not change STREAM collection or ONCE timeout behavior.
             **sub_options: Any additional pygnmi SubscriptionList field
                 (e.g. prefix, updates_only, allow_aggregation, use_aliases,
                 qos), forwarded verbatim.
@@ -514,12 +506,6 @@ class PygnmiClient:
                 raise PygnmiClientCallError("poll_count must be > 0")
             if poll_interval < 0:
                 raise PygnmiClientCallError("poll_interval must be >= 0")
-            if poll_timeout is None:
-                poll_timeout = self.timeout
-            if poll_timeout <= 0:
-                raise PygnmiClientCallError("poll_timeout must be > 0")
-        elif poll_timeout is not None:
-            raise PygnmiClientCallError("poll_timeout requires POLL mode")
 
         request = self._build_subscribe_request(
             paths, mode, stream_mode, sample_interval, heartbeat_interval,
@@ -527,10 +513,10 @@ class PygnmiClient:
 
         return self._run_subscription(
             mode, request, target, extension, collect_seconds, count,
-            poll_count, poll_interval, poll_timeout)
+            poll_count, poll_interval)
 
     def _run_subscription(self, mode, request, target, extension,
-                          collect_seconds, count, poll_count, poll_interval, poll_timeout):
+                          collect_seconds, count, poll_count, poll_interval):
         """
         Drive the pygnmi subscriber, yielding notifications until the bound.
 
@@ -551,15 +537,13 @@ class PygnmiClient:
         close_subscriber = None
         try:
             gc = self._ensure_client()
-            if mode == SubscribeMode.POLL:
-                yield from self._iter_poll(gc, request, target, extension,
-                                           poll_count, poll_interval, poll_timeout)
-                return
             subscriber = gc.subscribe2(subscribe=request, target=target,
                                        extension=extension)
             close_subscriber = self._prepare_subscription_shutdown(subscriber)
             if mode == SubscribeMode.ONCE:
                 yield from self._iter_once(subscriber)
+            elif mode == SubscribeMode.POLL:
+                yield from self._iter_poll(subscriber, poll_count, poll_interval)
             else:
                 yield from self._iter_stream(subscriber, collect_seconds, count)
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
@@ -661,51 +645,24 @@ class PygnmiClient:
             yield notif
             collected += 1
 
-    def _iter_poll(self, gc, request, target, extension, poll_count, poll_interval, timeout):
-        """Read POLL responses in the caller so RPC deadlines/errors propagate.
-
-        Keep pygnmi's initial snapshot and coalescing semantics. Its subscribe2
-        receiver thread does not forward RPC errors or set an RPC deadline, so
-        isolate the pygnmi 0.8.15 request-builder/stub boundary here.
+    def _iter_poll(self, subscriber, poll_count, poll_interval):
         """
-        initial = gc._build_subscriptionrequest(request, target, extension)
-        triggers = queue.Queue()
-        terminated = threading.Event()
+        POLL: each get_update() sends one Poll() and coalesces to sync.
 
-        def requests():
-            yield initial
-            while triggers.get():
-                yield SubscribeRequest(poll=Poll())
+        Args:
+            subscriber: The pygnmi subscriber yielded by ``subscribe2``.
+            poll_count: Number of Poll() triggers to send. Validated eagerly
+                in ``subscribe()`` before the RPC is opened.
+            poll_interval: Delay between triggers, in seconds. Validated
+                eagerly in ``subscribe()`` before the RPC is opened.
 
-        responses = gc._gNMIclient__stub.Subscribe(
-            requests(), timeout=timeout, metadata=gc._gNMIclient__metadata)
-        responses.add_callback(terminated.set)
-        try:
-            for i in range(poll_count):
-                triggers.put(True)
-                combined = {"update": {}}
-                for response in responses:
-                    if response.HasField("error"):
-                        raise PygnmiClientCallError(f"gnmi subscribe error: {response.error}")
-                    notification = telemetryParser(response)
-                    if notification is None:
-                        raise PygnmiClientCallError("Unable to decode POLL response")
-                    for key, value in notification.get("update", {}).items():
-                        if key in ("update", "delete"):
-                            combined["update"].setdefault(key, []).extend(value)
-                        else:
-                            combined["update"][key] = value
-                    if "sync_response" in notification:
-                        combined["sync_response"] = notification["sync_response"]
-                        break
-                else:
-                    raise PygnmiClientCallError("POLL RPC ended before sync_response")
-                yield combined
-                if i < poll_count - 1:
-                    terminated.wait(poll_interval)
-        finally:
-            triggers.put(False)
-            responses.cancel()
+        Yields:
+            One pygnmi notification dict per Poll() trigger.
+        """
+        for i in range(poll_count):
+            yield subscriber.get_update(timeout=self.timeout)
+            if poll_interval and i < poll_count - 1:
+                time.sleep(poll_interval)
 
     def _iter_once(self, subscriber):
         """

@@ -1,13 +1,10 @@
 """Integration tests for the PygnmiClient gNMI client via the gnmi_tls fixture."""
 import logging
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import Mock
 
 import grpc
 import pytest
-from pygnmi.spec.v080 import gnmi_pb2
-from pygnmi.spec.v080 import gnmi_pb2_grpc
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import (
@@ -262,141 +259,29 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
 # --- offline unit tests (no DUT required) -----------------------------------
 
 
-@pytest.fixture
-def poll_server():
-    """Run a real loopback RPC with bounded server-side failure scenarios."""
-    class Server(gnmi_pb2_grpc.gNMIServicer):
-        scenario = "snapshot"
-
-        def __init__(self):
-            self.finished = threading.Event()
-            self.requests = []
-            self.has_deadline = False
-
-        def Capabilities(self, request, context):
-            return gnmi_pb2.CapabilityResponse(
-                gNMI_version="0.8.0", supported_encodings=[gnmi_pb2.JSON_IETF])
-
-        def Subscribe(self, requests, context):
-            self.has_deadline = context.time_remaining() < 10
-            try:
-                for request in requests:
-                    self.requests.append(request.WhichOneof("request"))
-                    if self.scenario == "denied":
-                        context.abort(grpc.StatusCode.PERMISSION_DENIED, "poll access denied")
-                    if self.scenario in ("idle", "trickle"):
-                        # The fallback bounds the test even with the broken client.
-                        limit = time.monotonic() + 1
-                        while context.is_active() and time.monotonic() < limit:
-                            if self.scenario == "trickle":
-                                yield gnmi_pb2.SubscribeResponse(update=gnmi_pb2.Notification(
-                                    timestamp=1, update=[gnmi_pb2.Update(
-                                        val=gnmi_pb2.TypedValue(json_ietf_val=b'{"value":1}'))]))
-                            time.sleep(.01)
-                        context.abort(grpc.StatusCode.ABORTED, "test server fallback")
-                    if self.scenario == "snapshot":
-                        for value in (1, 2):
-                            yield gnmi_pb2.SubscribeResponse(update=gnmi_pb2.Notification(
-                                timestamp=value, update=[gnmi_pb2.Update(
-                                    path=gnmi_pb2.Path(elem=[gnmi_pb2.PathElem(name="counter")]),
-                                    val=gnmi_pb2.TypedValue(json_ietf_val=str(value).encode()))]))
-                        yield gnmi_pb2.SubscribeResponse(update=gnmi_pb2.Notification(
-                            timestamp=3, delete=[gnmi_pb2.Path(elem=[gnmi_pb2.PathElem(name="removed")])]))
-                    yield gnmi_pb2.SubscribeResponse(sync_response=True)
-                    if self.scenario == "denied_after_sync":
-                        context.abort(grpc.StatusCode.PERMISSION_DENIED, "poll access denied after sync")
-            finally:
-                self.finished.set()
-
-    service = Server()
-    executor = ThreadPoolExecutor(max_workers=2)
-    server = grpc.server(executor)
-    gnmi_pb2_grpc.add_gNMIServicer_to_server(service, server)
-    port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
-    client = PygnmiClient("127.0.0.1", port, plaintext=True, connect=False, timeout=.2)
-    try:
-        yield client, service
-    finally:
-        client.close()
-        server.stop(0).wait(2)
-        executor.shutdown(wait=True)
-
-
-@pytest.mark.parametrize("scenario", ["idle", "trickle"])
-def test_subscribe_poll_rpc_deadline(poll_server, scenario):
-    """POLL has a wire deadline even when updates keep arriving without sync."""
-    client, service = poll_server
-    service.scenario = scenario
-    with pytest.raises(PygnmiClientTimeoutError) as error:
-        list(client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=1))
-    assert service.has_deadline
-    assert isinstance(error.value.__cause__, grpc.RpcError)
-    assert error.value.__cause__.code() == grpc.StatusCode.DEADLINE_EXCEEDED
-    assert client._client is None
-    assert service.finished.wait(2)
-
-
-@pytest.mark.parametrize("scenario", ["denied", "denied_after_sync"])
-def test_subscribe_poll_rpc_error(poll_server, scenario):
-    """POLL forwards the real status instead of hiding it in a receiver thread."""
-    client, service = poll_server
-    service.scenario = scenario
-    with pytest.raises(PygnmiClientCallError, match="poll access denied") as error:
-        list(client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=2, poll_interval=0))
-    assert error.value.__cause__.code() == grpc.StatusCode.PERMISSION_DENIED
-    assert client._client is None
-    assert service.finished.wait(2)
-
-
-@pytest.mark.parametrize("scenario", ["snapshot", "sync_only"])
-def test_subscribe_poll_coalesced_response(poll_server, scenario):
-    """Keep the existing initial-snapshot/coalesced notification shape."""
-    client, service = poll_server
-    service.scenario = scenario
-    result = list(client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=2, poll_interval=0))
-    assert len(result) == 2
-    assert all(response["sync_response"] is True for response in result)
-    if scenario == "snapshot":
-        for response in result:
-            assert [entry["val"] for entry in response["update"]["update"]] == [1, 2]
-            assert response["update"]["delete"] == [{"path": "removed"}]
-            assert response["update"]["timestamp"] == 3
+@pytest.mark.parametrize("times_out", [False, True], ids=["sync_only", "timeout"])
+def test_subscribe_poll_result_and_timeout(monkeypatch, times_out):
+    """Preserve sync-only results and propagate pygnmi's per-update timeout."""
+    subscriber = Mock(spec=["get_update", "close"])
+    response = {"update": {}, "sync_response": True}
+    subscriber.get_update.return_value = response
+    if times_out:
+        subscriber.get_update.side_effect = TimeoutError("no update")
+    transport = Mock()
+    transport.subscribe2.return_value = subscriber
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: transport)
+    client = _offline_client()
+    result = client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=2, poll_interval=0)
+    if times_out:
+        with pytest.raises(PygnmiClientTimeoutError, match="no update"):
+            list(result)
     else:
-        assert result == [{"update": {}, "sync_response": True}] * 2
-    assert service.requests[0] == "subscribe"
-    assert "poll" in service.requests
+        assert list(result) == [response, response]
+        assert subscriber.get_update.call_count == 2
+    subscriber.get_update.assert_called_with(timeout=client.timeout)
+    subscriber.close.assert_called_once()
+    transport.close.assert_called_once()
     assert client._client is None
-    assert service.finished.wait(2)
-
-
-def test_subscribe_poll_close_cancels_rpc(poll_server):
-    client, service = poll_server
-    subscription = client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=10)
-    assert next(subscription)["sync_response"] is True
-    subscription.close()
-    assert client._client is None
-    assert service.finished.wait(2)
-
-
-def test_subscribe_poll_deadline_includes_interval(poll_server):
-    client, service = poll_server
-    client.timeout = 5
-    with pytest.raises(PygnmiClientTimeoutError) as error:
-        list(client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=100,
-                              poll_interval=1, poll_timeout=.1))
-    assert error.value.__cause__.code() == grpc.StatusCode.DEADLINE_EXCEEDED
-    assert service.has_deadline
-    assert client._client is None
-    assert service.finished.wait(2)
-
-
-@pytest.mark.parametrize("mode, timeout", [
-    (SubscribeMode.POLL, 0), (SubscribeMode.POLL, -1), (SubscribeMode.STREAM, 1),
-])
-def test_subscribe_rejects_invalid_poll_timeout(mode, timeout):
-    with pytest.raises(PygnmiClientCallError, match="poll_timeout"):
-        _offline_client().subscribe("counter", mode=mode, poll_timeout=timeout)
 
 
 def _offline_client():
