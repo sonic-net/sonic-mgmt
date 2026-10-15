@@ -570,6 +570,11 @@ function add_topo
     echo "$testbed_name" > $cache_files_path_value/$duts
   fi
 
+  # Neighbor side of per-interface MACsec, from topology data alone, so deploy-mg
+  # only touches the DUT. Exits cleanly when no macsec_links are declared.
+  ansible-playbook -i "$vmfile" -i "${inv_name}" config_macsec_neighbors.yml --vault-password-file="${passwd}" -l "$duts" \
+        -e testbed_name="$testbed_name" -e testbed_file="$tbfile" -e vm_file="$vmfile" -e vm_type="$vm_type"
+
   echo Done
 }
 
