@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import time
+import uuid
 from collections.abc import Iterable, Iterator
 from enum import Enum
 
@@ -23,6 +25,29 @@ import grpc
 from pygnmi.client import gNMIclient, gNMIException
 
 logger = logging.getLogger(__name__)
+
+
+class _SubscriptionPathClient(gNMIclient):
+    """Keep escaped slashes in subscription element names with pygnmi 0.8.15."""
+
+    def _build_subscriptionrequest(self, subscribe, target=None, extension=None):
+        paths = [entry["path"] for entry in subscribe.get("subscription", [])]
+        marker = uuid.uuid4().hex
+        while any(marker in path for path in paths):
+            marker = uuid.uuid4().hex
+        subscriptions = []
+        for entry in subscribe.get("subscription", []):
+            # Bracketed keys already have slash handling in pygnmi's parser.
+            parts = re.split(r"(\[[^\]]*\])", entry["path"])
+            path = "".join(part if i % 2 else part.replace("\\/", marker)
+                           for i, part in enumerate(parts))
+            subscriptions.append(dict(entry, path=path))
+        request = super()._build_subscriptionrequest(
+            dict(subscribe, subscription=subscriptions), target, extension)
+        for subscription in request.subscribe.subscription:
+            for element in subscription.path.elem:
+                element.name = element.name.replace(marker, "/")
+        return request
 
 
 class StrEnum(str, Enum):
@@ -201,7 +226,7 @@ class PygnmiClient:
             kwargs["path_root"] = self.ca_cert
             kwargs["path_cert"] = self.client_cert
             kwargs["path_key"] = self.client_key
-        return gNMIclient(**kwargs)
+        return _SubscriptionPathClient(**kwargs)
 
     def _ensure_client(self) -> gNMIclient:
         """

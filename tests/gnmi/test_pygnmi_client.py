@@ -4,6 +4,7 @@ import threading
 
 import grpc
 import pytest
+from pygnmi.client import gNMIclient
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import (
@@ -257,6 +258,39 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
 # --- offline unit tests (no DUT required) -----------------------------------
 
 
+@pytest.mark.parametrize("path, names", [
+    (r"ROUTE_TABLE/0.0.0.0\/0", ["ROUTE_TABLE", "0.0.0.0/0"]),
+    (r"ROUTE_TABLE/::\/0", ["ROUTE_TABLE", "::/0"]),
+    ("ROUTE_TABLE/ordinary", ["ROUTE_TABLE", "ordinary"]),
+    (r"ROUTE_TABLE/__escaped_slash__\/0", ["ROUTE_TABLE", "__escaped_slash__/0"]),
+])
+def test_subscribe_escaped_slash_path(path, names):
+    request = _offline_client()._build_client()._build_subscriptionrequest(
+        {"mode": "poll", "encoding": "json_ietf", "subscription": [{"path": path}]}, target="APPL_DB/asic0")
+    assert [element.name for element in request.subscribe.subscription[0].path.elem] == names
+    assert request.subscribe.prefix.target == "APPL_DB/asic0"
+
+
+def test_subscribe_path_preserves_keys_and_options():
+    options = {"mode": "stream", "encoding": "json_ietf", "prefix": "sonic-db:",
+               "updates_only": True, "subscription": [
+                   {"path": "TABLE/prefix[key=0.0.0.0/0]", "mode": "sample", "sample_interval": 123}]}
+    expected = gNMIclient(target=("localhost", 0), insecure=True)._build_subscriptionrequest(
+        options, target="APPL_DB")
+    actual = _offline_client()._build_client()._build_subscriptionrequest(options, target="APPL_DB")
+    assert actual == expected
+
+
+def test_subscribe_escaped_slash_marker_collision(monkeypatch):
+    from uuid import UUID
+    markers = iter([UUID(int=1), UUID(int=2)])
+    monkeypatch.setattr("tests.common.pygnmi_client.uuid.uuid4", lambda: next(markers))
+    name = UUID(int=1).hex
+    request = _offline_client()._build_client()._build_subscriptionrequest({
+        "mode": "poll", "encoding": "json_ietf", "subscription": [{"path": name + r"\/0"}]})
+    assert request.subscribe.subscription[0].path.elem[0].name == name + "/0"
+
+
 def _offline_client():
     """A client used only for request-building/validation paths (never connects)."""
     return PygnmiClient("", 0, plaintext=True, connect=False)
@@ -399,7 +433,7 @@ def test_subscribe_closes_receiver_without_unhandled_exception(monkeypatch, stat
             channel_closed.set()
 
     fake_client = FakeGnmiClient()
-    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: fake_client)
+    monkeypatch.setattr("tests.common.pygnmi_client._SubscriptionPathClient", lambda **kwargs: fake_client)
     monkeypatch.setattr(threading, "excepthook", lambda args: unhandled.append(args.exc_value))
 
     subscription = _offline_client().subscribe("path", collect_seconds=30)
@@ -457,7 +491,7 @@ def test_subscribe_reports_unexpected_receiver_exception(monkeypatch, error):
             channel_closed.set()
 
     fake_client = FakeGnmiClient()
-    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: fake_client)
+    monkeypatch.setattr("tests.common.pygnmi_client._SubscriptionPathClient", lambda **kwargs: fake_client)
     monkeypatch.setattr(threading, "excepthook", lambda args: unhandled.append(args.exc_value))
 
     list(_offline_client().subscribe("path", count=1, collect_seconds=1))
