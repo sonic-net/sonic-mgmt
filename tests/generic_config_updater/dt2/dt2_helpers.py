@@ -13,6 +13,7 @@ import copy
 import ipaddress
 import json
 import logging
+import time
 import ptf.mask as mask
 import ptf.packet as packet
 import ptf.testutils as testutils
@@ -210,6 +211,7 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
     candidates.sort(key=lambda c: (c["neighbor_name"], c["neighbor_ip"]))
     rejected = []
     seen = set()
+    selected = None
     for candidate in candidates:
         # One candidate per BGP_NEIGHBOR row; a neighbor with IPv4 and IPv6 sessions appears twice.
         if candidate["neighbor_name"] in seen:
@@ -217,16 +219,19 @@ def pick_target_neighbor(config_facts, config_facts_localhost, mg_facts, scenari
         seen.add(candidate["neighbor_name"])
         ctx = build_neighbor_ctx(candidate, config_facts, config_facts_localhost, mg_facts)
         if accept is None or accept(ctx):
-            logger.info("Selected neighbor context for %s: %s", scenario["id"], ctx)
-            return ctx
+            selected = ctx
+            break
         rejected.append(f"{ctx['neighbor_name']} via {ctx['port']} (members {ctx['member_ports']})")
-    requirement = f"; additionally required: {accept_desc}" if accept_desc else ""
-    considered = f"; candidates rejected: {rejected}" if rejected else ""
-    pytest.skip(
-        f"No BGP neighbor found for scenario {scenario['id']} "
-        f"(role={scenario['neighbor_role']}, device_types={sorted(expected_types)}, "
-        f"expect_ebgp={scenario['expect_ebgp']}{requirement}{considered})",
-    )
+    if selected is None:
+        requirement = f"; additionally required: {accept_desc}" if accept_desc else ""
+        considered = f"; candidates rejected: {rejected}" if rejected else ""
+        pytest.skip(
+            f"No BGP neighbor found for scenario {scenario['id']} "
+            f"(role={scenario['neighbor_role']}, device_types={sorted(expected_types)}, "
+            f"expect_ebgp={scenario['expect_ebgp']}{requirement}{considered})",
+        )
+    logger.info("Selected neighbor context for %s: %s", scenario["id"], selected)
+    return selected
 
 
 def get_route(duthost, asic_index, prefix):
@@ -404,6 +409,9 @@ def verify_prefix_present(duthost, asic_index, target, neighbor_ctx, should_exis
 
 
 PROBE_FLOWS = 256
+# Pause between withdrawing the BGP peering and removing its interface, so route retraction
+# reaches orchagent before the next hop disappears.
+REMOVE_SETTLE_SECONDS = 15
 # Upper bound on per-prefix RIB lookups while looking for a prefix forwarded via the neighbor.
 MAX_PREFIX_LOOKUPS = 64
 
@@ -1007,6 +1015,49 @@ def build_remove_patch(config_facts, config_facts_localhost, mg_facts, namespace
     return patch_main, patch_extra
 
 
+def split_bgp_removals(patch):
+    """Partition a remove patch into (BGP_NEIGHBOR* operations, everything else)."""
+    bgp = [op for op in patch if "/BGP_NEIGHBOR" in op["path"]]
+    rest = [op for op in patch if "/BGP_NEIGHBOR" not in op["path"]]
+    return bgp, rest
+
+
+def bgp_sessions_gone(duthost, asic_index, neighbor_ips):
+    """True when bgpd no longer knows any of ``neighbor_ips``."""
+    for ip in neighbor_ips:
+        out = duthost.shell(vtysh_cmd(asic_index, f"show bgp neighbors {ip} json"), module_ignore_errors=True)
+        try:
+            body = json.loads(out["stdout"].strip() or "{}")
+        except json.JSONDecodeError:
+            return False
+        if body and "bgpNoSuchNeighbor" not in body:
+            return False
+    return True
+
+
+def remove_peer_via_gcu(duthost, asic_index, neighbor_ctx, patch_main, patch_extra, routes_withdrawn=None):
+    """
+    Apply a remove patch from ``build_remove_patch`` in stages: the BGP peering first, the
+    interface / QoS / port rows once bgpd has dropped the peer (and ``routes_withdrawn()``
+    returns, when given), then the base rows. Removing the interface while routes still
+    reference the peer's next hop makes orchagent fail the next-hop removal with
+    SAI_STATUS_OBJECT_IN_USE on large ECMP groups.
+    """
+    patch_bgp, patch_rest = split_bgp_removals(patch_main)
+    apply_patch_or_assert(duthost, patch_bgp)
+    pytest_assert(
+        wait_until(60, 5, 0, bgp_sessions_gone, duthost, asic_index, neighbor_ctx["neighbor_ips"]),
+        f"BGP sessions with {neighbor_ctx['neighbor_ips']} still present after removing the peering",
+    )
+    if routes_withdrawn:
+        routes_withdrawn()
+    logger.info("BGP peering with %s removed; settling before removing interface/port", neighbor_ctx["neighbor_name"])
+    time.sleep(REMOVE_SETTLE_SECONDS)
+    apply_patch_or_assert(duthost, patch_rest)
+    if patch_extra:
+        apply_patch_or_assert(duthost, patch_extra)
+
+
 def build_add_patches(config_facts, config_facts_localhost, mg_facts, namespace, neighbor_ctx):
     """
     Apply patch to add cluster information for a given ASIC namespace.
@@ -1310,7 +1361,8 @@ def run_remove_and_readd_cycle(
          prefix (best-effort: when none qualifies the IPv6 checks are skipped).
       2. Baseline: BGP established, expected CONFIG_DB state, prefixes present, traffic
          forwarded towards them.
-      3. Remove the neighbor via a two-stage GCU JSON patch; assert: neighbor config removed
+      3. Remove the neighbor via GCU, peering first and interface/port once its routes are
+         withdrawn (see ``remove_peer_via_gcu``); assert: neighbor config removed
          from all relevant tables, PORT/CABLE_LENGTH reflect the reduced state, the prefixes
          are withdrawn and traffic towards them is dropped.
       4. Re-add the same neighbor via GCU; assert: config restored across the same tables,
@@ -1425,9 +1477,10 @@ def run_remove_and_readd_cycle(
                 namespace,
                 neighbor_ctx,
             )
-            apply_patch_or_assert(duthost, remove_patch_main)
-            if remove_patch_extra:
-                apply_patch_or_assert(duthost, remove_patch_extra)
+            remove_peer_via_gcu(
+                duthost, dst_asic, neighbor_ctx, remove_patch_main, remove_patch_extra,
+                routes_withdrawn=lambda: check_routes(False, 60, "after removing the BGP peering"),
+            )
             assert_peer_config_state(
                 duthost,
                 namespace,
