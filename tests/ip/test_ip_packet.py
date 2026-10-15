@@ -173,13 +173,12 @@ class TestIPPacket(object):
         asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
-        pkt = testutils.simple_ip_packet(
+        pkt = testutils.simple_gre_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
             ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
-            ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
@@ -249,13 +248,12 @@ class TestIPPacket(object):
         asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
-        pkt = testutils.simple_ip_packet(
+        pkt = testutils.simple_gre_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
             ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
-            ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
@@ -415,13 +413,12 @@ class TestIPPacket(object):
         asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
-        pkt = testutils.simple_ip_packet(
+        pkt = testutils.simple_gre_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
             ip_src="10.250.160.40",
             ip_dst="10.156.190.188",
-            ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
@@ -491,13 +488,12 @@ class TestIPPacket(object):
         asic_type = duthost.facts["asic_type"]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
-        pkt = testutils.simple_ip_packet(
+        pkt = testutils.simple_gre_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
             ip_src="130.250.136.195",
             ip_dst="10.156.94.34",
-            ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
