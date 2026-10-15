@@ -68,6 +68,7 @@ class snmpPduController(PduControllerBase):
             self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
+            self.STATUS_OFF = "2"
         elif self.pduType == "Sentry":
             self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
@@ -98,6 +99,7 @@ class snmpPduController(PduControllerBase):
             self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
+            self.STATUS_OFF = "2"
             self.has_lanes = False
             self.max_lanes = 1
         elif self.pduType == "Raritan":
