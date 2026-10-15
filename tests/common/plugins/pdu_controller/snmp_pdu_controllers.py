@@ -404,6 +404,7 @@ class snmpPduController(PduControllerBase):
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
+                status["outlet_off"] = current_val == self.STATUS_OFF
                 self._get_one_outlet_power(snmp_auth, port_id, status)
                 return status
 
