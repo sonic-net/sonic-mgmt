@@ -232,7 +232,8 @@ def enable_zmq_for_fib_suppress(duthosts):
                         dut.hostname, namespace, state))
                     _restore_swss_zmq_status_for_namespace(dut, state, namespace)
                 dut.shell('sudo config save -y')
-                config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+                config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                              yang_validate=False)
             except Exception as err:
                 logger.exception("Failed to restore swss_zmq on {}".format(dut.hostname))
                 restore_failures.append("{}: {}".format(dut.hostname, err))
