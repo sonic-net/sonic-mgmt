@@ -95,10 +95,18 @@ class TestContLinkFlap(object):
         self.drop_counters[stage] = dut.show_and_parse(show_cmd="show dropcounter count")
         self.intf_counters[stage] = dut.show_and_parse(show_cmd="show interfaces counters")
 
-    def check_all_counters(self, dut):
+    def check_all_counters(self, dut, tbinfo):
         pytest_assert(
             all(stage in self.drop_counters and stage in self.intf_counters for stage in ("pre", "post")),
             "Checking counters without collecting both pre- and post-test values.")
+
+        is_t2 = "t2" in tbinfo["topo"]["name"]
+        backplane_ports = dut.get_backplane_ports() if is_t2 else set()
+
+        def front_panel_counters(counters):
+            return [counter for counter in counters
+                    if counter["iface"] not in backplane_ports and
+                    not (is_t2 and counter["iface"].startswith("Ethernet-BP"))]
 
         # First drop counter's check.
         def compare_counters(counter_type, pre_list, post_list):
@@ -143,8 +151,14 @@ class TestContLinkFlap(object):
                 failed_counters == [],
                 f"Mismatches found: {failed_counters}")
 
-        compare_counters('drop', self.drop_counters['pre'], self.drop_counters['post'])
-        compare_counters('intf', self.intf_counters['pre'], self.intf_counters['post'])
+        compare_counters(
+            'drop',
+            front_panel_counters(self.drop_counters['pre']),
+            front_panel_counters(self.drop_counters['post']))
+        compare_counters(
+            'intf',
+            front_panel_counters(self.intf_counters['pre']),
+            front_panel_counters(self.intf_counters['post']))
 
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
@@ -332,4 +346,4 @@ class TestContLinkFlap(object):
 
         # check counter values
         self.save_counter_values(duthost, "post")
-        self.check_all_counters(duthost)
+        self.check_all_counters(duthost, tbinfo)
