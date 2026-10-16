@@ -28,13 +28,17 @@ PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V
 def _ignore_allow_list_errlogs(duthosts, rand_one_dut_front_end_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        IgnoreRegex = [
-            ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
+        ignore_regex = [
+            ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Received BGP ALLOWED 'SET' "
+            "message with no prefixes specified.*",
         ]
         duthost = duthosts[rand_one_dut_front_end_hostname]
         """Cisco 8111-O64 has different allow list config"""
         if duthost.facts['hwsku'] in {'Cisco-8111-O64', 'Cisco-88-LC0-36FH-M-O36', 'Cisco-88-LC0-36FH-O36'}:
-            loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(IgnoreRegex)
+            ignore_regex.append(
+                ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*"
+            )
+        loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(ignore_regex)
     return
 
 
