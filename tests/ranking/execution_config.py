@@ -16,7 +16,7 @@ from tests.ranking.port_mapping import (
 )
 from tests.ranking.prepare_inputs import SCHEMA_VERSION, _mapping_hash, _validated_selector
 from tests.ranking.runtime_config import (
-    IDENTIFIER_PATTERN, _argv, _identifier, _reject_credentials, _text,
+    PROTECTED_DESTINATIONS, _argv, _identifier, _reject_credentials, _text,
     validate_runtime_config,
 )
 
@@ -38,7 +38,16 @@ CONTRACT_FIELDS = frozenset((
 ))
 RESERVED_TEST_PARAMS = frozenset((
     'thrift_server', 'rpc_port', 'config_db_json', 'port_config_ini', 'result_output_dir',
+    'host_control_container', 'asic_container', 'test_reboot_mode', 'test_reboot_stage',
+    'dut_os', 'host_control_user', 'host_control_identity_file', 'host_control_known_hosts',
+    'vsonic_dataplane_ready_timeout_s', 'vsonic_connected_port_count',
+    'vsonic_saiserver_container',
 ))
+INTERNAL_PTF_CONTAINER_TOKEN = '{ptf_container_id}'
+INTERNAL_SAISERVER_CONTAINER_TOKEN = '{saiserver_container_id}'
+SSH_SECRET_DIR = 'secrets'
+SSH_IDENTITY_NAME = 'dut_identity'
+SSH_KNOWN_HOSTS_NAME = 'known_hosts'
 LAUNCHER_FIELDS = frozenset((
     'saiserver_container', 'saiserver_image_id', 'saiserver_container_id',
 ))
@@ -46,14 +55,6 @@ ENV_PATTERN = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 RPC_HOST_PATTERN = re.compile(r'[A-Za-z0-9_.:\[\]-]+')
 IMAGE_ID_PATTERN = re.compile(r'sha256:[0-9a-f]{64}')
 CONTAINER_ID_PATTERN = re.compile(r'[0-9a-f]{64}')
-PROTECTED_DESTINATIONS = (
-    '/etc', '/boot', '/dev', '/proc', '/sys', '/run', '/var',
-    '/host', '/mnt', '/media', '/root', '/home', '/lib', '/lib64', '/bin', '/sbin',
-    '/usr/bin', '/usr/sbin', '/usr/lib', '/usr/lib64', '/usr/share',
-)
-SAI_PROFILE_DESTINATION = '/etc/sai.d/sai.profile'
-SAI_DEVICE_CONFIG_ROOT = '/usr/share/sonic/device/'
-SAI_CONFIG_FILENAMES = frozenset(('sai.profile', 'sai.config', 'simconfig.json'))
 
 
 def _exact_object(value, fields, description):
@@ -206,6 +207,23 @@ def _scalar_values(value, description, environment=False):
             raise ValueError('{} values must be finite'.format(description))
 
 
+def _reject_internal_ptf_tokens(values, description):
+    for value in values:
+        if isinstance(value, str) and (INTERNAL_PTF_CONTAINER_TOKEN in value or
+                                      INTERNAL_SAISERVER_CONTAINER_TOKEN in value):
+            raise ValueError('{} cannot contain internal container tokens'.format(
+                description))
+
+
+def _docker_exec_argv(argv, ptf_container):
+    if len(argv) < 2 or os.path.basename(argv[0]) != 'docker' or argv[1] != 'exec':
+        return False
+    if len(argv) < 4 or argv[2] != ptf_container:
+        raise ValueError(
+            'docker exec ptf_argv must be docker exec <runtime.ptf_container> <command>')
+    return True
+
+
 def _validate_execution(runtime):
     execution = runtime['execution']
     _exact_object(execution, EXECUTION_FIELDS, 'execution')
@@ -219,10 +237,14 @@ def _validate_execution(runtime):
     if not RPC_HOST_PATTERN.fullmatch(execution['rpc_host']):
         raise ValueError('rpc_host must be a management address without credentials')
     _argv(execution['ptf_argv'], 'ptf_argv')
+    _reject_internal_ptf_tokens(execution['ptf_argv'], 'ptf_argv')
+    _docker_exec_argv(execution['ptf_argv'], runtime['ptf_container'])
     _scalar_values(execution['test_params'], 'test_params')
     if RESERVED_TEST_PARAMS.intersection(execution['test_params']):
         raise ValueError('reserved test_params cannot be overridden')
+    _reject_internal_ptf_tokens(execution['test_params'].values(), 'test_params')
     _scalar_values(execution['env'], 'env', environment=True)
+    _reject_internal_ptf_tokens(execution['env'].values(), 'env')
     start_tokens = _launcher_tokens(runtime['start_argv'])
     _launcher_tokens(runtime['stop_argv'])
     if not {'saiserver_image_id', 'saiserver_container'}.issubset(start_tokens.values()):
@@ -256,14 +278,29 @@ def _tree_files(root, description):
     return files
 
 
-def _sai_config_destination(destination):
-    if destination == SAI_PROFILE_DESTINATION:
-        return True
-    if not destination.startswith(SAI_DEVICE_CONFIG_ROOT):
-        return False
-    components = destination[len(SAI_DEVICE_CONFIG_ROOT):].split('/')
-    return (len(components) == 3 and components[2] in SAI_CONFIG_FILENAMES
-            and all(IDENTIFIER_PATTERN.fullmatch(part) for part in components[:2]))
+def _source_bytes(path, description):
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, 'rb') as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise ValueError('{} must remain a regular file'.format(description))
+            return source.read()
+    except OSError as error:
+        raise ValueError('cannot read source {}: {}'.format(path, error)) from error
+
+
+def _validated_adapter(runtime):
+    adapter = _local_source(runtime['adapter_path'], 'adapter_path')
+    binding_adapter = _local_source(os.path.join(
+        runtime['execution']['binding_dir'], 'sai_thrift', 'sai_adapter.py'),
+        'binding sai_adapter.py')
+    adapter_content = _source_bytes(adapter, 'adapter_path')
+    binding_content = _source_bytes(binding_adapter, 'binding sai_adapter.py')
+    if (len(adapter_content), hashlib.sha256(adapter_content).digest()) != (
+            len(binding_content), hashlib.sha256(binding_content).digest()) or \
+            adapter_content != binding_content:
+        raise ValueError('runtime adapter_path must be byte-identical to binding sai_adapter.py')
+    return adapter
 
 
 def _dut_files(runtime):
@@ -272,16 +309,18 @@ def _dut_files(runtime):
         raise ValueError('dut_files must be an ordered list')
     declared = {argument for field in ('start_argv', 'stop_argv')
                 for argument in runtime[field] if os.path.isabs(argument)}
+    roots = runtime['dut_config_roots']
     seen = set()
     sources = []
     for entry in files:
         _exact_object(entry, {'source', 'destination'}, 'dut_files entry')
         source = _local_source(entry['source'], 'dut_files source')
         destination = _canonical_path(entry['destination'], 'dut_files destination')
-        if not _sai_config_destination(destination) and (destination == '/' or any(
+        configured = any(destination.startswith(root + '/') for root in roots)
+        if not configured and (destination == '/' or any(
                 destination == root or destination.startswith(root + '/')
                 for root in PROTECTED_DESTINATIONS)):
-            raise ValueError('dut_files cannot target management or system-image paths')
+            raise ValueError('dut_files system paths must be under a declared dut_config_roots entry')
         if destination not in declared:
             raise ValueError('dut_files destination must be an explicit launcher file path')
         if destination in seen:
@@ -311,31 +350,27 @@ def _validate_contract(root, runtime, identity):
         raise ValueError('prepared case dataplane_validation must be after_create_switch')
 
 
-def _source_hash(runtime, selected, identity):
+def _source_hash(runtime, selected, identity, pipeline_dir, runner_path):
     files = []
     roots = {}
-    for field in ('case_source', 'header_dir', 'binding_dir', 'prebuilt_dir'):
+    for field in ('case_source', 'header_dir', 'experimental_header_dir', 'binding_dir',
+                  'prebuilt_dir'):
         owner = runtime['execution'] if field in ('binding_dir', 'prebuilt_dir') else runtime
         root = _local_source(owner[field], field, directory=True)
         roots[field] = root
         files.extend(_tree_files(root, field))
+    files.extend(_tree_files(pipeline_dir, 'pipeline'))
     for field in ('adapter_path', 'inventory'):
         path = _local_source(runtime[field], field)
         files.append((field, '', path))
+    files.append(('ptf_runner', '', runner_path))
     files.extend(_dut_files(runtime))
     _validate_contract(roots['case_source'], runtime, identity)
     for module in {case.split('.')[0] for case in selected}:
         _local_source(os.path.join(roots['case_source'], module + '.py'), 'selected case module')
     fingerprint = []
     for description, relative, path in sorted(files):
-        try:
-            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-            with os.fdopen(descriptor, 'rb') as source:
-                if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
-                    raise ValueError('source must remain a regular file')
-                content = source.read()
-        except OSError as error:
-            raise ValueError('cannot read source {}: {}'.format(path, error)) from error
+        content = _source_bytes(path, description)
         if description == 'case_source' and b'SONIC_PASSWORD' in content:
             raise ValueError('legacy SONIC_PASSWORD case source requires preparation')
         fingerprint.append([description, relative, len(content), hashlib.sha256(content).hexdigest()])
@@ -373,10 +408,20 @@ def validate_execution_config(assembled, artifact_dir) -> dict:
     if assembled['interface_args'] != interface_args(mapping):
         raise ValueError('interface_args mismatch')
     ini = render_port_config(mapping, assembled['ptf_config_db'])
-    source_hash = _source_hash(runtime, assembled['selected_cases'], identity)
+    _validated_adapter(runtime)
+    for field in ('identity_file', 'known_hosts'):
+        _local_source(runtime['dut_ssh'][field], 'dut_ssh ' + field)
+    module_dir = os.path.abspath(os.path.dirname(__file__))
+    pipeline_dir = _local_source(
+        os.path.join(module_dir, 'pipeline'), 'pipeline', directory=True)
+    runner_path = _local_source(
+        os.path.join(module_dir, 'ptf_runner.py'), 'ptf_runner.py')
+    source_hash = _source_hash(
+        runtime, assembled['selected_cases'], identity, pipeline_dir, runner_path)
     result = {
         'runtime': runtime, 'execution': deepcopy(execution),
         'artifact_dir': artifact, 'input_dir': input_dir,
+        'pipeline_dir': pipeline_dir, 'runner_path': runner_path,
         'selected_cases': assembled['selected_cases'], 'selector': assembled['selector'],
         'interface_args': assembled['interface_args'], 'mapping_hash': assembled['mapping_hash'],
         'source_identity': identity, 'port_mapping': mapping,
@@ -425,6 +470,8 @@ def _request_shape(execution):
         test_params = inner['test_params']
         environment = inner['env']
         rpc_host = inner['rpc_host']
+        saiserver_container = runtime['saiserver_container']
+        ptf_container = runtime['ptf_container']
         interface_args = execution['interface_args']
     except KeyError as error:
         raise ValueError(
@@ -437,6 +484,9 @@ def _request_shape(execution):
             raise ValueError('runtime {} must be a positive integer'.format(field))
     _argv(ptf_argv, 'execution ptf_argv')
     _text(rpc_host, 'execution rpc_host')
+    _identifier(saiserver_container, 'runtime saiserver_container')
+    _identifier(ptf_container, 'runtime ptf_container')
+    _docker_exec_argv(ptf_argv, ptf_container)
     if not isinstance(test_params, dict):
         raise ValueError('execution test_params must be an object')
     if not isinstance(environment, dict):
@@ -446,7 +496,7 @@ def _request_shape(execution):
     for argument in interface_args:
         _text(argument, 'interface_args')
     return (ptf_root, rpc_port, timeout_s, ptf_argv, test_params, environment,
-            rpc_host, interface_args)
+            rpc_host, saiserver_container, ptf_container, interface_args)
 
 
 def build_ptf_request(execution, environment_id, case, run_id) -> dict:
@@ -455,7 +505,7 @@ def build_ptf_request(execution, environment_id, case, run_id) -> dict:
     if not isinstance(case, str) or PTF_REQUEST_CASE_PATTERN.fullmatch(case) is None:
         raise ValueError("run action requires a case name like 'module.Class'")
     (ptf_root, rpc_port, timeout_s, ptf_argv, test_params, environment, rpc_host,
-     interface_args) = _request_shape(execution)
+     saiserver_container, ptf_container, interface_args) = _request_shape(execution)
     root = PurePosixPath(ptf_root) / environment_id
     reserved = {
         'thrift_server': rpc_host,
@@ -463,20 +513,45 @@ def build_ptf_request(execution, environment_id, case, run_id) -> dict:
         'config_db_json': str(root / 'resources' / 'ptf-config-db.json'),
         'port_config_ini': str(root / 'resources' / 'port_config.ini'),
         'result_output_dir': str(root / 'runs' / run_id),
+        'host_control_container': INTERNAL_SAISERVER_CONTAINER_TOKEN,
+        'asic_container': INTERNAL_SAISERVER_CONTAINER_TOKEN,
     }
     params = dict(test_params)
     params.update(reserved)
+    runtime = execution['runtime']
+    ssh = runtime['dut_ssh']
+    secrets = root / SSH_SECRET_DIR
+    params.update({
+        'dut_os': runtime['dut_os'],
+        'host_control_user': ssh['user'],
+        'host_control_identity_file': str(secrets / SSH_IDENTITY_NAME),
+        'host_control_known_hosts': str(secrets / SSH_KNOWN_HOSTS_NAME),
+    })
+    if runtime['backend'] == 'vsonic_ovs':
+        params['vsonic_dataplane_ready_timeout_s'] = runtime['vsonic_dataplane_timeout_s']
+        params['vsonic_connected_port_count'] = runtime['expected_connected_ports']
+        params['vsonic_saiserver_container'] = INTERNAL_SAISERVER_CONTAINER_TOKEN
     env = dict(environment)
     env['PYTHONPATH'] = '{}:{}:{}'.format(
         root / 'binding', root / 'ptf', env.get('PYTHONPATH', ''))
+    argv = list(ptf_argv)
+    request_env = env
+    if _docker_exec_argv(ptf_argv, ptf_container):
+        docker_env = []
+        for key in sorted(env):
+            docker_env.extend(['--env', '{}={}'.format(key, env[key])])
+        argv = argv[:2] + docker_env + [INTERNAL_PTF_CONTAINER_TOKEN] + argv[3:]
+        request_env = {}
+    argv.extend([
+        '--test-dir', str(root / 'ptf'), case, '--platform', 'eth'])
+    argv.extend(interface_args)
+    argv.extend([
+        '--test-params', json.dumps(
+            params, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
+            allow_nan=False)])
     return {
-        'argv': list(ptf_argv) + [
-            '--test-dir', str(root / 'ptf'), case, '--platform', 'eth'] + \
-            list(interface_args) + [
-            '--test-params', json.dumps(
-                params, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
-                allow_nan=False)],
-        'env': env,
+        'argv': argv,
+        'env': request_env,
         'cwd': str(root),
         'run_dir': str(root / 'runs' / run_id),
         'timeout_s': timeout_s,

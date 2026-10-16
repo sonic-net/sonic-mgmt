@@ -2,7 +2,9 @@ import re
 import uuid
 from pathlib import Path
 
-from .ranking_infra import PLAYBOOKS, RECEIPT_FILE
+from .ranking_infra import (
+    PLAYBOOKS, RECEIPT_FILE, ReceiptError, read_receipt, update_receipt,
+)
 
 
 IDENTITY_PATTERN = re.compile(r'[A-Za-z0-9_-]+')
@@ -12,6 +14,7 @@ class RankingSetupError(RuntimeError):
     def __init__(self, action, result):
         self.action = action
         self.result = result
+        self.cleanup_errors = []
         super().__init__('ranking {} failed with rc {}'.format(action, result.rc))
 
 
@@ -57,7 +60,22 @@ class RankingSession:
         action = 'status' if self._skip_setup else 'setup'
         result = self._invoke(action, None, None)
         if result.rc != 0:
-            raise RankingSetupError(action, result)
+            setup_error = RankingSetupError(action, result)
+            self._closed = True
+            if action == 'setup' and self._receipt_has_acquired_resources():
+                try:
+                    cleanup = self._invoke('teardown', None, None)
+                except Exception as error:
+                    detail = ' '.join(str(error).splitlines()) or 'no diagnostics'
+                    self._preserve_cleanup_failure(
+                        setup_error, 'automatic teardown raised {}: {}'.format(
+                            type(error).__name__, detail))
+                else:
+                    if cleanup.rc != 0:
+                        self._preserve_cleanup_failure(
+                            setup_error,
+                            'automatic teardown failed with rc {}'.format(cleanup.rc))
+            raise setup_error
         self._started = True
 
     def run(self, case):
@@ -82,6 +100,27 @@ class RankingSession:
         if result.rc != 0:
             raise RuntimeError(
                 'ranking {} failed with rc {}'.format(action, result.rc))
+
+    def _receipt_has_acquired_resources(self):
+        if self._receipt is None:
+            return False
+        try:
+            receipt = read_receipt(self._receipt)
+        except (ReceiptError, OSError):
+            return False
+        return receipt['phase'] == 'prepared' and any(
+            entry['acquired'] and not entry['released']
+            for entry in receipt['resources'])
+
+    def _preserve_cleanup_failure(self, setup_error, message):
+        setup_error.cleanup_errors.append(message)
+        try:
+            receipt = read_receipt(self._receipt)
+            receipt['cleanup_errors'].append(message)
+            update_receipt(self._receipt, receipt)
+        except Exception as error:
+            setup_error.cleanup_errors.append(
+                'cleanup diagnostic could not be recorded: {}'.format(error))
 
     def _invoke(self, action, case, run_id):
         if action not in PLAYBOOKS:

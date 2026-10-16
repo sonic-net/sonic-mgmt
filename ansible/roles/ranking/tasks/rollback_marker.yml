@@ -22,10 +22,18 @@
   failed_when: ranking_rollback_service_start.rc != 0
   changed_when: true
   when: item is match('stop:')
+- name: Inspect the started saiserver container for rollback
+  ansible.builtin.command:
+    argv: [docker, inspect, --type, container, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_rollback_saiserver_info
+  failed_when: ranking_rollback_saiserver_info.rc != 0 and 'no such' not in (ranking_rollback_saiserver_info.stderr | lower)
+  changed_when: false
+  when: item is match('start:saiserver')
+# A launcher that failed before creating the container leaves nothing to stop.
 - name: Reverse the started saiserver container
   ansible.builtin.command:
     argv: [docker, stop, '{{ ranking_runtime.saiserver_container }}']
   register: ranking_rollback_saiserver_stop
   failed_when: ranking_rollback_saiserver_stop.rc != 0
   changed_when: true
-  when: item is match('start:saiserver')
+  when: item is match('start:saiserver') and ranking_rollback_saiserver_info.rc == 0

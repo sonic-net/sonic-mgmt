@@ -105,6 +105,8 @@ def _execution_fields(execution):
         profile_hash = execution['profile_hash']
         source_identity = execution['source_identity']
         port_mapping = execution['port_mapping']
+        pipeline_dir = execution['pipeline_dir']
+        runner_path = execution['runner_path']
     except (KeyError, TypeError) as error:
         raise ValueError('execution inputs are missing runtime or execution fields') from error
     if not isinstance(inventory, str) or not inventory:
@@ -113,8 +115,12 @@ def _execution_fields(execution):
         raise ValueError('execution hosts must be inventory aliases')
     if not isinstance(profile_hash, str) or not isinstance(source_identity, dict):
         raise ValueError('execution inputs are missing profile or source identity')
+    if not isinstance(pipeline_dir, str) or not pipeline_dir:
+        raise ValueError('execution inputs are missing the validated pipeline directory')
+    if not isinstance(runner_path, str) or not runner_path:
+        raise ValueError('execution inputs are missing the validated PTF runner')
     return (inventory, inner, dut_host, ptf_host, runtime, source_hash, mapping_hash,
-            profile_hash, source_identity, port_mapping)
+            profile_hash, source_identity, port_mapping, pipeline_dir, runner_path)
 
 
 def _identity(value, description):
@@ -135,7 +141,7 @@ def _validate_invocation(action, execution, environment_id, operation_id, case, 
     if action not in PLAYBOOKS:
         raise ValueError('unknown ranking action: {!r}'.format(action))
     fields = _execution_fields(execution)
-    inventory, inner, dut_host, _, _, _, _, _, _, _ = fields
+    inventory, inner, dut_host, _, _, _, _, _, _, _, _, _ = fields
     _identity(environment_id, 'environment_id')
     _identity(operation_id, 'operation_id')
     if action in ('setup', 'teardown'):
@@ -153,7 +159,7 @@ def _validate_invocation(action, execution, environment_id, operation_id, case, 
 def _payload(action, execution, environment_id, operation_id, case, run_id, artifacts,
              fields):
     _, inner, dut_host, ptf_host, runtime, source_hash, mapping_hash, profile_hash, \
-        source_identity, port_mapping = fields
+        source_identity, port_mapping, pipeline_dir, runner_path = fields
     payload = {
         'ranking_action': action,
         'ranking_environment_id': environment_id,
@@ -169,6 +175,8 @@ def _payload(action, execution, environment_id, operation_id, case, run_id, arti
         'ranking_profile_hash': deepcopy(profile_hash),
         'ranking_source_identity': deepcopy(source_identity),
         'ranking_ptf_interfaces': _ptf_interfaces(port_mapping),
+        'ranking_pipeline_dir': pipeline_dir,
+        'ranking_runner_path': runner_path,
         'ranking_artifacts_dir': str(artifacts),
     }
     if action == 'run':
@@ -195,7 +203,7 @@ def build_playbook_argv(action, execution, environment_id, operation_id, case, r
                         artifacts) -> list:
     if action not in PLAYBOOKS:
         raise ValueError('unknown ranking action: {!r}'.format(action))
-    inventory, _, dut_host, _, _, _, _, _, _, _ = _execution_fields(execution)
+    inventory, _, dut_host, _, _, _, _, _, _, _, _, _ = _execution_fields(execution)
     try:
         vars_path = Path(artifacts) / VARS_FILE
     except TypeError as error:
@@ -301,26 +309,39 @@ def _attested_resource_entry(item, environment_id, operation_id):
 
 def _record_setup_outcome(receipt_file, result):
     receipt = read_receipt(receipt_file)
-    if result.rc == 0:
-        outcome = result.outcome
-        if not isinstance(outcome, dict) or not isinstance(
-                outcome.get('resources'), list) or not outcome['resources']:
-            raise ReceiptError(
-                'successful setup must attest its acquired resources')
-        entries = [_attested_resource_entry(item, receipt['environment_id'],
-                                            receipt['operation_id'])
-                   for item in outcome['resources']]
-        entries.sort(key=lambda entry: entry['resource'])
-        kinds = {entry['resource'].split(':', 1)[0] for entry in entries}
-        if kinds != {'dut', 'ptf'}:
-            raise ReceiptError(
-                'setup must attest exactly one DUT and one PTF reservation')
+    outcome = result.outcome
+    resources = outcome.get('resources') if isinstance(outcome, dict) else None
+    entries = None
+    attestation_error = None
+    if isinstance(resources, list) and resources:
+        try:
+            entries = [_attested_resource_entry(
+                item, receipt['environment_id'], receipt['operation_id'])
+                       for item in resources]
+            entries.sort(key=lambda entry: entry['resource'])
+            kinds = [entry['resource'].split(':', 1)[0] for entry in entries]
+            if len(entries) != 2 or set(kinds) != {'dut', 'ptf'}:
+                raise ReceiptError(
+                    'setup must attest exactly one DUT and one PTF reservation')
+        except ReceiptError as error:
+            attestation_error = str(error)
+            entries = None
+    if result.rc == 0 and entries is None:
+        raise ReceiptError(attestation_error or
+                           'successful setup must attest its acquired resources')
+    if entries is not None:
         receipt['resources'] = entries
         receipt['phase'] = 'prepared'
-    else:
+    elif result.rc != 0:
         receipt['phase'] = 'failed'
+    if result.rc == 0:
+        receipt['primary_error'] = None
+    else:
         receipt['primary_error'] = 'setup playbook failed with rc {}'.format(
             result.rc)
+        if attestation_error is not None:
+            receipt['cleanup_errors'].append(
+                'setup resource attestation rejected: ' + attestation_error)
     update_receipt(receipt_file, receipt)
 
 
@@ -355,7 +376,6 @@ def _finalize_receipt(receipt_file, action, result):
                for entry in receipt['resources']):
             return
         receipt['phase'] = 'released'
-        receipt['primary_error'] = None
     update_receipt(receipt_file, receipt)
 
 

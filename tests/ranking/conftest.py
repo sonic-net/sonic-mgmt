@@ -1,4 +1,5 @@
 import uuid
+import warnings
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from tests.ranking.execution_config import load_execution_inputs
 from tests.ranking.lifecycle import RankingCaseError, RankingSession
 from tests.ranking.ranking_infra import Infra
+from tests.ranking.report_runner import build_report
 
 
 def pytest_addoption(parser):
@@ -56,6 +58,25 @@ def pytest_generate_tests(metafunc):
         return
     cases = list(_execution(metafunc.config)['selected_cases'])
     metafunc.parametrize('ranking_case', cases, ids=cases, indirect=True)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    config = session.config
+    execution = getattr(config, '_ranking_execution', None)
+    artifacts = config.getoption('--ranking-artifacts')
+    if execution is None or artifacts is None:
+        return
+    try:
+        status = build_report(artifacts, execution['selected_cases'])
+    except (OSError, TypeError, ValueError) as error:
+        warnings.warn(
+            pytest.PytestWarning('ranking report generation failed: {}'.format(error)))
+        return
+    config._ranking_report_status = status
+    if status['status'] != 'complete':
+        warnings.warn(pytest.PytestWarning(
+            'ranking report is {}: {}'.format(
+                status['status'], '; '.join(status['reasons']))))
 
 
 @pytest.fixture(scope='session')

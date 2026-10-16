@@ -1,10 +1,10 @@
 - name: Read the DUT machine identity for validation
   ansible.builtin.slurp:
-    src: /etc/machine-id
+    src: '{{ ranking_runtime.dut_identity_file }}'
   register: ranking_dut_machine_id_raw
 - name: Bind the DUT validation key
   ansible.builtin.set_fact:
-    ranking_dut_resource: 'dut:{{ ranking_dut_machine_id_raw.content | b64decode | trim }}'
+    ranking_dut_resource: 'dut:{{ ranking_dut_machine_id_raw.content | b64decode | ranking_dut_identity }}'
 - name: Read the PTF machine identity for validation
   ansible.builtin.slurp:
     src: /etc/machine-id
