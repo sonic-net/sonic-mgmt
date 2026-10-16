@@ -1,5 +1,6 @@
 """Control utilities to interacts with nic_simulator."""
 import grpc
+import json
 import pytest
 import time
 import logging
@@ -47,6 +48,30 @@ class ForwardingState(object):
 GRPC_CLIENT_TIMEOUT_MAX = 60
 
 
+def _grpc_method_name(func):
+    method = getattr(func, "_method", None)
+    if isinstance(method, bytes):
+        method = method.decode("utf-8", errors="replace")
+    return method or repr(func)
+
+
+def _log_grpc_metric(func, attempt, timeout, start_time, error=None):
+    metric = {
+        "metric": "nic_grpc_client_request",
+        "method": _grpc_method_name(func),
+        "attempt": attempt,
+        "timeout_s": timeout,
+        "success": error is None,
+        "duration_ms": round((time.time() - start_time) * 1000, 3)
+    }
+    if error is not None:
+        metric["error"] = repr(error)
+        get_status_code = getattr(error, "code", None)
+        if callable(get_status_code):
+            metric["status_code"] = str(get_status_code())
+    logger.info("METRIC %s", json.dumps(metric, sort_keys=True))
+
+
 def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
 
     def inc_timeout():
@@ -63,22 +88,30 @@ def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=
         timeout = GRPC_CLIENT_TIMEOUT_MAX
 
     kwargs["timeout"] = timeout
+    response = None
     for i in range(retries - 1):
+        start_time = time.time()
         try:
             response = func(*args, **kwargs)
         except grpc.RpcError as e:
+            _log_grpc_metric(func, i + 1, kwargs["timeout"], start_time, error=e)
             # first retries - 1 tries errors are all ignored
             logger.debug("Calling %s %dth time results error(%r)" % (func, i + 1, e))
         else:
+            _log_grpc_metric(func, i + 1, kwargs["timeout"], start_time)
             return response
         inc_timeout()
 
+    start_time = time.time()
     try:
         response = func(*args, **kwargs)
     except grpc.RpcError as e:
+        _log_grpc_metric(func, retries, kwargs["timeout"], start_time, error=e)
         logger.debug("Calling %s %dth time results error(%r)" % (func, retries, e))
         if not ignore_errors:
             raise
+    else:
+        _log_grpc_metric(func, retries, kwargs["timeout"], start_time)
 
     return response
 
