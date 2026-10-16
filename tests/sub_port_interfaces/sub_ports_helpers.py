@@ -419,7 +419,10 @@ def shutdown_port(duthost, interface):
         duthost: DUT host object
         interface: Interface of DUT
     """
-    duthost.shutdown(interface)
+    if constants.VLAN_SUB_INTERFACE_SEPARATOR in interface:
+        duthost.shell('sudo config interface shutdown {}'.format(interface))
+    else:
+        duthost.shutdown(interface)
     pytest_assert(wait_until(3, 1, 0, __check_interface_state, duthost, interface, 'down'),
                   "DUT's port {} didn't go down as expected".format(interface))
 
@@ -432,7 +435,10 @@ def startup_port(duthost, interface):
         duthost: DUT host object
         interface: Interface of DUT
     """
-    duthost.no_shutdown(interface)
+    if constants.VLAN_SUB_INTERFACE_SEPARATOR in interface:
+        duthost.shell('sudo config interface startup {}'.format(interface))
+    else:
+        duthost.no_shutdown(interface)
     pytest_assert(wait_until(3, 1, 0, __check_interface_state, duthost, interface),
                   "DUT's port {} didn't go up as expected".format(interface))
 
@@ -687,14 +693,14 @@ def create_sub_port_on_dut(duthost, sub_port_name, sub_port_ip):
 
     Args:
         duthost: DUT host object
-        sub_port_name: Sub-port name
+        sub_port_name: Sub-port name (abbreviated, e.g. Eth4.20 or Po1.20)
         sub_port_ip: IP address of sub-port
 
     """
+    vlan_id = sub_port_name.split('.')[1]
     cmds = []
-    vlan_vid = int(sub_port_name.split('.')[1])
-    cmds.append("config subinterface add {} {}".format(sub_port_name, vlan_vid))
-    cmds.append("config interface ip add {} {}".format(sub_port_name, sub_port_ip))
+    cmds.append('config subinterface add {} {}'.format(sub_port_name, vlan_id))
+    cmds.append('config interface ip add {} {}'.format(sub_port_name, sub_port_ip))
 
     duthost.shell_cmds(cmds=cmds)
 
@@ -869,8 +875,9 @@ def remove_sub_port(duthost, sub_port, ip):
         ip: IP address of port
     """
     cmds = []
-    cmds.append('config interface ip remove {} {}'.format(sub_port, ip))
-    cmds.append('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
+    short_name = sub_port.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
+    cmds.append('config interface ip remove {} {}'.format(short_name, ip))
+    cmds.append('config subinterface del {}'.format(short_name))
 
     duthost.shell_cmds(cmds=cmds)
 
