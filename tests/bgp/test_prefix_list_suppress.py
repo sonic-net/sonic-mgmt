@@ -96,6 +96,28 @@ def has_chassisdb_conf(duthost):
     return duthost.stat(path=CHASSISDB_CONF)["stat"]["exists"]
 
 
+def prefix_list_cli_skips_on_supervisor(duthost):
+    """Return True if ``prefix_list`` would no-op on this DUT as supervisor.
+
+    ``skip_chassis_supervisor`` in the ``prefix_list`` CLI keys the no-op on
+    ``supervisor=1`` in the platform's ``platform_env.conf`` only. Do not key it
+    on ``/etc/sonic/chassisdb.conf``: that file is also present on multi-ASIC
+    DT2 line cards, SmartSwitch and disaggregated-chassis frontends where the
+    CLI runs normally, and excluding them would silently drop coverage.
+    """
+    if duthost.is_supervisor_node():
+        return True
+    cmd = (
+        'PLATFORM=$(sonic-cfggen -d -v DEVICE_METADATA.localhost.platform '
+        '2>/dev/null || true); '
+        'if [ -n "$PLATFORM" ] && '
+        '[ -f "/usr/share/sonic/device/$PLATFORM/platform_env.conf" ]; then '
+        '. "/usr/share/sonic/device/$PLATFORM/platform_env.conf"; fi; '
+        '[ "$supervisor" = "1" ]'
+    )
+    return duthost.shell(cmd, module_ignore_errors=True)["rc"] == 0
+
+
 def op_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
     """Run ``sudo prefix_list <action> <type> <prefix>``."""
     pytest_assert(
@@ -449,7 +471,7 @@ def rand_one_uplink_duthost(duthosts):
     """Pick one UpstreamLC / UpperSpineRouter duthost. Skip otherwise."""
     candidates = [
         dh for dh in duthosts
-        if not dh.is_supervisor_node() and is_upstream_spine(dh)
+        if not prefix_list_cli_skips_on_supervisor(dh) and is_upstream_spine(dh)
     ]
     if not candidates:
         pytest.skip("No UpstreamLC / UpperSpineRouter duthost in this testbed")
@@ -461,7 +483,7 @@ def rand_one_non_spine_duthost(duthosts):
     """Pick one non-spine, non-supervisor frontend duthost. Skip otherwise."""
     candidates = [
         dh for dh in duthosts
-        if not dh.is_supervisor_node() and not is_upstream_spine(dh)
+        if not prefix_list_cli_skips_on_supervisor(dh) and not is_upstream_spine(dh)
     ]
     if not candidates:
         pytest.skip("No non-spine frontend duthost in this testbed")
@@ -471,7 +493,7 @@ def rand_one_non_spine_duthost(duthosts):
 @pytest.fixture(scope="module")
 def rand_one_frontend_duthost(duthosts):
     """Pick any frontend (non-supervisor) duthost."""
-    candidates = [dh for dh in duthosts if not dh.is_supervisor_node()]
+    candidates = [dh for dh in duthosts if not prefix_list_cli_skips_on_supervisor(dh)]
     if not candidates:
         pytest.skip("No frontend duthost in this testbed")
     return random.choice(candidates)
