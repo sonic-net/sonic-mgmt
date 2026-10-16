@@ -28,13 +28,21 @@ parameters:
   type: string
   default: " "
 
-# Keys: "dpu_checker","dualtor_checker","dualtor-aa-vpp_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t0-vpp_checker","t1-lag-vpp_checker","t1-multi-asic_checker","t1_checker","t2_checker"
+# Keys: "dpu_checker","dualtor_checker","dualtor-aa-vpp_checker","secureboot_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t0-vpp_checker","t1-lag-vpp_checker","t1-multi-asic_checker","t1_checker","t2_checker"
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
   type: object
   default: {}
 
 - name: KVM_BUILD_ID
+  type: string
+  default: ""
+
+- name: SECURE_BOOT_KVM_BUILD_ID
+  type: string
+  default: ""
+
+- name: SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID
   type: string
   default: ""
 
@@ -63,4 +71,6 @@ stages:
         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+        SECURE_BOOT_KVM_BUILD_ID: ${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}
+        SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}
         INCLUDE_JOBS: ${{ parameters.INCLUDE_JOBS }}

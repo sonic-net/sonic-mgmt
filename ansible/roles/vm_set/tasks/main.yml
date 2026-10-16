@@ -111,6 +111,17 @@
   include_tasks: host_setup.yml
   when: run_host_setup | bool and package_installation | bool
 
+- name: Install Secure Boot firmware
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+    name: ovmf
+    state: present
+  become: yes
+  when:
+    - use_uefi | default(false) | bool
+    - package_installation | bool
+
 # ---- Python environment (idempotent) ----
 - name: Ensure Python environment
   include_tasks: ensure_python_env.yml
@@ -254,7 +265,7 @@
 
 - name: Set default value for topo_is_multi_vrf
   set_fact:
-    topo_is_multi_vrf: False
+    topo_is_multi_vrf: false
   when: topo_is_multi_vrf is not defined
 
 # Honor the converger-provided front-panel count for EVERY vm_set action, not
