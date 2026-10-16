@@ -6,6 +6,7 @@ import random
 import threading
 import json
 import os
+import shutil
 from contextlib import closing, ExitStack
 from dataclasses import replace
 
@@ -16,9 +17,7 @@ from pygnmi.spec.v080 import gnmi_pb2
 from tests.common.fixtures.grpc_fixtures import gnmi_tls, _restart_gnoi_server  # noqa: F401
 from tests.common.helpers import gnmi_cli_helpers as helper
 from tests.common.helpers.gnmi_connection import gnmi_connection, build_native_set_request
-from tests.common.helpers.gnmi_utils import prepare_root_cert, prepare_server_cert, prepare_client_cert, \
-    create_revoked_cert_and_crl, copy_certificate_to_dut, copy_certificate_to_ptf, delete_gnmi_certs, \
-    add_gnmi_client_common_name
+from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, add_gnmi_client_common_name
 from tests.common.pygnmi_client import Encoding, PygnmiClient, StreamMode
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -103,17 +102,24 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
         logger.debug("crl.log: {}".format(res["stdout_lines"]))
         return len(res["stdout_lines"]) > 0
 
+    local_files = ("gnmiCA.pem", "gnmiCA.key", "gnmiclient.revoked.crt",
+                   "gnmiclient.revoked.key", "gnmiclient.revoked.csr", "sonic.crl.pem", "crlext.cnf")
+    for filename in local_files:
+        if os.path.lexists(filename):
+            raise FileExistsError("CRL preparation would overwrite existing file: {}".format(filename))
     server_started = False
+    ca_copies = []
     try:
-        # Keep the existing one-off certificate operations, as in the 2038 test.
-        prepare_root_cert(localhost)
-        prepare_server_cert(duthost, localhost)
-        prepare_client_cert(localhost)
+        # The existing CRL helper reads these local names. Reuse the fixture's
+        # CA bytes instead of generating or replacing the server's trust chain.
+        for source, destination in (
+                (gnmi_tls.pygnmi_client.ca_cert, "gnmiCA.pem"),
+                (os.path.join(os.path.dirname(gnmi_tls.pygnmi_client.ca_cert), "gnmiCA.key"), "gnmiCA.key")):
+            fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            ca_copies.append(destination)
+            with os.fdopen(fd, "wb") as output, open(source, "rb") as input_file:
+                shutil.copyfileobj(input_file, output)
         create_revoked_cert_and_crl(localhost, ptfhost, duthost)
-        copy_certificate_to_dut(duthost)
-        copy_certificate_to_ptf(ptfhost)
-        duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
-        duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
         duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true log_level 10')
         role = ("gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,"
                 "gnmi_dpu_appl_db_readwrite,gnoi_readwrite")
@@ -130,7 +136,7 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
         wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
 
         # Bind only this request to the revoked identity; do not mutate the fixture.
-        client = PygnmiClient(gnmi_tls.host, gnmi_tls.port, ca_cert="gnmiCA.pem",
+        client = PygnmiClient(gnmi_tls.host, gnmi_tls.port, ca_cert=gnmi_tls.pygnmi_client.ca_cert,
                               client_cert="gnmiclient.revoked.crt", client_key="gnmiclient.revoked.key",
                               connect=False)
         yield replace(gnmi_tls, pygnmi_client=client)
@@ -140,7 +146,9 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
                 ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'",
                               module_ignore_errors=True)
         finally:
-            delete_gnmi_certs(localhost)
+            for filename in (*ca_copies, *local_files[2:]):
+                if os.path.lexists(filename):
+                    os.unlink(filename)
 
 
 def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
