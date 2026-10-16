@@ -102,7 +102,7 @@ class TestCOPP(object):
                                           "UDLD",
                                           "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     ptfhost, copp_testbed, dut_type, fanouthosts):
+                     ptfhost, copp_testbed, dut_type, fanouthosts, pytestconfig):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -136,7 +136,8 @@ class TestCOPP(object):
         # a VPP policer failure.
         if all((duthost.facts["asic_type"] == "vpp",
                 copp_testbed.topo_type == "t0",
-                protocol in _TOR_ONLY_PROTOCOL)):
+                protocol in _TOR_ONLY_PROTOCOL,
+                not pytestconfig.getoption("--copp_ignore_maxfail"))):
             pytest.skip(
                 "VPP DHCP traps apply only to VLAN-member ingress, but the "
                 "CoPP fixture injects DHCP on a routed BGP uplink"
