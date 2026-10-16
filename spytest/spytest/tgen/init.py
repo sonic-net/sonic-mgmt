@@ -7,15 +7,15 @@ def_tcl_path = "/projects/scid/tools/ActivTcl/current/bin"
 tcl_custom_pkgdir = os.path.abspath(os.path.dirname(__file__))
 py_version = platform.python_version()
 
-
 def tg_stc_load(version, logger, logs_path=None):
 
-    stc_version_map = {"4.67": "4.67", "4.91": "4.91"}
+
+    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17", "5.2": "5.20","5.45":"5.45","5.56":"5.56","5.59":"5.59", "5.60":"5.60", "5.61":"5.61", "5.62": "5.62", "5.63": "5.63", "5.64": "5.64"}
 
     # verify STC version provided
     version_string = str(version)
     if version_string not in stc_version_map:
-        logger.error("STC: unsupported version {}".format(version_string))
+        logger.error("VIAVI TestCenter: unsupported version {}".format(version_string))
         return None
 
     # map STC version if needed
@@ -23,8 +23,9 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC root folder is found
     stc_root = os.path.join(tgen_path, "stc")
+
     if not os.path.exists(stc_root):
-        logger.error("STC: not installed.")
+        logger.error("VIAVI TestCenter: not installed. stc_root={}".format(stc_root))
         return None
 
     # build STC version root folder
@@ -34,15 +35,18 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC version root folder is found
     if not os.path.exists(stc_ver_root):
-        logger.error("STC: not installed..")
+        logger.error("VIAVI TestCenter: not installed..stc_ver_root={}".format(stc_ver_root))
         return None
 
     # build STC app root folder
-    stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_Application_Linux")
+    if version_string == "5.45":
+        stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_5.45/Spirent_TestCenter_Application_Linux")
+    else:
+        stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_Application_Linux")
 
     # check if STC app root folder is found
     if not os.path.exists(stc_app_root):
-        logger.error("STC: not installed...")
+        logger.error("VIAVI TestCenter: not installed...  stc_app_root={}".format(stc_app_root))
         return None
 
     stc_hl_src = stc_app_root + '/HltAPI/SourceCode'
@@ -69,10 +73,14 @@ def tg_stc_load(version, logger, logs_path=None):
 
     os.environ['STC_VERSION'] = version_string
     os.environ['STC_INSTALL_DIR'] = stc_app_root
-    os.environ['STC_PRIVATE_INSTALL_DIR'] = stc_app_root
-    os.environ["STC_TCL"] = tclsh
-    os.environ['TCLLIBPATH'] = "{} {} {} /usr/lib".format(stc_hl_src, tcl_custom_pkgdir, tcl_lib_path)
+    if not os.getenv('STC_PRIVATE_INSTALL_DIR'):
+        os.environ['STC_PRIVATE_INSTALL_DIR'] = stc_app_root
+    if not os.getenv('STC_TCL'):
+        os.environ["STC_TCL"] = tclsh
+    if not os.getenv('TCLLIBPATH'):
+        os.environ['TCLLIBPATH'] = "{} {} {} /usr/lib".format(stc_hl_src, tcl_custom_pkgdir, tcl_lib_path)
     os.environ['HLPYAPI_LOG'] = logs_path or os.getenv("SPYTEST_USER_ROOT")
+
     os.environ['HOME'] = logs_path or os.getenv("SPYTEST_USER_ROOT")
 
     sys.path.insert(0, tcl_path)
