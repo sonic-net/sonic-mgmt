@@ -1693,7 +1693,7 @@ dualtor_mgmt/test_server_failure.py::test_server_reboot:
   skip:
     reason: "KVM testbed does not have fanout hosts"
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'vpp']"
 
 dualtor_mgmt/test_toggle_mux.py:
   skip:
