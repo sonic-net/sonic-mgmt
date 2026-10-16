@@ -7,9 +7,32 @@ from tests.common.utilities import wait_until
 def pytest_configure(config):
     config.addinivalue_line(
         "markers", "macsec_required: mark test as MACsec required to run")
+    config.addinivalue_line(
+        "markers", "macsec_profiles(*names): supported MACsec profiles for a test")
+    config.addinivalue_line(
+        "markers", "macsec_rekey(enabled): require periodic MACsec rekey enabled or disabled")
 
 
 def pytest_collection_modifyitems(config, items):
+    if config.getoption("enable_macsec"):
+        for item in items:
+            supported_profiles = item.get_closest_marker("macsec_profiles")
+            if supported_profiles is not None:
+                profile = item.callspec.params["macsec_profile"]
+                if profile["name"] not in supported_profiles.args:
+                    item.add_marker(pytest.mark.skip(
+                        reason="Requires MACsec profile {}".format(
+                            "/".join(supported_profiles.args))))
+
+            rekey_marker = item.get_closest_marker("macsec_rekey")
+            if rekey_marker is not None:
+                profile = item.callspec.params["macsec_profile"]
+                rekey_enabled = int(profile.get("rekey_period", 0)) != 0
+                if rekey_enabled != rekey_marker.kwargs["enabled"]:
+                    item.add_marker(pytest.mark.skip(
+                        reason="Requires periodic rekey {}".format(
+                            "enabled" if rekey_marker.kwargs["enabled"] else "disabled")))
+
     if not config.getoption("enable_macsec"):
         skip_macsec = pytest.mark.skip(reason="macsec test cases")
         for item in items:
