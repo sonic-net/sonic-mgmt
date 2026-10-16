@@ -54,6 +54,8 @@ As files in other feature folders remain unaffected and do not require testing.
 - If the changes affect the common components, we cannot narrow the testing scope and must run all test scripts to ensure comprehensive coverage, as they are commonly used by other features.
 
 We can determine the impcated area using command `git diff`.
+In a PR build, the diff is taken against the first parent of the PR's merge commit, which is the target branch tip.
+Files excluded from the PR trigger in `azure-pipelines.yml` (`.github`, `docs`, `sdn_tests`, `LICENSE` and `*.md`) cannot affect test results, so they are left out of the impacted area.
 
 ### Distribute scripts to PR checkers
 In our new PR test, we will have multiple PR checkers classified by topology type.
@@ -103,4 +105,5 @@ Additionally, the PR testing will be more flexible as we can collect test script
 As impacted area based PR testing would not cover all test scripts, we need a safeguard to run all test scripts daily to prevent any unforeseen issues.
 Fortunately, we have Baseline testing to do so.
 Baseline testing involves running all test scripts in the test plan daily to ensure the overall stability of the system and identify potential issues.
+For the same reason, the control-plane dedup in `CONTROL_PLANE_DEDUP_RULES` only applies to PR builds, so baseline testing still runs every script on every topology.
 We conduct five rounds of baseline testing each day, and if any issues are detected, an ADO is automatically created, and email alerts are sent to notify the relevant teams.

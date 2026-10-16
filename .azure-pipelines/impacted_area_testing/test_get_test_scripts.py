@@ -3,6 +3,8 @@
 
 import os
 import sys
+import copy
+import json
 import tempfile
 import shutil
 import builtins
@@ -17,6 +19,7 @@ from get_test_scripts import (  # noqa: E402
     collect_scripts_by_topology_type,
     dedup_control_plane_tests,
     load_vpp_test_scripts_allowlist,
+    main,
     _collect_conftest_files,
     _detect_data_plane_tests,
     _has_traffic_pattern,
@@ -491,13 +494,24 @@ class TestConftestScanning:
     def test_parent_conftest_traffic_detected(self, test_dir):
         """conftest.py in parent dir is also scanned."""
         _write_file(
+            test_dir, "bgp/conftest.py", "import ptfadapter\n"
+        )
+        fp = _write_file(
+            test_dir, "bgp/sub/test_foo.py",
+            "def test_x(dp):\n    pass\n",
+        )
+        assert _has_traffic_pattern(fp, test_dir) is True
+
+    def test_root_conftest_ignored(self, test_dir):
+        """conftest.py at location applies to every test, so it is not scanned."""
+        _write_file(
             test_dir, "conftest.py", "import ptfadapter\n"
         )
         fp = _write_file(
             test_dir, "bgp/test_foo.py",
-            "def test_x(dp):\n    pass\n",
+            "def test_x():\n    pass\n",
         )
-        assert _has_traffic_pattern(fp, test_dir) is True
+        assert _has_traffic_pattern(fp, test_dir) is False
 
     def test_no_conftest_stays_control_plane(self, test_dir):
         fp = _write_file(
@@ -527,10 +541,62 @@ class TestConftestScanning:
     def test_collect_conftest_files(self, test_dir):
         _write_file(test_dir, "conftest.py", "")
         _write_file(test_dir, "bgp/conftest.py", "")
-        fp = _write_file(test_dir, "bgp/test_x.py", "")
+        _write_file(test_dir, "bgp/sub/conftest.py", "")
+        fp = _write_file(test_dir, "bgp/sub/test_x.py", "")
         conftests = _collect_conftest_files(fp, test_dir)
-        assert len(conftests) == 2
-        assert any("bgp" in c for c in conftests)
+        assert conftests == [
+            os.path.join(test_dir, "bgp", "sub", "conftest.py"),
+            os.path.join(test_dir, "bgp", "conftest.py"),
+        ]
+
+    def test_collect_conftest_files_at_location(self, test_dir):
+        _write_file(test_dir, "conftest.py", "")
+        fp = _write_file(test_dir, "test_x.py", "")
+        assert _collect_conftest_files(fp, test_dir) == []
+
+    def test_dedup_removes_control_plane_tests_from_real_tree(self):
+        """tests/conftest.py must not make every test look data-plane."""
+        tests_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "tests")
+        )
+        scripts = collect_scripts_by_topology_type("", tests_dir)
+        overlap = (
+            set(scripts["t0_checker"]) & set(scripts["t1_checker"])
+        )
+
+        result = dedup_control_plane_tests(
+            copy.deepcopy(scripts), tests_dir
+        )
+
+        removed = set(scripts["t1_checker"]) - set(result["t1_checker"])
+        assert removed, "dedup removed nothing from t1_checker"
+        assert removed < overlap, "data-plane overlap must stay in t1"
+
+
+# ── main(): dedup is opt-in ───────────────────────────────
+
+class TestMainDedupFlag:
+
+    @pytest.mark.parametrize("dedup, expected_t1", [
+        (False, ["feat/test_cp.py", "feat/test_dp.py"]),
+        (True, ["feat/test_dp.py"]),
+    ])
+    def test_dedup_only_when_requested(
+        self, test_dir, capsys, dedup, expected_t1
+    ):
+        marker = "pytestmark = [pytest.mark.topology('t0', 't1')]\n"
+        _write_file(test_dir, "feat/test_cp.py", marker)
+        _write_file(
+            test_dir, "feat/test_dp.py", "import ptfadapter\n" + marker
+        )
+
+        main("feat", test_dir, dedup_control_plane=dedup)
+
+        result = json.loads(capsys.readouterr().out)
+        assert result["t0_checker"] == [
+            "feat/test_cp.py", "feat/test_dp.py"
+        ]
+        assert result["t1_checker"] == expected_t1
 
 
 # ── Unreadable files (safe default) ───────────────────────
