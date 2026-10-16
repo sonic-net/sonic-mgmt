@@ -11,6 +11,7 @@ from natsort import natsorted
 import pytest
 
 from tests.common.reboot import reboot
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import wait_until
 import ptf.testutils as testutils
@@ -26,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 # global variables
 g_vars = {}
+
+# Wait budget for all admin-up ports to become operationally up after a reboot.
+INTF_UP_WAIT_TIMEOUT = 300
+INTF_UP_WAIT_INTERVAL = 10
 
 TEMPLATE_CONFIGS = {
     "vnet_dynamic_peer_add": {
@@ -103,6 +108,17 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
     duthost.shell("cp /tmp/config_db_vnet.json /etc/sonic/config_db.json")
 
     reboot(duthost, localhost)
+
+    # After reboot, wait until all admin-up ports are operationally up before
+    # configuring/validating BGP, so that VRF (VNET) peers have working
+    # underlay links to establish over.
+    assert wait_until(
+        INTF_UP_WAIT_TIMEOUT,
+        INTF_UP_WAIT_INTERVAL,
+        0,
+        check_interface_status_of_up_ports,
+        duthost,
+    ), "Not all admin-up ports are operationally up after reboot"
 
     bgp_asn = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {}).get('bgp_asn', '')
     duthost.shell(
@@ -348,7 +364,7 @@ def dynamic_range_add_delete(duthost, template):
     validate_dynamic_peer_established(bgp_summary, template)
 
 
-BGP_VNET_PEER_WAIT_TIMEOUT = 60
+BGP_VNET_PEER_WAIT_TIMEOUT = 300
 BGP_VNET_PEER_WAIT_INTERVAL = 10
 
 
@@ -505,6 +521,20 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         props = g_vars['props']
         route_count = props['podset_number'] * \
             props['tor_number'] * props['tor_subnet_number']
+
+        # Dynamic (listen-range) peers are passive on the DUT and only come up
+        # after ARISTA initiates the session (following its ConnectRetry), which
+        # is later than the DUT-initiated static peers.  Wait for them to appear
+        # and reach Established first, so the prefix-count wait and validation
+        # below also cover the dynamic peers instead of skipping them while they
+        # are still absent from the summary.
+        assert wait_until(
+            BGP_VNET_PEER_WAIT_TIMEOUT,
+            BGP_VNET_PEER_WAIT_INTERVAL,
+            0,
+            _check_vnet2_all_dynamic_peers_established,
+            duthost,
+        ), "Timed out waiting for Vnet2 dynamic peers to reach Established"
 
         # After the post-reboot setup the VRF-scoped BGP sessions need extra
         # time to reach Established and learn routes.  Poll until all peers
