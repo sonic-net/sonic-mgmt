@@ -1,0 +1,107 @@
+all:
+  children:
+    vm_host:
+      children:
+        vm_host_1:
+    eos:
+      children:
+        vms_1:
+    servers:
+      vars:
+        topologies:
+          - t1-lag
+      children:
+        server_1:
+    lab:
+      hosts:
+        vlab-kne-t1lag-01:
+    ptf:
+      hosts:
+        ptf-kne-t1lag-01:
+          ansible_host: 172.31.102.200
+          ansible_user: root
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_PTF_PASSWORD') }}"
+    sonic:
+      vars:
+        mgmt_subnet_mask_length: 24
+        ansible_connection: ssh
+        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+        ansible_become: yes
+        ansible_remote_tmp: /tmp/.ansible/tmp
+      hosts:
+        vlab-kne-t1lag-01:
+          ansible_host: 172.31.102.2
+          type: kvm
+          hwsku: Force10-S6000
+          ansible_password: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+          ansible_user: admin
+
+server_1:
+  vars:
+    host_var_file: host_vars/KNE-VSERV-01.yml
+  children:
+    vm_host_1:
+    vms_1:
+
+vm_host_1:
+  hosts:
+    KNE-VSERV-01:
+      ansible_host: 127.0.0.1
+      ansible_user: root
+
+vms_1:
+  vars:
+    ansible_user: admin
+    ansible_password: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+    ansible_connection: ssh
+    ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_PASSWORD') }}"
+    ansible_become: yes
+  hosts:
+    VM0100:
+      ansible_host: 172.31.102.10
+    VM0101:
+      ansible_host: 172.31.102.11
+    VM0102:
+      ansible_host: 172.31.102.12
+    VM0103:
+      ansible_host: 172.31.102.13
+    VM0104:
+      ansible_host: 172.31.102.14
+    VM0105:
+      ansible_host: 172.31.102.15
+    VM0106:
+      ansible_host: 172.31.102.16
+    VM0107:
+      ansible_host: 172.31.102.17
+    VM0108:
+      ansible_host: 172.31.102.26
+    VM0109:
+      ansible_host: 172.31.102.27
+    VM0110:
+      ansible_host: 172.31.102.28
+    VM0111:
+      ansible_host: 172.31.102.29
+    VM0112:
+      ansible_host: 172.31.102.30
+    VM0113:
+      ansible_host: 172.31.102.31
+    VM0114:
+      ansible_host: 172.31.102.32
+    VM0115:
+      ansible_host: 172.31.102.33
+    VM0116:
+      ansible_host: 172.31.102.34
+    VM0117:
+      ansible_host: 172.31.102.35
+    VM0118:
+      ansible_host: 172.31.102.36
+    VM0119:
+      ansible_host: 172.31.102.37
+    VM0120:
+      ansible_host: 172.31.102.38
+    VM0121:
+      ansible_host: 172.31.102.39
+    VM0122:
+      ansible_host: 172.31.102.40
+    VM0123:
+      ansible_host: 172.31.102.41

@@ -1,0 +1,466 @@
+[
+  {
+    "name": "ARISTA01T2",
+    "pod": "t2-1",
+    "vm_offset": 0,
+    "asn": 65200,
+    "peer_v4": "10.0.0.1",
+    "peer_v6": "fc00::2",
+    "dut_peer_v4": "10.0.0.0",
+    "dut_peer_v6": "FC00::1",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      0,
+      1
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.1/32",
+      "ipv6": "2064:100::1/128"
+    }
+  },
+  {
+    "name": "ARISTA03T2",
+    "pod": "t2-2",
+    "vm_offset": 1,
+    "asn": 65200,
+    "peer_v4": "10.0.0.5",
+    "peer_v6": "fc00::a",
+    "dut_peer_v4": "10.0.0.4",
+    "dut_peer_v6": "FC00::9",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      2,
+      3
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.3/32",
+      "ipv6": "2064:100::3/128"
+    }
+  },
+  {
+    "name": "ARISTA05T2",
+    "pod": "t2-3",
+    "vm_offset": 2,
+    "asn": 65200,
+    "peer_v4": "10.0.0.9",
+    "peer_v6": "fc00::12",
+    "dut_peer_v4": "10.0.0.8",
+    "dut_peer_v6": "FC00::11",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      4,
+      5
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.5/32",
+      "ipv6": "2064:100::5/128"
+    }
+  },
+  {
+    "name": "ARISTA07T2",
+    "pod": "t2-4",
+    "vm_offset": 3,
+    "asn": 65200,
+    "peer_v4": "10.0.0.13",
+    "peer_v6": "fc00::1a",
+    "dut_peer_v4": "10.0.0.12",
+    "dut_peer_v6": "FC00::19",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      6,
+      7
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.7/32",
+      "ipv6": "2064:100::7/128"
+    }
+  },
+  {
+    "name": "ARISTA09T2",
+    "pod": "t2-5",
+    "vm_offset": 4,
+    "asn": 65200,
+    "peer_v4": "10.0.0.17",
+    "peer_v6": "fc00::22",
+    "dut_peer_v4": "10.0.0.16",
+    "dut_peer_v6": "FC00::21",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      8,
+      9
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.9/32",
+      "ipv6": "2064:100::9/128"
+    }
+  },
+  {
+    "name": "ARISTA11T2",
+    "pod": "t2-6",
+    "vm_offset": 5,
+    "asn": 65200,
+    "peer_v4": "10.0.0.21",
+    "peer_v6": "fc00::2a",
+    "dut_peer_v4": "10.0.0.20",
+    "dut_peer_v6": "FC00::29",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      10,
+      11
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.11/32",
+      "ipv6": "2064:100::b/128"
+    }
+  },
+  {
+    "name": "ARISTA13T2",
+    "pod": "t2-7",
+    "vm_offset": 6,
+    "asn": 65200,
+    "peer_v4": "10.0.0.25",
+    "peer_v6": "fc00::32",
+    "dut_peer_v4": "10.0.0.24",
+    "dut_peer_v6": "FC00::31",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      12,
+      13
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.13/32",
+      "ipv6": "2064:100::d/128"
+    }
+  },
+  {
+    "name": "ARISTA15T2",
+    "pod": "t2-8",
+    "vm_offset": 7,
+    "asn": 65200,
+    "peer_v4": "10.0.0.29",
+    "peer_v6": "fc00::3a",
+    "dut_peer_v4": "10.0.0.28",
+    "dut_peer_v6": "FC00::39",
+    "lacp_members": [
+      "Ethernet1",
+      "Ethernet2"
+    ],
+    "vlans": [
+      14,
+      15
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.15/32",
+      "ipv6": "2064:100::f/128"
+    }
+  },
+  {
+    "name": "ARISTA01T0",
+    "pod": "t0-1",
+    "vm_offset": 8,
+    "asn": 64001,
+    "peer_v4": "10.0.0.33",
+    "peer_v6": "fc00::42",
+    "dut_peer_v4": "10.0.0.32",
+    "dut_peer_v6": "FC00::41",
+    "lacp_members": [],
+    "vlans": [
+      16
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.17/32",
+      "ipv6": "2064:100::11/128"
+    }
+  },
+  {
+    "name": "ARISTA02T0",
+    "pod": "t0-2",
+    "vm_offset": 9,
+    "asn": 64002,
+    "peer_v4": "10.0.0.35",
+    "peer_v6": "fc00::46",
+    "dut_peer_v4": "10.0.0.34",
+    "dut_peer_v6": "FC00::45",
+    "lacp_members": [],
+    "vlans": [
+      17
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.18/32",
+      "ipv6": "2064:100::12/128"
+    }
+  },
+  {
+    "name": "ARISTA03T0",
+    "pod": "t0-3",
+    "vm_offset": 10,
+    "asn": 64003,
+    "peer_v4": "10.0.0.37",
+    "peer_v6": "fc00::4a",
+    "dut_peer_v4": "10.0.0.36",
+    "dut_peer_v6": "FC00::49",
+    "lacp_members": [],
+    "vlans": [
+      18
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.19/32",
+      "ipv6": "2064:100::13/128"
+    }
+  },
+  {
+    "name": "ARISTA04T0",
+    "pod": "t0-4",
+    "vm_offset": 11,
+    "asn": 64004,
+    "peer_v4": "10.0.0.39",
+    "peer_v6": "fc00::4e",
+    "dut_peer_v4": "10.0.0.38",
+    "dut_peer_v6": "FC00::4D",
+    "lacp_members": [],
+    "vlans": [
+      19
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.20/32",
+      "ipv6": "2064:100::14/128"
+    }
+  },
+  {
+    "name": "ARISTA05T0",
+    "pod": "t0-5",
+    "vm_offset": 12,
+    "asn": 64005,
+    "peer_v4": "10.0.0.41",
+    "peer_v6": "fc00::52",
+    "dut_peer_v4": "10.0.0.40",
+    "dut_peer_v6": "FC00::51",
+    "lacp_members": [],
+    "vlans": [
+      20
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.21/32",
+      "ipv6": "2064:100::15/128"
+    }
+  },
+  {
+    "name": "ARISTA06T0",
+    "pod": "t0-6",
+    "vm_offset": 13,
+    "asn": 64006,
+    "peer_v4": "10.0.0.43",
+    "peer_v6": "fc00::56",
+    "dut_peer_v4": "10.0.0.42",
+    "dut_peer_v6": "FC00::55",
+    "lacp_members": [],
+    "vlans": [
+      21
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.22/32",
+      "ipv6": "2064:100::16/128"
+    }
+  },
+  {
+    "name": "ARISTA07T0",
+    "pod": "t0-7",
+    "vm_offset": 14,
+    "asn": 64007,
+    "peer_v4": "10.0.0.45",
+    "peer_v6": "fc00::5a",
+    "dut_peer_v4": "10.0.0.44",
+    "dut_peer_v6": "FC00::59",
+    "lacp_members": [],
+    "vlans": [
+      22
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.23/32",
+      "ipv6": "2064:100::17/128"
+    }
+  },
+  {
+    "name": "ARISTA08T0",
+    "pod": "t0-8",
+    "vm_offset": 15,
+    "asn": 64008,
+    "peer_v4": "10.0.0.47",
+    "peer_v6": "fc00::5e",
+    "dut_peer_v4": "10.0.0.46",
+    "dut_peer_v6": "FC00::5D",
+    "lacp_members": [],
+    "vlans": [
+      23
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.24/32",
+      "ipv6": "2064:100::18/128"
+    }
+  },
+  {
+    "name": "ARISTA09T0",
+    "pod": "t0-9",
+    "vm_offset": 16,
+    "asn": 64009,
+    "peer_v4": "10.0.0.49",
+    "peer_v6": "fc00::62",
+    "dut_peer_v4": "10.0.0.48",
+    "dut_peer_v6": "FC00::61",
+    "lacp_members": [],
+    "vlans": [
+      24
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.25/32",
+      "ipv6": "2064:100::19/128"
+    }
+  },
+  {
+    "name": "ARISTA10T0",
+    "pod": "t0-10",
+    "vm_offset": 17,
+    "asn": 64010,
+    "peer_v4": "10.0.0.51",
+    "peer_v6": "fc00::66",
+    "dut_peer_v4": "10.0.0.50",
+    "dut_peer_v6": "FC00::65",
+    "lacp_members": [],
+    "vlans": [
+      25
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.26/32",
+      "ipv6": "2064:100::1a/128"
+    }
+  },
+  {
+    "name": "ARISTA11T0",
+    "pod": "t0-11",
+    "vm_offset": 18,
+    "asn": 64011,
+    "peer_v4": "10.0.0.53",
+    "peer_v6": "fc00::6a",
+    "dut_peer_v4": "10.0.0.52",
+    "dut_peer_v6": "FC00::69",
+    "lacp_members": [],
+    "vlans": [
+      26
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.27/32",
+      "ipv6": "2064:100::1b/128"
+    }
+  },
+  {
+    "name": "ARISTA12T0",
+    "pod": "t0-12",
+    "vm_offset": 19,
+    "asn": 64012,
+    "peer_v4": "10.0.0.55",
+    "peer_v6": "fc00::6e",
+    "dut_peer_v4": "10.0.0.54",
+    "dut_peer_v6": "FC00::6D",
+    "lacp_members": [],
+    "vlans": [
+      27
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.28/32",
+      "ipv6": "2064:100::1c/128"
+    }
+  },
+  {
+    "name": "ARISTA13T0",
+    "pod": "t0-13",
+    "vm_offset": 20,
+    "asn": 64013,
+    "peer_v4": "10.0.0.57",
+    "peer_v6": "fc00::72",
+    "dut_peer_v4": "10.0.0.56",
+    "dut_peer_v6": "FC00::71",
+    "lacp_members": [],
+    "vlans": [
+      28
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.29/32",
+      "ipv6": "2064:100::1d/128"
+    }
+  },
+  {
+    "name": "ARISTA14T0",
+    "pod": "t0-14",
+    "vm_offset": 21,
+    "asn": 64014,
+    "peer_v4": "10.0.0.59",
+    "peer_v6": "fc00::76",
+    "dut_peer_v4": "10.0.0.58",
+    "dut_peer_v6": "FC00::75",
+    "lacp_members": [],
+    "vlans": [
+      29
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.30/32",
+      "ipv6": "2064:100::1e/128"
+    }
+  },
+  {
+    "name": "ARISTA15T0",
+    "pod": "t0-15",
+    "vm_offset": 22,
+    "asn": 64015,
+    "peer_v4": "10.0.0.61",
+    "peer_v6": "fc00::7a",
+    "dut_peer_v4": "10.0.0.60",
+    "dut_peer_v6": "FC00::79",
+    "lacp_members": [],
+    "vlans": [
+      30
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.31/32",
+      "ipv6": "2064:100::1f/128"
+    }
+  },
+  {
+    "name": "ARISTA16T0",
+    "pod": "t0-16",
+    "vm_offset": 23,
+    "asn": 64016,
+    "peer_v4": "10.0.0.63",
+    "peer_v6": "fc00::7e",
+    "dut_peer_v4": "10.0.0.62",
+    "dut_peer_v6": "FC00::7D",
+    "lacp_members": [],
+    "vlans": [
+      31
+    ],
+    "loopback": {
+      "ipv4": "100.1.0.32/32",
+      "ipv6": "2064:100::20/128"
+    }
+  }
+]
