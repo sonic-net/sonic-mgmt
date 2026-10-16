@@ -1,4 +1,6 @@
 import logging
+import json
+import re
 import pytest
 
 import ptf.packet as scapy
@@ -6,11 +8,44 @@ import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.pygnmi_client import SubscribeMode, StreamMode, Encoding
 
 logger = logging.getLogger(__name__)
 
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
+
+
+def listen_for_events(duthost, pygnmi_client, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
+                      match_number=0):
+    """Subscribe to the EVENTS target on the gnmi container and write matched events to op_file.
+
+    Uses the client bound to the managed TLS fixture's endpoint and certificates.
+    """
+    # The client's count includes unrelated notifications; count matched events here.
+    subscription = pygnmi_client.subscribe("all[heartbeat=2]", target="EVENTS", mode=SubscribeMode.STREAM,
+                                           stream_mode=StreamMode.ON_CHANGE, sample_interval=0,
+                                           encoding=Encoding.JSON, collect_seconds=timeout)
+    output = []
+    try:
+        for notification in subscription:
+            for update in notification.get("update", {}).get("update", []):
+                event_json = update["val"]
+                if not filter_event_regex or re.search(filter_event_regex, json.dumps(event_json)):
+                    output.append(event_json)
+            if update_count and len(output) >= update_count:
+                break
+    finally:
+        subscription.close()
+    assert len(output) > match_number, "Not able to parse json from output"
+    with open(op_file, "w") as f:
+        f.write("[\n")
+        for i in range(0, match_number + 1):
+            event_json = output[i]
+            json.dump(event_json, f, indent=4)
+            if i < match_number:
+                f.write(",")
+        f.write("\n]")
 
 
 def add_test_watchdog_timeout_service(duthost):

@@ -8,6 +8,7 @@ from tests.common.utilities import wait_until
 from tests.telemetry.telemetry_utils import get_list_stdout
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 
 EVENTS_TESTS_PATH = "./telemetry/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -73,14 +74,14 @@ def do_init(duthost):
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_eventd_healthy(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
-                        setup_streaming_telemetry, gnxi_path):
+                        gnmi_tls):  # noqa: F811
     """
     @summary: Test eventd heartbeat before testing all testcases
     """
 
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = gnmi_tls.duthost
 
     if duthost.is_multi_asic:
         pytest.skip("Skip eventd testing on multi-asic")
@@ -97,6 +98,7 @@ def test_eventd_healthy(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfh
 
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
-    module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, DATA_DIR, None)
+    module.test_event(duthost, tbinfo, gnmi_tls.pygnmi_client, ptfhost, ptfadapter, DATA_DIR, None)
 
     logger.info("Completed test file: {}".format("eventd_events test completed."))
+    return gnmi_tls.pygnmi_client
