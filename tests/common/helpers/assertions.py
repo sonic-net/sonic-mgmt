@@ -1,4 +1,7 @@
 import pytest
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_assert(condition, message=None):
@@ -6,7 +9,10 @@ def pytest_assert(condition, message=None):
     if not condition:
         if not isinstance(message, str):
             message = str(message)
+        logger.warn("Fail: {}".format(message))
         pytest.fail(message)
+    else:
+        logger.info("Pass: {}".format(message))
 
 
 def pytest_require(condition, skip_message="", allow_module_level=True):
