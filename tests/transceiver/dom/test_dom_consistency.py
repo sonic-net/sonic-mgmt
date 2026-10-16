@@ -6,6 +6,7 @@ from collections import defaultdict
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
+from tests.transceiver.common.attribute_helpers import parse_positive_int
 from tests.transceiver.common.db_helpers import (
     STATE_DB_UPDATE_TIME_FIELD,
     parse_numeric,
@@ -43,19 +44,6 @@ def _consistency_check_definitions():
         )
         for attr_name in dom_consistency_attributes()
     )
-
-
-def _parse_positive_int(attr_name, raw_value, minimum):
-    """Return ``(value, error)`` for configured positive integer DOM attributes."""
-    if raw_value is None:
-        return None, "{} missing in DOM_ATTRIBUTES".format(attr_name)
-
-    value = parse_numeric(raw_value)
-    if value is None or not math.isfinite(value) or int(value) != value or value < minimum:
-        return None, "{} must be an integer >= {} in DOM_ATTRIBUTES (got {!r})".format(
-            attr_name, minimum, raw_value
-        )
-    return int(value), None
 
 
 def _parse_non_negative_threshold(attr_name, raw_value):
@@ -102,7 +90,7 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
         errors = []
         field_checks = {}
 
-        poll_count, poll_error = _parse_positive_int(
+        poll_count, poll_error = parse_positive_int(
             "consistency_check_poll_count",
             dom_attrs.get("consistency_check_poll_count"),
             minimum=2,
@@ -392,7 +380,7 @@ def test_dom_data_consistency_verification(
         ),
         None,
     )
-    update_interval_sec, update_interval_error = _parse_positive_int(
+    update_interval_sec, update_interval_error = parse_positive_int(
         "max_update_time_sec", raw_update_interval, minimum=1
     )
 
