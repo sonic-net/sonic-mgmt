@@ -9,11 +9,14 @@ import os
 from contextlib import closing
 
 from tests.common.helpers import gnmi_cli_helpers as helper
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_gnmi_certs, delete_gnmi_certs, \
+    add_gnmi_client_common_name
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.pygnmi_client import Encoding, PygnmiClient, StreamMode
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, \
-                    apply_cert_config, \
-                    gnmi_subscribe_stream_connections
+from .conftest import rotate_gnmi_certs, SETUP_ENV_CP
+from .helper import gnmi_set, gnmi_subscribe_streaming_sample, check_gnmi_status, \
+                    gnmi_subscribe_stream_connections, check_system_time_sync
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -39,6 +42,78 @@ pytestmark = [
     pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
                             "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
+
+
+@pytest.fixture(scope="module")
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config,
+                      setup_vrf_configuration, setup_gnmi_ntp_client_server):
+    """Keep this module's original PKI, using the supervised gNMI service."""
+    duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    if not check_container_state(duthost, env.gnmi_container, should_be_running=True):
+        pytest.skip("Test was not supported on devices which do not support GNMI!")
+    was_running = check_gnmi_status(duthost)
+
+    def configure_server():
+        # The shared managed helper fixes port 50052 and .cer filenames;
+        # this module must keep its existing endpoint and .pem/.crt PKI.
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port {} '
+                      'client_auth true user_auth cert enable_crl true log_level 10'.format(env.gnmi_port))
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" '
+                      'ca_crt /etc/sonic/telemetry/gnmiCA.pem '
+                      'server_crt /etc/sonic/telemetry/gnmiserver.crt '
+                      'server_key /etc/sonic/telemetry/gnmiserver.key')
+        if vrf_config.get("vrf"):
+            duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(vrf_config["vrf"]))
+        else:
+            duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
+        role = ("gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,"
+                "gnmi_dpu_appl_db_readwrite,gnoi_readwrite")
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+        add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
+        duthost.shell("docker exec {} supervisorctl restart {}".format(env.gnmi_container, env.gnmi_program))
+        assert wait_until(30, 1, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+        assert wait_until(60, 2, 0, lambda: duthost.shell(
+            'sudo ss -ltnp | grep ":{} " | grep {}'.format(env.gnmi_port, env.gnmi_process),
+            module_ignore_errors=True)["rc"] == 0), "GNMI service failed to listen on configured port"
+        if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+            assert wait_until(80, 3, 0, check_system_time_sync, duthost), "Failed to synchronize DUT system time"
+
+    try:
+        create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=vrf_config.get("dut_ip"))
+        create_checkpoint(duthost, SETUP_ENV_CP)
+        try:
+            configure_server()
+            yield configure_server
+        finally:
+            output = rollback(duthost, SETUP_ENV_CP)
+            assert output['rc'] == 0 and "Config rolled back successfully" in output['stdout'], \
+                "Failed to restore GNMI configuration: {}".format(output)
+            duthost.shell("config save -y")
+            action = "restart" if was_running else "stop"
+            duthost.shell("docker exec {} supervisorctl {} {}".format(
+                env.gnmi_container, action, env.gnmi_program))
+            if was_running:
+                assert wait_until(300, 3, 0, check_gnmi_status, duthost), "Failed to restore GNMI service"
+            # Preserve the original module's telemetry/container-checker recovery.
+            if not check_container_state(duthost, "telemetry", should_be_running=True):
+                duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+            duthost.shell("sudo /usr/bin/container_checker")
+    finally:
+        delete_gnmi_certs(localhost)
+
+
+@pytest.fixture(scope="module")
+def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, setup_gnmi_server):
+    # Preserve hot rotation after initial service setup: copy certs, no restart.
+    rotate_gnmi_certs(duthosts[rand_one_dut_hostname], localhost, ptfhost)
+
+
+def dump_gnmi_log(duthost):
+    """The supervised service writes the host log, not the old scratch log."""
+    res = duthost.shell("sudo cat /var/log/gnmi.log", module_ignore_errors=True)
+    logger.info("GNMI log: " + res['stdout'])
+    return res['stdout']
 
 
 def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
@@ -74,7 +149,7 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
     msg = ""
     try:
-        gnmi_set(duthost, ptfhost, [], update_list, [], cert)
+        gnmi_set(duthost, ptfhost, [], update_list, [], cert, log_reader=dump_gnmi_log)
     except Exception as e:
         logger.info("Failed to set: " + str(e))
         msg = str(e)
@@ -343,7 +418,7 @@ def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_n
 
 
 def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
-                            skip_non_container_test):
+                            skip_non_container_test, setup_gnmi_server):
     '''
     Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
     against the SHOW target, and verify.
@@ -369,9 +444,8 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
         if test_config["setup"]:
             setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
             getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
-            # The setup step reboots the DUT, which drops the non-persistent gnmi
-            # cert server; re-apply it so the SHOW GET runs against the configured server.
-            apply_cert_config(duthost)
+            # Reuse the module owner after reboot; certificates are not regenerated.
+            setup_gnmi_server()
 
         show_gnmi_out = client.get([path], target="SHOW")
 
