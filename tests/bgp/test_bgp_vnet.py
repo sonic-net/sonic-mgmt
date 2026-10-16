@@ -94,7 +94,8 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
                   'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
-                  'vlan_ports': vlan_ports}
+                  'vlan_ports': vlan_ports,
+                  'asic_type': duthost.facts.get('asic_type')}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
