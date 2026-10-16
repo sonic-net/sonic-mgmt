@@ -133,16 +133,16 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 # 5. Limitation
 1. Packet trimming only supports IPv4 and IPv6 unicast packets. The ARP/NDP/ECMP are not supported. Any encap/decap packets (e.g., VxLAN, GRE, MPLS) are not supported.
 2. Packet trimming only supports "Lossy Queue" and it is configured only on the egress queue.
-3. Packet trimming only supports config reload and cold reboot, does not support warm/fast reboot.
+3. Packet trimming supports config reload, cold reboot and warm reboot. Fast reboot is not supported.
 4. After packet is trimmed, the `checksum` and `IP length` fields in IP header is not recalculated.
 5. The test cases only cover `STATIC` DSCP and Queue mode, which means only `config switch-trimming global --size 256 --dscp 48 --queue 6` is supported to set a specific queue, and `--queue auto` is not supported.
 
 
 
 # 6. Related Command
-1. Packet trimming with **Symmetric DSCP**.  
+1. Packet trimming with **Symmetric DSCP**.\
     1.1. Trimming global config
-    - config: `config switch-trimming global --size 256 --dscp 48 --queue 6`  
+    - config: `config switch-trimming global --size 256 --dscp 48 --queue 6`
     - show: `show switch-trimming global`
     ```json
     {
@@ -182,9 +182,9 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
     ```
 
 
-2. Packet trimming with  with **Asymmetric DSCP**.  
+2. Packet trimming with  with **Asymmetric DSCP**.\
     2.1. Trimming global config
-    - config: `config switch-trimming global --size 128 --dscp from-tc --tc 5 --queue 6`  
+    - config: `config switch-trimming global --size 128 --dscp from-tc --tc 5 --queue 6`
     - show: `show switch-trimming global`
     ```json
     {
@@ -334,7 +334,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 
 # 7. Test Cases
 ## Test Case 1: Verify Trimming Configuration via CLI command / Config DB
-**Objective**: Validate trimming configuration through CLI commands / Config DB.  
+**Objective**: Validate trimming configuration through CLI commands / Config DB.\
 **Test Steps**
 1. Configure trimming via CLI `config switch-trimming global --size 256 --dscp 48 --queue 6`.
 2. Verify the config in running config by CLI `show switch-trimming global`.
@@ -384,13 +384,13 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 2: Verify Packet Size After Trimming
-**Objective**: Ensure trimmed packets retain headers and meet size requirements.  
+**Objective**: Ensure trimmed packets retain headers and meet size requirements.\
 **Test Steps**
 1. Configure packet trimming in global level and set `"size": "256"`.
 2. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 3. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 4. Send 1500B packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT to trigger trimming (cover ipv4_tcp / ipv4_udp / ipv6_tcp / ipv6_udp packets).
@@ -425,19 +425,19 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
    Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A
    ```
 7. Update the trimming size value to 4084.
-8. Send 5000B packets from PTF to DUT to test jumb packet trimming. 
+8. Send 5000B packets from PTF to DUT to test jumb packet trimming.
 9. Capture egress packets and verify trimmed packet size is 4084B.
 
 ---
 
-## Test Case 3: Verify DSCP Remapping After Trimming  
-**Objective**: Validate DSCP value is updated after trimming.  
-**Test Steps**:  
+## Test Case 3: Verify DSCP Remapping After Trimming
+**Objective**: Validate DSCP value is updated after trimming.\
+**Test Steps**:
 1. Configure packet trimming in global level and set `"dscp_value": "48"`, `"size": "256"`.
 2. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 3. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 3. Send 1500B packets (If the queue has WRED enabled, the packet should have ECN enabled) with DSCP=0.
@@ -472,17 +472,17 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 4: Verify Trimming with Traditional/Dynamic Buffer Model
-**Objective**: Validate trimming behavior under traditional and dynamic buffer allocation.  
-**Test Steps**:  
+**Objective**: Validate trimming behavior under traditional and dynamic buffer allocation.\
+**Test Steps**:
 1. Config `mode: traditional` in `buffer_model`.
 2. Configure packet trimming in global level.
 3. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 4. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
-5. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT to trigger trimming. 
+5. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT to trigger trimming.
 6. Capture egress packets and verfiy trimming works for traditional buffer model.
 7. Update the `mode: dynamic` for `buffer_model`.
 8. Repeat step3-4 to verfiy trimming works for dynamic buffer model.
@@ -494,14 +494,14 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 
 ---
 
-## Test Case 5: Verify Trimming on Physical/LAG Ports  
-**Objective**: Validate trimming on physical ports and LAG members.  
-**Test Steps**:  
+## Test Case 5: Verify Trimming on Physical/LAG Ports
+**Objective**: Validate trimming on physical ports and LAG members.\
+**Test Steps**:
 1. Configure packet trimming in global level and bind buffer profile to `Ethernet0`.
 2. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 3. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 4. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT `Ethernet0` to trigger trimming.
@@ -512,8 +512,8 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 6: Verify Trimming Compatibility with Lossless Queues
-**Objective**: Validate trimmed packets can be sent from a lossless queue.  
-**Test Steps**:  
+**Objective**: Validate trimmed packets can be sent from a lossless queue.\
+**Test Steps**:
 1. Configure Ethernet0 queue4 as a ​lossless queue.
 2. Enable packet trimming globally and set "queue_index": "4" under SWITCH_TRIMMING.
 3. Send packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT Ethernet0 to trigger trimming.
@@ -522,7 +522,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 7: Verify ACL Disable Trimming Action
-**Objective**: Verify trimming does not work if ACL rule with the `DISABLE_TRIM` action is matched.  
+**Objective**: Verify trimming does not work if ACL rule with the `DISABLE_TRIM` action is matched.\
 **Test Steps**:
 1. Configure packet trimming in global level and set `packet_discard_action=trim` in buffer profile.
 2. Create ACL rules to disable trimming action for specific flows.
@@ -552,13 +552,13 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 8: Configuration Persistence After Reload/Reboot
-**Objective**: Validate trimming config survives after cold reboot/config reload.  
-**Test Steps**:  
+**Objective**: Validate trimming config survives after cold reboot/config reload.\
+**Test Steps**:
 1. Configure packet trimming in global level and bind buffer profile.
 2. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 3. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 4. Send packets and verify trimming function works well.
@@ -574,13 +574,13 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 9: Verify Trimming During Multiple Egress Port Admin Toggle
-**Objective**: Validate trimming functions when repeatedly enabling/disabling egress ports.  
+**Objective**: Validate trimming functions when repeatedly enabling/disabling egress ports.\
 **Test Steps**:
 1. Configure packet trimming in global level and bind buffer profile on Ethernet0.
 2. Create a buffer profile setting `packet_discard_action=trim` and apply buffer profile.
 3. Create egress queue congestion.
-   1. Create scheduler and apply it to the egress queue.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
    2. Send packets to make the buffer full.
 4. Send packets and verify trimming function works well on Ethernet0.
@@ -599,7 +599,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 10: Stability During Feature State Toggles
-**Objective**: Ensure no crashes occur during repeated trimming config changes.  
+**Objective**: Ensure no crashes occur during repeated trimming config changes.\
 **Test Steps**:
 1. Configure packet trimming in global level and bind buffer profile.
 2. Send packets and verify trimming function works well.
@@ -610,8 +610,8 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 11: SRv6 Compatibility with Trimming
-**Objective**: Validate SRv6 functions when trimming is enabled/disabled.  
-**Test Steps**:  
+**Objective**: Validate SRv6 functions when trimming is enabled/disabled.\
+**Test Steps**:
 1. Configure packet trimming in global level and bind buffer profile.
 2. Config SRv6 as pipe mode.
 3. Verify the trimming function works well for SRv6 SHIFT packet.
@@ -621,13 +621,13 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 4. Verify the trimming function works well for SRv6 DECAP packet.
    - Verify the SRv6 DECAP packet is trimmed, verify the trimmed packet size is correct.
    - Verify SRv6 packet decapsulation success.
-   - Verify the DSCP value is not updated in the packet.  
+   - Verify the DSCP value is not updated in the packet.\
   (The DSCP value of the outer header of the SRv6 packet is updated by trimming, and the DSCP value of the inner header is not updated. After decapsulation, the outer header is discarded, leaving only the inner packet. Therefore, the DSCP value of the inner header is not updated.)
 
 ---
 
 ## Test Case 12: Verify Trimming in Generic Config Updater Test
-**Objective**: Verify trimming in generic config updater test.  
+**Objective**: Verify trimming in generic config updater test.\
 **Test Steps**
 1. Add trimming configuration via `config apply-patch`, verify configuration is added successfully.
 2. Update trimming configuration via `config apply-patch`, verify configuration is updated successfully.
@@ -637,13 +637,13 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 ---
 
 ## Test Case 13: Verify Packet Trimming Counter
-**Objective**: Ensure packet trimming counter is correct in different level.  
+**Objective**: Ensure packet trimming counter is correct in different level.\
 **Test Steps**
 1. Enable switch/port/queue level counters and set switch level counter poll interval 10 seconds.
 2. Configure packet trimming in global level.
 3. Update the buffer profile setting `packet_discard_action=trim` and apply buffer profile.
-4. Create congestion on queue1 of egress port Ethernet0.  
-   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+4. Create congestion on queue1 of egress port Ethernet0.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|1' scheduler SCHEDULER_BLOCK_DATA_PLANE`
 5. Send packets from PTF to DUT to trigger packet trimming on Ethernet0 queue1.
 6. Verify the trimming counters.
@@ -721,7 +721,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
        "trim_sent": "100"
    }
    ```
-7. Create congestion on queue2 of egress ports Etherent0, then send packets to trigger packet trimming on queue2.  
+7. Create congestion on queue2 of egress ports Etherent0, then send packets to trigger packet trimming on queue2.\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|2' scheduler SCHEDULER_BLOCK_DATA_PLANE`
 8. Verify the trimming counters.
    - Queue level
@@ -807,7 +807,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
        "trim_sent": "200"
    }
    ```
-9.  Create congestion on queue1 of egress ports Etherent1, then send packets to trigger packet trimming on queue1.  
+9.  Create congestion on queue1 of egress ports Etherent1, then send packets to trigger packet trimming on queue1.\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet1|1' scheduler SCHEDULER_BLOCK_DATA_PLANE`
 10. Verify the trimming counters.
     - Queue level
@@ -891,7 +891,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
         "trim_sent": "300"
     }
     ```
-11. Block Ethernet1 queue6, which forward trimming packet, then send 100 packet to Ethernet1 queue1.  
+11. Block Ethernet1 queue6, which forward trimming packet, then send 100 packet to Ethernet1 queue1.\
    `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet1|6' scheduler SCHEDULER_BLOCK_DATA_PLANE`
 12. Verify the trimming counters.
     - Queue level
@@ -976,3 +976,27 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
     }
     ```
 13. Set switch level counter poll interval 30 seconds, repeat the test.
+
+---
+
+## Test Case 14: Verify Trimming is Hitless During Warm Reboot
+**Objective**: Validate that when packet trimming is enabled, a warm reboot is hitless: the trimmed traffic is not dropped during the warm reboot, and all forwarded packets remain trimmed.
+
+**Applicability**: Only applicable on platforms that support warm reboot. Skip the test otherwise.
+
+**Test Steps**:
+1. Configure packet trimming in global level and bind buffer profile.
+2. Enable trim action in buffer profile.
+3. Create egress queue congestion.
+   1. Create scheduler and apply it to the egress queue.\
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`\
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|0' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+   2. Send packets to make the buffer full.
+4. Send packets and verify trimming function works well.
+5. Start a continuous traffic from PTF, all packets are trimmed under the congestion.
+   On the same time, start packet capture on the PTF egress port to catch the trimmed packets.
+6. Trigger a warm reboot on the DUT, and keep the traffic and capture running through the whole warm reboot.
+7. After the warm reboot completes, stop the traffic and capture.
+8.  Verify no packet loss during the warm reboot (no missing sequence number).
+9.  Verify all forwarded packets are trimmed (no untrimmed packet is received).
+10. Verify trimming still works after the warm reboot.
