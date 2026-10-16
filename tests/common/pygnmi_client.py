@@ -12,6 +12,7 @@ request surface.
 """
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import sys
@@ -134,8 +135,8 @@ class PygnmiClient:
         Initialize PygnmiClient.
 
         Args:
-            host: Target host (IPv4/IPv6 literal or name); IPv6 is bracketed by
-                pygnmi as needed.
+            host: Target host (IPv4/IPv6 literal or name); bare IPv6 literals
+                are bracketed before passing to pygnmi.
             port: Target gNMI port.
             plaintext: If True, connect insecurely instead of using mTLS certs.
             ca_cert: Path to the CA certificate (required unless plaintext).
@@ -194,7 +195,16 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
-        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
+        host = self.host
+        try:
+            if isinstance(ipaddress.ip_address(host), ipaddress.IPv6Address):
+                host = f"[{host}]"
+        except ValueError:
+            pass  # Hostname, already-bracketed IPv6, or Unix socket path.
+        # PyPI pygnmi 0.8.15 builds the gRPC target before adding IPv6 brackets.
+        # Our TLS path supplies certificates and does not use its host-based
+        # automatic certificate retrieval. Remove after the dependency is fixed.
+        kwargs = {"target": (host, self.port), "gnmi_timeout": self.timeout}
         if self.plaintext:
             kwargs["insecure"] = True
         else:
