@@ -6,12 +6,19 @@ import random
 import threading
 import json
 import os
+import uuid
+from contextlib import closing, ExitStack
+from dataclasses import replace
 
+import grpc
+from pygnmi.create_gnmi_path import gnmi_path_generator
+from pygnmi.spec.v080 import gnmi_pb2
+
+from tests.common.fixtures.grpc_fixtures import gnmi_tls, _restart_gnoi_server  # noqa: F401
 from tests.common.helpers import gnmi_cli_helpers as helper
-from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
-from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
-                    apply_cert_config, \
-                    gnmi_subscribe_streaming_onchange, gnmi_subscribe_stream_connections
+from tests.common.helpers.gnmi_connection import gnmi_connection, build_native_set_request
+from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, add_gnmi_client_common_name
+from tests.common.pygnmi_client import Encoding, PygnmiClient, StreamMode
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
@@ -34,56 +41,48 @@ def skip_non_container_test(request):
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp")
 ]
 
 
-def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI capabilities
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost)
-    assert ret == 0, (
-        "GNMI capabilities command failed (non-zero return code).\n"
-        "- Error message: {}"
-    ).format(msg)
-
-    assert "sonic-db" in msg, (
+    client = gnmi_tls.pygnmi_client
+    msg = client.capabilities()
+    assert any(model.get("name") == "sonic-db" for model in msg.get("supported_models", [])), (
         "'sonic-db' not found in GNMI capabilities response message.\n"
         "- Actual message: {}"
     ).format(msg)
 
-    assert "JSON_IETF" in msg, (
+    assert "json_ietf" in msg.get("supported_encodings", []), (
         "'JSON_IETF' not found in GNMI capabilities response message.\n"
         "- Actual message: {}"
     ).format(msg)
 
 
-def gnmi_create_vnet(duthost, ptfhost, cert=None):
-    file_name = "vnet.txt"
+def gnmi_create_vnet(gnmi_tls):  # noqa: F811
     text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
-    with open(file_name, 'w') as file:
-        file.write(text)
-    ptfhost.copy(src=file_name, dest='/root')
     # Add DASH_VNET_TABLE
-    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
+    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE"]
+    request = build_native_set_request(update_list[0].split(":", 1)[1].strip("/").split("/"), json.loads(text))
     msg = ""
     try:
-        gnmi_set(duthost, ptfhost, [], update_list, [], cert)
+        with gnmi_connection(gnmi_tls) as (_, client):
+            client.Set(request, timeout=30)
     except Exception as e:
         logger.info("Failed to set: " + str(e))
         msg = str(e)
 
-    gnmi_log = dump_gnmi_log(duthost)
+    gnmi_log = gnmi_tls.duthost.shell("sudo cat /var/log/gnmi.log", module_ignore_errors=True)["stdout"]
 
     return msg, gnmi_log
 
 
 @pytest.fixture(scope="function")
-def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
+    duthost = gnmi_tls.duthost
 
     # Determine which address to bind the CRL server to
     dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
@@ -98,36 +97,76 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
         bind_addr = ''
         logger.info("Binding CRL server to all interfaces (IPv4 compatible)")
 
-    ptfhost.shell('rm -f /root/crl.log')
-
-    # Start CRL server with appropriate bind address
-    if bind_addr:
-        ptfhost.shell(f'nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &')
-    else:
-        ptfhost.shell('nohup /root/env-python3/bin/python /root/crl_server.py &')
-
-    logger.warning("crl server started")
-
-    # Wait untill HTTP server ready
     def server_ready_log_exist(ptfhost):
         res = ptfhost.shell("sed -n '/Ready handle request/p'  /root/crl.log", module_ignore_errors=True)
         logger.debug("crl.log: {}".format(res["stdout_lines"]))
         return len(res["stdout_lines"]) > 0
 
-    wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
-    logger.warning("crl server ready")
+    local_files = ("gnmiclient.revoked.crt",
+                   "gnmiclient.revoked.key", "gnmiclient.revoked.csr", "sonic.crl.pem", "crlext.cnf")
+    for filename in local_files:
+        if os.path.lexists(filename):
+            raise FileExistsError("CRL preparation would overwrite existing file: {}".format(filename))
+    # Use the PTF's existing supervisor to own only this HTTP child process.
+    ptfhost.command("supervisorctl pid")
+    listener = ptfhost.shell("ss -ltnH 'sport = :1234'")
+    if listener['stdout'].strip():
+        raise RuntimeError("CRL port 1234 is already in use")
+    program = "gnmi-crl-" + uuid.uuid4().hex
+    config_path = "/etc/supervisor/conf.d/{}.conf".format(program)
+    config_written = False
+    try:
+        create_revoked_cert_and_crl(
+            localhost, ptfhost, duthost, ca_cert=gnmi_tls.pygnmi_client.ca_cert,
+            ca_key=os.path.join(os.path.dirname(gnmi_tls.pygnmi_client.ca_cert), "gnmiCA.key"))
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true log_level 10')
+        role = ("gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,"
+                "gnmi_dpu_appl_db_readwrite,gnoi_readwrite")
+        add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
+        _restart_gnoi_server(duthost)
 
-    yield
+        # The HTTP server loads sonic.crl.pem once, so start it after generation.
+        ptfhost.shell('rm -f /root/crl.log')
+        bind_arg = " --bind {}".format(bind_addr) if bind_addr else ""
+        config_written = True
+        ptfhost.copy(content=(
+            "[program:{name}]\ncommand=/root/env-python3/bin/python /root/crl_server.py{bind}\n"
+            "directory=/root\nautostart=true\nautorestart=false\nstartsecs=1\nstartretries=0\n"
+            "stopsignal=TERM\nstopwaitsecs=10\n"
+        ).format(name=program, bind=bind_arg), dest=config_path)
+        ptfhost.command("supervisorctl update {}".format(program))
+        assert wait_until(10, 1, 0, lambda: "RUNNING" in ptfhost.command(
+            "supervisorctl status {}".format(program), module_ignore_errors=True)["stdout"]), \
+            "CRL supervisor program failed to start: {}".format(program)
+        wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
 
-    # pkill will use the kill signal -9 as exit code, need ignore error
-    ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
+        # Bind only this request to the revoked identity; do not mutate the fixture.
+        client = PygnmiClient(gnmi_tls.host, gnmi_tls.port, ca_cert=gnmi_tls.pygnmi_client.ca_cert,
+                              client_cert="gnmiclient.revoked.crt", client_key="gnmiclient.revoked.key",
+                              connect=False)
+        yield replace(gnmi_tls, pygnmi_client=client)
+    finally:
+        try:
+            if config_written:
+                # Removing this group makes supervisor stop/reap its own child;
+                # no process-name matching or independently reused PID is used.
+                ptfhost.file(path=config_path, state="absent")
+                status = ptfhost.command("supervisorctl status {}".format(program), module_ignore_errors=True)
+                if status['stdout'].split()[:1] == [program]:
+                    ptfhost.command("supervisorctl update {}".format(program))
+                elif status['stdout'].strip() != "{}: ERROR (no such process)".format(program):
+                    raise RuntimeError("Could not determine CRL supervisor state: {}".format(status))
+        finally:
+            for filename in local_files:
+                if os.path.lexists(filename):
+                    os.unlink(filename)
 
 
-def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI subscribe sample request
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = gnmi_tls.duthost
 
     # Skip test for supervisor nodes as they don't have Ethernet0 frontpanel port
     if duthost.is_supervisor_node():
@@ -135,63 +174,49 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
 
     interval_ms = 5000  # 5 second interval
     count = 5
+    client = gnmi_tls.pygnmi_client
 
-    def validates_subscribe_sample(output: str):
-        respCnt = output.count("response received")
-
-        # expected <count> responses + 1 sync response
-        assert respCnt == count + 1, f"expected {count + 1} responses, got {respCnt}"
-
-        timestamps = [ts for ts in output.split("\n") if "timestamp" in ts]
-        for i in range(len(timestamps) - 1):
-            if i == 0:
-                break
-            # format "timestamp: <timestamp in nanoseconds>"
-            currTs = int(timestamps[i].split(': ')[1])
-            nextTs = int(timestamps[i + 1].split(': ')[1])
-            # round to the nearest second
-            assert round(nextTs - currTs, -8) == 5000000000, (
-                "expected 5 second timestamp diff," f"currTs: {currTs}, nextTs: {nextTs}"
-            )
+    def validates_subscribe_sample(output):
+        # The initial synchronized batch must contain data; a sync-only shell
+        # does not count as a sample. Multiple fields still count as one batch.
+        respCnt = sum(bool(response.get("update", {}).get("update")) for response in output)
+        assert respCnt == count, f"expected {count} update responses, got {respCnt}"
+        assert output[0].get("sync_response"), "Initial SAMPLE response did not synchronize"
 
         logger.info(f"Successfully received exactly {count} gNMI subscribe sample responses")
 
     with allure.step("Perform gNMI subscribe sample request to state DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost,  ["/PSU_INFO"], interval_ms, count, target="STATE_DB"
-        )
+        stdout_msg = list(client.subscribe(
+            ["/PSU_INFO"], sample_interval=interval_ms / 1000, count=count,
+            collect_seconds=30, target="STATE_DB", encoding=Encoding.JSON_IETF,
+        ))
         logger.debug("gNMI subscribe response: %s", stdout_msg)
         validates_subscribe_sample(stdout_msg)
 
     with allure.step("Perform gNMI subscribe sample request to sonic DB"):
-        stdout_msg, _ = gnmi_subscribe_streaming_sample(
-            duthost, ptfhost, ["/COUNTERS_DB/localhost/COUNTERS"], interval_ms, count, origin="sonic-db"
-        )
+        stdout_msg = list(client.subscribe(
+            ["/COUNTERS_DB/localhost/COUNTERS"], sample_interval=interval_ms / 1000, count=count,
+            collect_seconds=30, prefix="sonic-db://", encoding=Encoding.JSON_IETF,
+        ))
         logger.debug("gNMI subscribe response: %s", stdout_msg)
         validates_subscribe_sample(stdout_msg)
 
 
-def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
-                                                 rand_one_dut_hostname,
-                                                 ptfhost,
-                                                 setup_crl_server_on_ptf):
+def test_gnmi_authorize_failed_with_revoked_cert(setup_crl_server_on_ptf):
     '''
-    Verify GNMI native write, incremental config for configDB
-    GNMI set request with invalid path
+    Verify a native APPL_DB Set is rejected for a CRL-revoked certificate.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-
     retry = 3
     msg = ""
     gnmi_log = ""
     while retry > 0:
         retry -= 1
-        msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost, "gnmiclient.revoked")
+        msg, gnmi_log = gnmi_create_vnet(setup_crl_server_on_ptf)
         # retry when download crl failed, ptf device network not stable
         if "desc = Peer certificate revoked" in gnmi_log:
             break
 
-    assert "Unauthenticated" in msg, (
+    assert "Unauthenticated" in msg or "UNAUTHENTICATED" in msg, (
         "'Unauthenticated' error message not found in GNMI response. "
         "- Actual message: '{}'"
     ).format(msg)
@@ -202,14 +227,17 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     ).format(gnmi_log)
 
 
-def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
+def test_osbuild_version(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI GET of the OTHERS/osversion/build non-DB path returns a valid
     SONiC build_version.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-    msg_list = gnmi_get(duthost, ptfhost, ["osversion/build"], target="OTHERS", origin=None)
-    result = "\n".join(msg_list)
+    client = gnmi_tls.pygnmi_client
+    msg_list = client.get(["osversion/build"], target="OTHERS")
+    result = "\n".join(
+        json.dumps(update["val"])
+        for notification in msg_list["notification"] for update in notification["update"]
+    )
 
     assert len(re.findall(r'"build_version": "SONiC\.', result)) == 1, (
         "build_version value not found in gnmi output: {}".format(result))
@@ -217,45 +245,39 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
         "invalid build_version value in gnmi output: {}".format(result))
 
 
-def _get_sysuptime_total(duthost, ptfhost):
+def _get_sysuptime_total(client):
     """GET OTHERS/proc/uptime and return the 'total' field as a float."""
-    msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
-    result = "\n".join(msg_list)
+    msg_list = client.get(["proc/uptime"], target="OTHERS")
+    result = "\n".join(
+        json.dumps(update["val"])
+        for notification in msg_list["notification"] for update in notification["update"]
+    )
     match = re.search(r'"total":\s*([0-9.]+)', result)
     assert match is not None, (
         "system uptime 'total' field not found in gnmi output: {}".format(result))
     return float(match.group(1))
 
 
-def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
+def test_sysuptime(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI GET of the OTHERS/proc/uptime non-DB path returns a float that
     increases over time.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-
-    uptime_first = _get_sysuptime_total(duthost, ptfhost)
+    uptime_first = _get_sysuptime_total(gnmi_tls.pygnmi_client)
     time.sleep(10)
-    uptime_second = _get_sysuptime_total(duthost, ptfhost)
+    uptime_second = _get_sysuptime_total(gnmi_tls.pygnmi_client)
 
     assert uptime_second - uptime_first >= 10, (
         "system uptime did not advance by at least 10s: {} -> {}".format(
             uptime_first, uptime_second))
 
 
-def _gnmi_client_connected(duthost, ptfhost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port),
-                        module_ignore_errors=True)
-    return res["rc"] == 0
-
-
-def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
+def test_on_change_updates(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     Verify GNMI subscribe ON_CHANGE on STATE_DB NEIGH_STATE_TABLE reports a BGP
     neighbor state change.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = gnmi_tls.duthost
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
 
@@ -268,76 +290,102 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
     namespace_name = ns if ns else "localhost"
     path_list = ["/sonic-db:STATE_DB/{}/NEIGH_STATE_TABLE".format(namespace_name)]
 
-    result_holder = {}
-
-    def subscribe_worker():
-        msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, 2)
-        result_holder["msg"] = msg
-
-    client_thread = threading.Thread(target=subscribe_worker)
-    client_thread.start()
+    client = gnmi_tls.pygnmi_client
     try:
-        # Wait for the subscribe client to connect before triggering the change,
-        # otherwise the on-change update can be missed.
-        wait_until(60, 1, 0, _gnmi_client_connected, duthost, ptfhost)
-        cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
-        cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-        duthost.shell(cmd)
-        client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
+        with closing(client.subscribe(
+                path_list, stream_mode=StreamMode.ON_CHANGE, count=2, collect_seconds=60)) as subscription:
+            # The native client runs on the runner, not the PTF. Its initial
+            # synchronized response establishes readiness before changing state.
+            msg = [next(subscription)]
+            cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, new_state)
+            cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
+            duthost.shell(cmd)
+            msg.extend(subscription)
     finally:
-        # Restore the original neighbor state.
+        # Restore the original neighbor state after closing the subscription.
         cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, original_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
 
-    msg = result_holder.get("msg", "")
-    assert msg != "", "Did not get output from PTF on-change client"
+    msg = json.dumps(msg)
+    assert msg != "", "Did not get output from native on-change client"
     assert bgp_neighbor in msg, (
         "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
 
 
-def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
+def test_mem_spike(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     '''
     The gnmi container memory must stay under threshold when a client continuously
     creates channels with the gnmi server.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    duthost = gnmi_tls.duthost
+    request = gnmi_pb2.SubscribeRequest(subscribe=gnmi_pb2.SubscriptionList(
+        prefix=gnmi_pb2.Path(target="STATE_DB"), mode=gnmi_pb2.SubscriptionList.STREAM,
+        encoding=gnmi_pb2.JSON_IETF, subscription=[gnmi_pb2.Subscription(
+            path=gnmi_path_generator("DOCKER_STATS"), mode=gnmi_pb2.SAMPLE,
+            sample_interval=10_000_000_000)]))
+    stop_creating = threading.Event()
+    errors = []
 
     def client_worker():
-        gnmi_subscribe_stream_connections(duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB",
-                                          create_connections=2000, update_count=1)
+        try:
+            # Keep contexts alive across requests and through the measurement.
+            # This controls retention explicitly, unlike the old CLI's GC lifetime.
+            for _ in range(2000):
+                if stop_creating.is_set():
+                    break
+                _, client = connections.enter_context(gnmi_connection(gnmi_tls))
+                responses = client.Subscribe(iter([request]), timeout=30)
+                try:
+                    next(response for response in responses if response.HasField("update"))
+                finally:
+                    responses.cancel()
+        except Exception as error:
+            errors.append(error)
 
-    client_thread = threading.Thread(target=client_worker)
-    client_thread.start()
+    with ExitStack() as connections:
+        client_thread = threading.Thread(target=client_worker)
+        client_thread.start()
+        try:
+            for _ in range(MEMORY_CHECKER_CYCLES):
+                ret = duthost.shell("python3 /usr/bin/memory_checker gnmi 419430400", module_ignore_errors=True)
+                assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+                time.sleep(MEMORY_CHECKER_WAIT)
+        except BaseException:
+            stop_creating.set()
+            raise
+        finally:
+            # Only release retained channels after the worker stops adding them.
+            client_thread.join()
+    if errors:
+        raise errors[0]
 
-    for _ in range(MEMORY_CHECKER_CYCLES):
-        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % env.gnmi_container,
-                            module_ignore_errors=True)
-        assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
-        time.sleep(MEMORY_CHECKER_WAIT)
 
-    client_thread.join()
-
-
-def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
+def test_telemetry_show_non_get(rand_one_dut_hostname, gnmi_tls, skip_non_container_test):  # noqa: F811
     '''
     The SHOW target only supports GET; a SUBSCRIBE must fail.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1,
-                                             origin=None, target="SHOW")
-    assert "error" in msg.lower(), (
-        "SHOW subscribe should fail, but got: {}".format(msg))
+    request = gnmi_pb2.SubscribeRequest(subscribe=gnmi_pb2.SubscriptionList(
+        prefix=gnmi_pb2.Path(target="SHOW"), mode=gnmi_pb2.SubscriptionList.STREAM,
+        encoding=gnmi_pb2.JSON_IETF, subscription=[gnmi_pb2.Subscription(
+            path=gnmi_path_generator("reboot-cause"), mode=gnmi_pb2.SAMPLE, sample_interval=0)]))
+    with gnmi_connection(gnmi_tls) as (_, client):
+        responses = client.Subscribe(iter([request]), timeout=30)
+        try:
+            with pytest.raises(grpc.RpcError):
+                list(responses)
+        finally:
+            responses.cancel()
 
 
-def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
-                            skip_non_container_test):
+def test_telemetry_show_get(localhost, rand_one_dut_hostname, request,
+                            skip_non_container_test, gnmi_tls):  # noqa: F811
     '''
     Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
     against the SHOW target, and verify.
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = gnmi_tls.duthost
+    client = gnmi_tls.pygnmi_client
 
     # Resolve "duthost" to the DUT selected for this test so setup/verify act on
     # the same host the GET queries (request.getfixturevalue("duthost") would
@@ -352,13 +400,11 @@ def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost,
         if test_config["setup"]:
             setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
             getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
-            # The setup step reboots the DUT, which drops the non-persistent gnmi
-            # cert server; re-apply it so the SHOW GET runs against the configured server.
-            apply_cert_config(duthost)
+            gnmi_tls.reconfigure_after_reboot()
 
-        show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
+        show_gnmi_out = client.get([path], target="SHOW")
 
         if test_config["verify"]:
-            output = helper.get_json_from_gnmi_output(show_gnmi_out)
+            output = show_gnmi_out["notification"][0]["update"][0]["val"]
             verify_fixtures = [resolve_fixture(fx) for fx in test_config["verify_fixtures"]]
             getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
