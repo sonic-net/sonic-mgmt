@@ -1,10 +1,10 @@
 """Control utilities to interacts with nic_simulator."""
 import grpc
 import pytest
-import time
 import logging
 
 from tests.common import utilities
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_common import cable_type                     # noqa: F401
 from tests.common.dualtor.dual_tor_common import mux_config                     # noqa: F401
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa: F401
@@ -45,6 +45,7 @@ class ForwardingState(object):
 
 
 GRPC_CLIENT_TIMEOUT_MAX = 60
+NIC_SIMULATOR_READY_TIMEOUT = 180
 
 
 def call_grpc(func, args=None, kwargs=None, timeout=5, retries=3, ignore_errors=False):
@@ -98,29 +99,59 @@ def nic_simulator_info(request, tbinfo):
     return ip, port, vmset_name
 
 
-def _restart_nic_simulator(vmhost, vmset_name):
+def _wait_for_nic_simulator(nic_simulator_info, nic_addresses, timeout=NIC_SIMULATOR_READY_TIMEOUT):
+    """Wait for read-only RPC replies; nic_addresses must already be validated and nonempty."""
+    server_ip, server_port, vmset_name = nic_simulator_info
+    server_url = "%s:%s" % (server_ip, server_port)
+    request = nic_simulator_grpc_mgmt_service_pb2.ListOfAdminRequest(
+        nic_addresses=nic_addresses,
+        admin_requests=[nic_simulator_grpc_service_pb2.AdminRequest(portid=[0, 1]) for _ in nic_addresses],
+    )
+
+    with _create_nic_simulator_channel(server_url) as channel:
+        stub = nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceStub(channel)
+
+        def _nic_simulator_ready():
+            response = stub.QueryAdminForwardingPortState(request, timeout=5, wait_for_ready=True)
+            return (list(response.nic_addresses) == nic_addresses and
+                    len(response.admin_replies) == len(nic_addresses) and
+                    all(len(reply.portid) == 2 and set(reply.portid) == {0, 1} and len(reply.state) == 2
+                        for reply in response.admin_replies))
+
+        pytest_assert(
+            utilities.wait_until(timeout, 1, 0, _nic_simulator_ready),
+            "NIC simulator {} at {} did not become RPC-ready (polling timeout {}s)".format(
+                vmset_name, server_url, timeout),
+        )
+
+
+def _restart_nic_simulator(vmhost, nic_simulator_info, port_config):
+    _, _, vmset_name = nic_simulator_info
     if vmset_name is not None:
+        nic_addresses = [config["SERVER"]["soc_ipv4"].split("/")[0] for config in port_config.values()]
+        if not nic_addresses:
+            raise ValueError("No active-active NIC addresses configured for {}".format(vmset_name))
         vmhost.command("systemctl restart nic-simulator-%s" % vmset_name)
-        time.sleep(5)
+        _wait_for_nic_simulator(nic_simulator_info, nic_addresses)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def restart_nic_simulator_session(nic_simulator_info, vmhost):
+def restart_nic_simulator_session(request, nic_simulator_info, vmhost):
     """Session level fixture to restart nic_simulator service on the VM server host."""
-    _, _, vmset_name = nic_simulator_info
-    _restart_nic_simulator(vmhost, vmset_name)
+    if nic_simulator_info[2] is None:
+        return
+    port_config = request.getfixturevalue("active_active_ports_config")
+    _restart_nic_simulator(vmhost, nic_simulator_info, port_config)
 
 
 @pytest.fixture(scope="module")
-def restart_nic_simulator(nic_simulator_info, vmhost):
+def restart_nic_simulator(nic_simulator_info, vmhost, active_active_ports_config):  # noqa: F811
     """Fixture to restart nic_simulator service on the VM server host."""
-    _, _, vmset_name = nic_simulator_info
-
-    return lambda: _restart_nic_simulator(vmhost, vmset_name)
+    return lambda: _restart_nic_simulator(vmhost, nic_simulator_info, active_active_ports_config)
 
 
 @pytest.fixture(scope="module")
-def stop_nic_simulator(nic_simulator_info, vmhost):
+def stop_nic_simulator(nic_simulator_info, vmhost, active_active_ports_config):  # noqa: F811
     """Fixture to stop nic_simulator service on the VM server host."""
 
     def _stop_nic_simulator(vmhost, vmset_name):
@@ -130,7 +161,13 @@ def stop_nic_simulator(nic_simulator_info, vmhost):
     _, _, vmset_name = nic_simulator_info
     yield lambda: _stop_nic_simulator(vmhost, vmset_name)
 
-    _restart_nic_simulator(vmhost, vmset_name)
+    _restart_nic_simulator(vmhost, nic_simulator_info, active_active_ports_config)
+
+
+def _create_nic_simulator_channel(server_url):
+    """Share the existing proxy-safe channel creation with readiness checks."""
+    with utilities.update_environ("http_proxy", "https_proxy"):
+        return grpc.insecure_channel(server_url)
 
 
 @pytest.fixture(scope="session")
@@ -143,9 +180,7 @@ def nic_simulator_channel(nic_simulator_info):
         if server_ip is None:
             return None
 
-        # temporarily disable HTTP proxies
-        with utilities.update_environ("http_proxy", "https_proxy"):
-            return grpc.insecure_channel(server_url)
+        return _create_nic_simulator_channel(server_url)
 
     return _setup_grpc_channel_to_nic_simulator
 
