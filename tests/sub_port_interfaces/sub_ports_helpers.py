@@ -36,6 +36,7 @@ TCP_PORT = 80
 UDP_PORT = 161
 BALANCING_TEST_TIMES = 625
 DEFAULT_BALANCING_RANGE = 0.25
+NEIGHBOR_RESOLUTION_TIMEOUT = 30
 
 
 def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_vlan_enable=False,
@@ -1070,7 +1071,11 @@ def update_dut_arp_table(duthost, ip):
         duthost: DUT host object
         ip: IP address of directly connected interface
     """
-    duthost.command("ping {} -c 3".format(ip), module_ignore_errors=True)
+    def _is_reachable():
+        return duthost.command("ping {} -c 1 -W 1".format(ip), module_ignore_errors=True)['rc'] == 0
+
+    if not wait_until(NEIGHBOR_RESOLUTION_TIMEOUT, 2, 0, _is_reachable):
+        logger.warning("Neighbor %s was not resolved within %s seconds", ip, NEIGHBOR_RESOLUTION_TIMEOUT)
 
 
 def check_balancing(port_hit_cnt):
