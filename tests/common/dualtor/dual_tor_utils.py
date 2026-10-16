@@ -1753,6 +1753,8 @@ def validate_active_active_dualtor_setup(
                 "config mux mode active all failed on device {}".format(duthost.hostname)
             )
 
+    # Clear a potentially exhausted systemd start budget before recovery.
+    duthosts.shell("systemctl reset-failed mux.service")
     duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
