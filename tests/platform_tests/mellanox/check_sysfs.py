@@ -232,27 +232,25 @@ def _is_fan_speed_in_range(sysfs_facts):
                 int(fan_info["max_speed"]) * (1 + MAX_FAN_SPEED_THRESHOLD))
             fan_speed_set = int(fan_info["speed_set"])
             fan_speed_get = int(fan_info["speed_get"])
+        except (KeyError, TypeError, ValueError) as e:
+            logging.warning("Invalid fan speed data for fan %s: %s", fan_id, e)
+            return False
 
-            low_threshold = ((float(fan_speed_set) / 255)
-                             * fan_min_speed) * (1 - 0.5)
-            high_threshold = ((float(fan_speed_set) / 255)
-                              * fan_max_speed) * (1 + 0.5)
+        low_threshold = ((float(fan_speed_set) / 255)
+                         * fan_min_speed) * (1 - 0.5)
+        high_threshold = ((float(fan_speed_set) / 255)
+                          * fan_max_speed) * (1 + 0.5)
 
-            assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(
-                fan_min_speed,
-                fan_max_speed)
-            assert low_threshold < fan_speed_get < high_threshold, 'Fan speed {} not in range: [{}, {}]'.format(
-                fan_speed_get, low_threshold, high_threshold
-            )
+        if fan_min_speed <= 0 or fan_max_speed <= 10000:
+            logging.warning("Invalid fan %s min/max speed: %s, %s",
+                            fan_id, fan_min_speed, fan_max_speed)
+            return False
 
-        except Exception as e:
-            assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}, exception={}'.format(
-                fan_info["speed_get"],
-                fan_info["speed_set"],
-                fan_info["min_speed"],
-                fan_info["max_speed"],
-                e
-            )
+        if not low_threshold < fan_speed_get < high_threshold:
+            logging.warning("Fan %s speed %s not in range: [%s, %s]",
+                            fan_id, fan_speed_get, low_threshold, high_threshold)
+            return False
+
     return True
 
 
