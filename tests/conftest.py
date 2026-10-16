@@ -821,9 +821,8 @@ def enable_nat_for_dpuhosts(duthosts, ansible_adhoc, request):
     if dpuhost_names:
         logging.info(f"dpuhost_names: {dpuhost_names}")
         for duthost in duthosts:
-            if not is_enabled_nat_for_dpu(duthost, request):
-                dpu_name_ssh_port_dict = get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc)
-                enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request)
+            dpu_name_ssh_port_dict = get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc)
+            enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request)
 
 
 @pytest.fixture(name="dpuhosts", scope="session")
