@@ -154,8 +154,7 @@ def check_system_time_sync(duthost):
         return False
 
 
-def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None, ip=None,
-             log_reader=dump_gnmi_log):
+def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None, ip=None):
     """
     Send GNMI set request with GNMI client
 
@@ -233,7 +232,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     combined = f"{stdout}\n{stderr}"
 
     if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
-        log_reader(duthost)
+        dump_gnmi_log(duthost)
         dump_system_status(duthost)
         raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")  # noqa: E231
 
