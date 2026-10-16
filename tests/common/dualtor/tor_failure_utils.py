@@ -14,6 +14,7 @@ import logging
 import time
 import contextlib
 from tests.common.utilities import wait_until
+from tests.common.dualtor.mux_service_utils import recover_mux_service_from_start_limit
 
 logger = logging.getLogger(__name__)
 
@@ -58,25 +59,7 @@ def shutdown_tor_heartbeat():
     yield shutdown_tor_heartbeat
 
     for duthost in torhost:
-        # `mux.service` has a strict systemd start rate-limit
-        # (StartLimitBurst=3 / StartLimitIntervalSec=1200). When multiple
-        # test cases in the same module run in sequence, the start budget
-        # can be exhausted and `systemctl start mux` fails with
-        # "start of the service was attempted too often". Detect that and
-        # recover with `systemctl reset-failed mux` followed by a retry.
-        try:
-            duthost.shell("systemctl start mux")
-        except Exception as e:
-            if "start of the service was attempted too often" in str(e):
-                logger.warning(
-                    "mux.service hit systemd start rate-limit on %s; "
-                    "running 'systemctl reset-failed mux' and retrying start",
-                    duthost.hostname,
-                )
-                duthost.shell("systemctl reset-failed mux")
-                duthost.shell("systemctl start mux")
-            else:
-                raise
+        recover_mux_service_from_start_limit(duthost, action="start")
         duthost.shell("systemctl enable mux")
 
 
