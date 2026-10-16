@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
 
 
-def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") and \
             duthost.facts.get("router_type") == 'leafrouter':
         pytest.skip("Skipping dhcp_relay events for smartswitch t1 topologies")
@@ -29,11 +29,11 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
     if is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping dhcp_relay events for IPv6-only topologies")
     logger.info("Beginning to test dhcp-relay events")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
              "dhcp_relay_disparity.json", "sonic-events-dhcp-relay:dhcp-relay-disparity", tag, False, 30, ptfadapter)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
              "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
 

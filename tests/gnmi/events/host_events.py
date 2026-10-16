@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
 
 
-def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test host events")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, kill_critical_process,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, kill_critical_process,
              "process_exited_unexpectedly.json", "sonic-events-host:process-exited-unexpectedly",
              tag, False)
     backup_monit_config(duthost)
@@ -29,18 +29,18 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         ]
     )
     try:
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, None,
                  "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, None,
                  "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, None,
                  "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
                  "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag,
                  start_listen_first=True)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, restart_container,
                  "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, stop_container,
                  "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
@@ -48,7 +48,7 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
     try:
         # We need to alot flat 60 seconds for watchdog timeout to fire since the timer is set to 60\
         # With a base limit of 30 seconds, we will use 90 seconds
-        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
+        run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, None,
                  "watchdog_timeout.json", "sonic-events-host:watchdog-timeout", tag, False, 90)
     finally:
         delete_test_watchdog_timeout_service(duthost)

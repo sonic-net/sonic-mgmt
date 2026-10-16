@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-bgp"
 
 
-def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
+def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, drop_tcp_packets,
              "bgp_notification.json", "sonic-events-bgp:notification", tag)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
 
 

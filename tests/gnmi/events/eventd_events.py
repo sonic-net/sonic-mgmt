@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-eventd"
 
 
-def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test eventd heartbeat")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
+    run_test(duthost, tbinfo, pygnmi_client, ptfhost, data_dir, validate_yang, None,
              "heartbeat.json", "sonic-events-eventd:heartbeat", tag, True)

@@ -8,8 +8,7 @@ import ptf.testutils as testutils
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.pygnmi_client import PygnmiClient, SubscribeMode, StreamMode, Encoding
+from tests.common.pygnmi_client import SubscribeMode, StreamMode, Encoding
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +16,16 @@ EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
+def listen_for_events(duthost, pygnmi_client, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
                       match_number=0):
     """Subscribe to the EVENTS target on the gnmi container and write matched events to op_file.
 
-    Uses the GNMI_MODE environment and the existing locally generated gnmi client certs.
+    Uses the client bound to the managed TLS fixture's endpoint and certificates.
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    client = PygnmiClient(ip, port, ca_cert="gnmiCA.pem", client_key="gnmiclient.key",
-                          client_cert="gnmiclient.crt", timeout=timeout, connect=False)
     # The client's count includes unrelated notifications; count matched events here.
-    subscription = client.subscribe("all[heartbeat=2]", target="EVENTS", mode=SubscribeMode.STREAM,
-                                    stream_mode=StreamMode.ON_CHANGE, sample_interval=0,
-                                    encoding=Encoding.JSON, collect_seconds=timeout)
+    subscription = pygnmi_client.subscribe("all[heartbeat=2]", target="EVENTS", mode=SubscribeMode.STREAM,
+                                           stream_mode=StreamMode.ON_CHANGE, sample_interval=0,
+                                           encoding=Encoding.JSON, collect_seconds=timeout)
     output = []
     try:
         for notification in subscription:
