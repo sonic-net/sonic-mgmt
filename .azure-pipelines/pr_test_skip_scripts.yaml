@@ -83,6 +83,8 @@ t0:
   # Upgrade path test needs base and target image lists, currently do not support on KVM
   - upgrade_path/test_upgrade_path.py
   - upgrade_path/test_multi_hop_upgrade_path.py
+  # This script only supported on sonic-vpp
+  - vpp/test_sonic_ext_feature_config.py
 
 t1-lag:
   # KVM do not support bfd test
@@ -142,6 +144,8 @@ t1-lag:
   - qos/test_qos_masic.py
   # This test can only run on cisco and mnlx platforms
   - vxlan/test_vnet_bgp_route_precedence.py
+  # This script only supported on sonic-vpp
+  - vpp/test_sonic_ext_feature_config.py
 
 t2:
   # KVM do not support bfd test
