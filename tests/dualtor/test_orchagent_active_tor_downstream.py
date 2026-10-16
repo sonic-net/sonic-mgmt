@@ -80,7 +80,7 @@ def test_active_tor_remove_neighbor_downstream_active(
     @contextlib.contextmanager
     def remove_neighbor(ptfhost, duthost, server_ip, ip_version, neighbor_details):
         # restore ipv4 neighbor since it is statically configured
-        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version in ("ipv4", "ipv6"))
+        flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4")
         try:
             ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
             # stop garp_service since there is no equivalent in production
@@ -132,7 +132,7 @@ def test_active_tor_remove_neighbor_downstream_active(
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
     finally:
         # try to recover the removed neighbor so test_downstream_ecmp_nexthops could have a healthy mocked device
-        if removed_neighbor:
+        if removed_neighbor and removed_neighbor.get("lladdr"):
             if ip_version == "ipv4":
                 cmd = 'ip -4 neigh replace {} lladdr {} dev {}'\
                       .format(server_ip, removed_neighbor['lladdr'], removed_neighbor['dev'])
