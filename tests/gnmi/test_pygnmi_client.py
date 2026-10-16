@@ -1,9 +1,13 @@
 """Integration tests for the PygnmiClient gNMI client via the gnmi_tls fixture."""
 import logging
 import threading
+import queue
+import time
 
 import grpc
 import pytest
+from pygnmi.client import StreamSubscriber, PollSubscriber
+from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import (
@@ -260,6 +264,96 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
 def _offline_client():
     """A client used only for request-building/validation paths (never connects)."""
     return PygnmiClient("", 0, plaintext=True, connect=False)
+
+
+@pytest.mark.parametrize("mode,target", [
+    (SubscribeMode.STREAM, "EVENTS"),
+    (SubscribeMode.STREAM, "COUNTERS_DB"),
+    (SubscribeMode.POLL, "EVENTS"),
+    (SubscribeMode.ONCE, "EVENTS"),
+])
+def test_events_stream_without_sync(monkeypatch, mode, target):
+    """Only EVENTS STREAM reads individual events without an initial sync."""
+    subscriber_type = PollSubscriber if mode == SubscribeMode.POLL else StreamSubscriber
+    subscriber = object.__new__(subscriber_type)
+    subscriber._first_update_seen = False
+    subscriber._updates = queue.Queue()
+    subscriber._msgs = queue.Queue()
+    for value in (1, 2):
+        subscriber._updates.put(gnmi_pb2.SubscribeResponse(update=gnmi_pb2.Notification(
+            timestamp=1, update=[gnmi_pb2.Update(
+                val=gnmi_pb2.TypedValue(json_ietf_val=("{\"event\":%d}" % value).encode()))])))
+    events_stream = mode == SubscribeMode.STREAM and target == "EVENTS"
+    if not events_stream:
+        subscriber._updates.put(gnmi_pb2.SubscribeResponse(sync_response=True))
+    closed = []
+    subscriber.close = lambda: closed.append("subscriber")
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return subscriber
+
+        def close(self):
+            closed.append("client")
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: FakeGnmiClient())
+    subscription = _offline_client().subscribe("all[heartbeat=2]", mode=mode, target=target,
+                                               collect_seconds=0.05, count=2, poll_count=1)
+    first = next(subscription)
+    if events_stream:
+        assert [u["val"] for u in first["update"]["update"]] == [{"event": 1}]
+        assert next(subscription)["update"]["update"][0]["val"] == {"event": 2}
+    else:
+        assert [u["val"] for u in first["update"]["update"]] == [{"event": 1}, {"event": 2}]
+        assert first["sync_response"] is True
+    subscription.close()
+    assert closed == ["subscriber", "client"]
+
+
+def test_events_stream_collection_deadline(monkeypatch):
+    """A continuously active no-sync EVENTS stream still stops at its window."""
+    subscriber = object.__new__(StreamSubscriber)
+    subscriber._first_update_seen = False
+    subscriber._updates = queue.Queue()
+    subscriber._msgs = queue.Queue()
+    update = gnmi_pb2.SubscribeResponse(update=gnmi_pb2.Notification(
+        timestamp=1, update=[gnmi_pb2.Update(val=gnmi_pb2.TypedValue(json_ietf_val=b'{"event":1}'))]))
+    stop = threading.Event()
+
+    def produce():
+        while not stop.wait(0.005):
+            subscriber._updates.put(update)
+
+    producer = threading.Thread(target=produce)
+    producer.start()
+    subscriber.close = stop.set
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return subscriber
+
+        def close(self):
+            stop.set()
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: FakeGnmiClient())
+    # Stop the producer even if the old first-batch implementation hangs until quiet.
+    safety_stop = threading.Timer(1, stop.set)
+    safety_stop.start()
+    started = time.monotonic()
+    try:
+        result = list(_offline_client().subscribe("all[heartbeat=2]", target="EVENTS", collect_seconds=0.05))
+        assert result
+        assert time.monotonic() - started < 0.5
+    finally:
+        stop.set()
+        safety_stop.cancel()
+        producer.join()
 
 
 def test_build_subscribe_request_passthrough():
