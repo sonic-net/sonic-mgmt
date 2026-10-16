@@ -127,7 +127,6 @@ t0:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -467,7 +466,6 @@ t1-lag:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
