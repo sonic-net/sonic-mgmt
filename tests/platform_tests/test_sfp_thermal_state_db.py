@@ -31,6 +31,8 @@ class TestSfpThermalStateDb:
         r"\bxsfp\s+module\s+\d+\b|transceiver|optic",
         re.IGNORECASE
     )
+    COMPONENT_FIELD = "component"
+    SFP_COMPONENT = "sfp"
 
     def _get_sfp_ports_with_dom_temperature(self, duthost):
         """Return list of port names that have TRANSCEIVER_DOM_TEMPERATURE entries."""
@@ -90,12 +92,73 @@ class TestSfpThermalStateDb:
                 flags[field] = None
         return flags
 
-    def _is_sfp_sensor(self, sensor_name):
+    def _get_platform_thermal_component_map(self, duthost):
+        """
+        Return platform.json thermal component metadata keyed by sensor name.
+
+        Only explicit, non-empty string component values are returned. Missing
+        or invalid values intentionally fall back to the legacy name matcher.
+        """
+        chassis_facts = duthost.facts.get("chassis") or {}
+        thermal_facts = chassis_facts.get("thermals") or []
+        thermal_component_map = {}
+
+        for thermal in thermal_facts:
+            sensor_name = thermal.get("name")
+            if not sensor_name or self.COMPONENT_FIELD not in thermal:
+                continue
+
+            component = thermal.get(self.COMPONENT_FIELD)
+            if isinstance(component, str) and component.strip():
+                thermal_component_map[sensor_name] = component
+
+        return thermal_component_map
+
+    def _sensor_is_sfp_by_name(self, sensor_name):
         """
         Determine if a sensor name refers to an SFP/transceiver temperature.
-        Matches canonical 'xSFP module N Temp' names and transceiver/optic aliases.
+        Matches legacy SFP/transceiver name patterns.
         """
         return bool(self.SFP_SENSOR_PATTERN.search(sensor_name))
+
+    def _sensor_is_sfp(self, sensor_name, platform_thermal_component_map):
+        """
+        Determine if a sensor is an SFP thermal sensor.
+
+        Explicit platform.json metadata takes precedence. If platform.json does
+        not provide an explicit component value for the sensor, use the legacy
+        name matcher for backward compatibility.
+        """
+        if sensor_name in platform_thermal_component_map:
+            component = platform_thermal_component_map[sensor_name]
+            sensor_is_sfp = component.strip().lower() == self.SFP_COMPONENT
+            logger.info(
+                "Sensor '%s' classified as %s by explicit platform thermal "
+                "component metadata (component='%s')",
+                sensor_name, "SFP" if sensor_is_sfp else "non-SFP", component
+            )
+            return sensor_is_sfp
+
+        sensor_is_sfp = self._sensor_is_sfp_by_name(sensor_name)
+        if sensor_is_sfp:
+            logger.info(
+                "Sensor '%s' classified as SFP by legacy name matching",
+                sensor_name
+            )
+        return sensor_is_sfp
+
+    def _get_sfp_rows(self, duthost, temp_output):
+        platform_thermal_component_map = self._get_platform_thermal_component_map(duthost)
+        sfp_rows = [
+            row for row in temp_output
+            if self._sensor_is_sfp(row.get("sensor", ""), platform_thermal_component_map)
+        ]
+        logger.info(
+            "Classified %d SFP sensor rows using platform thermal metadata "
+            "and legacy name matching",
+            len(sfp_rows)
+        )
+        return sfp_rows
 
     def test_sfp_temperature_present_in_show_platform_temperature(
             self, duthosts, enum_rand_one_per_hwsku_hostname):
@@ -116,9 +179,7 @@ class TestSfpThermalStateDb:
         pytest_assert(len(temp_output) > 0,
                       "'show platform temperature' returned no data")
 
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
-
-        logger.info("Found %d SFP sensor rows in 'show platform temperature'", len(sfp_rows))
+        sfp_rows = self._get_sfp_rows(duthost, temp_output)
 
         pytest_assert(
             len(sfp_rows) > 0,
@@ -158,7 +219,7 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_rows = self._get_sfp_rows(duthost, temp_output)
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -264,7 +325,7 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_rows = self._get_sfp_rows(duthost, temp_output)
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -428,7 +489,7 @@ class TestSfpThermalStateDb:
             pytest.skip("No TRANSCEIVER_DOM_TEMPERATURE entries found")
 
         temp_output = duthost.show_and_parse("show platform temperature")
-        sfp_rows = [row for row in temp_output if self._is_sfp_sensor(row.get("sensor", ""))]
+        sfp_rows = self._get_sfp_rows(duthost, temp_output)
 
         if not sfp_rows:
             pytest.skip("No SFP rows in 'show platform temperature' output")
@@ -503,7 +564,14 @@ class TestSfpThermalStateDb:
         )
 
         keys = result["stdout"].strip().split("\n")
-        sfp_keys = [k for k in keys if self._is_sfp_sensor(k)]
+        platform_thermal_component_map = self._get_platform_thermal_component_map(duthost)
+        sfp_keys = [
+            k for k in keys
+            if self._sensor_is_sfp(
+                k.split("|", 1)[1],
+                platform_thermal_component_map
+            )
+        ]
 
         logger.info("TEMPERATURE_INFO keys: %d total, %d SFP-related",
                     len(keys), len(sfp_keys))
@@ -540,9 +608,10 @@ class TestSfpThermalStateDb:
             "(ASIC, CPU, PSU, etc.)"
         )
 
+        platform_thermal_component_map = self._get_platform_thermal_component_map(duthost)
         non_sfp_sensors = [
             name for name in sensor_names
-            if not self._is_sfp_sensor(name)
+            if not self._sensor_is_sfp(name, platform_thermal_component_map)
         ]
 
         pytest_assert(
