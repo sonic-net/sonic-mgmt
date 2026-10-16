@@ -5,7 +5,7 @@ from tests.common.helpers.platform_api import psu
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
-from .power_api_test_base import TestPowerApi, STRING_TYPE
+from .power_api_test_base import PowerApiTestBase, STRING_TYPE
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
-class TestPsuApi(TestPowerApi):
+class TestPsuApi(PowerApiTestBase):
     ''' Platform API test cases for the PSU class'''
 
     power_unit_api = psu
