@@ -1,0 +1,24 @@
+- name: Run ranking preflight checks
+  ansible.builtin.include_tasks: preflight.yml
+  when: ranking_action | default('') == 'setup' or ranking_action | default('') == 'status'
+- name: Acquire ranking resource ownership
+  ansible.builtin.include_tasks: ownership.yml
+  when: ranking_action | default('') == 'setup' or ranking_action | default('') == 'status'
+- name: Validate ranking ownership authorization
+  ansible.builtin.include_tasks: validate.yml
+  when: ranking_action | default('') == 'setup' or ranking_action | default('') == 'status' or ranking_action | default('') == 'teardown' or ranking_action | default('') == 'keep'
+- name: Snapshot and prepare the ranking DUT
+  ansible.builtin.include_tasks: setup.yml
+  when: ranking_action | default('') == 'setup'
+- name: Stage the ranking PTF runtime tree
+  ansible.builtin.include_tasks: prepare_ptf.yml
+  when: ranking_action | default('') == 'setup'
+- name: Report the ranking environment status
+  ansible.builtin.include_tasks: status.yml
+  when: ranking_action | default('') == 'status'
+- name: Execute the authorized ranking case
+  ansible.builtin.include_tasks: run.yml
+  when: ranking_action | default('') == 'run'
+- name: Restore or keep the ranking environment
+  ansible.builtin.include_tasks: teardown.yml
+  when: ranking_action | default('') == 'teardown' or ranking_action | default('') == 'keep'
