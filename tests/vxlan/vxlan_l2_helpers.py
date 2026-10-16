@@ -412,6 +412,32 @@ def port_counters(duthost, ports, stats):
 TX_UCAST = ("SAI_PORT_STAT_IF_OUT_UCAST_PKTS",)
 TX_ALL = ("SAI_PORT_STAT_IF_OUT_UCAST_PKTS", "SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS")
 TX_SLACK = 4               # other traffic a member port may transmit inside one counter window (LLDP, ND)
+# probe_frame copies fall in this frame-size bucket (sizes with the FCS) however they leave the DUT (untagged, tagged
+# or VxLAN encapsulated); the control frames a port sends by itself (LACP, LLDP, ARP, ND) are all smaller.
+TX_PROBE = ("SAI_PORT_STAT_ETHER_OUT_PKTS_1024_TO_1518_OCTETS",)
+_tx_probe_warned = set()
+
+
+def tx_probe_stats(duthost, ports):
+    """The TX counters that count probe_frame copies on ports: the probe's size bucket, or every transmitted packet
+    where the bucket is not counted (a virtual switch's SAI counts transmitted packets but not their sizes) or is
+    missing for any of the ports.
+
+    Checked on every measurement: a reload or a swss restart flushes COUNTERS_DB, and a bucket read from a missing
+    field would make a zero reading vacuous.
+    """
+    if duthost.facts.get("asic_type") == "vs":
+        return TX_ALL
+    cmd = "; ".join("sonic-db-cli COUNTERS_DB HEXISTS \"COUNTERS:$(sonic-db-cli COUNTERS_DB HGET "
+                    "COUNTERS_PORT_NAME_MAP {})\" {}".format(p, TX_PROBE[0]) for p in ports)
+    found = [line.strip() for line in sh(duthost, cmd, check=False).splitlines() if line.strip()]
+    if len(found) == len(ports) and all(f in ("1", "True") for f in found):
+        return TX_PROBE
+    if duthost.hostname not in _tx_probe_warned:
+        _tx_probe_warned.add(duthost.hostname)
+        logger.warning("%s not published for all of %s on %s (%s): member TX is read from %s, which also counts the "
+                       "ports' control traffic", TX_PROBE[0], list(ports), duthost.hostname, found, list(TX_ALL))
+    return TX_ALL
 
 
 def settled_delta(duthost, ports, max_window_s, fn, stats=None, quiet=None):
@@ -1024,9 +1050,13 @@ def vid_reading(copies, dst_port, h0_port, vid, configured):
 # --------------------------------------------------------------------------------------------------------------------
 # PTF side: frames
 # --------------------------------------------------------------------------------------------------------------------
+PROBE_PAYLOAD_LEN = 1086   # 1104 bytes untagged with the FCS: in TX_PROBE's bucket also tagged and encapsulated
+
+
 def probe_frame(tag, dst, src, vlan=None):
-    """An L2 frame with an unassigned ethertype and tag in its 100-byte payload; 802.1Q-tagged when vlan is given."""
-    payload = tag.encode() + b"." * max(0, 100 - len(tag))
+    """An L2 frame with an unassigned ethertype and tag in its PROBE_PAYLOAD_LEN-byte payload; 802.1Q-tagged when vlan
+    is given."""
+    payload = tag.encode() + b"." * max(0, PROBE_PAYLOAD_LEN - len(tag))
     if vlan is None:
         return packet.Ether(dst=dst, src=src, type=PROBE_ETHERTYPE) / Raw(payload)
     return (packet.Ether(dst=dst, src=src) / packet.Dot1Q(vlan=vlan, type=PROBE_ETHERTYPE) /
@@ -1297,26 +1327,28 @@ def tx_delivered(n):
 
 
 def members_tx(r, fn, hosts=None, live=()):
-    """({host: DUT TX packets (unicast + non-unicast)} for what fn() sends, fn's result).
+    """({host: DUT TX packets of probe_frame copies} for what fn() sends, fn's result). fn sends probe_frame frames.
 
-    Broadcast and multicast of the hosts' other VLAN (the DUT's periodic ARP/ND refresh) reach them too: the TX of the
-    canary, a member of that VLAN outside the rig, is subtracted (without one, an idle window of the same length).
-    live: ports whose TX must move by GOOD in the window (counters are polling), for readings that expect zero on the
-    hosts.
+    The hosts' TX is read in the probe's frame-size bucket (tx_probe_stats), which the port's own control traffic
+    (LACP, LLDP, the DUT's ARP/ND refresh) does not reach. What else of that size reaches the hosts is subtracted:
+    the TX of the canary, a member of the hosts' other VLAN outside the rig, or without one an idle window.
+    live: ports whose TX must move by GOOD in the window (the counters poll and count the probe), for readings that
+    expect zero on the hosts.
     """
     hosts = list(hosts or r.tagged_hosts)
     extra = [p for p in ([r.canary] if r.canary else []) + list(live) if p not in hosts]
     ports = hosts + extra
-    raw, took, result = settled_delta(r.duthost, ports, 20, fn, TX_ALL, quiet=hosts + ([r.canary] if r.canary else []))
+    stats = tx_probe_stats(r.duthost, ports)
+    raw, took, result = settled_delta(r.duthost, ports, 20, fn, stats, quiet=hosts + ([r.canary] if r.canary else []))
     raw = dict(zip(ports, raw))
     if live and sum(raw[p] for p in live) < GOOD:
-        raise AssertionError("the DUT TX counters of {} moved by {} for traffic that must leave there: the counters "
-                             "are not polling, so a zero on {} would be vacuous".format(
-                                 list(live), {p: raw[p] for p in live}, hosts))
+        raise AssertionError("the DUT TX counters {} of {} moved by {} for traffic that must leave there: the counters "
+                             "do not poll or do not count the probe, so a zero on {} would be vacuous".format(
+                                 list(stats), list(live), {p: raw[p] for p in live}, hosts))
     if r.canary:
         background = {h: raw[r.canary] for h in hosts}
     else:
-        idle, _, _ = settled_delta(r.duthost, hosts, took + 2, lambda: time.sleep(max(0.0, took - 3)), TX_ALL)
+        idle, _, _ = settled_delta(r.duthost, hosts, took + 2, lambda: time.sleep(max(0.0, took - 3)), stats)
         background = dict(zip(hosts, idle))
     tx = {h: max(0, raw[h] - background[h]) for h in hosts}
     logger.info("DUT TX on %s: %s (raw %s, background %s)", hosts, tx, raw, background)
