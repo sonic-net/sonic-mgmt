@@ -1,0 +1,73 @@
+---
+# config_macsec_basedon_minigraph.yml
+#
+# DUT side of per-interface MACsec, run by deploy-mg after
+# config_sonic_basedon_testbed.yml has applied golden config (which binds
+# PORT.<p>.macsec, sets MACsec MTU and enables FEATURE.macsec). Neighbors were
+# configured at add-topo by config_macsec_neighbors.yml, so MKA completes as
+# soon as the DUT side is bound. This playbook only:
+#   - discovers the MACsec ports from CONFIG_DB (no minigraph read-back)
+#   - waits for MACSEC_PORT_TABLE state=ok on each of them
+# It never contacts the test server or neighbor VMs.
+#
+# Usage:
+#   ansible-playbook -i <inventory> config_macsec_basedon_minigraph.yml \
+#     --vault-password-file=<pass> -l <dut> \
+#     -e testbed_name=<name> -e testbed_file=<file>
+
+- name: Wait for DUT MACsec sessions (deploy-mg phase)
+  hosts: sonic
+  gather_facts: no
+
+  tasks:
+    - name: Set default testbed file
+      set_fact:
+        testbed_file: testbed.yaml
+      when: testbed_file is not defined
+
+    - name: Gather testbed facts
+      test_facts:
+        testbed_name: "{{ testbed_name }}"
+        testbed_file: "{{ testbed_file }}"
+      delegate_to: localhost
+
+    - name: Load topology variables
+      include_vars: "vars/topo_{{ testbed_facts['topo'] }}.yml"
+      delegate_to: localhost
+
+    - name: Exit early — no MACsec links declared in topology
+      meta: end_play
+      when: macsec_links is not defined or not macsec_links
+
+    - name: Discover MACsec ports from CONFIG_DB
+      become: true
+      shell: |
+        for k in $(sonic-db-cli CONFIG_DB KEYS 'PORT|*'); do
+          [ -n "$(sonic-db-cli CONFIG_DB HGET "$k" macsec)" ] && echo "${k#PORT|}"
+        done
+        true
+      register: dut_macsec_ports_raw
+      changed_when: false
+
+    - name: Fail fast — golden config bound no PORT.macsec
+      fail:
+        msg: >-
+          Topology declares macsec_links but no PORT has a macsec binding in
+          CONFIG_DB. deploy-mg must run with '-e macsec_profile=<profile>' so
+          generate_golden_config_db emits the MACsec port bindings, and
+          vars/topo_{{ testbed_facts['topo'] }}.yml (exact name, no fallback)
+          must be the file that carries those macsec_links.
+      when: dut_macsec_ports_raw.stdout_lines | length == 0
+
+    - name: Wait for MACSEC_PORT_TABLE state=ok on every MACsec port
+      become: true
+      shell: sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|{{ item }}' state
+      register: macsec_state
+      until: macsec_state.stdout | trim == 'ok'
+      # 200 x 3s = 600s per port worst case: MKA on Broadcom DNX can land
+      # well past 300s while the SDK finishes init. Exits early on state=ok.
+      retries: 200
+      delay: 3
+      loop: "{{ dut_macsec_ports_raw.stdout_lines }}"
+      loop_control:
+        label: "{{ item }}"
