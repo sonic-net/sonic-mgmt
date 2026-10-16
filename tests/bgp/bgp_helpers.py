@@ -675,7 +675,12 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
         host_if = [k for k in peer_config.keys() if "Ethernet" in k][0]
         pattern = "{}[[:space:]]*{}".format(host, host_if)
     else:
-        pattern = vm_name
+        # Capture/traffic endpoints come from the topology, not transient LLDP advertisements.
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ports = [port for port, neighbor in mg_facts['minigraph_neighbors'].items()
+                 if neighbor['name'] == vm_name]
+        pytest_assert(ports, "No minigraph ports connect to neighbor {}".format(vm_name))
+        return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
 
     ports_output = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
     ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
