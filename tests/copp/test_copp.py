@@ -102,7 +102,7 @@ class TestCOPP(object):
                                           "UDLD",
                                           "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     ptfhost, copp_testbed, dut_type, fanouthosts):
+                     ptfhost, copp_testbed, dut_type, fanouthosts, pytestconfig):
         """
             Validates that rate-limited COPP groups work as expected.
 
@@ -126,6 +126,23 @@ class TestCOPP(object):
                                 "fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        # The CoPP fixture selects one BGP-peer-facing routed uplink for every
+        # protocol in this module. VPP's DHCP/DHCPv6 trap is intentionally
+        # installed only on VLAN-member ingress, where real DHCP clients live,
+        # so an uplink broadcast is dropped before it can reach that trap.
+        # Hardware traps are port-agnostic, which is why the same test passes
+        # on physical ASICs. Do not report this topology/test-port mismatch as
+        # a VPP policer failure.
+        if all((duthost.facts["asic_type"] == "vpp",
+                copp_testbed.topo_type == "t0",
+                protocol in _TOR_ONLY_PROTOCOL,
+                not pytestconfig.getoption("--copp_ignore_maxfail"))):
+            pytest.skip(
+                "VPP DHCP traps apply only to VLAN-member ingress, but the "
+                "CoPP fixture injects DHCP on a routed BGP uplink"
+            )
+
         namespace = DEFAULT_NAMESPACE
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
