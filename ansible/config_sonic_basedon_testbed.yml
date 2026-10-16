@@ -899,6 +899,15 @@
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
+      - name: Validate Generic HWSKU deployment options
+        assert:
+          that:
+            - port_override_from_links | default(false) | bool
+            - enable_macsec is not defined
+            - init_cfg_profile is not defined
+          fail_msg: "Generic HWSKU deployment requires port_override_from_links=true and the standard minigraph/golden-config path"
+        when: generic_hwsku_enabled | default(false) | bool
+
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
@@ -918,6 +927,7 @@
           hostname = '{{ inventory_hostname }}'
           links_csv = '{{ links_csv | default('') }}' or 'files/sonic_' + lab + '_links.csv'
           devices_csv = '{{ devices_csv | default('') }}' or 'files/sonic_' + lab + '_devices.csv'
+          generic_hwsku = {{ generic_hwsku_enabled | default(false) | bool }}
           port_speeds = {}
           with open(links_csv) as f:
               reader = csv.DictReader(f)
@@ -927,15 +937,25 @@
                   elif row.get('EndDevice') == hostname:
                       port_speeds[row['EndPort']] = row['BandWidth']
           hwsku = ''
+          matching_devices = []
           try:
               with open(devices_csv) as f:
                   reader = csv.DictReader(f)
                   for row in reader:
                       if row.get('Hostname') == hostname:
+                          matching_devices.append(row)
                           hwsku = row.get('HwSku', '')
-                          break
+                          if not generic_hwsku:
+                              break
           except FileNotFoundError:
+              if generic_hwsku:
+                  raise
               pass
+          if generic_hwsku:
+              if len(matching_devices) != 1 or not hwsku:
+                  raise ValueError('Generic HWSKU requires exactly one devices.csv entry with HwSku for ' + hostname)
+              if not port_speeds:
+                  raise ValueError('Generic HWSKU requires links.csv port entries for ' + hostname)
           print(json.dumps({'port_speeds': port_speeds, 'hwsku': hwsku}))
           "
         register: lab_csv_result
@@ -990,6 +1010,78 @@
 
       - name: Use minigraph case
         block:
+        - name: Prepare Generic HWSKU directory mapping
+          become: true
+          block:
+            - name: Read requested Generic HWSKU from extracted CSV data
+              set_fact:
+                generic_hwsku_requested: "{{ (lab_csv_result.stdout | from_json).hwsku }}"
+
+            - name: Validate base and requested Generic HWSKU names
+              assert:
+                that:
+                  - hwsku | default('') is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+                  - generic_hwsku_requested is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+                fail_msg: "Inventory hwsku and devices.csv HwSku must be nonempty directory names"
+
+            - name: Discover DUT platform for Generic HWSKU directory mapping
+              command: python3 -c "from sonic_py_common import device_info; print(device_info.get_platform())"
+              register: generic_hwsku_platform
+              changed_when: false
+              check_mode: false
+
+            - name: Validate discovered Generic HWSKU platform
+              assert:
+                that:
+                  - generic_hwsku_platform.stdout | trim is match('^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+                  - generic_hwsku_platform.stdout | trim != 'None'
+                fail_msg: "Unable to resolve a valid DUT platform for Generic HWSKU directory mapping"
+
+            - name: Set Generic HWSKU directory paths
+              set_fact:
+                generic_hwsku_base_dir: "/usr/share/sonic/device/{{ generic_hwsku_platform.stdout | trim }}/{{ hwsku }}"
+                generic_hwsku_variant_dir: "/usr/share/sonic/device/{{ generic_hwsku_platform.stdout | trim }}/{{ generic_hwsku_requested }}"
+
+            - name: Inspect base Generic HWSKU directory
+              stat:
+                path: "{{ generic_hwsku_base_dir }}"
+                follow: true
+              register: generic_hwsku_base
+
+            - name: Require base Generic HWSKU directory on DUT
+              assert:
+                that:
+                  - generic_hwsku_base.stat.isdir | default(false)
+                fail_msg: "Base Generic HWSKU directory does not exist: {{ generic_hwsku_base_dir }}"
+
+            - name: Link requested Generic HWSKU to inventory base
+              block:
+                - name: Inspect requested Generic HWSKU path
+                  stat:
+                    path: "{{ generic_hwsku_variant_dir }}"
+                    follow: false
+                  register: generic_hwsku_variant
+
+                - name: Reject conflicting Generic HWSKU paths
+                  assert:
+                    that:
+                      - >-
+                        (not (generic_hwsku_variant.stat.exists | default(false)) and
+                         not (generic_hwsku_variant.stat.islnk | default(false))) or
+                        (generic_hwsku_variant.stat.isdir | default(false)) or
+                        ((generic_hwsku_variant.stat.islnk | default(false)) and
+                         generic_hwsku_variant.stat.lnk_source == generic_hwsku_base_dir)
+                    fail_msg: "Refusing to replace conflicting Generic HWSKU path: {{ generic_hwsku_variant_dir }}"
+
+                - name: Create requested Generic HWSKU directory symlink
+                  file:
+                    src: "{{ generic_hwsku_base_dir }}"
+                    dest: "{{ generic_hwsku_variant_dir }}"
+                    state: link
+                  when: not (generic_hwsku_variant.stat.isdir | default(false))
+              when: generic_hwsku_requested != hwsku
+          when: generic_hwsku_enabled | default(false) | bool
+
         - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
           become: true
           shell: config load_minigraph --override_config -y
