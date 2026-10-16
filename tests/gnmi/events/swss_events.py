@@ -62,7 +62,7 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
 def shutdown_interface(duthost, tbinfo):
     logger.info("Shutting down interface")
     interfaces = duthost.get_interfaces_status()
-    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    pattern = re.compile(r'^Ethernet[0-9]+$')
     interface_list = []
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
@@ -86,7 +86,7 @@ def shutdown_interface(duthost, tbinfo):
 def generate_pfc_storm(duthost, tbinfo):
     logger.info("Generating pfc storm")
     interfaces = duthost.get_interfaces_status()
-    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    pattern = re.compile(r'^Ethernet[0-9]+$')
     interface_list = []
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
