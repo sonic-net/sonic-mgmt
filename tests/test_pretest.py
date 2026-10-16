@@ -14,6 +14,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
+from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -701,6 +702,16 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts.frontend_nodes:
             executor.submit(disable_startup_tsa_tsb, duthost)
+
+
+@pytest.mark.topology('bmc')
+def test_bmc_clock_in_sync(duthosts):
+    """Verify BMC clocks are synchronized with the sonic-mgmt container."""
+    bmc_duts = [duthost for duthost in duthosts if duthost.is_bmc()]
+    pytest_assert(bmc_duts, "BMC topology does not contain a NetworkBmc DUT")
+
+    for duthost in bmc_duts:
+        assert_bmc_clock_in_sync(duthost)
 
 
 """
