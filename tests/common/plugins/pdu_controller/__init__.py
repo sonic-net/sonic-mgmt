@@ -4,6 +4,7 @@ import re
 
 import pytest
 from .pdu_manager import pdu_manager_factory
+from .bmc_pdu_controller import get_bmc_controller
 from tests.common.utilities import get_host_visible_vars, get_sup_node_or_random_node
 
 
@@ -73,6 +74,28 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
+def _get_bmc_controller_from_inventory(duthost):
+    """
+    Check if the DUT's inventory defines an BMC PDU host (protocol=bmc).
+    If so, create and return an BmcPduController.
+
+    @return: BmcPduController instance or None.
+    """
+    pdu_hosts = get_pdu_hosts(duthost)
+    for pdu_name, pdu_vars in pdu_hosts.items():
+        protocol = pdu_vars.get("protocol", "")
+        if protocol == "bmc":
+            bmc_host = pdu_vars.get("ansible_host", pdu_name)
+            resolved_vars = resolve_env_variables(pdu_vars)
+            controller = get_bmc_controller(bmc_host, resolved_vars, duthost.hostname)
+            if controller:
+                logger.info(f"Created BMC PDU controller for {duthost.hostname} via BMC {bmc_host}")
+                return controller
+            else:
+                logger.warning(f"Failed to create BMC PDU controller for BMC {bmc_host}")
+    return None
+
+
 def _get_pdu_controller(duthost, conn_graph_facts):
     hostname = duthost.hostname
     # To adapt to the kvm testbed, conn_graph_facts is None for kvm.
@@ -88,7 +111,14 @@ def _get_pdu_controller(duthost, conn_graph_facts):
     pdu_info = device_pdu_info.get(hostname, {})
     pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
 
-    return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
+    controller = pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
+
+    # Fallback: if the connection graph did not yield a controller, check inventory
+    # for an BMC PDU host (protocol=bmc).
+    if controller is None:
+        controller = _get_bmc_controller_from_inventory(duthost)
+
+    return controller
 
 
 @pytest.fixture(scope="module")
