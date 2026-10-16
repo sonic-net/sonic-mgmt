@@ -6,7 +6,7 @@ import random
 import threading
 import json
 import os
-import shutil
+import uuid
 from contextlib import closing, ExitStack
 from dataclasses import replace
 
@@ -102,24 +102,23 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
         logger.debug("crl.log: {}".format(res["stdout_lines"]))
         return len(res["stdout_lines"]) > 0
 
-    local_files = ("gnmiCA.pem", "gnmiCA.key", "gnmiclient.revoked.crt",
+    local_files = ("gnmiclient.revoked.crt",
                    "gnmiclient.revoked.key", "gnmiclient.revoked.csr", "sonic.crl.pem", "crlext.cnf")
     for filename in local_files:
         if os.path.lexists(filename):
             raise FileExistsError("CRL preparation would overwrite existing file: {}".format(filename))
-    server_started = False
-    ca_copies = []
+    # Use the PTF's existing supervisor to own only this HTTP child process.
+    ptfhost.command("supervisorctl pid")
+    listener = ptfhost.shell("ss -ltnH 'sport = :1234'")
+    if listener['stdout'].strip():
+        raise RuntimeError("CRL port 1234 is already in use")
+    program = "gnmi-crl-" + uuid.uuid4().hex
+    config_path = "/etc/supervisor/conf.d/{}.conf".format(program)
+    config_written = False
     try:
-        # The existing CRL helper reads these local names. Reuse the fixture's
-        # CA bytes instead of generating or replacing the server's trust chain.
-        for source, destination in (
-                (gnmi_tls.pygnmi_client.ca_cert, "gnmiCA.pem"),
-                (os.path.join(os.path.dirname(gnmi_tls.pygnmi_client.ca_cert), "gnmiCA.key"), "gnmiCA.key")):
-            fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            ca_copies.append(destination)
-            with os.fdopen(fd, "wb") as output, open(source, "rb") as input_file:
-                shutil.copyfileobj(input_file, output)
-        create_revoked_cert_and_crl(localhost, ptfhost, duthost)
+        create_revoked_cert_and_crl(
+            localhost, ptfhost, duthost, ca_cert=gnmi_tls.pygnmi_client.ca_cert,
+            ca_key=os.path.join(os.path.dirname(gnmi_tls.pygnmi_client.ca_cert), "gnmiCA.key"))
         duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true log_level 10')
         role = ("gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,"
                 "gnmi_dpu_appl_db_readwrite,gnoi_readwrite")
@@ -128,11 +127,17 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
 
         # The HTTP server loads sonic.crl.pem once, so start it after generation.
         ptfhost.shell('rm -f /root/crl.log')
-        server_started = True
-        if bind_addr:
-            ptfhost.shell(f'nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &')
-        else:
-            ptfhost.shell('nohup /root/env-python3/bin/python /root/crl_server.py &')
+        bind_arg = " --bind {}".format(bind_addr) if bind_addr else ""
+        config_written = True
+        ptfhost.copy(content=(
+            "[program:{name}]\ncommand=/root/env-python3/bin/python /root/crl_server.py{bind}\n"
+            "directory=/root\nautostart=true\nautorestart=false\nstartsecs=1\nstartretries=0\n"
+            "stopsignal=TERM\nstopwaitsecs=10\n"
+        ).format(name=program, bind=bind_arg), dest=config_path)
+        ptfhost.command("supervisorctl update {}".format(program))
+        assert wait_until(10, 1, 0, lambda: "RUNNING" in ptfhost.command(
+            "supervisorctl status {}".format(program), module_ignore_errors=True)["stdout"]), \
+            "CRL supervisor program failed to start: {}".format(program)
         wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
 
         # Bind only this request to the revoked identity; do not mutate the fixture.
@@ -142,11 +147,17 @@ def setup_crl_server_on_ptf(ptfhost, localhost, rand_one_dut_hostname, gnmi_tls)
         yield replace(gnmi_tls, pygnmi_client=client)
     finally:
         try:
-            if server_started:
-                ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'",
-                              module_ignore_errors=True)
+            if config_written:
+                # Removing this group makes supervisor stop/reap its own child;
+                # no process-name matching or independently reused PID is used.
+                ptfhost.file(path=config_path, state="absent")
+                status = ptfhost.command("supervisorctl status {}".format(program), module_ignore_errors=True)
+                if status['stdout'].split()[:1] == [program]:
+                    ptfhost.command("supervisorctl update {}".format(program))
+                elif status['stdout'].strip() != "{}: ERROR (no such process)".format(program):
+                    raise RuntimeError("Could not determine CRL supervisor state: {}".format(status))
         finally:
-            for filename in (*ca_copies, *local_files[2:]):
+            for filename in local_files:
                 if os.path.lexists(filename):
                     os.unlink(filename)
 
