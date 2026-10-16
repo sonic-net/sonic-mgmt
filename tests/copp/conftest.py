@@ -30,6 +30,18 @@ def pytest_addoption(parser):
         default="cold",
         help="reboot type such as cold, fast, warm, soft"
     )
+    parser.addoption(
+        "--copp_ignore_maxfail",
+        action="store_true",
+        default=False,
+        help="Run every CoPP case even when the harness supplies --maxfail",
+    )
+
+
+def pytest_sessionstart(session):
+    """Allow an explicit CoPP diagnostic run to collect every case result."""
+    if session.config.getoption("--copp_ignore_maxfail"):
+        session.config.option.maxfail = 0
 
 
 @pytest.fixture(params=["4", "6"])
