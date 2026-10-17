@@ -13,6 +13,7 @@ import pytest
 import time
 import textfsm
 import re
+from tests.bgp.bgp_helpers import get_topo_lldp_neighbors
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -298,7 +299,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     confed_asn = duthost.get_bgp_confed_asn()
-    neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
+    neigh = get_topo_lldp_neighbors(duthost, nbrhosts)[0]["neigh_name"]
     logger.debug("Neighbor is: {}".format(neigh))
 
     neighbors = dict()
