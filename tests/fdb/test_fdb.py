@@ -39,6 +39,7 @@ DEFAULT_FDB_ETHERNET_TYPE = 0x1234
 DUMMY_MAC_PREFIX = "02:11:22:33"
 DUMMY_MAC_COUNT = 10
 DUMMY_MAC_COUNT_SLIM = 2
+MAX_BSL_FDB_TEST_PAIRS = 20000
 FDB_POPULATE_SLEEP_TIMEOUT = 2
 FDB_CLEAN_UP_SLEEP_TIMEOUT = 2
 FDB_WAIT_EXPECTED_PACKET_TIMEOUT = 20
@@ -296,6 +297,45 @@ def validate_mac(mac):
     return False
 
 
+def get_fdb_test_pairs(vlan_members, is_bsl):
+    if not is_bsl:
+        return list(itertools.combinations(vlan_members, 2))
+
+    members = sorted(vlan_members, key=lambda member: min(member['port_index']))
+    member_count = len(members)
+    if member_count < 2:
+        return []
+
+    pairs = []
+    near_distance = 1
+    far_distance = member_count // 2
+
+    # Alternate short and long ring distances (1, N//2, 2, N//2-1, ...)
+    # so the bounded prefix covers every member across varied pair spans.
+    while near_distance <= far_distance:
+        distances = [near_distance]
+        if near_distance != far_distance:
+            distances.append(far_distance)
+
+        for distance in distances:
+            source_count = member_count
+            # With an even member count, the half-ring layer repeats each
+            # unordered pair in reverse, so only generate its first half.
+            if member_count % 2 == 0 and distance == member_count // 2:
+                source_count //= 2
+
+            for src_index in range(source_count):
+                dst_index = (src_index + distance) % member_count
+                pairs.append((members[src_index], members[dst_index]))
+                if len(pairs) == MAX_BSL_FDB_TEST_PAIRS:
+                    return pairs
+
+        near_distance += 1
+        far_distance -= 1
+
+    return pairs
+
+
 @pytest.fixture
 def record_mux_status(request, rand_selected_dut, tbinfo):
     """
@@ -354,6 +394,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     port_index_to_name = {v: k for k, v in list(conf_facts['port_index_map'].items())}
 
     configured_dummay_mac_count = get_dummay_mac_count
+    is_bsl = "bgp_asn" not in conf_facts["DEVICE_METADATA"]["localhost"]
     # Only take interfaces that are in ptf topology
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     available_ports_idx = []
@@ -391,7 +432,10 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
-        for src, dst in itertools.combinations(vlan_table[vlan], 2):
+        test_pairs = get_fdb_test_pairs(vlan_table[vlan], is_bsl)
+        logger.info("Validate %s forwarding pairs across %s VLAN %s members",
+                    len(test_pairs), len(vlan_table[vlan]), vlan)
+        for src, dst in test_pairs:
             if 'port_index' not in src or 'tagging_mode' not in src:
                 continue
             if 'port_index' not in dst or 'tagging_mode' not in dst:
