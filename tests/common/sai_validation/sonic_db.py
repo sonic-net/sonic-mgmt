@@ -1,5 +1,4 @@
 import logging
-import concurrent.futures
 import queue
 import threading
 import time
@@ -7,7 +6,9 @@ import pathlib
 
 from datetime import timedelta
 from enum import IntEnum
-from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import TimeoutError as MultiprocessingTimeoutError
+
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 ORIGIN = 'sonic-db'
@@ -48,7 +49,7 @@ class MonitorContext:
         self.path = path
 
 
-def start_db_monitor(executor: ThreadPoolExecutor,
+def start_db_monitor(executor: SafeThreadPoolExecutor,
                      gnmi_conn,
                      path: str,
                      event_queue: queue.Queue):
@@ -200,7 +201,7 @@ def wait_until_condition(ctx: MonitorContext,
         logger.debug("SAI validation is disabled, skipping wait until condition.")
         return True, 0.0
     _ensure_imports()
-    executor = ThreadPoolExecutor(max_workers=3)
+    executor = SafeThreadPoolExecutor(max_workers=3)
     future = executor.submit(_sonic_internal._wait_until_condition,
                              event_queue=event_queue,
                              prefix=prefix,
@@ -208,18 +209,13 @@ def wait_until_condition(ctx: MonitorContext,
                              condition_cb=condition_cb)
     try:
         logger.debug(f'Wait until condition for {timeout.total_seconds()} seconds')
-        completed, actual_time = future.result(timeout=timeout.total_seconds())
+        completed, actual_time = future.get(timeout=timeout.total_seconds())
         return completed, actual_time
-    except concurrent.futures.TimeoutError:
-        logger.debug('wait_until_condition has timed out; cancelling the future')
-        future.cancel()
-        return False, 0.0
-    except concurrent.futures.CancelledError:
-        logger.debug('wait_until_condition has been cancelled')
+    except MultiprocessingTimeoutError:
+        logger.debug('wait_until_condition has timed out')
         return False, 0.0
     except Exception as e:
         logger.error(f'wait_until_condition has failed with exception {e}')
-        future.cancel()
         return False, 0.0
     finally:
         executor.shutdown(wait=False)
@@ -258,7 +254,7 @@ def wait_until_keys_match(ctx: MonitorContext,
         logger.debug("SAI validation is disabled, skipping wait until keys match.")
         return True, 0.0
     _ensure_imports()
-    executor = ThreadPoolExecutor(max_workers=3)
+    executor = SafeThreadPoolExecutor(max_workers=3)
     future = executor.submit(_sonic_internal._wait_until_keys_match,
                              event_queue,
                              prefix,
@@ -267,18 +263,13 @@ def wait_until_keys_match(ctx: MonitorContext,
                              value)
     try:
         logger.debug(f'Waiting for {timeout.total_seconds()} seconds')
-        completed, actual_time = future.result(timeout=timeout.total_seconds())
+        completed, actual_time = future.get(timeout=timeout.total_seconds())
         return completed, actual_time
-    except concurrent.futures.TimeoutError:
-        logger.debug('wait_until_keys_match has timed out; cancelling the future')
-        future.cancel()
-        return False, 0.0
-    except concurrent.futures.CancelledError:
-        logger.debug('wait_until_keys_match has been cancelled')
+    except MultiprocessingTimeoutError:
+        logger.debug('wait_until_keys_match has timed out')
         return False, 0.0
     except Exception as e:
         logger.error(f'wait_until_keys_match has failed with exception {e}')
-        future.cancel()
         return False, 0.0
     finally:
         executor.shutdown(wait=False)

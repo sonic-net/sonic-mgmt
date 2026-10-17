@@ -89,6 +89,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import patch_ansible_worker_process
 from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -332,10 +333,10 @@ def pytest_addoption(parser):
     # gnmi connection options      #
     ##############################
     # The gNMI target port number to connect to the DUT gNMI server.
-    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
-                     help="gNMI target port number")
-    parser.addoption("--gnmi_insecure", action="store_true", default=True,
-                     help="Use insecure connection to gNMI target")
+    parser.addoption("--gnmi_port", action="store", default=None, type=int,
+                     help="Override the gNMI target port detected from the DUT")
+    parser.addoption("--gnmi_insecure", action="store_true", default=None,
+                     help="Override the DUT configuration and use an insecure gNMI connection")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
     parser.addoption(
@@ -4053,12 +4054,19 @@ def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
         logger.info("SAI validation is disabled")
-        yield duthost, None
+        yield duthost, None, None, None
         return
-    gnmi_insecure = request.config.getoption("--gnmi_insecure")
-    if gnmi_insecure:
-        logger.info("gNMI insecure mode is enabled")
-        yield duthost, None
+
+    gnmi_env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    gnmi_port_override = request.config.getoption("--gnmi_port")
+    gnmi_target_port = gnmi_port_override if gnmi_port_override is not None else gnmi_env.gnmi_port
+    gnmi_insecure_override = request.config.getoption("--gnmi_insecure")
+    gnmi_secure = gnmi_env.use_tls if gnmi_insecure_override is None else not gnmi_insecure_override
+    logger.info("Using gNMI target %s:%s with TLS %s",
+                duthost.mgmt_ip, gnmi_target_port, "enabled" if gnmi_secure else "disabled")
+
+    if not gnmi_secure:
+        yield duthost, None, gnmi_target_port, gnmi_secure
         return
     else:
         checkpoint_name = "before-applying-gnmi-certs"
@@ -4066,13 +4074,13 @@ def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
         gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
         gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
         gnmi_setup.apply_certs(duthost, checkpoint_name)
-        yield duthost, cert_path
+        yield duthost, cert_path, gnmi_target_port, gnmi_secure
         gnmi_setup.remove_certs(duthost, checkpoint_name)
 
 
 @pytest.fixture(scope="session")
 def setup_connection(request, setup_gnmi_server):
-    duthost, cert_path = setup_gnmi_server
+    duthost, cert_path, gnmi_target_port, gnmi_secure = setup_gnmi_server
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
         logger.info("SAI validation is disabled")
@@ -4083,13 +4091,10 @@ def setup_connection(request, setup_gnmi_server):
         gnmi_client_module = importlib.import_module("tests.common.sai_validation.gnmi_client")
         create_gnmi_stub = getattr(gnmi_client_module, "create_gnmi_stub")
 
-        # if cert_path is None then it is insecure mode
-        gnmi_insecure = request.config.getoption("--gnmi_insecure")
-        gnmi_target_port = int(request.config.getoption("--gnmi_port"))
         duthost_mgmt_ip = duthost.mgmt_ip
         channel = None
         gnmi_connection = None
-        if gnmi_insecure:
+        if not gnmi_secure:
             channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
                                                         port=gnmi_target_port, secure=False)
         else:
