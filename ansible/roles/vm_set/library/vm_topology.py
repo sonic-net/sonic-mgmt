@@ -1312,6 +1312,8 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=4,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=41,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=8,ip,in_port=%s,nw_frag=yes,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=8,ipv6,in_port=%s,nw_frag=yes,action=output:%s,%s" %
