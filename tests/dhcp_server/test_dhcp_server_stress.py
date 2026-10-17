@@ -88,7 +88,7 @@ def test_dhcp_server_with_multiple_dhcp_clients(
             dut_ports,
             exp_assigned_ip_ranges
         )
-        apply_dhcp_server_config_gcu(duthost, config_to_apply)
+        apply_dhcp_server_config_gcu(duthost, config_to_apply, relay_agent)
         ptfhost.shell(start_command)
 
         def all_ip_shown_up(ptfhost, expected_assigned_ips):

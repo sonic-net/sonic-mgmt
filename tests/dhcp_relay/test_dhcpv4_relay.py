@@ -201,7 +201,7 @@ def test_dhcpv4_feature_flag_validation(duthosts, rand_one_dut_hostname, dut_dhc
 
     # Apply valid relay config and enable feature flag
     sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, False)
-    sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+    sonic_dhcpv4_flag_config_and_unconfig(duthost, True, 'sonic')
 
     # Verify sonic-dhcpv4 socket are active
     pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
@@ -209,7 +209,7 @@ def test_dhcpv4_feature_flag_validation(duthosts, rand_one_dut_hostname, dut_dhc
 
     # Cleanup config and disable feature flag
     sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
-    sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
+    sonic_dhcpv4_flag_config_and_unconfig(duthost, False, 'isc')
 
 
 @pytest.mark.skip_config_dhcpv4_relay_agent
