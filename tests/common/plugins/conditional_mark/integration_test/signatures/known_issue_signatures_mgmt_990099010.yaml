@@ -1,0 +1,13 @@
+signatures:
+  - name: multi_issue_good_match
+    exception_type: Failed
+    message: |-
+      Failed: Interface Ethernet4 is down after config reload. Expected state: up, actual state: down. Waited 120 seconds.
+    stack_trace: |-
+      tests/platform_tests/test_reload.py:200: in test_config_reload
+          pytest.fail(msg)
+    failure_matching_rule: >-
+      If the failure is about interface being down after config reload,
+      it is the same issue.
+    xfail_similarity_high_th: "0.55"
+    xfail_similarity_low_th: "0.30"
