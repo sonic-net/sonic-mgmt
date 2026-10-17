@@ -1,0 +1,7 @@
+- name: Check the virtual SONiC bridge state
+  ansible.builtin.command:
+    argv: [ovs-vsctl, list-br]
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_vsonic_bridges
+  failed_when: ranking_vsonic_bridges.rc != 0
+  changed_when: false

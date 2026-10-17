@@ -1,0 +1,62 @@
+- name: Read the DUT machine identity
+  ansible.builtin.slurp:
+    src: '{{ ranking_runtime.dut_identity_file }}'
+  register: ranking_dut_machine_id_raw
+- name: Bind the DUT resource key
+  ansible.builtin.set_fact:
+    ranking_dut_machine_id: '{{ ranking_dut_machine_id_raw.content | b64decode | ranking_dut_identity }}'
+    ranking_dut_resource: 'dut:{{ ranking_dut_machine_id_raw.content | b64decode | ranking_dut_identity }}'
+- name: Read the PTF machine identity
+  ansible.builtin.slurp:
+    src: /etc/machine-id
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_machine_id_raw
+- name: Inspect the running PTF container
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.ptf_container }}']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_container_info
+  failed_when: ranking_ptf_container_info.rc != 0
+  changed_when: false
+- name: Parse the PTF container record
+  ansible.builtin.set_fact:
+    ranking_ptf_container_record: '{{ ranking_ptf_container_info.stdout | from_json }}'
+- name: Bind the PTF machine identity
+  ansible.builtin.set_fact:
+    ranking_ptf_machine_id: '{{ ranking_ptf_machine_id_raw.content | b64decode | trim }}'
+    ranking_ptf_container_id: '{{ ranking_ptf_container_record[0].Id }}'
+- name: Bind the PTF resource key
+  ansible.builtin.set_fact:
+    ranking_ptf_resource: 'ptf:{{ ranking_ptf_machine_id }}:{{ ranking_ptf_container_id }}'
+- name: Read the DUT image identity files
+  ansible.builtin.slurp:
+    src: '{{ item }}'
+  loop: '{{ ranking_runtime.image_identity_files }}'
+  register: ranking_dut_image_raw
+- name: Bind the DUT image fingerprint
+  ansible.builtin.set_fact:
+    ranking_dut_image_fingerprint: '{{ ranking_dut_image_raw.results | ranking_image_fingerprint }}'
+- name: Inspect the local saiserver image
+  ansible.builtin.command:
+    argv: [docker, image, inspect, '{{ ranking_runtime.saiserver_image }}']
+  register: ranking_saiserver_image_info
+  failed_when: ranking_saiserver_image_info.rc != 0
+  changed_when: false
+- name: Parse the local saiserver image record
+  ansible.builtin.set_fact:
+    ranking_saiserver_image_info_json: '{{ ranking_saiserver_image_info.stdout | from_json }}'
+- name: Read the DUT port status
+  ansible.builtin.command:
+    argv: '{{ ranking_runtime.port_baseline.argv }}'
+  register: ranking_dut_ports_raw
+  failed_when: ranking_dut_ports_raw.rc != 0
+  changed_when: false
+  when: ranking_action == 'setup' and ranking_runtime.port_baseline is not none
+- name: Bind the DUT port baseline
+  ansible.builtin.set_fact:
+    ranking_dut_ports: '{{ ranking_dut_ports_raw.stdout | ranking_port_states(ranking_runtime.port_baseline.format) }}'
+  when: ranking_action == 'setup' and ranking_runtime.port_baseline is not none
+- name: Bind the empty DUT port baseline
+  ansible.builtin.set_fact:
+    ranking_dut_ports: {}
+  when: ranking_action == 'setup' and ranking_runtime.port_baseline is none
