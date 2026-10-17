@@ -230,15 +230,17 @@ class PduManager():
                         ret = ret and rc
             return ret
 
-    def get_outlet_status(self, outlet=None):
+    def get_outlet_status(self, outlet=None, power_state=None):
         """
             Getting outlet status. The outlet contains enough information
             to identify the pdu controller + outlet ID.
             when outlet is None, status of all outlets will be returned.
+            If power_state is set, read optional wattage only when that state flag is true.
         """
         status = []
         if outlet is not None:
-            outlets = self._get_controller(outlet).get_outlet_status(outlet=outlet['outlet_id'])
+            outlets = self._get_controller(outlet).get_outlet_status(
+                outlet=outlet['outlet_id'], power_state=power_state)
             pdu_name = outlet['pdu_name']
             psu_name = outlet['psu_name']
             feed_name = outlet['feed_name']
@@ -253,7 +255,7 @@ class PduManager():
                 for feed_name, feed in psu.feeds.items():
                     for outlet in feed.outlets:
                         pdu_name = outlet['pdu_name']
-                        outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'])
+                        outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'], power_state=power_state)
                         for outlet in outlets:
                             outlet['pdu_name'] = pdu_name
                             outlet['psu_name'] = psu_name

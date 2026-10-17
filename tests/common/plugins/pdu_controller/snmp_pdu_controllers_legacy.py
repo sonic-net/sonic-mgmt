@@ -335,7 +335,7 @@ class snmpPduController(PduControllerBase):
                     status['output_watts'] = current_val
                 return
 
-    def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
+    def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id, power_state=None):
         query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
@@ -354,12 +354,13 @@ class snmpPduController(PduControllerBase):
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
                 status["outlet_off"] = current_val == self.STATUS_OFF
-                self._get_one_outlet_power(cmdGen, snmp_auth, port_id, status)
+                if power_state is None or status.get(power_state) is True:
+                    self._get_one_outlet_power(cmdGen, snmp_auth, port_id, status)
                 return status
 
         return None
 
-    def get_outlet_status(self, outlet=None, hostname=None):
+    def get_outlet_status(self, outlet=None, hostname=None, power_state=None):
         """
         @summary: Use SNMP to get status of PDU ports supplying power to PSUs of DUT
 
@@ -371,6 +372,7 @@ class snmpPduController(PduControllerBase):
 
         @param outlet: Optional. If specified, only return status of PDU outlet connected to specified PSU of DUT. If
                        omitted, return status of all PDU outlets connected to PSUs of DUT.
+        @param power_state: Optional state flag required before reading wattage; None preserves unconditional reads.
         @return: Return status of PDU outlets connected to PSUs of DUT in a list of dictionary. Example result:
                      [{"outlet_id": "0.0.1", "outlet_on": True}, {"outlet_id": "0.0.2", "outlet_on": True}]
                  The outlet in returned result is integer starts from 0.
@@ -400,7 +402,7 @@ class snmpPduController(PduControllerBase):
 
         cmdGen = cmdgen.CommandGenerator()
         for port in ports:
-            status = self._get_one_outlet_status(cmdGen, self.ro_snmp_auth, port)
+            status = self._get_one_outlet_status(cmdGen, self.ro_snmp_auth, port, power_state)
             if status:
                 results.append(status)
 

@@ -390,7 +390,7 @@ def action_pdu_on(parameters):
 def pdu_outlets_in_state(pduman, outlets, state, status):
     status.clear()
     for outlet in outlets:
-        status.extend(pduman.get_outlet_status(outlet))
+        status.extend(pduman.get_outlet_status(outlet, power_state=state))
     keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
     expected = {tuple(outlet[key] for key in keys) for outlet in outlets}
     observed = {tuple(outlet[key] for key in keys) for outlet in status}
