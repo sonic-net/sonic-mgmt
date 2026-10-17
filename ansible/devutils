@@ -443,12 +443,19 @@ def pdu_reboot_on_dut(host, attrs, hold_seconds):
             'data': [pdu_status_result(host, 'off', off_status), pdu_status_result(host, 'on', on_status)]}
 
 
+def pdu_reboot_task(host, attrs, hold_seconds):
+    try:
+        return pdu_reboot_on_dut(host, attrs, hold_seconds)
+    except Exception as exc:
+        return repr(exc)
+
+
 def action_pdu_reboot(parameters):
     header = ['Host', 'Action', 'PSU status', 'PDU status', 'Summary']
     data = []
     success = bool(parameters['hosts'])
     for host, attrs in parameters['hosts'].items():
-        g_task_runner.submit_task(host, pdu_reboot_on_dut, host=host, attrs=attrs,
+        g_task_runner.submit_task(host, pdu_reboot_task, host=host, attrs=attrs,
                                   hold_seconds=parameters['hold_seconds'])
     for host, ret in g_task_runner.task_results():
         result = ret['result']
@@ -469,8 +476,9 @@ def action_dispatcher(parameters):
     parallel_actions = ['ssh_run_command']
     action = parameters['action'].__name__
     if action in parallel_actions:
-        return parallel_run(parameters)
-    return parameters['action'](parameters)
+        parallel_run(parameters)
+    else:
+        return parameters['action'](parameters)
 
 
 def parallel_run(parameters):
@@ -503,18 +511,18 @@ def validate_args(args):
     return True
 
 
-def setup_logging(level):
+def setup_logging(level, stream=sys.stdout):
     if level == 'close':
         return
     import logging
     if level == 'debug':
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+        logging.basicConfig(stream=stream, level=logging.DEBUG)
     elif level == 'info':
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+        logging.basicConfig(stream=stream, level=logging.INFO)
     elif level == 'warn':
-        logging.basicConfig(stream=sys.stdout, level=logging.WARN)
+        logging.basicConfig(stream=stream, level=logging.WARN)
     elif level == 'error':
-        logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
+        logging.basicConfig(stream=stream, level=logging.ERROR)
 
 
 def main():
@@ -537,7 +545,7 @@ def main():
                         type=str, required=False, default='lab')
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
-    parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)',
+    parser.add_argument('--log-level', help='Log level: STDOUT, except STDERR for pdu_reboot JSON output',
                         type=str, required=False, default='warn',
                         choices=['debug', 'info', 'warn', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
@@ -555,7 +563,7 @@ def main():
         parser.error('--hold-seconds must be at least 1')
     if not validate_args(args):
         return
-    setup_logging(args.log_level)
+    setup_logging(args.log_level, sys.stderr if args.action == 'pdu_reboot' and args.json else sys.stdout)
     build_global_vars(args.concurrency, args.inventory)
     # Add limit argument check for pdu_reboot, pdu_on, pdu_off actions
     # If no limit argument for these actions, will not execute the process for all devices
