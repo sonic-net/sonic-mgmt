@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -95,6 +96,35 @@ def config_reload_after_tests(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
     config_reload(duthost)
+
+
+@pytest.fixture(autouse=True, scope="module")
+def fast_system_health_polling(duthosts, enum_rand_one_per_hwsku_hostname,
+                               check_image_version, config_reload_after_tests):
+    """Use fast polling for the module, then restore the original health policy.
+
+    ConfigFileContext reloads policy on the next healthd cycle. Restart once
+    here so an existing platform interval (300s on BMC) cannot outlast a test's
+    timeout. Per-test contexts then restore this fast module-level baseline.
+    Depend on config_reload_after_tests so policy restoration precedes reload.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    config_path = DUT_CONFIG_FILE.format(duthost.facts['platform'])
+    original = base64.b64decode(duthost.slurp(src=config_path)['content']).decode('utf-8')
+    config = json.loads(original)
+    config['polling_interval'] = FAST_INTERVAL
+
+    try:
+        duthost.copy(content=json.dumps(config, indent=4), dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
+        yield
+    finally:
+        # Also restore if setup fails after changing the config. Keep this
+        # backup separate from the .bak used by per-test ConfigFileContext.
+        duthost.copy(content=original, dest=config_path)
+        duthost.command('systemctl restart system-health.service')
+        wait_system_health_boot_up(duthost)
 
 
 @pytest.fixture(scope="function")
