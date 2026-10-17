@@ -60,9 +60,17 @@ class TestLinkLocalIPacket:
         platform = duthost.facts['platform']
         hwsku = duthost.facts['hwsku']
         sai_settings = {}
-        sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
+        hwsku_dir = "/usr/share/sonic/device/{}/{}".format(platform, hwsku)
+        sai_profile = "{}/sai.profile".format(hwsku_dir)
+        # On multi-ASIC platforms, sai.profile is per-ASIC-instance under a numeric
+        # subdirectory (e.g. <hwsku_dir>/0/sai.profile), rather than directly under
+        # <hwsku_dir>/sai.profile as on single-ASIC platforms. All ASIC instances on a
+        # given DUT share the same SAI capability settings, so checking asic 0 suffices.
+        sai_profile_asic = "{}/0/sai.profile".format(hwsku_dir)
         sai_profile_template = "{}.j2".format(sai_profile)
-        if duthost.stat(path=sai_profile)["stat"]["exists"]:
+        if duthost.facts.get('num_asic', 1) > 1 and duthost.stat(path=sai_profile_asic)["stat"]["exists"]:
+            sai_profile_cmd = "cat {}".format(sai_profile_asic)
+        elif duthost.stat(path=sai_profile)["stat"]["exists"]:
             sai_profile_cmd = "cat {}".format(sai_profile)
         elif duthost.stat(path=sai_profile_template)["stat"]["exists"]:
             sai_profile_cmd = "sonic-cfggen -d -t {}".format(sai_profile_template)
