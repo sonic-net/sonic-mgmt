@@ -171,7 +171,7 @@ def test_active_tor_kill_bgpd_downstream_standby(
 def test_active_tor_shutdown_bgp_sessions_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
-    shutdown_bgp_sessions, cable_type                                   # noqa: F811
+    shutdown_bgp_sessions, cable_type, server_subnet                    # noqa: F811
 ):
     """
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
@@ -185,13 +185,15 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host), random_dst=False
+            action=lambda: shutdown_bgp_sessions(upper_tor_host), random_dst=False,
+            server_subnet=server_subnet
         )
 
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host),
+            server_subnet=server_subnet
         )
 
     if cable_type == CableType.active_active:
@@ -215,7 +217,7 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
 @pytest.mark.skip_active_standby
 def test_active_tor_shutdown_bgp_sessions_downstream(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
-    cable_type, tunnel_traffic_monitor                                  # noqa: F811
+    cable_type, tunnel_traffic_monitor, server_subnet                   # noqa: F811
 ):
     """
     Case: T1 -> ToR -> Server (Upper ToR shutdown/startup BGP sessions)
@@ -251,4 +253,5 @@ def test_active_tor_shutdown_bgp_sessions_downstream(
 
     # verify the server receives packets with no disrupts, no tunnel traffic
     with tunnel_traffic_monitor(upper_tor_host, existing=False):
-        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60,
+                                      server_subnet=server_subnet)

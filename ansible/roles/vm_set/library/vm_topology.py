@@ -1291,7 +1291,8 @@ class VMTopology(object):
                         (br_name, dut_iface_id, injected_iface_id))
         else:
             # Add flow from external iface to a VM and a ptf container
-            # Allow BGP, IPinIP, fragmented packets, ICMP, SNMP packets and layer2 packets from DUT to neighbors
+            # Allow BGP, IPinIP (both IPv4-in-IPv4 and IPv6-in-IPv4), fragmented packets, ICMP, SNMP packets
+            # and layer2 packets from DUT to neighbors
             # Block other traffic from DUT to EOS for EOS's stability,
             # Allow all traffic from DUT to PTF.
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tp_src=179,action=output:%s,%s" %
@@ -1311,6 +1312,9 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp6,in_port=%s,tp_src=22,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=4,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            # proto 41 is IPv6-in-IPv4, used by dualtor to tunnel IPv6 server traffic to the peer ToR
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=41,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=8,ip,in_port=%s,nw_frag=yes,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
