@@ -78,9 +78,9 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 extra_vars = {
                     'addr': mgmt_ip.split('/')[0],
                     'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
-                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0],
+                    'gwaddr': str(list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]),
                     'mgmt_ip': mgmt_ip,
-                    'brd_ip': ipaddress.ip_interface(mgmt_ip).network.broadcast_address,
+                    'brd_ip': str(ipaddress.ip_interface(mgmt_ip).network.broadcast_address),
                     'network': str(ipaddress.ip_interface(mgmt_ip).network).split('/')[0]
                 }
                 sonichost.vm.extra_vars.update(extra_vars)
