@@ -71,10 +71,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
             route_timeout=60,
             route_interval=10
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
-                                 remote_dut, setup_mirror_session["session_name"]))
         EverflowIPv6Tests.tx_port_ids = dest_port_ptf_id_list
         EverflowIPv6Tests.rx_port_ptf_id = rx_port_id
+        # On PortChannel (LAG) neighbors the peer's neighbor/monitor-port resolution lags route
+        # programming, so a fixed sleep is not enough for the mirror session to become active.
+        # Resolve the neighbor and wait for the session to be active before the traffic tests run.
+        remote_dut.get_asic_or_sonic_host_from_namespace(namespace).command(
+            "ping {} -c 3".format(peer_ip), module_ignore_errors=True)
+        pytest_assert(
+            wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                       remote_dut, setup_mirror_session["session_name"]))
 
         yield
 
