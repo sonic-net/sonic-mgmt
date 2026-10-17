@@ -69,15 +69,19 @@
 {%        endfor %}
     },
 {%     elif k == 'VLAN' %}
+{%         set vlan1000 = cfg_t0['VLAN']['Vlan1000'] %}
+{%         set dhcp_list = vlan1000.get('dhcp_servers', []) %}
     "VLAN": {
         "Vlan1000": {
+{%          if dhcp_list %}
             "dhcp_servers": [
-{%              for dhcp in cfg_t0['VLAN']['Vlan1000']['dhcp_servers'] %}
+{%              for dhcp in dhcp_list %}
                 {{ dhcp | to_nice_json }}{% if not loop.last %},
 {% endif %}
 {% endfor %}
 
             ],
+{%          endif %}
             "vlanid": "1000"},
         "Vlan2000": {
             "vlanid": "2000"}
