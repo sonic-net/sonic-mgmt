@@ -71,16 +71,16 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 ### Common Function
 
 #### send_and_verify
- * Send DHCP discover packets from PTF, check whether configured port receive DHCP offer packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr.
- * Send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
- * For renew scenario, send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
+ * Send DHCP discover packets from PTF, check whether configured port receive DHCP offer packet. Need to check netmask / gateway / lease_time / yiaddr.
+ * Send DHCP request packets from PTF, check whether configured port receive DHCP ack packet. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
+ * For renew scenario, send DHCP request packets from PTF, check whether configured port receive DHCP ack packet. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
  * Send DHCP release packets from PTF, check whether lease release via lease file inside dhcp_server container.
 
 ### Test Module #1 test_dhcp_server.py
 
 #### Port Based Common setup
 
-* Check whether dhcrelay process running as expected (Original dhcp_relay functionality).
+* Check whether dhcp_relay process running as expected (Original dhcp_relay functionality).
 * Enable dhcp_server feature, and then use CLI to add DHCP Server configuration.
 
 #### Port Based Common teardown
@@ -102,11 +102,11 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
   * DUT Ethernet3 - PTF eth3
   * DUT EThernet4 - PTF eth4 (Not configured interface)
 
-  3 tested scenarios:
+  4 tested scenarios:
 
   1. Verify configured interface with client mac not in FDB table can successfully get IP.
   2. Verify configured interface with client mac in FDB table can successfully get IP.
-  3. Verify configured interface with client mac in FDB table but ip it's learnt from another interface can successfully get IP.
+  3. Verify configured interface with client mac in FDB table but mac it's learnt from another interface can successfully get IP.
   4. Verify no-configured interface cannot get IP.
 
 * **Setup**
@@ -118,7 +118,7 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
   * Add a fixture to verify above scenarios:
     * mac_not_in_fdb: Use `send_and_verify` to send and verify from eth0 with mac address of eth0, success to get IP.
-    * mac_in_fdb:Use `send_and_verify` to send and verify from eth0 with mac address of eth1, success to get IP.
+    * mac_in_fdb:Use `send_and_verify` to send and verify from eth1 with mac address of eth1, success to get IP.
     * mac_learnt_from_other_interface: Use `send_and_verify` to send and verify from eth2 with mac address of eth3, success to get IP.
     * no_configured_interface: Use `send_and_verify` to send and verify from eth4 with mac address of eth4, expected result: fail to get IP.
 
@@ -138,10 +138,10 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * `send_and_verify` with mac A in interface A, expected result: IP assign successfully.
-  * `send_and_verify` with mac A in interface B, expected result: IP assign successfully.
+  * `send_and_verify` with mac A in interface A, expected result: Get IP binding to interface A successfully.
+  * `send_and_verify` with mac A in interface B, expected result: Get IP binding to interface B successfully.
 
-#### test_dhcp_server_port_based_assigenment_single_ip_mac_swap
+#### test_dhcp_server_port_based_assigenment_single_ip_mac_swap (ETA TBD)
 
 * **Test objective**
 
@@ -158,9 +158,9 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 * **Test detail**
 
   * `send_and_verify` with mac A in interface A, expected result: client A can get correct IP.
-  * `send_and_verify` with mac B in interface B, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface B, expected result: client B can get correct IP.
   * `send_and_verify` with mac A in interface B, expected result: client A can get correct IP.
-  * `send_and_verify` with mac B in interface A, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface A, expected result: client B can get correct IP.
 
 #### test_dhcp_server_port_based_assignment_range
 
@@ -229,7 +229,8 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * Send discover / requset packets from PTF, expect not receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` doesn't match vlan ip.
+  * Send discover / requset packets with previous vlan subnet ip from PTF, expect not receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` doesn't match vlan ip.
+  * Send discover / requset packets with new vlan subnet ip from PTF, expect receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` match vlan ip.
 
 #### test_dhcp_server_config_vlan_member_change
 
@@ -247,7 +248,8 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * Send discover / requset packets from PTF, expect not receive offer / ack packets because member not in vlan.
+  * Send discover / requset packets from PTF, expect not receive offer / ack packets because member was deleted from vlan.
+  * Send discover / requset packets from PTF, expect receive offer / ack packets because member was restored to vlan.
 
 #### test_dhcp_server_critical_process
 
