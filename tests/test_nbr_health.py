@@ -89,7 +89,12 @@ def check_eos_bgp_facts(hostname, host):
 
 def check_sonic_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
-    res = host.command('vtysh -c "show ip bgp sum"')
+    if isinstance(host, CsonicHost):
+        # Keep this command bare so a converged logical CsonicHost can scope it
+        # to its runtime VRF.  Stock cSONiC still passes it through unchanged.
+        res = host.command("show ip bgp summary")
+    else:
+        res = host.command('vtysh -c "show ip bgp sum"')
     logger.info("bgp: {}".format(res))
     if 'stdout_lines' not in res or u'Unicast Summary' not in "\n".join(res['stdout_lines']):
         return "neighbor {} bgp not configured correctly".format(hostname)
@@ -134,7 +139,9 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
                 fails.append(failmsg)
 
         elif isinstance(nbrhost, SonicHost):
-            failmsg = check_snmp(k, v['mgmt_addr'], localhost, sonic['snmp_rocommunity'], False)
+            snmp_community = sonic(nbrhosts, k)['snmp_rocommunity']
+            failmsg = check_snmp(
+                k, v['mgmt_addr'], localhost, snmp_community, False)
             if failmsg:
                 fails.append(failmsg)
 
