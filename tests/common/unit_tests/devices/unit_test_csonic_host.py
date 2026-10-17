@@ -213,5 +213,251 @@ class TestSummaryAndNeighborParsers:
             assert host._bgp_neighbors_json("ipv4") == {}
 
 
+# --- LACP rate (userspace OVS LAG backend) --------------------------------
+
+def lacp_docker_exec(lacp_time='fast', member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet1",
+                     bond_exists=True, calls=None, lacp_time_rc=0):
+    """Dispatch mock for the CONFIG_DB/ovs-vsctl commands used by the LACP rate methods."""
+    def side(cmd, **kwargs):
+        if calls is not None:
+            calls.append(cmd)
+        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+            return {"rc": 0, "stdout": member_key, "stdout_lines": [member_key] if member_key else [],
+                    "stderr": ""}
+        if cmd.endswith(" name"):
+            return docker_ok("PortChannel1-bond" if bond_exists else "")
+        if "get Port" in cmd and "lacp-time" in cmd:
+            if lacp_time_rc != 0:
+                return {"rc": lacp_time_rc, "stdout": "",
+                        "stderr": "ovs-vsctl: unix:/run/openvswitch/db.sock: database connection failed"}
+            return docker_ok(lacp_time)
+        if cmd.startswith("ovs-vsctl set Port"):
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stderr": "unexpected cmd"}
+    return side
+
+
+def teamd_lacp_docker_exec(calls=None, initial_mode="normal", fail_command=None,
+                           vrf_name=""):
+    """Dispatch native-team CONFIG_DB, teamdctl, and config CLI commands."""
+    import json as _json
+    state = {"mode": initial_mode}
+
+    def side(cmd, **kwargs):
+        if calls is not None:
+            calls.append(cmd)
+        if fail_command and fail_command in cmd:
+            return {"rc": 1, "stdout": "", "stderr": "injected failure"}
+        if "PORTCHANNEL_MEMBER|*|Ethernet1" in cmd:
+            key = "PORTCHANNEL_MEMBER|PortChannel1|Ethernet1"
+            return {"rc": 0, "stdout": key, "stdout_lines": [key], "stderr": ""}
+        if cmd.endswith("PortChannel1-bond name"):
+            return docker_ok("")
+        if cmd == "teamdctl PortChannel1 state dump":
+            return docker_ok(_json.dumps({
+                "runner": {"fast_rate": state["mode"] == "fast"}
+            }))
+        if "HGET 'PORTCHANNEL|PortChannel1' min_links" in cmd:
+            return docker_ok("1")
+        if "HGET 'PORTCHANNEL|PortChannel1' fallback" in cmd:
+            return docker_ok("false")
+        if "HGET 'PORTCHANNEL_INTERFACE|PortChannel1' vrf_name" in cmd:
+            return docker_ok(vrf_name or "(nil)")
+        if "PORTCHANNEL_MEMBER|PortChannel1|*" in cmd:
+            key = "PORTCHANNEL_MEMBER|PortChannel1|Ethernet1"
+            return {"rc": 0, "stdout": key, "stdout_lines": [key], "stderr": ""}
+        if "PORTCHANNEL_INTERFACE|PortChannel1|*" in cmd:
+            keys = ["PORTCHANNEL_INTERFACE|PortChannel1|10.0.0.1/31",
+                    "PORTCHANNEL_INTERFACE|PortChannel1|fc00::1/126"]
+            return {"rc": 0, "stdout": "\n".join(keys),
+                    "stdout_lines": keys, "stderr": ""}
+        if cmd.startswith("config portchannel add PortChannel1"):
+            state["mode"] = "fast" if "--fast-rate=true" in cmd else "normal"
+            return docker_ok("")
+        if (cmd.startswith("config portchannel")
+                or cmd.startswith("config interface ip")
+                or cmd.startswith("config interface vrf")):
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stderr": "unexpected cmd: {}".format(cmd)}
+
+    return side
+
+
+class TestLacpRate:
+    def test_get_fast(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec("fast")):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "fast"
+
+    def test_get_slow_is_normal(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec('"slow"')):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "normal"
+
+    def test_get_unset_is_normal(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec("")):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "normal"
+
+    def test_set_maps_mode_to_bond(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(calls=calls)):
+            host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+            host.set_interface_lacp_rate_mode("Ethernet1", "normal")
+        sets = [c for c in calls if c.startswith("ovs-vsctl set Port")]
+        assert sets == ["ovs-vsctl set Port PortChannel1-bond other_config:lacp-time=fast",
+                        "ovs-vsctl set Port PortChannel1-bond other_config:lacp-time=slow"]
+
+    def test_non_member_not_supported(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(member_key="")):
+            with pytest.raises(NotImplementedError):
+                host.get_interface_lacp_rate_mode("Ethernet5")
+
+    def test_get_native_teamd_rate(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec",
+                          side_effect=teamd_lacp_docker_exec(initial_mode="fast")):
+            assert host.get_interface_lacp_rate_mode("Ethernet1") == "fast"
+
+    def test_set_native_teamd_rate_recreates_and_preserves_config(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec",
+                          side_effect=teamd_lacp_docker_exec(calls=calls)):
+            host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+            host.set_interface_lacp_rate_mode("Ethernet1", "normal")
+        adds = [cmd for cmd in calls if cmd.startswith(
+            "config portchannel add PortChannel1")]
+        assert adds == [
+            "config portchannel add PortChannel1 --min-links=1 --fast-rate=true",
+            "config portchannel add PortChannel1 --min-links=1",
+        ]
+        assert "config portchannel member add PortChannel1 Ethernet1" in calls
+        assert "config interface ip add PortChannel1 10.0.0.1/31" in calls
+        assert "config interface ip add PortChannel1 fc00::1/126" in calls
+
+    def test_native_teamd_recreation_preserves_vrf_before_ips(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=teamd_lacp_docker_exec(
+                    calls=calls, vrf_name="VrfT0_1")):
+            host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+        bind = calls.index("config interface vrf bind PortChannel1 VrfT0_1")
+        first_ip = calls.index(
+            "config interface ip add PortChannel1 10.0.0.1/31")
+        assert bind < first_ip
+
+    def test_native_teamd_failure_attempts_restore(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=teamd_lacp_docker_exec(
+                    calls=calls,
+                    fail_command="member add PortChannel1 Ethernet1")):
+            with pytest.raises(Exception):
+                host.set_interface_lacp_rate_mode("Ethernet1", "fast")
+        add_commands = [cmd for cmd in calls if cmd.startswith(
+            "config portchannel add PortChannel1")]
+        assert add_commands[-1] == "config portchannel add PortChannel1 --min-links=1"
+
+    def test_get_raises_when_ovs_read_fails(self):
+        """A failed ovs-vsctl read must raise, not be reported as the 'normal' default."""
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=lacp_docker_exec(lacp_time_rc=1)):
+            with pytest.raises(Exception) as excinfo:
+                host.get_interface_lacp_rate_mode("Ethernet1")
+        assert "lacp rate" in str(excinfo.value)
+
+    def test_invalid_mode(self):
+        host = make_host()
+        with pytest.raises(ValueError):
+            host.set_interface_lacp_rate_mode("Ethernet1", "medium")
+
+
+# --- shutdown / no_shutdown (backend aware) -------------------------------
+
+def link_docker_exec(calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet1",
+                     bond_exists=True, bond_ifaces=("eth1", "eth2")):
+    """Dispatch mock for config-interface / CONFIG_DB / ovs-vsctl / ip link commands."""
+    def side(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd.startswith("config interface"):
+            return docker_ok("")
+        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+            return {"rc": 0, "stdout": member_key,
+                    "stdout_lines": [member_key] if member_key else [], "stderr": ""}
+        if cmd.endswith(" name"):
+            return docker_ok("PortChannel1-bond" if bond_exists else "")
+        if cmd.startswith("ovs-vsctl list-ifaces"):
+            return {"rc": 0, "stdout": "\n".join(bond_ifaces),
+                    "stdout_lines": list(bond_ifaces), "stderr": ""}
+        if cmd.startswith("ip link set"):
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stdout_lines": [], "stderr": "unexpected cmd"}
+    return side
+
+
+class TestShutdownBackendAware:
+    def test_ovs_backend_toggles_port_and_bond_member(self):
+        """On the userspace OVS LAG backend the bond is built on ethN, so downing
+        only EthernetN would leave the member up and LACP active."""
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=link_docker_exec(calls)):
+            host.shutdown("Ethernet1")
+        assert "config interface shutdown Ethernet1" in calls
+        assert "ip link set eth1 down" in calls
+
+    def test_ovs_backend_no_shutdown_toggles_port_and_bond_member(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec", side_effect=link_docker_exec(calls)):
+            host.no_shutdown("Ethernet1")
+        assert "config interface startup Ethernet1" in calls
+        assert "ip link set eth1 up" in calls
+
+    def test_non_ovs_backend_touches_only_sonic_port(self):
+        """teamd-backed (or non-member) interfaces keep the SONiC-CLI-only path."""
+        host = make_host()
+        for kwargs in ({"member_key": ""}, {"bond_exists": False}):
+            calls = []
+            with patch.object(host, "_docker_exec",
+                              side_effect=link_docker_exec(calls, **kwargs)):
+                host.shutdown("Ethernet1")
+                host.no_shutdown("Ethernet1")
+            assert not [c for c in calls if c.startswith("ip link set")]
+            assert "config interface shutdown Ethernet1" in calls
+            assert "config interface startup Ethernet1" in calls
+
+    def test_member_not_in_bond_raises(self):
+        """A derived device missing from the bond must raise, never silently fall
+        back to an EthernetN-only shutdown."""
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec",
+                          side_effect=link_docker_exec(calls, bond_ifaces=("eth2",))):
+            with pytest.raises(Exception) as excinfo:
+                host.shutdown("Ethernet1")
+        message = str(excinfo.value)
+        assert "Ethernet1" in message and "eth1" in message and "PortChannel1-bond" in message
+        assert not [c for c in calls if c.startswith("ip link set")]
+
+    def test_unmappable_member_name_raises(self):
+        host = make_host()
+        calls = []
+        side = link_docker_exec(
+            calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet-BP0")
+        with patch.object(host, "_docker_exec", side_effect=side):
+            with pytest.raises(Exception) as excinfo:
+                host.shutdown("Ethernet-BP0")
+        assert "Ethernet-BP0" in str(excinfo.value)
+        assert not [c for c in calls if c.startswith("ip link set")]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-v"]))
