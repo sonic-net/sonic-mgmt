@@ -60,6 +60,8 @@ devices_file = "files/sonic_lab_devices.csv"
 console_links_file = "files/sonic_lab_console_links.csv"
 eosCred_file = "group_vars/eos/creds.yml"
 fanoutSecrets_file = "group_vars/fanout/secrets.yml"
+labYml_file = "group_vars/lab/lab.yml"
+labPduLinks_file = "files/sonic_lab_pdu_links.csv"
 labSecrets_file = "group_vars/lab/secrets.yml"
 lab_file = "lab"
 inventory_file = "inventory"
@@ -82,6 +84,8 @@ backupList.append(console_links_file)
 backupList.append(eosCred_file)
 backupList.append(fanoutSecrets_file)
 backupList.append(labSecrets_file)
+backupList.append(labYml_file)
+backupList.append(labPduLinks_file)
 backupList.append(lab_file)
 backupList.append(inventory_file)
 backupList.append(dockerRegistry_file)
@@ -1122,6 +1126,129 @@ def updateDockerRegistry(docker_registry, outfile):
             toWrite.write("\n\n")
 
 
+"""
+makeSonicLabPduLinks(data, outfile)
+@:parameter data - reads from pdu_links dictionary
+@:parameter outfile - the file to write to
+generates /files/sonic_lab_pdu_links.csv by pulling EndDevice, EndPort, EndFeed
+error handling: skips devices that declare no interfaces, blanks out empty values
+"""
+
+
+def makeSonicLabPduLinks(data, outfile):
+    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,EndFeed"
+    topology = data
+
+    try:
+        with open(outfile, "w") as f:
+            f.write(csv_columns + "\n")
+            for startDevice, item in topology.items():
+                interfacesDetails = item.get("interfaces")
+                if not interfacesDetails:
+                    continue
+
+                for startPort, element in interfacesDetails.items():
+                    endDevice = element.get("EndDevice")
+                    endPort = element.get("EndPort")
+                    endFeed = element.get("EndFeed")
+
+                    # catch empty values
+                    if not endDevice:
+                        endDevice = ""
+                    if not endPort:
+                        endPort = ""
+                    if not endFeed:
+                        endFeed = ""
+
+                    row = str(startDevice) + "," + str(startPort) + "," + \
+                        str(endDevice) + "," + str(endPort) + "," + str(endFeed)
+                    f.write(row + "\n")
+    except IOError:
+        print("I/O error: issue creating sonic_lab_pdu_links.csv")
+
+
+"""
+formatLabYmlValue(value)
+@:parameter value - a single lab_config value
+Renders one value in the quoting style already used by group_vars/lab/lab.yml
+(double quotes for scalars, single-quoted items inside a flow sequence) so that
+updating a key does not reformat the rest of the file.
+"""
+
+
+def formatLabYmlValue(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    elif value is None:
+        return ""
+    elif isinstance(value, str):
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    elif isinstance(value, dict):
+        return yaml.safe_dump(value, default_flow_style=True).strip().rstrip(".").strip()
+    else:
+        return str(value)
+
+
+"""
+makeLabYml(data, outfile)
+@:parameter data - the dictionary to look through (lab_config dictionary)
+@:parameter outfile - the file to write to
+Updates lab-wide (testlab group) variables in /group_vars/lab/lab.yml IN PLACE.
+Only the keys present in lab_config are updated; all other keys, comments, and
+formatting in the existing file are preserved. Keys not already present are
+appended at the end. If the file does not exist, it is created with the keys.
+"""
+
+
+def makeLabYml(data, outfile):
+    lab_config = data
+    if not lab_config:
+        return
+
+    # Read the existing file so we can preserve comments and untouched keys
+    try:
+        with open(outfile, "r") as f:
+            lines = f.readlines()
+    except IOError:
+        lines = []
+
+    remaining = dict(lab_config)
+    updated_lines = []
+    dropping_old_value = False
+    for line in lines:
+        stripped = line.strip()
+
+        if dropping_old_value:
+            if line[:1] in (" ", "\t") or stripped.startswith("-"):
+                continue
+            dropping_old_value = False
+
+        matched_key = None
+
+        if line[:1] not in (" ", "\t"):
+            for key in remaining:
+                if stripped.startswith(key + ":"):
+                    matched_key = key
+                    break
+        if matched_key is not None:
+            updated_lines.append(
+                matched_key + ": " +
+                formatLabYmlValue(remaining[matched_key]) + "\n")
+            del remaining[matched_key]
+            dropping_old_value = True
+        else:
+            updated_lines.append(line)
+
+    # Append any requested keys that were not already present in the file
+    if remaining and updated_lines and not updated_lines[-1].endswith("\n"):
+        updated_lines[-1] += "\n"
+    for key, value in remaining.items():
+        updated_lines.append(key + ": " + formatLabYmlValue(value) + "\n")
+
+    with open(outfile, "w") as toWrite:
+        toWrite.writelines(updated_lines)
+
+
 def main():
     print("PROCESS STARTED")
     ##############################################################
@@ -1171,6 +1298,15 @@ def main():
     docker_registry = dict()
     # load docker_registry
     generateDictionary(doc, docker_registry, "docker_registry")
+    # dictionary contains information about pdu_links (optional)
+    pdu_links = dict()
+    if "pdu_links" in doc:
+        generateDictionary(doc, pdu_links, "pdu_links")     # load pdu_links
+    # dictionary contains lab-wide group variables (optional)
+    lab_config = dict()
+    if "lab_config" in doc:
+        generateDictionary(doc, lab_config, "lab_config")   # load lab_config
+
     print("LOADING PROCESS COMPLETED")
 
     ##############################################################
@@ -1185,6 +1321,9 @@ def main():
     print("\tCREATING SONIC LAB CONSOLE LINKS: " + args.basedir + console_links_file)
     # Generate sonic_lab_console_links.csv (DEVICES)
     makeSonicLabConsoleLinks(devices, args.basedir + console_links_file)
+    print("\tCREATING SONIC LAB PDU LINKS: " + args.basedir + labPduLinks_file)
+    # Generate sonic_lab_pdu_links.csv (PDU_LINKS)
+    makeSonicLabPduLinks(pdu_links, args.basedir + labPduLinks_file)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
     # Generate testbed.yaml (TESTBED)
     makeTestbed(testbed, args.basedir + testbed_file)
@@ -1200,6 +1339,10 @@ def main():
     print("\tCREATING LAB SECRETS: " + args.basedir + labSecrets_file)
     # Generate lab\secrets.yml (SECRETS)
     makeLabSecrets(devices, args.basedir + labSecrets_file)
+    if lab_config:
+        print("\tCREATING LAB VARS: " + args.basedir + labYml_file)
+        # Generate lab\lab.yml (LAB GROUP VARS)
+        makeLabYml(lab_config, args.basedir + labYml_file)
     print("\tCREATING MAIN.YML: " + args.basedir + main_file)
     makeMain(veos, args.basedir + main_file)  # Generate main.yml (MAIN)
     print("\tCREATING LAB FILE: " + args.basedir + lab_file)
