@@ -43,6 +43,24 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
 The `--confcutdir` option also prevents collection of parent package setup that
 imports Linux-only testbed utilities.
 
+### Power-off reboot delay regression
+
+`unit_test_power_off_reboot.py` extracts the real power-off helper via `ast`
+without importing testbed dependencies. It verifies that each cycle turns off
+all outlets, waits for shutdown synchronization, then honors the configured
+power-off interval before restoring the selected PSU outlets. Coverage includes
+5/15-second defaults, the 60-second chassis delay, a custom delay, repeated
+cycles, multi-outlet PSUs, and interrupted waits.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_power_off_reboot.py -v
+```
+
+The clock and PDU operations are mocked. Verifying power-rail discharge and the
+reported reboot cause still requires a hardware power-cycle run; the helper
+continues to require `Power Loss` through the existing reboot-cause checks.
+
 ## Requirements
 
 - Python 3
