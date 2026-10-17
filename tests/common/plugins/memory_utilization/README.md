@@ -474,3 +474,15 @@ Common troubleshooting steps:
 2. Verify if the memory increase is expected due to test operations
 3. Analyze the DUT logs for potential memory leaks or resource issues
 4. For persistent issues, consider increasing the threshold or disabling the specific check
+
+### Absent containers / daemons (e.g. SmartSwitch DPUs)
+
+A monitored `docker` container or process may not run on every DUT. For example, a
+SmartSwitch DPU typically does not run the `snmp`, `lldp`, `radv`, or `teamd` containers,
+so `docker stats` never reports them. When a monitored item is missing from the collected
+output, the plugin treats it as "not present on this DUT" and skips it quietly (logged at
+`debug` level, not `warning`) — this is expected and does not affect the test result.
+
+A `WARNING| Skipping memory check for <name>-<item> due to zero value` is only emitted when
+the item **is** present in the command output but reports a value of `0`, which is worth
+investigating.
