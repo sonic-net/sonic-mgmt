@@ -312,6 +312,105 @@ def wait_host_on(host, timeout=420, interval=10, delay=30):
     return wait_until(timeout, interval, delay, lambda: host.critical_services_fully_started())
 
 
+# --- Rack Manager command (Redfish -> sonic-dbus-bridge) helpers ----------
+
+RACK_MANAGER_COMMAND_TABLE = 'RACK_MANAGER_COMMAND'
+
+# sonic-dbus-bridge publishes one command at a time and holds the next until
+# bmcctld reports DONE/FAILED for the previous one, so a new row can lag the
+# request that caused it by as long as the preceding power action takes.
+RACK_MANAGER_COMMAND_PUBLISH_TIMEOUT = 120
+# A rejected request never reaches the bridge, so absence only needs a short
+# observation window.
+RACK_MANAGER_COMMAND_ABSENCE_WINDOW = 5
+
+
+def rack_manager_command_keys(duthost):
+    """Return the current RACK_MANAGER_COMMAND|* keys in STATE_DB as a set.
+
+    Callers snapshot this immediately before issuing a request that is
+    expected to make the bridge publish a new command row, then diff a later
+    snapshot against it to find only the row(s) created by that request.
+    The bridge generates its own key suffix (a counter-based command id);
+    this never assumes or parses that format, it only ever compares key sets.
+
+    Fails on a sonic-db-cli error instead of returning an empty set (as
+    redis_keys does), which would hide new rows or make old rows look new.
+    """
+    res = duthost.shell(f"sonic-db-cli {STATE_DB} KEYS '{RACK_MANAGER_COMMAND_TABLE}|*'",
+                        module_ignore_errors=True)
+    pytest_assert(res.get('rc') == 0 and not res.get('failed'),
+                  "Failed to read {}|* from {}: rc={} stderr={!r}".format(
+                      RACK_MANAGER_COMMAND_TABLE, STATE_DB, res.get('rc'), res.get('stderr', '')))
+    out = (res.get('stdout') or '').strip()
+    return set(out.splitlines()) if out else set()
+
+
+def _wait_until_or_raise(timeout, interval, condition):
+    """wait_until that re-raises the condition's first error instead of polling past it."""
+    errors = []
+
+    def _checked():
+        try:
+            return condition()
+        except (Exception, pytest.fail.Exception) as e:
+            errors.append(e)
+            return True
+
+    reached = wait_until(timeout, interval, 0, _checked)
+    if errors:
+        raise errors[0]
+    return reached
+
+
+def wait_for_rack_manager_command(duthost, pre_keys, expected_command,
+                                  timeout=RACK_MANAGER_COMMAND_PUBLISH_TIMEOUT, interval=1):
+    """Poll for a new RACK_MANAGER_COMMAND row whose 'command' field matches.
+
+    `pre_keys` must be a snapshot taken (via rack_manager_command_keys)
+    immediately before the action expected to create the row, so stale rows
+    left over from unrelated activity are never mistaken for it.
+
+    On each poll every key not in pre_keys is inspected: if more than one new
+    row has appeared (e.g. a concurrent unrelated command), each is checked
+    and the one whose command field equals expected_command is returned; a
+    new row with a different command is simply not a match, not a failure.
+
+    Returns the matching key (e.g. 'RACK_MANAGER_COMMAND|CMD_...'), or None
+    if no matching row appeared within timeout. A KEYS read error raises.
+    """
+    result = {}
+
+    def _matching_new_row_present():
+        for key in rack_manager_command_keys(duthost) - pre_keys:
+            if redis_hget(duthost, STATE_DB, key, 'command') == expected_command:
+                result['key'] = key
+                return True
+        return False
+
+    _wait_until_or_raise(timeout, interval, _matching_new_row_present)
+    return result.get('key')
+
+
+def wait_for_no_new_rack_manager_command(duthost, pre_keys,
+                                         timeout=RACK_MANAGER_COMMAND_ABSENCE_WINDOW, interval=1):
+    """Observe STATE_DB for `timeout` seconds and confirm no new
+    RACK_MANAGER_COMMAND|* row appears relative to pre_keys.
+
+    For negative cases (e.g. a Redfish request rejected by bmcweb before it
+    reaches the bridge) where only absence needs proving. Any new row counts,
+    whatever its command, so callers must not have other requests in flight.
+    A STATE_DB read error raises rather than counting as absence.
+
+    Returns True if no new row appeared during the window, False if one did.
+    """
+    appeared = _wait_until_or_raise(
+        timeout, interval,
+        lambda: bool(rack_manager_command_keys(duthost) - pre_keys),
+    )
+    return not appeared
+
+
 SWITCH_HOST_STARTUP_ACK = "Starting up chassis module SWITCH-HOST"
 
 
