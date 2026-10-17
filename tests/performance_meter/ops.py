@@ -51,6 +51,5 @@ async def reboot_by_cmd(request):
 
 async def config_reload_by_cmd(request):
     duthost = request.getfixturevalue("duthost")
-    command = asyncio.create_task(async_command_ignore_errors(duthost, "config reload -f -y"))
+    await async_command_ignore_errors(duthost, "config reload -f -y")
     yield True
-    await command
