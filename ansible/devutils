@@ -406,7 +406,9 @@ def action_pdu_reboot(parameters):
     data = data + data_on
     show_data_output(header, data, parameters['json'], parameters['out'])
     if not shutdown_complete:
-        sys.exit('Failed to confirm all PDU outlets were off within 60 seconds; power-on was attempted.')
+        print('devutils: error: failed to confirm all PDU outlets were off within 60 seconds; '
+              'power-on was attempted.', file=sys.stderr)
+    return shutdown_complete
 
 
 def action_dispatcher(parameters):
@@ -414,9 +416,8 @@ def action_dispatcher(parameters):
     parallel_actions = ['ssh_run_command']
     action = parameters['action'].__name__
     if action in parallel_actions:
-        parallel_run(parameters)
-    else:
-        parameters['action'](parameters)
+        return parallel_run(parameters)
+    return parameters['action'](parameters)
 
 
 def parallel_run(parameters):
@@ -533,8 +534,8 @@ def main():
                   'json': args.json,
                   'out': args.out,
                   }
-    action_dispatcher(parameters)
+    return 1 if action_dispatcher(parameters) is False else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
