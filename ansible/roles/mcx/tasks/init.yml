@@ -1,0 +1,81 @@
+##############################################################################################
+### This playbook now supports Arista-720dt only
+### This playbook will configure management IP (default to Ethernet48(etp49) and setup console
+################################################################################################
+- name: Set HwSku
+  set_fact:
+    HwSku: "{{ device_info[inventory_hostname][\"HwSku\"] }}"
+
+- name: Check that HwSku is Arista-720DT-48S
+  fail: msg="Device HwSku is not Arista-720DT-48S"
+  when: "'Arista-720DT' not in HwSku"
+
+- name: Rotate the password
+  shell: "echo {{ mgmt_admin_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+  ignore_errors: true
+
+- name: Set credential for auto-recovery
+  set_fact:
+    console_ssh_user: "{{ console_login['console_ssh']['user'] }}"
+    console_ssh_password: "{{ console_login['console_ssh']['passwd'] }}"
+
+- name: Create user for auto-recovery
+  user:
+    name: "{{ console_ssh_user }}"
+    state: present
+    home: "/home/{{ console_ssh_user }}"
+    groups: sudo
+    append: yes
+    shell: /bin/bash
+
+- name: Set password for sonicadmin
+  shell: "echo {{ console_ssh_user }}:{{ console_ssh_password }} | sudo chpasswd"
+  ignore_errors: true
+
+- name: Move json config to console server
+  template:
+    src: init_mcx_config.j2
+    dest: /tmp/base_config.json
+
+- name: Backup config_db.json
+  shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+
+- name: Generate new config_db.json with sonic-cfggen
+  shell: sonic-cfggen -H -k {{ HwSku }} -d -j /tmp/base_config.json --print-data > /tmp/new_config.json
+
+- name: Remove INTERFACE
+  shell: jq 'del(.INTERFACE)' /tmp/new_config.json > /etc/sonic/config_db.json
+
+- name: Config reload
+  shell: config reload -y
+
+- name: Set udevprefix.conf
+  shell: echo C0- > /usr/share/sonic/device/x86_64-arista_720dt_48s/udevprefix.conf
+
+- name: Cp udev_prefix.sh
+  copy:
+    src: udev_prefix.sh
+    dest: /usr/local/bin/udev_prefix.sh
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Cp 50-ttyUSB-C0.rules
+  copy:
+    src: 50-ttyUSB-C0.rules
+    dest: /etc/udev/rules.d/50-ttyUSB-C0.rules
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unbind USB
+  shell: sudo sh -c "echo '1-1' > /sys/bus/usb/drivers/usb/unbind"
+
+- name: Bind USB
+  shell: sudo sh -c "echo '1-1' > /sys/bus/usb/drivers/usb/bind"
+
+- name: Enable console
+  shell: sudo config console enable
+
+- name: Config save
+  shell: sudo config save -y
