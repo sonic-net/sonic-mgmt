@@ -2,6 +2,7 @@
 
 # Supress warning
 import sys
+import time
 from devutil import conn_graph_helper
 from devutil.task_runner import TaskRunner
 from devutil.ssh_utils import SSHClient
@@ -307,7 +308,11 @@ def pdu_action_on_dut(host, attrs, action):
         ret['Summary'].append('Unsupported action {}.'.format(action))
         return ret
 
-    outlet_status = pduman.get_outlet_status()
+    return pdu_status_result(host, action, pduman.get_outlet_status())
+
+
+def pdu_status_result(host, action, outlet_status):
+    ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
     psu_status = {}
     for outlet in outlet_status:
         ret['PDU status'].append(outlet)
@@ -328,7 +333,8 @@ def pdu_action_on_dut(host, attrs, action):
                     outlet_watts = int(outlet['output_watts'])
                 except ValueError:
                     outlet_watts = 0
-            status['output_watts'] = status['output_watts'] + outlet_watts
+            if status['output_watts'] != 'N/A':
+                status['output_watts'] = status['output_watts'] + outlet_watts
         psu_status[psu_name] = status
     ret['PSU status'] = psu_status
 
@@ -381,34 +387,81 @@ def action_pdu_on(parameters):
     show_data_output(header, data, parameters['json'], parameters['out'])
 
 
-def pdu_shutdown_complete(parameters):
-    _, data = action_pdu(dict(parameters, json=True), 'status')
-    if not data or len(data) != len(parameters['hosts']):
-        return False
-    for status in data:
-        outlets = status['PDU status']
-        success, info = get_pdu_info(status['Host'], parameters['hosts'][status['Host']])
-        if not success or status['Summary'] or not outlets:
-            return False
-        expected_feeds = {(psu, feed) for psu, feeds in info[0].items() for feed in feeds}
-        observed_feeds = {(outlet['psu_name'], outlet['feed_name']) for outlet in outlets}
-        if observed_feeds != expected_feeds or any(outlet.get('outlet_off') is not True for outlet in outlets):
-            return False
-    return True
+def pdu_outlets_in_state(pduman, outlets, state, status):
+    status.clear()
+    for outlet in outlets:
+        status.extend(pduman.get_outlet_status(outlet))
+    keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
+    expected = {tuple(outlet[key] for key in keys) for outlet in outlets}
+    observed = {tuple(outlet[key] for key in keys) for outlet in status}
+    return (bool(expected) and len(status) == len(outlets) and observed == expected
+            and (state is None or all(outlet.get(state) is True for outlet in status)))
+
+
+def set_pdu_outlets(pduman, outlets, power_on):
+    action = 'on' if power_on else 'off'
+    command = pduman.turn_on_outlet if power_on else pduman.turn_off_outlet
+    for outlet in outlets:
+        try:
+            if command(outlet):
+                continue
+            error = 'command was not acknowledged'
+        except Exception as exc:
+            error = str(exc)
+        print('devutils: warning: {} {} outlet {} power-{}: {}; final state will be checked.'.format(
+            pduman.dut_hostname, outlet['pdu_name'], outlet['outlet_id'], action, error), file=sys.stderr)
+
+
+def pdu_reboot_on_dut(host, attrs, hold_seconds):
+    success, info = get_pdu_info(host, attrs)
+    if not success:
+        raise RuntimeError(info)
+    pduman = pdu_manager_factory(host, *info)
+    if not pduman:
+        raise RuntimeError('Failed to communicate with PDU controllers for {}'.format(host))
+    outlets = pduman.get_configured_outlets()
+    if not pdu_outlets_in_state(pduman, outlets, None, []):
+        raise RuntimeError('Failed to read all configured PDU outlets for {}; no power changes made'.format(host))
+
+    off_status, on_status = [], []
+    try:
+        set_pdu_outlets(pduman, outlets, False)
+        shutdown_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, outlets, 'outlet_off', off_status)
+        if shutdown_complete:
+            time.sleep(hold_seconds)
+        else:
+            print('devutils: error: {}: failed to confirm all PDU outlets OFF within 60 seconds.'.format(host),
+                  file=sys.stderr)
+    finally:
+        # Retain every target, even if OFF failed or a later status read omits it.
+        set_pdu_outlets(pduman, outlets, True)
+        power_on_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, outlets, 'outlet_on', on_status)
+        if not power_on_complete:
+            print('devutils: error: {}: failed to confirm all PDU outlets ON within 60 seconds; '
+                  'power-on was attempted for every outlet.'.format(host), file=sys.stderr)
+    return {'success': shutdown_complete and power_on_complete,
+            'data': [pdu_status_result(host, 'off', off_status), pdu_status_result(host, 'on', on_status)]}
 
 
 def action_pdu_reboot(parameters):
-    header, data = action_pdu(parameters, 'off')
-    shutdown_complete = wait_until(60, 1, 0, pdu_shutdown_complete, parameters)
-    # Restore power even if shutdown confirmation timed out.
-    _, data_on = action_pdu(parameters, 'on')
-
-    data = data + data_on
+    header = ['Host', 'Action', 'PSU status', 'PDU status', 'Summary']
+    data = []
+    success = bool(parameters['hosts'])
+    for host, attrs in parameters['hosts'].items():
+        g_task_runner.submit_task(host, pdu_reboot_on_dut, host=host, attrs=attrs,
+                                  hold_seconds=parameters['hold_seconds'])
+    for host, ret in g_task_runner.task_results():
+        result = ret['result']
+        if not isinstance(result, dict):
+            print('devutils: error: {}: {}'.format(host, result), file=sys.stderr)
+            status = pdu_status_result(host, 'reboot', [])
+            status['Summary'].append(result)
+            result = {'success': False, 'data': [status]}
+        success = success and result['success']
+        for status in result['data']:
+            data.append(status if parameters['json'] else [status[key] for key in header])
     show_data_output(header, data, parameters['json'], parameters['out'])
-    if not shutdown_complete:
-        print('devutils: error: failed to confirm all PDU outlets were off within 60 seconds; '
-              'power-on was attempted.', file=sys.stderr)
-    return shutdown_complete
+    return success
 
 
 def action_dispatcher(parameters):
@@ -476,6 +529,8 @@ def main():
                                  'pdu_on', 'pdu_off', 'pdu_reboot', 'pdu_failures'])
     parser.add_argument('--cmd', help="Command to run on all hosts",
                         type=str, required=False)
+    parser.add_argument('--hold-seconds', help='Minimum confirmed power-off time for pdu_reboot, default 1 second',
+                        type=int, default=1)
     parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
                         type=str, required=False, default='all')
     parser.add_argument('-i', '--inventory', help='Categories: lab, etc, default lab',
@@ -496,6 +551,8 @@ def main():
                         required=False, default=None)
 
     args = parser.parse_args()
+    if args.hold_seconds < 1:
+        parser.error('--hold-seconds must be at least 1')
     if not validate_args(args):
         return
     setup_logging(args.log_level)
@@ -508,11 +565,11 @@ def main():
                   "pdu_off actions to avoid impacting all devices accidentally.")
             print(
                 "If you are sure to do pdu action to all devices, please use -l/--limit all.")
-            return
+            return 1 if args.action == 'pdu_reboot' else None
     hosts = retrieve_hosts(args.group, args.limit)
     if not hosts:
         print('No matching hosts')
-        return
+        return 1 if args.action == 'pdu_reboot' else None
     get_conn_graph_facts(hosts)
     actions = {'list': action_list,
                'ping': action_ping,
@@ -533,6 +590,7 @@ def main():
                   'cmd': args.cmd,
                   'json': args.json,
                   'out': args.out,
+                  'hold_seconds': args.hold_seconds,
                   }
     return 1 if action_dispatcher(parameters) is False else 0
 

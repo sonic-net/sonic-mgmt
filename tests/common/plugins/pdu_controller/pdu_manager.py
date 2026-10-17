@@ -170,6 +170,30 @@ class PduManager():
     def _get_controller(self, outlet):
         return self.PSUs[outlet['psu_name']].feeds[outlet['feed_name']].controller
 
+    def get_configured_outlets(self):
+        """Resolve all configured outlets without losing failed status reads."""
+        outlets = []
+        for psu_name, peers in self.configured_psu_peers.items():
+            if psu_name not in self.PSUs:
+                raise RuntimeError('Unreachable PSU {}'.format(psu_name))
+            for feed_name, peer in peers.items():
+                if feed_name not in self.PSUs[psu_name].feeds:
+                    raise RuntimeError('Unreachable PSU {} feed {}'.format(psu_name, feed_name))
+                controller = self.PSUs[psu_name].feeds[feed_name].controller
+                if not controller.port_discovery_complete:
+                    raise RuntimeError('Incomplete outlet discovery for {}'.format(peer['peerdevice']))
+                peerport = peer.get('peerport', 'probing')
+                if peerport == 'probing':
+                    ports = [oid for oid, port in controller.port_oid_dict.items()
+                             if self.dut_hostname.lower() in port['label']]
+                else:
+                    ports = [oid for oid in controller.port_oid_dict if oid.endswith('.' + peerport.lstrip('.'))]
+                if not ports:
+                    raise RuntimeError('No outlets found for PSU {} feed {}'.format(psu_name, feed_name))
+                outlets.extend({'pdu_name': peer['peerdevice'], 'psu_name': psu_name,
+                                'feed_name': feed_name, 'outlet_id': oid} for oid in ports)
+        return outlets
+
     def turn_on_outlet(self, outlet=None):
         """
             Turnning on an outlet. The outlet contains enough information

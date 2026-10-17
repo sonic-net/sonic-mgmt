@@ -178,6 +178,8 @@ class snmpPduController(PduControllerBase):
         )
 
         for errorIndication, errorStatus, errorIndex, varBinds in results:
+            if errorIndication or errorStatus:
+                self.port_discovery_complete = False
             if errorIndication:
                 logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
                 continue
@@ -202,6 +204,7 @@ class snmpPduController(PduControllerBase):
         The PDU ports connected to DUT must have hostname of DUT configured in port name/description.
         This method depends on this configuration to find out the PDU ports connected to PSUs of specific DUT.
         """
+        self.port_discovery_complete = False
         if not self.pduType:
             logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
@@ -209,6 +212,7 @@ class snmpPduController(PduControllerBase):
             logger.error('Does not have readonly snmp_auth')
             return
 
+        self.port_discovery_complete = True
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, self.ro_snmp_auth)
 
@@ -397,8 +401,8 @@ class snmpPduController(PduControllerBase):
             ContextData(),
             ObjectType(ObjectIdentity(query_id))
         )
-        if errorIndication:
-            logger.debug("Failed to get outlet status of PDU, exception: " + str(errorIndication))
+        if errorIndication or errorStatus:
+            logger.debug("Failed to get outlet status of PDU, exception: " + str(errorIndication or errorStatus))
             return None
 
         for oid, val in varBinds:
