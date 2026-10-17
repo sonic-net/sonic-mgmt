@@ -120,7 +120,7 @@ class snmpPduController(PduControllerBase):
             self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
             self.STATUS_ON, self.STATUS_OFF = "1", "0"
             self.CONTROL_ON, self.CONTROL_OFF = "1", "0"
-        elif self.pduType == "Sentry4":
+        elif self.pduType in ("Sentry4", "Sentry5"):
             self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
