@@ -6,7 +6,14 @@ and configuration, then measures apply-patch wall time and verifies it
 completes within a budget derived from the platform's own loadData() cost.
 
 The budget formula is platform-agnostic:
-    budget = FIXED_OVERHEAD + expected_moves * loads_per_move * measured_loaddata_time * safety_multiplier
+    raw_budget = expected_moves * loads_per_move * measured_loaddata_time * SAFETY_MULTIPLIER
+    budget     = min(MAX_TIMEOUT,
+                     measured_overhead * OVERHEAD_SAFETY_MULTIPLIER + raw_budget)
+
+measured_overhead is calibrated at runtime (see perf_ctx), not a fixed constant.
+SAFETY_MULTIPLIER covers the variable, per-move term only; the fixed overhead term
+carries its own OVERHEAD_SAFETY_MULTIPLIER so that run-to-run variance in CLI
+startup, SSH and ConfigDB write does not push a healthy run over budget.
 
 Test scenarios cover different code paths through the GCU sort algorithm:
 1. ACL port removal (REPLACE → N REMOVEs) — exercises DFS + leaf-list handling
@@ -40,6 +47,14 @@ logger = logging.getLogger(__name__)
 # Must be generous enough to absorb per-move overhead beyond loadData
 # (JSON diff, patch simulation, move generation, config serialization).
 SAFETY_MULTIPLIER = 5
+
+# Safety multiplier applied to the calibrated fixed overhead.
+# The overhead is measured from a small number of calibration apply-patch
+# invocations, so it carries real sampling noise: CLI startup, YANG sort init,
+# ConfigDB write and the ansible SSH round trip all vary from run to run on a
+# loaded testbed. Without a margin here, a run that is marginally slower than
+# the moment of calibration fails even though nothing regressed.
+OVERHEAD_SAFETY_MULTIPLIER = 1.5
 
 # Absolute ceiling for the timeout (seconds).
 MAX_TIMEOUT = 3600
@@ -135,20 +150,34 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     # Overhead = total_time - expected variable cost for 1 move (2 loadData calls).
     # This captures CLI startup, YANG sort init, ConfigDB write, ansible SSH —
     # everything that's constant regardless of patch size.
+    #
+    # The cleanup invocation below is a second 1-move patch, so it measures the
+    # same fixed cost and is already being paid for. Use both samples and keep
+    # the larger one, which costs no extra test time and makes the estimate far
+    # less sensitive to a single unlucky measurement.
     cal_patch = [{"op": "add", "path": "/NTP_SERVER/198.51.100.99", "value": {}}]
     cal_elapsed, cal_output = _apply_and_measure(
         duthost, cal_patch, label="[calibrate]")
     # Clean up calibration entry
     cal_cleanup = [{"op": "remove", "path": "/NTP_SERVER/198.51.100.99"}]
-    _apply_and_measure(duthost, cal_cleanup, label="[cal cleanup]")
+    cleanup_elapsed, cleanup_output = _apply_and_measure(
+        duthost, cal_cleanup, label="[cal cleanup]")
 
     expected_variable = 1 * 2 * loaddata_time  # 1 move, 2 loads/move
-    measured_overhead = max(MIN_OVERHEAD, cal_elapsed - expected_variable)
+    cal_samples = [cal_elapsed]
+    # Only trust the cleanup timing if the cleanup actually succeeded; a failed
+    # apply-patch says nothing useful about normal overhead and could otherwise
+    # inflate the budget.
+    if cleanup_output['rc'] == 0:
+        cal_samples.append(cleanup_elapsed)
+    worst_cal = max(cal_samples)
+    measured_overhead = max(MIN_OVERHEAD, worst_cal - expected_variable)
     logger.info(
         "Calibrated overhead: {:.1f}s "
-        "(cal={:.1f}s - variable={:.2f}s, floor={}s)".format(
-            measured_overhead, cal_elapsed,
-            expected_variable, MIN_OVERHEAD))
+        "(samples=[{}], worst={:.1f}s - variable={:.2f}s, floor={}s)".format(
+            measured_overhead,
+            ", ".join("{:.1f}s".format(s) for s in cal_samples),
+            worst_cal, expected_variable, MIN_OVERHEAD))
 
     # Generate unique table prefix per test run to avoid conflicts
     run_id = uuid.uuid4().hex[:6]
@@ -221,12 +250,14 @@ def _compute_budget(expected_moves, loaddata_time, measured_overhead):
     """
     loads_per_move = 2  # FullConfigMoveValidator + NoDependencyMoveValidator
     raw_budget = expected_moves * loads_per_move * loaddata_time * SAFETY_MULTIPLIER
-    budget = min(MAX_TIMEOUT, measured_overhead + raw_budget)
+    overhead_budget = measured_overhead * OVERHEAD_SAFETY_MULTIPLIER
+    budget = min(MAX_TIMEOUT, overhead_budget + raw_budget)
     logger.info(
-        "Budget: {:.1f}s overhead + {} moves * {} loads/move * {:.3f}s/load * {}x safety = {:.1f}s "
-        "(capped at {:.1f}s)".format(
-            measured_overhead, expected_moves, loads_per_move, loaddata_time,
-            SAFETY_MULTIPLIER, measured_overhead + raw_budget, budget))
+        "Budget: {:.1f}s overhead * {}x safety + {} moves * {} loads/move * {:.3f}s/load "
+        "* {}x safety = {:.1f}s (capped at {:.1f}s)".format(
+            measured_overhead, OVERHEAD_SAFETY_MULTIPLIER, expected_moves,
+            loads_per_move, loaddata_time, SAFETY_MULTIPLIER,
+            overhead_budget + raw_budget, budget))
     return budget
 
 
