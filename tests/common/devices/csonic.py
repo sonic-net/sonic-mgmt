@@ -6,6 +6,7 @@ inside the cSONiC container. This avoids the need for sshd, admin user, or mgmt 
 inside the container.
 """
 
+import ipaddress
 import json
 import logging
 import os
@@ -187,14 +188,23 @@ class CsonicHost(NeighborDevice):
                                  module_ignore_errors=True)
 
     def get_route(self, prefix):
-        """Get route info from FRR."""
-        result = self._docker_exec("vtysh -c 'show ip route {} json'".format(prefix))
-        if result['rc'] == 0 and result['stdout']:
-            try:
-                return json.loads(result['stdout'])
-            except json.JSONDecodeError:
-                pass
-        return {}
+        """Get BGP route info for a prefix from FRR.
+
+        Mirrors ``SonicHost.get_route``: returns the parsed
+        ``show bgp ipv4|ipv6 unicast <prefix> json`` output, which has a
+        ``paths`` list when the prefix is in the BGP table. Returns ``{}`` when
+        the prefix is absent or the command/JSON fails.
+        """
+        afi = 'ipv6' if ipaddress.ip_network(prefix, strict=False).version == 6 else 'ipv4'
+        result = self._docker_exec('vtysh -c "show bgp {} unicast {} json"'.format(afi, prefix),
+                                   module_ignore_errors=True)
+        if result.get('rc') != 0 or not result.get('stdout'):
+            return {}
+        try:
+            data = json.loads(result['stdout'])
+        except (json.JSONDecodeError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def get_port_channel_status(self, pc_name=None):
         """Get PortChannel status."""

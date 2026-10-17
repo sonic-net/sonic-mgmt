@@ -13,6 +13,8 @@ container. They cover:
                              deciding established-ness
   * _bgp_summary_peers      - summary parsing + FRR address-family nesting
   * _bgp_neighbors_json     - neighbors parsing + malformed-output handling
+  * get_route              - ``show bgp ipv4|ipv6 unicast <prefix> json``
+                             (SonicHost-compatible shape, {} on error)
 
 Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 """
@@ -211,6 +213,69 @@ class TestSummaryAndNeighborParsers:
         host = make_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("[1,2,3]")):
             assert host._bgp_neighbors_json("ipv4") == {}
+
+
+# --- get_route --------------------------------------------------------------
+
+# Trimmed ``show bgp ipv4|ipv6 unicast <prefix> json`` output.
+ROUTE_V4 = {
+    "prefix": "192.168.0.0/21",
+    "pathCount": 1,
+    "paths": [{"aspath": {"string": "65100"}, "valid": True,
+               "nexthops": [{"ip": "10.0.0.56", "afi": "ipv4"}]}],
+}
+ROUTE_V6 = {
+    "prefix": "fc02:1000::/64",
+    "pathCount": 1,
+    "paths": [{"aspath": {"string": "65100"}, "valid": True,
+               "nexthops": [{"ip": "fc00::71", "afi": "ipv6"}]}],
+}
+
+
+class TestGetRoute:
+    def test_ipv4_prefix_uses_bgp_ipv4_unicast(self):
+        import json as _json
+        host = make_host()
+        with patch.object(host, "_docker_exec",
+                          return_value=docker_ok(_json.dumps(ROUTE_V4))) as mock_exec:
+            route = host.get_route("192.168.0.0/21")
+        assert route == ROUTE_V4
+        assert route["paths"]
+        cmd = mock_exec.call_args[0][0]
+        assert "show bgp ipv4 unicast 192.168.0.0/21 json" in cmd
+
+    def test_ipv6_prefix_uses_bgp_ipv6_unicast(self):
+        import json as _json
+        host = make_host()
+        with patch.object(host, "_docker_exec",
+                          return_value=docker_ok(_json.dumps(ROUTE_V6))) as mock_exec:
+            route = host.get_route("fc02:1000::/64")
+        assert route == ROUTE_V6
+        cmd = mock_exec.call_args[0][0]
+        assert "show bgp ipv6 unicast fc02:1000::/64 json" in cmd
+
+    def test_prefix_absent_is_empty(self):
+        """FRR prints '{}' when the prefix is not in the BGP table."""
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("{\n}")):
+            assert host.get_route("10.255.0.0/24") == {}
+
+    def test_command_failure_is_empty(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec",
+                          return_value={"rc": 1, "stdout": "", "stderr": "no frr"}):
+            assert host.get_route("192.168.0.0/21") == {}
+
+    def test_malformed_output_is_empty(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec",
+                          return_value=docker_ok("% Unknown command")):
+            assert host.get_route("fc02:1000::/64") == {}
+
+    def test_nonobject_output_is_empty(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("[1,2,3]")):
+            assert host.get_route("192.168.0.0/21") == {}
 
 
 if __name__ == "__main__":
