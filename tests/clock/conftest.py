@@ -4,6 +4,8 @@ import pytest
 import logging
 
 from tests.clock.test_clock import ClockConsts, ClockUtils
+from tests.common.helpers.ntp_helper import get_ntp_daemon_in_use, run_ntp
+from tests.common.utilities import ping_ip
 
 
 def pytest_addoption(parser):
@@ -60,11 +62,16 @@ def restore_time(duthosts, ntp_server):
     """
     @summary: fixture to restore time after test (using ntp)
     """
-    logging.info('Check NTP server reachability')
-    try:
-        ClockUtils.run_cmd(duthosts, f'{ClockConsts.CMD_NTPDATE} -q {ntp_server}', raise_err=True)
-    except Exception as e:
-        pytest.skip(f'Unreachable NTP server {ntp_server}: {str(e)}')
+    duthost = duthosts[0]
+
+    # Basic network (ICMP) reachability safety check before we touch the DUT clock.
+    # This does not validate or probe NTP itself - it only confirms the server host
+    # is reachable, so we don't force-sync/restart NTP services against a dead IP.
+    logging.info('Check that the NTP server is network-reachable before changing the DUT clock')
+    if not ping_ip(duthost, ntp_server):
+        pytest.skip(f'NTP server {ntp_server} is not network-reachable from the DUT')
+
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
 
     logging.info('Check if there is ntp configured before test')
     show_ntp_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_NTP)
@@ -94,14 +101,18 @@ def restore_time(duthosts, ntp_server):
 
     logging.info(f'Reset time after test. Sync with NTP server: {ntp_server}')
 
-    logging.info('Stopping NTP service')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTP_STOP)
+    # run_ntp() force-syncs against whatever NTP server is currently configured on the DUT,
+    # so make sure ntp_server is configured before calling it if it isn't already
+    # (e.g. no NTP was configured before the test, or --ntp_server overrides the configured one).
+    temp_ntp_server_added = orig_ntp_server != ntp_server
+    if temp_ntp_server_added:
+        logging.info(f'Temporarily configure {ntp_server} so it can be used to resync the clock')
+        ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_ADD, ntp_server)
 
-    logging.info(f'Syncing datetime with NTP server {ntp_server}')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTPDATE, f'-s {ntp_server}')
+    run_ntp(duthost, ntp_daemon)
 
-    logging.info('Starting NTP service')
-    ClockUtils.run_cmd(duthosts, ClockConsts.CMD_NTP_START)
+    if temp_ntp_server_added:
+        ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_NTP_DEL, ntp_server)
 
     if orig_ntp_server:
         logging.info('Restore original NTP server after test')
