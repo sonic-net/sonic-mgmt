@@ -57,10 +57,6 @@ class snmpPduController(PduControllerBase):
         RARITAN_PORT_STATUS_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.3"
         RARITAN_PORT_CONTROL_BASE_OID = "1.3.6.1.4.1.13742.6.4.1.2.1.2"
         RARITAN_PORT_POWER_BASE_OID = "1.3.6.1.4.1.13742.6.5.4.3.1.4"
-        self.STATUS_ON = "1"
-        self.STATUS_OFF = "0"
-        self.CONTROL_ON = "1"
-        self.CONTROL_OFF = "2"
         self.has_lanes = True
         self.max_lanes = 5
         self.PORT_POWER_BASE_OID = None
@@ -68,20 +64,27 @@ class snmpPduController(PduControllerBase):
             self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
+            self.STATUS_ON, self.STATUS_OFF = "1", "2"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "2"
         elif self.pduType == "Sentry":
             self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY_PORT_CONTROL_BASE_OID
+            self.STATUS_ON, self.STATUS_OFF = "1", "0"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "2"
         elif self.pduType == "Emerson":
             self.PORT_NAME_BASE_OID = EMERSON_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = EMERSON_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
-            self.CONTROL_OFF = "0"
+            self.STATUS_ON, self.STATUS_OFF = "1", "0"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "0"
         elif self.pduType == "Sentry4":
             self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
             self.PORT_POWER_BASE_OID = SENTRY4_PORT_POWER_BASE_OID
+            self.STATUS_ON, self.STATUS_OFF = "1", "0"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "2"
             self.has_lanes = False
             self.max_lanes = 1
         elif self.pduType == "Vertiv":
@@ -89,15 +92,16 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID = VERTIV_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = VERTIV_PORT_CONTROL_BASE_OID
             self.PORT_POWER_BASE_OID = VERTIV_PORT_POWER_BASE_OID
-            self.STATUS_OFF = "2"
-            self.CONTROL_ON = "2"
-            self.CONTROL_OFF = "4"
+            self.STATUS_ON, self.STATUS_OFF = "1", "2"
+            self.CONTROL_ON, self.CONTROL_OFF = "2", "4"
             self.has_lanes = False
             self.max_lanes = 1
         elif self.pduType == "ApcRPDU":
             self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
+            self.STATUS_ON, self.STATUS_OFF = "1", "2"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "2"
             self.has_lanes = False
             self.max_lanes = 1
         elif self.pduType == "Raritan":
@@ -105,9 +109,8 @@ class snmpPduController(PduControllerBase):
             self.PORT_STATUS_BASE_OID = RARITAN_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = RARITAN_PORT_CONTROL_BASE_OID
             self.PORT_POWER_BASE_OID = RARITAN_PORT_POWER_BASE_OID
-            self.STATUS_ON = "7"
-            self.STATUS_OFF = "8"
-            self.CONTROL_OFF = "0"
+            self.STATUS_ON, self.STATUS_OFF = "7", "8"
+            self.CONTROL_ON, self.CONTROL_OFF = "1", "0"
             self.has_lanes = False
             self.max_lanes = 1
         else:
@@ -345,6 +348,7 @@ class snmpPduController(PduControllerBase):
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
+                status["outlet_off"] = current_val == self.STATUS_OFF
                 self._get_one_outlet_power(cmdGen, snmp_auth, port_id, status)
                 return status
 

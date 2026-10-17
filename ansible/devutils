@@ -7,7 +7,6 @@ from devutil.task_runner import TaskRunner
 from devutil.ssh_utils import SSHClient
 from devutil.inv_helpers import HostManager
 from tabulate import tabulate
-import time
 import subprocess
 import json
 import argparse
@@ -18,7 +17,7 @@ sys.path.append("..")
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa: E402
 from tests.common.connections.console_host import ConsoleHost   # noqa: E402
-from tests.common.utilities import update_console_creds  # noqa: E402
+from tests.common.utilities import update_console_creds, wait_until  # noqa: E402
 
 g_inv_mgr = None
 g_task_runner = None
@@ -382,14 +381,34 @@ def action_pdu_on(parameters):
     show_data_output(header, data, parameters['json'], parameters['out'])
 
 
+def pdu_shutdown_complete(parameters):
+    _, data = action_pdu(dict(parameters, json=True), 'status')
+    if not data or len(data) != len(parameters['hosts']):
+        return False
+    for status in data:
+        outlets = status['PDU status']
+        success, info = get_pdu_info(status['Host'], parameters['hosts'][status['Host']])
+        if not success or status['Summary'] or not outlets:
+            return False
+        expected_feeds = {(psu, feed) for psu, feeds in info[0].items() for feed in feeds}
+        observed_feeds = {(outlet['psu_name'], outlet['feed_name']) for outlet in outlets}
+        if observed_feeds != expected_feeds or any(outlet.get('outlet_off') is not True for outlet in outlets):
+            return False
+    return True
+
+
 def action_pdu_reboot(parameters):
     header, data = action_pdu(parameters, 'off')
-    # sleep 1 second to ensure there is gap between power off and on
-    time.sleep(1)
+    shutdown_complete = wait_until(60, 1, 0, pdu_shutdown_complete, parameters)
+    # Restore power even if shutdown confirmation timed out.
     _, data_on = action_pdu(parameters, 'on')
 
     data = data + data_on
     show_data_output(header, data, parameters['json'], parameters['out'])
+    if not shutdown_complete:
+        print('devutils: error: failed to confirm all PDU outlets were off within 60 seconds; '
+              'power-on was attempted.', file=sys.stderr)
+    return shutdown_complete
 
 
 def action_dispatcher(parameters):
@@ -397,9 +416,8 @@ def action_dispatcher(parameters):
     parallel_actions = ['ssh_run_command']
     action = parameters['action'].__name__
     if action in parallel_actions:
-        parallel_run(parameters)
-    else:
-        parameters['action'](parameters)
+        return parallel_run(parameters)
+    return parameters['action'](parameters)
 
 
 def parallel_run(parameters):
@@ -516,8 +534,8 @@ def main():
                   'json': args.json,
                   'out': args.out,
                   }
-    action_dispatcher(parameters)
+    return 1 if action_dispatcher(parameters) is False else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
