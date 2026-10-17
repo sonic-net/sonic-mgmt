@@ -64,6 +64,8 @@ from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
@@ -1218,7 +1220,10 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
+        # Keep the real Ansible inventory hostname. CsonicHost.hostname is a
+        # generated Docker container name and cannot be used for variable lookup.
+        register_neighbor_inventory_host(
+            devices, neighbor_name, device, vm_name)
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     servers = []
@@ -1476,11 +1481,18 @@ def eos():
 
 
 @pytest.fixture(scope='session')
-def sonic():
-    """ read and yield sonic configuration """
-    with open('sonic/sonic.yml') as stream:
-        eos = yaml.safe_load(stream)
-        return eos
+def sonic(request):
+    """Return SONiC settings visible to a specific neighbor inventory host."""
+    inv_files = get_inventory_files(request)
+
+    def _neighbor_vars(nbrhosts, neighbor_name):
+        try:
+            return get_sonic_neighbor_vars(
+                inv_files, nbrhosts, neighbor_name, get_host_visible_vars)
+        except ValueError as error:
+            pytest.fail(str(error))
+
+    return _neighbor_vars
 
 
 @pytest.fixture(scope='session')

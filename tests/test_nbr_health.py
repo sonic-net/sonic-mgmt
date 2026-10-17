@@ -134,7 +134,9 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
                 fails.append(failmsg)
 
         elif isinstance(nbrhost, SonicHost):
-            failmsg = check_snmp(k, v['mgmt_addr'], localhost, sonic['snmp_rocommunity'], False)
+            snmp_community = sonic(nbrhosts, k)['snmp_rocommunity']
+            failmsg = check_snmp(
+                k, v['mgmt_addr'], localhost, snmp_community, False)
             if failmsg:
                 fails.append(failmsg)
 
