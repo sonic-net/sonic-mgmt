@@ -37,21 +37,51 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 
+ACL_FLEX_COUNTER_KEY = 'FLEX_COUNTER_TABLE|ACL'
+ACL_DEFAULT_POLL_INTERVAL = 10000
+
+
+def read_acl_counterpoll_config(dut):
+    """
+    (status, interval) of the ACL flex counter as saved in CONFIG_DB; either is
+    None when its field is unset
+    """
+    def hget(field):
+        out = dut.shell('sonic-db-cli CONFIG_DB hget "{}" {}'.format(ACL_FLEX_COUNTER_KEY, field),
+                        module_ignore_errors=True)
+        return (out.get('stdout') or '').strip() or None
+
+    return hget('FLEX_COUNTER_STATUS'), hget('POLL_INTERVAL')
+
+
+def restore_acl_counterpoll_config(dut, status, interval):
+    """
+    Put the ACL flex counter back as read_acl_counterpoll_config found it, writing the
+    default (disabled, 10s) for a field that was unset: flexcounterorch does not act on a
+    deleted field, so clearing it would leave this test's 1s poll running
+    """
+    dut.shell('counterpoll acl interval {}'.format(interval or ACL_DEFAULT_POLL_INTERVAL))
+    dut.shell('counterpoll acl {}'.format(status or 'disable'))
+
+
 @pytest.fixture(scope='module')
 def setup_counterpoll_interval(rand_selected_dut, rand_unselected_dut, tbinfo):
     """
-    Set the counterpoll interval for acl to 1 second (10 seconds by default)
+    Enable the ACL flex counter and poll it every second (10 seconds by default);
+    sim testbeds ship with it disabled, so setting the interval alone leaves
+    aclshow at N/A. Restore the saved status and interval afterwards.
     """
-    # Set polling interval to 1 second
-    rand_selected_dut.shell('counterpoll acl interval 1000')
+    duts = [rand_selected_dut]
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.shell('counterpoll acl interval 1000')
+        duts.append(rand_unselected_dut)
+    original = {dut.hostname: read_acl_counterpoll_config(dut) for dut in duts}
+    for dut in duts:
+        dut.shell('counterpoll acl enable')
+        dut.shell('counterpoll acl interval 1000')
     time.sleep(10)
     yield
-    # Restore default value 10 seconds
-    rand_selected_dut.shell('counterpoll acl interval 10000')
-    if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.shell('counterpoll acl interval 10000')
+    for dut in duts:
+        restore_acl_counterpoll_config(dut, *original[dut.hostname])
 
 
 def clear_acl_counter(dut):
@@ -61,21 +91,53 @@ def clear_acl_counter(dut):
     dut.shell('aclshow -c')
 
 
-def read_acl_counter(dut, rule_name):
+def parse_acl_packet_count(counters, rule_name):
     """
-    Read the counter of given rule
+    Packet count of rule_name from parsed aclshow rows, or None while aclshow
+    prints N/A because the rule has no COUNTERS_DB entry yet
     RULE NAME    TABLE NAME      PRIO    PACKETS COUNT    BYTES COUNT
     -----------  ------------  ------  ---------------  -------------
     RULE_1       L3_MIX_TABLE    9999                0              0
     """
-    cmd = 'aclshow -a -r {}'.format(rule_name)
-    time.sleep(2)
-    counters = dut.show_and_parse(cmd)
     for counter in counters:
-        if counter['rule name'] == rule_name:
-            return int(counter['packets count'])
+        if counter['rule name'] != rule_name:
+            continue
+        packets = counter['packets count']
+        if packets == 'N/A':
+            return None
+        try:
+            return int(packets)
+        except ValueError:
+            pytest.fail("aclshow reported a non-numeric packet count {!r} for rule {}".format(packets, rule_name))
 
     return 0
+
+
+def read_acl_counter(duts, rule_name, expected, timeout=120, interval=2):
+    """
+    Poll until every DUT publishes the rule and the packet count summed over duts reaches
+    expected, and return that total. Only the total is meaningful on dualtor-aa, where a
+    single packet is counted by whichever DUT receives it. A registered rule counter is
+    published on every poll, including at 0, so N/A on any DUT means its count is unknown.
+    (setup_counterpoll_interval sets a 1s poll)
+    """
+    cmd = 'aclshow -a -r {}'.format(rule_name)
+    deadline = time.time() + timeout
+    while True:
+        counts = [parse_acl_packet_count(dut.show_and_parse(cmd), rule_name) for dut in duts]
+        total = None if None in counts else sum(counts)
+        if total == expected or time.time() >= deadline:
+            break
+        time.sleep(interval)
+
+    per_dut = dict(zip([dut.hostname for dut in duts], counts))
+    pytest_assert(total is not None,
+                  "ACL counter for {} still N/A after {}s (per-DUT {})".format(
+                      rule_name, timeout, per_dut))
+    pytest_assert(total == expected,
+                  "ACL counter for {} reached {} after {}s, expected {} (per-DUT {})".format(
+                      rule_name, total, timeout, expected, per_dut))
+    return total
 
 
 # TODO: Move this fixture to a shared place of acl test
@@ -351,25 +413,22 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
 
     # Test regular ACL rules (IPv4 and IPv6 mix)
     test_pkts = build_testing_pkts(router_mac, tbinfo)
+    counted_duts = [rand_selected_dut]
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        counted_duts.append(rand_unselected_dut)
     for rule, pkt in list(test_pkts.items()):
         logger.info("Testing ACL rule {}".format(rule))
         exp_pkt = build_exp_pkt(pkt)
         # Send and verify packet
-        clear_acl_counter(rand_selected_dut)
-        if "dualtor-aa" in tbinfo["topo"]["name"]:
-            clear_acl_counter(rand_unselected_dut)
+        for dut in counted_duts:
+            clear_acl_counter(dut)
         if asic_type == 'vs':
             logger.info("Skip ACL verification on VS platform")
             continue
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
-        acl_counter = read_acl_counter(rand_selected_dut, rule)
-        if "dualtor-aa" in tbinfo["topo"]["name"]:
-            acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
-            acl_counter += acl_counter_unselected_dut
-        # Verify acl counter
-        pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
+        read_acl_counter(counted_duts, rule, expected=1)
 
 
 def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
@@ -416,13 +475,15 @@ def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadap
 
     # Test IPv6-specific ACL rules
     test_pkts_ipv6 = build_testing_pkts_ipv6(router_mac)
+    counted_duts = [rand_selected_dut]
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        counted_duts.append(rand_unselected_dut)
     for rule, pkt in list(test_pkts_ipv6.items()):
         logger.info("Testing IPv6 ACL rule {}".format(rule))
         exp_pkt = build_exp_pkt(pkt)
         # Send and verify packet
-        clear_acl_counter(rand_selected_dut)
-        if "dualtor-aa" in tbinfo["topo"]["name"]:
-            clear_acl_counter(rand_unselected_dut)
+        for dut in counted_duts:
+            clear_acl_counter(dut)
         if asic_type == 'vs':
             logger.info("Skip ACL verification on VS platform")
             continue
@@ -435,13 +496,8 @@ def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadap
         else:
             testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
 
-        acl_counter = read_acl_counter(rand_selected_dut, rule)
-        if "dualtor-aa" in tbinfo["topo"]["name"]:
-            acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
-            acl_counter += acl_counter_unselected_dut
-        # Verify acl counter
+        acl_counter = read_acl_counter(counted_duts, rule, expected=1)
         logger.info("ACL counter for rule {} is {}".format(rule, acl_counter))
-        pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
 
 
 def build_testing_pkts_ipv6(router_mac):

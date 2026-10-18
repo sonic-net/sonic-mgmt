@@ -11,7 +11,7 @@ import ptf.packet as packet
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
-from tests.common.portstat_utilities import parse_portstat
+from tests.common.portstat_utilities import parse_portstat, counter_value
 from ptf.testutils import (
     dp_poll,
 )  # This is an example; adjust based on your actual usage
@@ -294,23 +294,16 @@ def expected_mask_routed_packet(pkt):
     return exp_pkt
 
 
-def sum_ifaces_counts(counter_out, ifaces, column):
-    if len(ifaces) == 0:
-        return 0
-    if len(ifaces) == 1:
-        return int(counter_out[ifaces[0]][column].replace(",", ""))
-    return sum([int(counter_out[iface][column].replace(",", "")) for iface in ifaces])
-
-
 def verfiy_packets_count(duthost, match_cnt):
     portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
     logger.info("Portstat output:\n{}".format(pprint.pformat(portstat_out)))
 
     # Find interfaces with tx_ok larger than PACKET_COUNT
     interfaces_with_high_tx = []
-    for iface, stats in portstat_out.items():
-        tx_ok = int(stats["tx_ok"].replace(",", ""))
-        if tx_ok >= PACKET_COUNT:
+    for iface in portstat_out:
+        # An interface whose counter the poller has not published yet cannot be a candidate.
+        tx_ok = counter_value(portstat_out, iface, "tx_ok")
+        if tx_ok is not None and tx_ok >= PACKET_COUNT:
             interfaces_with_high_tx.append(iface)
 
     if interfaces_with_high_tx:
@@ -334,7 +327,7 @@ def verfiy_packets_count(duthost, match_cnt):
     # Sort interfaces by tx_ok count in descending order
     sorted_interfaces = sorted(
         interfaces_with_high_tx,
-        key=lambda iface: int(portstat_out[iface]["tx_ok"].replace(",", "")),
+        key=lambda iface: counter_value(portstat_out, iface, "tx_ok"),
         reverse=True,
     )
 
