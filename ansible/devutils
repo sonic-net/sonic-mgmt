@@ -285,6 +285,23 @@ def action_console(parameters):
         console_host.posix_shell()
 
 
+def set_pdu_outlets(pduman, power_on):
+    """Attempt every setup outlet; callers check the resulting status."""
+    command = pduman.turn_on_outlet if power_on else pduman.turn_off_outlet
+    action = 'on' if power_on else 'off'
+    outlets = (outlet for psu in pduman.PSUs.values()
+               for feed in psu.feeds.values() for outlet in feed.outlets)
+    for outlet in outlets:
+        try:
+            if command(outlet):
+                continue
+            error = 'command was not acknowledged'
+        except Exception as exc:
+            error = str(exc)
+        print('devutils: warning: {} {} outlet {} power-{}: {}'.format(
+            pduman.dut_hostname, outlet['pdu_name'], outlet['outlet_id'], action, error), file=sys.stderr)
+
+
 def pdu_action_on_dut(host, attrs, action):
     ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
     succeed, result = get_pdu_info(host, attrs)
@@ -319,9 +336,9 @@ def pdu_action_on_dut(host, attrs, action):
               file=sys.stderr)
 
     if action == 'off':
-        pduman.turn_off_outlet()
+        set_pdu_outlets(pduman, False)
     elif action == 'on':
-        pduman.turn_on_outlet()
+        set_pdu_outlets(pduman, True)
     elif action != 'status':
         ret['Summary'].append('Unsupported action {}.'.format(action))
         return ret
@@ -439,7 +456,7 @@ def pdu_reboot_on_dut(host, attrs, hold_seconds):
 
     off_status, on_status = [], []
     try:
-        pduman.turn_off_outlet()
+        set_pdu_outlets(pduman, False)
         shutdown_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_off', off_status)
         if shutdown_complete:
             time.sleep(hold_seconds)
@@ -448,7 +465,7 @@ def pdu_reboot_on_dut(host, attrs, hold_seconds):
                   file=sys.stderr)
     finally:
         # The manager retains its setup targets even when a later status read fails.
-        pduman.turn_on_outlet()
+        set_pdu_outlets(pduman, True)
         power_on_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_on', on_status)
         if not power_on_complete:
             print('devutils: error: {}: failed to confirm all PDU outlets ON within 60 seconds; '

@@ -178,11 +178,19 @@ class PduManager():
         """
             Turnning on an outlet. The outlet contains enough information
             to identify the pdu controller + outlet ID.
-            when outlet is None, all outlets will be turned on.
+            when outlet is None, all outlets will be turned off.
         """
         if outlet is not None:
             return self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
-        return self._set_all_outlets(True)
+        else:
+            # turn on all outlets
+            ret = True
+            for psu_name, psu in self.PSUs.items():
+                for feed_name, feed in psu.feeds.items():
+                    for outlet in feed.outlets:
+                        rc = self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
+                        ret = ret and rc
+            return ret
 
     def turn_off_outlet(self, outlet=None):
         """
@@ -192,25 +200,15 @@ class PduManager():
         """
         if outlet is not None:
             return self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
-        return self._set_all_outlets(False)
-
-    def _set_all_outlets(self, power_on):
-        command = self.turn_on_outlet if power_on else self.turn_off_outlet
-        action = 'on' if power_on else 'off'
-        success = True
-        outlets = (outlet for psu in self.PSUs.values()
-                   for feed in psu.feeds.values() for outlet in feed.outlets)
-        for outlet in outlets:
-            try:
-                if command(outlet):
-                    continue
-                error = 'command was not acknowledged'
-            except Exception as exc:
-                error = str(exc)
-            logger.warning('PDU {} outlet {} power-{}: {}'.format(
-                outlet['pdu_name'], outlet['outlet_id'], action, error))
-            success = False
-        return success
+        else:
+            # turn on all outlets
+            ret = True
+            for psu_name, psu in self.PSUs.items():
+                for feed_name, feed in psu.feeds.items():
+                    for outlet in feed.outlets:
+                        rc = self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
+                        ret = ret and rc
+            return ret
 
     def get_outlet_status(self, outlet=None, power_state=None):
         """
