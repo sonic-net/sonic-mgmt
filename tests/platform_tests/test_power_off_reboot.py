@@ -72,8 +72,12 @@ def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=N
         return dut_psu_status
 
     dut_psu_status = _get_dut_psu_status(duthost)
-    present_psus = [
+    psu_entries = [
         entry for entry in dut_psu_status
+        if not str(entry.get("name", "")).lstrip().upper().startswith("PDB")
+    ]
+    present_psus = [
+        entry for entry in psu_entries
         if _is_present(entry.get("presence"))
     ]
     unhealthy_psus = [
