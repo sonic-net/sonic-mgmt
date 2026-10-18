@@ -300,6 +300,17 @@ def pdu_action_on_dut(host, attrs, action):
             'Failed to communicate with PDU controller {}'.format(pdu_links.keys()))
         return ret
 
+    outlet_status = pduman.get_outlet_status()
+    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
+    if unreachable_psus:
+        ret = pdu_status_result(host, action, outlet_status)
+        ret['Summary'].append('PDU outlets are unreachable: {}'.format(unreachable_psus))
+        if action != 'on':
+            return ret
+        # Power restoration must still attempt the outlets that were initialized.
+        print('devutils: warning: {}: {}; attempting power-on for known outlets.'.format(
+            host, ret['Summary'][0]), file=sys.stderr)
+
     if action == 'off':
         pduman.turn_off_outlet()
     elif action == 'on':
@@ -307,8 +318,15 @@ def pdu_action_on_dut(host, attrs, action):
     elif action != 'status':
         ret['Summary'].append('Unsupported action {}.'.format(action))
         return ret
+    else:
+        return pdu_status_result(host, action, outlet_status)
 
-    return pdu_status_result(host, action, pduman.get_outlet_status())
+    outlet_status = pduman.get_outlet_status()
+    ret = pdu_status_result(host, action, outlet_status)
+    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
+    if unreachable_psus:
+        ret['Summary'].append('PDU outlets are unreachable: {}'.format(unreachable_psus))
+    return ret
 
 
 def pdu_status_result(host, action, outlet_status):
@@ -387,29 +405,11 @@ def action_pdu_on(parameters):
     show_data_output(header, data, parameters['json'], parameters['out'])
 
 
-def pdu_outlets_in_state(pduman, outlets, state, status):
+def pdu_outlets_in_state(pduman, state, status):
     status.clear()
-    for outlet in outlets:
-        status.extend(pduman.get_outlet_status(outlet, power_state=state))
-    keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
-    expected = {tuple(outlet[key] for key in keys) for outlet in outlets}
-    observed = {tuple(outlet[key] for key in keys) for outlet in status}
-    return (bool(expected) and len(status) == len(outlets) and observed == expected
-            and (state is None or all(outlet.get(state) is True for outlet in status)))
-
-
-def set_pdu_outlets(pduman, outlets, power_on):
-    action = 'on' if power_on else 'off'
-    command = pduman.turn_on_outlet if power_on else pduman.turn_off_outlet
-    for outlet in outlets:
-        try:
-            if command(outlet):
-                continue
-            error = 'command was not acknowledged'
-        except Exception as exc:
-            error = str(exc)
-        print('devutils: warning: {} {} outlet {} power-{}: {}; final state will be checked.'.format(
-            pduman.dut_hostname, outlet['pdu_name'], outlet['outlet_id'], action, error), file=sys.stderr)
+    status.extend(pduman.get_outlet_status(power_state=state))
+    return (bool(status) and not pduman.get_unreachable_psus(status)
+            and all(outlet.get(state) is True for outlet in status))
 
 
 def pdu_reboot_on_dut(host, attrs, hold_seconds):
@@ -419,23 +419,25 @@ def pdu_reboot_on_dut(host, attrs, hold_seconds):
     pduman = pdu_manager_factory(host, *info)
     if not pduman:
         raise RuntimeError('Failed to communicate with PDU controllers for {}'.format(host))
-    outlets = pduman.get_configured_outlets()
-    if not pdu_outlets_in_state(pduman, outlets, None, []):
-        raise RuntimeError('Failed to read all configured PDU outlets for {}; no power changes made'.format(host))
+    outlet_status = pduman.get_outlet_status()
+    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
+    if not outlet_status or unreachable_psus:
+        raise RuntimeError('Failed to read all configured PDU outlets for {}: {}; no power changes made'.format(
+            host, unreachable_psus))
 
     off_status, on_status = [], []
     try:
-        set_pdu_outlets(pduman, outlets, False)
-        shutdown_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, outlets, 'outlet_off', off_status)
+        pduman.turn_off_outlet()
+        shutdown_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_off', off_status)
         if shutdown_complete:
             time.sleep(hold_seconds)
         else:
             print('devutils: error: {}: failed to confirm all PDU outlets OFF within 60 seconds.'.format(host),
                   file=sys.stderr)
     finally:
-        # Retain every target, even if OFF failed or a later status read omits it.
-        set_pdu_outlets(pduman, outlets, True)
-        power_on_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, outlets, 'outlet_on', on_status)
+        # The manager retains its setup targets even when a later status read fails.
+        pduman.turn_on_outlet()
+        power_on_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_on', on_status)
         if not power_on_complete:
             print('devutils: error: {}: failed to confirm all PDU outlets ON within 60 seconds; '
                   'power-on was attempted for every outlet.'.format(host), file=sys.stderr)

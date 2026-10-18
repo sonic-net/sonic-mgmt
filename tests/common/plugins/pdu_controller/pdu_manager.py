@@ -143,24 +143,37 @@ class PduManager():
             return
         self.PSUs[psu_name] = psu
 
-    def get_unreachable_psus(self):
+    def get_unreachable_psus(self, outlet_status=None):
         """
-            @summary: Return PSUs that were configured (in inventory or
-                      connection graph) but whose PDU controller could not be
-                      built. The most common cause is the peer PDU being
-                      unreachable over SNMP, but it can also be missing
-                      pdu_info / pdu_vars or unsupported protocol.
+            @summary: Return configured PSUs with missing feeds or outlet status.
+                      Check both setup failures and missing responses for outlets
+                      retained during setup. Probed outlets are compared with the
+                      setup list, not an independently known inventory port list.
 
-            @return: dict mapping unreachable psu_name -> list of unique peer
-                     PDU device names configured for that PSU. Returns an
-                     empty dict when every configured PSU is reachable.
+            @param outlet_status: Optional result of get_outlet_status. If omitted,
+                                  read current status. An empty list is a failed
+                                  snapshot, not a request to read status again.
+            @return: dict mapping unreachable psu_name -> list of unique peer PDU
+                     device names. Returns an empty dict when no targets are missing.
         """
+        if outlet_status is None:
+            outlet_status = self.get_outlet_status()
+        keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
+        observed = {tuple(outlet[key] for key in keys) for outlet in outlet_status}
         unreachable = {}
         for psu_name, psu_peer in self.configured_psu_peers.items():
-            if psu_name in self.PSUs:
+            psu = self.PSUs.get(psu_name)
+            missing_feeds = []
+            for feed_name, feed_info in psu_peer.items():
+                feed = psu.feeds.get(feed_name) if psu else None
+                if feed and feed.outlets and all(tuple(outlet[key] for key in keys) in observed
+                                                for outlet in feed.outlets):
+                    continue
+                missing_feeds.append(feed_info)
+            if psu and not missing_feeds:
                 continue
             pdu_devices = []
-            for feed_info in psu_peer.values():
+            for feed_info in missing_feeds:
                 peerdevice = feed_info.get("peerdevice")
                 if peerdevice and peerdevice not in pdu_devices:
                     pdu_devices.append(peerdevice)
@@ -170,47 +183,15 @@ class PduManager():
     def _get_controller(self, outlet):
         return self.PSUs[outlet['psu_name']].feeds[outlet['feed_name']].controller
 
-    def get_configured_outlets(self):
-        """Resolve all configured outlets without losing failed status reads."""
-        outlets = []
-        for psu_name, peers in self.configured_psu_peers.items():
-            if psu_name not in self.PSUs:
-                raise RuntimeError('Unreachable PSU {}'.format(psu_name))
-            for feed_name, peer in peers.items():
-                if feed_name not in self.PSUs[psu_name].feeds:
-                    raise RuntimeError('Unreachable PSU {} feed {}'.format(psu_name, feed_name))
-                controller = self.PSUs[psu_name].feeds[feed_name].controller
-                if not controller.port_discovery_complete:
-                    raise RuntimeError('Incomplete outlet discovery for {}'.format(peer['peerdevice']))
-                peerport = peer.get('peerport', 'probing')
-                if peerport == 'probing':
-                    ports = [oid for oid, port in controller.port_oid_dict.items()
-                             if self.dut_hostname.lower() in port['label']]
-                else:
-                    ports = [oid for oid in controller.port_oid_dict if oid.endswith('.' + peerport.lstrip('.'))]
-                if not ports:
-                    raise RuntimeError('No outlets found for PSU {} feed {}'.format(psu_name, feed_name))
-                outlets.extend({'pdu_name': peer['peerdevice'], 'psu_name': psu_name,
-                                'feed_name': feed_name, 'outlet_id': oid} for oid in ports)
-        return outlets
-
     def turn_on_outlet(self, outlet=None):
         """
             Turnning on an outlet. The outlet contains enough information
             to identify the pdu controller + outlet ID.
-            when outlet is None, all outlets will be turned off.
+            when outlet is None, all outlets will be turned on.
         """
         if outlet is not None:
             return self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
-        else:
-            # turn on all outlets
-            ret = True
-            for psu_name, psu in self.PSUs.items():
-                for feed_name, feed in psu.feeds.items():
-                    for outlet in feed.outlets:
-                        rc = self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
-                        ret = ret and rc
-            return ret
+        return self._set_all_outlets(True)
 
     def turn_off_outlet(self, outlet=None):
         """
@@ -220,15 +201,25 @@ class PduManager():
         """
         if outlet is not None:
             return self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
-        else:
-            # turn on all outlets
-            ret = True
-            for psu_name, psu in self.PSUs.items():
-                for feed_name, feed in psu.feeds.items():
-                    for outlet in feed.outlets:
-                        rc = self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
-                        ret = ret and rc
-            return ret
+        return self._set_all_outlets(False)
+
+    def _set_all_outlets(self, power_on):
+        command = self.turn_on_outlet if power_on else self.turn_off_outlet
+        action = 'on' if power_on else 'off'
+        success = True
+        outlets = (outlet for psu in self.PSUs.values()
+                   for feed in psu.feeds.values() for outlet in feed.outlets)
+        for outlet in outlets:
+            try:
+                if command(outlet):
+                    continue
+                error = 'command was not acknowledged'
+            except Exception as exc:
+                error = str(exc)
+            logger.warning('PDU {} outlet {} power-{}: {}'.format(
+                outlet['pdu_name'], outlet['outlet_id'], action, error))
+            success = False
+        return success
 
     def get_outlet_status(self, outlet=None, power_state=None):
         """
