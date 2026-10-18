@@ -143,31 +143,22 @@ class PduManager():
             return
         self.PSUs[psu_name] = psu
 
-    def get_unreachable_psus(self, outlet_status=None):
+    def get_unreachable_psus(self):
         """
-            @summary: Return configured PSUs with missing feeds or outlet status.
-                      Check both setup failures and missing responses for outlets
-                      retained during setup. Probed outlets are compared with the
-                      setup list, not an independently known inventory port list.
+            @summary: Return configured PSUs that were not fully initialized,
+                      including missing feeds or feeds without setup outlets.
+                      Inspect saved setup data only; do not read current status.
 
-            @param outlet_status: Optional result of get_outlet_status. If omitted,
-                                  read current status. An empty list is a failed
-                                  snapshot, not a request to read status again.
             @return: dict mapping unreachable psu_name -> list of unique peer PDU
-                     device names. Returns an empty dict when no targets are missing.
+                     device names. Returns an empty dict when setup is complete.
         """
-        if outlet_status is None:
-            outlet_status = self.get_outlet_status()
-        keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
-        observed = {tuple(outlet[key] for key in keys) for outlet in outlet_status}
         unreachable = {}
         for psu_name, psu_peer in self.configured_psu_peers.items():
             psu = self.PSUs.get(psu_name)
             missing_feeds = []
             for feed_name, feed_info in psu_peer.items():
                 feed = psu.feeds.get(feed_name) if psu else None
-                if feed and feed.outlets and all(tuple(outlet[key] for key in keys) in observed
-                                                for outlet in feed.outlets):
+                if feed and feed.outlets:
                     continue
                 missing_feeds.append(feed_info)
             if psu and not missing_feeds:

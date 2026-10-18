@@ -300,16 +300,23 @@ def pdu_action_on_dut(host, attrs, action):
             'Failed to communicate with PDU controller {}'.format(pdu_links.keys()))
         return ret
 
-    outlet_status = pduman.get_outlet_status()
-    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
+    unreachable_psus = pduman.get_unreachable_psus()
     if unreachable_psus:
-        ret = pdu_status_result(host, action, outlet_status)
-        ret['Summary'].append('PDU outlets are unreachable: {}'.format(unreachable_psus))
+        ret['Summary'].append('PDU setup is incomplete: {}'.format(unreachable_psus))
         if action != 'on':
             return ret
         # Power restoration must still attempt the outlets that were initialized.
         print('devutils: warning: {}: {}; attempting power-on for known outlets.'.format(
             host, ret['Summary'][0]), file=sys.stderr)
+
+    outlet_status = []
+    if not pdu_outlets_in_state(pduman, None, outlet_status):
+        if action != 'on':
+            ret = pdu_status_result(host, action, outlet_status)
+            ret['Summary'].append('Failed to read status for all setup PDU outlets')
+            return ret
+        print('devutils: warning: {}: incomplete PDU status; attempting power-on for known outlets.'.format(host),
+              file=sys.stderr)
 
     if action == 'off':
         pduman.turn_off_outlet()
@@ -321,12 +328,12 @@ def pdu_action_on_dut(host, attrs, action):
     else:
         return pdu_status_result(host, action, outlet_status)
 
-    outlet_status = pduman.get_outlet_status()
-    ret = pdu_status_result(host, action, outlet_status)
-    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
-    if unreachable_psus:
-        ret['Summary'].append('PDU outlets are unreachable: {}'.format(unreachable_psus))
-    return ret
+    complete = pdu_outlets_in_state(pduman, None, outlet_status)
+    result = pdu_status_result(host, action, outlet_status)
+    result['Summary'].extend(ret['Summary'])
+    if not complete:
+        result['Summary'].append('Failed to read status for all setup PDU outlets')
+    return result
 
 
 def pdu_status_result(host, action, outlet_status):
@@ -406,10 +413,14 @@ def action_pdu_on(parameters):
 
 
 def pdu_outlets_in_state(pduman, state, status):
+    keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
+    expected = {tuple(outlet[key] for key in keys)
+                for psu in pduman.PSUs.values() for feed in psu.feeds.values() for outlet in feed.outlets}
     status.clear()
     status.extend(pduman.get_outlet_status(power_state=state))
-    return (bool(status) and not pduman.get_unreachable_psus(status)
-            and all(outlet.get(state) is True for outlet in status))
+    observed = {tuple(outlet[key] for key in keys) for outlet in status}
+    return (bool(expected) and observed == expected
+            and (state is None or all(outlet.get(state) is True for outlet in status)))
 
 
 def pdu_reboot_on_dut(host, attrs, hold_seconds):
@@ -419,11 +430,12 @@ def pdu_reboot_on_dut(host, attrs, hold_seconds):
     pduman = pdu_manager_factory(host, *info)
     if not pduman:
         raise RuntimeError('Failed to communicate with PDU controllers for {}'.format(host))
-    outlet_status = pduman.get_outlet_status()
-    unreachable_psus = pduman.get_unreachable_psus(outlet_status)
-    if not outlet_status or unreachable_psus:
-        raise RuntimeError('Failed to read all configured PDU outlets for {}: {}; no power changes made'.format(
+    unreachable_psus = pduman.get_unreachable_psus()
+    if unreachable_psus:
+        raise RuntimeError('PDU setup is incomplete for {}: {}; no power changes made'.format(
             host, unreachable_psus))
+    if not pdu_outlets_in_state(pduman, None, []):
+        raise RuntimeError('Failed to read status for all setup PDU outlets for {}; no power changes made'.format(host))
 
     off_status, on_status = [], []
     try:
