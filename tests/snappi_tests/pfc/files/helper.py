@@ -101,6 +101,12 @@ def run_pfc_test(api,
 
         tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
         ingress_duthost = tx_port['duthost']
+    elif dut_port and duthost.facts.get('num_asic', 1) > 1:
+        # The single-DUT path does not populate tx_port from multi_dut_ports.
+        # Preserve the namespace needed for per-ASIC counter lookups.
+        tx_port = {
+            'asic_value': duthost.get_port_asic_instance(dut_port).namespace
+        }
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
