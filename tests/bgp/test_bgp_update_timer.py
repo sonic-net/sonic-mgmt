@@ -95,8 +95,8 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
 
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd)
 
     # Soft-reset outbound so the filter takes effect immediately.
@@ -105,16 +105,14 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
     clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
-            ns_option, clear_af, ip
-        ))
+        cmd = "vtysh -c 'clear {} {} soft out'".format(clear_af, ip)
+        cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+        duthost.shell(cmd)
 
 
 def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
     """Remove the outbound route-map and prefix-list added by
     _apply_outbound_route_filter."""
-    ns_option = "-n {}".format(namespace) if namespace != DEFAULT_NAMESPACE else ""
-
     vtysh_cmds = [
         "configure terminal",
         "router bgp {}".format(dut_asn),
@@ -127,7 +125,8 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
     vtysh_cmds.append("no route-map {}".format(TEST_ROUTES_ROUTE_MAP))
     vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
 
-    cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = "vtysh {}".format(" ".join("-c '{}'".format(c) for c in vtysh_cmds))
+    cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
     duthost.shell(cmd, module_ignore_errors=True)
 
 
@@ -597,6 +596,7 @@ def test_bgp_update_timer_session_down(
                     "-c 'configure terminal' "
                     f"-c 'router bgp {dut_asn}' "
                     f"-c 'neighbor {neigh_ip} shutdown' ")
+                cmd = duthost.get_vtysh_cmd_for_namespace(cmd, n0.namespace)
             else:
                 cmd = "config bgp shutdown neighbor {}".format(n0.name)
 
