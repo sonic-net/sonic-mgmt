@@ -30,12 +30,9 @@ DEFAULT_STABILITY_WINDOW_SEC = 5
 _LLDP_POLL_INTERVAL_SEC = 3
 _PORT_NAMESPACE_RESOLVE_TIMEOUT_SEC = 30
 _PORT_NAMESPACE_RESOLVE_POLL_INTERVAL_SEC = 5
-_CMIS_DATAPATH_STATE_RE = re.compile(r'^DP(\d+)State$')
-_CMIS_CONFIG_STATE_RE = re.compile(r'^config_state_hostlane(\d+)$')
 # Mirrors the message format produced by wait_ports_oper_status()
 # (tests/common/platform/interface_utils.py), which returns failure strings
 # rather than port names.
-_DOWN_PORT_MSG_RE = re.compile(r'^port (\S+) did not reach oper-\S+ within \d+s$')
 _CMIS_POLL_INTERVAL_SEC = 3
 
 
