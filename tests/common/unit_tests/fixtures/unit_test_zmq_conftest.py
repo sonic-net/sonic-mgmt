@@ -91,3 +91,16 @@ def test_test_body_failure_restores_config(fixture_state):
         state.generator.throw(RuntimeError("test failed"))
     assert state.tables == {"GNMI|gnmi": {}, "GNMI|certs": {}}
     state.dut.file.assert_called_once_with(path=TLS_DIR, state="absent")
+
+
+@pytest.mark.parametrize("setup_also_fails", [False, True])
+def test_restart_failure_does_not_skip_credential_cleanup(fixture_state, setup_also_fails):
+    state = fixture_state
+    if not setup_also_fails:
+        next(state.generator)
+    state.dut.service.side_effect = RuntimeError("restart failed")
+    with pytest.raises(RuntimeError, match="restart failed"):
+        next(state.generator)
+    assert state.tables == {"GNMI|gnmi": {}, "GNMI|certs": {}}
+    assert state.dut.service.call_count == 2
+    state.dut.file.assert_called_once_with(path=TLS_DIR, state="absent")

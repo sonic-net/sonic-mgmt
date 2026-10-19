@@ -45,15 +45,17 @@ def setup_gnmi_tls(duthosts, rand_one_dut_hostname, backup_and_restore_config_db
         duthost.wait_for(port=8080, state="started", timeout=60)
         yield
     finally:
-        for table, fields in settings.items():
-            original_fields = {
-                field: original[table][field]
-                for field in fields if field in original[table]
-            }
-            absent_fields = [
-                field for field in fields if field not in original[table]
-            ]
-            redis_hset(duthost, CONFIG_DB, table, **original_fields)
-            redis_hdel(duthost, CONFIG_DB, table, *absent_fields)
-        duthost.service(name=service, state="restarted")
-        duthost.file(path=tls_dir, state="absent")
+        try:
+            for table, fields in settings.items():
+                original_fields = {
+                    field: original[table][field]
+                    for field in fields if field in original[table]
+                }
+                absent_fields = [
+                    field for field in fields if field not in original[table]
+                ]
+                redis_hset(duthost, CONFIG_DB, table, **original_fields)
+                redis_hdel(duthost, CONFIG_DB, table, *absent_fields)
+            duthost.service(name=service, state="restarted")
+        finally:
+            duthost.file(path=tls_dir, state="absent")
