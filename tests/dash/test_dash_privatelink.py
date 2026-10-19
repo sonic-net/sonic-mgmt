@@ -102,7 +102,8 @@ def test_privatelink_udp_sport_range_negative(
     range, the packet is dropped by the DPU when vxlan_security is true.
     When vxlan_security is false, the packet is not dropped.
     """
-    request.getfixturevalue("disable_vxlan_security")
+    if vxlan_security == "false":
+        request.getfixturevalue("disable_vxlan_security")
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan")
     min_valid_sport = VXLAN_UDP_BASE_SRC_PORT
