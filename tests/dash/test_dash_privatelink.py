@@ -95,15 +95,13 @@ def test_privatelink_udp_sport_range_negative(
     dash_pl_config,
     vxlan_security,
     request,
-    dpuhosts, dpu_index
+    dpu_index
 ):
     """
     Validate that when the VXLAN UDP source port is not in the configured
     range, the packet is dropped by the DPU when vxlan_security is true.
     When vxlan_security is false, the packet is not dropped.
     """
-    dpuhost = dpuhosts[dpu_index]
-
     request.getfixturevalue("disable_vxlan_security")
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan")
