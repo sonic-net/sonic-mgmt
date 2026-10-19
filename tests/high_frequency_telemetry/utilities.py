@@ -847,6 +847,43 @@ class InfluxDbSink:
             if row.get("name")
         }
 
+    def wait_until_drained(self, quiet_period=15, timeout=300):
+        """Wait until no new sample reaches this database for quiet_period seconds.
+
+        Removing an HFT session does not discard samples that countersyncd has
+        already queued for export, and a failed export is retried after up to
+        10s, so wait for the database to settle before moving the collector.
+        """
+        start = time.time()
+        state = {"total": None, "changed": start}
+
+        def drained():
+            measurements = sorted(self.measurements())
+            total = 0
+            if measurements:
+                body = self._query(";".join(
+                    f'SELECT COUNT("gauge") AS "sample_count" FROM "{name}"'
+                    for name in measurements
+                ))
+                total = sum(
+                    int(row.get("sample_count") or 0)
+                    for rows in parse_influxdb_json(json.dumps(body)).values()
+                    for row in rows
+                )
+            if total != state["total"]:
+                state.update(total=total, changed=time.time())
+            return time.time() - state["changed"] >= quiet_period
+
+        pytest_assert(
+            wait_until(timeout, 1, 0, drained),
+            f"HFT export into InfluxDB database {self.bucket} did not drain "
+            f"within {timeout}s",
+        )
+        logger.info(
+            "HFT export drained into InfluxDB database %s: %d samples in %.1fs",
+            self.bucket, state["total"], time.time() - start,
+        )
+
     def drop(self):
         """Hard-delete this sink's database."""
         result = _influxdb_database_command(
