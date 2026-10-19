@@ -99,10 +99,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     inner_zone_interfaces = dut_rifs_in_topo_t0[0]
     outer_zone_interfaces = dut_rifs_in_topo_t0[1:]
     for rif in dut_rifs_in_topo_t0:
-        interfaces_nat_zone[rif] = {'interface_name': rif,
-                                    "global_interface_name": '{}_INTERFACE'.format(
-                                        (rif.encode()).translate(None, '0123456789').upper())
-                                    }
+        interfaces_nat_zone[rif] = {'interface_name': rif}
         if rif in inner_zone_interfaces:
             interfaces_nat_zone[rif]['zone_id'] = 0
         elif rif in outer_zone_interfaces:
