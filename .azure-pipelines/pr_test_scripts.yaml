@@ -127,7 +127,6 @@ t0:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -467,7 +466,6 @@ t1-lag:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -1015,6 +1013,10 @@ dualtor-aa-vpp:
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
 
 specific_param:
   t0-sonic:
