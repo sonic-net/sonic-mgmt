@@ -392,6 +392,8 @@ Missing validation increases uncertainty but is not itself a confirmed defect.
 5. Remaining validation: specific tests, platforms, and failure paths to cover.
 6. Recommendation: Ready based on available evidence / Validate before merge /
    Changes required, with explicit blockers and residual risks.
+7. End the review with exactly one machine-readable line:
+   `MERGE_RISK=<Low|Medium|High|Insufficient evidence>`
 
 Never claim tests passed unless supported by observed results. Distinguish
 author-reported results from independently verified results. The recommendation
