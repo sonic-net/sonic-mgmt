@@ -314,7 +314,7 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
             r'SysSock.RateLimit.Interval=\"{}\"'
         ),
         (
-            r'^\$SystemLogRateLimitInterval ([0-9]+)',
+            r'^\$SystemLogRateLimitInterval ([0-9]+)$',
             r'^\$SystemLogRateLimitInterval {}$',
             r'$SystemLogRateLimitInterval {}'
         ),
