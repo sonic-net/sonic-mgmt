@@ -1,9 +1,12 @@
 #!/usr/bin/python
 
+import json
 import logging
 import sys
 import time
+from glob import glob
 from os import path
+from xml.etree import ElementTree
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
 
@@ -26,6 +29,11 @@ Options:
       description: url pointing to the new image
       required: False
       Default: None
+    - option-name: config_source
+      description: saved configuration to use on the next boot; minigraph is an explicit rebuild
+      choices: [config_db, minigraph]
+      required: False
+      Default: config_db
 
 '''
 
@@ -248,8 +256,55 @@ def get_sonic_image_size(module):
                     break
 
 
-def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False):
+def validate_config_source(module, config_source, config_dir):
+    """Check the selected saved configuration without changing it."""
+    if config_source not in ("config_db", "minigraph"):
+        module.fail_json(msg="Unsupported config_source: {}".format(config_source))
+
+    filename = path.join(config_dir, "config_db.json" if config_source == "config_db" else "minigraph.xml")
+    try:
+        if config_source == "config_db":
+            filenames = [filename] + glob(path.join(config_dir, "config_db[0-9]*.json"))
+            golden_config = path.join(config_dir, "golden_config_db.json")
+            if path.exists(golden_config):
+                filenames.append(golden_config)
+            for filename in filenames:
+                with open(filename) as config_file:
+                    config = json.load(config_file)
+                if not isinstance(config, dict):
+                    raise ValueError("configuration must be a JSON object")
+        else:
+            # Parse with cfggen as well as XML syntax checking: well-formed XML
+            # alone does not establish that this is a usable SONiC minigraph.
+            with open(filename, "rb") as config_file:
+                ElementTree.parse(config_file)
+    except (IOError, OSError, ValueError, ElementTree.ParseError) as error:
+        module.fail_json(msg="Invalid config_source={} file {}: {}".format(config_source, filename, error))
+
+    if config_source == "minigraph":
+        exec_command(module, cmd="sonic-cfggen -m {} --print-data > /dev/null".format(filename),
+                     msg="validating selected minigraph")
+
+
+def check_minigraph_supported(module):
+    """Never discard SmartSwitch/DPU configuration or guess when detection fails."""
+    try:
+        from sonic_py_common import device_info
+    except ImportError as error:
+        module.fail_json(msg="Cannot safely select minigraph: {}".format(error))
+    if not hasattr(device_info, 'is_smartswitch'):
+        module.fail_json(msg="Cannot safely select minigraph: device_info.is_smartswitch is unavailable")
+    if device_info.is_smartswitch():
+        module.fail_json(
+            msg="config_source=minigraph is unsupported on SmartSwitch; use config_db to preserve DPU config")
+
+
+def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False,
+                            config_source="config_db"):
     log("install new sonic image")
+    if config_source == "minigraph":
+        check_minigraph_supported(module)
+    validate_config_source(module, config_source, "/etc/sonic")
     if not save_as:
         log("Clean-up previous downloads first")
         exec_command(
@@ -326,34 +381,16 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         if rc != 0:
             module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" % (rc, out, err))
 
-    # If sonic device is configured with minigraph, remove config_db.json
-    # to force next image to load minigraph.
-    # Skip this for SmartSwitch devices — they need config_db.json and
-    # golden_config_db.json for DPU configuration.
-    if path.exists("/host/old_config/minigraph.xml"):
-        is_smartswitch = False
-        try:
-            from sonic_py_common import device_info
-            if hasattr(device_info, 'is_smartswitch'):
-                is_smartswitch = device_info.is_smartswitch()
-        except Exception:
-            log("Failed to determine if device is SmartSwitch")
-
-        if is_smartswitch:
-            log("SmartSwitch detected, keeping config_db.json and golden_config_db.json")
-        else:
-            log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
-            exec_command(
-                module,
-                cmd="rm -f /host/old_config/config_db.json",
-                msg="Remove config_db.json in preference of minigraph.xml"
-            )
-            log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
-            exec_command(
-                module,
-                cmd="rm -f /host/old_config/golden_config_db.json",
-                msg="Remove golden_config_db.json in preference of minigraph.xml"
-            )
+    validate_config_source(module, config_source, "/host/old_config")
+    if config_source == "minigraph":
+        log("Explicit minigraph rebuild: removing saved JSON from old_config")
+        exec_command(
+            module,
+            cmd="rm -f /host/old_config/config_db.json /host/old_config/golden_config_db.json",
+            msg="selecting minigraph for the next boot"
+        )
+    else:
+        log("Keeping saved config_db.json and golden_config_db.json for the next boot")
 
     try:
         get_sonic_image_size(module)
@@ -484,6 +521,7 @@ def main():
             save_as=dict(required=False, type='str', default=None),
             required_space=dict(required=False, type='int', default=1600),
             skip_platform_check=dict(required=False, type='bool', default=False),
+            config_source=dict(required=False, type='str', default='config_db', choices=['config_db', 'minigraph']),
         ),
         supports_check_mode=False)
 
@@ -507,7 +545,8 @@ def main():
             results["current_stage"] = "install"
 
             install_new_sonic_image(
-                module, new_image_url, save_as, required_space, skip_platform_check)
+                module, new_image_url, save_as, required_space, skip_platform_check,
+                config_source=module.params['config_source'])
             results["current_stage"] = "complete"
         else:
             reduce_installed_sonic_images(module)

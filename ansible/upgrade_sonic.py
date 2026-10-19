@@ -40,7 +40,8 @@ def main(args):
         args.image_url,
         upgrade_type=args.upgrade_type,
         disk_used_percent=args.disk_used_percent,
-        onie_pause_time=args.pause_time
+        onie_pause_time=args.pause_time,
+        config_source=args.config_source
     )
     if not result:
         sys.exit(RC_UPGRADE_FAILED)
@@ -93,6 +94,14 @@ if __name__ == "__main__":
         required=False,
         default="sonic",
         help="Upgrade type."
+    )
+
+    parser.add_argument(
+        "--config-source",
+        choices=["config_db", "minigraph"],
+        default="config_db",
+        help="Saved configuration for SONiC upgrades. minigraph explicitly rebuilds configuration. "
+             "Does not apply to ONIE reimages."
     )
 
     parser.add_argument(
