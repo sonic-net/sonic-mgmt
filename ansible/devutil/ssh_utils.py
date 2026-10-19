@@ -16,19 +16,23 @@ class SSHClient(paramiko.client.SSHClient):
     The 'connect' interface is overwrite to support multi passowrds.
     """
 
-    def connect(self, hostname, username=None, passwords=None, port=22):
+    def connect(self, hostname, username=None, passwords=None, port=22, sock=None):
         """
         @summary: Overwrite 'connect' of SSHClient in paramiko to support multi passwords
         @param hostname: The hostname or IP of target host
         @param username: The username for SSH login
         @param passwords: Passwords for SSH login, a list of string
+        @param sock: Optional proxy socket (paramiko.ProxyCommand) for jump host support
         """
         self.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         for i in range(0, len(passwords)):
             password = passwords[i]
             try:
-                super(SSHClient, self).connect(hostname=hostname,
-                                               port=port, username=username, password=password)
+                connect_kwargs = dict(hostname=hostname, port=port,
+                                      username=username, password=password)
+                if sock is not None:
+                    connect_kwargs['sock'] = sock
+                super(SSHClient, self).connect(**connect_kwargs)
             except paramiko.ssh_exception.AuthenticationException as e:
                 if i == len(passwords) - 1:
                     raise e

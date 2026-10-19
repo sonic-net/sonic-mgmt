@@ -22,13 +22,14 @@ class DeviceConnection:
     ssh key and that fails, it will attempt username/password combination
     '''
 
-    def __init__(self, hostname, username, password=None, alt_password=None):
+    def __init__(self, hostname, username, password=None, alt_password=None, sock=None):
         '''
         Class constructor
 
         @param hostname: hostname of device to connect to
         @param username: username for device connection
         @param password: password for device connection
+        @param sock: optional proxy socket (paramiko.ProxyCommand) for jump host support
         '''
         self.hostname = hostname
         self.username = username
@@ -36,6 +37,7 @@ class DeviceConnection:
         if alt_password:
             self.passwords += alt_password
         self.password_index = 0
+        self.sock = sock
 
     @retry(
         stop_max_attempt_number=4,
@@ -62,8 +64,13 @@ class DeviceConnection:
         stdOut = stdErr = []
         retValue = 1
         try:
-            client.connect(self.hostname, username=self.username,
-                           password=self.passwords[self.password_index], allow_agent=False)
+            connect_kwargs = dict(
+                hostname=self.hostname, username=self.username,
+                password=self.passwords[self.password_index], allow_agent=False
+            )
+            if self.sock is not None:
+                connect_kwargs['sock'] = self.sock
+            client.connect(**connect_kwargs)
             si, so, se = client.exec_command(cmd, timeout=timeout)
             stdOut = so.readlines()
             stdErr = se.readlines()
@@ -107,8 +114,13 @@ class DeviceConnection:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
-            client.connect(self.hostname, username=self.username,
-                           password=self.passwords[self.password_index], allow_agent=False)
+            connect_kwargs = dict(
+                hostname=self.hostname, username=self.username,
+                password=self.passwords[self.password_index], allow_agent=False
+            )
+            if self.sock is not None:
+                connect_kwargs['sock'] = self.sock
+            client.connect(**connect_kwargs)
             ftp_client = client.open_sftp()
             ftp_client.get(remote_path, local_path)
             ftp_client.close()
