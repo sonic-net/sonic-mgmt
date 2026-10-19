@@ -1013,6 +1013,10 @@ dualtor-aa-vpp:
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
 
 specific_param:
   t0-sonic:
