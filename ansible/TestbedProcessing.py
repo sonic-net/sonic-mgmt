@@ -1170,23 +1170,20 @@ def makeSonicLabPduLinks(data, outfile):
 """
 formatLabYmlValue(value)
 @:parameter value - a single lab_config value
-Renders one value in the quoting style already used by group_vars/lab/lab.yml
-(double quotes for scalars, single-quoted items inside a flow sequence) so that
-updating a key does not reformat the rest of the file.
+Renders one value as YAML (flow style for lists and dicts) to be written after
+"key: " in group_vars/lab/lab.yml. The value stays on one line unless it is a
+string that contains a newline. Quotes are added only where YAML needs them, so
+the value is read back unchanged.
+Raises yaml.representer.RepresenterError for types YAML cannot represent.
 """
 
 
 def formatLabYmlValue(value):
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    elif value is None:
-        return ""
-    elif isinstance(value, str):
-        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    elif isinstance(value, dict):
-        return yaml.safe_dump(value, default_flow_style=True).strip().rstrip(".").strip()
-    else:
-        return str(value)
+    out = yaml.safe_dump(value, default_flow_style=True, width=float("inf")).strip()
+    # safe_dump closes a plain top-level scalar with a "..." document end marker
+    if out.endswith("\n..."):
+        out = out[:-4].rstrip()
+    return out
 
 
 """
@@ -1197,6 +1194,8 @@ Updates lab-wide (testlab group) variables in /group_vars/lab/lab.yml IN PLACE.
 Only the keys present in lab_config are updated; all other keys, comments, and
 formatting in the existing file are preserved. Keys not already present are
 appended at the end. If the file does not exist, it is created with the keys.
+Before writing, the new content is parsed; if it is not valid YAML, ValueError
+is raised and the file is left untouched.
 """
 
 
@@ -1244,6 +1243,13 @@ def makeLabYml(data, outfile):
         updated_lines[-1] += "\n"
     for key, value in remaining.items():
         updated_lines.append(key + ": " + formatLabYmlValue(value) + "\n")
+
+    # The line-based edit above does not understand all of YAML, so make sure the
+    # result still parses before overwriting the file.
+    try:
+        yaml.safe_load("".join(updated_lines))
+    except yaml.YAMLError as e:
+        raise ValueError("Updating %s would produce invalid YAML, file was not modified: %s" % (outfile, e))
 
     with open(outfile, "w") as toWrite:
         toWrite.writelines(updated_lines)
