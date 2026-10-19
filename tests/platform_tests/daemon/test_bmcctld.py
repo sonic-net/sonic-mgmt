@@ -12,7 +12,10 @@ Tests cover:
 import logging
 import pytest
 import re
+import shlex
 import time
+
+from contextlib import ExitStack
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import (
@@ -23,11 +26,12 @@ from tests.common.helpers.sonic_db import (
     redis_hgetall,
     redis_hset,
 )
-from tests.common.reboot import reboot, REBOOT_TYPE_COLD
+from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, wait_for_startup
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
+    CAUSE_POWER_LOSS,
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
@@ -427,21 +431,19 @@ class TestBmcctldDaemon:
         """Verify bmcctld startup dispatch after BMC power loss.
 
         This test focuses on hard assertions from marker-bounded persistent logs:
-        after a PDU-induced BMC power-loss reboot, startup must log
+        after a verified PDU-induced BMC power-loss reboot, startup must log
         'STARTUP: ... issuing power_on'. Skipped if no PDU controller is wired.
         """
 
         test_delay = 30
 
         orig_delay = self.duthost.shell(
-            "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
-            module_ignore_errors=True
+            "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
         ).get('stdout', '').strip()
 
         try:
             self.duthost.shell(
-                f"config chassis modules power-on-delay SWITCH-HOST {test_delay}",
-                module_ignore_errors=True
+                f"config chassis modules power-on-delay SWITCH-HOST {test_delay}"
             )
             readback = self.duthost.shell(
                 "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
@@ -470,20 +472,49 @@ class TestBmcctldDaemon:
             # get_outlet_status() (with psu_name/feed_name/outlet_id), not a bare ID.
             outlets = pdu_ctrl.get_outlet_status()
             pytest_assert(outlets, "PDU controller returned no outlets for switch chassis")
+            powered_outlets = [outlet for outlet in outlets if outlet.get('outlet_on') is True]
+            pytest_assert(powered_outlets, "No mapped PDU outlets are powered on for switch chassis")
+
+            bmc_boot_id_pre = get_host_boot_id(self.duthost)
+            pytest_assert(bmc_boot_id_pre, "Could not read BMC boot ID before PDU power cycle")
 
             # Set marker in event.log BEFORE power cycle. event.log is persistent;
             # syslog is tmpfs and is wiped on power loss so cannot be used here.
             la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             marker_b = la.init()
+            marker_check = "grep -Fx -- {} {}".format(
+                shlex.quote(f"start-LogAnalyzer-{marker_b}"), shlex.quote(BMC_EVENT_LOG))
+            self.duthost.shell(marker_check)
 
-            for outlet in outlets:
-                pdu_ctrl.turn_off_outlet(outlet)
-            wait_until(120, 5, 10,
-                       lambda: self.duthost.shell("true", module_ignore_errors=True).get('rc') != 0)
-            for outlet in outlets:
-                pdu_ctrl.turn_on_outlet(outlet)
+            def restore_outlet(outlet):
+                pytest_assert(pdu_ctrl.turn_on_outlet(outlet),
+                              f"Failed to restore power to PDU outlet {outlet}")
 
-            wait_critical_processes(self.duthost, timeout=600)
+            # Callbacks run in reverse order, including when shutdown or restoration fails.
+            # Restore every active feed, then wait for recovery before CONFIG_DB cleanup.
+            with ExitStack() as recovery:
+                recovery.callback(wait_critical_processes, self.duthost, timeout=600)
+                recovery.callback(wait_for_startup, self.duthost, localhost, delay=10, timeout=600)
+                for outlet in powered_outlets:
+                    recovery.callback(restore_outlet, outlet)
+                for outlet in powered_outlets:
+                    pytest_assert(pdu_ctrl.turn_off_outlet(outlet),
+                                  f"Failed to power off PDU outlet {outlet}")
+                localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT,
+                                   state='stopped', delay=10, timeout=120)
+
+            bmc_boot_id_post = get_host_boot_id(self.duthost)
+            pytest_assert(bmc_boot_id_post and bmc_boot_id_post != bmc_boot_id_pre,
+                          f"BMC did not reboot after PDU power cycle: "
+                          f"pre={bmc_boot_id_pre!r} post={bmc_boot_id_post!r}")
+            reboot_cause = self.duthost.shell("show reboot-cause")['stdout'].strip()
+            pytest_assert(CAUSE_POWER_LOSS in reboot_cause.lower(),
+                          f"Expected BMC power-loss reboot, got reboot cause: {reboot_cause!r}")
+
+            marker_result = self.duthost.shell(marker_check, module_ignore_errors=True)
+            pytest_assert(marker_result.get('rc') == 0,
+                          f"Cannot find start marker {marker_b!r} in {BMC_EVENT_LOG} after power cycle; "
+                          f"the log may have rotated or the marker was lost: {marker_result}")
 
             la.match_regex = [r".*issuing power_on.*", r".*STARTUP:.*"]
             b_lines = []
@@ -493,7 +524,7 @@ class TestBmcctldDaemon:
                 b_lines.clear()
                 for lines in (result.get("match_messages") or {}).values():
                     b_lines.extend(lines)
-                return re.search(r"issuing power_on", "\n".join(b_lines)) is not None
+                return re.search(r"STARTUP:.*issuing power_on", "\n".join(b_lines)) is not None
 
             poweron_match = wait_until(90, 5, 0, power_on_logged)
             journal_b = "\n".join(b_lines)
@@ -508,16 +539,14 @@ class TestBmcctldDaemon:
         finally:
             if orig_delay and orig_delay.isdigit():
                 self.duthost.shell(
-                    f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
-                    module_ignore_errors=True
+                    f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}"
                 )
             else:
                 self.duthost.shell(
                     "sonic-db-cli CONFIG_DB HDEL "
-                    "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
-                    module_ignore_errors=True
+                    "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
                 )
-            self.duthost.shell("sudo config save -y", module_ignore_errors=True)
+            self.duthost.shell("sudo config save -y")
 
     def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
         """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.
