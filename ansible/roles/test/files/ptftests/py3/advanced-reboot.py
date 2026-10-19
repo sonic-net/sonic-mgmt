@@ -324,11 +324,24 @@ class ReloadTest(BaseTest):
                     service_name, self.service_data[service_name]['service_start_time']))
         return
 
+    def run_dut_command(self, cmd, description, attempts=3, retry_delay_seconds=2):
+        # Each execCommand opens a fresh SSH session; the DUT may drop one under a burst of
+        # logins, which surfaces as empty stdout rather than an exception. Return the stdout
+        # lines of the first attempt that succeeds with output, or raise once attempts run out.
+        for attempt in range(1, attempts + 1):
+            stdout, stderr, conn_status = self.dut_connection.execCommand(cmd)
+            if conn_status == 0 and stdout:
+                return stdout
+            self.log("Attempt {}/{} to {} failed. connection status: {}, stderr: {}".format(
+                attempt, attempts, description, conn_status, str(stderr)))
+            if attempt < attempts:
+                time.sleep(retry_delay_seconds)
+        raise Exception("Failed to {} on DUT after {} attempts".format(description, attempts))
+
     def get_dut_platform_type(self):
-        stdout, _, _ = self.dut_connection.execCommand(
-            "show platform summary | grep Platform | awk '{print $2}'")
-        platform_type = str(stdout[0]).replace('\n', '')
-        return platform_type
+        stdout = self.run_dut_command(
+            "show platform summary | grep Platform | awk '{print $2}'", "read platform type")
+        return str(stdout[0]).replace('\n', '')
 
     def read_json(self, name):
         with open(self.test_params[name]) as fp:
@@ -1154,19 +1167,10 @@ class ReloadTest(BaseTest):
                  str(self.no_control_stop))
 
     def get_service_start_time(self, service_name, attempts=3):
-        # Each execCommand opens a fresh SSH session; the DUT may drop one under a burst of
-        # logins, which surfaces as empty stdout rather than an exception.
-        cmd = 'systemctl show -p ExecMainStartTimestamp {}'.format(service_name)
-        for attempt in range(1, attempts + 1):
-            stdout, stderr, conn_status = self.dut_connection.execCommand(cmd)
-            if conn_status == 0 and stdout:
-                return str(stdout[0]).strip()
-            self.log("Attempt {}/{} to read start time of {} failed. connection status: {}, stderr: {}".format(
-                attempt, attempts, service_name, conn_status, str(stderr)))
-            if attempt < attempts:
-                time.sleep(2)
-        raise Exception("Error collecting start time of {} from DUT after {} attempts".format(
-            service_name, attempts))
+        stdout = self.run_dut_command(
+            'systemctl show -p ExecMainStartTimestamp {}'.format(service_name),
+            "read start time of {}".format(service_name), attempts=attempts)
+        return str(stdout[0]).strip()
 
     def wait_until_service_restart(self):
         self.log("Wait until sevice restart")
@@ -1642,8 +1646,8 @@ class ReloadTest(BaseTest):
         return teamd_state
 
     def get_installed_sonic_version(self):
-        stdout, _, _ = self.dut_connection.execCommand(
-            "sudo sonic_installer list | grep Current | awk '{print $2}'")
+        stdout = self.run_dut_command(
+            "sudo sonic_installer list | grep Current | awk '{print $2}'", "read installed SONiC version")
         return stdout[0]
 
     def wait_until_teamd_goes_down(self):
