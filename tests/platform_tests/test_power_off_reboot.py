@@ -6,6 +6,7 @@ import pytest
 
 from tests.common.reboot import REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, reboot_ctrl_dict, wait_for_startup, \
     REBOOT_TYPE_POWEROFF
+from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
@@ -22,7 +23,8 @@ INTERFACE_WAIT_TIME = 300
 
 DPU_STATUS_TIMEOUT = 360
 DPU_STATUS_INTERVAL = 30
-PSU_STATUS_CMD = "show platform psustatus --json"
+PSU_STATUS_CMD = "show platform psustatus"
+PSU_STATUS_JSON_CMD = "{} --json".format(PSU_STATUS_CMD)
 
 
 def _is_present(value):
@@ -41,19 +43,53 @@ def _has_positive_watts(value):
     return math.isfinite(reading) and reading > 0
 
 
-def _get_dut_psu_status(duthost):
+def _get_dut_psu_status_from_table(duthost):
     result = duthost.command(PSU_STATUS_CMD, module_ignore_errors=True)
     pytest_assert(result.get("rc") == 0,
                   "Failed to run '{}': {}".format(PSU_STATUS_CMD, result))
+    output_lines = result.get("stdout_lines")
+    pytest_assert(isinstance(output_lines, list),
+                  "Unexpected '{}' output: {}".format(PSU_STATUS_CMD, result))
+
+    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+    entries = []
+    for line in output_lines[2:]:
+        if line.lstrip().upper().startswith("PDB"):
+            continue
+        match = psu_line_pattern.match(line)
+        pytest_assert(match,
+                      "Unexpected '{}' line: {}".format(PSU_STATUS_CMD, line))
+        status = match.group(2)
+        name = match.group(1)
+        if str(name).isdigit():
+            name = "PSU {}".format(name)
+        entries.append({
+            "name": name,
+            "presence": status != "NOT PRESENT",
+            "status": status,
+        })
+
+    pytest_assert(entries,
+                  "No PSU entries found in '{}' output: {}".format(PSU_STATUS_CMD, output_lines))
+    return entries
+
+
+def _get_dut_psu_status(duthost):
+    result = duthost.command(PSU_STATUS_JSON_CMD, module_ignore_errors=True)
+    if result.get("rc") != 0:
+        logging.warning("Failed to run '%s'; falling back to '%s': %s",
+                        PSU_STATUS_JSON_CMD, PSU_STATUS_CMD, result)
+        return _get_dut_psu_status_from_table(duthost)
+
     try:
         entries = json.loads(result.get("stdout", ""))
     except (TypeError, ValueError) as error:
-        pytest.fail("Failed to parse '{}': {}".format(PSU_STATUS_CMD, error))
+        pytest.fail("Failed to parse '{}': {}".format(PSU_STATUS_JSON_CMD, error))
     pytest_assert(isinstance(entries, list),
-                  "Unexpected '{}' output: {}".format(PSU_STATUS_CMD, entries))
+                  "Unexpected '{}' output: {}".format(PSU_STATUS_JSON_CMD, entries))
     for entry in entries:
         pytest_assert(isinstance(entry, dict),
-                      "Unexpected '{}' entry: {}".format(PSU_STATUS_CMD, entry))
+                      "Unexpected '{}' entry: {}".format(PSU_STATUS_JSON_CMD, entry))
     return entries
 
 
