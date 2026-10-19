@@ -94,14 +94,14 @@ def test_privatelink_udp_sport_range_negative(
     ptfadapter,
     dash_pl_config,
     vxlan_security,
-    request,
-    dpu_index
+    request
 ):
     """
     Validate that when the VXLAN UDP source port is not in the configured
     range, the packet is dropped by the DPU when vxlan_security is true.
     When vxlan_security is false, the packet is not dropped.
     """
+    # vxlan_security is enabled by default, disable it when vxlan_security is false
     if vxlan_security == "false":
         request.getfixturevalue("disable_vxlan_security")
 
