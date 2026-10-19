@@ -1388,7 +1388,9 @@ We would have the following distribution:
 """
 
 
-def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes={}):
+def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes=None):
+    if topo_routes is None:
+        topo_routes = {}
     route_set = []
     vms = topo['topology']['VMs']
     # T1 VMs per linecard(asic) - key is the dut index, and value is a list of T1 VMs
@@ -1478,7 +1480,9 @@ def fib_ft2_routes(topo, ptf_ip, action="announce", topo_routes={}):
                 change_routes(action, ptf_ip, port6, ipv6_routes)
 
 
-def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes={}):
+def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes=None):
+    if topo_routes is None:
+        topo_routes = {}
     common_config = topo['configuration_properties'].get('common', {})
     vms_config = topo['configuration']
     r_set = []
