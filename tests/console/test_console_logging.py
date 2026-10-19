@@ -14,6 +14,7 @@ import pexpect
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall
 from tests.common.helpers.console_helper import (
     create_ssh_client,
     disconnect_console_client,
@@ -46,6 +47,10 @@ DEFAULT_LOGROTATE_COUNT = "10"
 
 LOGGING_FIELDS = ("logging_enabled", "log_file", "logrotate_size", "logrotate_count")
 
+STATE_LOGGING_STATUS_ACTIVE = "active"
+STATE_LOGGING_STATUS_FAILED = "failed"
+STATE_LOGGING_STATUS_DISABLED = "disabled"
+
 SETTLE_SEC = 20         # Allow console-monitor to process CONFIG_DB changes and restart the proxy
 SWITCH_HOST_ONLINE_TIMEOUT = 180  # Wait for SWITCH-HOST before driving the host CPU console
 MARKER_DRAIN_SEC = 3    # Allow echoed marker bytes to reach the log file
@@ -68,6 +73,29 @@ def get_db_console_port_field(duthost, line, field):
         "sonic-db-cli CONFIG_DB HGET 'CONSOLE_PORT|{}' {}".format(line, field),
         module_ignore_errors=True)
     return res['stdout'].strip() if res['rc'] == 0 else ''
+
+
+def state_console_port_key(line):
+    return "CONSOLE_PORT|{}".format(line)
+
+
+def get_state_console_port_fields(duthost, line):
+    """
+    Return CONSOLE_PORT runtime fields from STATE_DB (empty dict if absent).
+    """
+    return redis_hgetall(duthost, STATE_DB, state_console_port_key(line))
+
+
+def wait_for_state_logging_status(duthost, line, expected_status, timeout=SETTLE_SEC):
+    """
+    Wait until STATE_DB logging_status matches expected_status.
+    """
+    return wait_until(
+        timeout,
+        2,
+        0,
+        lambda: get_state_console_port_fields(duthost, line).get('logging_status') == expected_status,
+    )
 
 
 def run_logging_cli(duthost, args, expect_success=True):
@@ -290,6 +318,11 @@ def skip_if_console_logging_unsupported(duthost):
     pytest_require(daemon['rc'] == 0,
                    "console-monitor has no logging support in the image")
 
+    state_status = duthost.shell("sudo grep -q logging_status {}".format(CONSOLE_MONITOR_SCRIPT),
+                                 module_ignore_errors=True)
+    pytest_require(state_status['rc'] == 0,
+                   "console-monitor does not publish logging_status to STATE_DB in this image")
+
 
 @pytest.fixture(scope="module")
 def target_line(duthost, console_facts):
@@ -399,6 +432,72 @@ def test_logging_enable_applies_defaults(duthost, target_line, preserve_logging_
                   "Logrotate config lacks 'size {}': {}".format(DEFAULT_LOGROTATE_SIZE, conf))
     pytest_assert('rotate {}'.format(DEFAULT_LOGROTATE_COUNT) in conf,
                   "Logrotate config lacks 'rotate {}': {}".format(DEFAULT_LOGROTATE_COUNT, conf))
+
+
+def test_logging_state_db_logging_status(duthost, target_line, preserve_logging_config):
+    """
+    console-monitor-proxy publishes logging runtime status to STATE_DB CONSOLE_PORT|{line}.
+
+    With logging disabled, logging_status is disabled.
+    With a valid log path, logging_status is active and logging_error is absent.
+    With a non-existing/un-openable path, logging_status is failed and logging_error describes the fault.
+    """
+    default_log = DEFAULT_LOG_FILE_FMT.format(target_line)
+
+    run_logging_cli(duthost, "{} disable".format(target_line))
+    pytest_assert(
+        wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_DISABLED),
+        "STATE_DB logging_status did not become '{}' after disable on CONSOLE_PORT|{}".format(
+            STATE_LOGGING_STATUS_DISABLED, target_line))
+    disabled_fields = get_state_console_port_fields(duthost, target_line)
+    logger.info("STATE_DB CONSOLE_PORT|%s after disable: %s", target_line, disabled_fields)
+    pytest_assert('logging_error' not in disabled_fields or not disabled_fields.get('logging_error'),
+                  "logging_error should be absent while status is disabled, got: {}".format(
+                      disabled_fields))
+
+    run_logging_cli(duthost, "{} enable".format(target_line))
+    pytest_assert(wait_for_file_path(duthost, default_log),
+                  "Log file {} was not created after enabling logging".format(default_log))
+    wait_for_proxy_active(duthost, target_line)
+
+    pytest_assert(
+        wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_ACTIVE),
+        "STATE_DB logging_status did not become '{}' for CONSOLE_PORT|{}".format(
+            STATE_LOGGING_STATUS_ACTIVE, target_line))
+
+    active_fields = get_state_console_port_fields(duthost, target_line)
+    logger.info("STATE_DB CONSOLE_PORT|%s after successful open: %s", target_line, active_fields)
+    pytest_assert('logging_error' not in active_fields or not active_fields.get('logging_error'),
+                  "logging_error should be absent while status is active, got: {}".format(active_fields))
+
+    bad_log = "/etc/console/test-{}.log".format(target_line)
+    run_logging_cli(duthost, "{} filename {}".format(target_line, bad_log))
+    wait_for_proxy_active(duthost, target_line)
+
+    pytest_assert(
+        wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_FAILED),
+        "STATE_DB logging_status did not become '{}' after configuring unopenable log {}".format(
+            STATE_LOGGING_STATUS_FAILED, bad_log))
+
+    failed_fields = get_state_console_port_fields(duthost, target_line)
+    logger.info("STATE_DB CONSOLE_PORT|%s after failed open: %s", target_line, failed_fields)
+    logging_error = failed_fields.get('logging_error', '')
+    pytest_assert(logging_error,
+                  "logging_error missing in STATE_DB while logging_status is failed: {}".format(
+                      failed_fields))
+    pytest_assert(bad_log in logging_error or 'No such file' in logging_error,
+                  "logging_error should reference the bad path or open failure, got: {}".format(
+                      logging_error))
+
+    run_logging_cli(duthost, "{} filename {}".format(target_line, default_log))
+    wait_for_proxy_active(duthost, target_line)
+    pytest_assert(
+        wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_ACTIVE),
+        "STATE_DB logging_status did not return to '{}' after restoring log path {}".format(
+            STATE_LOGGING_STATUS_ACTIVE, default_log))
+    recovered_fields = get_state_console_port_fields(duthost, target_line)
+    pytest_assert('logging_error' not in recovered_fields or not recovered_fields.get('logging_error'),
+                  "logging_error should be cleared after recovery, got: {}".format(recovered_fields))
 
 
 def test_logging_captures_console_output(duthost, creds, target_line, preserve_logging_config):

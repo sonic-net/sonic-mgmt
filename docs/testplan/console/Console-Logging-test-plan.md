@@ -101,6 +101,14 @@ config console logging <line> filename <absolute_path> [--logrotate-size <size>]
 | `logrotate_size` | Size threshold (e.g. `10M`, `1k`) |
 | `logrotate_count` | Number of rotated backups to retain |
 
+**STATE_DB** (same key `CONSOLE_PORT|{line}`; written by **console-monitor-proxy**):
+
+| Field | Description |
+|-------|-------------|
+| `logging_status` | `disabled` when logging is off or no log path; `active` when the log file is open; `failed` when open fails |
+| `logging_error` | Present only while `logging_status` is `failed` |
+| `oper_state` / `last_state_change` | Existing proxy operational fields (unchanged by logging) |
+
 **Defaults after `enable` (no `filename`)** for line `0`:
 
 | Setting | Default |
@@ -211,6 +219,20 @@ sudo sonic-db-cli CONFIG_DB HGETALL 'CONSOLE_PORT|0'
 | **Test steps** | 1. Same logging setup as section 4.8 (`1k` / count `3`).<br>2. Clear status and rotated artifacts; truncate log.<br>3. Loop `rotate_count + 2` times: append ~1100 bytes; `logrotate -f` on generated config.<br>4. List `log.[0-9]*` backups. |
 | **Expected result** | At most **3** backup files exist; no `log.4` / `log.5` (or `.gz` equivalents) when `rotate` is 3. |
 
+### 4.10 STATE_DB logging runtime status
+
+| Item | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Objective** | Verify **console-monitor-proxy** publishes `logging_status` (and `logging_error` on failure) to **STATE_DB** `CONSOLE_PORT                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |{line}`. |
+| **Test steps** | 1. `config console logging {line} disable`; `HGETALL` ~expect `logging_status=disabled`, no `logging_error`.<br>2. `enable` logging with default `/var/log/console-{line}.log`; wait for log file and active proxy.<br>3. `HGETALL` ~expect `logging_status=active`, no `logging_error`.<br>4. `config console logging {line} filename /etc/console/test-{line}.log` (path that cannot be opened).<br>5. `HGETALL` again ~expect `logging_status=failed` and `logging_error` mentioning the path or 'No such file'.<br>6. Restore default log path; expect `logging_status=active` and cleared `logging_error`. |
+| **Expected result** | Runtime status tracks open success/failure independently of CONFIG_DB; failed state surfaces operator-visible error text in STATE_DB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+Example:
+
+```bash
+sudo sonic-db-cli STATE_DB HGETALL 'CONSOLE_PORT|0'
+```
+
 ## 5 Automation mapping
 
 Automated tests live in `tests/console/test_console_logging.py`.
@@ -226,6 +248,7 @@ Automated tests live in `tests/console/test_console_logging.py`.
 | 4.7 | `test_logging_rejects_symlink_filename` |
 | 4.8 | `test_logging_rotates_when_size_exceeded` |
 | 4.9 | `test_logging_rotate_count_retention` |
+| 4.10 | `test_logging_state_db_logging_status` |
 
 **Example run:**
 
