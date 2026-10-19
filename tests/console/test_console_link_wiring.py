@@ -5,14 +5,15 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F40
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import (
     assert_expect_text,
-    check_target_line_status,
     configure_console_line,
+    console_cleanup,
     create_ssh_client,
     disconnect_console_client,
     ensure_console_session_up,
     generate_random_string,
     get_dut_console_lines,
     get_host_ip_and_creds,
+    wait_for_line_idle,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,16 +71,17 @@ def _verify_one_line(duthost, console_fanout, creds, target_line, same_host):
         dut_client.sendline(text)
         assert_expect_text(fanout_client, text, target_line, timeout_sec)
     finally:
-        disconnect_console_client(dut_client)
-        if not same_host:
-            disconnect_console_client(fanout_client)
-        pytest_assert(
-            check_target_line_status(duthost, target_line, "IDLE"),
-            "Target line {} of dut is busy after exited reverse SSH session".format(target_line))
-        if not same_host:
-            pytest_assert(
-                check_target_line_status(console_fanout, target_line, "IDLE"),
-                "Target line {} of fanout is busy after exited reverse SSH session".format(target_line))
+        with console_cleanup() as cleanup:
+            if not same_host:
+                cleanup(
+                    wait_for_line_idle, console_fanout, target_line,
+                    error_msg="Target line {} of fanout is busy after exited reverse SSH session".format(target_line))
+            cleanup(
+                wait_for_line_idle, duthost, target_line,
+                error_msg="Target line {} of dut is busy after exited reverse SSH session".format(target_line))
+            if not same_host:
+                cleanup(disconnect_console_client, fanout_client)
+            cleanup(disconnect_console_client, dut_client)
 
 
 def test_console_link_wiring(setup_c0, creds, conn_graph_facts):  # noqa: F811

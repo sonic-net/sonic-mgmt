@@ -3,9 +3,14 @@ import pexpect
 import re
 import string
 import random
+import logging
+from contextlib import contextmanager, ExitStack
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
+
+logger = logging.getLogger(__name__)
 
 
 def assert_expect_text(client, text, target_line, timeout_sec=0.1):
@@ -103,23 +108,53 @@ def get_dut_console_lines(conn_graph_facts, duthost):
     return sorted(dut_serial_links.keys(), key=int)
 
 
-def disconnect_console_client(client, escape_char='a'):
+def disconnect_console_client(client, escape_char='a', timeout_sec=10):
     """Send the escape sequence (``Ctrl-<escape_char>`` then ``Ctrl-X``) to
     release the console line. Defaults to ``'a'`` to match the ``picocom``
     default; pass a different ``escape_char`` if the test changed the line's
-    default escape character. Safe to call with ``None`` and swallows
-    teardown errors so the caller's ``finally`` block can chain other
-    cleanup work.
+    default escape character. Drain output until reverse SSH reaches EOF,
+    then close the local process. Return whether SSH exited gracefully;
+    callers testing the escape sequence must assert this result separately
+    from checking line state, since forced local cleanup can also free a line.
+    Expected transport errors are logged so other teardown work can continue.
+    Safe to call with ``None`` or an already closed client.
+    Local close failures propagate; callers must schedule independent cleanup
+    with finalizers or console_cleanup so those failures cannot skip other work.
     """
-    if client is None:
-        return
+    if client is None or client.closed:
+        return True
     try:
-        client.sendcontrol(escape_char)
-        client.sendcontrol('x')
-    except Exception:
-        # Best-effort during teardown; the line-IDLE check that typically
-        # follows will surface any session that did not actually release.
-        pass
+        if client.isalive():
+            client.sendcontrol(escape_char)
+            client.sendcontrol('x')
+        # Reading also prevents console output from blocking the SSH PTY.
+        client.expect(pexpect.EOF, timeout=timeout_sec)
+        return True
+    except (pexpect.TIMEOUT, pexpect.EOF, OSError) as error:
+        logger.warning("Reverse SSH did not disconnect with Ctrl-%s Ctrl-X within %ss (%s)",
+                       escape_char.upper(), timeout_sec, type(error).__name__)
+        return False
+    finally:
+        client.close(force=True)
+
+
+@contextmanager
+def console_cleanup():
+    """Register LIFO cleanup steps, running all and preserving failure chains."""
+    @contextmanager
+    def step(callback, *args, **kwargs):
+        try:
+            yield
+        finally:
+            callback(*args, **kwargs)
+
+    with ExitStack() as stack:
+        def register(callback, *args, **kwargs):
+            # Generator exits run inside the previous exception's context,
+            # unlike plain ExitStack callbacks when multiple steps fail.
+            stack.enter_context(step(callback, *args, **kwargs))
+
+        yield register
 
 
 def wait_for_line_idle(host, target_line, timeout_sec=10, error_msg=None):
