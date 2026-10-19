@@ -69,17 +69,49 @@ The image should appear as `docker-sonic-vs:latest`.
 cSONiC neighbors are **containers that share the host kernel**, so neighbor
 PortChannels are realized by the *host* kernel — not by a private neighbor
 kernel as with vSONiC (a KVM VM) or cEOS (Arista's own LAG implementation).
+
+#### Automatic native-team selection with userspace-OVS fallback
+
+The default `auto` backend tries to use stock SONiC teamd. During `add-topo`,
+sonic-mgmt:
+
+1. Loads `team` and `team_mode_loadbalance` when they are already installed.
+2. If either module is missing, installs the exact signed
+   `linux-modules-extra-$(uname -r)` package when the distro publishes it.
+3. If that exact package is unavailable, builds only the missing modules from
+   the exact matching distro kernel source and verifies their vermagic and the
+   active module-signature policy before installing them.
+4. Creates and removes a disposable team/loadbalance device using teamd from
+   the selected cSONiC image.
+5. Selects the existing userspace-OVS backend if any team-module or probe step
+   fails. Converged topologies still require Linux `vrf`; failure to provision
+   that independent prerequisite is fatal rather than an OVS fallback.
+
+The requested mode can be forced when diagnosing either path:
+
+```bash
+export SONIC_MGMT_CSONIC_LAG_BACKEND=auto           # default
+export SONIC_MGMT_CSONIC_LAG_BACKEND=teamd          # require native teamd
+export SONIC_MGMT_CSONIC_LAG_BACKEND=userspace_ovs  # force fallback
+```
+
+When userspace OVS is selected, sonic-mgmt derives a local image from
+`csonic_image` with the OVS userspace packages. For each neighbor, it reads the
+`PORTCHANNEL`, `PORTCHANNEL_MEMBER`, and `PORTCHANNEL_INTERFACE` tables, stops
+the conflicting teamd processes, and recreates the PortChannels as OVS LACP
+bonds. The host-side virtual-wire bridges need no extra flows: the flows
+installed when the topology is bound already carry LACP between the DUT and
+the neighbor and copy it to the PTF. `deploy-mg` only configures the DUT; LACP
+converges once the DUT PortChannels exist. To reapply backend selection, rerun
+`add-topo`.
+
 SONiC normally uses `teamd`/libteam, which needs the kernel **`team`** module.
-The cSONiC image handles both cases automatically:
+The cSONiC image also retains an image-level bonding fallback for deployments
+that bypass sonic-mgmt's selector. Normal `auto` deployment selects userspace
+OVS before neighbor creation when native-team provisioning or its probe fails,
+so bonding is not the primary sonic-mgmt fallback.
 
-- **`team` module present on the host** → the neighbor uses stock `teamd`,
-  exactly like production SONiC. Nothing extra to do.
-- **`team` module absent** (e.g. some cloud kernels such as `*-azure` that ship
-  without it, or where Secure Boot blocks loading an out-of-tree `team`) → the
-  image **automatically falls back to the in-tree `bonding` driver in 802.3ad
-  (LACP) mode**. No host changes, no reboot, no module signing are required.
-
-#### Automatic bonding (802.3ad) fallback — recommended, zero host setup
+#### Image-level bonding (802.3ad) fallback
 
 When `CSONIC_MODE` is active and the `team` driver cannot be loaded, the image's
 `start.sh` builds each CONFIG_DB PortChannel with the `bonding` driver instead
@@ -97,9 +129,8 @@ of teamd:
    `PORTCHANNEL_INTERFACE`.
 
 Linux bonding 802.3ad speaks standard LACP and bundles with the DUT's `teamd`
-LACP. This is the default, validated path on hosts without `team`; **the DUT is
-unchanged** and sees a normal `LACP(A)(Up)` PortChannel. No further action is
-needed — just run `add-topo` + `deploy-mg`.
+LACP. It remains an image-level last resort; **the DUT is unchanged** and sees a
+normal `LACP(A)(Up)` PortChannel.
 
 > **Verifying the fallback:** on a neighbor, `ip -d link show PortChannel1`
 > reports `bond mode 802.3ad`, `cat /proc/net/bonding/PortChannel1` shows MII
@@ -108,88 +139,30 @@ needed — just run `add-topo` + `deploy-mg`.
 > shows `LACP(A)(Up)` with the member `(S)` (Selected), and BGP reaches
 > `Established`.
 
-#### Optional: load the kernel `team` module (use teamd instead of bonding)
+#### Module provisioning diagnostics
 
-If you prefer the neighbor to run stock `teamd` (e.g. to exercise teamd-specific
-behavior), load the `team` module on every VM host before deploying. This is
-**not required** — the bonding fallback above covers PortChannel/LACP topologies
-(T0/T1/T2) without it.
+Manual source builds are not required for normal sonic-mgmt deployment. The
+`auto` selector reports whether it used an installed module, the exact distro
+package, an exact-source build, or userspace OVS. Locally built modules are
+stored under `/lib/modules/$(uname -r)/updates/sonic-csonic`; they are tied to
+that exact kernel and will be reprovisioned after a kernel change. Source or
+vermagic mismatch and module-signature enforcement cause a safe OVS fallback
+rather than installing an incompatible module.
 
-```bash
-lsmod | grep team           # already loaded?
-sudo modprobe team          # load it
-```
+Use `SONIC_MGMT_CSONIC_LAG_BACKEND=teamd` only when a failed native-team gate
+should abort deployment for diagnosis instead of selecting userspace OVS.
 
-If `modprobe team` fails:
-- **`Module team not found`** — the running kernel doesn't ship the module.
-  Install the matching extra-modules package (e.g.
-  `linux-modules-extra-$(uname -r)`), or use a kernel/distro that includes it.
-  Some cloud kernels (notably `*-azure`) omit `team` entirely. In that case
-  build it out-of-tree against the installed kernel headers (the team driver is
-  stable across point releases, so the mainline source for the matching
-  major.minor works):
+Kernel packages, exact-source build dependencies, successfully installed local
+modules, and loaded drivers are intentionally host-persistent. `remove-topo`
+removes the per-topology backend selection but does not remove shared host
+prerequisites that another cSONiC topology may use. Run `auto` only on dedicated
+test VM hosts whose package/module state is managed for sonic-mgmt workloads.
+The helper does roll back newly copied `.ko` files if loading them fails.
 
-  > **Important:**
-  > - Set `B=...linux/v<MAJOR>.<MINOR>` to **your running kernel's
-  >   major.minor** (`uname -r`), e.g. a `6.11.x` kernel needs `v6.11`. A
-  >   mismatched source tree will fail to build or load.
-  > - This copies headers into the distro-managed `linux-headers-$(uname -r)`
-  >   tree and drops modules under `/lib/modules/$(uname -r)`. These do **not**
-  >   survive a kernel upgrade — after the host moves to a new kernel you must
-  >   repeat the build (and the signing step below) for the new `uname -r`.
-
-  ```bash
-  K=$(uname -r); mkdir -p /tmp/teambuild && cd /tmp/teambuild
-  B=https://raw.githubusercontent.com/torvalds/linux/v6.8   # MUST match your kernel's major.minor (uname -r)
-  for f in team team_mode_loadbalance team_mode_activebackup \
-           team_mode_roundrobin team_mode_broadcast team_mode_random; do
-    curl -sSL -o $f.c "$B/drivers/net/team/$f.c"
-  done
-  # The team uapi/internal headers are not in the -headers package; fetch them:
-  curl -sSL -o if_team.h      "$B/include/linux/if_team.h"
-  curl -sSL -o if_team_uapi.h "$B/include/uapi/linux/if_team.h"
-  sudo cp if_team.h      /usr/src/linux-headers-$K/include/linux/if_team.h
-  sudo cp if_team_uapi.h /usr/src/linux-headers-$K/include/uapi/linux/if_team.h
-  printf 'obj-m += team.o team_mode_loadbalance.o team_mode_activebackup.o team_mode_roundrobin.o team_mode_broadcast.o team_mode_random.o\n' > Makefile
-  make -C /lib/modules/$K/build M=$PWD modules
-  sudo cp *.ko /lib/modules/$K/kernel/drivers/net/team/   # mkdir -p first if needed
-  sudo depmod -a $K
-  ```
-
-- **`Key was rejected by service`** — **Secure Boot** is enabled and the module
-  is unsigned (you'll see this for any locally built/out-of-tree module; check
-  with `mokutil --sb-state` and `cat /sys/module/module/parameters/sig_enforce`).
-  You must sign the module with a key the firmware trusts, then **reboot once**
-  to enroll that key (there is no way to load an unsigned module under Secure
-  Boot without a reboot):
-
-  ```bash
-  K=$(uname -r); cd /tmp/teambuild
-  # 1. Generate a Machine Owner Key (MOK)
-  openssl req -new -x509 -newkey rsa:2048 -keyout MOK.priv -outform DER \
-    -out MOK.der -nodes -days 3650 -subj "/CN=csonic-team-module-signing/"
-  # 2. Sign every module
-  SF=/usr/src/linux-headers-$K/scripts/sign-file
-  for m in team team_mode_*; do sudo $SF sha256 MOK.priv MOK.der \
-    /lib/modules/$K/kernel/drivers/net/team/${m%.ko}.ko; done
-  # 3. Stage the key for enrollment (choose a one-time password)
-  sudo mokutil --import MOK.der          # prompts for a password
-  # 4. Reboot. At boot, shim's blue "MOK Manager" screen appears:
-  #    select "Enroll MOK" -> "Continue" -> enter the password above -> reboot.
-  # 5. After reboot:
-  sudo modprobe team && lsmod | grep team
-  ```
-
-  Alternatively, disable Secure Boot entirely (Gen2/Azure VM setting or firmware
-  menu) — also a reboot. Once `team` loads, re-run `deploy-mg` so the neighbor
-  `teammgrd` can create the PortChannels.
-
-> **Note:** loading `team` is only needed if you specifically want `teamd` on the
-> neighbor. If the module is absent the image automatically uses the bonding
-> 802.3ad fallback (see above), so PortChannel topologies still work with no host
-> changes. The symptoms below describe an **older image without the fallback**;
-> the current image instead logs that it switched to bonding and the PortChannel
-> bundles normally.
+A backend selection is also persistent for the life of a topology. If a later
+`add-topo` run would select a different backend, it stops and requires a clean
+`remove-topo` followed by `add-topo`; live containers are never switched in
+place.
 
 > **Symptom of a missing `team` module:** `add-topo`/`deploy-mg` succeed, FRR
 > comes up and `bgpcfgd` generates `router bgp`, but BGP stays `Active`/`Idle`

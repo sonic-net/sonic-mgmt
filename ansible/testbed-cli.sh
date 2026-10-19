@@ -220,6 +220,26 @@ function converge_topo_if_needed
     topo_file="$VARS_DIR/topo_${topo}.yml"
     backup_file="${topo_file}".bak
 
+    # Keep the cSONiC path independent from the established cEOS path below.
+    if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
+        if [[ "$topo" != "t0" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+            return
+        fi
+        echo "use_converged_peers is true, converging cSONiC topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+
+        python -m csonic_topo_converger "$backup_file" "$topo_file"
+        return
+    fi
+
     if [[ "$use_converged_peers" == "True" ]]; then
         # The converged (multi-VRF) peer model is implemented for cEOS
         # neighbors only: a single cEOS VM hosts every merged sub-peer as a VRF,
