@@ -24,7 +24,6 @@ Replace ${platform_rpc} with the appropriate value for your platform:
 - Broadcom: brcm
 - Centec: centec
 - Mellanox: mlnx
-- Nephos: nephos
 
 ## 1.2 How to setup and manage your docker registry
 
