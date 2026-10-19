@@ -11,9 +11,7 @@ from tests.common.dualtor.mux_simulator_control \
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.disable_loganalyzer
 ]
 
 EVENTS_TESTS_PATH = "./gnmi/events"
@@ -37,7 +35,7 @@ def validate_yang(duthost, op_file="", yang_file=""):
 
 
 def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
-                gnxi_path, test_eventd_healthy,
+                test_eventd_healthy,
                 toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
                 setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m):  # noqa: F811
     """ Run series of events inside duthost and validate that output is correct
@@ -50,7 +48,7 @@ def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[:len(file)-3])
             try:
-                module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, DATA_DIR, validate_yang)
+                module.test_event(duthost, tbinfo, test_eventd_healthy, ptfhost, ptfadapter, DATA_DIR, validate_yang)
             except pytest.skip.Exception as e:
                 logger.info("Skipping test file: {} due to {}".format(file, e))
                 continue

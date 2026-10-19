@@ -540,6 +540,11 @@ class PygnmiClient:
             subscriber = gc.subscribe2(subscribe=request, target=target,
                                        extension=extension)
             close_subscriber = self._prepare_subscription_shutdown(subscriber)
+            if mode == SubscribeMode.STREAM and target == "EVENTS":
+                # pygnmi 0.8.15 coalesces the first STREAM batch until sync_response,
+                # which SONiC EVENTS never sends. Override only this subscriber's
+                # read to preserve per-event delivery and the collection deadline.
+                subscriber._next_update = subscriber._get_one_update
             if mode == SubscribeMode.ONCE:
                 yield from self._iter_once(subscriber)
             elif mode == SubscribeMode.POLL:
