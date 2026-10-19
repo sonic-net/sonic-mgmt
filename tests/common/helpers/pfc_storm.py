@@ -178,10 +178,8 @@ class PFCStorm(object):
             if line.startswith('HwSKU:'):
                 return line.split()[1]
 
-    def deploy_pfc_gen(self):
-        """
-        Deploy the pfc generation file on the fanout
-        """
+    def _select_pfc_gen(self):
+        """Select the generator for this handle independently of file deployment."""
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
@@ -194,6 +192,15 @@ class PFCStorm(object):
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_chip_name = chip_name
+
+    def deploy_pfc_gen(self):
+        """
+        Deploy the pfc generation file on the fanout
+        """
+        self._select_pfc_gen()
+        if self.asic_type == 'vs':
+            return
+        if self.peer_device.os in ('eos', 'sonic'):
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -241,6 +248,8 @@ class PFCStorm(object):
         """
         Populates all the vars needed by the pfc storm templates
         """
+        # Some callers deploy only once per fanout but create multiple handles.
+        self._select_pfc_gen()
         self.extra_vars = dict()
         self.extra_vars = {
             "pfc_gen_file": self.pfc_gen_file,
