@@ -6,6 +6,7 @@ the whole chassis, without concurrent configuration changes. The test cold
 reboots one linecard and may reboot the supervisor to recover the chassis.
 An unchanged owner SPA fails as an unexercised scenario, not a passing result.
 Successful recovery does not turn a detected mismatch into a passing result.
+Read errors fail the test without suppressing recovery of confirmed mismatches.
 """
 
 import ipaddress
@@ -45,7 +46,7 @@ def db_rows(db, pattern):
 
 
 def lag_id_mismatches(supervisor, scope, phase):
-    """Compare allocator values with every ASIC's raw-string LAG SPA set."""
+    """Return confirmed LAG-ID mismatches and per-ASIC read errors."""
     pytest_assert(scope, "Empty LAG-ID check scope")
     allocator = db_rows(SonicDbCli(supervisor, "CHASSIS_APP_DB"), "SYSTEM_LAG_ID_TABLE")
     values = list(allocator.get("SYSTEM_LAG_ID_TABLE", {}).values())
@@ -63,6 +64,7 @@ def lag_id_mismatches(supervisor, scope, phase):
                 values and all(isinstance(value, str) and value for value in values),
                 "Incomplete LAG SPA data: {}/{}".format(*location))
         except (Exception, pytest.fail.Exception) as error:
+            logger.exception("LAG IDs %s %s/%s: read failed", phase, *location)
             errors[location] = repr(error)
             continue
         actual = set(values)
@@ -71,10 +73,7 @@ def lag_id_mismatches(supervisor, scope, phase):
                     phase, *location, len(expected), len(actual), missing, extra)
         if missing or extra:
             mismatches[location] = (missing, extra)
-    pytest_assert(
-        not errors,
-        "{}: incomplete LAG-ID check: {}; partial mismatches: {}".format(phase, errors, mismatches))
-    return mismatches
+    return mismatches, errors
 
 
 def lag_oid(asic, alias):
@@ -169,7 +168,7 @@ def unused_prefix(asic):
     for prefix in prefixes:
         if not route_in_use(asic, prefix):
             return prefix
-    pytest.fail("No unused RFC 5737 TEST-NET /32 available")
+    raise pytest.fail.Exception("No unused RFC 5737 TEST-NET /32 available")
 
 
 def publish_route(observer, observer_asic, prefix, route_fields, operation):
@@ -263,13 +262,15 @@ def recover_chassis(supervisor, localhost, scope, neighbors):
             pytest_assert(
                 wait_until(300, 10, 0, host.check_bgp_session_state_all_asics, neighbors[host.hostname]),
                 "BGP did not recover: " + host.hostname)
-    mismatches = lag_id_mismatches(supervisor, scope, "after-recovery")
-    pytest_assert(not mismatches, "LAG-ID mismatch after chassis recovery: {}".format(mismatches))
+    mismatches, read_errors = lag_id_mismatches(supervisor, scope, "after-recovery")
+    pytest_assert(
+        not mismatches and not read_errors,
+        "LAG-ID check failed after chassis recovery: mismatches: {}; read errors: {}".format(mismatches, read_errors))
 
 
 def cleanup_test_route_and_recover_on_lag_mismatch(
         supervisor, localhost, scope, neighbors, observer, observer_asic, prefix, route_fields):
-    """Attempt recovery on a confirmed mismatch even when route cleanup fails."""
+    """Recover confirmed mismatches while retaining cleanup and read errors."""
     errors = []
     try:
         remove_holder(observer, observer_asic, prefix, route_fields)
@@ -278,11 +279,13 @@ def cleanup_test_route_and_recover_on_lag_mismatch(
         errors.append("Route cleanup failed: {!r}".format(error))
 
     try:
-        mismatches = lag_id_mismatches(supervisor, scope, "after-cleanup")
+        mismatches, read_errors = lag_id_mismatches(supervisor, scope, "after-cleanup")
     except (Exception, pytest.fail.Exception) as error:
         logger.exception("Post-cleanup LAG-ID check incomplete")
         errors.append("Post-cleanup LAG-ID check incomplete: {!r}".format(error))
     else:
+        if read_errors:
+            errors.append("Post-cleanup LAG-ID check incomplete: {}".format(read_errors))
         if mismatches:
             errors.append("Post-cleanup LAG-ID mismatch: {}".format(mismatches))
             logger.warning("Recovering the chassis through supervisor %s: %s", supervisor.hostname, mismatches)
@@ -308,8 +311,10 @@ def test_remote_lag_held_reference(duthosts, localhost):
         pytest.skip("Requires multi-ASIC VOQ linecards")
     supervisor = duthosts.supervisor_nodes[0]
     scope = [(host, asic) for host in duthosts.frontend_nodes for asic in host.asics]
-    mismatches = lag_id_mismatches(supervisor, scope, "baseline")
-    pytest_assert(not mismatches, "Baseline LAG-ID mismatch: {}".format(mismatches))
+    mismatches, read_errors = lag_id_mismatches(supervisor, scope, "baseline")
+    pytest_assert(
+        not mismatches and not read_errors,
+        "Baseline LAG-ID check failed: mismatches: {}; read errors: {}".format(mismatches, read_errors))
 
     (owner, owner_asic, observer, observer_asic,
      portchannel, peer, alias, original_lag_id, prefix, route_fields) = select_test_lag(scope)
@@ -335,8 +340,10 @@ def test_remote_lag_held_reference(duthosts, localhost):
         pytest_assert(
             lag_id(owner_asic, portchannel) != original_lag_id,
             "Owner reused its original SPA {}; LAG-ID reallocation scenario was not exercised".format(original_lag_id))
-        mismatches = lag_id_mismatches(supervisor, scope, "after-reboot")
-        pytest_assert(not mismatches, "LAG-ID mismatch after owner reboot: {}".format(mismatches))
+        mismatches, read_errors = lag_id_mismatches(supervisor, scope, "after-reboot")
+        pytest_assert(
+            not mismatches and not read_errors,
+            "LAG-ID check failed after owner reboot: mismatches: {}; read errors: {}".format(mismatches, read_errors))
         assert_holder(observer_asic, prefix, route_fields, peer, alias)
     finally:
         cleanup_test_route_and_recover_on_lag_mismatch(
