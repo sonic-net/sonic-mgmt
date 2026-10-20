@@ -37,10 +37,6 @@ class CsonicHost(NeighborDevice):
         self.vm_host_ip = vm_host_ip
         self.vm_host_user = vm_host_user
         self.is_local = vm_host_ip is None or vm_host_ip in ('localhost', '127.0.0.1')
-        # A docker-sonic-vs neighbor is a single, monolithic SONiC instance.
-        # Keep the standard SONiC host contract so shared helpers can decide
-        # whether namespace-qualified commands are needed.
-        self.is_multi_asic = False
 
     def __str__(self):
         return '<CsonicHost {}>'.format(self.container_name)
