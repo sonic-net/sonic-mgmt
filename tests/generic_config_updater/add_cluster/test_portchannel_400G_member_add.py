@@ -33,6 +33,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.add_cluster.helpers import (
     clear_traffic_counters,
+    filter_oper_up_ports,
     find_portchannels_by_member_speed,
     format_sonic_interface_dict,
     get_exabgp_port_for_neighbor,
@@ -1814,20 +1815,18 @@ def _select_ptf_source_port(duthost, asic_namespace, mg_facts,
     Select a frontend PTF source port that is not in the tested PortChannel.
     """
     status_map = get_asic_interface_status_map(duthost, asic_namespace)
+    ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
+    oper_up_ports = set(filter_oper_up_ports(ptf_indices, status_map))
     for interface, ptf_index in sorted(
-        mg_facts.get("minigraph_ptf_indices", {}).items(),
+        ptf_indices.items(),
         key=lambda item: item[1],
     ):
         if interface in excluded_interfaces:
             continue
         if interface.startswith(INTERNAL_PORT_PREFIXES):
             continue
-        status = status_map.get(interface, {})
-        if status:
-            if status.get("admin", "").lower() != "up":
-                continue
-            if status.get("oper", "").lower() != "up":
-                continue
+        if interface not in oper_up_ports:
+            continue
         logger.info(
             "Selected PTF source interface %s ptf_index=%s",
             interface,
