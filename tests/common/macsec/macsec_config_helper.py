@@ -52,6 +52,21 @@ def _command_output_lines(result):
     return []
 
 
+def _unique_macsec_neighbor_hosts(macsec_nbrhosts):
+    """Collapse logical neighbors backed by the same cSONiC container."""
+    unique = {}
+    csonic_containers = set()
+    for name, neighbor in macsec_nbrhosts.items():
+        host = neighbor["host"]
+        if isinstance(host, CsonicHost):
+            identity = (host.container_name, host.vm_host_ip, host.vm_host_user)
+            if identity in csonic_containers:
+                continue
+            csonic_containers.add(identity)
+        unique[name] = neighbor
+    return unique
+
+
 def _macsec_service_ready(host, expected_instances):
     """Check the service shape used by the host's actual runtime."""
     try:
@@ -67,6 +82,51 @@ def _macsec_service_ready(host, expected_instances):
     except Exception:
         logger.exception("Failed to check MACsec service readiness on %s", host)
         return False
+
+
+def _command_diagnostic(result):
+    if not isinstance(result, dict):
+        return {"result": repr(result)}
+    return {
+        "rc": result.get("rc"),
+        "stdout": str(result.get("stdout", ""))[-2000:],
+        "stderr": str(result.get("stderr", ""))[-2000:],
+    }
+
+
+def _macsec_service_diagnostics(host):
+    if isinstance(host, CsonicHost):
+        commands = [
+            ("supervisor", "supervisorctl status macsecmgrd"),
+            ("process", "pgrep -a -x macsecmgrd"),
+            ("feature", "sonic-db-cli CONFIG_DB HGET 'FEATURE|macsec' state"),
+            ("database", "sonic-db-cli CONFIG_DB PING"),
+            ("supervisor_config", "test -e {0} && sed -n '1,80p' {0}".format(
+                CSONIC_MACSEC_SUPERVISOR_CONFIG)),
+            ("syslog", "grep -i macsec /var/log/syslog 2>/dev/null | tail -n 40"),
+        ]
+        runtime = "csonic"
+    else:
+        commands = [
+            ("containers", "docker ps -a --filter name=macsec --format '{{.Names}} {{.Status}}'"),
+            ("processes", "ps -ef | grep '[m]acsecmgrd'"),
+            ("feature", "sonic-db-cli CONFIG_DB HGET 'FEATURE|macsec' state"),
+            ("service", "systemctl status macsec --no-pager -l"),
+        ]
+        runtime = "sonic"
+
+    checks = {}
+    for label, command in commands:
+        try:
+            checks[label] = _command_diagnostic(
+                host.shell(command, module_ignore_errors=True))
+        except Exception as error:
+            checks[label] = {"exception": repr(error)}
+    return {
+        "host": getattr(host, "hostname", str(host)),
+        "runtime": runtime,
+        "checks": checks,
+    }
 
 
 def _start_csonic_macsec_service(host):
@@ -276,7 +336,7 @@ def replace_macsec_port(host, port, profile_name):
 
 
 def enable_macsec_feature(duthost, macsec_nbrhosts):
-    nbrhosts = macsec_nbrhosts
+    nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
     num_asics = duthost.num_asics()
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
 
@@ -286,20 +346,29 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
                 "Failed to start macsecmgrd on {}".format(nbr.hostname)
 
     def check_macsec_enabled():
-        if not _macsec_service_ready(duthost, num_asics):
-            return False
+        dut_ready = _macsec_service_ready(duthost, num_asics)
+        neighbor_ready = []
         for nbr in [n["host"] for n in list(nbrhosts.values())]:
             if isinstance(nbr, EosHost):
                 continue
-            if not _macsec_service_ready(nbr, 1):
-                return False
-        return True
-    assert wait_until(180, 5, 10, check_macsec_enabled)
+            neighbor_ready.append(_macsec_service_ready(nbr, 1))
+        return dut_ready and all(neighbor_ready)
+
+    if not wait_until(180, 5, 10, check_macsec_enabled):
+        diagnostics = [_macsec_service_diagnostics(duthost)]
+        diagnostics.extend(
+            _macsec_service_diagnostics(nbr)
+            for nbr in [n["host"] for n in list(nbrhosts.values())]
+            if not isinstance(nbr, EosHost)
+        )
+        logger.error("MACsec readiness timed out: %s", diagnostics)
+        assert False, "MACsec readiness timed out: {}".format(diagnostics)
 
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
-    global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
-    for nbr in [n["host"] for n in list(macsec_nbrhosts.values())]:
+    nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
+    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
+    for nbr in [n["host"] for n in list(nbrhosts.values())]:
         if isinstance(nbr, CsonicHost):
             assert _stop_csonic_macsec_service(nbr), \
                 "Failed to stop macsecmgrd on {}".format(nbr.hostname)

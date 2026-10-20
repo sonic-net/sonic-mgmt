@@ -19,7 +19,10 @@ TREE = ast.parse(SOURCE)
 FUNCTION_NAMES = {
     "_command_succeeded",
     "_command_output_lines",
+    "_unique_macsec_neighbor_hosts",
     "_macsec_service_ready",
+    "_command_diagnostic",
+    "_macsec_service_diagnostics",
     "_start_csonic_macsec_service",
     "_stop_csonic_macsec_service",
     "enable_macsec_feature",
@@ -45,7 +48,9 @@ NAMESPACE = {
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
 
 _command_output_lines = NAMESPACE["_command_output_lines"]
+_unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
+_macsec_service_diagnostics = NAMESPACE["_macsec_service_diagnostics"]
 _start_csonic_macsec_service = NAMESPACE["_start_csonic_macsec_service"]
 _stop_csonic_macsec_service = NAMESPACE["_stop_csonic_macsec_service"]
 enable_macsec_feature = NAMESPACE["enable_macsec_feature"]
@@ -75,8 +80,11 @@ class ShellHost:
 
 
 class CsonicShellHost(FakeCsonicHost, ShellHost):
-    def __init__(self, responses=None):
+    def __init__(self, responses=None, container_name="csonic_vm"):
         ShellHost.__init__(self, responses=responses)
+        self.container_name = container_name
+        self.vm_host_ip = None
+        self.vm_host_user = None
 
 
 class EosShellHost(FakeEosHost, ShellHost):
@@ -86,6 +94,23 @@ class EosShellHost(FakeEosHost, ShellHost):
 
 def _successful_lines(*lines):
     return {"rc": 0, "stdout_lines": list(lines), "stdout": "\n".join(lines)}
+
+
+def test_converged_csonic_logical_neighbors_are_deduplicated():
+    csonic = CsonicShellHost(container_name="csonic_shared")
+    eos = EosShellHost()
+    neighbors = {
+        "ARISTA01T1": {"host": csonic},
+        "ARISTA02T1": {"host": CsonicShellHost(container_name="csonic_shared")},
+        "ARISTA03T1": {"host": CsonicShellHost(container_name="csonic_shared")},
+        "EOS01": {"host": eos},
+    }
+
+    unique = _unique_macsec_neighbor_hosts(neighbors)
+
+    assert list(unique) == ["ARISTA01T1", "EOS01"]
+    assert unique["ARISTA01T1"]["host"] is csonic
+    assert unique["EOS01"]["host"] is eos
 
 
 def test_csonic_readiness_uses_supervisor_without_nested_docker():
@@ -178,6 +203,25 @@ def test_enable_preserves_dut_multi_asic_instance_counting():
     ]
 
 
+def test_timeout_diagnostics_distinguish_csonic_from_sonic_runtime():
+    csonic = CsonicShellHost()
+    csonic.shell = MagicMock(return_value={"rc": 0, "stdout": "RUNNING", "stderr": ""})
+    sonic = ShellHost()
+    sonic.shell = MagicMock(return_value={"rc": 1, "stdout": "", "stderr": "inactive"})
+
+    csonic_diagnostics = _macsec_service_diagnostics(csonic)
+    sonic_diagnostics = _macsec_service_diagnostics(sonic)
+
+    assert csonic_diagnostics["runtime"] == "csonic"
+    assert set(csonic_diagnostics["checks"]) == {
+        "supervisor", "process", "feature", "database", "supervisor_config", "syslog"
+    }
+    assert sonic_diagnostics["runtime"] == "sonic"
+    assert set(sonic_diagnostics["checks"]) == {"containers", "processes", "feature", "service"}
+    assert all(call.kwargs == {"module_ignore_errors": True} for call in csonic.shell.call_args_list)
+    assert all(call.kwargs == {"module_ignore_errors": True} for call in sonic.shell.call_args_list)
+
+
 def test_command_output_shapes_fail_closed():
     assert _command_output_lines({"rc": 0, "stdout_lines": ("one", "two")}) == ["one", "two"]
     assert _command_output_lines({"rc": 0, "stdout": "one\ntwo\n"}) == ["one", "two"]
@@ -202,6 +246,32 @@ def test_csonic_service_lifecycle_uses_supervisor_not_docker():
     assert all("supervisorctl" in command for command, _ in host.shell_calls)
     assert all("docker" not in command for command, _ in host.shell_calls)
     assert all(kwargs == {"module_ignore_errors": True} for _, kwargs in host.shell_calls)
+
+
+def test_enable_operates_on_shared_csonic_container_once():
+    duthost = ShellHost({
+        "docker ps | grep macsec | grep -v grep": _successful_lines("macsec"),
+        "ps -ef | grep macsecmgrd | grep -v grep": _successful_lines("macsecmgrd"),
+    })
+    csonic = CsonicShellHost({
+        "supervisorctl status macsecmgrd": _successful_lines("macsecmgrd RUNNING"),
+    }, container_name="csonic_shared")
+    duplicate = CsonicShellHost(container_name="csonic_shared")
+    neighbors = {
+        "ARISTA01T1": {"host": csonic},
+        "ARISTA02T1": {"host": duplicate},
+    }
+    NAMESPACE["global_cmd"] = MagicMock()
+    NAMESPACE["wait_until"] = MagicMock(side_effect=lambda _timeout, _interval, _delay, check: check())
+    NAMESPACE["_start_csonic_macsec_service"] = MagicMock(return_value=True)
+
+    enable_macsec_feature(duthost, neighbors)
+
+    NAMESPACE["global_cmd"].assert_called_once()
+    selected = NAMESPACE["global_cmd"].call_args.args[1]
+    assert list(selected) == ["ARISTA01T1"]
+    NAMESPACE["_start_csonic_macsec_service"].assert_called_once_with(csonic)
+    assert duplicate.shell_calls == []
 
 
 def test_disable_excludes_eos_and_stops_csonic_service():
