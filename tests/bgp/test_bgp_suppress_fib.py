@@ -225,18 +225,24 @@ def enable_zmq_for_fib_suppress(duthosts):
         for dut, namespaces in reversed(list(changed_namespaces.items())):
             if not namespaces:
                 continue
-            try:
-                for namespace in namespaces:
+            for namespace in namespaces:
+                try:
                     state = original_status[dut][namespace]
                     logger.info("Restoring swss_zmq state on {} namespace {}: {}".format(
                         dut.hostname, namespace, state))
                     _restore_swss_zmq_status_for_namespace(dut, state, namespace)
+                except Exception as err:
+                    logger.exception("Failed to restore swss_zmq on {} namespace {}".format(
+                        dut.hostname, namespace))
+                    restore_failures.append("{} namespace {}: {}".format(dut.hostname, namespace, err))
+
+            try:
                 dut.shell('sudo config save -y')
                 config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
                               yang_validate=False)
             except Exception as err:
-                logger.exception("Failed to restore swss_zmq on {}".format(dut.hostname))
-                restore_failures.append("{}: {}".format(dut.hostname, err))
+                logger.exception("Failed to save/reload swss_zmq state on {}".format(dut.hostname))
+                restore_failures.append("{} save/reload: {}".format(dut.hostname, err))
 
         pytest_assert(not restore_failures,
                       "Failed to restore swss_zmq state: {}".format('; '.join(restore_failures)))
@@ -1381,24 +1387,35 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
-            # Pausing fpmsyncd queues routes regardless of the suppress-fib setting on the ZMQ path.
+            with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                operate_fpmsyncd(duthost_down)
+                if multi_dut:
+                    operate_fpmsyncd(duthost_up)
+
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
 
-            with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
+            # The ZMQ path queues routes while fpmsyncd is paused. With suppress-fib disabled,
+            # those queued routes must still be advertised before hardware installation.
+            with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(QUEUED)):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                      tbinfo, check_point=QUEUED, action=ACTION_NOT_IN,
+                                      tbinfo, check_point=QUEUED,
                                       verify_oth_asic=duthost_down.is_multi_asic)
                 if multi_dut:
                     for asichost in duthost_up.asics:
                         validate_route_states(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                               tbinfo, check_point=QUEUED,
-                                              action=ACTION_NOT_IN, asic_namespace=asichost.namespace)
+                                              asic_namespace=asichost.namespace)
 
             with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
                                          ipv6_route_list)
+
+            with allure.step("Resume fpmsyncd process to complete route installation"):
+                operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
+                if multi_dut:
+                    operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(OFFLOADED)):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
@@ -1417,6 +1434,10 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
                 validate_traffic(ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
                                  ptf_interfaces, recv_port)
         finally:
+            operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
+            if multi_dut:
+                operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
+
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
