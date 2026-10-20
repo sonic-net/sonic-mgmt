@@ -7,6 +7,7 @@ from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wai
      submit_async_task
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.config_reload import config_reload
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
 
@@ -28,6 +29,90 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+CSONIC_MACSEC_SUPERVISOR_CONFIG = "/etc/supervisor/conf.d/sonic-mgmt-macsec.conf"
+
+
+def _command_succeeded(result):
+    return isinstance(result, dict) and result.get("rc") == 0
+
+
+def _command_output_lines(result):
+    if not _command_succeeded(result):
+        return []
+
+    stdout_lines = result.get("stdout_lines")
+    if isinstance(stdout_lines, (list, tuple)):
+        return list(stdout_lines)
+
+    stdout = result.get("stdout")
+    if isinstance(stdout, str):
+        return stdout.splitlines()
+
+    return []
+
+
+def _macsec_service_ready(host, expected_instances):
+    """Check the service shape used by the host's actual runtime."""
+    try:
+        if isinstance(host, CsonicHost):
+            result = host.shell("supervisorctl status macsecmgrd")
+            return any("RUNNING" in line for line in _command_output_lines(result))
+
+        if len(_command_output_lines(
+                host.shell("docker ps | grep macsec | grep -v grep"))) < expected_instances:
+            return False
+        return len(_command_output_lines(
+            host.shell("ps -ef | grep macsecmgrd | grep -v grep"))) >= expected_instances
+    except Exception:
+        logger.exception("Failed to check MACsec service readiness on %s", host)
+        return False
+
+
+def _start_csonic_macsec_service(host):
+    """Ensure monolithic docker-sonic-vs supervises its bundled daemon.
+
+    Some docker-sonic-vs images contain the macsecmgrd binary without a
+    supervisor program. Register only that program at the MACsec call site;
+    images that already supervise it take the first or last case below.
+    """
+    command = """set -e
+status=$(supervisorctl status macsecmgrd 2>&1 || true)
+case "$status" in
+    *RUNNING*) exit 0 ;;
+    *"no such process"*)
+        cat > {config} <<'EOF'
+[program:macsecmgrd]
+command=/usr/bin/macsecmgrd
+priority=2
+autostart=true
+autorestart=false
+stdout_logfile=NONE
+stdout_syslog=true
+stderr_logfile=NONE
+stderr_syslog=true
+EOF
+        supervisorctl reread
+        supervisorctl update
+        ;;
+    *) supervisorctl start macsecmgrd ;;
+esac""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
+    return _command_succeeded(host.shell(command, module_ignore_errors=True))
+
+
+def _stop_csonic_macsec_service(host):
+    """Stop macsecmgrd and remove only the config installed above."""
+    command = """set -e
+status=$(supervisorctl status macsecmgrd 2>&1 || true)
+case "$status" in
+    *RUNNING*) supervisorctl stop macsecmgrd ;;
+esac
+if [ -e {config} ]; then
+    rm -f {config}
+    supervisorctl reread
+    supervisorctl update
+fi""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
+    return _command_succeeded(host.shell(command, module_ignore_errors=True))
 
 
 def get_macsec_enable_status(host):
@@ -195,17 +280,18 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
     num_asics = duthost.num_asics()
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
 
+    for nbr in [n["host"] for n in list(nbrhosts.values())]:
+        if isinstance(nbr, CsonicHost):
+            assert _start_csonic_macsec_service(nbr), \
+                "Failed to start macsecmgrd on {}".format(nbr.hostname)
+
     def check_macsec_enabled():
-        if len(duthost.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < num_asics:
-            return False
-        if len(duthost.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < num_asics:
+        if not _macsec_service_ready(duthost, num_asics):
             return False
         for nbr in [n["host"] for n in list(nbrhosts.values())]:
             if isinstance(nbr, EosHost):
                 continue
-            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < 1:
-                return False
-            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < 1:
+            if not _macsec_service_ready(nbr, 1):
                 return False
         return True
     assert wait_until(180, 5, 10, check_macsec_enabled)
@@ -213,6 +299,10 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
     global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
+    for nbr in [n["host"] for n in list(macsec_nbrhosts.values())]:
+        if isinstance(nbr, CsonicHost):
+            assert _stop_csonic_macsec_service(nbr), \
+                "Failed to stop macsecmgrd on {}".format(nbr.hostname)
 
 
 def _wait_for_macsec_cleanup_with_vs_recovery(host, interfaces, is_dut):
