@@ -209,7 +209,7 @@ class TestPfcwdAllPortStorm(object):
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
-                 stormed_ports_list=None, tbinfo=None, test_ports_info=None):
+                 stormed_ports_list=None, test_ports_info=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
         ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
@@ -235,25 +235,13 @@ class TestPfcwdAllPortStorm(object):
             port_type = "ports" if action == "storm" else "stormed ports"
             logger.info(f"Waiting for {threshold}% of {port_type} to reach {action} state")
 
-            # Scale timeout with port count to allow sufficient time on high port-count platforms.
-            # Restore needs materially more time than detection: once the storm stops, PFCWD must
-            # poll each queue, clear the storm state, and emit the "storm restored" syslog for every
-            # stormed port, and these do not all complete at once. On high port-count SKUs (e.g. 48+
-            # stormed ports) a detection-sized budget is too short for a strict 100% restore bar, so
-            # give the restore phase a larger per-port budget and floor.
+            # Preserve per-port scaling while giving storm detection and full restoration the same
+            # minimum budgets on every topology.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             if action == "restore":
-                timeout = max(120, num_ports * 6)
+                timeout = max(240, num_ports * 6)
             else:
-                timeout = max(60, num_ports * 3)
-            # LT2/FT2 topologies need extra headroom because the traffic generator takes longer to
-            # spin up on those setups. Single-node VoQ (ut2) topologies share the same slow spin-up
-            # but classify as topo type "t2"; identify them as a single-DUT VoQ switch (rather than
-            # by dut_type, which is not guaranteed to be stable) and extend their timeout too.
-            is_voq = duthost.facts.get('switch_type') == 'voq'
-            is_single_dut = bool(tbinfo) and len(tbinfo.get('duts', [])) == 1
-            if tbinfo and (tbinfo['topo']['type'] in ["lt2", "ft2"] or (is_voq and is_single_dut)):
-                timeout = max(timeout, 240 if action == "restore" else 120)
+                timeout = max(120, num_ports * 3)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
                            storm_hndle, action, selected_test_ports,
@@ -267,7 +255,7 @@ class TestPfcwdAllPortStorm(object):
             storm_test_setup_restore, setup_pfc_test, ptfhost,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,     # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                  # noqa: F811
-            set_pfc_time_cisco_8000, tbinfo):
+            set_pfc_time_cisco_8000):
         """
         Tests PFC storm/restore on all ports
 
@@ -307,8 +295,7 @@ class TestPfcwdAllPortStorm(object):
                           action="storm",
                           stormed_ports_list=stormed_ports_list,
                           selected_test_ports=selected_test_ports,
-                          test_ports_info=setup_pfc_test['test_ports'],
-                          tbinfo=tbinfo)
+                          test_ports_info=setup_pfc_test['test_ports'])
 
         logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
         logger.info("--- Testing if PFC storm is restored on stormed ports ---")
@@ -318,5 +305,4 @@ class TestPfcwdAllPortStorm(object):
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                       syslog_marker="all_port_storm_restore", action="restore",
                       stormed_ports_list=stormed_ports_list,
-                      selected_test_ports=selected_test_ports,
-                      tbinfo=tbinfo)
+                      selected_test_ports=selected_test_ports)
