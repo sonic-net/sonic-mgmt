@@ -1,0 +1,1 @@
+LLDP neighbor not found on interface Ethernet4. Expected neighbor r-sn2700-92 but got none after 90 seconds.
