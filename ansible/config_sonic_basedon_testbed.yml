@@ -94,7 +94,7 @@
 
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
-      include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
+      include_vars: "group_vars/{{ ipv6_mgmt_config_group | default(group_names[1]) }}/ipv6.yml"
       when:
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
