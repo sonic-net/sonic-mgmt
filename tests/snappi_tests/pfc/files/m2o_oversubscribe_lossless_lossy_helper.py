@@ -147,22 +147,17 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     ingress_dut2 = tx_port[1]['duthost']
     ingress_port1 = tx_port[0]['peer_port']
     ingress_port2 = tx_port[1]['peer_port']
-    rx_pkts_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]['rx_ok']
-    rx_pkts_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]['rx_ok']
-    total_rx_pkts = rx_pkts_1 + rx_pkts_2
-    # Fetch relevant statistics
-    if duthost.facts['switch_type'] == "voq":
-        pkt_drop_1_ingress = get_interface_stats(
-            ingress_dut1, ingress_port1
-        )[ingress_dut1.hostname][ingress_port1]['rx_drp']
-        pkt_drop_2_ingress = get_interface_stats(
-            ingress_dut2, ingress_port2
-        )[ingress_dut2.hostname][ingress_port2]['rx_drp']
-        total_pkt_drop_ingress = pkt_drop_1_ingress + pkt_drop_2_ingress
-        drop_percentage = (100 * total_pkt_drop_ingress) / total_rx_pkts
-    else:
-        pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
-        drop_percentage = (100 * pkt_drop) / total_rx_pkts
+    ingress_stats_1 = get_interface_stats(ingress_dut1, ingress_port1)[ingress_dut1.hostname][ingress_port1]
+    ingress_stats_2 = get_interface_stats(ingress_dut2, ingress_port2)[ingress_dut2.hostname][ingress_port2]
+    total_rx_pkts = ingress_stats_1['rx_ok'] + ingress_stats_2['rx_ok']
+
+    # Lossy congestion drops may be counted at ingress (RX_DRP) or egress (TX_DRP)
+    # depending on the ASIC; a dropped packet is counted only once, so sum both.
+    total_pkt_drop = ingress_stats_1['rx_drp'] + ingress_stats_2['rx_drp']
+    if egress_duthost.facts['switch_type'] != "voq":
+        egress_stats = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]
+        total_pkt_drop += egress_stats['tx_drp']
+    drop_percentage = 100.0 * total_pkt_drop / total_rx_pkts
 
     pytest_assert(abs(drop_percentage - 5) < 1,
                   'FAIL: Drop packets must be around 5 percent {}'.format(drop_percentage))
