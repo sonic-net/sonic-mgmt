@@ -707,3 +707,61 @@ def redis_get_keys(duthost, db_id, pattern):
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
     return content.split('\n') if content else None
+
+
+def redis_get_keys_all_asics(duthost, db_id, pattern):
+    """
+    Get all keys for a given pattern in given redis database across all ASICs
+    :param duthost: DUT host object
+    :param db_id: ID of redis database
+    :param pattern: Redis key pattern
+    :return: A list of key names aggregated from all ASICs
+    """
+    totalOutput = []
+
+    def run_cmd_store_output(cmd):
+        logger.debug('Getting keys from redis by command: {}'.format(cmd))
+        output = duthost.shell(cmd)['stdout'].strip()
+        if output:
+            totalOutput.extend(output.split('\n'))
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} KEYS \"{}\"'.format(asic.namespace, db_id, pattern)
+            run_cmd_store_output(cmd)
+
+    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    run_cmd_store_output(cmd)
+    return totalOutput
+
+
+def redis_hgetall_all_asics(duthost, db_id, key):
+    """
+    Get all field name and values for a given key in given redis database across all ASICs
+    :param duthost: DUT host object
+    :param db_id: ID of redis database
+    :param key: Redis Key
+    :return: A dictionary with field names and values from the first ASIC that has the key
+    """
+    def run_cmd(cmd):
+        output = duthost.shell(cmd)['stdout'].strip()
+        if not output:
+            return {}
+        # fix to make literal_eval() work with nested dictionaries
+        content = output.replace('\x00', '').replace("'{", '"{').replace("}'", '}"')
+        return ast.literal_eval(content)
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} HGETALL \"{}\"'.format(asic.namespace, db_id, key)
+            output = run_cmd(cmd)
+            if output:
+                return output
+
+    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
+    output = run_cmd(cmd)
+    if output:
+        return output
+    return {}
