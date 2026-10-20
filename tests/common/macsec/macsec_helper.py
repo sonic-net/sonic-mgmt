@@ -87,7 +87,7 @@ QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABL
 
 def getns_prefix(host, intf):
     ns_prefix = " "
-    if host.is_multi_asic:
+    if getattr(host, "is_multi_asic", False):
         asic = host.get_port_asic_instance(intf)
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         ns_prefix = "-n {}".format(ns)
@@ -97,7 +97,7 @@ def getns_prefix(host, intf):
 
 def get_ipnetns_prefix(host, intf):
     ns_prefix = " "
-    if host.is_multi_asic:
+    if getattr(host, "is_multi_asic", False):
         asic = host.get_port_asic_instance(intf)
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         ns_prefix = "sudo ip netns exec {}".format(ns)
