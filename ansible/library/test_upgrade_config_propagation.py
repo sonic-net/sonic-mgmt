@@ -223,7 +223,8 @@ def test_playbook_preserves_only_for_installation(options, expected):
     install, cleanup = installers
     expression = install["args"]["preserve_config_db"]
     assert expression == "{{ preserve_config_db | default(false) | bool }}"
-    environment = Environment(autoescape=True)
+    # Only evaluates the asserted boolean expression above; no HTML or request data is rendered.
+    environment = Environment(autoescape=True)  # nosemgrep: direct-use-of-jinja2
     # Match Ansible's bool filter for the supported inputs without importing Ansible.
     bool_filter = Mock(side_effect=lambda value: value in (True, "true"))
     environment.filters["bool"] = bool_filter
