@@ -290,7 +290,7 @@ class TestPfcwdAllPortStorm(object):
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
-                 stormed_ports_list=None, test_ports_info=None):
+                 stormed_ports_list=None, tbinfo=None, test_ports_info=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
         ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
@@ -316,8 +316,12 @@ class TestPfcwdAllPortStorm(object):
             port_type = "ports" if action == "storm" else "stormed ports"
             logger.info(f"Waiting for {threshold}% of {port_type} to reach {action} state")
 
-            # Preserve per-port scaling while giving storm detection and full restoration the same
-            # minimum budgets on every topology.
+            # Scale timeout with port count to allow sufficient time on high port-count platforms.
+            # Restore needs materially more time than detection: once the storm stops, PFCWD must
+            # poll each queue, clear the storm state, and emit the "storm restored" syslog for every
+            # stormed port, and these do not all complete at once. On high port-count SKUs (e.g. 48+
+            # stormed ports) a detection-sized budget is too short for a strict 100% restore bar, so
+            # give the restore phase a larger per-port budget and floor.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             if action == "restore":
                 timeout = max(240, num_ports * 6)
@@ -336,7 +340,7 @@ class TestPfcwdAllPortStorm(object):
             storm_test_setup_restore, setup_pfc_test, ptfhost,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,     # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                  # noqa: F811
-            set_pfc_time_cisco_8000):
+            set_pfc_time_cisco_8000, tbinfo):
         """
         Tests PFC storm/restore on all ports
 
@@ -387,7 +391,8 @@ class TestPfcwdAllPortStorm(object):
                               action="storm",
                               stormed_ports_list=stormed_ports_list,
                               selected_test_ports=selected_test_ports,
-                              test_ports_info=setup_pfc_test['test_ports'])
+                              test_ports_info=setup_pfc_test['test_ports'],
+                              tbinfo=tbinfo)
 
             logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
             logger.info("--- Testing if PFC storm is restored on stormed ports ---")
@@ -397,7 +402,8 @@ class TestPfcwdAllPortStorm(object):
             self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                           syslog_marker="all_port_storm_restore", action="restore",
                           stormed_ports_list=stormed_ports_list,
-                          selected_test_ports=selected_test_ports)
+                          selected_test_ports=selected_test_ports,
+                          tbinfo=tbinfo)
         finally:
             cleanup_ptf_ips(ptfhost, setup_pfc_test['test_ports'],
                             setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
