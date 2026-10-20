@@ -445,13 +445,14 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                                   module_ignore_errors=True)
                     ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
             finally:
-                if original_arp_ignore is not None:
-                    ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=%d" % original_arp_ignore)
-
-            if orig_arp_sysctls:
-                ptfhost.shell("sysctl -w {}".format(" ".join(
-                    "{}={}".format(key, value) for key, value in orig_arp_sysctls.items())),
-                    module_ignore_errors=True)
+                try:
+                    if orig_arp_sysctls:
+                        ptfhost.shell("sysctl -w {}".format(" ".join(
+                            "{}={}".format(key, value) for key, value in orig_arp_sysctls.items())),
+                            module_ignore_errors=True)
+                finally:
+                    if original_arp_ignore is not None:
+                        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=%d" % original_arp_ignore)
 
     @contextlib.contextmanager
     def _setup_interfaces_t0_or_mx(mg_facts, peer_count):
