@@ -1,6 +1,8 @@
 """Focused unit tests for MACsec service readiness across neighbor runtimes."""
 
 import ast
+from collections import UserDict
+from collections.abc import Mapping
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -43,6 +45,7 @@ NODES = [
 NAMESPACE = {
     "CsonicHost": FakeCsonicHost,
     "EosHost": FakeEosHost,
+    "Mapping": Mapping,
     "logger": MagicMock(),
 }
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
@@ -228,6 +231,30 @@ def test_command_output_shapes_fail_closed():
     assert _command_output_lines({"rc": 1, "stdout_lines": ["stale"]}) == []
     assert _command_output_lines({"stdout_lines": ["missing rc"]}) == []
     assert _command_output_lines(None) == []
+
+
+def test_ansible_mapping_results_are_supported():
+    result = UserDict({
+        "rc": 0,
+        "stdout": "macsec Up 3 minutes\n",
+        "stdout_lines": ["macsec Up 3 minutes"],
+        "stderr": "",
+    })
+    host = ShellHost({
+        "docker ps | grep macsec | grep -v grep": result,
+        "ps -ef | grep macsecmgrd | grep -v grep": UserDict({
+            "rc": 0,
+            "stdout": "/usr/bin/macsecmgrd",
+        }),
+    })
+
+    assert _macsec_service_ready(host, 1)
+    assert _command_output_lines(result) == ["macsec Up 3 minutes"]
+    assert NAMESPACE["_command_diagnostic"](result) == {
+        "rc": 0,
+        "stdout": "macsec Up 3 minutes\n",
+        "stderr": "",
+    }
 
 
 def test_csonic_service_lifecycle_uses_supervisor_not_docker():
