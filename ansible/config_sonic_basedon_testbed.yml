@@ -98,7 +98,7 @@
       when:
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
-        - group_names|length > 1
+        - ipv6_mgmt_config_group is defined or (group_names | length > 1)
       ignore_errors: true
 
     - name: Override management service configurations for IPv6-only mode
