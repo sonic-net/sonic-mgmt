@@ -178,29 +178,34 @@ class PFCStorm(object):
             if line.startswith('HwSKU:'):
                 return line.split()[1]
 
-    def _select_pfc_gen(self):
-        """Select the generator for this handle independently of file deployment."""
+    def _get_supported_pfc_chip(self):
+        """Return a hardware chip only when both fanout model and scenario support it."""
         if self.asic_type == 'vs':
-            return
-        if self.peer_device.os in ('eos', 'sonic'):
-            chip_name = None
-            if self.peer_device.os == 'eos':
-                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
-            elif self.peer_device.os == 'sonic':
-                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
-            if self.peer_device.os in ('eos', 'sonic') and chip_name:
-                self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
-                self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
-                self.pfc_gen_chip_name = chip_name
+            return None
+        if self.peer_device.os == 'eos':
+            chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
+        elif self.peer_device.os == 'sonic':
+            chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
+        else:
+            return None
+        # TH3 generators overwrite per-port state; keep t0 warm-reboot queue
+        # handles on software generation rather than overlapping hardware storms.
+        if chip_name == 'Tomahawk3' and not (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'):
+            return None
+        return chip_name
 
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
         """
-        self._select_pfc_gen()
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
+            chip_name = self._get_supported_pfc_chip()
+            if chip_name:
+                self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
+                self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
+                self.pfc_gen_chip_name = chip_name
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -248,8 +253,6 @@ class PFCStorm(object):
         """
         Populates all the vars needed by the pfc storm templates
         """
-        # Some callers deploy only once per fanout but create multiple handles.
-        self._select_pfc_gen()
         self.extra_vars = dict()
         self.extra_vars = {
             "pfc_gen_file": self.pfc_gen_file,
@@ -282,20 +285,18 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
+        chip_name = self._get_supported_pfc_chip()
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
-              and self.pfc_gen_chip_name != 'Tomahawk3'):
+              and chip_name != 'Tomahawk3'):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
-        elif ((self.peer_device.os == 'eos' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+        elif chip_name:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -308,20 +309,18 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
+        chip_name = self._get_supported_pfc_chip()
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
         elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
-              and self.pfc_gen_chip_name != 'Tomahawk3'):
+              and chip_name != 'Tomahawk3'):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
-        elif ((self.peer_device.os == 'eos' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+        elif chip_name:
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
