@@ -368,11 +368,6 @@ platform_tests/daemon/test_pcied.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/daemon/test_psud.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/daemon/test_sensord.py:
   skip:
     conditions:
