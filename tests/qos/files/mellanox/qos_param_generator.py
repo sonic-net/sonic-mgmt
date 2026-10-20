@@ -310,6 +310,9 @@ class QosParamMellanox(object):
             self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'] = max(
                 self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'],
                 int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))
+            self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin_lower_bound'] = max(
+                self.qos_params_mlnx['wm_pg_shared_lossy'].get('pkts_num_margin_lower_bound', 0),
+                int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))
             self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_margin'] = max(
                 self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_margin'],
                 int(self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))
