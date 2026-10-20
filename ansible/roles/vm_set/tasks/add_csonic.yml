@@ -12,6 +12,11 @@
     capabilities:
       - net_admin
     privileged: yes
+    # The cSONiC container joins this network namespace and acts as a router,
+    # so enable forwarding for both address families here.
+    sysctls:
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
 - name: Create network for csonic container csonic_{{ vm_set_name }}_{{ vm_item }}
   become: yes
   csonic_network:

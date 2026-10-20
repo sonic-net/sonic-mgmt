@@ -198,7 +198,15 @@ def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
         output = ptfhost.shell("ss -nltp | grep -E \"{}\""
                                .format("|".join(["pid={}".format(pid) for pid in exabgp_pids])),
                                module_ignore_errors=True)
-        return output["rc"] == 0 and len(output["stdout_lines"]) == neighbor_number * 2
+        # A single Tornado HTTP API process can own both an IPv4 and an IPv6
+        # listener. Counting socket rows therefore reports twice the expected
+        # total on dual-stack PTF images even though every ExaBGP process is
+        # healthy. Require at least one listening socket for each expected PID
+        # instead of requiring exactly one row per process.
+        listeners = "\n".join(output["stdout_lines"])
+        return output["rc"] == 0 and all(
+            "pid={}".format(pid) in listeners for pid in exabgp_pids
+        )
 
     def _op_routes(action):
         try:
