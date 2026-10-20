@@ -551,9 +551,20 @@ class PygnmiClient:
             raise self._map_error(exc, "subscribe") from exc
         finally:
             if close_subscriber is not None:
+                # pygnmi records receiver failures without waking get_update().
+                receiver_error = getattr(subscriber, "error", None)
                 close_subscriber()
+                self._raise_subscription_error(subscriber, receiver_error)
             else:
                 self.close()
+
+    def _raise_subscription_error(self, subscriber, receiver_error):
+        """Surface receiver failures, excluding cancellation caused by our close."""
+        error = receiver_error or getattr(subscriber, "error", None)
+        if error is not None and (
+            receiver_error is not None or not self._is_expected_subscription_shutdown(error)
+        ):
+            raise self._map_error(error, "subscribe") from error
 
     def _prepare_subscription_shutdown(self, subscriber):
         """Return a closer that drains pygnmi's receiver thread without noise.
