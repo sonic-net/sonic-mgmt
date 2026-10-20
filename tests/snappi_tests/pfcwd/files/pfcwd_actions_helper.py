@@ -33,19 +33,19 @@ global DATA_FLOW_DURATION_SEC
 global data_flow_delay_sec
 
 
-def run_pfc_test(api,
-                 testbed_config,
-                 port_config_list,
-                 conn_data,
-                 fanout_data,
-                 global_pause,
-                 pause_prio_list,
-                 test_prio_list,
-                 bg_prio_list,
-                 prio_dscp_map,
-                 test_traffic_pause,
-                 test_def,
-                 snappi_extra_params=None):
+def run_pfcwd_test(api,
+                   testbed_config,
+                   port_config_list,
+                   conn_data,
+                   fanout_data,
+                   global_pause,
+                   pause_prio_list,
+                   test_prio_list,
+                   bg_prio_list,
+                   prio_dscp_map,
+                   test_traffic_pause,
+                   test_def,
+                   snappi_extra_params=None):
     """
     Run a multidut PFC test
     Args:

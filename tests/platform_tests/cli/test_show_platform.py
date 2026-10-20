@@ -22,7 +22,7 @@ from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release_for_platform
 from tests.common.utilities import wait_until
-from tests.common.fixtures.duthost_utils import is_support_fan, is_support_psu  # noqa F401
+from tests.common.fixtures.duthost_utils import is_support_fan, is_support_psu, is_support_pdb, check_pdb_support  # noqa F401
 
 
 pytestmark = [
@@ -125,7 +125,7 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
 
     logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
     get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
-    expected_serial_no = dut_vars.get('serial', "")
+    expected_serial_no = str(dut_vars.get('serial', "")).strip()
 
     pytest_assert(get_serial_no_output == expected_serial_no,
                   "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
@@ -333,14 +333,17 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             pytest.fail(error_msg)
 
 
-def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu):  # noqa F811
+def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu, is_support_pdb):  # noqa F811
     """
     @summary: Verify output of `show platform psustatus`
     """
-    if not is_support_psu:
-        pytest.skip("No PSU support, skip the case")
+    if not is_support_psu and not is_support_pdb:
+        pytest.skip("No PSU or PDB support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
 
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
@@ -349,35 +352,45 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu
     )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
-    logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
+    logging.info(f"Verifying output of '{cmd}' on '{duthost.hostname}' ...")
     psu_status_output = duthost.command(cmd, module_ignore_errors=True)
-    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+    assert psu_status_output['rc'] == 0, f"Run command '{cmd}' failed"
 
     psu_status_output_lines = psu_status_output["stdout_lines"]
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
-    # Check that all PSUs are showing valid status and also at least one PSU is OK
+    # Check that all PSUs/PDBs are showing valid status and at least one of each is OK
     num_psu_ok = 0
+    num_pdb_ok = 0
 
     for line in psu_status_output_lines[2:]:
         psu_match = psu_line_pattern.match(line)
-        pytest_assert(psu_match, "Unexpected PSU status output: '{}' on '{}'".format(line, duthost.hostname))
+        pytest_assert(psu_match, f"Unexpected PSU status output: '{line}' on '{duthost.hostname}'")
         psu_status = psu_match.group(2)
         if psu_status == "OK":
-            num_psu_ok += 1
+            if line.lstrip().startswith("PDB"):
+                num_pdb_ok += 1
+            else:
+                num_psu_ok += 1
 
-    pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
+    if is_support_psu:
+        pytest_assert(num_psu_ok > 0, f"No PSUs are displayed with OK status on '{duthost.hostname}'")
+    if is_support_pdb:
+        pytest_assert(num_pdb_ok > 0, f"No PDBs are displayed with OK status on '{duthost.hostname}'")
 
 
-def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_support_psu):  # noqa F811
+def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_support_psu, is_support_pdb):  # noqa F811
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    if not is_support_psu:
-        pytest.skip("No PSU support, skip the case")
+    if not is_support_psu and not is_support_pdb:
+        pytest.skip("No PSU or PDB support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -389,9 +402,9 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_suppor
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
-    logging.info("Verifying output of '{}' ...".format(cmd))
+    logging.info(f"Verifying output of '{cmd}' ...")
     psu_status_output = duthost.command(cmd, module_ignore_errors=True)
-    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+    assert psu_status_output['rc'] == 0, f"Run command '{cmd}' failed"
 
     psu_status_output = psu_status_output["stdout"]
 
@@ -402,15 +415,27 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_suppor
         led_status_list = ["N/A"]
     else:
         led_status_list = ["green", "amber", "red", "off", "N/A"]
+
+    pdb_entries = [e for e in psu_info_list if e.get("name", "").startswith("PDB")]
+
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current",
                          "power"]
         pytest_assert(all(key in psu_info for key in expected_keys), "Expected key(s) missing from JSON output: '{}'".
                       format(psu_status_output))
-        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT"], "Unexpected PSU status value: '{}'".
+        pytest_assert(psu_info["status"] in ["OK", "NOT OK", "NOT PRESENT", "WARNING"],
+                      "Unexpected PSU status value: '{}'".
                       format(psu_info["status"]))
         pytest_assert(psu_info["led_status"] in led_status_list, "Unexpected PSU led_status value: '{}'".
                       format(psu_info["led_status"]))
+
+    if is_support_pdb:
+        pytest_assert(pdb_entries,
+                      f"Expected PDB entries in '{cmd}' JSON output on '{duthost.hostname}'")
+        pdb_led_values = {e["led_status"] for e in pdb_entries}
+        pytest_assert(len(pdb_led_values) == 1,
+                      "All PDB entries should share a single front-panel power LED, "
+                      f"but found different led_status values: {pdb_led_values}")
 
 
 def verify_show_platform_fan_output(duthost, raw_output_lines):
@@ -460,7 +485,8 @@ def check_fan_status(duthost, cmd):
     fans = verify_show_platform_fan_output(duthost, fan_status_output_lines)
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+    if not fans and (config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+                     or duthost.is_bmc()):
         return True
     if duthost.facts["asic_type"] == "vs":
         return True
@@ -480,9 +506,37 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname, is_support_fan):  # 
         pytest.skip("No FAN support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
     cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
     pytest_assert(wait_until(90, 5, 0, check_fan_status, duthost, cmd),
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
+
+
+def _get_offline_dpu_names(duthost):
+    """
+    @summary: Return the set of DPU module names (e.g. {'DPU0', 'DPU3'}) that are
+              not operationally online, as reported by 'show chassis modules status'.
+
+              On a SmartSwitch, a powered-off DPU (e.g. dark mode) drives its
+              voltage/current rails to 0, which the platform legitimately reports
+              with Warning=True. Such rails must be excluded from the sensor
+              Warning check.
+
+              On non-SmartSwitch platforms the command reports no DPU modules, so
+              an empty set is returned and sensor validation is unchanged.
+    """
+    offline_dpus = set()
+    rows = duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        oper_status = row.get("oper-status", "").strip().lower()
+        if oper_status != "online":
+            offline_dpus.add(name.upper())
+    return offline_dpus
 
 
 def check_show_platform_sensor_output(cmd, duthost):
@@ -490,6 +544,9 @@ def check_show_platform_sensor_output(cmd, duthost):
     @summary: Run and verify output of `show platform [voltage|current]`. Expected output
               is "Sensor not detected" or a table of sensor status data with 8 columns.
               Verify that the `Warning` column only shows `False`.
+
+              On a SmartSwitch, rails belonging to a powered-off DPU read 0 and are
+              legitimately reported with Warning=True, so they are excluded from the check.
     """
     num_expected_cols = 8
 
@@ -522,6 +579,8 @@ def check_show_platform_sensor_output(cmd, duthost):
                       "Output is missing the 'Warning' column on '{}' (header: {})".
                       format(duthost.hostname, header_fields))
 
+        offline_dpus = _get_offline_dpu_names(duthost)
+
         for line in raw_output_lines[2:]:
             if not line.strip():
                 continue
@@ -530,6 +589,19 @@ def check_show_platform_sensor_output(cmd, duthost):
                           "Unexpected number of fields in output row on '{}' (row: {})".
                           format(duthost.hostname, row_fields))
 
+            sensor_name = row_fields[0]
+            if isinstance(sensor_name, bytes):
+                sensor_name = sensor_name.decode('utf-8', errors='ignore')
+            sensor_name = str(sensor_name).strip()
+
+            dpu_match = re.search(r"DPU\d+", sensor_name, re.IGNORECASE)
+            if dpu_match and dpu_match.group(0).upper() in offline_dpus:
+                logging.info(
+                    "Skipping Warning check for sensor '%s' on '%s': %s is offline; "
+                    "its rails read 0 and legitimately report Warning=True",
+                    sensor_name, duthost.hostname, dpu_match.group(0).upper())
+                continue
+
             warning_value = row_fields[warning_col_idx]
             if isinstance(warning_value, bytes):
                 warning_value = warning_value.decode('utf-8', errors='ignore')
@@ -537,7 +609,7 @@ def check_show_platform_sensor_output(cmd, duthost):
 
             pytest_assert(warning_value.lower() == "false",
                           "Expected Warning to be False for sensor '{}' on '{}', got '{}' (cmd: '{}')".
-                          format(row_fields[0], duthost.hostname, warning_value, cmd))
+                          format(sensor_name, duthost.hostname, warning_value, cmd))
 
 
 def test_show_platform_voltage(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -589,11 +661,18 @@ def test_show_platform_temperature(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "temperature"])
 
-    logging.info("Verifying output of '{}' on '{}'...".format(cmd, duthost.hostname))
+    logging.info(f"Verifying output of '{cmd}' on '{duthost.hostname}'...")
     temperature_output_lines = duthost.command(cmd)["stdout_lines"]
     verify_show_platform_temperature_output(temperature_output_lines, duthost.hostname)
 
-    # TODO: Test values against platform-specific expected data
+    if check_pdb_support(duthost):
+        pdb_temp_pattern = re.compile(r"PDB[\s-]*\d+\s+Temp", re.IGNORECASE)
+        pdb_thermal_rows = [line for line in temperature_output_lines
+                            if pdb_temp_pattern.search(line)]
+        pytest_assert(len(pdb_thermal_rows) > 0,
+                      "PDB platform detected but no PDB thermal rows found in "
+                      f"'show platform temperature' output on '{duthost.hostname}'")
+        logging.info(f"Found {len(pdb_thermal_rows)} PDB thermal row(s) in temperature output")
 
 
 def test_show_platform_ssdhealth(duthosts, rand_one_dut_hostname):
@@ -700,6 +779,8 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform pcieinfo`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_bmc():
+        pytest.skip("PCIe config (pcie.yaml) is not provided on the BMC, skip the case on BMC")
 
     cmd = "show platform pcieinfo -c"
 

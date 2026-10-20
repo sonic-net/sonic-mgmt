@@ -7,8 +7,8 @@ EXPECT_EXCEEDED = ".* THRESHOLD_EXCEEDED .*"
 EXPECT_CLEAR = ".* THRESHOLD_CLEAR .*"
 
 THR_VERIFY_CMDS = OrderedDict([
-    ("exceeded_used", "bash -c \"crm config thresholds {{crm_cli_res}}  type used; \
-         crm config thresholds {{crm_cli_res}} low {{crm_used|int - 1}}; \
+    ("exceeded_used", "bash -c \"crm config thresholds {{crm_cli_res}} type used && \
+         crm config thresholds {{crm_cli_res}} low {{crm_used|int - 1}} && \
          crm config thresholds {{crm_cli_res}} high {{crm_used|int}}\""),
     ("clear_used", "bash -c \"crm config thresholds {{crm_cli_res}} type used && \
          crm config thresholds {{crm_cli_res}} low {{crm_used|int}} && \

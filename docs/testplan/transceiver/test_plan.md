@@ -203,11 +203,14 @@ def _category_per_test_checks(request, duthost, port_attributes_dict):
 
 Several categories validate the **remote (peer) side** of a link end-to-end — for example DOM [Advanced TC 1](dom_test_plan.md#advanced-dom-testing) reads the peer's `TRANSCEIVER_DOM_SENSOR` RX power across shut/no-shut, Physical OIR verifies the peer port on removal/insertion, and the System [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure) optionally confirms the peer link recovered after a disruption. To keep peer identification consistent, all categories resolve the remote side through this single shared mechanism rather than parsing link files themselves.
 
-**Resolution source.** For a given `(duthost, local_port)`, the peer is looked up in the baseline sonic-mgmt connection graph at `conn_graph_facts["device_conn"][duthost.hostname][local_port]`, which provides the **string** fields `peerdevice` and `peerport` (the graph is populated from the lab link inventory, e.g. `sonic_{inv_name}_links.csv`). `get_dev_conn` (used in `tests/transceiver/transceiver_test_base.py`) is the helper that returns a DUT's per-port connection map; it yields those peer strings — not a peer host object.
+**Resolution source.** For a given `(duthost, local_port)`, the peer is looked up in the baseline sonic-mgmt connection graph at `conn_graph_facts["device_conn"][duthost.hostname][local_port]`, which provides the **string** fields `peerdevice` and `peerport` (the graph is populated from the lab link inventory, e.g. `sonic_{inv_name}_links.csv`). `tests/transceiver/common/topology.py::resolve_remote_peer` is the shared transceiver adapter: it reuses `tests/common/platform/interface_utils.py::get_dev_conn` for the DUT/ASIC-specific connection map, resolves `peerdevice` to a DUT host object, and calls `get_lport_to_first_subport_mapping` for that resolved host on first use. Successful logical-port mappings are cached by peer hostname for later local-port resolutions. Per-DUT attributes are loaded only after a DUT is selected or resolved as a peer, and unrelated DUTs in the testbed are not queried.
 
 **Contract.**
 
-- Input: a DUT handle and a local port under test. Output: the **peer device name** and **peer port name** (the `peerdevice` / `peerport` strings). Callers resolve the peer-device name to a host object themselves when they need to query the peer.
+- Input: the DUT handles, a local DUT/port, and the connection graph. Output: the peer host object, **peer device name**, raw **peer port name**, and peer DUT's primary subport. The device/port strings remain available for diagnostics and per-DUT attribute lookup.
+- Attribute-driven callers must key attributes and logical-to-primary-subport mappings by peer device as well as port name. Port names are DUT-local; a same-named port on the local DUT must never supply a cross-DUT peer's lane masks, thresholds, or other attributes.
+- The selected DUT and any actually used peer DUT follow the same base-load, category-merge, and optional deployment-template validation sequence. Selected-DUT failures retain the suite's fail/skip behavior; peer-DUT failures are returned to the consuming test for contextual reporting.
+- The raw `peerport` from the connection graph must exist in the resolved peer DUT's logical-to-primary-subport mapping. A missing key is a connection-graph or DUT-interface configuration error; callers must not silently treat the raw peer port as its own primary port.
 - The mapping is **static** — it does not depend on the local port's live link state, so it is valid even while the local port is down (e.g. mid-reset/reboot). Callers therefore do **not** need to snapshot peer identity from a pre-disruption baseline.
 - Every port in `port_attributes_dict` is assumed to have a remote peer. If a port under test has **no** entry in the connection graph, that is a **configuration error**: the consuming test fails (or skips) with a clear message rather than silently skipping the remote-side checks.
 
@@ -763,6 +766,7 @@ attributes/
 - `dom/` (DOM)
 - `vdm/` (VDM)
 - `pm/` (PM)
+- `signal_integrity/` (Signal Integrity tests)
 - `port_config/` (Port configuration tests)
 
 #### Loader Validation
@@ -844,6 +848,7 @@ The category-level shard carries `mandatory`, `defaults`, `dut`, and `transceive
 **Key Design Rules:**
 
 - **No Overlap (mandatory vs defaults)**: A field must never appear in both `mandatory` and `defaults`. A field cannot simultaneously require explicit specification and have a fallback value.
+- **Defaults are the presence guarantee**: An attribute documented with a "Default Value" in a category plan is seeded in that category's `defaults` block, which resolves as the lowest-priority layer for **every** port. `O` (Optional) therefore means the attribute need not be *overridden* at a narrower scope — not that it may be absent from the resolved attributes. Test code reads such attributes directly, with no local fallback: a missing key means the category shard was not loaded (or the port was not resolved for that category) and must fail loudly rather than silently substituting a value.
 - **Category Isolation**: Each category directory only contains attributes relevant to its specific test domain.
 - **Optional Sections**: Any optional section listed above may be omitted; the loader silently ignores missing slots.
 
@@ -1113,6 +1118,7 @@ The following child test plans provide comprehensive, attribute-driven test case
 |-----------|-------------|
 | [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, and breakout serial number pattern validation |
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
+| [VDM Test Plan](vdm_test_plan.md) | Versatile Diagnostics Monitoring validation for CMIS optics — operational range checks, alarm/warning threshold hierarchy and value validation, statistic freeze/unfreeze coherence, flag lifecycle, and recovery across disruptive operations |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 | [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
 | [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md) | CMIS CDB firmware upgrade/downgrade testing including stress tests, and EEPROM integrity validation |

@@ -9,7 +9,7 @@ import pytest
 
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hset
+from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -203,17 +203,37 @@ def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
     LogAnalyzer.analyze() instead so the scan is bounded by markers.
 
     Returns the matching lines (tail-N) as a string; empty if no match.
+
+    Ansible logs every shell/command module invocation to syslog, echoing the
+    full command line (including this search pattern) in a line tagged with
+    ``ansible-ansible.legacy.command`` / ``ansible-ansible.legacy.shell``.
+    Those lines are filtered out before ``tail`` so the scan cannot self-match
+    its own command-invocation syslog entry.
     """
     r = duthost.shell(
-        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null | tail -{tail}",
+        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null "
+        f"| grep -vE 'ansible-ansible\\.legacy\\.(command|shell)' "
+        f"| tail -{tail}",
         module_ignore_errors=True,
     )
-    if r.get('rc') == 0:
-        return (r.get('stdout', '') or '').strip()
-    return ''
+    return (r.get('stdout', '') or '').strip()
 
 
 # --- Leak-sensor injection helpers ----------------------------------------
+
+LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
+
+
+def get_sensor_data(duthost, sensor_name):
+    """
+    Return LIQUID_COOLING_INFO|<sensor_name> from STATE_DB as a field dict.
+
+    Reads via ``sonic-db-cli STATE_DB HGETALL`` and parses the result into a
+    Python dictionary (e.g. leaking, leak_severity, leak_sensor_status).
+    Returns an empty dict when the key is absent.
+    """
+    return redis_hgetall(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}')
+
 
 def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_sensor_status='Good',
                        sensor_type=None, location=None):
@@ -231,7 +251,7 @@ def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_
         fields['type'] = sensor_type
     if location is not None:
         fields['location'] = location
-    redis_hset(duthost, STATE_DB, f'LIQUID_COOLING_INFO|{sensor_name}', **fields)
+    redis_hset(duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|{sensor_name}', **fields)
 
 
 def get_system_leak_status(duthost):
@@ -249,6 +269,14 @@ def set_system_leak_status(duthost, status):
 def get_host_uptime(host):
     """Return `uptime -s` (boot timestamp) of the paired Switch-Host; '' on failure."""
     return host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+
+
+def get_host_boot_id(host):
+    """Return the kernel boot ID; and '' on failure."""
+    return host.shell(
+        "cat /proc/sys/kernel/random/boot_id",
+        module_ignore_errors=True
+    ).get('stdout', '').strip()
 
 
 def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
