@@ -15,6 +15,9 @@ Execution order::
     `- test_system_port_shutdown
          |- <body>: bulk shutdown all ports -> verify each reaches oper-down
     `- test_system_port_startup
+         |- <pre>:  bulk shutdown any port not already admin-down and
+                    verify every port is oper-down (restore + fail early
+                    otherwise), so the test is valid when run standalone
          |- <body>: bulk startup all ports -> Standard Port Recovery and
                     Verification for all ports
     `- test_system_prefec_ber_peer_side_flap
@@ -37,6 +40,7 @@ import logging
 
 import pytest
 
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 from tests.transceiver.attribute_parser.attribute_keys import (
     SYSTEM_ATTRIBUTES_KEY
 )
@@ -106,14 +110,25 @@ def test_system_port_startup(
     lport_to_first_subport_mapping,
 ):
     """
-    Start up every transceiver port (bulk), then run Standard Port
-    Recovery and Verification across all ports.
+    Ensure every transceiver port is admin-down and oper-down, start them
+    all up (bulk), then run Standard Port Recovery and Verification across
+    all ports.
     """
     ports = sorted(port_attributes_dict.keys())
     assert ports, "port_attributes_dict is empty - nothing to validate"
 
-    health_baseline = capture_baseline(duthost)
-
+    # Establish the down state here rather than relying on
+    # test_system_port_shutdown having run first; otherwise a standalone run
+    # starts with every link up and the startup below is a no-op.
+    shutdown_wait = scenario_ops.scale_bulk_wait(
+        max(
+            port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get(
+                "port_shutdown_wait_sec", _DEFAULT_PORT_SHUTDOWN_WAIT_SEC
+            )
+            for port in ports
+        ),
+        len(ports),
+    )
     startup_wait = scenario_ops.scale_bulk_wait(
         max(
             port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get(
@@ -123,6 +138,44 @@ def test_system_port_startup(
         ),
         len(ports),
     )
+
+    intf_status = get_dut_interfaces_status(duthost)
+    ports_to_shut = [
+        port for port in ports
+        if (intf_status.get(port) or {}).get("admin") != "down"
+    ]
+    # Ports already admin-down are in the snapshot; they just need to be oper-down too.
+    precondition_failures = [
+        f"port {port} is admin-down but oper-{intf_status[port]['oper']}"
+        for port in ports
+        if port not in ports_to_shut and intf_status[port]["oper"] != "down"
+    ]
+    if ports_to_shut:
+        logger.info(
+            "Shutting down %d port(s) not already admin-down (bulk)", len(ports_to_shut),
+        )
+        precondition_failures.extend(
+            scenario_ops.perform_ports_shutdown(duthost, ports_to_shut, shutdown_wait)
+        )
+    else:
+        logger.info("All %d port(s) already admin-down", len(ports))
+
+    if precondition_failures:
+        # Pre-test validation failed: restore the ports and exit early.
+        restore_failures = scenario_ops.perform_ports_startup(duthost, ports, startup_wait)
+        message = (
+            "Could not establish the down state before startup on "
+            f"{len(precondition_failures)} port(s):\n  - "
+            + "\n  - ".join(precondition_failures)
+        )
+        if restore_failures:
+            message += (
+                "\nRestoring the ports afterwards also FAILED:\n  - "
+                + "\n  - ".join(restore_failures)
+            )
+        pytest.fail(message)
+
+    health_baseline = capture_baseline(duthost)
 
     logger.info("Starting up %d port(s) (bulk)", len(ports))
     failures = scenario_ops.perform_ports_startup(duthost, ports, startup_wait)
@@ -230,49 +283,66 @@ def test_system_prefec_ber_peer_side_flap(
     health_baseline = capture_baseline(duthost)
     failures = []  # collected across every (port, step) tuple
 
-    peer_ports_by_duthost = {}
+    # Group DUT ports by peer host; each group is flapped with one bulk call.
+    dut_ports_by_peer_duthost = {}
     for port in ports:
-        peer_duthost, peer_port = peers_by_port[port]
-        peer_ports_by_duthost.setdefault(peer_duthost, []).append(peer_port)
+        dut_ports_by_peer_duthost.setdefault(peers_by_port[port][0], []).append(port)
 
-    shutdown_wait = max(
-        system_attrs[port].get(
-            "port_shutdown_wait_sec", _DEFAULT_PORT_SHUTDOWN_WAIT_SEC
+    for peer_duthost, dut_ports in dut_ports_by_peer_duthost.items():
+        peer_ports = [peers_by_port[port][1] for port in dut_ports]
+        # Bulk operations settle slower than a single port, so scale the
+        # per-port waits by this group's size (as TC1/TC2 do).
+        shutdown_wait = scenario_ops.scale_bulk_wait(
+            max(
+                system_attrs[port].get(
+                    "port_shutdown_wait_sec", _DEFAULT_PORT_SHUTDOWN_WAIT_SEC
+                )
+                for port in dut_ports
+            ),
+            len(peer_ports),
         )
-        for port in ports
-    )
-    startup_wait = max(
-        system_attrs[port].get(
-            "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC
+        startup_wait = scenario_ops.scale_bulk_wait(
+            max(
+                system_attrs[port].get(
+                    "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC
+                )
+                for port in dut_ports
+            ),
+            len(peer_ports),
         )
-        for port in ports
-    )
-
-    for peer_duthost, peer_ports in peer_ports_by_duthost.items():
         logger.info(
-            "Flapping %d peer port(s) on %s", len(peer_ports), peer_duthost.hostname,
+            "Flapping %d peer port(s) on %s (shutdown wait %ss, startup wait %ss)",
+            len(peer_ports), peer_duthost.hostname, shutdown_wait, startup_wait,
         )
-        shutdown_failures = scenario_ops.perform_ports_shutdown(
-            peer_duthost, peer_ports, shutdown_wait
-        )
-        for failure in shutdown_failures:
-            logger.warning("peer %s: %s", peer_duthost.hostname, failure)
-
-        # Teardown contract: always attempt to restore the peer ports, even
-        # if the shutdown above didn't fully settle.
-        startup_failures = scenario_ops.perform_ports_startup(
-            peer_duthost, peer_ports, startup_wait
-        )
-        if startup_failures:
+        # Teardown contract: the System teardown only restores the local DUT,
+        # so the peer ports must be brought back up here unconditionally -
+        # even if the shutdown or its oper-status polling raises.
+        try:
+            shutdown_failures = scenario_ops.perform_ports_shutdown(
+                peer_duthost, peer_ports, shutdown_wait
+            )
+            for failure in shutdown_failures:
+                failures.append(f"[peer-shutdown] {peer_duthost.hostname}: {failure}")
+                logger.warning("peer %s: %s", peer_duthost.hostname, failure)
+        finally:
+            startup_failures = scenario_ops.perform_ports_startup(
+                peer_duthost, peer_ports, startup_wait
+            )
             failures.extend(
-                f"{peer_duthost.hostname}: {failure}" for failure in startup_failures
+                f"[peer-startup] {peer_duthost.hostname}: {failure}"
+                for failure in startup_failures
             )
 
-    settle_wait = max(
-        system_attrs[port].get(
-            "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC
-        )
-        for port in ports
+    # Every in-scope DUT port flapped, so the DUT-side recovery budget is
+    # scaled by the full port count.
+    settle_wait = scenario_ops.scale_bulk_wait(
+        max(
+            system_attrs[port].get(
+                "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC
+            )
+            for port in ports
+        ),
+        len(ports),
     )
     logger.info(
         "Running Standard Port Recovery and Verification for %d port(s)",
