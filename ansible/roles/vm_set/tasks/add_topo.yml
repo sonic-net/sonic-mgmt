@@ -443,6 +443,14 @@
       ptf_portchannel_action: start
     when: "'bmc' not in topo"
 
+  - name: Patch exabgp in PTF container
+    include_tasks: patch_exabgp.yml
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+      - not 'cable' in topo
+      - not 'bmc' in topo
+
   - name: Announce routes
     include_tasks: announce_routes.yml
     when:

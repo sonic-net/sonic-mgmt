@@ -1,4 +1,6 @@
 import logging
+import sys
+
 import paramiko
 import pytest
 from _pytest.outcomes import Failed
@@ -26,14 +28,21 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+EMPTY_PASSWORD_USER = "tacacs_empty_password"
+
 
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
+    ssh_client = None
     try:
-        paramiko_ssh(remote_ip, remote_username, remote_password)
+        ssh_client = paramiko_ssh(
+            remote_ip, remote_username, remote_password)
     except paramiko.ssh_exception.AuthenticationException as e:
         login_failed = True
         logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
+    finally:
+        if ssh_client:
+            ssh_client.close()
 
     pytest_assert(login_failed)
 
@@ -84,6 +93,85 @@ def local_user_client():
         yield ssh_client
 
 
+@pytest.fixture
+def empty_password_local_user(
+        duthosts, enum_rand_one_per_hwsku_hostname, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    def remove_user():
+        duthost.shell(
+            "sudo userdel --remove {}".format(EMPTY_PASSWORD_USER),
+            module_ignore_errors=True,
+        )
+        return duthost.shell(
+            "id -u {}".format(EMPTY_PASSWORD_USER),
+            module_ignore_errors=True,
+        )["rc"] != 0
+
+    pytest_assert(
+        wait_until(10, 1, 0, remove_user),
+        "Failed to remove a stale empty-password regression account",
+    )
+    try:
+        duthost.shell(
+            "sudo useradd --create-home --shell /bin/bash {}".format(
+                EMPTY_PASSWORD_USER))
+        duthost.shell("sudo passwd --delete {}".format(EMPTY_PASSWORD_USER))
+
+        shadow_entry = duthost.shell(
+            "sudo getent shadow {}".format(EMPTY_PASSWORD_USER))["stdout"]
+        pytest_assert(
+            shadow_entry.split(":", 2)[1] == "",
+            "Failed to create the empty-password regression account",
+        )
+        yield EMPTY_PASSWORD_USER
+    finally:
+        user_removed = wait_until(10, 1, 0, remove_user)
+        if not user_removed:
+            message = "Failed to remove the empty-password regression account"
+            if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
+                logger.error(message)
+            else:
+                pytest_assert(False, message)
+
+
+@pytest.fixture
+def permit_empty_password_ssh(
+        duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    backup_path = "/tmp/sshd_config.tacacs_password_test"
+    duthost.shell(
+        "sudo cp --preserve=mode,ownership /etc/ssh/sshd_config {}".format(
+            backup_path))
+    try:
+        duthost.shell(
+            "sudo sed -i '1iPermitEmptyPasswords yes' "
+            "/etc/ssh/sshd_config")
+        duthost.shell("sudo sshd -t")
+        duthost.shell("sudo systemctl restart ssh")
+        permit_empty_passwords = duthost.shell(
+            "sudo sshd -T | awk "
+            "'$1 == \"permitemptypasswords\" { print $2 }'")["stdout"]
+        pytest_assert(
+            permit_empty_passwords == "yes",
+            "Failed to enable empty-password SSH authentication",
+        )
+        use_pam = duthost.shell(
+            "sudo sshd -T | awk "
+            "'$1 == \"usepam\" { print $2 }'")["stdout"]
+        pytest_assert(
+            use_pam == "yes",
+            "SSHD is not configured to use PAM authentication",
+        )
+        yield
+    finally:
+        duthost.shell(
+            "sudo cp --preserve=mode,ownership {} /etc/ssh/sshd_config".format(
+                backup_path))
+        duthost.shell("sudo rm -f {}".format(backup_path))
+        duthost.shell("sudo systemctl restart ssh")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202112
@@ -110,6 +198,54 @@ def setup_authorization_tacacs_local(duthosts, enum_rand_one_per_hwsku_hostname)
     change_and_wait_aaa_config_update(duthost, "sudo config aaa authorization \"tacacs+ local\"")
     yield
     duthost.shell("sudo config aaa authorization local")    # Default authorization method is local
+
+
+@pytest.fixture
+def setup_authentication_tacacs_local(
+        duthosts, enum_rand_one_per_hwsku_hostname, check_tacacs, request):  # noqa: F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    get_login_mode = (
+        r'show aaa | grep -Po "AAA authentication login \K.*"')
+    previous_login_mode = duthost.shell(get_login_mode)["stdout"]
+
+    if previous_login_mode.endswith(" (default)"):
+        restore_mode = "default"
+    else:
+        restore_mode = previous_login_mode.replace(",", " ")
+    restore_command = (
+        "sudo config aaa authentication login {}".format(restore_mode))
+
+    try:
+        change_and_wait_aaa_config_update(
+            duthost,
+            "sudo config aaa authentication login tacacs+ local",
+        )
+        login_mode = duthost.shell(get_login_mode)["stdout"]
+        pytest_assert(
+            login_mode == "tacacs+,local",
+            "Failed to configure TACACS-to-local authentication fallback",
+        )
+        yield
+    finally:
+        failure_in_progress = sys.exc_info()[0] is not None
+        test_failed = (
+            hasattr(request.node, "rep_call") and request.node.rep_call.failed)
+        if failure_in_progress or test_failed:
+            try:
+                restore_result = duthost.shell(
+                    restore_command, module_ignore_errors=True)
+                if restore_result["rc"] != 0:
+                    logger.error(
+                        "Failed to restore AAA authentication login mode: %s",
+                        restore_result,
+                    )
+            except Exception as error:
+                logger.error(
+                    "Failed to restore AAA authentication login mode: %r",
+                    error,
+                )
+        else:
+            change_and_wait_aaa_config_update(duthost, restore_command)
 
 
 def verify_show_aaa(remote_user_client):
@@ -290,9 +426,68 @@ def test_authorization_tacacs_only_then_server_down_after_login(
     start_tacacs_server(ptfhost)
 
 
+def test_tacacs_fallback_requires_local_password(
+        duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+        tacacs_creds, check_tacacs, local_user_client,  # noqa: F811
+        setup_authentication_tacacs_local, empty_password_local_user,
+        permit_empty_password_ssh):
+    """Verify TACACS outage fallback accepts only valid local passwords."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    try:
+        pytest_assert(
+            stop_tacacs_server(ptfhost),
+            "Failed to stop the TACACS+ server before the fallback test",
+        )
+        local_user_client.connect(
+            duthost.mgmt_ip,
+            username=tacacs_creds["local_user"],
+            password=tacacs_creds["local_user_passwd"],
+            allow_agent=False,
+            look_for_keys=False,
+            auth_timeout=TIMEOUT_LIMIT,
+        )
+        exit_code, _, _ = ssh_run_command(
+            local_user_client, "show aaa", expect_exit_code=0, verify=True)
+        pytest_assert(exit_code == 0)
+
+        sshd_pam_stack = duthost.shell(
+            "grep -E "
+            "'^[[:space:]]*@include[[:space:]]+"
+            "common-auth-sonic([[:space:]]|$)' "
+            "/etc/pam.d/sshd",
+            module_ignore_errors=True,
+        )
+        pytest_assert(
+            sshd_pam_stack["rc"] == 0,
+            "SSHD does not include the common-auth-sonic PAM stack",
+        )
+
+        pam_auth = duthost.shell(
+            "grep -E '^[[:space:]]*auth.*pam_unix[.]so' "
+            "/etc/pam.d/common-auth-sonic")["stdout"]
+        pytest_assert(
+            "nullok" not in pam_auth,
+            "TACACS PAM configuration still permits empty passwords: {}".format(
+                pam_auth),
+        )
+        check_ssh_connect_remote_failed(
+            duthost.mgmt_ip, empty_password_local_user, "")
+    finally:
+        test_failed = sys.exc_info()[0] is not None
+        tacacs_restored = start_tacacs_server(ptfhost)
+        if not tacacs_restored:
+            message = "Failed to restore the TACACS+ server after the fallback test"
+            if test_failed:
+                logger.error(message)
+            else:
+                pytest_assert(False, message)
+
+
 def test_authorization_tacacs_and_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
-        setup_authorization_tacacs_local, tacacs_creds, check_tacacs, remote_user_client):  # noqa: F811
+        setup_authorization_tacacs_local, tacacs_creds,
+        check_tacacs, remote_user_client):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     """
