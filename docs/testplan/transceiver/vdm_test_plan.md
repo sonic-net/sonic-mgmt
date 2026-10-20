@@ -134,12 +134,14 @@ The VDM test framework uses an attribute-driven approach to dynamically determin
 
 ### Example Mappings
 
+`{lane}` represents each active media-lane index; `{anchor}` represents each active data-path anchor index.
+
 | Attribute Name | Base Field | Lane Expansion | Expected STATE_DB Fields |
-|----------------|------------|-----------------|--------------------------|
-| `esnr_media_inputLANE_NUM_operational_range` | `esnr_media_inputLANE_NUM` | Yes | `esnr_media_input1`..`esnr_media_inputN` |
-| `prefec_ber_avg_media_inputLANE_NUM_operational_range` | `prefec_ber_avg_media_inputLANE_NUM` | Yes | `prefec_ber_avg_media_input1`..`prefec_ber_avg_media_inputN` |
-| `errored_frames_curr_host_inputLANE_NUM_operational_range` | `errored_frames_curr_host_inputLANE_NUM` | Yes | `errored_frames_curr_host_input1`..`errored_frames_curr_host_inputN` |
-| `osnrLANE_NUM_operational_range` | `osnrLANE_NUM` | Yes | `osnr1`..`osnrN` |
+|----------------|------------|----------------|--------------------------|
+| `esnr_media_inputLANE_NUM_operational_range` | `esnr_media_inputLANE_NUM` | Active media lanes | `esnr_media_input{lane}` |
+| `prefec_ber_avg_media_inputLANE_NUM_operational_range` | `prefec_ber_avg_media_inputLANE_NUM` | Active data-path anchors | `prefec_ber_avg_media_input{anchor}` |
+| `errored_frames_curr_host_inputLANE_NUM_operational_range` | `errored_frames_curr_host_inputLANE_NUM` | Active data-path anchors | `errored_frames_curr_host_input{anchor}` |
+| `osnrLANE_NUM_operational_range` | `osnrLANE_NUM` | Active data-path anchors | `osnr{anchor}` |
 
 **Lane value rule:** validate only active lanes/data-paths; unsupported ones may be populated with sentinel values, and treating those as failures is incorrect. This applies to every validation in this plan (operational range, threshold, and flag), not just thresholds.
 

@@ -1,5 +1,6 @@
 """VDM availability field planning, STATE_DB reads, and validation."""
 
+import logging
 import math
 import re
 from collections import defaultdict, namedtuple
@@ -16,13 +17,15 @@ from tests.transceiver.common.db_helpers import (
     resolve_port_namespace,
 )
 
+logger = logging.getLogger(__name__)
+
 STATE_DB_REAL_VALUE_TABLE = "TRANSCEIVER_VDM_REAL_VALUE"
 
 HOST_LANE_MASK_KEY = "host_lane_mask"
 VDM_BANK_0_MAX_LANE = 8
 
 VdmMappedField = namedtuple("VdmMappedField", ("source_attr", "attr_value"))
-VdmLaneDomains = namedtuple("VdmLaneDomains", ("media", "host", "data_path", "errors"))
+VdmLaneDomains = namedtuple("VdmLaneDomains", ("media", "host", "data_path", "host_path", "errors"))
 
 MEDIA_QUANTITIES = {
     "laser_temperature_media",
@@ -50,7 +53,7 @@ def resolve_vdm_lane_domains(
     port_attributes_dict,
     lport_to_first_subport_mapping,
 ):
-    """Return media/host lanes and first-host-lane data-path anchors."""
+    """Return media/host lanes and host-lane anchors for data and host paths."""
     media = resolve_breakout_lanes(
         primary_port, port_attributes_dict,
         lport_to_first_subport_mapping, MEDIA_LANE_MASK_KEY,
@@ -59,13 +62,17 @@ def resolve_vdm_lane_domains(
         primary_port, port_attributes_dict,
         lport_to_first_subport_mapping, HOST_LANE_MASK_KEY,
     )
-    data_path_anchors = {min(lanes) for lanes in host.lanes_by_port.values() if lanes}
+    host_by_media = defaultdict(list)
+    for subport, media_lanes in media.lanes_by_port.items():
+        if media_lanes:
+            host_by_media[tuple(media_lanes)].extend(host.lanes_by_port.get(subport, []))
+    data_path_anchors = {min(lanes) for lanes in host_by_media.values() if lanes}
+    host_path_anchors = {min(lanes) for lanes in host.lanes_by_port.values() if lanes}
     errors = list(media.errors) + list(host.errors)
 
     for domain, lanes in (
         ("media", media.active_lanes),
         ("host", host.active_lanes),
-        ("data_path", data_path_anchors),
     ):
         unsupported_lanes = sorted(lane for lane in lanes
                                    if lane > VDM_BANK_0_MAX_LANE)
@@ -78,7 +85,7 @@ def resolve_vdm_lane_domains(
 
     return VdmLaneDomains(
         media=media.active_lanes, host=host.active_lanes,
-        data_path=sorted(data_path_anchors), errors=errors,
+        data_path=sorted(data_path_anchors), host_path=sorted(host_path_anchors), errors=errors,
     )
 
 
@@ -95,10 +102,12 @@ def build_vdm_field_plan(
         errors = list(lane_domains.errors)
         expected_fields = {}
         vdm_attrs = port_attributes_dict[port][VDM_ATTRIBUTES_KEY]
+        operational_attrs = [
+            (name, value) for name, value in sorted(vdm_attrs.items())
+            if name.endswith(OPERATIONAL_SUFFIX)
+        ]
 
-        for attr_name, attr_value in sorted(vdm_attrs.items()):
-            if not attr_name.endswith(OPERATIONAL_SUFFIX):
-                continue
+        for attr_name, attr_value in operational_attrs:
             quantity = attr_name[:-len(OPERATIONAL_SUFFIX)]
             if quantity.endswith(LANE_NUM_PLACEHOLDER):
                 quantity = quantity[:-len(LANE_NUM_PLACEHOLDER)]
@@ -114,11 +123,22 @@ def build_vdm_field_plan(
             elif quantity in HOST_QUANTITIES:
                 lanes = lane_domains.host
             elif quantity in DATA_PATH_QUANTITIES:
-                lanes = lane_domains.data_path
+                lanes = lane_domains.host_path if quantity.endswith("_host_input") else lane_domains.data_path
             else:
                 errors.append("unknown VDM attribute {}".format(attr_name))
                 continue
+            if explicit_lane is None and not lanes:
+                errors.append(
+                    "{} uses {} but no active lanes/data paths resolved".format(attr_name, LANE_NUM_PLACEHOLDER)
+                )
+                continue
             if explicit_lane is not None and explicit_lane not in lanes:
+                if 1 <= explicit_lane <= VDM_BANK_0_MAX_LANE:
+                    logger.info(
+                        "%s skips %s: lane %d is not active in this lane/data-path domain",
+                        port, attr_name, explicit_lane,
+                    )
+                    continue
                 errors.append("{} targets inactive lane {}".format(attr_name, explicit_lane))
                 continue
             if explicit_lane is not None:
@@ -128,8 +148,11 @@ def build_vdm_field_plan(
                 if explicit_lane is not None or field not in expected_fields:
                     expected_fields[field] = VdmMappedField(attr_name, attr_value)
 
-        if not expected_fields:
-            errors.append("{} has no authored VDM fields".format(port))
+        if not operational_attrs:
+            logger.info(
+                "%s has no configured VDM observables; checking publication and freshness only",
+                port,
+            )
 
         max_age_min = parse_numeric(vdm_attrs.get("data_max_age_min"))
         if "data_max_age_min" not in vdm_attrs:
@@ -140,6 +163,7 @@ def build_vdm_field_plan(
                     port, vdm_attrs.get("data_max_age_min"),
                 )
             )
+            max_age_min = None
 
         plan_by_port[port] = {
             "expected_fields": expected_fields,
