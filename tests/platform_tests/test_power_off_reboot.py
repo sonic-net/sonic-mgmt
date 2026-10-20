@@ -54,15 +54,14 @@ def _get_dut_psu_status_from_table(duthost):
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
     entries = []
     for line in output_lines[2:]:
-        if line.lstrip().upper().startswith("PDB"):
-            continue
         match = psu_line_pattern.match(line)
         pytest_assert(match,
                       "Unexpected '{}' line: {}".format(PSU_STATUS_CMD, line))
         status = match.group(2)
         name = match.group(1)
         if str(name).isdigit():
-            name = "PSU {}".format(name)
+            prefix = "PDB" if line.lstrip().upper().startswith("PDB") else "PSU"
+            name = "{} {}".format(prefix, name)
         entries.append({
             "name": name,
             "presence": status != "NOT PRESENT",
@@ -112,8 +111,9 @@ def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=N
         entry for entry in dut_psu_status
         if not str(entry.get("name", "")).lstrip().upper().startswith("PDB")
     ]
+    power_entries = psu_entries or dut_psu_status
     present_psus = [
-        entry for entry in psu_entries
+        entry for entry in power_entries
         if _is_present(entry.get("presence"))
     ]
     unhealthy_psus = [
