@@ -695,10 +695,6 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip):
 
     # First create the VXLAN tunnel manually (since we need specific src_ip)
     vxlan_tunnel_entry = {"src_ip": src_ip}
-    # On cisco-8000, base IP-in-IP decap tunnels use pipe TTL mode; set VXLAN decap ttl_mode to
-    # pipe so orchagent programs DECAP_TTL_MODE consistently (upstream #26084).
-    if duthost.facts.get("asic_type") == "cisco-8000":
-        vxlan_tunnel_entry["ttl_mode"] = "pipe"
     tunnel_config = {
         "VXLAN_TUNNEL": {
             tunnel_name: vxlan_tunnel_entry
