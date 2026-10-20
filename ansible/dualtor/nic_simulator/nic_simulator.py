@@ -137,7 +137,8 @@ def grpc_target(address, port):
 
 
 def bind_grpc_addresses(server, addresses, port):
-    """Bind every specific address to one server, failing on partial setup."""
+    """Bind before registering handlers; gRPC needs start/stop to release partial binds."""
+    bound_any = False
     try:
         if not addresses:
             raise ValueError("At least one specific gRPC binding address is required")
@@ -148,11 +149,16 @@ def bind_grpc_addresses(server, addresses, port):
             bound_port = server.add_insecure_port(target)
             if not bound_port:
                 raise RuntimeError("Failed to bind gRPC listener %s" % target)
+            bound_any = True
             # Keep a single port across listeners even when requesting an ephemeral port.
             if port == 0:
                 port = bound_port
     except Exception:
-        server.stop(grace=None)
+        try:
+            if bound_any:
+                server.start()
+        finally:
+            server.stop(grace=None).wait()
         raise
     return port
 
@@ -957,11 +963,11 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                 max_workers=THREAD_CONCURRENCY_PER_SERVER),
             options=GRPC_SERVER_OPTIONS
         )
+        self.binding_port = bind_grpc_addresses(self.server, self.nic_addresses, binding_port)
         nic_simulator_grpc_service_pb2_grpc.add_DualToRActiveServicer_to_server(
             self,
             self.server
         )
-        self.binding_port = bind_grpc_addresses(self.server, self.nic_addresses, binding_port)
         self.server.start()
 
     def start(self):
@@ -1204,9 +1210,9 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
                 max_workers=THREAD_CONCURRENCY_PER_SERVER),
             options=GRPC_SERVER_OPTIONS
         )
+        self.binding_port = bind_grpc_addresses(self.server, self.binding_addresses, self.binding_port)
         nic_simulator_grpc_mgmt_service_pb2_grpc.add_DualTorMgmtServiceServicer_to_server(
             self, self.server)
-        self.binding_port = bind_grpc_addresses(self.server, self.binding_addresses, self.binding_port)
         self.server.start()
         self.server.wait_for_termination()
 
@@ -1224,11 +1230,13 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         self.server_nic_addresses = {
             nic: get_ip_address(nic) for nic in self.server_nics}
         self.server_nic_ipv6_addresses = {
-            nic: get_ipv6_addresses(nic) for nic in self.server_nics}
+            nic: get_ipv6_addresses(nic) if ipv6_loopback_ips is not None else []
+            for nic in self.server_nics}
         self.mgmt_port = mgmt_port
         self.mgmt_port_address = get_ip_address(mgmt_port)
         self.mgmt_port_addresses = ([self.mgmt_port_address] if self.mgmt_port_address else [])
-        self.mgmt_port_addresses.extend(get_ipv6_addresses(mgmt_port))
+        if ipv6_loopback_ips is not None:
+            self.mgmt_port_addresses.extend(get_ipv6_addresses(mgmt_port))
         if not self.mgmt_port_addresses:
             raise ValueError("No usable IPv4 or global IPv6 address on management interface %s" % mgmt_port)
         self.mgmt_port_address = self.mgmt_port_addresses[0]
@@ -1322,7 +1330,7 @@ def parse_args():
     )
     parser.add_argument(
         "--ipv6-loopback-ips",
-        help="Optional IPv6 triplet: <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>"
+        help="Enable IPv6 listeners and flows with <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>"
     )
     parser.add_argument(
         "-n",

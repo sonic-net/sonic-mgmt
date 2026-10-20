@@ -243,6 +243,22 @@ def test_simulator_aliases_and_unique_lifecycle(monkeypatch, ipv4, ipv6):
     server_factory.return_value.join.assert_called_once()
 
 
+def test_default_startup_does_not_discover_ipv6(monkeypatch, ovs):
+    """Incidental IPv6 addresses cannot become required listeners without opt-in."""
+    monkeypatch.setattr(simulator.NiCSimulator, "_find_all_server_nics", lambda self: ["eth1"])
+    monkeypatch.setattr(simulator.NiCSimulator, "_find_all_bridges", lambda self: ["baa-test-1"])
+    monkeypatch.setattr(simulator, "get_ip_address", lambda interface: {
+        "eth1": "192.0.2.1", "mgmt": "192.0.2.100"
+    }[interface])
+    discovery = Mock(side_effect=AssertionError("IPv6 discovery requires opt-in"))
+    monkeypatch.setattr(simulator, "get_ipv6_addresses", discovery)
+    instance = simulator.NiCSimulator("test", "mgmt", PORT, V4)
+    discovery.assert_not_called()
+    assert list(instance.servers) == ["192.0.2.1"]
+    assert instance.servers["192.0.2.1"].nic_addresses == ("192.0.2.1",)
+    assert instance.mgmt_server.binding_addresses == ("192.0.2.100",)
+
+
 def test_no_management_address_fails_before_ovs(monkeypatch):
     """Do not create listeners on None/wildcards or alter bridges without a management address."""
     monkeypatch.setattr(simulator.NiCSimulator, "_find_all_server_nics", lambda self: [])
@@ -282,14 +298,23 @@ def test_bind_failure_is_synchronous_and_cleans_up(monkeypatch, kind, failure):
     transport = Mock()
     transport.add_insecure_port.side_effect = [PORT, failure]
     monkeypatch.setattr(simulator.grpc, "server", Mock(return_value=transport))
+    nic_register = Mock()
+    mgmt_register = Mock()
+    monkeypatch.setattr(simulator.nic_simulator_grpc_service_pb2_grpc,
+                        "add_DualToRActiveServicer_to_server", nic_register)
+    monkeypatch.setattr(simulator.nic_simulator_grpc_mgmt_service_pb2_grpc,
+                        "add_DualTorMgmtServiceServicer_to_server", mgmt_register)
     if kind == "nic":
         server = simulator.NiCServer("192.0.2.1", Mock(), PORT, ["fc00::1"])
     else:
         server = simulator.MgmtServer("192.0.2.1", PORT, {}, ["fc00::1"])
     with pytest.raises(RuntimeError):
         server.start()
-    transport.start.assert_not_called()
+    transport.start.assert_called_once()
     transport.stop.assert_called_once_with(grace=None)
+    transport.stop.return_value.wait.assert_called_once_with()
+    nic_register.assert_not_called()
+    mgmt_register.assert_not_called()
     if kind == "nic":
         assert not server.started
         assert server.thread is None
@@ -389,6 +414,44 @@ def ipv6_loopback():
             sock.bind(("::1", 0))
     except OSError as error:
         pytest.skip("IPv6 loopback unavailable: %s" % error)
+
+
+def test_real_partial_bind_releases_port_before_retry(ipv6_loopback):
+    """A failed IPv6 bind releases IPv4 immediately and leaves no listener after retry."""
+    server = None
+    failed_transport = None
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as blocker:
+            blocker.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            blocker.bind(("::1", 0))
+            blocker.listen()
+            port = blocker.getsockname()[1]
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                probe.bind(("127.0.0.1", port))
+            server = simulator.NiCServer("127.0.0.1", Mock(), port, ["::1"])
+            with pytest.raises(RuntimeError):
+                server.start()
+            failed_transport = server.server
+            assert not server.started
+            assert server.thread is None
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                probe.bind(("127.0.0.1", port))
+        server.start()
+        server.stop()
+        server.join(timeout=5)
+        assert not server.thread.is_alive()
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", port))
+    finally:
+        if failed_transport is not None:
+            try:
+                failed_transport.start()
+            except ValueError:
+                pass
+            failed_transport.stop(grace=None).wait(timeout=5)
+        if server is not None:
+            server.stop()
+            server.join(timeout=5)
 
 
 @pytest.mark.parametrize("dual_stack", [False, True])

@@ -1,7 +1,11 @@
 # NIC simulator IPv4/IPv6 listeners
 
-Each active NIC interface gets one `NiCServer` and one `OVSBridge`. Its IPv4
-address and all stable global-scope IPv6 addresses bind to the **same** gRPC
+IPv6 listeners require explicit opt-in with `--ipv6-loopback-ips`. Without this
+option, only IPv4 addresses are discovered and bound, even when IPv6 addresses
+are present on the interfaces.
+
+Each active NIC interface gets one `NiCServer` and one `OVSBridge`. When opted in,
+its IPv4 address and all stable global-scope IPv6 addresses bind to the **same** gRPC
 server and share forwarding, drop/recovery and flap-counter state. The
 management interface also supports both families, or IPv6 alone. No wildcard
 listeners are used.
@@ -29,10 +33,10 @@ ip netns exec ns-example .venv-nic-simulator/bin/python \
 
 Both triplets are ordered **Loopback2, upper-ToR Loopback3, lower-ToR Loopback3**.
 Each must contain three bare literals of the correct family (no prefixes or zone
-IDs). The optional `--ipv6-loopback-ips` adds IPv6 counterparts to the existing
-loopback and per-ToR TCP return flows; it does not assign addresses or enable
-IPv6 in the namespace. Listener discovery is independent of this option. Omit
-it to retain the default flow configuration; IPv4 defaults are unchanged.
+IDs). The optional `--ipv6-loopback-ips` enables IPv6 listener discovery and adds
+IPv6 counterparts to the existing loopback and per-ToR TCP return flows; it does
+not assign addresses or enable IPv6 in the namespace. Omit it to retain IPv4-only listeners and the default
+flow configuration; IPv4 defaults are unchanged.
 
 `-n` / `--duplicate_nic_upstream` duplicates NIC upstream traffic for both
 families, omitting both families' per-ToR TCP return overrides. Normal mode
@@ -43,6 +47,10 @@ Management RPC `nic_addresses` can contain either family. IPv6 aliases refer to
 the same NIC server as its IPv4 address, including for server start/stop. Channel
 targets use `IPv4:port` or `[IPv6]:port`; protobufs are unchanged. Every requested
 bind must succeed or startup fails rather than leaving a partial listener set.
+Binding is synchronous: a NIC or management bind failure aborts daemon startup
+and cleans up listeners already created. After opting into IPv6, all discovered
+usable addresses are required; the simulator does not silently degrade to a
+partial IPv4/IPv6 service.
 
 ## Standalone unit tests
 
