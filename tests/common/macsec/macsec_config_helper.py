@@ -1,6 +1,7 @@
 import logging
 import secrets
 import time
+from collections.abc import Mapping
 from passlib.hash import cisco_type7
 
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
@@ -34,7 +35,7 @@ CSONIC_MACSEC_SUPERVISOR_CONFIG = "/etc/supervisor/conf.d/sonic-mgmt-macsec.conf
 
 
 def _command_succeeded(result):
-    return isinstance(result, dict) and result.get("rc") == 0
+    return isinstance(result, Mapping) and result.get("rc") == 0
 
 
 def _command_output_lines(result):
@@ -85,7 +86,7 @@ def _macsec_service_ready(host, expected_instances):
 
 
 def _command_diagnostic(result):
-    if not isinstance(result, dict):
+    if not isinstance(result, Mapping):
         return {"result": repr(result)}
     return {
         "rc": result.get("rc"),
