@@ -7,6 +7,8 @@ CsonicHost mirrors the EosHost/SonicHost neighbor API for cSONiC
 JSON so the pure parsing/merging logic can be verified without a live
 container. They cover:
 
+  * iface_macsec_ok        - reading MACsec readiness from STATE_DB inside the
+                             cSONiC container
   * minigraph_facts        - synthesizing {'minigraph_bgp': [...]} from FRR
                              ``show ip/ipv6 bgp neighbors json``
   * check_bgp_session_state - reading ``show bgp <afi> summary json`` and
@@ -86,6 +88,27 @@ def route_docker_exec(cmd, **kwargs):
     if "ipv6 summary json" in cmd:
         return docker_ok(_json.dumps(SUMMARY_V6))
     return {"rc": 1, "stdout": "", "stderr": "unexpected cmd"}
+
+
+# --- iface_macsec_ok ------------------------------------------------------
+
+class TestIfaceMacsecOk:
+    def test_ready_state_is_true(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("ok\n")) as execute:
+            assert host.iface_macsec_ok("Ethernet1") is True
+        execute.assert_called_once_with(
+            'sonic-db-cli STATE_DB HGET "MACSEC_PORT_TABLE|Ethernet1" state')
+
+    def test_non_ready_state_is_false(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("pending")):
+            assert host.iface_macsec_ok("Ethernet1") is False
+
+    def test_command_error_is_false(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", side_effect=RuntimeError("unavailable")):
+            assert host.iface_macsec_ok("Ethernet1") is False
 
 
 # --- minigraph_facts -------------------------------------------------------

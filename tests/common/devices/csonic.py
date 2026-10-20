@@ -196,6 +196,23 @@ class CsonicHost(NeighborDevice):
                 pass
         return {}
 
+    def iface_macsec_ok(self, interface_name):
+        """Check whether MACsec is operational on an interface.
+
+        cSONiC is SONiC running inside the neighbor container, so use the same
+        STATE_DB readiness signal as ``SonicHost.iface_macsec_ok``. ``shell``
+        already executes directly in that container; wrapping this command in
+        another ``docker exec`` would incorrectly require Docker in cSONiC.
+        """
+        try:
+            cmd = 'sonic-db-cli STATE_DB HGET "MACSEC_PORT_TABLE|{}" state'.format(interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface "{}", exception: {}'
+                         .format(interface_name, repr(e)))
+            return False
+
     def get_port_channel_status(self, pc_name=None):
         """Get PortChannel status."""
         if pc_name:
