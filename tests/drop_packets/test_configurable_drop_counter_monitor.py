@@ -286,7 +286,7 @@ def restore_drop_monitor_config(duthosts, rand_one_dut_hostname):
                     not (_test_counter_alert_fields(duthost) - alert_fields_before),
                     "Test-generated persistent drop alerts remain after cleanup"
                 )
-    except Exception as exc:
+    except (Exception, pytest.fail.Exception) as exc:
         failures.append("Persistent drop alert cleanup raised {}".format(exc))
 
     if not existed:
