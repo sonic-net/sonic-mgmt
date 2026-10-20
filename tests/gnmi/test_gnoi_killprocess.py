@@ -2,13 +2,11 @@ import logging
 
 import pytest
 
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-from tests.common.ptf_gnoi import SIGNAL_TERM
 from tests.common.platform.processes_utils import wait_critical_processes
-
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-
+from tests.common.ptf_gnoi import SIGNAL_TERM
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +100,7 @@ def test_gnoi_killprocess_restart(
     is_running = is_container_running(duthost, process)
     pytest_assert(
         is_running == restart,  # Simplified: restart directly implies expected state
-        f"After KillProcess with restart={restart}: "
-        f"expected running={restart}, got running={is_running}",
+        f"After KillProcess with restart={restart}: " f"expected running={restart}, got running={is_running}",
     )
 
     # If service was stopped, restart it for cleanup

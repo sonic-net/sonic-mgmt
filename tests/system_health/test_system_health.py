@@ -49,6 +49,8 @@ FAST_INTERVAL = 10
 THERMAL_CHECK_INTERVAL = 70
 PSU_CHECK_INTERVAL = FAST_INTERVAL + 5
 WAIT_TIMEOUT = 180
+# Default polling_interval on BMC is 300s; healthd reloads config only on the next loop.
+BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT = 300
 STATE_DB = 6
 
 SERVICE_EXPECT_STATUS_DICT = {
@@ -152,6 +154,14 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
+    # On BMC platforms healthd polls every 300s, so derive a longer wait from the configured
+    # polling_interval to cross a poll loop boundary. Other platforms keep the original WAIT_TIMEOUT.
+    polling_interval = get_system_health_config(duthost, 'polling_interval', FAST_INTERVAL)
+    wait_timeout = (
+        max(WAIT_TIMEOUT, polling_interval * 2)
+        if duthost.is_bmc()
+        else WAIT_TIMEOUT
+    )
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
         containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
@@ -170,7 +180,7 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                 category = '{}:{}'.format(container, critical_process)
                 expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
                                    "'{}' is not running".format(critical_process)]
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                result = wait_until(wait_timeout, 10, 2, check_system_health_info_any_of, duthost, category,
                                     expected_values)
 
                 assert result is True, '{} is not recorded'.format(
@@ -405,7 +415,12 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
                      dest=os.path.join('/tmp', EXTERNAL_CHECKER_MOCK_FILE))
         # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
         # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
-        result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info,
+        external_checker_timeout = (
+            BMC_EXTERNAL_CHECKER_WAIT_TIMEOUT
+            if duthost.is_bmc()
+            else WAIT_TIMEOUT
+        )
+        result = wait_until(external_checker_timeout, 10, 2, check_system_health_info,
                             duthost, 'ExternalService', 'Service is not working')
         assert result is True, 'External checker does not work'
         value = redis_get_field_value(
