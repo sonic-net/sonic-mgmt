@@ -232,7 +232,7 @@ def get_http_proxies(inv_name):
         try:
             with open(INV_ENV_FILE) as env_file:
                 proxy_env = yaml.safe_load(env_file)
-                if proxy_env is not None:
+                if proxy_env is not None and "proxy_env" in proxy_env:
                     proxy = proxy_env.get("proxy_env", {})
                     http_proxy = proxy.get('http_proxy', '')
                     proxies = {'http': http_proxy, 'https': http_proxy}
