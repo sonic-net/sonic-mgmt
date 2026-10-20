@@ -289,9 +289,11 @@ def get_monitor_prev_drop_count(dut, counter_name, port):
 
 
 def clear_monitor_incidents(dut, counter_name, port):
-    """Drop any incidents the monitor is currently tracking for this counter/port."""
-    return dut.command(_COUNTERS_DB_INCIDENT_CLEAR.format(counter_name, port),
-                       module_ignore_errors=True)
+    """Clear tracked incidents for this counter/port and verify the list is empty."""
+    description = "Clearing monitor incidents for {}/{}".format(counter_name, port)
+    _checked_stdout(dut, _COUNTERS_DB_INCIDENT_CLEAR.format(counter_name, port), description)
+    if get_incident_count(dut, counter_name, port) != 0:
+        raise RuntimeError("{} did not empty the incident list".format(description))
 
 
 def get_dut_unix_timestamp(dut):
