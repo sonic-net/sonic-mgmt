@@ -30,7 +30,6 @@ from .configurable_drop_counters import (
 )
 from .test_configurable_drop_counters import (   # noqa: F401
     vlan_mac,
-    testbed_params,
     device_capabilities,
     setup_counters,
     generate_dropped_packet,
@@ -89,6 +88,28 @@ RETENTION_SLACK = 15
 # Keeps the final retention sample just inside the window so that an expiry in the
 # last seconds before the boundary is still observed rather than stepped over.
 RETENTION_SAMPLE_MARGIN = 1
+
+
+@pytest.fixture(scope="module")
+def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
+    """Gather packet-generation parameters for VLAN and routed-port topologies."""
+    duthost = duthosts[rand_one_dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    physical_port_map = {index: name
+                         for name, index in mg_facts["minigraph_ptf_indices"].items()
+                         if name in mg_facts["minigraph_ports"]}
+
+    vlan_ports = []
+    vlan_interface = {}
+    if mg_facts.get("minigraph_vlans"):
+        vlan = list(mg_facts["minigraph_vlans"].values())[0]
+        vlan_ports = [mg_facts["minigraph_ptf_indices"][name] for name in vlan["members"]]
+        vlan_interface = mg_facts["minigraph_vlan_interfaces"][0].copy()
+        vlan_interface["type"] = vlan.get("type", "untagged").lower()
+
+    return {"physical_port_map": physical_port_map,
+            "vlan_ports": vlan_ports,
+            "vlan_interface": vlan_interface}
 
 
 @pytest.fixture(scope="module", autouse=True)

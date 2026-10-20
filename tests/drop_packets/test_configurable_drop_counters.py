@@ -35,7 +35,7 @@ from tests.common import config_reload
 
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('any')
 ]
 
 PACKET_COUNT = 1000
@@ -321,6 +321,8 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     Returns: A Dictionary with the following information:
     """
     duthost = duthosts[rand_one_dut_hostname]
+    if tbinfo["topo"]["type"] != "t0":
+        pytest.skip("Unsupported topology {}".format(tbinfo["topo"]["name"]))
 
     mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -329,16 +331,12 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
                          in list(mgFacts["minigraph_ptf_indices"].items())
                          if k in list(mgFacts["minigraph_ports"].keys())}  # Trim inactive ports
 
-    # T1/T2 fabric ports are pure L3 and have no VLAN, unlike T0.
-    vlan_ports = []
-    vlan_interface = {}
-    if mgFacts.get("minigraph_vlans"):
-        vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
-                      for ifname
-                      in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
+    vlan_ports = [mgFacts["minigraph_ptf_indices"][ifname]
+                  for ifname
+                  in list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX]["members"]]
 
-        vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
-        vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
+    vlan_interface = mgFacts["minigraph_vlan_interfaces"][VLAN_INDEX].copy()
+    vlan_interface["type"] = list(mgFacts["minigraph_vlans"].values())[VLAN_INDEX].get("type", "untagged").lower()
 
     return {"physical_port_map": physical_port_map,
             "vlan_ports": vlan_ports,
