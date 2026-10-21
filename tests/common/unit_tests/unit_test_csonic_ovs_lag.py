@@ -8,9 +8,20 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 _MODULE_PATH = os.path.join(
     _REPO_ROOT, "ansible", "roles", "sonic", "files", "csonic_ovs_lag.py")
+_DOCKERFILE_PATH = os.path.join(
+    _REPO_ROOT, "ansible", "roles", "vm_set", "files",
+    "csonic-userspace-ovs.Dockerfile")
 _SPEC = importlib.util.spec_from_file_location("csonic_ovs_lag", _MODULE_PATH)
 csonic_ovs_lag = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(csonic_ovs_lag)
+
+
+def test_userspace_ovs_image_bakes_macsec_runtime_dependencies():
+    with open(_DOCKERFILE_PATH, encoding="utf-8") as dockerfile:
+        contents = dockerfile.read()
+
+    assert "openvswitch-switch" in contents
+    assert "wpasupplicant" in contents
 
 
 def test_missing_addresses_compares_canonical_exact_ips():
