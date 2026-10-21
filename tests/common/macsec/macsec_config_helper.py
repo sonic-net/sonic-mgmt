@@ -53,6 +53,34 @@ def _command_output_lines(result):
     return []
 
 
+def _host_is_multi_asic(host):
+    """Treat lightweight neighbor hosts as single-ASIC by default."""
+    return bool(getattr(host, "is_multi_asic", False))
+
+
+def _host_platform_asic(host):
+    """Return platform_asic when the host exposes the standard facts mapping."""
+    facts = getattr(host, "facts", {})
+    return facts.get("platform_asic") if isinstance(facts, Mapping) else None
+
+
+def _run_required_macsec_command(host, command):
+    """Run a setup command and fail closed for CsonicHost's result API."""
+    result = host.command(command)
+    if isinstance(host, CsonicHost) and not _command_succeeded(result):
+        raise AssertionError(
+            "MACsec command failed on {}: command={!r}, result={}".format(
+                host.hostname, command, _command_diagnostic(result)))
+    return result
+
+
+def _wait_for_macsec_tasks(tasks, timeout):
+    """Wait for setup workers and surface child-process failures immediately."""
+    wait_all_complete(timeout=timeout)
+    failures = [task.exitcode for task in tasks if task.exitcode not in (0, None)]
+    assert not failures, "MACsec configuration task failures: {}".format(failures)
+
+
 def _unique_macsec_neighbor_hosts(macsec_nbrhosts):
     """Collapse logical neighbors backed by the same cSONiC container."""
     unique = {}
@@ -126,6 +154,49 @@ def _macsec_service_diagnostics(host):
     return {
         "host": getattr(host, "hostname", str(host)),
         "runtime": runtime,
+        "checks": checks,
+    }
+
+
+def _macsec_interface_diagnostics(host, interface_name):
+    """Capture enough state to distinguish DUT and neighbor readiness failures."""
+    if isinstance(host, EosHost):
+        return {
+            "host": getattr(host, "hostname", str(host)),
+            "runtime": "eos",
+            "interface": interface_name,
+        }
+
+    commands = [
+        ("config_profile", "sonic-db-cli CONFIG_DB HGET 'PORT|{}' macsec".format(interface_name)),
+        ("state", "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|{}' state".format(interface_name)),
+        ("appl", "sonic-db-cli APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'".format(interface_name)),
+        ("link", "ip -d link show {}".format(interface_name)),
+    ]
+    if isinstance(host, CsonicHost):
+        runtime = "csonic"
+        commands.extend([
+            ("service", "supervisorctl status macsecmgrd"),
+            ("mka", "ip -j macsec show"),
+        ])
+    else:
+        runtime = "sonic"
+        commands.extend([
+            ("service", "docker ps -a --filter name=macsec --format '{{.Names}} {{.Status}}'"),
+            ("mka", "docker exec syncd ip -j macsec show"),
+        ])
+
+    checks = {}
+    for label, command in commands:
+        try:
+            checks[label] = _command_diagnostic(
+                host.shell(command, module_ignore_errors=True))
+        except Exception as error:
+            checks[label] = {"exception": repr(error)}
+    return {
+        "host": getattr(host, "hostname", str(host)),
+        "runtime": runtime,
+        "interface": interface_name,
         "checks": checks,
     }
 
@@ -225,13 +296,13 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
     for k, v in list(macsec_profile.items()):
         opts += " --{} {}".format(k, v)
 
-    if host.is_multi_asic:
+    if _host_is_multi_asic(host):
         for ns in host.get_asic_namespace_list():
             cmd = "config macsec -n {} profile add {} {}".format(ns, profile_name, opts)
             host.command(cmd)
     else:
         cmd = "config macsec profile add {} {}".format(profile_name, opts)
-        host.command(cmd)
+        _run_required_macsec_command(host, cmd)
 
     if send_sci == "false":
         # The MAC address of SONiC host is locally administrated
@@ -250,7 +321,7 @@ def is_macsec_configured(host, mac_profile, ctrl_links):
     profile_name = mac_profile['name']
 
     # Check macsec profile is configured in all namespaces
-    if host.is_multi_asic:
+    if _host_is_multi_asic(host):
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
             cmd = "sonic-db-cli {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
@@ -279,7 +350,7 @@ def delete_macsec_profile(host, profile_name):
             parents=['mac security'])
         return
 
-    if host.is_multi_asic:
+    if _host_is_multi_asic(host):
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
             cmd = "config macsec {} profile del {}".format(CMD_PREFIX, profile_name)
@@ -298,13 +369,13 @@ def enable_macsec_port(host, port, profile_name):
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
 
-    dnx_platform = host.facts.get("platform_asic") == 'broadcom-dnx'
+    dnx_platform = _host_platform_asic(host) == 'broadcom-dnx'
 
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
 
     cmd = "config macsec {} port add {} {}".format(getns_prefix(host, port), port, profile_name)
-    host.command(cmd)
+    _run_required_macsec_command(host, cmd)
 
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
@@ -318,7 +389,7 @@ def disable_macsec_port(host, port):
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
-    dnx_platform = host.facts.get("platform_asic") == 'broadcom-dnx'
+    dnx_platform = _host_platform_asic(host) == 'broadcom-dnx'
 
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
@@ -470,34 +541,42 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile. The profile is host-wide (no port arg), so the
     # DUT-side set runs once outside the per-link loop.
-    submit_async_task(set_macsec_profile, (duthost, profile_name, default_priority,
-                      cipher_suite, primary_cak, primary_ckn, policy,
-                      send_sci, rekey_period))
+    tasks = [submit_async_task(set_macsec_profile, (duthost, profile_name, default_priority,
+                               cipher_suite, primary_cak, primary_ckn, policy,
+                               send_sci, rekey_period))]
     i = 0
     for dut_port, nbr in ctrl_links.items():
         if i % 2 == 0:
             priority = default_priority - 1
         else:
             priority = default_priority + 1
-        submit_async_task(set_macsec_profile,
-                          (nbr["host"], profile_name, priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
+        tasks.append(submit_async_task(
+            set_macsec_profile,
+            (nbr["host"], profile_name, priority, cipher_suite, primary_cak,
+             primary_ckn, policy, send_sci, rekey_period)))
         i += 1
-    wait_all_complete(timeout=180)
+    _wait_for_macsec_tasks(tasks, timeout=180)
 
     logger.info("Setup macsec configuration step2: enable macsec profile")
     # 2. Enable macsec profile
+    tasks = []
     for dut_port, nbr in list(ctrl_links.items()):
         time.sleep(3)
-        submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name))
-        submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name))
-    wait_all_complete(timeout=180)
+        tasks.append(submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name)))
+        tasks.append(submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name)))
+    _wait_for_macsec_tasks(tasks, timeout=180)
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
-        assert wait_until(300, 3, 0,
+        if not wait_until(300, 3, 0,
                           lambda: duthost.iface_macsec_ok(dut_port) and
-                          nbr["host"].iface_macsec_ok(nbr["port"]))
+                          nbr["host"].iface_macsec_ok(nbr["port"])):
+            diagnostics = {
+                "dut": _macsec_interface_diagnostics(duthost, dut_port),
+                "neighbor": _macsec_interface_diagnostics(nbr["host"], nbr["port"]),
+            }
+            logger.error("MACsec interface readiness timed out: %s", diagnostics)
+            assert False, "MACsec interface readiness timed out: {}".format(diagnostics)
 
     # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
     # protocols. To hold some time for protocol recovery.
