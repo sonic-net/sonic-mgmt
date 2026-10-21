@@ -136,7 +136,9 @@ def _macsec_profile_exists(host, profile_name):
         output = result.get("stdout", [""])[0]
         if isinstance(output, list):
             output = "\n".join(output)
-        return "profile {}".format(profile_name) in str(output)
+        declaration = "profile {}".format(profile_name)
+        return any(
+            line.strip() == declaration for line in str(output).splitlines())
 
     namespaces = (host.get_asic_namespace_list()
                   if _host_is_multi_asic(host) else [None])
