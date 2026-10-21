@@ -183,6 +183,14 @@ class CsonicHost(NeighborDevice):
         self.intf_map = intf_map
         self.bgp_prime_asn = bgp_prime_asn
         self.is_local = vm_host_ip is None or vm_host_ip in ('localhost', '127.0.0.1')
+        # cSONiC neighbor containers expose one SONiC ASIC and need the small
+        # host contract consumed by the shared MACsec helpers.
+        self.is_multi_asic = False
+        self.facts = {
+            "asic_type": "vs",
+            "platform_asic": "vs",
+            "num_asic": 1,
+        }
 
     def __str__(self):
         return '<CsonicHost {}>'.format(self.container_name)
@@ -445,6 +453,23 @@ class CsonicHost(NeighborDevice):
         except (json.JSONDecodeError, ValueError):
             return {}
         return data if isinstance(data, dict) else {}
+
+    def get_dut_iface_mac(self, interface_name):
+        """Return an interface MAC address from inside the cSONiC container."""
+        interface_name = (
+            self._interface_name(interface_name)
+            if hasattr(self, "_interface_name") else interface_name)
+        try:
+            result = self._docker_exec(
+                "cat /sys/class/net/{}/address".format(
+                    shlex.quote(interface_name)))
+            if result.get("rc") == 0 and result.get("stdout"):
+                return result["stdout"].strip()
+        except Exception as error:
+            logger.error(
+                'Failed to get MAC address for interface "%s", exception: %r',
+                interface_name, error)
+        return None
 
     def iface_macsec_ok(self, interface_name):
         """Check whether MACsec is operational on an interface.

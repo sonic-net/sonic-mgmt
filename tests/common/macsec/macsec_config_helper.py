@@ -104,6 +104,20 @@ def _wait_for_macsec_tasks(tasks, timeout):
     assert not failures, "MACsec configuration task failures: {}".format(failures)
 
 
+def _macsec_host_key(host):
+    """Return one identity for a physical MACsec runtime."""
+    if isinstance(host, CsonicHost):
+        return (host.container_name, host.vm_host_ip, host.vm_host_user)
+    return id(host)
+
+
+def _macsec_endpoint_key(host, port):
+    """Return one identity for a physical host/port endpoint."""
+    if isinstance(host, CsonicHost) and hasattr(host, "_interface_name"):
+        port = host._interface_name(port)
+    return (_macsec_host_key(host), port)
+
+
 def _unique_macsec_neighbor_hosts(macsec_nbrhosts):
     """Collapse logical neighbors backed by the same cSONiC container."""
     unique = {}
@@ -111,10 +125,10 @@ def _unique_macsec_neighbor_hosts(macsec_nbrhosts):
     for name, neighbor in macsec_nbrhosts.items():
         host = neighbor["host"]
         if isinstance(host, CsonicHost):
-            identity = (host.container_name, host.vm_host_ip, host.vm_host_user)
-            if identity in csonic_containers:
+            host_key = _macsec_host_key(host)
+            if host_key in csonic_containers:
                 continue
-            csonic_containers.add(identity)
+            csonic_containers.add(host_key)
         unique[name] = neighbor
     return unique
 
@@ -243,20 +257,28 @@ def _supervisor_macsec_state(result):
 
 
 def _csonic_macsec_service_state(host):
-    """Capture pre-start state so failed setup can restore what it changed."""
+    """Capture state that this fixture owns and must restore."""
     status = host.shell(
         "supervisorctl status macsecmgrd", module_ignore_errors=True)
     config = host.shell(
         "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG),
         module_ignore_errors=True)
+    post_state = host.shell(
+        'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state',
+        module_ignore_errors=True)
+    post_value = None
+    if _command_succeeded(post_state):
+        post_value = str(post_state.get("stdout", "")).strip() or None
     return {
         "state": _supervisor_macsec_state(status),
         "config_exists": _command_succeeded(config),
+        "post_state": post_value,
     }
 
 
-def _start_csonic_macsec_service(host):
-    """Provision runtime dependencies and start the bundled daemon safely."""
+def _start_csonic_macsec_service(host, initial=None):
+    """Provision dependencies and start the daemon with an ownership token."""
+    initial = initial or _csonic_macsec_service_state(host)
     provision = """set -e
 if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
     export DEBIAN_FRONTEND=noninteractive
@@ -265,19 +287,29 @@ if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
     rm -rf /var/lib/apt/lists/*
 fi
 test -x /sbin/wpa_supplicant
-test -x /sbin/wpa_cli
-sonic-db-cli STATE_DB HSET \"FIPS_MACSEC_POST_TABLE|sai\" post_state disabled >/dev/null"""
+test -x /sbin/wpa_cli"""
     if not _command_succeeded(host.shell(
             provision, module_ignore_errors=True, timeout=300)):
         return False
 
+    if initial["post_state"] not in ("pass", "disabled"):
+        result = host.shell(
+            'sonic-db-cli STATE_DB HSET "FIPS_MACSEC_POST_TABLE|sai" '
+            'post_state disabled', module_ignore_errors=True)
+        if not _command_succeeded(result):
+            return False
+
     current = _csonic_macsec_service_state(host)
     state = current["state"]
     if state in ("RUNNING", "STARTING", "BACKOFF"):
+        host._sonic_mgmt_macsec_initial = initial
         return True
     if state in ("STOPPED", "EXITED", "FATAL"):
-        return _command_succeeded(host.shell(
+        success = _command_succeeded(host.shell(
             "supervisorctl start macsecmgrd", module_ignore_errors=True))
+        if success:
+            host._sonic_mgmt_macsec_initial = initial
+        return success
     if state != "MISSING":
         logger.error("Unexpected macsecmgrd Supervisor state on %s: %s",
                      host.hostname, current)
@@ -299,39 +331,46 @@ EOF
 fi
 supervisorctl reread
 supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
-    return _command_succeeded(host.shell(
+    success = _command_succeeded(host.shell(
         install, module_ignore_errors=True))
+    if success:
+        host._sonic_mgmt_macsec_initial = initial
+    return success
+
+
+def _restore_csonic_post_state(host, initial):
+    if initial["post_state"] is None:
+        command = (
+            'sonic-db-cli STATE_DB HDEL "FIPS_MACSEC_POST_TABLE|sai" '
+            'post_state')
+    else:
+        command = (
+            'sonic-db-cli STATE_DB HSET "FIPS_MACSEC_POST_TABLE|sai" '
+            'post_state {}').format(shlex.quote(initial["post_state"]))
+    return _command_succeeded(host.shell(
+        command, module_ignore_errors=True))
 
 
 def _stop_csonic_macsec_service(host):
-    """Stop active startup/retry states and remove only our helper config."""
-    current = _csonic_macsec_service_state(host)
-    state = current["state"]
-    if state in ("RUNNING", "STARTING", "BACKOFF"):
-        if not _command_succeeded(host.shell(
-                "supervisorctl stop macsecmgrd", module_ignore_errors=True)):
-            return False
-    elif state not in ("STOPPED", "EXITED", "FATAL", "MISSING"):
-        logger.error("Unexpected macsecmgrd Supervisor state on %s: %s",
-                     host.hostname, current)
+    """Restore the service/config/POST state captured by this fixture."""
+    initial = getattr(host, "_sonic_mgmt_macsec_initial", None)
+    if initial is None:
+        logger.error("Missing cSONiC MACsec ownership token on %s", host.hostname)
         return False
-
-    if not current["config_exists"]:
-        return True
-    cleanup = """set -e
-rm -f {config}
-supervisorctl reread
-supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
-    return _command_succeeded(host.shell(
-        cleanup, module_ignore_errors=True))
+    try:
+        return _rollback_csonic_macsec_service(host, initial)
+    finally:
+        delattr(host, "_sonic_mgmt_macsec_initial")
 
 
 def _rollback_csonic_macsec_service(host, initial):
-    """Undo only service/config changes made by this enable attempt."""
+    """Undo only service/config/POST changes made by this enable attempt."""
     current = _csonic_macsec_service_state(host)
     failures = []
-    if (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
-            current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
+    if current["state"] == "ERROR":
+        failures.append({"supervisor_state": current})
+    elif (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
+          current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
         result = host.shell(
             "supervisorctl stop macsecmgrd", module_ignore_errors=True)
         if not _command_succeeded(result):
@@ -345,6 +384,9 @@ supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
         result = host.shell(cleanup, module_ignore_errors=True)
         if not _command_succeeded(result):
             failures.append(_command_diagnostic(result))
+    if current["post_state"] != initial["post_state"]:
+        if not _restore_csonic_post_state(host, initial):
+            failures.append({"post_state": "restore failed"})
     if failures:
         logger.error("Failed to roll back cSONiC MACsec state on %s: %s",
                      host.hostname, failures)
@@ -538,15 +580,15 @@ def replace_macsec_port(host, port, profile_name):
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
     num_asics = duthost.num_asics()
-    global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
     attempted = []
 
     try:
+        global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
         for nbr in [n["host"] for n in list(nbrhosts.values())]:
             if isinstance(nbr, CsonicHost):
                 initial = _csonic_macsec_service_state(nbr)
                 attempted.append((nbr, initial))
-                assert _start_csonic_macsec_service(nbr), \
+                assert _start_csonic_macsec_service(nbr, initial), \
                     "Failed to start macsecmgrd on {}".format(nbr.hostname)
 
         def check_macsec_enabled():
@@ -575,23 +617,51 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
             except Exception:
                 logger.exception(
                     "Failed to roll back MACsec setup on %s", nbr.hostname)
+            finally:
+                if hasattr(nbr, "_sonic_mgmt_macsec_initial"):
+                    delattr(nbr, "_sonic_mgmt_macsec_initial")
+        try:
+            global_cmd(
+                duthost, nbrhosts,
+                "sudo config feature state macsec disabled")
+        except Exception:
+            logger.exception("Failed to roll back MACsec feature state")
         raise
 
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
-    global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
+    failures = []
+    try:
+        global_cmd(duthost, nbrhosts, "sudo config feature state macsec disabled")
+    except Exception as error:
+        failures.append({"feature_disable": repr(error)})
     for nbr in [n["host"] for n in list(nbrhosts.values())]:
         if isinstance(nbr, CsonicHost):
-            assert _stop_csonic_macsec_service(nbr), \
-                "Failed to stop macsecmgrd on {}".format(nbr.hostname)
+            try:
+                if not _stop_csonic_macsec_service(nbr):
+                    failures.append({"host": nbr.hostname,
+                                     "service_restore": "failed"})
+            except Exception as error:
+                failures.append({"host": nbr.hostname,
+                                 "service_restore": repr(error)})
+    assert not failures, "Failed to disable MACsec cleanly: {}".format(failures)
 
 
 def _wait_for_macsec_cleanup_with_vs_recovery(host, interfaces, is_dut):
     if wait_for_macsec_cleanup(host, interfaces):
         return False
 
-    if host.facts["asic_type"] != "vs":
+    if isinstance(host, CsonicHost):
+        diagnostics = [
+            _macsec_interface_diagnostics(host, interface)
+            for interface in interfaces
+        ]
+        raise AssertionError(
+            "MACsec cleanup timed out on cSONiC host {}: {}".format(
+                host.hostname, diagnostics))
+
+    if getattr(host, "facts", {}).get("asic_type") != "vs":
         return False
 
     logger.warning(
@@ -626,103 +696,141 @@ def _restore_macsec_feature_after_cleanup_recovery(
     enable_macsec_feature(duthost, nbrhosts)
 
 
+def _macsec_configuration_targets(duthost, ctrl_links):
+    """Return unique physical profile hosts and host/port endpoints."""
+    profile_hosts = []
+    endpoints = []
+    seen_hosts = set()
+    seen_endpoints = set()
+
+    for host, port in [(duthost, dut_port) for dut_port in ctrl_links]:
+        endpoint_key = _macsec_endpoint_key(host, port)
+        if endpoint_key not in seen_endpoints:
+            seen_endpoints.add(endpoint_key)
+            endpoints.append((host, port))
+
+    for nbr in ctrl_links.values():
+        host = nbr["host"]
+        host_key = _macsec_host_key(host)
+        if host_key not in seen_hosts:
+            seen_hosts.add(host_key)
+            profile_hosts.append(host)
+        endpoint_key = _macsec_endpoint_key(host, nbr["port"])
+        if endpoint_key not in seen_endpoints:
+            seen_endpoints.add(endpoint_key)
+            endpoints.append((host, nbr["port"]))
+    return profile_hosts, endpoints
+
+
+def _rollback_macsec_configuration(profile_hosts, endpoints, profile_name):
+    """Best-effort reverse-order rollback for setup failures before yield."""
+    failures = []
+    for host, port in reversed(endpoints):
+        try:
+            disable_macsec_port(host, port)
+        except Exception as error:
+            failures.append({"host": str(host), "port": port,
+                             "exception": repr(error)})
+    for host in reversed(profile_hosts):
+        try:
+            delete_macsec_profile(host, profile_name)
+        except Exception as error:
+            failures.append({"host": str(host), "profile": profile_name,
+                             "exception": repr(error)})
+    if failures:
+        logger.error("MACsec configuration rollback failures: %s", failures)
+
+
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
-    devices = set()
-    if duthost.facts["asic_type"] == "vs":
-        devices.add(duthost)
+    neighbor_profile_hosts, endpoints = _macsec_configuration_targets(
+        duthost, ctrl_links)
+    profile_hosts = [duthost] + neighbor_profile_hosts
 
     logger.info("Cleanup macsec configuration step1: disable macsec port")
-    for dut_port, nbr in list(ctrl_links.items()):
-        time.sleep(3)
-        submit_async_task(disable_macsec_port, (duthost, dut_port))
-        submit_async_task(disable_macsec_port, (nbr["host"], nbr["port"]))
-        devices.add(nbr["host"])
-    wait_all_complete(timeout=300)
+    tasks = [submit_async_task(disable_macsec_port, endpoint)
+             for endpoint in endpoints]
+    _wait_for_macsec_tasks(tasks, timeout=300)
 
     logger.info("Cleanup macsec configuration step2: delete macsec profile")
-    # Delete the macsec profile once after it is removed from all interfaces.
-    # On multi-asic the profile is removed from the DB in all namespaces.
-    submit_async_task(delete_macsec_profile, (duthost, profile_name))
-
-    # Delete the macsec profile in neighbors
-    for d in devices:
-        submit_async_task(delete_macsec_profile, (d, profile_name))
-    wait_all_complete(timeout=300)
+    tasks = [submit_async_task(delete_macsec_profile, (host, profile_name))
+             for host in profile_hosts]
+    _wait_for_macsec_tasks(tasks, timeout=300)
 
     logger.info("Cleanup macsec configuration step3: wait for automatic cleanup")
-
-    # Extract DUT interface names from ctrl_links and wait for automatic
-    # MACsec cleanup on the DUT side.
     interfaces = list(ctrl_links.keys())
     recovered = _wait_for_macsec_cleanup_with_vs_recovery(
         duthost, interfaces, is_dut=True)
 
-    # Also wait for neighbor devices to complete automatic cleanup for their
-    # corresponding ports.
-    for dut_port, nbr in list(ctrl_links.items()):
+    seen_endpoints = set()
+    for nbr in ctrl_links.values():
+        endpoint_key = _macsec_endpoint_key(nbr["host"], nbr["port"])
+        if endpoint_key in seen_endpoints:
+            continue
+        seen_endpoints.add(endpoint_key)
         neighbor_recovered = _wait_for_macsec_cleanup_with_vs_recovery(
             nbr["host"], [nbr["port"]], is_dut=False)
         recovered = neighbor_recovered or recovered
 
     if recovered:
-        _restore_macsec_feature_after_cleanup_recovery(
-            duthost, ctrl_links)
+        _restore_macsec_feature_after_cleanup_recovery(duthost, ctrl_links)
 
     logger.info("Cleanup macsec configuration finished")
-
-    # Waiting for all MKA sessions to be cleared on neighbor devices.
-    for d in devices:
-        if isinstance(d, EosHost):
+    for host in profile_hosts:
+        if isinstance(host, EosHost):
             continue
-        assert wait_until(30, 1, 0, lambda d=d: not get_mka_session(d))
+        assert wait_until(30, 1, 0, lambda host=host: not get_mka_session(host))
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo):
-    logger.info("Setup macsec configuration step1: set macsec profile")
-    # 1. Set macsec profile. The profile is host-wide (no port arg), so the
-    # DUT-side set runs once outside the per-link loop.
-    tasks = [submit_async_task(set_macsec_profile, (duthost, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy,
-                               send_sci, rekey_period))]
-    i = 0
-    for dut_port, nbr in ctrl_links.items():
-        if i % 2 == 0:
-            priority = default_priority - 1
-        else:
-            priority = default_priority + 1
-        tasks.append(submit_async_task(
+    neighbor_profile_hosts, endpoints = _macsec_configuration_targets(
+        duthost, ctrl_links)
+    profile_hosts = [duthost] + neighbor_profile_hosts
+
+    try:
+        logger.info("Setup macsec configuration step1: set macsec profile")
+        tasks = [submit_async_task(
             set_macsec_profile,
-            (nbr["host"], profile_name, priority, cipher_suite, primary_cak,
-             primary_ckn, policy, send_sci, rekey_period)))
-        i += 1
-    _wait_for_macsec_tasks(tasks, timeout=180)
+            (duthost, profile_name, default_priority, cipher_suite, primary_cak,
+             primary_ckn, policy, send_sci, rekey_period))]
+        for index, host in enumerate(neighbor_profile_hosts):
+            priority = default_priority - 1 if index % 2 == 0 else default_priority + 1
+            tasks.append(submit_async_task(
+                set_macsec_profile,
+                (host, profile_name, priority, cipher_suite, primary_cak,
+                 primary_ckn, policy, send_sci, rekey_period)))
+        _wait_for_macsec_tasks(tasks, timeout=180)
 
-    logger.info("Setup macsec configuration step2: enable macsec profile")
-    # 2. Enable macsec profile
-    tasks = []
-    for dut_port, nbr in list(ctrl_links.items()):
-        time.sleep(3)
-        tasks.append(submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name)))
-        tasks.append(submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name)))
-    _wait_for_macsec_tasks(tasks, timeout=180)
+        logger.info("Setup macsec configuration step2: enable macsec profile")
+        tasks = []
+        for endpoint in endpoints:
+            time.sleep(3)
+            tasks.append(submit_async_task(
+                enable_macsec_port, endpoint + (profile_name,)))
+        _wait_for_macsec_tasks(tasks, timeout=180)
 
-    # 3. Wait for interface's macsec ready
-    for dut_port, nbr in list(ctrl_links.items()):
-        if not wait_until(300, 3, 0,
-                          lambda: duthost.iface_macsec_ok(dut_port) and
-                          nbr["host"].iface_macsec_ok(nbr["port"])):
-            diagnostics = {
-                "dut": _macsec_interface_diagnostics(duthost, dut_port),
-                "neighbor": _macsec_interface_diagnostics(nbr["host"], nbr["port"]),
-            }
-            logger.error("MACsec interface readiness timed out: %s", diagnostics)
-            assert False, "MACsec interface readiness timed out: {}".format(diagnostics)
+        for dut_port, nbr in list(ctrl_links.items()):
+            if not wait_until(
+                    300, 3, 0,
+                    lambda dut_port=dut_port, nbr=nbr:
+                    duthost.iface_macsec_ok(dut_port) and
+                    nbr["host"].iface_macsec_ok(nbr["port"])):
+                diagnostics = {
+                    "dut": _macsec_interface_diagnostics(duthost, dut_port),
+                    "neighbor": _macsec_interface_diagnostics(
+                        nbr["host"], nbr["port"]),
+                }
+                logger.error(
+                    "MACsec interface readiness timed out: %s", diagnostics)
+                raise AssertionError(
+                    "MACsec interface readiness timed out: {}".format(
+                        diagnostics))
 
-    # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
-    # protocols. To hold some time for protocol recovery.
-    time.sleep(60)
-    logger.info("Setup macsec configuration finished")
+        time.sleep(60)
+        logger.info("Setup macsec configuration finished")
+    except Exception:
+        _rollback_macsec_configuration(profile_hosts, endpoints, profile_name)
+        raise
 
 
 def generate_macsec_profile(port_name, cipher_suite="GCM-AES-128", priority=64,
