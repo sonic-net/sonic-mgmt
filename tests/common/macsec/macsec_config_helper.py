@@ -202,6 +202,9 @@ def _macsec_interface_diagnostics(host, interface_name):
         commands.extend([
             ("service", "supervisorctl status macsecmgrd"),
             ("post_state", "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state"),
+            ("wpa_supplicant", "test -x /sbin/wpa_supplicant && /sbin/wpa_supplicant -v"),
+            ("wpa_cli", "test -x /sbin/wpa_cli && /sbin/wpa_cli -v"),
+            ("macsec_syslog", "grep -iE 'macsecmgrd|wpa_supplicant|macsec' /var/log/syslog 2>/dev/null | tail -n 80"),
             ("mka", "ip -j macsec show"),
         ])
     else:
@@ -229,9 +232,10 @@ def _macsec_interface_diagnostics(host, interface_name):
 def _start_csonic_macsec_service(host):
     """Ensure monolithic docker-sonic-vs supervises its bundled daemon.
 
-    Some docker-sonic-vs images contain the macsecmgrd binary without a
-    supervisor program. Register only that program at the MACsec call site;
-    images that already supervise it take the first or last case below.
+    Some docker-sonic-vs images contain the macsecmgrd binary without its
+    wpa_supplicant runtime or a supervisor program. Install the missing Debian
+    runtime on demand and register only the daemon at the MACsec call site;
+    images that already provide either dependency skip that work.
 
     macsecmgrd does not consume CONFIG_DB until the SAI MACsec POST state is
     ``pass`` or ``disabled``. The standalone macsec container gets this state
@@ -241,6 +245,14 @@ def _start_csonic_macsec_service(host):
     daemon.
     """
     command = """set -e
+if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends wpasupplicant
+    rm -rf /var/lib/apt/lists/*
+fi
+test -x /sbin/wpa_supplicant
+test -x /sbin/wpa_cli
 sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled >/dev/null
 status=$(supervisorctl status macsecmgrd 2>&1 || true)
 case "$status" in

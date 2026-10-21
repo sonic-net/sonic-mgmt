@@ -261,6 +261,9 @@ def test_csonic_interface_diagnostics_query_container_directly():
     commands = [call.args[0] for call in host.shell.call_args_list]
     assert "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|Ethernet1' state" in commands
     assert "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state" in commands
+    assert "test -x /sbin/wpa_supplicant && /sbin/wpa_supplicant -v" in commands
+    assert "test -x /sbin/wpa_cli && /sbin/wpa_cli -v" in commands
+    assert any("grep -iE 'macsecmgrd|wpa_supplicant|macsec'" in command for command in commands)
     assert "ip -j macsec show" in commands
     assert all("docker exec" not in command for command in commands)
 
@@ -439,6 +442,12 @@ def test_csonic_service_lifecycle_uses_supervisor_not_docker():
     start_command = host.shell_calls[0][0]
     post_state_command = (
         "sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled")
+    dependency_guard = "if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]"
+    install_command = "apt-get install -y --no-install-recommends wpasupplicant"
+    assert dependency_guard in start_command
+    assert install_command in start_command
+    assert start_command.index(dependency_guard) < start_command.index(install_command)
+    assert start_command.index(install_command) < start_command.index(post_state_command)
     assert post_state_command in start_command
     assert start_command.index(post_state_command) < start_command.index("supervisorctl status")
     assert all("supervisorctl" in command for command, _ in host.shell_calls)
