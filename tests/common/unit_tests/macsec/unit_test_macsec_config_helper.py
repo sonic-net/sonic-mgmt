@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 
 class FakeCsonicHost:
     pass
@@ -21,12 +23,19 @@ TREE = ast.parse(SOURCE)
 FUNCTION_NAMES = {
     "_command_succeeded",
     "_command_output_lines",
+    "_host_is_multi_asic",
+    "_host_platform_asic",
+    "_run_required_macsec_command",
+    "_wait_for_macsec_tasks",
     "_unique_macsec_neighbor_hosts",
     "_macsec_service_ready",
     "_command_diagnostic",
     "_macsec_service_diagnostics",
+    "_macsec_interface_diagnostics",
     "_start_csonic_macsec_service",
     "_stop_csonic_macsec_service",
+    "set_macsec_profile",
+    "enable_macsec_port",
     "enable_macsec_feature",
     "disable_macsec_feature",
 }
@@ -51,11 +60,18 @@ NAMESPACE = {
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
 
 _command_output_lines = NAMESPACE["_command_output_lines"]
+_host_is_multi_asic = NAMESPACE["_host_is_multi_asic"]
+_host_platform_asic = NAMESPACE["_host_platform_asic"]
+_run_required_macsec_command = NAMESPACE["_run_required_macsec_command"]
+_wait_for_macsec_tasks = NAMESPACE["_wait_for_macsec_tasks"]
 _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
 _macsec_service_diagnostics = NAMESPACE["_macsec_service_diagnostics"]
+_macsec_interface_diagnostics = NAMESPACE["_macsec_interface_diagnostics"]
 _start_csonic_macsec_service = NAMESPACE["_start_csonic_macsec_service"]
 _stop_csonic_macsec_service = NAMESPACE["_stop_csonic_macsec_service"]
+set_macsec_profile = NAMESPACE["set_macsec_profile"]
+enable_macsec_port = NAMESPACE["enable_macsec_port"]
 enable_macsec_feature = NAMESPACE["enable_macsec_feature"]
 disable_macsec_feature = NAMESPACE["disable_macsec_feature"]
 
@@ -97,6 +113,70 @@ class EosShellHost(FakeEosHost, ShellHost):
 
 def _successful_lines(*lines):
     return {"rc": 0, "stdout_lines": list(lines), "stdout": "\n".join(lines)}
+
+
+def test_csonic_macsec_setup_defaults_to_single_asic_without_facts():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.commands = []
+
+        def command(self, command):
+            self.commands.append(command)
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host = CsonicCommandHost()
+    NAMESPACE["get_portchannel"] = MagicMock(return_value={})
+    NAMESPACE["find_portchannel_from_member"] = MagicMock(return_value=None)
+    NAMESPACE["getns_prefix"] = MagicMock(return_value=" ")
+
+    set_macsec_profile(
+        host, "128_SCI", 63, "GCM-AES-128", "cak", "ckn", "security", "true"
+    )
+    enable_macsec_port(host, "Ethernet1", "128_SCI")
+
+    assert _host_is_multi_asic(host) is False
+    assert _host_platform_asic(host) is None
+    assert host.commands[0].startswith("config macsec profile add 128_SCI ")
+    assert host.commands[1].split() == [
+        "config", "macsec", "port", "add", "Ethernet1", "128_SCI"
+    ]
+
+
+def test_csonic_required_setup_command_fails_closed():
+    class FailedCsonicHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def command(self, command):
+            return {"rc": 1, "stdout": "", "stderr": "unsupported"}
+
+    with pytest.raises(AssertionError, match="MACsec command failed on csonic_vm"):
+        _run_required_macsec_command(FailedCsonicHost(), "config macsec profile add test")
+
+
+def test_macsec_worker_failures_are_not_silently_ignored():
+    tasks = [MagicMock(exitcode=0), MagicMock(exitcode=1)]
+    NAMESPACE["wait_all_complete"] = MagicMock()
+
+    with pytest.raises(AssertionError, match=r"task failures: \[1\]"):
+        _wait_for_macsec_tasks(tasks, timeout=180)
+
+    NAMESPACE["wait_all_complete"].assert_called_once_with(timeout=180)
+
+
+def test_csonic_interface_diagnostics_query_container_directly():
+    host = CsonicShellHost()
+    host.shell = MagicMock(return_value={"rc": 0, "stdout": "ok", "stderr": ""})
+
+    diagnostics = _macsec_interface_diagnostics(host, "Ethernet1")
+
+    assert diagnostics["runtime"] == "csonic"
+    assert diagnostics["interface"] == "Ethernet1"
+    commands = [call.args[0] for call in host.shell.call_args_list]
+    assert "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|Ethernet1' state" in commands
+    assert "ip -j macsec show" in commands
+    assert all("docker exec" not in command for command in commands)
 
 
 def test_converged_csonic_logical_neighbors_are_deduplicated():
