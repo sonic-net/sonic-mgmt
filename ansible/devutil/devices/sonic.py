@@ -95,15 +95,13 @@ def upgrade_by_onie(sonichosts, localhost, image_url, pause_time):
             localhost.pause(
                 seconds=pause_time, prompt="Pause {} seconds for ONIE initialization".format(str(pause_time))
             )
-        # ONIE's connection plugin must also use the address that passed the SSH check.
-        for hostname, address in addresses.items():
-            sonichosts.onie(
-                install="yes",
-                url=image_url,
-                host=address,
-                target_hosts=[hostname],
-                module_attrs={"connection": "onie"}
-            )
+        # Keep installs concurrent, using each DUT's address that passed the SSH check.
+        sonichosts.onie(
+            install="yes",
+            url=image_url,
+            host="{{ onie_addresses[inventory_hostname] }}",
+            module_attrs={"connection": "onie", "vars": {"onie_addresses": addresses}}
+        )
         return True
     except RunAnsibleModuleFailed as e:
         logger.error(
