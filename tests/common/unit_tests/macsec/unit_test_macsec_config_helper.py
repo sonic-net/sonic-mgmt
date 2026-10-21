@@ -1,6 +1,7 @@
 """Focused unit tests for MACsec service readiness across neighbor runtimes."""
 
 import ast
+import shlex
 from collections import UserDict
 from collections.abc import Mapping
 from pathlib import Path
@@ -26,6 +27,9 @@ FUNCTION_NAMES = {
     "_host_is_multi_asic",
     "_host_platform_asic",
     "_run_required_macsec_command",
+    "_csonic_config_db_hset",
+    "_csonic_config_db_delete",
+    "_csonic_config_db_hdel",
     "_wait_for_macsec_tasks",
     "_unique_macsec_neighbor_hosts",
     "_macsec_service_ready",
@@ -35,7 +39,9 @@ FUNCTION_NAMES = {
     "_start_csonic_macsec_service",
     "_stop_csonic_macsec_service",
     "set_macsec_profile",
+    "delete_macsec_profile",
     "enable_macsec_port",
+    "disable_macsec_port",
     "enable_macsec_feature",
     "disable_macsec_feature",
 }
@@ -55,6 +61,7 @@ NAMESPACE = {
     "CsonicHost": FakeCsonicHost,
     "EosHost": FakeEosHost,
     "Mapping": Mapping,
+    "shlex": shlex,
     "logger": MagicMock(),
 }
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
@@ -63,6 +70,9 @@ _command_output_lines = NAMESPACE["_command_output_lines"]
 _host_is_multi_asic = NAMESPACE["_host_is_multi_asic"]
 _host_platform_asic = NAMESPACE["_host_platform_asic"]
 _run_required_macsec_command = NAMESPACE["_run_required_macsec_command"]
+_csonic_config_db_hset = NAMESPACE["_csonic_config_db_hset"]
+_csonic_config_db_delete = NAMESPACE["_csonic_config_db_delete"]
+_csonic_config_db_hdel = NAMESPACE["_csonic_config_db_hdel"]
 _wait_for_macsec_tasks = NAMESPACE["_wait_for_macsec_tasks"]
 _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
@@ -71,7 +81,9 @@ _macsec_interface_diagnostics = NAMESPACE["_macsec_interface_diagnostics"]
 _start_csonic_macsec_service = NAMESPACE["_start_csonic_macsec_service"]
 _stop_csonic_macsec_service = NAMESPACE["_stop_csonic_macsec_service"]
 set_macsec_profile = NAMESPACE["set_macsec_profile"]
+delete_macsec_profile = NAMESPACE["delete_macsec_profile"]
 enable_macsec_port = NAMESPACE["enable_macsec_port"]
+disable_macsec_port = NAMESPACE["disable_macsec_port"]
 enable_macsec_feature = NAMESPACE["enable_macsec_feature"]
 disable_macsec_feature = NAMESPACE["disable_macsec_feature"]
 
@@ -115,7 +127,7 @@ def _successful_lines(*lines):
     return {"rc": 0, "stdout_lines": list(lines), "stdout": "\n".join(lines)}
 
 
-def test_csonic_macsec_setup_defaults_to_single_asic_without_facts():
+def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
     class CsonicCommandHost(FakeCsonicHost):
         hostname = "csonic_vm"
 
@@ -127,6 +139,81 @@ def test_csonic_macsec_setup_defaults_to_single_asic_without_facts():
             return {"rc": 0, "stdout": "", "stderr": ""}
 
     host = CsonicCommandHost()
+
+    set_macsec_profile(
+        host, "128_SCI", 63, "GCM-AES-128", "cak", "ckn", "security", "true"
+    )
+    enable_macsec_port(host, "Ethernet1", "128_SCI")
+
+    assert _host_is_multi_asic(host) is False
+    assert _host_platform_asic(host) is None
+    assert host.commands[0].startswith(
+        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|128_SCI' ")
+    assert "priority 63" in host.commands[0]
+    assert "send_sci true" in host.commands[0]
+    assert "rekey_period" not in host.commands[0]
+    assert host.commands[1] == (
+        "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet1' macsec 128_SCI")
+
+
+def test_csonic_macsec_profile_maps_flags_to_config_db_schema():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.commands = []
+
+        def command(self, command):
+            self.commands.append(command)
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host = CsonicCommandHost()
+
+    set_macsec_profile(
+        host, "256_XPN_NO_SCI", 65, "GCM-AES-XPN-256", "cak", "ckn",
+        "security", "false", rekey_period=240
+    )
+
+    assert "send_sci false" in host.commands[0]
+    assert "rekey_period 240" in host.commands[0]
+    assert "no_send_sci" not in host.commands[0]
+
+
+def test_csonic_macsec_cleanup_deletes_config_db_entries_directly():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.commands = []
+
+        def command(self, command, **kwargs):
+            self.commands.append((command, kwargs))
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host = CsonicCommandHost()
+
+    disable_macsec_port(host, "Ethernet1")
+    delete_macsec_profile(host, "128_SCI")
+
+    assert host.commands == [
+        ("sonic-db-cli CONFIG_DB HDEL 'PORT|Ethernet1' macsec", {}),
+        ("sonic-db-cli CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'", {}),
+    ]
+
+
+def test_regular_sonic_macsec_setup_preserves_config_cli():
+    class SonicCommandHost:
+        is_multi_asic = False
+        facts = {}
+
+        def __init__(self):
+            self.commands = []
+
+        def command(self, command):
+            self.commands.append(command)
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host = SonicCommandHost()
     NAMESPACE["get_portchannel"] = MagicMock(return_value={})
     NAMESPACE["find_portchannel_from_member"] = MagicMock(return_value=None)
     NAMESPACE["getns_prefix"] = MagicMock(return_value=" ")
@@ -136,8 +223,6 @@ def test_csonic_macsec_setup_defaults_to_single_asic_without_facts():
     )
     enable_macsec_port(host, "Ethernet1", "128_SCI")
 
-    assert _host_is_multi_asic(host) is False
-    assert _host_platform_asic(host) is None
     assert host.commands[0].startswith("config macsec profile add 128_SCI ")
     assert host.commands[1].split() == [
         "config", "macsec", "port", "add", "Ethernet1", "128_SCI"

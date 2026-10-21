@@ -1,5 +1,6 @@
 import logging
 import secrets
+import shlex
 import time
 from collections.abc import Mapping
 from passlib.hash import cisco_type7
@@ -72,6 +73,28 @@ def _run_required_macsec_command(host, command):
             "MACsec command failed on {}: command={!r}, result={}".format(
                 host.hostname, command, _command_diagnostic(result)))
     return result
+
+
+def _csonic_config_db_hset(host, key, values):
+    """Write MACsec configuration without relying on an optional config CLI plugin."""
+    command = ["sonic-db-cli", "CONFIG_DB", "HSET", key]
+    for field, value in values.items():
+        command.extend([field, str(value)])
+    return _run_required_macsec_command(
+        host, " ".join(shlex.quote(part) for part in command))
+
+
+def _csonic_config_db_delete(host, key):
+    """Delete a cSONiC CONFIG_DB key directly."""
+    command = "sonic-db-cli CONFIG_DB DEL {}".format(shlex.quote(key))
+    return _run_required_macsec_command(host, command)
+
+
+def _csonic_config_db_hdel(host, key, field):
+    """Delete one field from a cSONiC CONFIG_DB hash directly."""
+    command = "sonic-db-cli CONFIG_DB HDEL {} {}".format(
+        shlex.quote(key), shlex.quote(field))
+    return _run_required_macsec_command(host, command)
 
 
 def _wait_for_macsec_tasks(tasks, timeout):
@@ -296,7 +319,20 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
     for k, v in list(macsec_profile.items()):
         opts += " --{} {}".format(k, v)
 
-    if _host_is_multi_asic(host):
+    if isinstance(host, CsonicHost):
+        profile_entry = {
+            "priority": priority,
+            "cipher_suite": cipher_suite,
+            "primary_cak": primary_cak,
+            "primary_ckn": primary_ckn,
+            "policy": policy,
+            "send_sci": send_sci,
+        }
+        if rekey_period > 0:
+            profile_entry["rekey_period"] = rekey_period
+        _csonic_config_db_hset(
+            host, "MACSEC_PROFILE|{}".format(profile_name), profile_entry)
+    elif _host_is_multi_asic(host):
         for ns in host.get_asic_namespace_list():
             cmd = "config macsec -n {} profile add {} {}".format(ns, profile_name, opts)
             host.command(cmd)
@@ -350,7 +386,9 @@ def delete_macsec_profile(host, profile_name):
             parents=['mac security'])
         return
 
-    if _host_is_multi_asic(host):
+    if isinstance(host, CsonicHost):
+        _csonic_config_db_delete(host, "MACSEC_PROFILE|{}".format(profile_name))
+    elif _host_is_multi_asic(host):
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
             cmd = "config macsec {} profile del {}".format(CMD_PREFIX, profile_name)
@@ -365,6 +403,11 @@ def enable_macsec_port(host, port, profile_name):
         host.eos_config(
             lines=['mac security profile {}'.format(profile_name)],
             parents=['interface {}'.format(port)])
+        return
+
+    if isinstance(host, CsonicHost):
+        _csonic_config_db_hset(
+            host, "PORT|{}".format(port), {"macsec": profile_name})
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
@@ -386,6 +429,10 @@ def disable_macsec_port(host, port):
         host.eos_config(
             lines=['no mac security profile'],
             parents=['interface {}'.format(port)])
+        return
+
+    if isinstance(host, CsonicHost):
+        _csonic_config_db_hdel(host, "PORT|{}".format(port), "macsec")
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
