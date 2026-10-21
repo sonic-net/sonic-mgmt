@@ -13,6 +13,7 @@ from tests.ranking.environment_ownership import (
     _validate_component, _validate_handle, _validate_resource,
 )
 from tests.ranking.execution_config import build_ptf_request
+from tests.ranking.host_transport import HostTransport, request_path
 from tests.ranking.reservation_coordinator import resume_all
 
 
@@ -63,6 +64,10 @@ class ReceiptError(Exception):
 
 class AgentDispatchError(RuntimeError):
     """The Ansible agent boundary could not run or reported a host failure."""
+
+    def __init__(self, message, *, uncertain=True):
+        self.uncertain = uncertain
+        super().__init__(message)
 
 
 class AgentResponseError(RuntimeError):
@@ -126,7 +131,7 @@ def _execution_fields(execution):
 def _identity(value, description):
     if not isinstance(value, str) or not value.strip():
         raise ValueError('{} must be a non-empty identifier'.format(description))
-    return value
+    return _validate_component(value)
 
 
 def _single_alias(host):
@@ -164,6 +169,7 @@ def _payload(action, execution, environment_id, operation_id, case, run_id, arti
         'ranking_action': action,
         'ranking_environment_id': environment_id,
         'ranking_operation_id': operation_id,
+        'ranking_action_id': 'action-' + uuid.uuid4().hex,
         'ranking_case': case,
         'ranking_run_id': run_id,
         'ranking_dut_host': dut_host,
@@ -589,10 +595,7 @@ def _validate_routes(routes):
 
 
 def _request_path(request):
-    identity = request['handle'] if 'handle' in request else request
-    return '{}/{}/{}-{}.json'.format(
-        REQUEST_ROOT, identity['environment_id'], request['action'],
-        identity['resource'].replace(':', '-'))
+    return request_path(request)
 
 
 def _envelope_result(envelope, action):
@@ -638,28 +641,13 @@ class HostReservationClient:
         if not callable(invoke):
             raise ValueError('invoke must be a callable Ansible boundary')
         self._invoke = invoke
+        self._transport = HostTransport(invoke)
         self._receipt = None if receipt is None else Path(receipt)
         if self._receipt is not None:
             read_receipt(self._receipt)
 
     def invoke_agent(self, route, request):
-        request_path = _request_path(request)
-        staging_text = json.dumps(request, sort_keys=True,
-                                  separators=(',', ':'), allow_nan=False)
-        staging_arguments = json.dumps(
-            {'content': staging_text, 'dest': request_path, 'mode': '0600'},
-            sort_keys=True, separators=(',', ':'), allow_nan=False)
-        command_arguments = json.dumps(
-            {'argv': ['python3', '-m', route['agent'], '--request', request_path],
-             'chdir': REQUEST_ROOT},
-            sort_keys=True, separators=(',', ':'), allow_nan=False)
-        staging = ['ansible', route['host'], '--inventory', route['inventory'],
-                   '--become', '-m', 'ansible.builtin.copy', '-a', staging_arguments]
-        command = ['ansible', route['host'], '--inventory', route['inventory'],
-                   '--become', '-m', 'ansible.builtin.command', '-a',
-                   command_arguments]
-        self._invoke(staging)
-        return self._invoke(command)
+        return self._transport.invoke_agent(route, request)
 
     def claim(self, resource, environment_id, operation_id):
         return self._acquire('claim', resource, environment_id, operation_id, True)
@@ -683,6 +671,22 @@ class HostReservationClient:
         envelope = self.invoke_agent(route, {'action': 'validate',
                                              'handle': dict(handle)})
         return _dispatched_record(_envelope_result(envelope, 'validate'), handle)
+
+    def begin_action(self, handle, action_id):
+        handle = _validate_handle(handle)
+        _validate_component(action_id)
+        self._guard_released(handle['resource'])
+        envelope = self.invoke_agent(self._route(handle['resource']), {
+            'action': 'begin_action', 'handle': handle, 'action_id': action_id})
+        return _dispatched_handle(_envelope_result(envelope, 'begin_action'),
+                                  handle['resource'], handle['environment_id'], action_id, True)
+
+    def end_action(self, guard):
+        guard = _validate_handle(guard)
+        envelope = self.invoke_agent(self._route(guard['resource']), {
+            'action': 'end_action', 'handle': guard})
+        if _envelope_result(envelope, 'end_action') != {}:
+            raise AgentResponseError('action completion response must be empty')
 
     def _route(self, resource):
         _validate_resource(resource)
@@ -776,8 +780,14 @@ def ansible_agent_invoke(argv):
             'Ansible boundary could not be executed: {}'.format(error)) from error
     if completed.returncode != 0:
         detail = completed.stderr.decode('utf-8', 'replace').strip().splitlines()
+        stdout = completed.stdout.decode('utf-8', 'replace')
+        confirmed_exit = re.search(r'\| FAILED \| rc=\d+ >>', stdout) is not None
         raise AgentDispatchError('Ansible boundary failed with rc {}: {}'.format(
-            completed.returncode, detail[-1] if detail else 'no diagnostics'))
+            completed.returncode, detail[-1] if detail else 'no diagnostics'),
+            uncertain=not confirmed_exit)
+    if '-m' in argv and argv[argv.index('-m') + 1] in (
+            'ansible.builtin.copy', 'ansible.builtin.file'):
+        return {}
     return _parse_agent_envelope(completed.stdout)
 
 
@@ -863,6 +873,8 @@ def _record_recovery_outcome(receipt_path, result, artifacts):
                 entry['restored'] = True
             if entry['resource'] in released:
                 entry['released'] = True
+                if result.rc != 0:
+                    entry['uncertain'] = True
     outstanding = [entry for entry in receipt['resources']
                    if entry['acquired'] and not entry['released']]
     if result.rc == 0 and not outstanding:
@@ -912,15 +924,47 @@ def _recover_teardown(receipt_path):
         if not all(entry['restored'] for entry in remaining):
             return _refuse(receipt, receipt_path,
                            'a retained reservation was not attested restored')
+        guards = []
+        action_id = 'action-recovery-' + uuid.uuid4().hex
         try:
             for entry in remaining:
                 client.validate(entry['handle'])
             for entry in remaining:
+                guards.append(client.begin_action(entry['handle'], action_id))
+            for entry in remaining:
                 client.release_restored(entry['handle'])
         except Exception as error:
+            uncertain = (isinstance(error, AgentResponseError) or
+                         isinstance(error, AgentDispatchError) and error.uncertain)
+            if not uncertain:
+                for guard in reversed(guards):
+                    try:
+                        client.end_action(guard)
+                    except Exception:
+                        uncertain = True
+                        break
+            if uncertain:
+                stored = read_receipt(receipt_path)
+                for entry in stored['resources']:
+                    if entry['resource'] in {item['resource'] for item in remaining}:
+                        entry['uncertain'] = True
+                stored['cleanup_errors'].append(
+                    'action {} has an uncertain result; guards retained'.format(action_id))
+                update_receipt(receipt_path, stored)
             return _refuse(receipt, receipt_path,
-                           'remaining reservations failed verification: {}'.format(
-                               error))
+                           'remaining reservations failed verification: {}'.format(error))
+        try:
+            for guard in reversed(guards):
+                client.end_action(guard)
+        except Exception as error:
+            stored = read_receipt(receipt_path)
+            for entry in stored['resources']:
+                if entry['resource'] in {guard['resource'] for guard in guards}:
+                    entry['uncertain'] = True
+            stored['cleanup_errors'].append(
+                'action {} completion is uncertain: {}'.format(action_id, error))
+            update_receipt(receipt_path, stored)
+            return _refuse(stored, receipt_path, 'action guard completion is uncertain')
         fresh = read_receipt(receipt_path)
         fresh['phase'] = 'released'
         fresh['primary_error'] = None

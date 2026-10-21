@@ -1,0 +1,29 @@
+- name: Build the exclusive action guard request
+  ansible.builtin.set_fact:
+    ranking_begin_action_request:
+      action: begin_action
+      action_id: '{{ ranking_action_id }}'
+      handle:
+        resource: '{{ item.resource }}'
+        environment_id: '{{ ranking_environment_id }}'
+        operation_id: '{{ ranking_operation_id }}'
+        created: false
+- name: Stage the exclusive action guard request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/begin-{{ item.resource | replace(":", "-") }}.json'
+    content: '{{ ranking_begin_action_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ item.host }}'
+- name: Acquire the exclusive resource action guard
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/begin-{{ item.resource | replace(":", "-") }}.json']
+  delegate_to: '{{ item.host }}'
+  register: ranking_begin_action_result
+  changed_when: true
+- name: Validate the fresh action guard response
+  ansible.builtin.fail:
+    msg: action guard response does not match this invocation
+  when: (ranking_begin_action_result.stdout | from_json).action != 'begin_action' or (ranking_begin_action_result.stdout | from_json).result.resource != item.resource or (ranking_begin_action_result.stdout | from_json).result.environment_id != ranking_environment_id or (ranking_begin_action_result.stdout | from_json).result.operation_id != ranking_action_id or (ranking_begin_action_result.stdout | from_json).result.created != true
+- name: Remember only this invocation's acquired action guard
+  ansible.builtin.set_fact:
+    ranking_action_handles: '{{ ranking_action_handles + [{"host": item.host, "handle": (ranking_begin_action_result.stdout | from_json).result}] }}'

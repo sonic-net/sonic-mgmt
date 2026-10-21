@@ -396,14 +396,15 @@ class PortConfiger(object):
             port_list: port list
         """
         sorted_port_list: List[Port] = []
-        for index, item in enumerate(ports_config):
-            # index: interface name, item: PortConfig
-            lane_list = item.lanes
-            for port in port_list:
-                if lane_list == port.default_lane_list:
-                    sorted_port_list.append(port)
-                    port.config = ports_config[index]
-                    break
+        for item in ports_config:
+            matches = [port for port in port_list
+                       if item.lanes == port.default_lane_list]
+            if len(matches) != 1:
+                raise ValueError('Port {} requires exactly one runtime lane match; found {}'.format(
+                    item.name, len(matches)))
+            port = matches[0]
+            port.config = item
+            sorted_port_list.append(port)
         return sorted_port_list
 
     def remove_bridge_port(self):

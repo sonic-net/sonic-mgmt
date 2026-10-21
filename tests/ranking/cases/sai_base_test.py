@@ -1273,8 +1273,8 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
                 sai_thrift_remove_port(self.client, port)
 
         # add new ports from port config file
-        self.ports_config = self.port_config_ini_loader.ports_config
-        for name, port in self.ports_config.items():
+        ports_config = self.port_config_ini_loader.ports_config
+        for name, port in ports_config.items():
             print("Creating port: %s" % name)
             fec_mode = fec_str_to_int(port.get('fec', None))
             auto_neg_mode = True if port.get(
@@ -1324,10 +1324,7 @@ class SaiHelperBase(ThriftInterfaceDataPlane):
             # remove after DASH will be introduced as confuses with "dev" prefix
             # added tg as a shortcut for "traffic generator"
             setattr(self, 'dev_port%d' % dev_no, port)
-            if get_platform() == "ctc":
-                self.dev_port_list.append(getattr(self, 'dev_port%d' %port))
-            else:
-                self.dev_port_list.append(getattr(self, 'dev_port%d' %dev_no))
+            self.dev_port_list.append(port)
             setattr(self, 'tg%d' % dev_no, port)
             dev_no += 1
 
@@ -1960,7 +1957,7 @@ class SaiHelperSimplified(SaiHelperUtilsMixin, SaiHelperBase):
 
     def __getattr__(self, name):
         """
-        Skip the test in case of "port\d+" attribute does not exist
+        Skip the test when a requested port attribute does not exist.
         """
         # NOTE: check only ports for now
         found = re.findall(r'^port\d+$', name)

@@ -1,0 +1,10 @@
+- name: Initialize this invocation's action guards
+  ansible.builtin.set_fact:
+    ranking_action_handles: []
+- name: Acquire each resource action guard
+  ansible.builtin.include_tasks: begin_action_resource.yml
+  loop:
+    - resource: '{{ ranking_dut_resource }}'
+      host: '{{ ranking_dut_host }}'
+    - resource: '{{ ranking_ptf_resource }}'
+      host: '{{ ranking_ptf_host }}'

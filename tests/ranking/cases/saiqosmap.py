@@ -4888,7 +4888,7 @@ class variousPfcToPpgMapOnManyIngressPorts(QosTcToPriorityGroupTestPFC):
         return super().tearDown()
 
 @group("draft")
-class noPfcToPpgMapping(QosTcToPriorityGroupTestPFC):
+class noPfcToPpgMappingPFC(QosTcToPriorityGroupTestPFC):
     def setUp(self):
         return super().setUp()
 

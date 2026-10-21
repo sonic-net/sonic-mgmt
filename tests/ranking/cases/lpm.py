@@ -1,4 +1,5 @@
 import random
+import six
 
 from ipaddress import ip_address, ip_network
 from SubnetTree import SubnetTree

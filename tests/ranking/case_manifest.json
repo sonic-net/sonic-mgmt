@@ -590,6 +590,7 @@
         "multiplePfcToSamePpgMapping",
         "multipleTcToSamePpgMapping",
         "noPfcToPpgMapping",
+        "noPfcToPpgMappingPFC",
         "oneToOnePfcToPpgMapping",
         "oneToOneTcToPpgMapping",
         "qosMapDot1ToColorCreateModifyTest",

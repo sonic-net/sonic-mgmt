@@ -10,7 +10,7 @@ from pathlib import Path
 
 try:
     from .parse_sai_headers import (EXCLUDED_ATTR_OPS, EXCLUDED_ATTR_PREFIXES,
-                                   classify_shape, parse_header)
+                                    classify_shape, parse_header)
 except ImportError:
     from parse_sai_headers import (EXCLUDED_ATTR_OPS, EXCLUDED_ATTR_PREFIXES,
                                    classify_shape, parse_header)

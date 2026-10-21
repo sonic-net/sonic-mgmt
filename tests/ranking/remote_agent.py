@@ -6,9 +6,13 @@ import stat
 import sys
 from contextlib import contextmanager
 
+if not __package__:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    __package__ = 'ranking'
+
 from .environment_ownership import (
-    OwnershipError, ResourceBusy, ResourceStore, _identity, _invalid_constant,
-    _unique_object, _validate_handle,
+    ACTION_ROOT, OwnershipError, ResourceBusy, ResourceStore, _identity, _invalid_constant,
+    _unique_object, _validate_component, _validate_handle,
 )
 from .snapshot_contract import _validate_path, validate_snapshot
 from .state_store import StateStore
@@ -24,6 +28,7 @@ _REQUEST_KEYS = {
     'capture_files': {'handle', 'paths'}, 'restore_files': {'handle', 'originals'},
     'mark_attempt': {'handle', 'marker'}, 'complete_attempt': {'handle', 'marker'},
     'snapshot': {'handle', 'identity', 'services', 'paths', 'saiserver'},
+    'begin_action': {'handle', 'action_id'}, 'end_action': {'handle'},
 }
 
 
@@ -42,6 +47,8 @@ def _request(value):
         _identity(value['resource'], value['environment_id'], value['operation_id'])
     else:
         _validate_handle(value['handle'])
+    if action == 'begin_action':
+        _validate_component(value['action_id'])
     if action in ('read', 'write'):
         StateStore._name(value['name'])
     if action in ('capture_files', 'snapshot'):
@@ -53,7 +60,7 @@ def _request(value):
         for path in paths:
             _validate_path(path)
             if any(path == root or path.startswith(root + '/')
-                   for root in (OWNERSHIP_ROOT, STATE_ROOT)):
+                   for root in (OWNERSHIP_ROOT, STATE_ROOT, ACTION_ROOT)):
                 raise ValueError('Source file cannot be an ownership or state record')
     if action == 'snapshot':
         if not value['handle']['resource'].startswith('dut:'):
@@ -94,11 +101,25 @@ def _snapshot(state, request):
 
 def _dispatch(request):
     action = request['action']
+    if action == 'end_action':
+        ResourceStore(ACTION_ROOT).abort_unmodified(request['handle'])
+        return {}
     ownership = ResourceStore(OWNERSHIP_ROOT)
     if action in ('claim', 'resume'):
         return getattr(ownership, action)(request['resource'], request['environment_id'],
                                           request['operation_id'])
     handle = request['handle']
+    if action == 'begin_action':
+        actions = ResourceStore(ACTION_ROOT)
+        with ownership.authorized(handle):
+            guard = actions.claim(handle['resource'], handle['environment_id'], request['action_id'])
+        try:
+            with ownership.authorized(handle):
+                pass
+        except Exception:
+            actions.abort_unmodified(guard)
+            raise
+        return guard
     if action == 'validate':
         with ownership.authorized(handle) as transaction:
             return dict(transaction['record'])
@@ -121,7 +142,7 @@ def _dispatch(request):
 
 def _load_request(path):
     _validate_path(path)
-    for root in (OWNERSHIP_ROOT, STATE_ROOT):
+    for root in (OWNERSHIP_ROOT, STATE_ROOT, ACTION_ROOT):
         if path == root or path.startswith(root + '/'):
             raise ValueError('Request must not be an ownership or state record')
     descriptor = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)

@@ -15,9 +15,6 @@ from tests.ranking.ranking_infra import (
     RoleResult, ansible_agent_invoke, build_playbook_argv, create_receipt,
     invoke_role, main, read_receipt, update_receipt,
 )
-from tests.ranking.unit_tests.ranking_samples import (
-    execution_spec, inputs, manifest, prepared_request, profile, sample_request,
-)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -424,6 +421,10 @@ def agent_envelope(request):
                   'environment_id': request['environment_id'],
                   'operation_id': request['operation_id'],
                   'created': action == 'claim'}
+    elif action == 'begin_action':
+        result = dict(resource=request['handle']['resource'],
+                      environment_id=request['handle']['environment_id'],
+                      operation_id=request['action_id'], created=True)
     elif action == 'validate':
         handle = request['handle']
         result = {'schema_version': 1, 'resource': handle['resource'],
@@ -440,15 +441,23 @@ def agent_boundary(dispatch):
     calls = []
 
     def invoke(argv):
-        calls.append(list(argv))
         module = argv[argv.index('-m') + 1]
         arguments = json.loads(argv[argv.index('-a') + 1])
+        if module == 'ansible.builtin.command' and '-c' in arguments['argv']:
+            return {}
+        if module == 'ansible.builtin.file':
+            assert arguments['state'] == 'directory'
+            return {}
+        if module == 'ansible.builtin.copy' and 'src' in arguments:
+            assert (Path(arguments['src']) / 'remote_agent.py').is_file()
+            return {}
+        calls.append(list(argv))
         if module == 'ansible.builtin.copy':
             assert set(arguments) == {'content', 'dest', 'mode'}
             assert arguments['mode'] == '0600'
             staged[arguments['dest']] = json.loads(arguments['content'])
             return {'changed': True}
-        assert arguments['chdir'] == '/var/tmp/ranking-requests'
+        assert arguments['chdir'].startswith('/var/tmp/ranking-requests/env-a/')
         tokens = arguments['argv']
         return dispatch(staged[tokens[tokens.index('--request') + 1]])
 
@@ -606,8 +615,8 @@ def test_client_claim_stages_and_dispatches_through_ansible(tmp_path):
         'operation_id': 'op-a'}
     assert command[command.index('-m') + 1] == 'ansible.builtin.command'
     remote = json.loads(command[command.index('-a') + 1])
-    assert remote['argv'] == ['python3', '-m', AGENT_MODULE, '--request',
-                              staged['dest']]
+    assert remote['argv'] == ['python3', str(Path(staged['dest']).parent /
+                                             'agent/ranking/remote_agent.py'), '--request', staged['dest']]
     receipt = read_receipt(path)
     [entry] = receipt['resources']
     assert entry['resource'] == DUT_RESOURCE
@@ -874,7 +883,7 @@ def test_invoke_role_setup_populates_receipt_resources(execution_spec, tmp_path)
                     'handle': reservation_handle(DUT_RESOURCE, 'op-a')}]},
 ])
 def test_invoke_role_setup_requires_an_attestable_outcome(execution_spec, tmp_path,
-                                                           outcome):
+                                                          outcome):
     artifacts = tmp_path / 'call'
     receipt_path = artifacts / 'env-a' / RECEIPT_FILE
 
@@ -1243,6 +1252,23 @@ def test_cli_keeps_the_original_record_when_the_outcome_is_unknown(
     assert path.read_bytes() == before
 
 
+def test_cli_retains_uncertainty_when_action_completion_fails_after_release(execution_spec, tmp_path):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    path, _, _, invoke, _ = recovery_world(execution_spec, tmp_path, entries, 'prepared')
+    fake_run = playbook_router({'teardown': teardown_outcome()}, rc=7)
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke', invoke), \
+            patch('tests.ranking.ranking_infra.subprocess.run', side_effect=fake_run):
+        assert main(['--action', 'teardown', '--receipt', str(path)]) == 1
+    receipt = read_receipt(path)
+    assert all(entry['released'] and entry['uncertain'] for entry in receipt['resources'])
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke') as agent, \
+            patch('tests.ranking.ranking_infra.subprocess.run') as run:
+        assert main(['--action', 'teardown', '--receipt', str(path)]) == 3
+    agent.assert_not_called()
+    run.assert_not_called()
+
+
 def test_cli_keeps_the_original_record_when_the_playbook_cannot_run(
         execution_spec, tmp_path):
     path, _, _, invoke, _ = recovery_world(
@@ -1273,7 +1299,8 @@ def test_cli_releases_attested_remaining_resources_directly(execution_spec,
         code = main(['--action', 'teardown', '--receipt', str(path)])
     assert code == 0
     assert run.call_count == 0
-    assert events == [('agent', 'validate'), ('agent', 'release')]
+    assert events == [('agent', 'validate'), ('agent', 'begin_action'),
+                      ('agent', 'release'), ('agent', 'end_action')]
     assert playbook_vars == []
     final = read_receipt(path)
     assert final['phase'] == 'released'
@@ -1299,3 +1326,22 @@ def test_cli_refuses_unattested_remaining_resources(execution_spec, tmp_path):
     assert agent.call_count == 0
     assert run.call_count == 0
     assert path.read_bytes() == before
+
+
+def test_partial_release_cannot_bypass_an_active_resource_action(execution_spec, tmp_path):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a'),
+                              restored=True, released=True),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'),
+                              restored=True)]
+    path, events, _, _, _ = recovery_world(execution_spec, tmp_path, entries, 'kept')
+
+    def dispatch(request):
+        events.append(request['action'])
+        if request['action'] == 'begin_action':
+            raise AgentDispatchError('resource has an unfinished action')
+        return agent_envelope(request)
+    invoke, _ = agent_boundary(dispatch)
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke', side_effect=invoke):
+        result = main(['--action', 'teardown', '--receipt', str(path)])
+    assert result == 3
+    assert 'release' not in events

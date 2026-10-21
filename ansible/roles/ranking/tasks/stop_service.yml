@@ -11,7 +11,7 @@
     mode: '0600'
 - name: Mark the service stop attempt
   ansible.builtin.command:
-    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/mark-stop-{{ item }}.json']
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-stop-{{ item }}.json']
   register: ranking_dut_stop_mark
   failed_when: ranking_dut_stop_mark.rc != 0
   changed_when: true

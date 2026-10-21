@@ -37,7 +37,7 @@ def invoke(tmp_path, capsys, request, success=True):
 
 def claim(tmp_path, capsys):
     result = invoke(tmp_path, capsys, dict(action='claim', resource=RESOURCE,
-                                         environment_id=ENV, operation_id='op-a'))
+                                           environment_id=ENV, operation_id='op-a'))
     assert result == dict(resource=RESOURCE, environment_id=ENV,
                           operation_id='op-a', created=True)
     return result
@@ -51,27 +51,27 @@ def test_all_actions_with_controlled_results(tmp_path, capsys):
     source = tmp_path / 'source'
     source.write_bytes(b'original')
     files = invoke(tmp_path, capsys, dict(action='capture_files', handle=handle,
-                                        paths=[str(source)]))
+                                          paths=[str(source)]))
     original = snapshot(files)
     assert invoke(tmp_path, capsys, dict(action='snapshot', handle=handle,
-                                        identity=original['identity'],
-                                        services=original['services'], paths=[str(source)],
-                                        saiserver=original['saiserver'])) == original
+                                         identity=original['identity'],
+                                         services=original['services'], paths=[str(source)],
+                                         saiserver=original['saiserver'])) == original
     assert invoke(tmp_path, capsys, dict(action='write', handle=handle,
-                                        name='ledger.json', value=ledger())) == {}
+                                         name='ledger.json', value=ledger())) == {}
     assert invoke(tmp_path, capsys, dict(action='mark_attempt', handle=handle,
-                                        marker='restore:' + str(source))) == {}
+                                         marker='restore:' + str(source))) == {}
     source.write_bytes(b'changed')
     assert invoke(tmp_path, capsys, dict(action='restore_files', handle=handle,
-                                        originals=files)) == {}
+                                         originals=files)) == {}
     assert source.read_bytes() == b'original'
     assert invoke(tmp_path, capsys, dict(action='complete_attempt', handle=handle,
-                                        marker='restore:' + str(source))) == {}
+                                         marker='restore:' + str(source))) == {}
     assert invoke(tmp_path, capsys, dict(action='read', handle=handle,
-                                        name='ledger.json'))['completed'] == ['restore:' + str(source)]
+                                         name='ledger.json'))['completed'] == ['restore:' + str(source)]
     assert invoke(tmp_path, capsys, dict(action='keep', handle=handle)) == {}
     resumed = invoke(tmp_path, capsys, dict(action='resume', resource=RESOURCE,
-                                           environment_id=ENV, operation_id='op-b'))
+                                            environment_id=ENV, operation_id='op-b'))
     assert resumed == dict(handle, operation_id='op-b', created=False)
     assert invoke(tmp_path, capsys, dict(action='release', handle=resumed)) == {}
     handle = claim(tmp_path, capsys)
@@ -121,8 +121,9 @@ def test_snapshot_resume_does_not_recapture_original(tmp_path, capsys, monkeypat
     original = invoke(tmp_path, capsys, payload)
     invoke(tmp_path, capsys, dict(action='keep', handle=handle))
     resumed = invoke(tmp_path, capsys, dict(action='resume', resource=RESOURCE,
-                                           environment_id=ENV, operation_id='op-b'))
+                                            environment_id=ENV, operation_id='op-b'))
     source.write_text('changed')
+
     def forbidden(*args, **kwargs):
         raise AssertionError('original recaptured')
     monkeypatch.setattr(remote_agent.StateStore, '_capture_files', forbidden)
@@ -145,6 +146,7 @@ def test_agent_wrong_handle_before_environment_access(tmp_path, capsys, monkeypa
                                       environment_id=ENV, operation_id='op-b'))
         bad = handle
     value = snapshot()
+
     def forbidden(*args, **kwargs):
         raise AssertionError('unauthorized environment access')
     monkeypatch.setattr(remote_agent.StateStore, '_open_environment', forbidden)
@@ -190,7 +192,7 @@ def test_request_file_is_not_followed_or_blocked(tmp_path, capsys, kind):
     else:
         source = tmp_path / 'source'
         source.write_text(json.dumps(dict(action='claim', resource=RESOURCE,
-                                         environment_id=ENV, operation_id='op-a')))
+                                          environment_id=ENV, operation_id='op-a')))
         if kind == 'symlink':
             path.symlink_to(source)
         else:
@@ -199,3 +201,24 @@ def test_request_file_is_not_followed_or_blocked(tmp_path, capsys, kind):
     out, err = capsys.readouterr()
     assert out == ''
     assert len(err.splitlines()) == 1
+
+
+def test_same_operation_cannot_start_recovery_during_an_owned_action(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(remote_agent, 'ACTION_ROOT', str(tmp_path.resolve() / 'actions'), raising=False)
+    handle = claim(tmp_path, capsys)
+    guard = invoke(tmp_path, capsys, dict(action='begin_action', handle=handle, action_id='action-run'))
+    invoke(tmp_path, capsys, dict(action='begin_action', handle=handle, action_id='action-recovery'), success=False)
+    invoke(tmp_path, capsys, dict(action='end_action', handle=guard))
+    recovered = invoke(tmp_path, capsys, dict(action='begin_action', handle=handle, action_id='action-recovery'))
+    assert recovered['operation_id'] == 'action-recovery'
+
+
+def test_action_guard_survives_main_reservation_release(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(remote_agent, 'ACTION_ROOT', str(tmp_path.resolve() / 'actions'), raising=False)
+    handle = claim(tmp_path, capsys)
+    guard = invoke(tmp_path, capsys, dict(action='begin_action', handle=handle, action_id='action-old'))
+    invoke(tmp_path, capsys, dict(action='release', handle=handle))
+    fresh = claim(tmp_path, capsys)
+    invoke(tmp_path, capsys, dict(action='begin_action', handle=fresh, action_id='action-new'), success=False)
+    invoke(tmp_path, capsys, dict(action='end_action', handle=guard))
+    invoke(tmp_path, capsys, dict(action='begin_action', handle=fresh, action_id='action-new'))

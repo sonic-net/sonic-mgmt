@@ -6,9 +6,6 @@ import sys
 import pytest
 
 from tests.ranking.prepare_inputs import compile_inputs, main
-from tests.ranking.unit_tests.unit_test_case_selection import manifest
-from tests.ranking.unit_tests.unit_test_port_mapping import inputs
-from tests.ranking.unit_tests.unit_test_runtime_config import profile
 
 
 EXPECTED_MAPPING = [
@@ -20,18 +17,6 @@ EXPECTED_MAPPING = [
      'transport_vlan': 3007, 'ptf_port_id': 7, 'ptf_interface': 'eth7'},
 ]
 OUTPUT_NAMES = ('inputs.json', 'port-mapping.json', 'ptf-config-db.json')
-
-
-@pytest.fixture
-def sample_request(profile, manifest, inputs):
-    graph, dut_name, selected_ports, config_db, ptf_port_map = inputs
-    runtime = dict(profile)
-    runtime['expected_connected_ports'] = 2
-    return {'runtime': runtime, 'manifest': manifest,
-            'source_identity': manifest['source_identity'],
-            'selector': {'single': 'sairoute.RouteA'},
-            'graph': graph, 'dut_ports': selected_ports,
-            'config_db': config_db, 'ptf_port_map': ptf_port_map}
 
 
 def _staging_debris(directory):

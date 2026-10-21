@@ -10,7 +10,7 @@ import uuid
 from contextlib import contextmanager
 
 from .environment_ownership import (
-    OwnershipError, _invalid_constant, _unique_object, _validate_component,
+    ACTION_ROOT, OwnershipError, _invalid_constant, _unique_object, _validate_component,
     _validate_handle, _validate_resource,
 )
 from .snapshot_contract import (
@@ -517,6 +517,8 @@ class StateStore:
                     raise ValueError('Unknown or undeclared attempt marker')
                 if complete and marker not in value['attempted']:
                     raise ValueError('Cannot complete a nonattempted marker')
+                if not complete:
+                    transaction['mark_mutated']()
                 key = 'completed' if complete else 'attempted'
                 if marker not in value[key]:
                     value[key].append(marker)
@@ -530,7 +532,7 @@ class StateStore:
 
     def _source_path(self, path):
         _validate_path(path)
-        for root in (self.root, self.ownership.root):
+        for root in (self.root, self.ownership.root, ACTION_ROOT):
             if path == root or path.startswith(root + '/'):
                 raise ValueError('Source file cannot be an ownership or state record')
         return path

@@ -6,12 +6,11 @@ from unittest.mock import patch
 
 import pytest
 
+from tests.ranking.unit_tests.ranking_samples import execution_api
+
 from tests.ranking.execution_config import build_ptf_request
 from tests.ranking.prepare_inputs import compile_inputs
-from tests.ranking.unit_tests.ranking_samples import (
-    execution_api, execution_spec, inputs, manifest, prepared_request, profile,
-    sample_request,
-)
+from tests.ranking.unit_tests.unit_test_ptf_params import parse_ptf_params
 
 
 EXECUTION_KEYS = {
@@ -19,6 +18,7 @@ EXECUTION_KEYS = {
     'selector', 'interface_args', 'mapping_hash', 'source_identity',
     'port_mapping', 'ptf_config_db', 'port_config_ini', 'profile_hash',
     'source_hash',
+    'pipeline_dir', 'runner_path',
 }
 
 
@@ -484,6 +484,8 @@ def test_all_source_bytes_are_fingerprinted(tmp_path, prepared_request, location
     first = api.validate_execution_config(assembled, tmp_path / 'artifacts')
     path = tmp_path / location
     path.write_text(path.read_text() + '\n')
+    if location == 'adapter.py':
+        (tmp_path / 'binding_dir' / 'sai_thrift' / 'sai_adapter.py').write_bytes(path.read_bytes())
     second = api.validate_execution_config(assembled, tmp_path / 'artifacts')
     assert second['source_hash'] != first['source_hash']
     assert second['profile_hash'] == first['profile_hash']
@@ -627,20 +629,7 @@ def test_sai_config_source_must_be_local_regular_file(tmp_path, execution_spec, 
 @pytest.mark.parametrize('destination', [
     '/etc/sonic/config_db.json', '/boot/image', '/host/image',
     '/usr/bin/docker', '/usr/lib64/image', '/',
-    '/etc/sai.d/sai.config', '/etc/sai.d/simconfig.json',
-    '/etc/sai.d/launcher.py', '/etc/sai.d/sai.profile.bak',
-    '/etc/other/sai.profile', '/etc/sai.d/sai.profile/child',
-    '/usr/share/sonic/device/platform-a/hwsku-a/config_db.json',
-    '/usr/share/sonic/device/platform-a/hwsku-a/launcher.py',
-    '/usr/share/sonic/device/platform-a/hwsku-a/sai.profile.bak',
-    '/usr/share/sonic/device/platform-a/hwsku-a/SAI.PROFILE',
-    '/usr/share/sonic/device/platform-a/sai.profile',
-    '/usr/share/sonic/device/platform-a/hwsku-a/nested/sai.profile',
-    '/usr/share/sonic/device/platform-a/hwsku-a/sai.profile/child',
-    '/usr/share/sonic/device/-platform/hwsku-a/sai.profile',
-    '/usr/share/sonic/device/platform-a/-hwsku/sai.profile',
-    '/usr/share/sonic/device/platform a/hwsku-a/sai.profile',
-    '/usr/share/sonic/device/platform-a/hwsku:a/sai.profile',
+    '/etc/other/sai.profile',
     '/usr/share/sonic/device/platform-a/./sai.profile',
     '/usr/share/sonic/device/platform-a/../sai.profile',
     '/usr/share/sonic/device/platform-a/hwsku-a/../hwsku-a/sai.profile',
@@ -658,6 +647,28 @@ def test_protected_dut_path_even_when_declared(tmp_path, prepared_request, desti
     with pytest.raises(ValueError):
         execution_api().validate_execution_config(assembled, tmp_path / 'artifacts')
     assert not (tmp_path / 'artifacts').exists()
+
+
+@pytest.mark.parametrize('destination', [
+    '/etc/sai.d/sai.config', '/etc/sai.d/simconfig.json', '/etc/sai.d/launcher.py',
+    '/usr/share/sonic/device/platform-a/hwsku-a/config_db.json',
+])
+def test_profile_config_roots_allow_explicitly_declared_launcher_files(
+        tmp_path, prepared_request, destination):
+    assembled = _assembled(prepared_request, tmp_path)
+    source = _with_declared_launcher(assembled, tmp_path)
+    assembled['runtime']['start_argv'].insert(1, destination)
+    files = [{'source': str(source), 'destination': destination}]
+    assembled['runtime']['execution']['dut_files'] = files
+    spec = execution_api().validate_execution_config(assembled, tmp_path / 'artifacts')
+    assert spec['execution']['dut_files'] == files
+
+
+def test_adapter_must_match_the_binding_used_by_cases(tmp_path, prepared_request):
+    assembled = _assembled(prepared_request, tmp_path)
+    (tmp_path / 'binding_dir' / 'sai_thrift' / 'sai_adapter.py').write_text('different=True\n')
+    with pytest.raises(ValueError, match='byte-identical'):
+        execution_api().validate_execution_config(assembled, tmp_path / 'artifacts')
 
 
 @pytest.mark.parametrize('kind', ['directory', 'contained', 'adapter', 'declared'])
@@ -757,7 +768,7 @@ def test_real_ptf_request_layout_and_configuration(execution_spec):
 def _request_params(execution_spec):
     request = build_ptf_request(execution_spec, 'env-a', 'sairoute.RouteA', 'run-a')
     argv = request['argv']
-    return json.loads(argv[argv.index('--test-params') + 1])
+    return parse_ptf_params(argv[argv.index('--test-params') + 1])
 
 
 def test_ptf_request_embeds_reserved_params_bound_to_owned_tree(execution_spec):

@@ -15,6 +15,7 @@ from tests.ranking.port_mapping import (
     _port_table, _validate_mapping, interface_args,
 )
 from tests.ranking.prepare_inputs import SCHEMA_VERSION, _mapping_hash, _validated_selector
+from tests.ranking.ptf_params import serialize_test_params
 from tests.ranking.runtime_config import (
     PROTECTED_DESTINATIONS, _argv, _identifier, _reject_credentials, _text,
     validate_runtime_config,
@@ -205,12 +206,14 @@ def _scalar_values(value, description, environment=False):
             _without_controls(item, description)
         if type(item) is float and not math.isfinite(item):
             raise ValueError('{} values must be finite'.format(description))
+    if not environment:
+        serialize_test_params(value)
 
 
 def _reject_internal_ptf_tokens(values, description):
     for value in values:
         if isinstance(value, str) and (INTERNAL_PTF_CONTAINER_TOKEN in value or
-                                      INTERNAL_SAISERVER_CONTAINER_TOKEN in value):
+                                       INTERNAL_SAISERVER_CONTAINER_TOKEN in value):
             raise ValueError('{} cannot contain internal container tokens'.format(
                 description))
 
@@ -487,8 +490,7 @@ def _request_shape(execution):
     _identifier(saiserver_container, 'runtime saiserver_container')
     _identifier(ptf_container, 'runtime ptf_container')
     _docker_exec_argv(ptf_argv, ptf_container)
-    if not isinstance(test_params, dict):
-        raise ValueError('execution test_params must be an object')
+    _scalar_values(test_params, 'execution test_params')
     if not isinstance(environment, dict):
         raise ValueError('execution env must be an object')
     if not isinstance(interface_args, list):
@@ -545,10 +547,7 @@ def build_ptf_request(execution, environment_id, case, run_id) -> dict:
     argv.extend([
         '--test-dir', str(root / 'ptf'), case, '--platform', 'eth'])
     argv.extend(interface_args)
-    argv.extend([
-        '--test-params', json.dumps(
-            params, sort_keys=True, separators=(',', ':'), ensure_ascii=True,
-            allow_nan=False)])
+    argv.extend(['--test-params', serialize_test_params(params)])
     return {
         'argv': argv,
         'env': request_env,

@@ -272,7 +272,7 @@ def test_invalid_tokens(tmp_path, value, field):
 
 
 @pytest.mark.parametrize('method', ['mark_mutated', 'keep',
-                                   'abort_unmodified', 'release_restored'])
+                                    'abort_unmodified', 'release_restored'])
 @pytest.mark.parametrize('handle', [None, {}, {'created': 1}])
 def test_malformed_handles_rejected(tmp_path, method, handle):
     store = ResourceStore(tmp_path / 'store')
@@ -367,7 +367,7 @@ def test_invalid_roots(tmp_path, root):
 
 
 @pytest.mark.parametrize('method', ['mark_mutated', 'keep',
-                                   'abort_unmodified', 'release_restored'])
+                                    'abort_unmodified', 'release_restored'])
 def test_missing_handle_directory_never_creates_state(tmp_path, method):
     root = tmp_path / 'store'
     store = ResourceStore(root)
@@ -428,10 +428,10 @@ def test_failed_atomic_replace_keeps_owner_and_lock(tmp_path, monkeypatch, metho
 
 
 @pytest.mark.parametrize('corruption', ['missing-field', 'extra-field',
-                                       'duplicate-field', 'nan',
-                                       'operation-missing', 'operation-empty',
-                                       'operation-mismatch', 'owner-array',
-                                       'retained-with-marker'])
+                                        'duplicate-field', 'nan',
+                                        'operation-missing', 'operation-empty',
+                                        'operation-mismatch', 'owner-array',
+                                        'retained-with-marker'])
 def test_malformed_persistent_records_never_release(tmp_path, corruption):
     root = tmp_path / 'store'
     store = ResourceStore(root)
@@ -607,7 +607,7 @@ def test_transaction_marker_cleaned_on_unexpected_exception(tmp_path, error):
     store = ResourceStore(root)
     handle = claim(store)
     with pytest.raises(type(error)):
-        with store.authorized(handle) as state:
+        with store.authorized(handle):
             raise error
     assert not (resource_dir(root) / 'transition.json').exists()
     store.mark_mutated(handle)

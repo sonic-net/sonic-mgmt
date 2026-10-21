@@ -44,7 +44,7 @@
   when: ranking_collect_authorized | bool
 - name: Mark the owned run collection attempt
   ansible.builtin.command:
-    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/mark-collect-run.json']
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-collect-run.json']
   delegate_to: '{{ ranking_ptf_host }}'
   register: ranking_collect_mark
   failed_when: false
@@ -73,7 +73,7 @@
   register: ranking_collect_outcome_validate
   failed_when: false
   changed_when: false
-  when: ranking_collect_authorized | bool and not ranking_collect_outcome_slurp.failed | default(true)
+  when: ranking_collect_authorized | bool and ranking_collect_outcome_slurp.content is defined
 - name: Parse the validated ranking process outcome
   ansible.builtin.set_fact:
     ranking_collect_outcome: '{{ ranking_collect_outcome_validate.stdout | from_json }}'
@@ -146,7 +146,7 @@
   when: ranking_collect_authorized | bool
 - name: Record the collecting ranking run state
   ansible.builtin.command:
-    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-run-state-collecting.json']
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-collecting.json']
   delegate_to: '{{ ranking_ptf_host }}'
   register: ranking_collecting_write
   failed_when: false
@@ -407,7 +407,7 @@
   when: ranking_collect_authorized | bool
 - name: Record the final ranking run state
   ansible.builtin.command:
-    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-run-state-final.json']
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-final.json']
   delegate_to: '{{ ranking_ptf_host }}'
   register: ranking_final_run_write
   failed_when: false

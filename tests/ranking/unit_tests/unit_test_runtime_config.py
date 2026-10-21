@@ -12,30 +12,21 @@ DEFAULT_SERVICES = [
 ]
 
 
-@pytest.fixture
-def profile():
-    return {
-        'schema_version': 1,
-        'backend': 'physical_fanout',
-        'dut_id': 'dut-a', 'ptf_host_id': 'server-a', 'ptf_container': 'ptf-a',
-        'inventory': 'ansible/lab', 'dut_limit': 'dut-a',
-        'saiserver_container': 'saiserverv2',
-        'saiserver_image': 'sha256:' + 'a' * 64,
-        'start_argv': ['/usr/bin/saiserverv2.sh', 'start'],
-        'stop_argv': ['/usr/bin/saiserverv2.sh', 'stop'],
-        'rpc_port': 9092, 'timeout_s': 300, 'expected_connected_ports': 32,
-        'ptf_root': '/tmp/ranking', 'case_source': 'tests/ranking/cases',
-        'header_dir': '/SAI-TEST/inc',
-        'adapter_path': '/usr/lib/python3/dist-packages/sai_thrift/sai_adapter.py',
-    }
-
-
 def test_default_profile_is_offline_and_does_not_mutate_input(profile):
     original = copy.deepcopy(profile)
     with patch('subprocess.run') as run:
         validated = validate_runtime_config(profile)
         run.assert_not_called()
-    assert validated == dict(original, services_to_stop=DEFAULT_SERVICES)
+    assert validated == dict(
+        original, dut_os='sonic', dut_identity_file='/etc/machine-id',
+        image_identity_files=['/etc/sonic/sonic_version.yml'],
+        services_to_stop=DEFAULT_SERVICES,
+        service_start_order=['syncd', 'swss'] + DEFAULT_SERVICES[2:],
+        asic_owner_processes=['syncd'],
+        port_baseline={'argv': ['show', 'interfaces', 'status'],
+                       'format': 'sonic_interfaces_status', 'timeout_s': 300},
+        dut_config_roots=['/etc/sai.d', '/usr/share/sonic/device'])
+    assert validate_runtime_config(validated) == validated
     assert profile == original
     validated['start_argv'].append('--changed')
     validated['services_to_stop'].clear()
@@ -49,7 +40,10 @@ def test_backend_and_complete_service_override(profile, backend, services_to_sto
     profile.update(backend=backend, services_to_stop=services_to_stop)
     original = copy.deepcopy(profile)
     validated = validate_runtime_config(profile)
-    assert validated == original
+    assert all(validated[key] == value for key, value in original.items())
+    assert set(validated['service_start_order']) == set(services_to_stop)
+    if backend == 'vsonic_ovs':
+        assert validated['vsonic_dataplane_timeout_s'] == 180
     assert validated['services_to_stop'] == services_to_stop
     assert validated['services_to_stop'] is not services_to_stop
     validated['services_to_stop'].append('bgp')
@@ -106,7 +100,8 @@ def test_invalid_profile_values(profile, field, value):
     'schema_version', 'backend', 'dut_id', 'ptf_host_id', 'ptf_container',
     'inventory', 'dut_limit', 'saiserver_container', 'saiserver_image',
     'start_argv', 'stop_argv', 'rpc_port', 'timeout_s', 'expected_connected_ports',
-    'ptf_root', 'case_source', 'header_dir', 'adapter_path',
+    'ptf_root', 'case_source', 'header_dir', 'experimental_header_dir',
+    'adapter_path', 'dut_ssh',
 ])
 def test_required_fields(profile, field):
     profile.pop(field)

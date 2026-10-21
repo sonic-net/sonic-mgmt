@@ -230,7 +230,7 @@ def test_plan_restore_preserves_relative_symlink_target(snapshot):
 
 def test_absolute_symlink_target_and_custom_container(snapshot):
     snapshot['files'] = {'/etc/sonic/x': {'state': 'symlink',
-                                         'target': '/etc/sonic/original'}}
+                                          'target': '/etc/sonic/original'}}
     snapshot['saiserver']['container_name'] = 'saiserver-ranking'
     assert plan_restore(snapshot, ['start:saiserver', 'restore:/etc/sonic/x']) == [
         ('stop_test_container', 'saiserver-ranking'),

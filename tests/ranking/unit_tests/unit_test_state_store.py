@@ -135,7 +135,7 @@ def test_original_is_immutable_and_read_detached(owned_state):
 
 
 @pytest.mark.parametrize('name', ['../snapshot.json', 'x/snapshot.json', '/snapshot.json',
-                                 'other.json', '', None])
+                                  'other.json', '', None])
 def test_names_are_whitelisted_without_mutation(owned_state, name):
     state, ownership, handle = owned_state
     with pytest.raises(OwnershipError):
@@ -189,7 +189,7 @@ def test_state_and_ownership_roots_must_be_separate(tmp_path):
 def baseline():
     original = snapshot()
     digest = hashlib.sha256(json.dumps(original, sort_keys=True, separators=(',', ':'),
-                                      ensure_ascii=True).encode('ascii')).hexdigest()
+                                       ensure_ascii=True).encode('ascii')).hexdigest()
     return dict(schema_version=1, environment_id=ENV, resource=RESOURCE,
                 snapshot_identity=original['identity'], snapshot_sha256=digest,
                 ports={'Ethernet0': dict(admin_state='up', oper_state='down', speed='100G')})
@@ -787,6 +787,7 @@ def test_atomic_failure_retains_record_and_active_owner(owned_state, monkeypatch
     path = os.path.join(state_dir(state), 'ledger.json')
     with open(path, 'rb') as stream:
         before = stream.read()
+
     def fail(*args, **kwargs):
         raise OSError('injected JSON ' + failure)
     if failure == 'write':
@@ -809,7 +810,9 @@ def test_atomic_failure_cleans_temporary_entry(owned_state, monkeypatch):
     real_replace = os.replace
 
     def fail(*args, **kwargs):
-        raise OSError('injected replace failure')
+        if str(args[0]).startswith('.state-'):
+            raise OSError('injected replace failure')
+        return real_replace(*args, **kwargs)
 
     monkeypatch.setattr(os, 'replace', fail)
     with pytest.raises(OwnershipError):
@@ -911,6 +914,7 @@ def test_individual_state_read_serializes_ownership_transition(owned_state, monk
     persist(state, handle)
     entered, proceed = Event(), Event()
     original = state._load
+
     def delayed(*args):
         entered.set()
         assert proceed.wait(timeout=5)
@@ -956,6 +960,7 @@ def test_initial_directory_fsync_failure_keeps_uncertain_transition(owned_state,
     state, ownership, handle = owned_state
     original = os.fsync
     import stat
+
     def fail_directory(descriptor):
         if stat.S_ISDIR(os.fstat(descriptor).st_mode):
             raise OSError('directory fsync failed')
@@ -973,6 +978,7 @@ def test_handle_is_detached_before_authorization_yields(owned_state, monkeypatch
     state, ownership, handle = owned_state
     persist(state, handle)
     original = ownership.authorized
+
     @contextmanager
     def mutate_external_handle(validated):
         with original(validated) as transaction:
@@ -987,6 +993,7 @@ def test_write_input_is_detached_before_validation(owned_state, monkeypatch):
     persist(state, handle)
     value = ledger()
     original = state._validate
+
     def mutate_external_input(descriptor, active, name, detached):
         value['environment_id'] = 'env-other'
         return original(descriptor, active, name, detached)

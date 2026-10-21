@@ -43,7 +43,7 @@ def _proc_scan():
                 continue
             try:
                 records.append((int(entry.name), _proc_stat(int(entry.name))))
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
                 continue
     return records
 
@@ -128,24 +128,28 @@ def run_ptf(argv, *, env, cwd, run_dir, timeout_s, container_id=None,
     pid = process.pid
     birth = process_birth(pid, reader=birth_reader)
     outcome.update(pid=pid, group=pid, birth=birth)
-    _write_outcome(run_path, outcome)
     try:
-        outcome['rc'] = process.wait(timeout=timeout_s)
-    except subprocess.TimeoutExpired:
-        outcome.update(timed_out=True, rc=TIMEOUT_RC)
+        _write_outcome(run_path, outcome)
+        try:
+            outcome['rc'] = process.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            outcome.update(timed_out=True, rc=TIMEOUT_RC)
+        except OSError as error:
+            _add_error(outcome, 'could not wait for PTF: {}'.format(error))
+        _write_outcome(run_path, outcome)
     except OSError as error:
-        outcome['error'] = 'could not wait for PTF: {}'.format(error)
-    _write_outcome(run_path, outcome)
-    try:
-        _cleanup_session(pid, birth, proc_scanner=proc_scanner,
-                         group_kill=group_kill, clock=clock, sleeper=sleeper,
-                         reaper=process.poll)
-        process.wait(timeout=GRACE_SECONDS)
-        outcome['process_exited'] = True
-        if outcome['rc'] is None:
-            outcome['rc'] = process.returncode
-    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
-        _add_error(outcome, str(error))
+        _add_error(outcome, 'could not persist PTF outcome: {}'.format(error))
+    finally:
+        try:
+            _cleanup_session(pid, birth, proc_scanner=proc_scanner,
+                             group_kill=group_kill, clock=clock, sleeper=sleeper,
+                             reaper=process.poll)
+            process.wait(timeout=GRACE_SECONDS)
+            outcome['process_exited'] = True
+            if outcome['rc'] is None:
+                outcome['rc'] = process.returncode
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            _add_error(outcome, str(error))
     _write_outcome(run_path, outcome)
     return outcome
 

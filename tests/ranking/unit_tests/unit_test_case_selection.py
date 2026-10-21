@@ -7,15 +7,6 @@ from tests.ranking.case_selection import load_case_manifest, select_ranking_case
 from tests.ranking.generate_case_manifest import build_manifest
 
 
-@pytest.fixture
-def manifest():
-    return build_manifest(
-        ['sairoute.RouteA', 'saivlan.VlanA', 'sairoute.RouteB'],
-        {'repo': 'SAI', 'commit': 'a' * 40},
-        {'sairoute': 'P0'},
-    )
-
-
 def test_manifest_sorting_and_default_priority(manifest):
     assert manifest == {
         'schema_version': 1,
@@ -135,7 +126,7 @@ def test_source_identity_key_order_does_not_matter(manifest, tmp_path):
 
 
 @pytest.mark.parametrize('text', ['{', '{}', '[]',
-                                     '{"schema_version":1,"schema_version":1}'])
+                                  '{"schema_version":1,"schema_version":1}'])
 def test_invalid_json_and_duplicate_keys(tmp_path, text):
     path = tmp_path / 'manifest.json'
     path.write_text(text)

@@ -126,7 +126,7 @@ def plan_restore(snapshot, completed_changes):
         actions.append(('restore_files', originals))
     services = validated['services']
     ordered = ['syncd', 'swss'] + [service for service in services
-                                  if service not in ('syncd', 'swss')]
+                                   if service not in ('syncd', 'swss')]
     for service in ordered:
         if services.get(service) == 'active' and 'stop:' + service in marked:
             actions.append(('start_service', service))

@@ -1,5 +1,8 @@
 [flake8]
 per-file-ignores =
+    # Imported SAI/PTF assets retain their source formatting and wildcard API imports.
+    # Framework modules remain strict; syntax errors (E9) and undefined names (F821) still fail.
+    tests/ranking/cases/*: E1,E2,E3,E4,E5,E7,W1,W2,W3,W5,W6,F401,F403,F405,F541,F811,F841
     # line too long
     tests/macsec/macsec_helper.py: E501
     tests/dash/*.py: F405

@@ -10,6 +10,10 @@ from tests.ranking.ranking_infra import Infra
 from tests.ranking.report_runner import build_report
 
 
+# PTF loads these assets inside its runtime; controller-side pytest must not import them.
+collect_ignore = ['cases']
+
+
 def pytest_addoption(parser):
     group = parser.getgroup('ranking')
     group.addoption('--ranking-inputs', action='store', default=None, metavar='DIR',
@@ -55,6 +59,15 @@ def _environment_id(config):
 
 def pytest_generate_tests(metafunc):
     if 'ranking_case' not in metafunc.fixturenames:
+        return
+    config = metafunc.config
+    configured = any(config.getoption(option) is not None for option in (
+        '--ranking-inputs', '--ranking-artifacts', '--ranking-environment-id')) or any(
+        config.getoption(option) for option in ('--ranking-keep-env', '--ranking-skip-setup'))
+    if not configured:
+        metafunc.parametrize('ranking_case', [pytest.param(
+            None, id='not-configured', marks=pytest.mark.skip(
+                reason='Ranking requires --ranking-inputs and --ranking-artifacts'))], indirect=True)
         return
     cases = list(_execution(metafunc.config)['selected_cases'])
     metafunc.parametrize('ranking_case', cases, ids=cases, indirect=True)

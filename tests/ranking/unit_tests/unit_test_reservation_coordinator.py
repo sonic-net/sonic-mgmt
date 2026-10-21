@@ -72,7 +72,7 @@ def test_invalid_resources_rejected_before_claim(resources):
 
 
 @pytest.mark.parametrize('env,op', [('../bad', 'op-a'), ('env-a', '../bad'),
-                                   (None, 'op-a'), ('env-a', True)])
+                                    (None, 'op-a'), ('env-a', True)])
 def test_invalid_tokens_even_for_empty_request(env, op):
     client = Client()
     with pytest.raises(ValueError):
@@ -544,7 +544,7 @@ def test_second_resource_busy_race_keeps_only_request_operation(tmp_path):
     assert winner == [dict(resource=ptf, environment_id='env-a',
                            operation_id='request-b', created=False)]
     client.keep.assert_called_once_with(dict(resource=dut, environment_id='env-a',
-                                            operation_id='request-a', created=False))
+                                             operation_id='request-a', created=False))
     client.abort_unmodified.assert_not_called()
     client.release_restored.assert_not_called()
     client.mark_mutated.assert_not_called()

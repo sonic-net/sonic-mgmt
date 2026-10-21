@@ -20,13 +20,12 @@ Usage:
 """
 
 import argparse
-import html
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 _KNOWN_TYPES = ("performance", "scale", "fill_rate", "capability", "incidental")
@@ -345,7 +344,8 @@ _CSS = """
     }
     * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+                   Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
       margin: 0; padding: 28px; background: var(--bg); color: var(--text);
       line-height: 1.5;
     }

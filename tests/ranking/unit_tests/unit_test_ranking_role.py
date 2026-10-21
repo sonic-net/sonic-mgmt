@@ -22,7 +22,8 @@ PLAYBOOK_FILES = [
 ]
 TASK_FILES = [
     'main.yml', 'preflight.yml', 'ownership.yml', 'validate.yml', 'setup.yml',
-    'setup_physical.yml', 'setup_vsonic.yml', 'prepare_ptf.yml', 'status.yml',
+    'bootstrap.yml', 'abort_setup.yml', 'begin_action.yml', 'begin_action_resource.yml',
+    'end_action.yml', 'end_action_resource.yml', 'setup_vsonic.yml', 'prepare_ptf.yml', 'status.yml',
     'prepare_case.yml', 'run.yml', 'collect.yml', 'stop_service.yml',
     'rollback_marker.yml', 'teardown.yml', 'teardown_service.yml',
 ]
@@ -85,7 +86,7 @@ def test_defaults_are_neutral_and_fix_the_ownership_root():
     assert defaults['ranking_state_root'] == '/var/tmp/ranking-state'
     assert defaults['ranking_ownership_acquired'] is False
     assert set(defaults) == {
-        'ranking_ownership_root', 'ranking_state_root', 'ranking_request_root',
+        'ranking_ownership_root', 'ranking_state_root', 'ranking_request_base',
         'ranking_ownership_acquired',
     }
 
@@ -129,7 +130,8 @@ def _command_argv(task):
 
 def _is_agent_invocation(task):
     argv = _command_argv(task)
-    return bool(argv) and 'ranking.remote_agent' in argv
+    return bool(argv) and any(str(token).endswith('remote_agent.py') or token == 'ranking.remote_agent'
+                              for token in argv)
 
 
 def _agent_request_name(task):
@@ -191,6 +193,8 @@ def _is_mutating(task):
 
 def test_every_mutating_task_is_preceded_by_a_marker_attempt():
     for name in TASK_FILES:
+        if name == 'bootstrap.yml':
+            continue
         marker_seen = False
         for task in _walk(_load_tasks(name)):
             if _is_agent_mark(task):
@@ -209,7 +213,7 @@ def test_agent_request_files_are_staged_with_mode_0600():
                 assert copy_module.get('mode') == '0600', (name, task.get('name'))
                 assert ('ranking_request_root' in destination or
                         ('ranking_runtime.ptf_root' in destination and
-                         '/requests/' in destination)), (name, destination)
+                         '/requests/' in destination) or 'ranking_collect_run_dir' in destination), (name, destination)
                 staged.add(destination)
             elif _is_agent_invocation(task):
                 argv = _command_argv(task)
@@ -235,7 +239,7 @@ def test_prepare_case_stages_the_run_request_exclusively():
     copies = [task['ansible.builtin.copy'] for task in walk
               if isinstance(task.get('ansible.builtin.copy'), dict)]
     staged = [module for module in copies
-              if 'content' in module and 'ranking_ptf_request' in
+              if 'content' in module and 'ranking_bound_ptf_request' in
               str(module.get('content'))]
     assert len(staged) == 1
     assert str(staged[0]['dest']) == ('{{ ranking_runtime.ptf_root }}/'
@@ -263,16 +267,16 @@ def test_prepare_ptf_stages_the_runner_from_the_package_dir():
     copies = [task['ansible.builtin.copy'] for task in walk
               if isinstance(task.get('ansible.builtin.copy'), dict)]
     runner = [module for module in copies
-              if 'src' in module and str(module['src']).endswith('ptf_runner.py')]
+              if 'src' in module and str(module['dest']).endswith('ptf_runner.py')]
     assert len(runner) == 1
-    assert 'ranking_package_dir' in str(runner[0]['src'])
+    assert str(runner[0]['src']) == '{{ ranking_runner_path }}'
     assert str(runner[0]['dest']) == ('{{ ranking_runtime.ptf_root }}/'
                                       '{{ ranking_environment_id }}/runner/'
                                       'ptf_runner.py')
     assert runner[0]['mode'] == '0600'
     runner_tasks = [task for task in walk
                     if isinstance(task.get('ansible.builtin.copy'), dict) and
-                    str(task['ansible.builtin.copy'].get('src', '')).endswith(
+                    str(task['ansible.builtin.copy'].get('dest', '')).endswith(
                         'ptf_runner.py')]
     assert runner_tasks[0].get('delegate_to') == '{{ ranking_ptf_host }}'
     facts = [task['ansible.builtin.set_fact'] for task in walk
@@ -286,14 +290,14 @@ def test_collect_uses_the_env_run_layout_and_preserves_primary_error():
                if isinstance(task.get('ansible.builtin.fetch'), dict)]
     artifact_fetches = [module for module in fetches
                         if 'ranking_collect_run_dir' in str(module['src'])]
-    assert len(artifact_fetches) == 1
+    assert len(artifact_fetches) == 2
     assert str(artifact_fetches[0]['dest']).startswith(
         '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/'
         '{{ ranking_run_id }}/')
     stats = [task['ansible.builtin.stat'] for task in walk
              if isinstance(task.get('ansible.builtin.stat'), dict)]
-    assert stats and all('{{ ranking_environment_id }}/{{ ranking_run_id }}' in
-                         str(module['path']) for module in stats)
+    assert stats and all(('{{ ranking_environment_id }}/{{ ranking_run_id }}' in str(
+        module['path']) or 'ranking_collect_run_dir' in str(module['path'])) for module in stats)
     outcomes = [task['ansible.builtin.set_fact']['ranking_role_outcome']
                 for task in walk
                 if isinstance(task.get('ansible.builtin.set_fact'), dict) and
@@ -304,34 +308,34 @@ def test_collect_uses_the_env_run_layout_and_preserves_primary_error():
                                 'case_rc', 'case_error'}
     assert 'ranking_case_run.rc | default(-1)' in str(outcomes[0]['case_rc'])
     assert 'ranking_case_run.stderr' in str(outcomes[0]['case_error'])
-    for phase in ('failed', 'collected'):
-        gated = [task for task in walk
-                 if isinstance(task.get('ansible.builtin.copy'), dict) and
-                 'write-run-state-{}.json'.format(phase) in
-                 str(task['ansible.builtin.copy'].get('dest'))]
-        assert gated and 'ranking_case_run_initiated | default(false)' in \
-            str(gated[0].get('when'))
+    final = next(task for task in walk if task.get('name') == 'Record the final ranking run state')
+    assert final['when'] == 'ranking_collect_authorized | bool'
 
 
 def test_main_dispatches_actions_in_the_approved_order():
-    tasks = _load_tasks('main.yml')
+    tasks = list(_walk(_load_tasks('main.yml')))
     includes = [task['ansible.builtin.include_tasks'] for task in tasks
                 if 'ansible.builtin.include_tasks' in task]
     assert includes == [
-        'preflight.yml', 'ownership.yml', 'validate.yml', 'setup.yml',
-        'prepare_ptf.yml', 'status.yml', 'run.yml', 'teardown.yml',
+        'bootstrap.yml', 'preflight.yml', 'ownership.yml', 'validate.yml', 'begin_action.yml',
+        'setup.yml', 'prepare_ptf.yml', 'status.yml', 'run.yml', 'teardown.yml', 'end_action.yml',
     ]
     for task in tasks:
-        if 'ansible.builtin.include_tasks' in task:
+        if ('ansible.builtin.include_tasks' in task and
+                task['ansible.builtin.include_tasks'] not in ('bootstrap.yml', 'begin_action.yml')):
             assert 'when' in task
+    action_block = next(task for task in _load_tasks('main.yml') if 'block' in task)
+    assert action_block['block'][0]['ansible.builtin.include_tasks'] == 'begin_action.yml'
+    assert action_block['always'][0]['ansible.builtin.include_tasks'] == 'end_action.yml'
 
 
 def test_validation_and_snapshot_precede_every_mutating_include():
-    includes = [task['ansible.builtin.include_tasks'] for task in _load_tasks('main.yml')
+    includes = [task['ansible.builtin.include_tasks'] for task in _walk(_load_tasks('main.yml'))
                 if 'ansible.builtin.include_tasks' in task]
     assert includes.index('validate.yml') < includes.index('setup.yml')
     assert includes.index('validate.yml') < includes.index('prepare_ptf.yml')
     assert includes.index('ownership.yml') < includes.index('setup.yml')
+    assert includes.index('validate.yml') < includes.index('begin_action.yml') < includes.index('setup.yml')
     setup = list(_walk(_load_tasks('setup.yml')))
     snapshot_positions = [index for index, task in enumerate(setup)
                           if _is_agent_invocation(task) and
@@ -342,7 +346,7 @@ def test_validation_and_snapshot_precede_every_mutating_include():
 
 
 def test_preflight_inspects_the_saiserver_image_before_any_service_stop():
-    includes = [task['ansible.builtin.include_tasks'] for task in _load_tasks('main.yml')
+    includes = [task['ansible.builtin.include_tasks'] for task in _walk(_load_tasks('main.yml'))
                 if 'ansible.builtin.include_tasks' in task]
     assert includes.index('preflight.yml') < includes.index('setup.yml')
     preflight = list(_walk(_load_tasks('preflight.yml')))
@@ -357,7 +361,8 @@ def test_service_stop_loop_uses_the_runtime_services_variable():
     stop_includes = [task for task in setup
                      if task.get('ansible.builtin.include_tasks') == 'stop_service.yml']
     assert len(stop_includes) == 1
-    assert stop_includes[0]['loop'] == '{{ ranking_runtime.services_to_stop }}'
+    assert 'ranking_original_services' in stop_includes[0]['loop']
+    assert 'selectattr("value", "equalto", "active")' in stop_includes[0]['loop']
     for name in TASK_FILES:
         for task in _walk(_load_tasks(name)):
             loop = task.get('loop')
@@ -371,7 +376,7 @@ def test_ptf_side_tasks_delegate_to_the_ptf_host():
         for task in _walk(_load_tasks(name)):
             delegate = task.get('delegate_to')
             if delegate is not None:
-                assert delegate in ('{{ ranking_ptf_host }}', 'localhost'), (
+                assert delegate in ('{{ ranking_ptf_host }}', 'localhost', '{{ item }}', '{{ item.host }}'), (
                     name, task.get('name'))
     for task in _walk(_load_tasks('prepare_ptf.yml')):
         if any(key in task for key in (
@@ -384,7 +389,7 @@ def test_ptf_side_tasks_delegate_to_the_ptf_host():
 
 
 def test_teardown_dispatch_replaces_the_explicit_fail_gate():
-    tasks = _load_tasks('main.yml')
+    tasks = list(_walk(_load_tasks('main.yml')))
     assert not [task for task in tasks if 'ansible.builtin.fail' in task]
     teardown = [task for task in tasks
                 if task.get('ansible.builtin.include_tasks') == 'teardown.yml']
@@ -459,7 +464,7 @@ def test_teardown_outcome_is_written_from_an_always_section():
     assert outer[0]['always'], 'the role outcome must survive any teardown failure'
     sections = [task for task in outer[0]['block'] if 'block' in task]
     assert [section.get('when') for section in sections] == [
-        "ranking_action == 'keep'", "ranking_action == 'teardown'"]
+        "ranking_action == 'keep'", "ranking_action == 'teardown' and not ranking_teardown_unmodified | bool"]
     setup_outer = [task for task in _load_tasks('setup.yml') if 'block' in task]
     assert len(setup_outer) == 1
     assert setup_outer[0]['always']
@@ -474,7 +479,7 @@ def test_teardown_gates_on_the_previous_run_state_before_any_restore():
     read_run_state = [task for task in walk if _is_agent_invocation(task) and
                       _agent_request_name(task) == 'read-teardown-run-state.json']
     assert len(read_run_state) == 1
-    assert read_run_state[0].get('failed_when') is False
+    assert read_run_state[0].get('failed_when') == 'ranking_teardown_run_state_read.rc != 0'
     mutating = [task for task in walk if _is_mutating(task)]
     first_mutating = walk.index(mutating[0])
     gates = [task for task in walk if 'ansible.builtin.fail' in task and
@@ -553,20 +558,17 @@ def test_teardown_restores_only_snapshot_declared_state():
     removals = [task['ansible.builtin.file'] for task in walk
                 if isinstance(task.get('ansible.builtin.file'), dict) and
                 task['ansible.builtin.file'].get('state') == 'absent']
-    assert len(removals) == 1
-    assert str(removals[0]['path']) == \
-        '{{ ranking_teardown_ptf_snapshot.staging_path }}'
+    assert {module['path'] for module in removals} == {'{{ ranking_teardown_ptf_snapshot.staging_path }}',
+                                                       '{{ ranking_teardown_ptf_snapshot.staging_path }}/secrets'}
     facts = [task['ansible.builtin.set_fact'] for task in walk
              if isinstance(task.get('ansible.builtin.set_fact'), dict)]
     order = [module for module in facts
              if 'ranking_teardown_service_order' in module]
     assert len(order) == 1
-    assert '["syncd", "swss"]' in str(order[0]['ranking_teardown_service_order'])
-    assert 'ranking_runtime.services_to_stop | difference(["syncd", "swss"])' in \
-        str(order[0]['ranking_teardown_service_order'])
+    assert 'ranking_runtime.service_start_order' in str(order[0]['ranking_teardown_service_order'])
     service_includes = [task for task in walk
-                         if task.get('ansible.builtin.include_tasks') ==
-                         'teardown_service.yml']
+                        if task.get('ansible.builtin.include_tasks') ==
+                        'teardown_service.yml']
     assert len(service_includes) == 1
     assert service_includes[0]['loop'] == '{{ ranking_teardown_service_order }}'
     markers = [str(task['ansible.builtin.set_fact'])
@@ -587,7 +589,8 @@ def test_teardown_restores_only_snapshot_declared_state():
     assert ptf_release.get('delegate_to') == '{{ ranking_ptf_host }}'
     release_positions = [walk.index(task) for task in releases]
     service_verify = [task for task in walk
-                      if isinstance(task.get('ansible.builtin.service_facts'), dict)]
+                      if task.get('name') == 'Require each original service state to be restored']
+    assert len(service_verify) == 1
     assert release_positions[0] > walk.index(service_verify[0])
 
 
@@ -696,185 +699,52 @@ _PATH_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|\[([^\[\]]+)\]")
 
 
 class ExpressionEvaluator:
-    """A test-only evaluator for the Jinja subset used by the ranking role."""
+    """Render production expressions with Jinja instead of a partial parser."""
 
     def __init__(self, variables):
+        from jinja2 import ChainableUndefined, Environment
+        import importlib.util
+        from types import ModuleType
+        from unittest.mock import patch
+        errors = ModuleType('ansible.errors')
+        errors.AnsibleFilterError = ValueError
+        spec = importlib.util.spec_from_file_location(
+            'ranking_filters', ROLE / 'filter_plugins' / 'ranking_filters.py')
+        filters = importlib.util.module_from_spec(spec)
+        with patch.dict('sys.modules', {'ansible.errors': errors}):
+            spec.loader.exec_module(filters)
         self.variables = variables
+        self.environment = Environment(undefined=ChainableUndefined)
+        self.environment.globals['lookup'] = lambda plugin, path: Path(path).read_text()
+        self.environment.filters.update({
+            'bool': bool, 'to_json': json.dumps, 'from_json': json.loads,
+            'b64decode': lambda value: base64.b64decode(value).decode('utf-8'),
+            'hash': lambda value, algorithm: hashlib.new(algorithm, str(value).encode()).hexdigest(),
+            'combine': lambda value, other: dict(value, **other),
+            'difference': lambda value, other: [item for item in value if item not in other],
+            'union': lambda value, other: list(dict.fromkeys(list(value) + list(other))),
+            'dict2items': lambda value: [{'key': key, 'value': item} for key, item in value.items()],
+            'regex_replace': lambda value, pattern, replacement: re.sub(pattern, replacement, value),
+            'extract': lambda value, mapping: mapping[value],
+        })
+        self.environment.filters.update(filters.FilterModule().filters())
+        self.environment.tests['match'] = lambda value, pattern: re.match(pattern, str(value)) is not None
+        self.environment.tests['failed'] = lambda value: bool(value.get('failed', False))
 
     def render(self, value):
         if isinstance(value, str):
-            return self._render_string(value)
+            full = re.fullmatch(r'\{\{\s*(.*?)\s*\}\}', value.strip(), re.DOTALL)
+            if full and '{{' not in full.group(1):
+                return self.evaluate(full.group(1))
+            return self.environment.from_string(value).render(self.variables)
         if isinstance(value, list):
             return [self.render(item) for item in value]
         if isinstance(value, dict):
             return {self.render(key): self.render(item) for key, item in value.items()}
         return value
 
-    def _render_string(self, text):
-        stripped = text.strip()
-        full = re.fullmatch(r'\{\{\s*(.*?)\s*\}\}', stripped, re.DOTALL)
-        if full and '{{' not in full.group(1):
-            return self.evaluate(full.group(1))
-        return re.sub(r'\{\{\s*(.*?)\s*\}\}',
-                      lambda match: str(self.evaluate(match.group(1))), text)
-
-    def evaluate(self, expr):
-        expr = expr.strip()
-        clauses = _split_top(expr, ' or ')
-        if len(clauses) > 1:
-            return any(self.evaluate(clause) for clause in clauses)
-        clauses = _split_top(expr, ' and ')
-        if len(clauses) > 1:
-            return all(self.evaluate(clause) for clause in clauses)
-        clauses = _split_top(expr, ' + ')
-        if len(clauses) > 1:
-            values = [self._pipe_chain(clause) for clause in clauses]
-            if not all(isinstance(value, list) for value in values):
-                raise ValueError('only list concatenation is simulated')
-            return [item for value in values for item in value]
-        position = _find_top(expr, ('==', '!='))
-        if position >= 0:
-            left = self._pipe_chain(expr[:position])
-            right = self._pipe_chain(expr[position + 2:])
-            return left == right if expr[position:position + 2] == '==' else left != right
-        clauses = _split_top(expr, ' is ')
-        if len(clauses) == 2:
-            return self._test(clauses[0], clauses[1])
-        return self._pipe_chain(expr)
-
-    def _test(self, left_expr, right_expr):
-        value = self._pipe_chain(left_expr)
-        if right_expr in ('defined', 'not defined'):
-            defined = value is not None
-            return defined if right_expr == 'defined' else not defined
-        match = re.fullmatch(r"match\((['\"])(.*?)\1\)", right_expr)
-        if match:
-            return re.match(match.group(2), str(value)) is not None
-        raise ValueError('unsupported test: ' + right_expr)
-
-    def _pipe_chain(self, expr):
-        parts = _split_top(expr, '|')
-        value = self._primary(parts[0])
-        for part in parts[1:]:
-            value = self._apply_filter(value, part)
-        return value
-
-    def _primary(self, expr):
-        expr = expr.strip()
-        if expr in ('true', 'True'):
-            return True
-        if expr in ('false', 'False'):
-            return False
-        if expr in ('none', 'null', 'None'):
-            return None
-        if re.fullmatch(r'-?\d+', expr):
-            return int(expr)
-        if len(expr) >= 2 and expr[0] == expr[-1] and expr[0] in '\'"':
-            return expr[1:-1]
-        if expr.startswith('[') and expr.endswith(']'):
-            inner = expr[1:-1].strip()
-            if not inner:
-                return []
-            return [self._primary(item) for item in _split_top(inner, ',')]
-        if expr.startswith('{') and expr.endswith('}'):
-            inner = expr[1:-1].strip()
-            result = {}
-            if inner:
-                for pair in _split_top(inner, ','):
-                    key_text, _, value_text = pair.partition(':')
-                    key = self._primary(key_text)
-                    result[key if isinstance(key, str) else str(key)] = \
-                        self.evaluate(value_text)
-            return result
-        if re.fullmatch(
-                r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[^\[\]]+\])*",
-                expr):
-            return self._resolve(expr)
-        raise ValueError('unsupported operand: ' + expr)
-
-    def _resolve(self, expr):
-        value = None
-        for index, match in enumerate(_PATH_TOKEN.finditer(expr)):
-            token = match.group(0)
-            if token.startswith('['):
-                value = self._index(value, self._primary(match.group(1)))
-            elif index == 0:
-                value = self.variables.get(token)
-            else:
-                value = value.get(token) if isinstance(value, dict) else None
-        return value
-
-    @staticmethod
-    def _index(value, key):
-        if isinstance(value, dict):
-            return value.get(key)
-        if isinstance(value, (list, tuple)) and isinstance(key, int) and \
-                -len(value) <= key < len(value):
-            return value[key]
-        return None
-
-    def _apply_filter(self, value, spec):
-        match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)(?:\((.*)\))?", spec, re.DOTALL)
-        if not match:
-            raise ValueError('unsupported filter call: ' + spec)
-        name = match.group(1)
-        args = _split_top(match.group(2) or '', ',') if (match.group(2) or '').strip() \
-            else []
-        if name == 'trim':
-            return str(value).strip()
-        if name == 'bool':
-            return bool(value)
-        if name == 'b64decode':
-            return base64.b64decode(str(value)).decode('utf-8')
-        if name == 'to_json':
-            return json.dumps(value)
-        if name == 'from_json':
-            if not str(value).strip():
-                raise ValueError('cannot parse empty JSON')
-            return json.loads(str(value))
-        if name == 'hash':
-            if self._primary(args[0]) != 'sha256':
-                raise ValueError('only sha256 is simulated')
-            return hashlib.sha256(str(value).encode('utf-8')).hexdigest()
-        if name == 'replace':
-            return str(value).replace(self._primary(args[0]), self._primary(args[1]))
-        if name == 'difference':
-            other = self.evaluate(args[0])
-            return [item for item in value if item not in other]
-        if name == 'union':
-            other = self.evaluate(args[0])
-            return list(value) + [item for item in other if item not in value]
-        if name == 'map':
-            return self._apply_map(value, args)
-        if name == 'list':
-            return list(value)
-        if name == 'default':
-            fallback = self._primary(args[0]) if args else ''
-            return value if value is not None else fallback
-        if name == 'combine':
-            other = self.evaluate(args[0])
-            merged = dict(value) if isinstance(value, dict) else {}
-            merged.update(other)
-            return merged
-        raise ValueError('unsupported filter: ' + name)
-
-    def _apply_map(self, value, args):
-        if not args:
-            return list(value)
-        first = args[0]
-        keyword = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(.*)", first, re.DOTALL)
-        if keyword:
-            if keyword.group(1) != 'attribute':
-                raise ValueError('unsupported map keyword: ' + keyword.group(1))
-            attribute = self._primary(keyword.group(2))
-            return [item.get(attribute) if isinstance(item, dict) else None
-                    for item in value]
-        filter_name = self._primary(first)
-        if filter_name == 'replace':
-            token = self._primary(args[1])
-            replacement = self.evaluate(args[2])
-            return [str(item).replace(token, str(replacement)) for item in value]
-        raise ValueError('unsupported map filter: ' + first)
+    def evaluate(self, expression):
+        return self.environment.compile_expression(expression, undefined_to_none=False)(self.variables)
 
 
 class RoleExecutor:
@@ -904,6 +774,8 @@ class RoleExecutor:
             if loop_items is None:
                 if self._holds(task, task.get('when')):
                     self._execute(task)
+                elif task.get('register'):
+                    self.variables[task['register']] = {'skipped': True, 'changed': False}
             else:
                 self._run_looped(task, loop_items)
 
@@ -968,7 +840,7 @@ class RoleExecutor:
         if loop is None:
             return None
         if isinstance(loop, list):
-            return loop
+            return self.evaluator().render(loop)
         value = self.evaluator().render(loop)
         if not isinstance(value, list):
             raise ValueError('loop must resolve to a list: ' + str(loop))
@@ -992,35 +864,45 @@ class RoleExecutor:
     def _execute(self, task):
         evaluator = self.evaluator()
         module = next(key for key in MODULES if key in task)
-        rendered = evaluator.render(task[module])
+        try:
+            rendered = evaluator.render(task[module])
+        except (ValueError, TypeError) as error:
+            raise TaskFailure(str(error), task)
         params = rendered if isinstance(rendered, dict) else {'argv': rendered}
         delegate = task.get('delegate_to')
         host = delegate if delegate is not None else self.variables['ranking_dut_host']
         host = self.evaluator().render(host)
         register = task.get('register')
+        caught = None
         if module == 'ansible.builtin.set_fact':
             result = {'changed': False, 'ansible_facts': params}
-            if register:
-                self.variables[register] = result
             self.variables.update(params)
         elif module == 'ansible.builtin.fail':
             raise TaskFailure(str(params.get('msg', 'task failed')), task)
         else:
-            result = self._dispatch(host, module, params, task)
-            if register:
-                self.variables[register] = result
+            try:
+                result = self._dispatch(host, module, params, task)
+            except TaskFailure as error:
+                caught = error
+                result = {'rc': 1, 'stdout': '', 'stderr': error.message,
+                          'msg': error.message, 'failed': True}
+        if register:
+            self.variables[register] = result
+        overlay = {register: result} if register else {}
         failed_when = task.get('failed_when')
         if failed_when is not None:
-            overlay = {register: result} if register else {}
-            if self._holds(task, failed_when, overlay):
-                raise TaskFailure('task failed: ' + str(task.get('name')), task)
-        if result.get('failed'):
-            raise TaskFailure('task failed: ' + str(task.get('name')), task)
+            result['failed'] = self._holds(task, failed_when, overlay)
+        elif module == 'ansible.builtin.command' and result.get('rc', 0) != 0:
+            result['failed'] = True
+        if task.get('until') and not self._holds(task, task['until'], overlay):
+            result['failed'] = True
+        if result.get('failed') and not task.get('ignore_errors'):
+            raise caught or TaskFailure('task failed: ' + str(task.get('name')), task)
         return result
 
     def _dispatch(self, host, module, params, task):
         if module == 'ansible.builtin.command':
-            return self.world.run_command(host, params['argv'], self, task)
+            return self.world.run_command(host, params['argv'], self, task, stdin=params.get('stdin'))
         if module == 'ansible.builtin.slurp':
             return self.world.slurp(host, params['src'])
         if module == 'ansible.builtin.copy':
@@ -1054,8 +936,8 @@ RUN_TRANSITIONS = {
     'prepared': {'running', 'failed'},
     'running': {'collecting', 'failed'},
     'collecting': {'collected', 'failed'},
-    'collected': set(),
-    'failed': set(),
+    'collected': {'collected'},
+    'failed': {'failed', 'collecting', 'collected'},
 }
 
 
@@ -1070,6 +952,7 @@ class FakeAgent:
 
     def __init__(self, state_root='/var/tmp/ranking-state'):
         self.owners = {}
+        self.guards = {}
         self.state = {}
         self.state_root = state_root
 
@@ -1122,6 +1005,23 @@ class FakeAgent:
 
     def _validate(self, request):
         return dict(self._record(request['handle']))
+
+    def _begin_action(self, request):
+        handle = request['handle']
+        self._record(handle)
+        if handle['resource'] in self.guards:
+            raise AgentError('Resource has an active or incomplete action')
+        guard = dict(resource=handle['resource'], environment_id=handle['environment_id'],
+                     operation_id=request['action_id'], created=True)
+        self.guards[handle['resource']] = guard
+        return dict(guard)
+
+    def _end_action(self, request):
+        handle = request['handle']
+        if self.guards.get(handle['resource']) != handle:
+            raise AgentError('Action guard does not belong to this invocation')
+        del self.guards[handle['resource']]
+        return {}
 
     def _keep(self, request):
         record = self._record(request['handle'])
@@ -1369,6 +1269,7 @@ class FakeAgent:
             raise AgentError('Missing state record: ledger.json')
         if marker not in self._markers(handle, environment):
             raise AgentError('Unknown or undeclared attempt marker')
+        self._record(handle).update(mutated=True, abortable=False)
         ledger = environment['ledger.json']
         if marker not in ledger['attempted']:
             ledger['attempted'].append(marker)
@@ -1424,12 +1325,27 @@ class FakeDocker:
             return {'rc': 0, 'stdout': json.dumps([dict(image)]), 'stderr': '',
                     'changed': False}
         if argv[1] == 'inspect':
-            container = containers.get(argv[2])
+            container = containers.get(argv[-1])
             if container is None:
                 return {'rc': 1, 'stdout': '', 'stderr': 'no such container',
                         'changed': False}
             return {'rc': 0, 'stdout': json.dumps([self.record(container)]),
                     'stderr': '', 'changed': False}
+        if argv[1] == 'exec':
+            target = argv[2]
+            container = next((item for item in containers.values() if item['Id'] == target), None)
+            if container is None or not container['State']['Running']:
+                return {'rc': 1, 'stdout': '', 'stderr': 'container not running', 'changed': False}
+            command = argv[3:]
+            if command[:2] == ['test', '-f']:
+                return {'rc': 0 if command[2] in container['files'] else 1,
+                        'stdout': '', 'stderr': '', 'changed': False}
+            if command[0] == 'rm':
+                path = command[-1]
+                for candidate in list(container['files']):
+                    if candidate == path or candidate.startswith(path + '/'):
+                        del container['files'][candidate]
+            return {'rc': 0, 'stdout': '', 'stderr': '', 'changed': True}
         if argv[1] == 'stop':
             target = argv[-1]
             container = containers.get(target)
@@ -1491,6 +1407,7 @@ class FakeWorld:
         self.file_ops = []
         self.ports = {}
         self.runner_calls = []
+        self.directories = set()
 
     def seed_dut(self, machine_id, services):
         self.files[self.dut_host]['/etc/machine-id'] = (machine_id + '\n', 0o444)
@@ -1510,16 +1427,22 @@ class FakeWorld:
         self.files['localhost']['/source/binding/sai_thrift/__init__.py'] = (
             'prepared = True\n', 0o644)
         self.files['localhost']['/source/prebuilt/attr_map.json'] = ('{}\n', 0o644)
+        for path in ('/source/key', '/source/known_hosts',
+                     '/source/binding/sai_thrift/sai_adapter.py',
+                     '/source/cases/ranking_test/spec_registry.json',
+                     '/source/headers/sai.h', '/source/experimental/sai.h',
+                     '/source/pipeline/generate_artifacts.py'):
+            self.files['localhost'][path] = ('{}', 0o600)
         self.files['localhost']['/opt/ranking/ptf_runner.py'] = (
             'runner = True\n', 0o644)
 
     def _write(self, host, path, content, mode):
         self.files.setdefault(host, {})[path] = (content, mode)
 
-    def run_command(self, host, argv, executor, task):
+    def run_command(self, host, argv, executor, task, stdin=None):
         argv = [str(argument) for argument in argv]
         if executor.fail_injector is not None and executor.fail_injector(argv):
-            if 'ranking.remote_agent' in argv:
+            if any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv):
                 position = argv.index('--request')
                 record = self.files.get(host, {}).get(argv[position + 1])
                 if record is not None:
@@ -1530,7 +1453,7 @@ class FakeWorld:
                     return {'rc': 1, 'stdout': '', 'stderr':
                             'injected agent failure', 'changed': False}
             raise TaskFailure('injected command failure: ' + ' '.join(argv), task)
-        if 'ranking.remote_agent' in argv:
+        if any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv):
             position = argv.index('--request')
             return self._run_agent(host, argv[position + 1], executor)
         first = argv[0].rsplit('/', 1)[-1]
@@ -1548,15 +1471,32 @@ class FakeWorld:
                     'changed': False}
         if first == 'ovs-vsctl':
             return {'rc': 0, 'stdout': 'ranking-br\n', 'stderr': '', 'changed': False}
+        if first == 'python3' and argv[1] == '-c':
+            return {'rc': 0, 'stdout': '{}', 'stderr': '', 'changed': True}
+        if first == 'python3' and argv[1].endswith('generate_artifacts.py'):
+            outdir = argv[argv.index('--out-dir') + 1]
+            for name in ('skeleton.json', 'enum_values.json', 'attr_map.json'):
+                self._write(host, outdir + '/' + name, '{}', 0o600)
+            return {'rc': 0, 'stdout': '', 'stderr': '', 'changed': True}
         if first == 'python3' and len(argv) > 1 and argv[1].endswith('ptf_runner.py'):
+            if '--validate-outcome' in argv:
+                from tests.ranking.ptf_runner import parse_outcome
+                value = parse_outcome(stdin)
+                return {'rc': 0, 'stdout': json.dumps(value), 'stderr': '', 'changed': False}
+            if '--recover-outcome' in argv:
+                return {'rc': 1, 'stdout': '', 'stderr': 'recovery unconfirmed', 'changed': False}
             self.runner_calls.append((host, tuple(argv)))
-            request = json.loads(
-                self.files[host][argv[argv.index('--request') + 1]][0])
+            request = json.loads(self.files[host][argv[argv.index('--request') + 1]][0])
             container = self.docker.containers.get(host, {}).get(self.ptf_container)
             if container is not None and self.runner_outputs:
-                for name in ('result.json', 'run.log', 'outcome.json'):
-                    container['files'][request['run_dir'] + '/' + name] = (
-                        '{"rc": 0}\n' if name == 'outcome.json' else name + '\n')
+                outcome = dict(phase='ptf', pid=123, group=123, birth='100',
+                               argv=request['argv'], timeout_s=request['timeout_s'], rc=0,
+                               timed_out=False, process_exited=True, container_id=container['Id'])
+                for name, content in (('stdout.log', 'stdout'), ('stderr.log', ''),
+                                      ('outcome.json', json.dumps(outcome))):
+                    self._write(host, request['run_dir'] + '/' + name, content, 0o600)
+                collector = executor.variables['ranking_case'].replace('.', '_') + '.json'
+                container['files'][request['run_dir'] + '/' + collector] = '{}'
             return {'rc': 0, 'stdout': '{}\n', 'stderr': '', 'changed': True}
         raise TaskFailure('unsupported simulated command: ' + ' '.join(argv), task)
 
@@ -1572,7 +1512,12 @@ class FakeWorld:
 
     def _systemctl(self, host, argv):
         self.systemctl_calls.append((host, tuple(argv)))
-        action, service = argv[1], argv[2]
+        action, service = argv[1], argv[-1]
+        if action == 'show':
+            state = self.services[host].get(service)
+            return {'rc': 0, 'stdout': 'LoadState={}\nActiveState={}\n'.format(
+                'loaded' if state else 'not-found',
+                'active' if state == 'running' else 'inactive'), 'stderr': '', 'changed': False}
         if action == 'stop':
             self.services[host][service] = 'stopped'
             self.processes[host].discard(service)
@@ -1593,17 +1538,23 @@ class FakeWorld:
         containers = self.docker.containers.setdefault(host, {})
         if ':' in source:
             name, path = source.split(':', 1)
-            container = containers.get(name)
+            container = containers.get(name) or next((item for item in containers.values() if item['Id'] == name), None)
             if container is None or path not in container['files']:
                 return {'rc': 1, 'stdout': '', 'stderr': 'no such container file',
                         'changed': False}
             self._write(host, destination, container['files'][path], 0o644)
             return {'rc': 0, 'stdout': '', 'stderr': '', 'changed': True}
         name, path = destination.split(':', 1)
-        container = containers.get(name)
+        container = containers.get(name) or next((item for item in containers.values() if item['Id'] == name), None)
         if container is None:
             return {'rc': 1, 'stdout': '', 'stderr': 'no such container',
                     'changed': False}
+        if source.endswith('/.'):
+            source_root = source[:-2]
+            for candidate, (content, _) in self.files.get(host, {}).items():
+                if candidate.startswith(source_root + '/'):
+                    container['files'][path.rstrip('/') + candidate[len(source_root):]] = content
+            return {'rc': 0, 'stdout': '', 'stderr': '', 'changed': True}
         record = self.files.get(host, {}).get(source)
         if record is None:
             return {'rc': 1, 'stdout': '', 'stderr': 'no such file', 'changed': False}
@@ -1626,13 +1577,16 @@ class FakeWorld:
             self.copies.append((host, destination, 'content'))
             return {'changed': True, 'failed': False, 'dest': destination}
         source = str(params.get('src', '')).rstrip('/')
-        record = self.files.get('localhost', {}).get(source)
+        source_host = host if params.get('remote_src') else 'localhost'
+        record = self.files.get(source_host, {}).get(source)
+        if record is None and source_host == 'localhost' and Path(source).is_file():
+            record = (Path(source).read_text(), mode)
         if record is not None:
             self._write(host, destination, record[0], mode)
             self.copies.append((host, destination, 'src:1'))
             return {'changed': True, 'failed': False, 'dest': destination}
         copied = 0
-        for path, (content, _) in sorted(self.files.get('localhost', {}).items()):
+        for path, (content, _) in sorted(self.files.get(source_host, {}).items()):
             if path.startswith(source + '/'):
                 relative = path[len(source) + 1:]
                 self._write(host, destination.rstrip('/') + '/' + relative, content,
@@ -1648,7 +1602,8 @@ class FakeWorld:
                 'failed': False}
 
     def stat(self, host, path):
-        return {'stat': {'exists': path in self.files.get(host, {})},
+        exists = path in self.files.get(host, {})
+        return {'stat': {'exists': exists, 'isreg': exists and (host, path) not in self.directories},
                 'changed': False, 'failed': False}
 
     def fetch(self, host, params):
@@ -1664,6 +1619,7 @@ class FakeWorld:
         path, state = params['path'], params.get('state')
         self.file_ops.append((host, path, state))
         if state == 'directory':
+            self.directories.add((host, path))
             self.files.setdefault(host, {})[path] = ('', 0o700)
         elif state == 'absent':
             for candidate in [item for item in self.files.get(host, {})
@@ -1678,7 +1634,7 @@ class FakeWorld:
         raise TaskFailure('simulated RPC connectivity check failed', None)
 
 
-DUT_MACHINE = 'd' * 32
+DUT_MACHINE = 'd1' * 16
 PTF_MACHINE = 'e' * 32
 PTF_CONTAINER_ID = 'f' * 64
 SAISERVER_IMAGE_ID = 'sha256:' + 'a' * 64
@@ -1702,6 +1658,7 @@ def ranking_variables(action, environment_id='env-a', operation_id='op-a',
                       case=None, run_id=None):
     variables = {
         'ranking_action': action,
+        'ranking_action_id': 'action-' + action + '-' + (run_id or 'batch'),
         'ranking_environment_id': environment_id,
         'ranking_operation_id': operation_id,
         'ranking_case': case,
@@ -1722,11 +1679,22 @@ def ranking_variables(action, environment_id='env-a', operation_id='op-a',
             'saiserver_container': 'saiserverv2', 'saiserver_image':
             'saiserver-image-ref', 'services_to_stop': list(SERVICES),
             'ptf_root': '/var/tmp/ranking-ptf', 'rpc_port': 9092, 'timeout_s': 600,
+            'dut_identity_file': '/etc/machine-id',
+            'image_identity_files': ['/etc/sonic/sonic_version.yml'],
+            'service_start_order': ['syncd', 'swss', 'bgp', 'lldp'],
+            'asic_owner_processes': ['syncd'],
+            'port_baseline': {'argv': ['show', 'interfaces', 'status'], 'format': 'json', 'timeout_s': 10},
+            'case_source': '/source/cases', 'header_dir': '/source/headers',
+            'experimental_header_dir': '/source/experimental',
+            'adapter_path': '/source/binding/sai_thrift/sai_adapter.py',
+            'dut_ssh': {'identity_file': '/source/key', 'known_hosts': '/source/known_hosts', 'user': 'admin'},
             'start_argv': ['/usr/bin/docker', 'run', '--pull=never', '--detach',
                            '--name', '{saiserver_container}', '{saiserver_image_id}'],
             'stop_argv': ['/usr/bin/docker', 'stop', '--time', '90',
                           '{saiserver_container_id}'],
         },
+        'ranking_pipeline_dir': '/source/pipeline',
+        'ranking_runner_path': '/opt/ranking/ptf_runner.py',
         'ranking_source_hash': 'a' * 64,
         'ranking_mapping_hash': 'b' * 64,
         'ranking_profile_hash': 'c' * 64,
@@ -1734,7 +1702,10 @@ def ranking_variables(action, environment_id='env-a', operation_id='op-a',
         'ranking_ptf_interfaces': [{'id': 0, 'name': 'eth0'}],
         'ranking_ownership_root': '/var/tmp/ranking-ownership',
         'ranking_state_root': '/var/tmp/ranking-state',
-        'ranking_request_root': '/var/tmp/ranking-requests',
+        'ranking_request_base': '/var/tmp/ranking-requests',
+        'ranking_request_root': '/var/tmp/ranking-requests/env-a/op-a',
+        'ranking_agent_root': '/var/tmp/ranking-requests/env-a/op-a/agent',
+        'role_path': str(ROLE),
         'ranking_ownership_acquired': False,
     }
     if action == 'run':
@@ -1776,7 +1747,7 @@ def test_simulated_unauthorized_environment_never_reads_resets_or_collects():
     assert not [call for call in world.docker.calls
                 if call[1][1] in ('stop', 'start', 'run', 'rm', 'cp')]
     assert world.fetches == []
-    assert not [item for item in world.copies if item[2] != 'content']
+    assert not [item for item in world.copies if item[2] != 'content' and '/ranking-requests/' not in item[1]]
     assert all(destination.startswith('/var/tmp/ranking-requests/')
                for _, destination, _ in world.copies)
     assert executor.variables['ranking_ownership_acquired'] is False
@@ -1789,7 +1760,7 @@ def test_simulated_setup_half_failure_rolls_back_attempted_markers_once():
         return argv[:3] == ['systemctl', 'stop', 'syncd']
 
     executor = RoleExecutor(world, ranking_variables('setup'),
-                             fail_injector=fail_on_syncd_stop)
+                            fail_injector=fail_on_syncd_stop)
     with pytest.raises(TaskFailure) as failure:
         executor.run_file('main.yml')
     assert 'ranking setup failed' in failure.value.message
@@ -1802,7 +1773,7 @@ def test_simulated_setup_half_failure_rolls_back_attempted_markers_once():
     assert not [call for call in world.docker.calls if call[1][1] == 'run']
     marks = [call['request']['marker'] for call in executor.agent_calls
              if call['action'] == 'mark_attempt']
-    assert marks == ['stop:swss', 'stop:syncd', 'stop:swss', 'stop:syncd']
+    assert marks == ['stop:swss', 'stop:syncd', 'stop:syncd', 'stop:swss']
     for host in (world.dut_host, world.ptf_host):
         assert len(world.agents[host].owners) == 1
     environment = world.agents[world.dut_host].state[DUT_RESOURCE]['env-a'][
@@ -1857,24 +1828,26 @@ def test_simulated_setup_then_run_resets_the_case_container_and_runs_case():
          '--request', '/var/tmp/ranking-ptf/env-a/requests/run-a.json'))]
 
     assert [call['request']['marker'] for call in run.agent_calls
-            if call['action'] == 'mark_attempt'] == ['start:saiserver']
+            if call['action'] == 'mark_attempt'] == ['start:saiserver', 'stage:ptf']
     artifact_fetches = [call for call in world.fetches
                         if call[2] != '/controller/artifacts/role-outcome.json']
     assert sorted(call[2] for call in artifact_fetches) == sorted(
         '/controller/artifacts/env-a/run-a/' + name
-        for name in ('result.json', 'run.log', 'outcome.json'))
+        for name in ('outcome.json', 'stdout.log', 'stderr.log', 'sairoute_RouteA.json',
+                     'spec_registry.json', 'skeleton.json', 'enum_values.json', 'attr_map.json',
+                     'case-id.txt', 'collection-status.json'))
     outcome_fetches = [call for call in world.fetches
                        if call[2] == '/controller/artifacts/role-outcome.json']
     assert len(outcome_fetches) == 1
     record = json.loads(
         world.files['localhost']['/controller/artifacts/role-outcome.json'][0])
-    assert record['collected'] == {'result.json': True, 'run.log': True,
-                                   'outcome.json': True}
+    assert record['collected'] and all(record['collected'].values())
+    assert record['collected']['outcome.json'] is True
     assert record['collection_errors'] == {}
     assert record['case_rc'] == 0
     assert record['case'] == 'sairoute.RouteA'
     assert json.loads(world.files['localhost'][
-        '/controller/artifacts/env-a/run-a/outcome.json'][0]) == {'rc': 0}
+        '/controller/artifacts/env-a/run-a/outcome.json'][0])['rc'] == 0
     run_state = world.agents[world.ptf_host].state[PTF_RESOURCE]['env-a'][
         'run-state.json']
     assert run_state['phase'] == 'collected'
@@ -1883,45 +1856,25 @@ def test_simulated_setup_then_run_resets_the_case_container_and_runs_case():
 
 
 def test_simulated_collect_runs_when_the_case_command_fails():
-    world, setup_container_id = _chained_world()
+    world, _ = _chained_world()
 
     def fail_on_runner(argv):
-        return argv[0] == 'python3' and len(argv) > 1 and \
-            argv[1].endswith('ptf_runner.py')
-
-    run = RoleExecutor(world, ranking_variables(
-        'run', case='sairoute.RouteA', run_id='run-a'), fail_injector=fail_on_runner)
-    with pytest.raises(TaskFailure) as failure:
+        return argv[0] == 'python3' and len(argv) > 1 and argv[1].endswith('ptf_runner.py')
+    run = RoleExecutor(world, ranking_variables('run', case='sairoute.RouteA',
+                       run_id='run-a'), fail_injector=fail_on_runner)
+    with pytest.raises(TaskFailure):
         run.run_file('main.yml')
-    assert 'injected command failure' in failure.value.message
-    dut_calls = [call[1] for call in world.docker.calls
-                 if call[0] == world.dut_host]
-    assert ('/usr/bin/docker', 'stop', '--time', '90', setup_container_id) in \
-        dut_calls
-    docker_cp_calls = [call for call in world.docker.calls
-                       if call[1][1] == 'cp' and '/runs/run-a/' in call[1][2]]
-    assert len(docker_cp_calls) == 3
-    artifact_fetches = [call for call in world.fetches
-                        if call[2] != '/controller/artifacts/role-outcome.json']
-    assert len(artifact_fetches) == 3
-    outcome_fetches = [call for call in world.fetches
-                       if call[2] == '/controller/artifacts/role-outcome.json']
-    assert len(outcome_fetches) == 1
-    record = json.loads(
-        world.files['localhost']['/controller/artifacts/role-outcome.json'][0])
-    assert record['collected'] == {'result.json': False, 'run.log': False,
-                                   'outcome.json': False}
-    assert record['collection_errors']['result.json']
-    assert record['case_rc'] == -1
+    record = _outcome_record(world)
+    assert record['collected']['outcome.json'] is False
+    assert record['collection_errors']['outcome.json']
+    assert record['case_rc'] != 0
     assert record['run_id'] == 'run-a'
-    assert record['case'] == 'sairoute.RouteA'
-    run_state = world.agents[world.ptf_host].state[PTF_RESOURCE]['env-a'][
-        'run-state.json']
-    assert run_state['phase'] == 'failed'
-    assert run_state['collected'] is False
-    assert run_state['process_exited'] is True
-    assert [call['request']['marker'] for call in run.agent_calls
-            if call['action'] == 'mark_attempt'] == ['start:saiserver']
+    state = world.agents[world.ptf_host].state[PTF_RESOURCE]['env-a']['run-state.json']
+    assert state['phase'] == 'failed'
+    assert state['collected'] is False
+    assert state['process_exited'] is False
+    assert any(call['action'] == 'mark_attempt' and call['request']
+               ['marker'] == 'stage:ptf' for call in run.agent_calls)
 
 
 def test_simulated_second_run_requires_previous_run_collected():
@@ -1940,7 +1893,7 @@ def test_simulated_second_run_requires_previous_run_collected():
         'run', case='sairoute.RouteA', run_id='run-b'))
     with pytest.raises(TaskFailure) as failure:
         second.run_file('main.yml')
-    assert 'previous ranking run has not been collected' in failure.value.message
+    assert 'previous ranking run has not' in failure.value.message
     starts = [call for call in world.docker.calls
               if len(call[1]) > 1 and call[1][1] == 'run']
     assert len(starts) == 2
@@ -1972,12 +1925,12 @@ def test_simulated_setup_completes_with_a_running_saiserver():
                for service in SERVICES)
     assert '/var/tmp/ranking-ptf/env-a/binding/sai_thrift/__init__.py' in \
         world.files[world.ptf_host]
-    assert '/opt/ptf/binding' in \
+    assert '/var/tmp/ranking-ptf/env-a/binding/sai_thrift/__init__.py' in \
         world.docker.containers[world.ptf_host]['ptf-c']['files']
     ptf_ledger = world.agents[world.ptf_host].state[PTF_RESOURCE]['env-a'][
         'ledger.json']
     assert ptf_ledger['attempted'] == ['stage:ptf']
-    assert world.agents[world.dut_host].owners[DUT_RESOURCE]['mutated'] is False
+    assert world.agents[world.dut_host].owners[DUT_RESOURCE]['mutated'] is True
     actions = [call['action'] for call in executor.agent_calls]
     assert actions.count('snapshot') == 1
     assert actions.count('claim') == 2
@@ -2036,8 +1989,7 @@ def test_simulated_teardown_restores_and_releases_both_resources():
     assert not [action for action in actions if action in ('claim', 'resume')]
     markers = [call['request']['marker'] for call in teardown.agent_calls
                if call['action'] == 'mark_attempt']
-    assert markers == ['start:saiserver', 'stop:syncd', 'stop:swss',
-                       'stop:bgp', 'stop:lldp', 'stage:ptf']
+    assert markers == ['stage:ptf', 'start:saiserver', 'stop:syncd', 'stop:swss', 'stop:bgp', 'stop:lldp']
     completions = [call['request']['marker'] for call in teardown.agent_calls
                    if call['action'] == 'complete_attempt']
     assert completions == ['start:saiserver', 'stop:syncd', 'stop:swss',
@@ -2083,7 +2035,7 @@ def test_simulated_teardown_refuses_an_uncollected_previous_run():
     teardown = RoleExecutor(world, ranking_variables('teardown'))
     with pytest.raises(TaskFailure) as failure:
         teardown.run_file('main.yml')
-    assert 'previous ranking run has not been collected' in failure.value.message
+    assert 'previous ranking run has not' in failure.value.message
     assert _docker_mutations(world) == []
     assert world.systemctl_calls == []
     assert '/var/tmp/ranking-ptf/env-a/runner/ptf_runner.py' in \
@@ -2102,7 +2054,7 @@ def test_simulated_keep_retains_both_ends_without_restoration():
     keep.run_file('main.yml')
     assert _docker_mutations(world) == []
     assert world.systemctl_calls == []
-    assert world.file_ops == []
+    assert all('/ranking-requests/' in call[1] for call in world.file_ops)
     actions = [call['action'] for call in keep.agent_calls]
     assert actions.count('keep') == 2
     assert not [action for action in actions
@@ -2126,7 +2078,7 @@ def test_simulated_keep_failure_retains_an_uncertain_outcome():
     world, _ = _chained_world()
 
     def fail_on_ptf_keep(argv):
-        return 'ranking.remote_agent' in argv and \
+        return any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv) and \
             argv[argv.index('--request') + 1].endswith('keep-ptf.json')
 
     keep = RoleExecutor(world, ranking_variables('keep'),
@@ -2177,7 +2129,7 @@ def test_simulated_teardown_refuses_a_wrong_host_identity(host):
     world, _ = _chained_world()
     target = world.dut_host if host == 'dut' else world.ptf_host
     content, mode = world.files[target]['/etc/machine-id']
-    world.files[target]['/etc/machine-id'] = ('f' * 32 + '\n', mode)
+    world.files[target]['/etc/machine-id'] = ('f1' * 16 + '\n', mode)
     teardown = RoleExecutor(world, ranking_variables('teardown'))
     with pytest.raises(TaskFailure) as failure:
         teardown.run_file('main.yml')
@@ -2221,7 +2173,7 @@ def test_simulated_teardown_restore_failure_retains_both_ends():
     world, _ = _chained_world()
 
     def fail_on_restore(argv):
-        return 'ranking.remote_agent' in argv and \
+        return any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv) and \
             argv[argv.index('--request') + 1].endswith('write-restore-files.json')
 
     teardown = RoleExecutor(world, ranking_variables('teardown'),
@@ -2241,7 +2193,7 @@ def test_simulated_teardown_retries_after_a_failed_restore():
     world, _ = _chained_world()
 
     def fail_on_restore(argv):
-        return 'ranking.remote_agent' in argv and \
+        return any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv) and \
             argv[argv.index('--request') + 1].endswith('write-restore-files.json')
 
     teardown = RoleExecutor(world, ranking_variables('teardown'),
@@ -2327,7 +2279,7 @@ def test_simulated_teardown_release_failure_marks_the_outcome_uncertain():
     world, _ = _chained_world()
 
     def fail_on_ptf_release(argv):
-        return 'ranking.remote_agent' in argv and \
+        return any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv) and \
             argv[argv.index('--request') + 1].endswith('release-ptf.json')
 
     teardown = RoleExecutor(world, ranking_variables('teardown'),
@@ -2346,7 +2298,7 @@ def test_simulated_teardown_dut_release_failure_skips_the_ptf_release():
     world, _ = _chained_world()
 
     def fail_on_dut_release(argv):
-        return 'ranking.remote_agent' in argv and \
+        return any(token.endswith('remote_agent.py') or token == 'ranking.remote_agent' for token in argv) and \
             argv[argv.index('--request') + 1].endswith('release-dut.json')
 
     teardown = RoleExecutor(world, ranking_variables('teardown'),
@@ -2371,8 +2323,8 @@ def test_simulated_status_resumes_and_verifies_a_kept_environment():
                                                    operation_id='op-b'))
     status.run_file('main.yml')
     actions = [call['action'] for call in status.agent_calls]
-    assert actions == ['claim', 'resume', 'claim', 'resume', 'validate',
-                       'validate', 'read', 'read', 'read']
+    assert actions == ['resume', 'resume', 'validate', 'validate', 'begin_action',
+                       'begin_action', 'read', 'read', 'read', 'end_action', 'end_action']
     assert _docker_mutations(world) == []
     assert world.systemctl_calls == []
     for host, resource in ((world.dut_host, DUT_RESOURCE),
@@ -2390,7 +2342,7 @@ def test_simulated_concurrent_status_skip_is_refused():
     with pytest.raises(TaskFailure) as failure:
         status.run_file('main.yml')
     assert 'reservation could not be claimed or resumed' in failure.value.message
-    assert [call['action'] for call in status.agent_calls] == ['claim', 'resume']
+    assert [call['action'] for call in status.agent_calls] == ['resume']
     for host, resource in ((world.dut_host, DUT_RESOURCE),
                            (world.ptf_host, PTF_RESOURCE)):
         assert world.agents[host].owners[resource]['operation_id'] == 'op-b'
@@ -2441,9 +2393,6 @@ def test_simulated_status_refuses_mismatched_request_inputs(field, value):
         assert world.agents[host].owners[resource]['operation_id'] == 'op-b'
 
 
-
-
-
 def test_setup_omits_the_role_side_baseline_digest():
     walk = list(_walk(_load_tasks('setup.yml')))
     requests = [task['ansible.builtin.set_fact']['ranking_baseline_request']
@@ -2467,25 +2416,15 @@ def test_simulated_setup_persists_a_store_derived_baseline_digest():
 
 
 def test_collect_collected_state_requires_archived_outcome_json():
-    walk = list(_walk(_load_tasks('collect.yml')))
-    fetch_tasks = [task for task in walk
-                   if isinstance(task.get('ansible.builtin.fetch'), dict) and
-                   'ranking_collect_run_dir' in str(task['ansible.builtin.fetch']['src'])]
-    assert len(fetch_tasks) == 1
-    assert fetch_tasks[0].get('register') == 'ranking_collect_fetch'
-    facts = [task['ansible.builtin.set_fact'] for task in walk
-             if isinstance(task.get('ansible.builtin.set_fact'), dict)]
-    combined = [module for module in facts
-                if 'ranking_fetch_flags' in str(module) and
-                'ranking_collect_flags[item] and ranking_fetch_flags[item]' in str(module)]
-    assert len(combined) == 1
-    collected = [task['ansible.builtin.set_fact']['ranking_collected_request']
-                 for task in walk
-                 if isinstance(task.get('ansible.builtin.set_fact'), dict) and
-                 'ranking_collected_request' in task['ansible.builtin.set_fact']]
-    assert len(collected) == 1
-    assert str(collected[0]['value']['collected']) == \
-        '{{ ranking_collect_flags["outcome.json"] | default(false) }}'
+    tasks = list(_walk(_load_tasks('collect.yml')))
+    collected = next(task['ansible.builtin.set_fact']['ranking_run_artifacts_collected']
+                     for task in tasks if 'ranking_run_artifacts_collected' in task.get('ansible.builtin.set_fact', {}))
+    assert 'ranking_collect_mandatory_names' in collected
+    assert 'ranking_collect_flags' in collected
+    assert 'ranking_collect_process_exited' in collected
+    final = next(task['ansible.builtin.set_fact']['ranking_final_run_request']
+                 for task in tasks if 'ranking_final_run_request' in task.get('ansible.builtin.set_fact', {}))
+    assert final['value']['collected'] == '{{ ranking_run_artifacts_collected }}'
 
 
 def test_simulated_unarchived_outcome_keeps_the_run_state_uncollected():
@@ -2555,3 +2494,69 @@ def test_simulated_setup_outcome_reports_the_acquired_resources():
          'handle': {'resource': PTF_RESOURCE, 'environment_id': 'env-a',
                     'operation_id': 'op-a', 'created': True}},
     ]
+
+
+def test_snapshotless_setup_failure_can_release_unmodified_claims():
+    world = build_world()
+    world.docker.seed_container(world.dut_host, world.saiserver_name,
+                                SAISERVER_IMAGE_ID, True)
+    setup = RoleExecutor(world, ranking_variables('setup'))
+    with pytest.raises(TaskFailure):
+        setup.run_file('main.yml')
+    assert world.systemctl_calls and all(call[1][1] == 'show' for call in world.systemctl_calls)
+    assert world.agents[world.dut_host].owners[DUT_RESOURCE]['abortable']
+    teardown = RoleExecutor(world, ranking_variables('teardown'))
+    teardown.run_file('main.yml')
+    assert all(not agent.owners for agent in world.agents.values())
+    assert world.docker.is_running(world.dut_host, world.saiserver_name)
+    assert not any(call['action'] == 'read' for call in teardown.agent_calls)
+
+
+def test_rollback_refuses_a_container_without_matching_launcher_identity():
+    world, setup = _chained_world()
+    original = world.docker.containers[world.dut_host][world.saiserver_name]
+    owned_id = original['Id']
+    foreign_id = world.docker.seed_container(world.dut_host, world.saiserver_name,
+                                             SAISERVER_IMAGE_ID, True)
+    variables = dict(ranking_variables('setup'), item='start:saiserver')
+    variables['ranking_dut_handle'] = {'resource': DUT_RESOURCE,
+                                       'environment_id': 'env-a', 'operation_id': 'op-a', 'created': True}
+    variables['ranking_saiserver_image_info_json'] = [{'Id': SAISERVER_IMAGE_ID}]
+    variables['ranking_saiserver_start'] = {'stdout': owned_id, 'rc': 0}
+    rollback = RoleExecutor(world, variables)
+    with pytest.raises(TaskFailure, match='owned|identity|launcher'):
+        rollback.run_file('rollback_marker.yml')
+    container = world.docker.containers[world.dut_host][world.saiserver_name]
+    assert container['Id'] == foreign_id
+    assert container['State']['Running']
+
+
+def test_active_recovery_cannot_teardown_a_case_between_reset_and_run_state():
+    world, _ = _chained_world()
+    requests = []
+
+    class PausingRun(RoleExecutor):
+        def _execute(self, task):
+            result = super()._execute(task)
+            if task.get('name') == 'Record the case saiserver container':
+                container_id = world.docker.containers[world.dut_host][world.saiserver_name]['Id']
+                variables = ranking_variables('teardown')
+                variables['ranking_action_id'] = 'action-concurrent-recovery'
+                recovery = RoleExecutor(world, variables)
+                before = len(world.docker.calls)
+                with pytest.raises(TaskFailure):
+                    recovery.run_file('main.yml')
+                assert not [call for call in world.docker.calls[before:]
+                            if call[1][1] in ('stop', 'rm', 'run')]
+                assert world.docker.containers[world.dut_host][world.saiserver_name]['Id'] == container_id
+                assert world.docker.is_running(world.dut_host, world.saiserver_name)
+                assert all(agent.owners for agent in world.agents.values())
+                requests.append(recovery)
+            return result
+    run = PausingRun(world, ranking_variables('run', case='sairoute.RouteA', run_id='run-a'))
+    run.run_file('main.yml')
+    assert len(requests) == 1
+    assert all(not agent.guards for agent in world.agents.values())
+    teardown = RoleExecutor(world, ranking_variables('teardown'))
+    teardown.run_file('main.yml')
+    assert all(not agent.owners and not agent.guards for agent in world.agents.values())

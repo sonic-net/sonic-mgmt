@@ -7,26 +7,6 @@ from tests.ranking.port_mapping import (
 )
 
 
-@pytest.fixture
-def inputs():
-    graph = {
-        'device_conn': {'dut-a': {
-            'Ethernet8': {'peerdevice': 'fanout-a', 'peerport': 'Ethernet2'},
-            'Ethernet40': {'peerdevice': 'fanout-a', 'peerport': 'Ethernet19'},
-        }},
-        'device_vlan_map_list': {'dut-a': {0: 3007, 1: 3018}},
-    }
-    config_db = {'PORT': {
-        'Ethernet8': {'lanes': '8,9,10,11', 'index': '3', 'speed': '400000'},
-        'Ethernet40': {'lanes': '40,41,42,43', 'index': '11', 'speed': '400000'},
-    }, 'DEVICE_METADATA': {'localhost': {'hostname': 'dut-a'}}}
-    ptf_ports = {
-        'Ethernet8': {'id': 7, 'interface': 'eth7'},
-        'Ethernet40': {'id': 18, 'interface': 'eth18'},
-    }
-    return graph, 'dut-a', ['Ethernet40', 'Ethernet8'], config_db, ptf_ports
-
-
 def test_mapping_uses_natural_position_and_selection_order(inputs):
     original = copy.deepcopy(inputs)
     mapping = build_port_mapping(*inputs)

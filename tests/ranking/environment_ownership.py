@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 
 LOGGER = logging.getLogger(__name__)
+ACTION_ROOT = '/var/tmp/ranking-actions'
 _COMPONENT = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]*')
 _OWNER = 'owner.json'
 _OPERATION = 'operation.json'
@@ -346,6 +347,13 @@ class ResourceStore:
                     if any(record[key] != identity[key] for key in _IDENTITY_KEYS):
                         raise OwnershipError('Handle does not hold the current operation')
                     state['record'] = dict(record)
+
+                    def mark_mutated():
+                        state['changed'] = True
+                        record.update(mutated=True, abortable=False)
+                        self._write_owner(descriptor, record)
+                        state['record'] = dict(record)
+                    state['mark_mutated'] = mark_mutated
                     yield state
 
     def mark_mutated(self, handle):
