@@ -393,6 +393,7 @@ Standard `topo_t0.yml` uses ARISTA names (ARISTA01T1, ARISTA02T1, etc.) but the 
 The docker-sonic-vs image must include:
 - **bgpcfgd**: For CONFIG_DB → FRR configuration (added via sonic-buildimage PR)
 - **lldpd**: For LLDP neighbor discovery in tests
+- **wpasupplicant**: Provides `wpa_supplicant` and `wpa_cli` for MACsec/MKA tests
 - **constants.yml and FRR templates**: Baked into the image (not mounted from host)
 - **start.sh**: Must copy `/var/sonic/config_db.json` → `/etc/sonic/` and set `kernel_version` at runtime
 

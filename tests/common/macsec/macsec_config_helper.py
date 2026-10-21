@@ -288,8 +288,12 @@ if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
 fi
 test -x /sbin/wpa_supplicant
 test -x /sbin/wpa_cli"""
-    if not _command_succeeded(host.shell(
-            provision, module_ignore_errors=True, timeout=300)):
+    result = host.shell(
+        provision, module_ignore_errors=True, timeout=300)
+    if not _command_succeeded(result):
+        logger.error(
+            "Failed to provision cSONiC MACsec dependencies on %s: %s",
+            host.hostname, _command_diagnostic(result))
         return False
 
     if initial["post_state"] not in ("pass", "disabled"):
@@ -332,8 +336,12 @@ EOF
 fi
 supervisorctl reread
 supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
-    success = _command_succeeded(host.shell(
-        install, module_ignore_errors=True))
+    result = host.shell(install, module_ignore_errors=True)
+    success = _command_succeeded(result)
+    if not success:
+        logger.error(
+            "Failed to install cSONiC macsecmgrd Supervisor config on %s: %s",
+            host.hostname, _command_diagnostic(result))
     if success and not hasattr(host, "_sonic_mgmt_macsec_initial"):
         host._sonic_mgmt_macsec_initial = initial
     return success
