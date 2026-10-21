@@ -302,12 +302,13 @@ test -x /sbin/wpa_cli"""
     current = _csonic_macsec_service_state(host)
     state = current["state"]
     if state in ("RUNNING", "STARTING", "BACKOFF"):
-        host._sonic_mgmt_macsec_initial = initial
+        if not hasattr(host, "_sonic_mgmt_macsec_initial"):
+            host._sonic_mgmt_macsec_initial = initial
         return True
     if state in ("STOPPED", "EXITED", "FATAL"):
         success = _command_succeeded(host.shell(
             "supervisorctl start macsecmgrd", module_ignore_errors=True))
-        if success:
+        if success and not hasattr(host, "_sonic_mgmt_macsec_initial"):
             host._sonic_mgmt_macsec_initial = initial
         return success
     if state != "MISSING":
@@ -333,7 +334,7 @@ supervisorctl reread
 supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
     success = _command_succeeded(host.shell(
         install, module_ignore_errors=True))
-    if success:
+    if success and not hasattr(host, "_sonic_mgmt_macsec_initial"):
         host._sonic_mgmt_macsec_initial = initial
     return success
 
@@ -587,7 +588,9 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
         for nbr in [n["host"] for n in list(nbrhosts.values())]:
             if isinstance(nbr, CsonicHost):
                 initial = _csonic_macsec_service_state(nbr)
-                attempted.append((nbr, initial))
+                ownership = getattr(
+                    nbr, "_sonic_mgmt_macsec_initial", None)
+                attempted.append((nbr, initial, ownership))
                 assert _start_csonic_macsec_service(nbr, initial), \
                     "Failed to start macsecmgrd on {}".format(nbr.hostname)
 
@@ -611,15 +614,18 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
             raise AssertionError(
                 "MACsec readiness timed out: {}".format(diagnostics))
     except Exception:
-        for nbr, initial in reversed(attempted):
+        for nbr, initial, ownership in reversed(attempted):
             try:
                 _rollback_csonic_macsec_service(nbr, initial)
             except Exception:
                 logger.exception(
                     "Failed to roll back MACsec setup on %s", nbr.hostname)
             finally:
-                if hasattr(nbr, "_sonic_mgmt_macsec_initial"):
-                    delattr(nbr, "_sonic_mgmt_macsec_initial")
+                if ownership is None:
+                    if hasattr(nbr, "_sonic_mgmt_macsec_initial"):
+                        delattr(nbr, "_sonic_mgmt_macsec_initial")
+                else:
+                    nbr._sonic_mgmt_macsec_initial = ownership
         try:
             global_cmd(
                 duthost, nbrhosts,
@@ -741,6 +747,14 @@ def _rollback_macsec_configuration(profile_hosts, endpoints, profile_name):
         logger.error("MACsec configuration rollback failures: %s", failures)
 
 
+def _macsec_session_cleanup_hosts(duthost, neighbor_profile_hosts):
+    """Return hosts where the legacy syncd MKA check is valid."""
+    hosts = list(neighbor_profile_hosts)
+    if getattr(duthost, "facts", {}).get("asic_type") == "vs":
+        hosts.insert(0, duthost)
+    return hosts
+
+
 def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     neighbor_profile_hosts, endpoints = _macsec_configuration_targets(
         duthost, ctrl_links)
@@ -775,7 +789,8 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
         _restore_macsec_feature_after_cleanup_recovery(duthost, ctrl_links)
 
     logger.info("Cleanup macsec configuration finished")
-    for host in profile_hosts:
+    for host in _macsec_session_cleanup_hosts(
+            duthost, neighbor_profile_hosts):
         if isinstance(host, EosHost):
             continue
         assert wait_until(30, 1, 0, lambda host=host: not get_mka_session(host))
