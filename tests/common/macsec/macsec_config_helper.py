@@ -151,6 +151,7 @@ def _macsec_service_diagnostics(host):
         commands = [
             ("supervisor", "supervisorctl status macsecmgrd"),
             ("process", "pgrep -a -x macsecmgrd"),
+            ("post_state", "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state"),
             ("feature", "sonic-db-cli CONFIG_DB HGET 'FEATURE|macsec' state"),
             ("database", "sonic-db-cli CONFIG_DB PING"),
             ("supervisor_config", "test -e {0} && sed -n '1,80p' {0}".format(
@@ -200,6 +201,7 @@ def _macsec_interface_diagnostics(host, interface_name):
         runtime = "csonic"
         commands.extend([
             ("service", "supervisorctl status macsecmgrd"),
+            ("post_state", "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state"),
             ("mka", "ip -j macsec show"),
         ])
     else:
@@ -230,8 +232,16 @@ def _start_csonic_macsec_service(host):
     Some docker-sonic-vs images contain the macsecmgrd binary without a
     supervisor program. Register only that program at the MACsec call site;
     images that already supervise it take the first or last case below.
+
+    macsecmgrd does not consume CONFIG_DB until the SAI MACsec POST state is
+    ``pass`` or ``disabled``. The standalone macsec container gets this state
+    from orchagent, but the monolithic VS neighbor does not consistently
+    publish it. VS has no hardware MACsec POST, so seed the same ``disabled``
+    state that orchagent uses when POST is unsupported before starting the
+    daemon.
     """
     command = """set -e
+sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled >/dev/null
 status=$(supervisorctl status macsecmgrd 2>&1 || true)
 case "$status" in
     *RUNNING*) exit 0 ;;

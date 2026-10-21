@@ -260,6 +260,7 @@ def test_csonic_interface_diagnostics_query_container_directly():
     assert diagnostics["interface"] == "Ethernet1"
     commands = [call.args[0] for call in host.shell.call_args_list]
     assert "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|Ethernet1' state" in commands
+    assert "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state" in commands
     assert "ip -j macsec show" in commands
     assert all("docker exec" not in command for command in commands)
 
@@ -382,7 +383,7 @@ def test_timeout_diagnostics_distinguish_csonic_from_sonic_runtime():
 
     assert csonic_diagnostics["runtime"] == "csonic"
     assert set(csonic_diagnostics["checks"]) == {
-        "supervisor", "process", "feature", "database", "supervisor_config", "syslog"
+        "supervisor", "process", "post_state", "feature", "database", "supervisor_config", "syslog"
     }
     assert sonic_diagnostics["runtime"] == "sonic"
     assert set(sonic_diagnostics["checks"]) == {"containers", "processes", "feature", "service"}
@@ -435,6 +436,11 @@ def test_csonic_service_lifecycle_uses_supervisor_not_docker():
     assert _start_csonic_macsec_service(host)
     assert _stop_csonic_macsec_service(host)
     assert len(host.shell_calls) == 2
+    start_command = host.shell_calls[0][0]
+    post_state_command = (
+        "sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled")
+    assert post_state_command in start_command
+    assert start_command.index(post_state_command) < start_command.index("supervisorctl status")
     assert all("supervisorctl" in command for command, _ in host.shell_calls)
     assert all("docker" not in command for command, _ in host.shell_calls)
     assert all(kwargs == {"module_ignore_errors": True} for _, kwargs in host.shell_calls)
