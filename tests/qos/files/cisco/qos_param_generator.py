@@ -206,8 +206,8 @@ class QosParamCisco(object):
                 max_voq_size = min(self.egress_pool_size * profile_alpha / (profile_alpha + 1),
                                    lossy_max_queue_depth)
                 max_hbm_blocks = max_voq_size / self.HBM_BUFFER_SIZE
-                fitting_blocks = [t for t in self.HBM_VOQ_THRESH_BLOCKS if t >= max_hbm_blocks]
-                lossy_drop_blocks = min(fitting_blocks) if fitting_blocks else max(self.HBM_VOQ_THRESH_BLOCKS)
+                fitting_blocks = [t for t in self.HBM_VOQ_THRESH_BLOCKS if t <= max_hbm_blocks]
+                lossy_drop_blocks = max(fitting_blocks) if fitting_blocks else min(self.HBM_VOQ_THRESH_BLOCKS)
                 self.lossy_drop_bytes = lossy_drop_blocks * self.HBM_BUFFER_SIZE
                 self.log("gb HBM lossy: max_hbm_blocks={}, quantized drop blocks={}, drop bytes={}".format(
                     max_hbm_blocks, lossy_drop_blocks, self.lossy_drop_bytes))
@@ -494,15 +494,21 @@ class QosParamCisco(object):
     def hbm_voq_wmk_margin(self, blocks):
         # The gb HBM queue watermark only reads a subset of HBM_VOQ_THRESH_BLOCKS: cgm
         # levels 8-14 map to odd indices (1, 3, ..., 13) and level 15 clamps to the last
-        # entry. The margin is the width of the reachable interval containing `blocks`.
+        # entry. The queue watermark test fills the VOQ incrementally, so the measured
+        # watermark snaps up through these reachable levels as it climbs from the first
+        # reachable level (thresholds[1]) to the first level exceeding `blocks`. The margin
+        # must cover the largest gap between adjacent reachable levels over that traversed
+        # range, not just the interval containing `blocks`.
         thresholds = self.HBM_VOQ_THRESH_BLOCKS
         reachable = thresholds[1::2] + [thresholds[-1]]
-        lower = 0
-        for thr in reachable:
+        max_gap = 0
+        lower = reachable[0]
+        for thr in reachable[1:]:
+            max_gap = max(max_gap, thr - lower)
             if blocks < thr:
-                return thr - lower
+                break
             lower = thr
-        return reachable[-1] - reachable[-2]
+        return max_gap
 
     def should_autogen(self, parametrizations):
         '''
@@ -844,7 +850,7 @@ class QosParamCisco(object):
                 # HBM queue watermark counts average cell utilization (6144) per buffer and
                 # quantizes to a VOQ threshold level, so derive the margin from that interval.
                 lossy_params["cell_size"] = self.HBM_Q_WMK_AVG_CELL_BYTES
-                lossy_params["packet_size"] = self.HBM_SINGLE_BLOCK_PACKET_SIZE
+                lossy_params["packet_size"] = self.HBM_Q_WMK_AVG_CELL_BYTES
                 lossy_params["pkts_num_margin"] = self.hbm_voq_wmk_margin(
                     self.lossy_drop_bytes // self.lossy_buffer_size)
             if self.dutAsic in ["gr2", "gr2x"]:

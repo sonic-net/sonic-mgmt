@@ -6537,6 +6537,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
                     pkts_total += pkts_num
                     pkts_num = pkts_total - 1
+                    # Queue was drained for refill; re-baseline so the diagnostic
+                    # reflects this round's fill instead of a cumulative count.
+                    pg_cntrs_base = sai_thrift_read_pg_counters(
+                        self.src_client, port_list['src'][src_port_id])
 
                 print("pkts num to send: %d, total pkts: %d, queue shared: %d" % (
                     pkts_num, expected_wm, total_shared), file=sys.stderr)
@@ -6601,6 +6605,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     self, src_port_id, dst_port_id, pkt, queue, asic_type)
                 pkts_total += pkts_num
                 pkts_num = pkts_total - 1
+                # Queue was drained for refill; re-baseline so the diagnostic
+                # reflects this round's fill instead of a cumulative count.
+                pg_cntrs_base = sai_thrift_read_pg_counters(
+                    self.src_client, port_list['src'][src_port_id])
 
             # overflow the shared pool
             send_packet(self, src_port_id, pkt, pkts_num)
