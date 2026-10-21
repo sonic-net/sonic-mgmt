@@ -7,6 +7,61 @@ import random
 from arista import Arista
 from sonic import Sonic
 from device_connection import DeviceConnection
+from retrying import RetryError, retry
+
+
+BGP_STATE_CHANGE_ATTEMPTS = 7
+BGP_STATE_CHANGE_RETRY_INTERVAL = 10
+BGP_STARTUP_STATES = ['Connect', 'Active', 'OpenSent', 'OpenConfirm', 'Established']
+
+
+def _bgp_peer_state(stdout):
+    for line in stdout:
+        if 'BGP state' not in line:
+            continue
+        match = re.findall(r'BGP state = (\w+)', line)
+        if match:
+            return match[0]
+    return None
+
+
+def _bgp_state_matches(curr_state, expected_states):
+    return curr_state in expected_states
+
+
+def _bgp_state_change_failed(result):
+    _stdout, _stderr, return_code, state_ok = result
+    # execCommand is non-zero only for an SSH exception. A zero code still
+    # needs the neighbor-state check because a failed config bgp is reported as 0.
+    return return_code != 0 or not state_ok
+
+
+@retry(
+    stop_max_attempt_number=BGP_STATE_CHANGE_ATTEMPTS,
+    wait_fixed=BGP_STATE_CHANGE_RETRY_INTERVAL * 1000,
+    retry_on_result=_bgp_state_change_failed
+)
+def _change_bgp_peer(connection, command, show_command, expected_states):
+    """Run one BGP state-change command and read the neighbor state."""
+    stdout, stderr, return_code = connection.execCommand(command)
+    if return_code != 0:
+        return stdout, stderr, return_code, False
+
+    show_out, show_err, show_rc = connection.execCommand(show_command)
+    if show_rc != 0:
+        return show_out, show_err, show_rc, False
+
+    state_ok = _bgp_state_matches(_bgp_peer_state(show_out), expected_states)
+    return stdout, stderr, return_code, state_ok
+
+
+def change_bgp_peer(connection, command, show_command, expected_states):
+    try:
+        return _change_bgp_peer(connection, command, show_command, expected_states)
+    except RetryError as error:
+        return error.last_attempt.value
+    except Exception as error:
+        return [], [str(error)], 1, False
 
 
 class SadTest(object):
@@ -490,13 +545,33 @@ class SadOper(SadPath):
 
                 self.log.append('Changing state of BGP peer %s from DUT side to %s' % (
                     self.neigh_bgps[vm][key], state[is_up]))
-                stdout, stderr, return_code = self.dut_connection.execCommand(
-                    'sudo config bgp %s neighbor %s' % (state[is_up], self.neigh_bgps[vm][key]))
-                if return_code != 0:
+                peer = self.neigh_bgps[vm][key]
+                command = 'sudo config bgp %s neighbor %s' % (state[is_up], peer)
+                show_command = self._bgp_neighbor_show_command(key, peer)
+                expected_states = self.dut_bgps['changed_state'].split(',') if not is_up else BGP_STARTUP_STATES
+                stdout, stderr, return_code, state_ok = change_bgp_peer(
+                    self.dut_connection, command, show_command, expected_states)
+
+                if return_code != 0 or not state_ok:
+                    self.log.append(
+                        'BGP peer %s state change failed after %d attempt(s)' %
+                        (peer, BGP_STATE_CHANGE_ATTEMPTS))
+                    self.log.append('Command: %s, return code: %d, state ok: %s' % (
+                        command, return_code, state_ok))
+                    self.log.append('Expected state: %s, stderr: %s' % (
+                        ','.join(expected_states), stderr))
                     self.fails['dut'].add(
-                        'State change not successful from DUT side for peer %s' % self.neigh_bgps[vm][key])
+                        'State change not successful from DUT side for peer %s' % peer)
                     self.fails['dut'].add('Return code: %d' % return_code)
                     self.fails['dut'].add('Stderr: %s' % stderr)
+                    if not state_ok:
+                        self.fails['dut'].add(
+                            'BGP peer %s did not reach expected state %s' %
+                            (peer, ','.join(expected_states)))
+
+    def _bgp_neighbor_show_command(self, key, peer):
+        family = '' if key == 'v4' else 'v6'
+        return f"show ip{family} bgp neighbors {peer}"
 
     def verify_bgp_dut_state(self, state='Idle'):
         states = state.split(',')
@@ -509,22 +584,15 @@ class SadOper(SadPath):
                     continue
                 self.log.append('Verifying if the DUT side BGP peer %s is %s' % (
                     self.neigh_bgps[vm][key], states))
-                stdout, _, _ = self.dut_connection.execCommand(
-                    'sudo sonic_installer list | grep Current | cut -f2 -d " "')
-                if key == 'v4':
-                    cmd = "show ip bgp neighbors"
-                else:
-                    cmd = "show ip bgp neighbors" if (
-                        len(stdout) > 0 and "201811" in stdout[0]) else "show ipv6 bgp neighbors"
-                stdout, stderr, return_code = self.dut_connection.execCommand(
-                    cmd + ' %s' % self.neigh_bgps[vm][key])
+                show_command = self._bgp_neighbor_show_command(key, self.neigh_bgps[vm][key])
+                stdout, stderr, return_code = self.dut_connection.execCommand(show_command)
                 if return_code == 0:
-                    for line in stdout:
-                        if 'BGP state' in line:
-                            curr_state = re.findall(r'BGP state = (\w+)', line)[0]
-                            bgp_state[vm][key] = (curr_state in states)
-                            break
+                    curr_state = _bgp_peer_state(stdout)
+                    if curr_state is not None:
+                        bgp_state[vm][key] = (curr_state in states)
                 else:
+                    self.log.append('Show command failed: %s, return code: %d, stderr: %s' % (
+                        show_command, return_code, stderr))
                     self.fails['dut'].add(
                         'Retreiving BGP info for peer %s from DUT side failed' % self.neigh_bgps[vm][key])
                     self.fails['dut'].add('Return code: %d' % return_code)
