@@ -6,7 +6,7 @@ import subprocess
 from collections import UserDict
 from collections.abc import Mapping
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -171,6 +171,21 @@ def test_csonic_state_snapshots_are_required_and_preserve_bindings():
     assert _macsec_profile_exists(host, "128_SCI") is True
     with pytest.raises(AssertionError, match="MACsec state query failed"):
         _command_stdout(host, "failing query")
+
+
+def test_eos_profile_existence_matches_complete_declaration():
+    host = EosShellHost()
+    host.eos_command = MagicMock(side_effect=[
+        {"stdout": ["mac security\n   profile 128_SCI_NEW\n      cipher aes128-gcm"]},
+        {"stdout": [["mac security", "   profile 128_SCI", "      cipher aes128-gcm"]]},
+    ])
+
+    assert _macsec_profile_exists(host, "128_SCI") is False
+    assert _macsec_profile_exists(host, "128_SCI") is True
+    assert host.eos_command.call_args_list == [
+        call(commands=["show running-config section mac security"]),
+        call(commands=["show running-config section mac security"]),
+    ]
 
 
 def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
