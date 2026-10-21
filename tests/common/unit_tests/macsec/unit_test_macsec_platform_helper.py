@@ -1,6 +1,8 @@
 """Focused tests for required MACsec commands across all endpoints."""
 
 import ast
+import logging
+import re
 from collections import UserDict
 from collections.abc import Mapping
 from multiprocessing.pool import ThreadPool
@@ -15,17 +17,30 @@ class FakeEosHost:
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "macsec/macsec_platform_helper.py"
 TREE = ast.parse(MODULE_PATH.read_text())
-NODE = next(
+FUNCTION_NAMES = {
+    "global_cmd",
+    "get_all_ifnames",
+    "get_platform",
+    "_runtime_port_name",
+    "get_eth_ifname",
+    "get_macsec_ifname",
+}
+NODES = [
     node for node in TREE.body
-    if isinstance(node, ast.FunctionDef) and node.name == "global_cmd"
-)
+    if isinstance(node, ast.FunctionDef) and node.name in FUNCTION_NAMES
+]
 NAMESPACE = {
     "EosHost": FakeEosHost,
     "Mapping": Mapping,
     "ThreadPool": ThreadPool,
+    "logging": logging,
+    "pytest": pytest,
+    "re": re,
 }
-exec(compile(ast.Module(body=[NODE], type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
+exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
 global_cmd = NAMESPACE["global_cmd"]
+get_eth_ifname = NAMESPACE["get_eth_ifname"]
+get_macsec_ifname = NAMESPACE["get_macsec_ifname"]
 
 
 class CommandHost:
@@ -71,3 +86,36 @@ def test_global_cmd_skips_eos_neighbors():
     global_cmd(dut, {"eos": {"host": eos}}, "required command")
 
     assert dut.commands == ["required command"]
+
+
+class VirtualPortHost:
+    def __init__(self, mapping=None):
+        self.mapping = mapping or {}
+        self.is_multi_asic = False
+
+    def _interface_name(self, port_name):
+        return self.mapping.get(port_name, port_name)
+
+    def command(self, command):
+        if command == "show platform summary":
+            return {"stdout_lines": ["Platform: x86_64-kvm_x86_64-r0"]}
+        if "ls /sys/class/net/" in command:
+            return {"stdout_lines": [
+                "eth0", "eth1", "eth2", "Ethernet1", "Ethernet2",
+                "macsec_eth1", "macsec_eth2",
+            ]}
+        raise AssertionError("Unexpected command: {}".format(command))
+
+
+def test_macsec_ifname_uses_converged_csonic_runtime_port_mapping():
+    host = VirtualPortHost({"Ethernet1": "Ethernet2"})
+
+    assert get_eth_ifname(host, "Ethernet1") == "eth2"
+    assert get_macsec_ifname(host, "Ethernet1") == "macsec_eth2"
+
+
+def test_macsec_ifname_keeps_stock_virtual_port_mapping():
+    host = VirtualPortHost()
+
+    assert get_eth_ifname(host, "Ethernet1") == "eth1"
+    assert get_macsec_ifname(host, "Ethernet1") == "macsec_eth1"

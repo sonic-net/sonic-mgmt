@@ -78,7 +78,14 @@ def get_all_ifnames(host, asic=None):
     return ports
 
 
+def _runtime_port_name(host, port_name):
+    """Translate a logical cSONiC port to its runtime interface name."""
+    mapper = getattr(host, "_interface_name", None)
+    return mapper(port_name) if callable(mapper) else port_name
+
+
 def get_eth_ifname(host, port_name):
+    port_name = _runtime_port_name(host, port_name)
     asic = None
     if "x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
@@ -92,6 +99,7 @@ def get_eth_ifname(host, port_name):
 
 
 def get_macsec_ifname(host, port_name):
+    port_name = _runtime_port_name(host, port_name)
     asic = None
     if "x86_64-kvm_x86_64" not in get_platform(host):
         logging.info(
