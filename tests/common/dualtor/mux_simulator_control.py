@@ -50,6 +50,36 @@ logger = logging.getLogger(__name__)
 
 TOGGLE_SIDES = [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]
 
+# (section, commands) to check the vmhost when the mux toggle fails, as the toggle failure is usually caused by
+# CPU hogging or stuck OVS on the vmhost.
+# NOTE: don't use single quotes in the commands, the shell_cmds module can't apply the timeout to them.
+VMHOST_STATUS_CMDS = [
+    ("system-wide CPU/memory", [
+        "nproc",
+        "free -h",
+    ]),
+    ("current CPU/memory usage", [
+        # load average, CPU usage and memory usage sampled in 1 second
+        'top -b -n 2 -d 1 | awk "/^top - /{n++} n==2" | head -n 5',
+        # the percentage of time that tasks waited for CPU/memory in the last 10s, 60s and 300s
+        'grep some /proc/pressure/cpu /proc/pressure/memory 2>/dev/null || echo "PSI is not supported"',
+    ]),
+    ("top consumers", [
+        'top -b -n 2 -d 1 -o %CPU -c -w 200 | awk "/^top - /{n++} n==2" | sed -n 7,22p',
+        "ps -eo pid,user,rss,%mem,etime,args --sort=-rss -ww | head -n 11 | cut -c 1-200",
+    ]),
+    ("OVS status", [
+        'ps -o pid,stat,etime,rss,wchan:20,comm -C ovsdb-server,ovs-vswitchd || echo "OVS is not running"',
+        # ovs-vswitchd doesn't respond if it is stuck
+        "timeout 10 ovs-appctl upcall/show",
+        # the mux simulator runs the OVS commands without timeout, so they hang if OVS is stuck
+        'ps -eo pid,stat,etime,args -ww | grep -E "[o]vs-(ofctl|vsctl|appctl)" || echo none',
+        # the recent OVS warnings/errors and high CPU usage, excluding the noise of the missing ports
+        ('tail -n 5000 /var/log/openvswitch/ovs-vswitchd.log | grep -E "\\|(WARN|ERR|EMER)\\||CPU usage" '
+         '| grep -v "No such device" | tail -n 10 | cut -c 1-200'),
+    ]),
+]
+
 
 @pytest.fixture(scope='session')
 def mux_server_info(request, tbinfo):
@@ -101,6 +131,43 @@ def restart_mux_simulator_session(mux_server_info, vmhost):
 def restart_mux_simulator(mux_server_info, vmhost):
     ip, port, vmset_name = mux_server_info
     return lambda: _restart_mux_simulator(vmhost, vmset_name, ip, port)
+
+
+def _log_vmhost_status(vmhost):
+    """Log the CPU/memory usage and the OVS status of the vmhost to help debug mux toggle failures.
+
+    Mux toggle failures are usually caused by CPU hogging or stuck OVS on the vmhost. This helper never raises,
+    so the diagnostics won't hide the original toggle failure.
+
+    Args:
+        vmhost (obj): The test server object.
+    """
+    if not vmhost:
+        logger.warning("No vmhost is available, skip checking the vmhost status")
+        return
+
+    try:
+        cmds = [cmd for _, section_cmds in VMHOST_STATUS_CMDS for cmd in section_cmds]
+        res = vmhost.shell_cmds(cmds=cmds, continue_on_fail=True, timeout=30,
+                                module_ignore_errors=True, verbose=False)
+        results = {result.get("cmd"): result for result in res.get("results", [])}
+        if not results:
+            logger.warning("Failed to check the status of vmhost %s: %s", vmhost.hostname, res.get("msg"))
+            return
+
+        outputs = []
+        for section, section_cmds in VMHOST_STATUS_CMDS:
+            outputs.append("===== {} =====".format(section))
+            for cmd in section_cmds:
+                result = results.get(cmd, {})
+                outputs.append("$ {}".format(cmd))
+                outputs.append(result.get("stdout", "").rstrip() or "(no output)")
+                stderr = result.get("stderr", "").rstrip()
+                if result.get("rc") != 0 or stderr:
+                    outputs.append("rc={}, stderr: {}".format(result.get("rc"), stderr))
+        logger.warning("CPU/memory usage and OVS status on vmhost %s:\n%s", vmhost.hostname, "\n".join(outputs))
+    except Exception as e:
+        logger.warning("Failed to check the status of vmhost %s: %s", getattr(vmhost, "hostname", vmhost), repr(e))
 
 
 @pytest.fixture(scope='session')
@@ -450,7 +517,7 @@ def _toggle_all_simulator_ports(mux_server_url, side, tbinfo, retries=1):
 
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
+def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts, vmhost):
     """
     A module level fixture to toggle all ports to specified side.
     """
@@ -496,8 +563,9 @@ def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
             if _check_toggle_and_probe(duthosts, active_side):
                 return
 
-        pytest_assert(utilities.wait_until(120, 10, 0, _check_toggle_and_probe, duthosts, active_side),
-                      "Failed to toggle all mux cables to %s" % active_side)
+        if not utilities.wait_until(120, 10, 0, _check_toggle_and_probe, duthosts, active_side):
+            _log_vmhost_status(vmhost)
+            pytest_assert(False, "Failed to toggle all mux cables to %s" % active_side)
 
     return _toggle
 
@@ -509,7 +577,7 @@ def restart_linkmgrd(duthosts):
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts,
-                                            mux_server_url, tbinfo, cable_type):    # noqa: F811
+                                            mux_server_url, tbinfo, cable_type, vmhost):    # noqa: F811
     """
     A function level fixture to toggle all active-standby ports to upper_tor
 
@@ -527,12 +595,12 @@ def toggle_all_simulator_ports_to_upper_tor(active_standby_ports, duthosts,
         warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
                       "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
         restart_linkmgrd(duthosts)
-        _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[0].hostname, duthosts, mux_server_url, tbinfo, vmhost)
 
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
-                                            mux_server_url, tbinfo, cable_type):    # noqa: F811
+                                            mux_server_url, tbinfo, cable_type, vmhost):    # noqa: F811
     """
     A function level fixture to toggle all active-standby ports to lower_tor
 
@@ -550,7 +618,7 @@ def toggle_all_simulator_ports_to_lower_tor(active_standby_ports, duthosts,
         warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
                       "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
         restart_linkmgrd(duthosts)
-        _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo)
+        _toggle_all_simulator_ports_to_target_dut(duthosts[1].hostname, duthosts, mux_server_url, tbinfo, vmhost)
 
 
 def _probe_mux_ports(duthosts, ports):
@@ -574,7 +642,7 @@ def _get_mux_ports(duthost, target_status=None, exclude_status=None):
     }
 
 
-def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo):
+def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux_server_url, tbinfo, vmhost=None):
     """Helper function to toggle all ports to active on the target DUT."""
 
     def _check_toggle_done(duthosts, target_dut_hostname, probe=False):
@@ -620,13 +688,15 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
 
     if not is_toggle_done and \
             not utilities.wait_until(120, 10, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
+        # check the cpu/memory usage and the ovs status on the vmhost before failing
+        _log_vmhost_status(vmhost)
         pytest_assert(False, "Failed to toggle all ports to {} from mux simulator".format(target_dut_hostname))
 
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
                                                     tbinfo, rand_one_dut_hostname,
-                                                    active_standby_ports):
+                                                    active_standby_ports, vmhost):
     """
     A function level fixture to toggle all ports to randomly selected tor
 
@@ -642,13 +712,13 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
     warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
                   "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
-    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
+    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo, vmhost)
 
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut,
                                                       mux_server_url, tbinfo,
-                                                      active_standby_ports):
+                                                      active_standby_ports, vmhost):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
@@ -663,7 +733,7 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
 
     warnings.warn("Deprecated toggle fixture, please use setup_dualtor_mux_ports "
                   "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
-    _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
+    _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo, vmhost)
 
 
 @pytest.fixture
@@ -686,7 +756,7 @@ def toggle_all_simulator_ports_to_another_side(mux_server_url, tbinfo):
 @pytest.fixture
 def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
                                                       tbinfo, rand_one_dut_hostname,
-                                                      active_standby_ports):
+                                                      active_standby_ports, vmhost):
     """
     A function level fixture to toggle all ports to randomly selected tor.
 
@@ -708,7 +778,7 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
     logger.info('Set all muxcable to manual mode on all ToRs')
     duthosts.shell('config muxcable mode manual all')
 
-    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo)
+    _toggle_all_simulator_ports_to_target_dut(rand_one_dut_hostname, duthosts, mux_server_url, tbinfo, vmhost)
 
     yield
 
@@ -722,7 +792,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo, active_standby_ports   # noqa: F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, mux_server_url, tbinfo, active_standby_ports,  # noqa: F811
+    vmhost
 ):
     """
     A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
@@ -744,7 +815,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
     duthosts.shell('config muxcable mode manual all')
 
     _toggle_all_simulator_ports_to_target_dut(
-        enum_rand_one_per_hwsku_frontend_hostname, duthosts, mux_server_url, tbinfo
+        enum_rand_one_per_hwsku_frontend_hostname, duthosts, mux_server_url, tbinfo, vmhost
     )
 
     yield
@@ -759,7 +830,8 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
-    duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
+    duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports,              # noqa F811
+    vmhost
 ):
     """
     A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
@@ -781,7 +853,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
     duthosts.shell('config muxcable mode manual all')
 
     _toggle_all_simulator_ports_to_target_dut(
-        enum_rand_one_per_hwsku_hostname, duthosts, mux_server_url, tbinfo
+        enum_rand_one_per_hwsku_hostname, duthosts, mux_server_url, tbinfo, vmhost
     )
 
     yield

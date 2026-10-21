@@ -64,7 +64,7 @@
       - ptf_existing_python_major.stdout != "2"
     ignore_errors: yes
 
-  - name: Kill exabgp and ptf_nn_agent processes in PTF container
+  - name: Kill speaker and ptf_nn_agent processes in PTF container
     ptf_control:
       ctn_name: "ptf_{{ vm_set_name }}"
       command: kill
@@ -256,6 +256,13 @@
     vars:
       ptf_portchannel_action: start
     when: "'bmc' not in topo"
+
+  - name: Patch exabgp in PTF container
+    include_tasks: patch_exabgp.yml
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+      - not 'bmc' in topo
 
   - name: Announce routes
     include_tasks: announce_routes.yml

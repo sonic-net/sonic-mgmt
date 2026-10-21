@@ -8,9 +8,10 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service           # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device
-from tests.common.utilities import str2bool
+from tests.common.cisco_data import is_cisco_device, check_dshell_ready
+from tests.common.utilities import str2bool, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,14 @@ def set_pfc_timer_cisco_8000(duthost, script, asic_to_ports):
         duthost.docker_copy_to_all_asics(container_name=f"syncd{asic_str}", src=dut_script_path, dst="/")
         container_script_path = "/" + os.path.basename(dut_script_path)
         asic_str = f"-n asic{asic}" if asic is not None else ""
-        result = duthost.shell(f"show platform npu script {asic_str} -s {container_script_path}")
+        run_cmd = f"show platform npu script {asic_str} -s {container_script_path}"
+
+        # dshell may still be initializing after a syncd lifecycle event; wait
+        # for it to be ready before running the script.
+        if not wait_until(300, 20, 0, check_dshell_ready, duthost, asic):
+            assert False, f"Script {script_name} failed to execute correctly; dshell not ready on {duthost.hostname}"
+
+        result = duthost.shell(run_cmd)
         success = SET_PFC_TIME_SUCCESS_MSG in result["stdout"]
         assert success, f"Script {script_name} failed to execute correctly, output: {result['stdout']}"
 
@@ -295,3 +303,11 @@ def cleanup(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
     yield
     ptfhost.remove_ip_addresses()
     duthost.command("sonic-clear arp")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def create_ptf_test_port_map(
+    ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts
+):
+    ptf_test_port_map(
+        ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts)

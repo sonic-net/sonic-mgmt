@@ -4,7 +4,7 @@
   become: yes
   docker_container:
     name: csonic_{{ vm_set_name }}_{{ inventory_hostname }}
-    image: "{{ csonic_image }}"
+    image: "{{ csonic_userspace_ovs_image if csonic_lag_backend == 'userspace_ovs' else csonic_image }}"
     pull: no
     state: started
     restart: yes
@@ -84,6 +84,39 @@
   when: configuration[hostname]['bp_interface'] is defined
   register: bp_ifup_result
   failed_when: false
+
+- name: Configure cSONiC PortChannels with userspace OVS
+  become: yes
+  command: >-
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    python3 /var/sonic/csonic_ovs_lag.py apply
+  delegate_to: "{{ VM_host[0] }}"
+  when: csonic_lag_backend == 'userspace_ovs'
+
+# The DUT PortChannels are only configured later by deploy-mg, so during
+# add-topo the DUT side does not answer LACP yet. Report the OVS LACP state
+# for diagnosis, but do not block add-topo on convergence; DUT pretest sanity
+# checks verify PortChannel/BGP state after deploy-mg.
+- name: Report cSONiC userspace OVS LACP state
+  become: yes
+  command: >-
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    python3 /var/sonic/csonic_ovs_lag.py verify --timeout 1
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_ovs_lacp
+  changed_when: false
+  failed_when: false
+  when: csonic_lag_backend == 'userspace_ovs'
+
+- name: Note pending cSONiC userspace OVS LACP negotiation
+  debug:
+    msg: >-
+      OVS LACP on {{ inventory_hostname }} has not converged yet; this is
+      expected until deploy-mg configures the DUT PortChannels.
+  when:
+    - csonic_lag_backend == 'userspace_ovs'
+    - csonic_ovs_lacp.rc is defined
+    - csonic_ovs_lacp.rc != 0
 
 # The docker-sonic-vs neighbor image does not run hostcfgd, so a MGMT_INTERFACE
 # entry in CONFIG_DB would not be applied to the kernel eth0 on its own (unlike

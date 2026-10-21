@@ -341,6 +341,9 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu
         pytest.skip("No PSU or PDB support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
 
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
@@ -385,6 +388,9 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_suppor
         pytest.skip("No PSU or PDB support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -500,6 +506,9 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname, is_support_fan):  # 
         pytest.skip("No FAN support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+    if duthosts.supervisor_nodes:
+        # Force supervisor selection on T2 chassis testbeds
+        duthost = duthosts.supervisor_nodes[0]
     cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
     pytest_assert(wait_until(90, 5, 0, check_fan_status, duthost, cmd),
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
