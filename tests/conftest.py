@@ -54,6 +54,7 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
+from tests.common import constants
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -105,8 +106,8 @@ cache = FactsCache()
 
 HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
-GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
+GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
 RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
 RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
