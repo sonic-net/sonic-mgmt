@@ -239,7 +239,7 @@ def _get_baseline_times(ssh, command_pairs, command_settle_time):
 def _get_concurrent_baseline_times(
     dut_mgmt_ip, command_pairs, username, password, command_settle_time,
 ):
-    """Measure VPP baselines under the same command-pair load as the stress phase."""
+    """Measure VPP baselines with concurrent command pairs."""
     def measure(commands):
         ssh = start_SSH_connection(dut_mgmt_ip, username, password)
         try:

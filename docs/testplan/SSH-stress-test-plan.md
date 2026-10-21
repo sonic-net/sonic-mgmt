@@ -13,8 +13,9 @@ Part 1:
 
 1. For each command, a baseline time is generated from five alternating executions
    of its command pair. VPP measures all five pairs concurrently, each over its
-   own SSH connection, to match the stress phase's contention. Other platforms
+   own SSH connection, rather than sampling serial idle load. Other platforms
    retain serial measurement. Each pair restores its original state afterwards.
+   Calibration approximates contention: pairs can finish at different times.
 2. Start five SSH connections to the DUT
 3. Over the five connections, simultaneously and repeatedly perform the following actions
     - Startup BGP connections, then shut them down
