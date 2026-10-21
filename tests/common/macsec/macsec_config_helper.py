@@ -128,28 +128,106 @@ def _macsec_port_profile(host, port):
     return _command_stdout(host, command) or None
 
 
-def _macsec_profile_exists(host, profile_name):
-    """Return whether a profile existed before this setup transaction."""
+def _eos_macsec_profile_lines(host, profile_name):
+    """Return an EOS profile's child configuration lines, or None."""
+    result = host.eos_command(commands=[
+        "show running-config section mac security"])
+    output = result.get("stdout", [""])[0]
+    if isinstance(output, list):
+        output = "\n".join(output)
+    declaration = "profile {}".format(profile_name)
+    lines = str(output).splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() != declaration:
+            continue
+        profile_lines = []
+        for child in lines[index + 1:]:
+            stripped = child.strip()
+            if stripped.startswith("profile ") or stripped == "!":
+                break
+            if stripped and stripped != "mac security":
+                profile_lines.append(stripped)
+        return profile_lines
+    return None
+
+
+def _macsec_profile_snapshot(host, profile_name):
+    """Capture the exact profile state before a setup transaction mutates it."""
     if isinstance(host, EosHost):
-        result = host.eos_command(commands=[
-            "show running-config section mac security"])
-        output = result.get("stdout", [""])[0]
-        if isinstance(output, list):
-            output = "\n".join(output)
-        declaration = "profile {}".format(profile_name)
-        return any(
-            line.strip() == declaration for line in str(output).splitlines())
+        return {
+            "runtime": "eos",
+            "lines": _eos_macsec_profile_lines(host, profile_name),
+        }
 
     namespaces = (host.get_asic_namespace_list()
                   if _host_is_multi_asic(host) else [None])
+    entries = []
     for namespace in namespaces:
-        prefix = "-n {}".format(namespace) if namespace else ""
-        command = (
-            'sonic-db-cli {} CONFIG_DB EXISTS "MACSEC_PROFILE|{}"'
-            .format(prefix, profile_name))
-        if _command_stdout(host, command) == "1":
-            return True
-    return False
+        command = ["sonic-db-cli"]
+        if namespace is not None:
+            command.extend(["-n", namespace])
+        command.extend([
+            "CONFIG_DB", "HGETALL",
+            "MACSEC_PROFILE|{}".format(profile_name),
+        ])
+        output = _command_stdout(
+            host, " ".join(shlex.quote(part) for part in command))
+        lines = output.splitlines()
+        if len(lines) % 2:
+            raise AssertionError(
+                "Malformed MACsec profile snapshot on {}: namespace={}, "
+                "lines={}".format(
+                    getattr(host, "hostname", str(host)), namespace, lines))
+        fields = dict(zip(lines[0::2], lines[1::2])) if lines else None
+        entries.append({"namespace": namespace, "fields": fields})
+    return {"runtime": "sonic", "entries": entries}
+
+
+def _macsec_profile_exists(host, profile_name):
+    """Return whether a profile existed before this setup transaction."""
+    snapshot = _macsec_profile_snapshot(host, profile_name)
+    if snapshot["runtime"] == "eos":
+        return snapshot["lines"] is not None
+    return any(entry["fields"] is not None for entry in snapshot["entries"])
+
+
+def _restore_macsec_profile(host, profile_name, snapshot):
+    """Restore one profile snapshot, deleting only transaction-created state."""
+    if snapshot["runtime"] == "eos":
+        host.eos_config(
+            lines=["no profile {}".format(profile_name)],
+            parents=["mac security"])
+        if snapshot["lines"] is not None:
+            host.eos_config(
+                lines=snapshot["lines"],
+                parents=["mac security", "profile {}".format(profile_name)])
+        return
+
+    key = "MACSEC_PROFILE|{}".format(profile_name)
+    for entry in snapshot["entries"]:
+        command = ["sonic-db-cli"]
+        if entry["namespace"] is not None:
+            command.extend(["-n", entry["namespace"]])
+        delete_command = command + ["CONFIG_DB", "DEL", key]
+        result = host.command(
+            " ".join(shlex.quote(part) for part in delete_command))
+        if not _command_succeeded(result):
+            raise AssertionError(
+                "Failed to delete MACsec profile during rollback on {}: {}"
+                .format(getattr(host, "hostname", str(host)),
+                        _command_diagnostic(result)))
+        if entry["fields"] is None:
+            continue
+        restore_command = command + ["CONFIG_DB", "HSET", key]
+        for field, value in entry["fields"].items():
+            restore_command.extend([field, value])
+        result = host.command(
+            " ".join(shlex.quote(part) for part in restore_command))
+        if not _command_succeeded(result):
+            raise AssertionError(
+                "Failed to restore MACsec profile during rollback on {}: {}"
+                .format(getattr(host, "hostname", str(host)),
+                        _command_diagnostic(result)))
 
 
 def _wait_for_macsec_tasks(tasks, timeout):
@@ -809,7 +887,7 @@ def _macsec_configuration_targets(duthost, ctrl_links):
 
 
 def _rollback_macsec_configuration(
-        created_profile_hosts, attempted_endpoints, profile_name):
+        profile_snapshots, attempted_endpoints, profile_name):
     """Best-effort reverse-order rollback for changes this setup attempted."""
     failures = []
     for host, port, previous_profile in reversed(attempted_endpoints):
@@ -822,9 +900,9 @@ def _rollback_macsec_configuration(
             failures.append({"host": str(host), "port": port,
                              "previous_profile": previous_profile,
                              "exception": repr(error)})
-    for host in reversed(created_profile_hosts):
+    for host, snapshot in reversed(profile_snapshots):
         try:
-            delete_macsec_profile(host, profile_name)
+            _restore_macsec_profile(host, profile_name, snapshot)
         except Exception as error:
             failures.append({"host": str(host), "profile": profile_name,
                              "exception": repr(error)})
@@ -886,9 +964,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     neighbor_profile_hosts, endpoints = _macsec_configuration_targets(
         duthost, ctrl_links)
     profile_hosts = [duthost] + neighbor_profile_hosts
-    created_profile_hosts = [
-        host for host in profile_hosts
-        if not _macsec_profile_exists(host, profile_name)
+    profile_snapshots = [
+        (host, _macsec_profile_snapshot(host, profile_name))
+        for host in profile_hosts
     ]
     endpoint_snapshots = [
         (host, port, _macsec_port_profile(host, port))
@@ -940,7 +1018,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         logger.info("Setup macsec configuration finished")
     except Exception:
         _rollback_macsec_configuration(
-            created_profile_hosts, attempted_endpoints, profile_name)
+            profile_snapshots, attempted_endpoints, profile_name)
         raise
 
 
