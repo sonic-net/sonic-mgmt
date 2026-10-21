@@ -47,6 +47,7 @@ FUNCTION_NAMES = {
     "_rollback_csonic_macsec_service",
     "_macsec_configuration_targets",
     "_rollback_macsec_configuration",
+    "_macsec_session_cleanup_hosts",
     "set_macsec_profile",
     "delete_macsec_profile",
     "enable_macsec_port",
@@ -76,6 +77,16 @@ NAMESPACE = {
     "time": MagicMock(),
 }
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
+ORIGINAL_NAMESPACE = NAMESPACE.copy()
+
+
+@pytest.fixture(autouse=True)
+def restore_extracted_namespace():
+    """Keep per-test mocks from leaking through extracted function globals."""
+    yield
+    NAMESPACE.clear()
+    NAMESPACE.update(ORIGINAL_NAMESPACE)
+
 
 CSONIC_MACSEC_SUPERVISOR_CONFIG = NAMESPACE["CSONIC_MACSEC_SUPERVISOR_CONFIG"]
 _command_output_lines = NAMESPACE["_command_output_lines"]
@@ -92,6 +103,7 @@ _stop_csonic_macsec_service = NAMESPACE["_stop_csonic_macsec_service"]
 _rollback_csonic_macsec_service = NAMESPACE["_rollback_csonic_macsec_service"]
 _macsec_configuration_targets = NAMESPACE["_macsec_configuration_targets"]
 _rollback_macsec_configuration = NAMESPACE["_rollback_macsec_configuration"]
+_macsec_session_cleanup_hosts = NAMESPACE["_macsec_session_cleanup_hosts"]
 set_macsec_profile = NAMESPACE["set_macsec_profile"]
 delete_macsec_profile = NAMESPACE["delete_macsec_profile"]
 enable_macsec_port = NAMESPACE["enable_macsec_port"]
@@ -371,6 +383,18 @@ def test_setup_configures_shared_csonic_profile_and_endpoint_once():
     ]
 
 
+def test_session_cleanup_skips_physical_dut_but_keeps_vs_dut():
+    physical = ShellHost()
+    physical.facts = {"asic_type": "mellanox"}
+    virtual = ShellHost()
+    virtual.facts = {"asic_type": "vs"}
+    neighbor = CsonicShellHost()
+
+    assert _macsec_session_cleanup_hosts(physical, [neighbor]) == [neighbor]
+    assert _macsec_session_cleanup_hosts(virtual, [neighbor]) == [
+        virtual, neighbor]
+
+
 def test_configuration_rollback_continues_after_individual_failures():
     first = CsonicShellHost(container_name="first")
     second = CsonicShellHost(container_name="second")
@@ -558,6 +582,35 @@ def test_csonic_service_lifecycle_provisions_with_long_timeout():
     assert host._sonic_mgmt_macsec_initial == initial
 
 
+def test_csonic_start_preserves_first_ownership_snapshot():
+    host = CsonicShellHost()
+    ownership = {
+        "state": "MISSING",
+        "config_exists": False,
+        "post_state": None,
+    }
+    attempt = {
+        "state": "RUNNING",
+        "config_exists": True,
+        "post_state": "disabled",
+    }
+    host._sonic_mgmt_macsec_initial = ownership
+
+    def shell(command, **kwargs):
+        host.shell_calls.append((command, kwargs))
+        if command == "supervisorctl status macsecmgrd":
+            return {"rc": 0, "stdout": "macsecmgrd RUNNING", "stderr": ""}
+        if command.startswith("test -e "):
+            return {"rc": 0, "stdout": "", "stderr": ""}
+        if " HGET " in command:
+            return {"rc": 0, "stdout": "disabled", "stderr": ""}
+        return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host.shell = shell
+    assert _start_csonic_macsec_service(host, attempt)
+    assert host._sonic_mgmt_macsec_initial is ownership
+
+
 def test_csonic_start_accepts_supervisor_transitional_states():
     for supervisor_state in ("STARTING", "BACKOFF"):
         host = CsonicShellHost()
@@ -690,6 +743,38 @@ def test_enable_rolls_back_csonic_initialization_on_readiness_failure():
 
     NAMESPACE["_rollback_csonic_macsec_service"].assert_called_once_with(
         csonic, initial)
+
+
+def test_failed_reenable_preserves_first_ownership_snapshot():
+    duthost = ShellHost()
+    csonic = CsonicShellHost()
+    ownership = {
+        "state": "MISSING",
+        "config_exists": False,
+        "post_state": None,
+    }
+    attempt = {
+        "state": "RUNNING",
+        "config_exists": True,
+        "post_state": "disabled",
+    }
+    csonic._sonic_mgmt_macsec_initial = ownership
+    NAMESPACE["global_cmd"] = MagicMock()
+    NAMESPACE["_csonic_macsec_service_state"] = MagicMock(
+        return_value=attempt)
+    NAMESPACE["_start_csonic_macsec_service"] = MagicMock(
+        return_value=True)
+    NAMESPACE["_macsec_service_diagnostics"] = MagicMock(return_value={})
+    NAMESPACE["wait_until"] = MagicMock(return_value=False)
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(
+        return_value=True)
+
+    with pytest.raises(AssertionError, match="MACsec readiness timed out"):
+        enable_macsec_feature(duthost, {"csonic": {"host": csonic}})
+
+    NAMESPACE["_rollback_csonic_macsec_service"].assert_called_once_with(
+        csonic, attempt)
+    assert csonic._sonic_mgmt_macsec_initial is ownership
 
 
 def test_enable_operates_on_shared_csonic_container_once():
