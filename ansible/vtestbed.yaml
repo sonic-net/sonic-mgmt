@@ -601,6 +601,7 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   use_converged_peers: False
+  neighbor_mode: prefix-route
   comment: Dual-TOR VPP testbed
 
 - conf-name: vms-kvm-dual-vpp-t0-2
@@ -619,6 +620,7 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   use_converged_peers: False
+  neighbor_mode: prefix-route
   comment: Active-Active Dual-TOR VPP testbed
 
 - conf-name: vms-kvm-urh

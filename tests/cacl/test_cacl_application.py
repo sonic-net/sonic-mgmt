@@ -581,8 +581,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
-            if k in ("dhcp_server", "redfish"):
+            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
+            if k == "dhcp_server":
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
@@ -597,15 +597,12 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # Bridged containers forward rsyslog to the host over docker0 (tcp/2514);
-        # caclmgrd installs a per-feature INPUT ACCEPT while the feature is enabled,
-        # so generate the expectation from the same condition caclmgrd keys on.
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
         feature_status, _ = duthost.get_feature_status()
-        for feature in ("dhcp_server", "redfish"):
-            if feature_status.get(feature) == "enabled":
-                iptables_rules.append(
-                    "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
-                    " -m comment --comment {}_syslog -j ACCEPT".format(feature))
+        if feature_status.get("dhcp_server") == "enabled":
+            iptables_rules.append(
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
+                " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'
