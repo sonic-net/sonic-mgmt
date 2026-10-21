@@ -71,11 +71,14 @@ _STUB_MODULE_NAMES = [
     "tests.common.fixtures.consistency_checker.consistency_checker",
     "tests.upgrade_path.utilities",
 ]
-for _name in _STUB_MODULE_NAMES:
-    if _name not in sys.modules:
-        _stub = types.ModuleType(_name)
-        _stub.__getattr__ = lambda attr, _name=_name: MagicMock(name="{}.{}".format(_name, attr))
-        sys.modules[_name] = _stub
+
+# Real modules loaded by path but registered under their dotted names so the
+# modules under test resolve them from sys.modules.
+_REGISTERED_REAL_MODULE_NAMES = [
+    "tests.common.helpers.constants",
+    "tests.common.helpers.custom_msg_utils",
+    "tests.common.fixtures.advanced_reboot",
+]
 
 
 def _load_by_path(module_name, path, register=False):
@@ -87,26 +90,42 @@ def _load_by_path(module_name, path, register=False):
     return module
 
 
-# Load the real (lightweight) modules under test by path, registered under their
-# dotted names so dependents pick them up from sys.modules.
-_load_by_path("tests.common.helpers.constants",
-              _REPO_TESTS_DIR / "common" / "helpers" / "constants.py", register=True)
-_load_by_path("tests.common.helpers.custom_msg_utils",
-              _REPO_TESTS_DIR / "common" / "helpers" / "custom_msg_utils.py", register=True)
-advanced_reboot = _load_by_path(
-    "tests.common.fixtures.advanced_reboot",
-    _REPO_TESTS_DIR / "common" / "fixtures" / "advanced_reboot.py", register=True)
+# Install the stubs and load the target modules in a temporary import context:
+# snapshot sys.modules first and restore it afterwards, so the stubs never leak
+# into other unit test modules collected later (the loaded modules keep their
+# stub references through their own globals).
+_touched = _STUB_MODULE_NAMES + _REGISTERED_REAL_MODULE_NAMES
+_saved_modules = {name: sys.modules[name] for name in _touched if name in sys.modules}
+try:
+    for _name in _STUB_MODULE_NAMES:
+        if _name not in sys.modules:
+            _stub = types.ModuleType(_name)
+            _stub.__getattr__ = lambda attr, _name=_name: MagicMock(name="{}.{}".format(_name, attr))
+            sys.modules[_name] = _stub
+
+    _constants = _load_by_path("tests.common.helpers.constants",
+                               _REPO_TESTS_DIR / "common" / "helpers" / "constants.py", register=True)
+    _load_by_path("tests.common.helpers.custom_msg_utils",
+                  _REPO_TESTS_DIR / "common" / "helpers" / "custom_msg_utils.py", register=True)
+    advanced_reboot = _load_by_path(
+        "tests.common.fixtures.advanced_reboot",
+        _REPO_TESTS_DIR / "common" / "fixtures" / "advanced_reboot.py", register=True)
+
+    upgrade_path_conftest = _load_by_path(
+        "unit_target_upgrade_path_conftest", _REPO_TESTS_DIR / "upgrade_path" / "conftest.py")
+    test_upgrade_path = _load_by_path(
+        "unit_target_test_upgrade_path", _REPO_TESTS_DIR / "upgrade_path" / "test_upgrade_path.py")
+finally:
+    for _name in _touched:
+        if _name in _saved_modules:
+            sys.modules[_name] = _saved_modules[_name]
+        else:
+            sys.modules.pop(_name, None)
+
 ErrorType = advanced_reboot.ErrorType
 get_upgrade_path_result_key = advanced_reboot.get_upgrade_path_result_key
 set_upgrade_path_error_result_custom_msg = advanced_reboot.set_upgrade_path_error_result_custom_msg
-
-from tests.common.helpers.constants import CUSTOM_MSG_PREFIX  # noqa: E402
-
-
-upgrade_path_conftest = _load_by_path(
-    "unit_target_upgrade_path_conftest", _REPO_TESTS_DIR / "upgrade_path" / "conftest.py")
-test_upgrade_path = _load_by_path(
-    "unit_target_test_upgrade_path", _REPO_TESTS_DIR / "upgrade_path" / "test_upgrade_path.py")
+CUSTOM_MSG_PREFIX = _constants.CUSTOM_MSG_PREFIX
 
 
 class FakeCache:

@@ -734,7 +734,9 @@ class AdvancedReboot:
                         self.request,
                         ErrorType.POST_RELOADTEST_VERIFICATION,
                     )
-            except Exception:
+            # pytest.fail.Exception derives from BaseException, so the health
+            # checks via pytest_assert would bypass a bare `except Exception`.
+            except (Exception, pytest.fail.Exception):
                 # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
                 # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
                 # Therefore, clear the facts cached here as well to avoid any issues with running commands
@@ -844,7 +846,10 @@ class AdvancedReboot:
 
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
-            except Exception:
+            # pytest.fail.Exception derives from BaseException, so pytest_assert
+            # failures (e.g. in post_hop_teardown's post-upgrade/reboot-cause
+            # checks) would bypass a bare `except Exception`.
+            except (Exception, pytest.fail.Exception):
                 # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
                 # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
                 # Therefore, clear the facts cached here as well to avoid any issues with running commands

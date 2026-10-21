@@ -6,7 +6,6 @@ from tests.common.helpers.constants import CUSTOM_MSG_PREFIX
 
 
 _UPGRADE_PATH_RESULT_PREFIX = f"{CUSTOM_MSG_PREFIX}.upgrade_path_result."
-_stale_results_cleared = False
 
 
 def _upgrade_path_result_cache_key(item):
@@ -17,10 +16,9 @@ def _clear_stale_results(config):
     # Drop per-test classifications left in the cache by a previous pytest run in
     # the same workdir, so they are not re-emitted by this session's CustomMsg
     # collection (same cache enumeration as log_custom_msg in tests/conftest.py).
-    global _stale_results_cleared
-    if _stale_results_cleared:
+    if getattr(config, "_upgrade_path_stale_results_cleared", False):
         return
-    _stale_results_cleared = True
+    config._upgrade_path_stale_results_cleared = True
     cache_dir = config.cache._cachedir
     for path in cache_dir.glob('**/*'):
         if path.is_file() and path.name.startswith(_UPGRADE_PATH_RESULT_PREFIX):
