@@ -1,11 +1,30 @@
 import pytest
 
 from tests.common.helpers.upgrade_helpers import xcvr_skip_list  # noqa: F401
-from tests.common.fixtures.advanced_reboot import ErrorType
+from tests.common.fixtures.advanced_reboot import ErrorType, get_upgrade_path_result_key
 from tests.common.helpers.constants import CUSTOM_MSG_PREFIX
 
 
-_UPGRADE_PATH_RESULT_KEY = f"{CUSTOM_MSG_PREFIX}.upgrade_path_result"
+_UPGRADE_PATH_RESULT_PREFIX = f"{CUSTOM_MSG_PREFIX}.upgrade_path_result."
+_stale_results_cleared = False
+
+
+def _upgrade_path_result_cache_key(item):
+    return f"{CUSTOM_MSG_PREFIX}.{get_upgrade_path_result_key(item.name)}"
+
+
+def _clear_stale_results(config):
+    # Drop per-test classifications left in the cache by a previous pytest run in
+    # the same workdir, so they are not re-emitted by this session's CustomMsg
+    # collection (same cache enumeration as log_custom_msg in tests/conftest.py).
+    global _stale_results_cleared
+    if _stale_results_cleared:
+        return
+    _stale_results_cleared = True
+    cache_dir = config.cache._cachedir
+    for path in cache_dir.glob('**/*'):
+        if path.is_file() and path.name.startswith(_UPGRADE_PATH_RESULT_PREFIX):
+            config.cache.set(path.name, None)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -16,30 +35,29 @@ def pytest_runtest_setup(item):
         to_list = item.config.getoption('target_image_list')
         if not from_list or not to_list:
             pytest.skip("base_image_list or target_image_list is empty")
-    # Seed UNKNOWN before any fixture runs so a setup-phase crash still classifies.
-    # Only seed when no classification is recorded yet, so a prior test's failure
-    # classification is not overwritten before it is emitted as CustomMsg.
-    if item.config.cache.get(_UPGRADE_PATH_RESULT_KEY, None) is None:
-        item.config.cache.set(_UPGRADE_PATH_RESULT_KEY, {"error_type": ErrorType.UNKNOWN.value})
+    _clear_stale_results(item.config)
+    # Seed UNKNOWN under this test's own key before any fixture runs so a
+    # setup-phase crash still classifies. Keys are per test, so seeding and
+    # clearing never touch another test's classification.
+    item.config.cache.set(_upgrade_path_result_cache_key(item), {"error_type": ErrorType.UNKNOWN.value})
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    # Clear the seed before yield: the repo-level makereport hook in tests/conftest.py
-    # emits CustomMsg from the cache pre-yield on the last test's teardown, so clearing
-    # must happen before that emission. Teardown outcome is known here via call.excinfo.
-    # A test that passed setup/call but failed in teardown keeps its classification,
-    # and skipped tests do not leave a spurious UNKNOWN behind.
-    if call.when == "teardown":
+    # Clear this test's seed before yield: the repo-level makereport hook in
+    # tests/conftest.py emits CustomMsg from the cache pre-yield on the last
+    # test's teardown, so clearing must happen before that emission. Teardown
+    # outcome is known here via call.excinfo: a test that passed or skipped in
+    # setup/call but failed in teardown keeps its classification.
+    if call.when == "teardown" and call.excinfo is None:
         rep_setup = getattr(item, "rep_setup", None)
         rep_call = getattr(item, "rep_call", None)
         skipped = ((rep_setup is not None and rep_setup.skipped)
                    or (rep_call is not None and rep_call.skipped))
-        passed = (call.excinfo is None
-                  and rep_setup is not None and rep_setup.passed
+        passed = (rep_setup is not None and rep_setup.passed
                   and rep_call is not None and rep_call.passed)
         if passed or skipped:
-            item.config.cache.set(_UPGRADE_PATH_RESULT_KEY, None)
+            item.config.cache.set(_upgrade_path_result_cache_key(item), None)
     yield
 
 

@@ -25,6 +25,7 @@ from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 from tests.common.helpers.custom_msg_utils import add_custom_msg
+from tests.common.helpers.constants import CUSTOM_MSG_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,28 @@ class ErrorType(str, Enum):
     PTFHOST_SETUP_FAILED = "PTFHOST_SETUP_FAILED"
 
 
+def get_upgrade_path_result_key(node_name):
+    """Build the per-test cache key for the upgrade-path error classification.
+
+    Keying by test name ensures one test's classification can neither overwrite
+    nor clear another's before the session-level CustomMsg emission (which only
+    happens on the last collected test's teardown). Dots and path separators are
+    replaced because '.' is the CustomMsg nesting delimiter and the key is used
+    as a cache file name.
+    """
+    safe_name = re.sub(r"[./\\]", "_", node_name)
+    return "upgrade_path_result.{}".format(safe_name)
+
+
 def set_upgrade_path_error_result_custom_msg(request, error_type: ErrorType) -> None:
     """Write upgrade-path error classification under CustomMsg.upgrade_path_result.
+
+    The classification is keyed per test, and the first specific (non-UNKNOWN)
+    classification recorded for the current test wins: outer, coarser handlers
+    (e.g. RELOADTEST_VERIFICATION, MULTIHOP_RELOADTEST_EXCEPTION, post-reboot
+    verification in finally blocks) act as fallbacks and do not replace a more
+    specific label such as BOOT_INTO_BASE_IMAGE_FAILED or
+    INSTALL_TARGET_IMAGE_FAILED.
 
     NOTE: Gating on upgrade-path options from here is not ideal as it is a form of
     bidirectional coupling. Ideally advanced-reboot would not know anything about
@@ -58,7 +79,13 @@ def set_upgrade_path_error_result_custom_msg(request, error_type: ErrorType) -> 
     if not (request.config.getoption("base_image_list", default=None)
             or request.config.getoption("multi_hop_upgrade_path", default=None)):
         return
-    add_custom_msg(request, "upgrade_path_result", {"error_type": error_type.value})
+    key = get_upgrade_path_result_key(request.node.name)
+    existing = request.config.cache.get("{}.{}".format(CUSTOM_MSG_PREFIX, key), None)
+    if (isinstance(existing, dict)
+            and existing.get("error_type") not in (None, ErrorType.UNKNOWN.value)):
+        # Preserve the first specific classification for the current test.
+        return
+    add_custom_msg(request, key, {"error_type": error_type.value})
 
 
 # Globals

@@ -62,7 +62,9 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         try:
             boot_into_base_image(duthost, localhost, base_image, tbinfo)
             logger.info("Base image setup complete")
-        except Exception:
+        # pytest.fail.Exception derives from BaseException; boot health checks
+        # use pytest_assert/pytest.fail and would otherwise escape unclassified.
+        except (Exception, pytest.fail.Exception):
             set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
             raise
 
@@ -74,7 +76,7 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         try:
             install_sonic(duthost, to_image, tbinfo)
             logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
-        except Exception:
+        except (Exception, pytest.fail.Exception):
             set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
             raise
 
@@ -129,7 +131,9 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         try:
             boot_into_base_image(duthost, localhost, base_image, tbinfo)
             logger.info("Base image setup complete")
-        except Exception:
+        # pytest.fail.Exception derives from BaseException; boot health checks
+        # use pytest_assert/pytest.fail and would otherwise escape unclassified.
+        except (Exception, pytest.fail.Exception):
             set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
             raise
 
@@ -141,7 +145,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         try:
             install_sonic(duthost, to_image, tbinfo)
             logger.info("Finished setup for hop {} image {}".format(hop_index, to_image))
-        except Exception:
+        except (Exception, pytest.fail.Exception):
             set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
             raise
 

@@ -56,14 +56,16 @@ def setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo
             cleanup_prev_images(duthost)
             # Install base image
             boot_into_base_image(duthost, localhost, from_image, tbinfo)
-    except Exception:
+    # pytest.fail.Exception derives from BaseException, so catch it explicitly:
+    # boot health checks use pytest_assert/pytest.fail and would otherwise escape.
+    except (Exception, pytest.fail.Exception):
         set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
         raise
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
     try:
         install_sonic(duthost, to_image, tbinfo)
-    except Exception:
+    except (Exception, pytest.fail.Exception):
         set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
         raise
 
