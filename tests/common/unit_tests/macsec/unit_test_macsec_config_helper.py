@@ -632,6 +632,34 @@ def test_csonic_service_snapshot_aborts_on_post_query_failure():
         NAMESPACE["_csonic_macsec_service_state"](host)
 
 
+@pytest.mark.parametrize(
+    "status,config,expected_error",
+    [
+        (
+            {"rc": 124, "stdout": "", "stderr": "status timed out"},
+            {"rc": 1, "stdout": "", "stderr": ""},
+            "Failed to snapshot cSONiC Supervisor state",
+        ),
+        (
+            {"rc": 0, "stdout": "macsecmgrd RUNNING", "stderr": ""},
+            {"rc": 124, "stdout": "", "stderr": "config query timed out"},
+            "Failed to snapshot cSONiC Supervisor config",
+        ),
+    ],
+)
+def test_csonic_service_snapshot_rejects_unknown_supervisor_state(
+        status, config, expected_error):
+    host = CsonicShellHost({
+        "supervisorctl status macsecmgrd": status,
+        "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG): config,
+        'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state': {
+            "rc": 0, "stdout": "pass", "stderr": ""},
+    })
+
+    with pytest.raises(AssertionError, match=expected_error):
+        NAMESPACE["_csonic_macsec_service_state"](host)
+
+
 def test_csonic_service_lifecycle_provisions_with_long_timeout():
     host = CsonicShellHost()
     initial = {"state": "MISSING", "config_exists": False, "post_state": None}
