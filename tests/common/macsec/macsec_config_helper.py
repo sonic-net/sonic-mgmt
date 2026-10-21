@@ -1,3 +1,4 @@
+import json
 import logging
 import secrets
 import shlex
@@ -163,7 +164,7 @@ def _macsec_profile_snapshot(host, profile_name):
                   if _host_is_multi_asic(host) else [None])
     entries = []
     for namespace in namespaces:
-        command = ["sonic-db-cli"]
+        command = ["sonic-db-cli", "-j"]
         if namespace is not None:
             command.extend(["-n", namespace])
         command.extend([
@@ -172,13 +173,21 @@ def _macsec_profile_snapshot(host, profile_name):
         ])
         output = _command_stdout(
             host, " ".join(shlex.quote(part) for part in command))
-        lines = output.splitlines()
-        if len(lines) % 2:
+        try:
+            fields = json.loads(output)
+        except (TypeError, ValueError) as error:
             raise AssertionError(
                 "Malformed MACsec profile snapshot on {}: namespace={}, "
-                "lines={}".format(
-                    getattr(host, "hostname", str(host)), namespace, lines))
-        fields = dict(zip(lines[0::2], lines[1::2])) if lines else None
+                "output={!r}, error={}".format(
+                    getattr(host, "hostname", str(host)), namespace,
+                    output, error))
+        if not isinstance(fields, Mapping):
+            raise AssertionError(
+                "Malformed MACsec profile snapshot on {}: namespace={}, "
+                "expected JSON object, got {!r}".format(
+                    getattr(host, "hostname", str(host)), namespace,
+                    fields))
+        fields = dict(fields) if fields else None
         entries.append({"namespace": namespace, "fields": fields})
     return {"runtime": "sonic", "entries": entries}
 
@@ -429,7 +438,16 @@ test -x /sbin/wpa_cli
 /sbin/wpa_supplicant -h 2>&1 | grep -q \
     'macsec_sonic = MACsec Ethernet driver for SONiC'
 printf 'eapol_version=3\\nap_scan=0\\nfast_reauth=1\\n' | \
-    cmp -s - /etc/wpa_supplicant.conf"""
+    cmp -s - /etc/wpa_supplicant.conf
+cleanup_macsec_probe() {
+    ip link del sm_macsec_test 2>/dev/null || true
+    ip link del sm_macsec_base 2>/dev/null || true
+}
+trap cleanup_macsec_probe EXIT
+cleanup_macsec_probe
+ip link add sm_macsec_base type dummy
+ip link add link sm_macsec_base name sm_macsec_test type macsec
+ip -d link show sm_macsec_test | grep -q 'macsec'"""
     result = host.shell(
         provision, module_ignore_errors=True, timeout=300)
     if not _command_succeeded(result):

@@ -1,6 +1,7 @@
 """Focused unit tests for MACsec service readiness across neighbor runtimes."""
 
 import ast
+import json
 import shlex
 import subprocess
 from collections import UserDict
@@ -77,6 +78,7 @@ NODES = [
 NAMESPACE = {
     "CsonicHost": FakeCsonicHost,
     "EosHost": FakeEosHost,
+    "json": json,
     "Mapping": Mapping,
     "shlex": shlex,
     "logger": MagicMock(),
@@ -167,7 +169,7 @@ def test_csonic_state_snapshots_are_required_and_preserve_bindings():
     host = CsonicShellHost()
     host.command = MagicMock(side_effect=[
         {"rc": 0, "stdout": "128_SCI\n"},
-        {"rc": 0, "stdout": "priority\n64\n"},
+        {"rc": 0, "stdout": '{"priority": "64"}'},
         {"rc": 1, "stdout": "", "stderr": "redis unavailable"},
     ])
     NAMESPACE["getns_prefix"] = MagicMock(return_value="")
@@ -225,7 +227,7 @@ def test_eos_profile_snapshot_restores_original_lines_exactly():
 def test_csonic_profile_snapshot_restores_original_fields_exactly():
     host = CsonicShellHost()
     host.command = MagicMock(side_effect=[
-        {"rc": 0, "stdout": "priority\n64\npolicy\nsecurity\n"},
+        {"rc": 0, "stdout": '{"priority": "64", "policy": "security"}'},
         {"rc": 0, "stdout": "1"},
         {"rc": 0, "stdout": "2"},
     ])
@@ -242,7 +244,7 @@ def test_csonic_profile_snapshot_restores_original_fields_exactly():
     }
     commands = [item.args[0] for item in host.command.call_args_list]
     assert commands[0] == (
-        "sonic-db-cli CONFIG_DB HGETALL 'MACSEC_PROFILE|128_SCI'")
+        "sonic-db-cli -j CONFIG_DB HGETALL 'MACSEC_PROFILE|128_SCI'")
     assert commands[1] == (
         "sonic-db-cli CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'")
     assert commands[2] == (
@@ -255,8 +257,8 @@ def test_multi_asic_profile_snapshot_preserves_each_namespace():
     host.is_multi_asic = True
     host.get_asic_namespace_list = MagicMock(return_value=["asic0", "asic1"])
     host.command = MagicMock(side_effect=[
-        {"rc": 0, "stdout": "priority\n64\n"},
-        {"rc": 0, "stdout": ""},
+        {"rc": 0, "stdout": '{"priority": "64"}'},
+        {"rc": 0, "stdout": "{}"},
         {"rc": 0, "stdout": "1"},
         {"rc": 0, "stdout": "2"},
         {"rc": 0, "stdout": "1"},
@@ -275,6 +277,15 @@ def test_multi_asic_profile_snapshot_preserves_each_namespace():
         "sonic-db-cli -n asic0 CONFIG_DB HSET 'MACSEC_PROFILE|128_SCI' priority 64",
         "sonic-db-cli -n asic1 CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'",
     ]
+
+
+@pytest.mark.parametrize("output", ["", "[]", "not-json"])
+def test_csonic_profile_snapshot_rejects_malformed_json(output):
+    host = CsonicShellHost()
+    host.command = MagicMock(return_value={"rc": 0, "stdout": output})
+
+    with pytest.raises(AssertionError, match="Malformed MACsec profile snapshot"):
+        _macsec_profile_snapshot(host, "128_SCI")
 
 
 def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
@@ -774,6 +785,8 @@ def test_csonic_service_lifecycle_provisions_with_long_timeout():
     assert "apt-get" not in provision[0]
     assert "macsec_sonic = MACsec Ethernet driver for SONiC" in provision[0]
     assert "/etc/wpa_supplicant.conf" in provision[0]
+    assert "ip link add link sm_macsec_base name sm_macsec_test type macsec" in provision[0]
+    assert "trap cleanup_macsec_probe EXIT" in provision[0]
     assert provision[1] == {"module_ignore_errors": True, "timeout": 300}
     assert any('HSET "FIPS_MACSEC_POST_TABLE|sai" post_state disabled' in command
                for command, _ in host.shell_calls)
