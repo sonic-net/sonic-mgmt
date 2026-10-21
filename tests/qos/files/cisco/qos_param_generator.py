@@ -47,17 +47,10 @@ class QosParamCisco(object):
     # buffer), not the full buffer, so the queue watermark test uses this cell/packet size.
     # Its margin comes from the VOQ threshold quantization (see hbm_voq_wmk_margin).
     HBM_Q_WMK_AVG_CELL_BYTES = 6144
-    # gb max pause/drop is scaled down by ~7.48% to cover the SQ statistical accounting
-    # inaccuracy, keeping the SQ counter from exceeding the SMS queue depth.
     GB_SQ_ACCOUNTING_FRACTION = 0.0748125
     # Packets trimmed from the HBM egress-memory floor to cover the SQ statistical-accounting
     # inaccuracy on the backplane VOQ.
     HBM_EGR_MEM_SQ_ACCOUNTING_PKTS = 15
-    # Experimental minimum extra backplane headroom bytes occupied while the peer reacts to
-    # the PFC pause. This is the floor of headroom usage added on top of the backplane PFC
-    # packets to form the egress-memory floor, so the source queue does not start filling
-    # before the pipe is full. Converted to packets via the packet size.
-    EGR_MEM_HEADROOM_MIN_FILL_BYTES = 40768
     # Ethernet inter-frame gap added per packet on the wire.
     ETHERNET_IFG_BYTES = 20
     # On cross-asic (topo-t2) paths the backplane port on the ingress ASIC is not deterministic:
@@ -709,11 +702,7 @@ class QosParamCisco(object):
             # trim a fixed count for the SQ statistical-accounting inaccuracy.
             egr_mem = egress_pfc_pkts + fabric_pfc_pkts - self.HBM_EGR_MEM_SQ_ACCOUNTING_PKTS
         else:
-            # Minimum headroom usage (experimental); convert this floor to packets via the egress
-            # fill packet size and add it to the backplane PFC packets to get the egress-memory floor.
-            headroom_pkts = self.EGR_MEM_HEADROOM_MIN_FILL_BYTES // (
-                self.preferred_packet_size + self.ETHERNET_IFG_BYTES)
-            egr_mem = egress_pfc_pkts + fabric_pfc_pkts + headroom_pkts
+            egr_mem = egress_pfc_pkts + fabric_pfc_pkts
         self.write_params("pkts_num_egr_mem", egr_mem)
 
     def __define_pg_shared_watermark(self):

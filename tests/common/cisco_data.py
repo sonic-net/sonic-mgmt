@@ -190,6 +190,10 @@ def get_voq_eviction_threshold_cisco(duthost, interface, traffic_class, asic_ind
         Returns:
             int: The eviction threshold in bytes.
     """
+    if asic_index is None:
+        # Derive the ASIC from the port; namespace is set only on multi-asic platforms.
+        asic = duthost.get_port_asic_instance(interface)
+        asic_index = asic.asic_index if asic.get_asic_namespace() else None
     namespace_option = ""
     if asic_index is not None:
         namespace_option = " -n asic{}".format(asic_index)

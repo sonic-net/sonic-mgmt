@@ -5856,8 +5856,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num -= diff
                     expected_wm -= diff * cell_occupancy
                     fragment = total_shared - expected_wm
-                # cisco-8000 already primed 1 pkt into the queue via fill_leakout_plus_one,
-                # so send one fewer packet on the first iteration while keeping expected_wm.
                 pkts_num_to_send = pkts_num
                 if first_iteration and 'cisco-8000' in asic_type:
                     pkts_num_to_send = pkts_num - 1
