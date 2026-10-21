@@ -21,7 +21,10 @@ def test_userspace_ovs_image_bakes_macsec_runtime_dependencies():
         contents = dockerfile.read()
 
     assert "openvswitch-switch" in contents
-    assert "wpasupplicant" in contents
+    assert "CONFIG_DRIVER_MACSEC_SONIC=y" in contents
+    assert "macsec_sonic" in contents
+    assert "/etc/wpa_supplicant.conf" in contents
+    assert "apt-get install -y --no-install-recommends \\\n        wpasupplicant" not in contents
 
 
 def test_missing_addresses_compares_canonical_exact_ips():

@@ -678,7 +678,9 @@ def test_csonic_service_lifecycle_provisions_with_long_timeout():
 
     assert _start_csonic_macsec_service(host, initial)
     provision = host.shell_calls[0]
-    assert "apt-get install -y --no-install-recommends wpasupplicant" in provision[0]
+    assert "apt-get" not in provision[0]
+    assert "macsec_sonic = MACsec Ethernet driver for SONiC" in provision[0]
+    assert "/etc/wpa_supplicant.conf" in provision[0]
     assert provision[1] == {"module_ignore_errors": True, "timeout": 300}
     assert any('HSET "FIPS_MACSEC_POST_TABLE|sai" post_state disabled' in command
                for command, _ in host.shell_calls)
