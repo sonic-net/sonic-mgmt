@@ -123,6 +123,35 @@ def route_docker_exec(cmd, **kwargs):
     return {"rc": 1, "stdout": "", "stderr": "unexpected cmd"}
 
 
+# --- MACsec host contract -------------------------------------------------
+
+class TestMacsecHostContract:
+    def test_single_asic_vs_facts_are_exposed(self):
+        host = make_host()
+
+        assert host.is_multi_asic is False
+        assert host.facts == {
+            "asic_type": "vs",
+            "platform_asic": "vs",
+            "num_asic": 1,
+        }
+
+    def test_get_dut_iface_mac_reads_container_interface(self):
+        host = make_host()
+        with patch.object(
+                host, "_docker_exec",
+                return_value=docker_ok("52:54:00:12:34:56\n")) as execute:
+            assert host.get_dut_iface_mac("Ethernet1") == "52:54:00:12:34:56"
+        execute.assert_called_once_with("cat /sys/class/net/Ethernet1/address")
+
+    def test_get_dut_iface_mac_fails_closed(self):
+        host = make_host()
+        with patch.object(
+                host, "_docker_exec",
+                return_value={"rc": 1, "stdout": "", "stderr": "missing"}):
+            assert host.get_dut_iface_mac("Ethernet1") is None
+
+
 # --- iface_macsec_ok ------------------------------------------------------
 
 class TestIfaceMacsecOk:
