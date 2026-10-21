@@ -49,6 +49,20 @@ imports Linux-only testbed utilities.
 - `pytest`
 - `unittest.mock` (built into Python standard library)
 
+## PTF daily TACACS provisioning regression
+
+`helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and
+evaluates its conditions for Docker networking enabled, disabled, and unset.
+It covers both `add-topo` and `renumber-topo`, preserves the PTF-only scope and
+MAC-change guard, and checks delegation to the PTF management address.
+These isolated checks require `PyYAML` and `Jinja2`; they do not start a daemon
+or replace a live testbed run.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_ptf_tacacs_provisioning.py -q
+```
+
 ## Host-failure lifecycle regressions
 
 Run the classifier unit tests and the real pytest lifecycle regressions together:

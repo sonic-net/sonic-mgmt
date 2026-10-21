@@ -5227,6 +5227,14 @@ smartswitch:
     conditions:
       - *lossyTopos
 
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    conditions_logical_operator: or
+    reason: "test_data_control_mid_plane_sync: Skipping: Manual link shut/noshut is not supported for eth0-midplane for Cisco smartswitch platform"
+    conditions:
+      - "hwsku.startswith('Pensando')"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 #######################################
 #####         snappi_tests        #####
 #######################################
