@@ -11,11 +11,16 @@ logger = logging.getLogger(__name__)
 
 def get_chassis_db_address_from_dut(host):
     """Return chassis DB / supervisor midplane IP configured on the DUT."""
-    path = "/etc/sonic/chassisdb_address"
-    result = host.command("grep chassis_db_address {}".format(path), module_ignore_errors=True)
-    stdout = result.get("stdout", "").strip()
-    if stdout and "=" in stdout:
-        return stdout.split("=", 1)[1].strip()
+    paths = [
+        "/etc/sonic/chassisdb_address",
+        "/usr/share/sonic/device/{}/chassisdb.conf".format(host.facts["platform"]),
+    ]
+    for path in paths:
+        result = host.command("grep -m1 '^chassis_db_address=' {}".format(path),
+                              module_ignore_errors=True)
+        stdout = result.get("stdout", "").strip()
+        if stdout and "=" in stdout:
+            return stdout.split("=", 1)[1].strip()
 
     raise RuntimeError("chassis_db_address not found on {}".format(host.hostname))
 
