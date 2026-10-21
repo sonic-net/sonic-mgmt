@@ -2,11 +2,16 @@ import logging
 
 import pytest
 import re
-import shlex
 
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features, wait_tcp_connection, wait_until
+from tests.common.utilities import (
+    get_mgmt_ipv6,
+    check_output,
+    run_show_features,
+    wait_tcp_connection,
+    wait_until,
+)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, tacacs_v6_context
@@ -234,24 +239,28 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
 
     def verify_telemetry_output_ipv6_only(dut):
         env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
-        default_user_auth = dut.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth'
-                                      % (env.gnmi_config_table), module_ignore_errors=False)['stdout']
+        user_auth_cmd = 'sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
+        default_user_auth = dut.shell(user_auth_cmd, module_ignore_errors=False)['stdout']
+
         try:
             with setup_streaming_telemetry_context(True, dut, localhost, ptfhost, gnxi_path):
-                # The context may have created the GNMI configuration and changed its port.
+                # Refresh the environment after the context has created any missing
+                # GNMI configuration so that connection parameters are current.
                 env = GNMIEnvironment(dut, GNMIEnvironment.TELEMETRY_MODE)
-                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none' % (env.gnmi_config_table),
-                          module_ignore_errors=False)
+                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
+                          % (env.gnmi_config_table), module_ignore_errors=False)
                 dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
                 dut.service(name=env.gnmi_container, state="restarted")
                 pytest_assert(
                     wait_until(100, 10, 0, dut.is_service_fully_started, env.gnmi_container),
                     "%s not started." % (env.gnmi_container)
                 )
+
                 dut_ip = get_mgmt_ipv6(dut)
                 pytest_assert(
                     wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60),
-                    "Failed to establish TCP connection to %s:%s" % (dut_ip, env.gnmi_port)
+                    "Failed to establish TCP connection to %s:%s"
+                    % (dut_ip, env.gnmi_port)
                 )
                 port = "Ethernet0"
                 if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
@@ -266,7 +275,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
         finally:
             if default_user_auth:
                 dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth %s'
-                          % (env.gnmi_config_table, shlex.quote(default_user_auth)), module_ignore_errors=False)
+                          % (env.gnmi_config_table, default_user_auth), module_ignore_errors=False)
             else:
                 dut.shell('sonic-db-cli CONFIG_DB HDEL "%s|gnmi" user_auth'
                           % (env.gnmi_config_table), module_ignore_errors=False)
