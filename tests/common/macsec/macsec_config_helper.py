@@ -346,14 +346,12 @@ def _start_csonic_macsec_service(host, initial=None):
     """Provision dependencies and start the daemon with an ownership token."""
     initial = initial or _csonic_macsec_service_state(host)
     provision = """set -e
-if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y --no-install-recommends wpasupplicant
-    rm -rf /var/lib/apt/lists/*
-fi
 test -x /sbin/wpa_supplicant
-test -x /sbin/wpa_cli"""
+test -x /sbin/wpa_cli
+/sbin/wpa_supplicant -h 2>&1 | grep -q \
+    'macsec_sonic = MACsec Ethernet driver for SONiC'
+printf 'eapol_version=3\\nap_scan=0\\nfast_reauth=1\\n' | \
+    cmp -s - /etc/wpa_supplicant.conf"""
     result = host.shell(
         provision, module_ignore_errors=True, timeout=300)
     if not _command_succeeded(result):
