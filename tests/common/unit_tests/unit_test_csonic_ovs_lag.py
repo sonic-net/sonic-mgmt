@@ -11,6 +11,8 @@ _MODULE_PATH = os.path.join(
 _DOCKERFILE_PATH = os.path.join(
     _REPO_ROOT, "ansible", "roles", "vm_set", "files",
     "csonic-userspace-ovs.Dockerfile")
+_CSONIC_TASK_PATH = os.path.join(
+    _REPO_ROOT, "ansible", "roles", "sonic", "tasks", "csonic.yml")
 _SPEC = importlib.util.spec_from_file_location("csonic_ovs_lag", _MODULE_PATH)
 csonic_ovs_lag = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(csonic_ovs_lag)
@@ -25,6 +27,16 @@ def test_userspace_ovs_image_bakes_macsec_runtime_dependencies():
     assert "macsec_sonic" in contents
     assert "/etc/wpa_supplicant.conf" in contents
     assert "apt-get install -y --no-install-recommends \\\n        wpasupplicant" not in contents
+
+
+def test_userspace_ovs_provisions_host_macsec_kernel_module():
+    with open(_CSONIC_TASK_PATH, encoding="utf-8") as task_file:
+        contents = task_file.read()
+
+    assert "command: modprobe macsec" in contents
+    assert "linux-modules-extra-{{ csonic_macsec_host_kernel.stdout | trim }}" in contents
+    assert "name: macsec" in contents
+    assert contents.count("csonic_lag_backend == 'userspace_ovs'") >= 4
 
 
 def test_missing_addresses_compares_canonical_exact_ips():
