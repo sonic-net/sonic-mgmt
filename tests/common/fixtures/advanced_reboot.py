@@ -7,8 +7,11 @@ import logging
 import pytest
 import time
 import os
+import shlex
+import tempfile
 import traceback
 import six
+from urllib.parse import urlsplit, urlunsplit
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -23,6 +26,8 @@ from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
+from tests.common.helpers.service_warm_restart import (
+    bgp_traffic_endpoints, docker_archive_image_info, docker_image_fingerprint)
 
 logger = logging.getLogger(__name__)
 
@@ -68,17 +73,18 @@ class AdvancedReboot:
             # 5s timeout is believed to be generous enough for the KVM device,
             # however more test results are needed to prove this.
 
-            cmd_format = "sed -i 's/{}/{}/' {}"
-            warmboot_script_path = duthost.shell('which warm-reboot')['stdout']
-            original_line = 'timeout 1s docker exec $container echo "success"'
-            replaced_line = 'timeout 5s docker exec $container echo "success"'
-            replace_cmd = cmd_format.format(original_line, replaced_line, warmboot_script_path)
-            logger.info("Increase docker exec timeout from 1s to 5s in {}".format(warmboot_script_path))
-            duthost.shell(replace_cmd)
+            if not kwargs.get('bgp_service_restart', False):
+                cmd_format = "sed -i 's/{}/{}/' {}"
+                warmboot_script_path = duthost.shell('which warm-reboot')['stdout']
+                original_line = 'timeout 1s docker exec $container echo "success"'
+                replaced_line = 'timeout 5s docker exec $container echo "success"'
+                replace_cmd = cmd_format.format(original_line, replaced_line, warmboot_script_path)
+                logger.info("Increase docker exec timeout from 1s to 5s in {}".format(warmboot_script_path))
+                duthost.shell(replace_cmd)
 
             self.kvmTest = True
             device_marks = [arg for mark in request.node.iter_markers(name='device_type') for arg in mark.args]
-            if 'vs' not in device_marks:
+            if 'vs' not in device_marks and not kwargs.get('bgp_service_restart', False):
                 pytest.skip('Testcase not supported for kvm')
         else:
             self.kvmTest = False
@@ -99,6 +105,7 @@ class AdvancedReboot:
                                                                                       in kwargs else None
         self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
         self.__dict__.update(kwargs)
+        self.bgpServiceRestart = kwargs.get('bgp_service_restart', False)
         self.__extractTestParam()
         self.rebootData = {}
         self.hostMaxLen = 0
@@ -143,7 +150,9 @@ class AdvancedReboot:
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
-            if self.kvmTest:
+            if self.bgpServiceRestart:
+                self.rebootLimit = 0
+            elif self.kvmTest:
                 self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
@@ -205,8 +214,18 @@ class AdvancedReboot:
                 self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_password']
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
-        self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
-        self.vlanMaxCnt = len(list(self.mgFacts['minigraph_vlans'].values())[0]['members']) - 1
+        self.routedTraffic = self.bgpServiceRestart and not self.mgFacts['minigraph_vlan_interfaces']
+        if self.bgpServiceRestart:
+            self.lagMemberCnt = max(
+                (len(pc['members']) for pc in self.mgFacts['minigraph_portchannels'].values()), default=0)
+            self.vlanMaxCnt = max(
+                (len(vlan['members']) for vlan in self.mgFacts['minigraph_vlans'].values()), default=1) - 1
+            routes = json.loads(self.duthost.command("vtysh -c 'show ip route bgp json'")['stdout'])
+            self.rebootData['bgp_traffic_endpoints'] = bgp_traffic_endpoints(
+                self.mgFacts, routes, routed=self.routedTraffic)
+        else:
+            self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
+            self.vlanMaxCnt = len(list(self.mgFacts['minigraph_vlans'].values())[0]['members']) - 1
 
         self.rebootData['dut_hostname'] = self.mgFacts['minigraph_mgmt_interface']['addr']
         self.rebootData['dut_mac'] = self.duthost.facts['router_mac']
@@ -222,7 +241,7 @@ class AdvancedReboot:
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
-        vlan_interfaces = get_vlan_interface_list(self.duthost)
+        vlan_interfaces = [] if self.routedTraffic else get_vlan_interface_list(self.duthost)
         for vlan_if_name in vlan_interfaces:
             vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
             vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
@@ -233,12 +252,15 @@ class AdvancedReboot:
         self.rebootData['dut_password'] = self.creds['sonicadmin_password']
 
         # Change network of the dest IP addresses (used by VM servers) to be different from Vlan network
-        prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
-        testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
-            (1 << (32 - prefixLen))
-        self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa: F821
-        )
+        if self.bgpServiceRestart:
+            self.rebootData['default_ip_range'] = self.rebootData['bgp_traffic_endpoints'][0]['prefix']
+        else:
+            prefixLen = self.mgFacts['minigraph_vlan_interfaces'][0]['prefixlen'] - 3
+            testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
+                (1 << (32 - prefixLen))
+            self.rebootData['default_ip_range'] = str(
+                ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network
+            )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
                 self.rebootData['lo_v6_prefix'] = str(ipaddress.ip_interface(intf['addr'] + '/64').network)
@@ -389,35 +411,84 @@ class AdvancedReboot:
         self.duthost.shell('rm -f {}'.format(tempfile))
 
     def __handleDockerImage(self):
-        """Download and install docker image to DUT
-        """
-        if self.new_docker_image is None:
-            return
-
+        """Stage a validated upgrade archive; absence of a URL means restart-only."""
         for service_name in self.service_list:
-            data = {}
-            docker_image_name = self.duthost.shell('docker ps | grep {} | awk \'{{print $2}}\''
-                                                   .format(service_name))['stdout']
-            cmd = r'docker images {} --format {{{{.ID}}}}'.format(docker_image_name)
-            data['image_id'] = self.duthost.shell(cmd)['stdout']
-            data['image_name'], data['image_tag'] = docker_image_name.split(':')
-
-            local_image_path = '/tmp/{}.gz'.format(data['image_name'])
-            logger.info('Downloading new docker image for {} to {}'.format(service_name, local_image_path))
-            output = self.localhost.shell('curl --silent --write-out "%{{http_code}}" {0}/{1}.gz --output {2}'.format(
-                self.new_docker_image, data['image_name'], local_image_path), module_ignore_errors=True)['stdout']
-            if '404' not in output and os.path.exists(local_image_path):
-                temp_file = self.duthost.shell('mktemp')['stdout']
-                self.duthost.copy(src=local_image_path, dest=temp_file)
-                self.localhost.shell('rm -f /tmp/{}.gz'.format(data['image_name']))
-                data['image_path_on_dut'] = temp_file
-                logger.info('Successfully downloaded docker image, will perform in-service upgrade')
-            else:
-                data['image_path_on_dut'] = None
-                logger.info('Docker image not found, will perform in-service reboot')
+            container = json.loads(self.duthost.command(
+                'docker inspect {}'.format(shlex.quote(service_name)), verbose=False)['stdout'])[0]
+            image_name, separator, image_tag = container['Config']['Image'].rpartition(':')
+            pytest_assert(separator and image_name and image_tag, "Expected a tagged service image")
+            data = {'image_id': container['Image'], 'image_name': image_name, 'image_tag': image_tag,
+                    'image_path_on_dut': None, 'mode': 'upgrade' if self.new_docker_image is not None else 'restart'}
             self.service_data[service_name] = data
+            image = json.loads(self.duthost.command(
+                'docker image inspect {}'.format(shlex.quote(data['image_id'])), verbose=False)['stdout'])[0]
+            data['image_fingerprint'] = docker_image_fingerprint(image)
+            if self.bgpServiceRestart:
+                self.__prepareBgpServiceData(data)
+            if self.new_docker_image is None:
+                continue
+            pytest_assert(self.new_docker_image.strip(), "--new_docker_image must not be empty")
+            url = self.new_docker_image
+            parts = urlsplit(url)
+            pytest_assert(parts.scheme in ('http', 'https') and parts.netloc,
+                          "--new_docker_image must be an HTTP(S) archive or directory URL")
+            if parts.path.endswith(('.gz', '.tar')):
+                pytest_assert(len(self.service_list) == 1,
+                              "A single archive URL requires selecting exactly one service")
+            else:
+                url = urlunsplit(parts._replace(path='{}/{}.gz'.format(parts.path.rstrip('/'), image_name)))
+            with tempfile.TemporaryDirectory(prefix='service-warm-upgrade-') as directory:
+                local_image_path = os.path.join(directory, 'image.tar.gz')
+                self.localhost.get_url(url=url, dest=local_image_path, timeout=300)
+                target = docker_archive_image_info(local_image_path, image_name)
+                data['target_image_fingerprint'] = target['fingerprint']
+                data['target_config_digest'] = target['config_digest']
+                pytest_assert(data['target_image_fingerprint'] != data['image_fingerprint'],
+                              "Upgrade archive contains the running image; omit --new_docker_image for a restart")
+                data['image_path_on_dut'] = self.duthost.tempfile(
+                    state='file', prefix='service-warm-upgrade-', suffix='.gz')['path']
+                self.duthost.copy(src=local_image_path, dest=data['image_path_on_dut'])
 
         logger.info('service data = {}'.format(json.dumps(self.service_data, indent=2)))
+
+    def __prepareBgpServiceData(self, data):
+        neighbors = json.loads(self.duthost.command("vtysh -c 'show bgp neighbors json'")['stdout'])
+        expected = {str(ipaddress.ip_address(peer['addr'])) for peer in self.mgFacts['minigraph_bgp']}
+        pytest_assert(expected, "BGP warm restart requires configured BGP neighbors")
+        for address in expected:
+            peer = neighbors.get(address, {})
+            gr = peer.get('gracefulRestartInfo', {})
+            pytest_assert(peer.get('bgpState') == 'Established' and
+                          gr.get('localGrMode', '').startswith('Restart') and
+                          gr.get('remoteGrMode') in ('Helper', 'Restart'),
+                          "Neighbor {} must have established, negotiated GR before restarting BGP".format(address))
+        running_config = self.duthost.command("vtysh -c 'show running-config'")['stdout']
+        commands = {line.strip() for line in running_config.splitlines()}
+        pytest_assert('bgp graceful-restart preserve-fw-state' in commands,
+                      "Configure BGP preserve-fw-state on the running image before this test")
+        data['bgp_neighbors'] = sorted(expected)
+        data['peer_addresses'] = {}
+        for peer in self.mgFacts['minigraph_bgp']:
+            management_address = self.mgFacts['minigraph_devices'][peer['name']]['mgmt_addr']
+            family = 'ipv4' if ipaddress.ip_address(peer['addr']).version == 4 else 'ipv6'
+            data['peer_addresses'].setdefault(management_address, {})[family] = peer['peer_addr']
+        pytest_assert(set(data['peer_addresses']) == set(self.rebootData['arista_vms']),
+                      "Every BGP peer must have a PTF-accessible neighbor monitor")
+        data['warm_restart_enable'] = self.duthost.command(
+            "sonic-db-cli STATE_DB HGET 'WARM_RESTART_ENABLE_TABLE|bgp' enable")['stdout'].strip()
+        restore_count = self.duthost.command(
+            "sonic-db-cli STATE_DB HGET 'WARM_RESTART_TABLE|bgp' restore_count")['stdout'].strip()
+        data['restore_count'] = int(restore_count) if restore_count else 0
+        self.bgpRouteSnapshot = json.loads(self.duthost.command(
+            "sonic-db-dump -n APPL_DB -k 'ROUTE_TABLE:*' -y")['stdout'])
+        pytest_assert(self.bgpRouteSnapshot, "APPL_DB must contain routes before restarting BGP")
+        for interface in self.mgFacts['minigraph_lo_interfaces']:
+            if ipaddress.ip_address(interface['addr']).version == 6:
+                route = json.loads(self.duthost.command(
+                    "vtysh -c 'show bgp ipv6 unicast {} json'".format(interface['addr']))['stdout'])
+                pytest_assert(route.get('prefix'), "IPv6 loopback must be advertised by BGP before the test")
+                self.rebootData['lo_v6_prefix'] = route['prefix']
+                break
 
     def __setupTestbed(self):
         """
@@ -426,6 +497,10 @@ class AdvancedReboot:
         self.__runScript(['remove_ip.sh'], self.ptfhost)
 
         self.__prepareTestbedSshKeys()
+
+        if self.rebootType == 'service-warm-restart':
+            self.ptfhost.copy(
+                src=os.path.join(os.path.dirname(__file__), '../helpers/service_warm_restart.py'), dest='ptftests/')
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
@@ -465,7 +540,7 @@ class AdvancedReboot:
         if not os.path.exists(log_dir_before_reboot):
             os.makedirs(log_dir_before_reboot)
 
-        if "warm" in self.rebootType:
+        if "warm-reboot" in self.rebootType:
             # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
             reboot_file_prefix = "warm-reboot"
         else:
@@ -481,7 +556,7 @@ class AdvancedReboot:
         else:
             rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
             rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
-            capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
+            capturePcap = '/tmp/capture_{0}.pcapng'.format(rebootOper)
             filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
             syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
             sairedisRec = '/tmp/sairedis.rec.{0}'.format(rebootOper)
@@ -690,7 +765,8 @@ class AdvancedReboot:
                                      .format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
                 self.acl_manager_checker(test_results[test_case_name])
-                self.__clearArpAndFdbTables()
+                if not self.routedTraffic:
+                    self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
             if 1 < len(self.rebootData['sadList']) != count:
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
@@ -871,6 +947,8 @@ class AdvancedReboot:
             'peer_dev_info': copy.deepcopy(self.mgFacts['minigraph_devices']),
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
+        if self.bgpServiceRestart:
+            testData['bgp_routes'] = self.bgpRouteSnapshot
 
         if "warm-reboot" in self.rebootType:
             event_counters["PORT_READY"] = 0
@@ -951,6 +1029,10 @@ class AdvancedReboot:
             "alt_password": passwords,
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
+            "bgp_service_restart": self.bgpServiceRestart,
+            "routed_traffic": self.routedTraffic,
+            "bgp_traffic_endpoints": self.rebootData.get('bgp_traffic_endpoints'),
+            "bgp_routes_file": self.rebootData.get('bgp_routes_file'),
             "neighbor_type": self.neighborType,
             "kvm_support": True,
             "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
@@ -985,7 +1067,8 @@ class AdvancedReboot:
         else:
             params.update({'logfile_suffix': str(rebootOper)})
 
-        self.__updateAndRestartArpResponder(rebootOper)
+        if not self.routedTraffic:
+            self.__updateAndRestartArpResponder(rebootOper)
 
         if rebootOper is None and self.other_vendor_nos is True:
             logger.info('Run advanced-reboot ReloadTest on the PTF host. TestCase: {}, sub-case: '
@@ -1028,30 +1111,42 @@ class AdvancedReboot:
 
     def disable_service_warmrestart(self):
         for service in self.service_list:
-            self.duthost.shell('sudo config warm_restart disable {}'.format(service))
+            data = self.service_data.get(service, {})
+            if self.bgpServiceRestart:
+                if 'warm_restart_enable' not in data:
+                    continue
+                original = data['warm_restart_enable']
+                if not original:
+                    self.duthost.command("sonic-db-cli STATE_DB HDEL 'WARM_RESTART_ENABLE_TABLE|bgp' enable")
+                    continue
+                action = 'enable' if original == 'true' else 'disable'
+            else:
+                action = 'disable'
+            self.duthost.shell('sudo config warm_restart {} {}'.format(action, service))
 
     def __restorePrevDockerImage(self):
         """Restore previous docker image.
         """
+        restored = False
         for service_name, data in list(self.service_data.items()):
             if data['image_path_on_dut'] is None:
+                continue
+            current = self.duthost.command(
+                "docker inspect --format '{{{{.Image}}}}' {}".format(shlex.quote(service_name)))['stdout'].strip()
+            if current == data['image_id']:
                 continue
 
             #  We don't use sonic-installer rollback-docker CLI here because:
             #  1. it does not remove the docker image which causes the running container still using the old image
             #  2. it runs service restart for some containers which enlarge the test duration
-            self.duthost.shell('rm -f {}'.format(data['image_path_on_dut']))
             logger.info('Restore docker image for {}'.format(service_name))
             self.duthost.shell('service {} stop'.format(service_name))
             self.duthost.shell('docker rm {}'.format(service_name))
-            image_ids = self.duthost.shell(r'docker images {} --format {{{{.ID}}}}'
-                                           .format(data['image_name']))['stdout_lines']
-            for image_id in image_ids:
-                if image_id != data['image_id']:
-                    self.duthost.shell('docker rmi -f {}'.format(image_id))
-                    break
-
             self.duthost.shell('docker tag {} {}:{}'.format(data['image_id'], data['image_name'], data['image_tag']))
+            restored = True
+
+        if not restored:
+            return
 
         rebootDut(
             self.duthost,
@@ -1059,6 +1154,11 @@ class AdvancedReboot:
             reboot_type='cold',
             wait=300
         )
+        for service_name, data in self.service_data.items():
+            current = self.duthost.command(
+                "docker inspect --format '{{{{.Image}}}}' {}".format(shlex.quote(service_name)))['stdout'].strip()
+            pytest_assert(current == data['image_id'],
+                          "Rollback did not restore the original image for {}".format(service_name))
 
     def __checkWarmbootFlag(self, duthost):
         """
@@ -1132,4 +1232,10 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
 
     # Perform clean up
     for s in instances:
-        s.tearDown()
+        try:
+            s.tearDown()
+        finally:
+            if s.rebootType == 'service-warm-restart':
+                for data in s.service_data.values():
+                    if data.get('image_path_on_dut'):
+                        s.duthost.file(path=data['image_path_on_dut'], state='absent')
