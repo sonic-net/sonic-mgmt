@@ -321,14 +321,23 @@ def _csonic_macsec_service_state(host):
     post_state = host.shell(
         'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state',
         module_ignore_errors=True)
+    supervisor_state = _supervisor_macsec_state(status)
+    if supervisor_state == "ERROR":
+        raise AssertionError(
+            "Failed to snapshot cSONiC Supervisor state on {}: {}".format(
+                host.hostname, _command_diagnostic(status)))
+    if not isinstance(config, Mapping) or config.get("rc") not in (0, 1):
+        raise AssertionError(
+            "Failed to snapshot cSONiC Supervisor config on {}: {}".format(
+                host.hostname, _command_diagnostic(config)))
     if not _command_succeeded(post_state):
         raise AssertionError(
             "Failed to snapshot cSONiC POST state on {}: {}".format(
                 host.hostname, _command_diagnostic(post_state)))
     post_value = str(post_state.get("stdout", "")).strip() or None
     return {
-        "state": _supervisor_macsec_state(status),
-        "config_exists": _command_succeeded(config),
+        "state": supervisor_state,
+        "config_exists": config.get("rc") == 0,
         "post_state": post_value,
     }
 
@@ -431,12 +440,16 @@ def _stop_csonic_macsec_service(host):
 
 def _rollback_csonic_macsec_service(host, initial):
     """Undo only service/config/POST changes made by this enable attempt."""
-    current = _csonic_macsec_service_state(host)
+    try:
+        current = _csonic_macsec_service_state(host)
+    except AssertionError as error:
+        logger.error(
+            "Cannot safely snapshot cSONiC MACsec state for rollback on %s: %s",
+            host.hostname, error)
+        return False
     failures = []
-    if current["state"] == "ERROR":
-        failures.append({"supervisor_state": current})
-    elif (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
-          current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
+    if (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
+            current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
         result = host.shell(
             "supervisorctl stop macsecmgrd", module_ignore_errors=True)
         if not _command_succeeded(result):
