@@ -33,7 +33,10 @@ FUNCTION_NAMES = {
     "_csonic_config_db_hdel",
     "_command_stdout",
     "_macsec_port_profile",
+    "_eos_macsec_profile_lines",
+    "_macsec_profile_snapshot",
     "_macsec_profile_exists",
+    "_restore_macsec_profile",
     "_wait_for_macsec_tasks",
     "_macsec_host_key",
     "_macsec_endpoint_key",
@@ -98,7 +101,9 @@ _host_platform_asic = NAMESPACE["_host_platform_asic"]
 _run_required_macsec_command = NAMESPACE["_run_required_macsec_command"]
 _command_stdout = NAMESPACE["_command_stdout"]
 _macsec_port_profile = NAMESPACE["_macsec_port_profile"]
+_macsec_profile_snapshot = NAMESPACE["_macsec_profile_snapshot"]
 _macsec_profile_exists = NAMESPACE["_macsec_profile_exists"]
+_restore_macsec_profile = NAMESPACE["_restore_macsec_profile"]
 _wait_for_macsec_tasks = NAMESPACE["_wait_for_macsec_tasks"]
 _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
@@ -162,7 +167,7 @@ def test_csonic_state_snapshots_are_required_and_preserve_bindings():
     host = CsonicShellHost()
     host.command = MagicMock(side_effect=[
         {"rc": 0, "stdout": "128_SCI\n"},
-        {"rc": 0, "stdout": "1\n"},
+        {"rc": 0, "stdout": "priority\n64\n"},
         {"rc": 1, "stdout": "", "stderr": "redis unavailable"},
     ])
     NAMESPACE["getns_prefix"] = MagicMock(return_value="")
@@ -185,6 +190,90 @@ def test_eos_profile_existence_matches_complete_declaration():
     assert host.eos_command.call_args_list == [
         call(commands=["show running-config section mac security"]),
         call(commands=["show running-config section mac security"]),
+    ]
+
+
+def test_eos_profile_snapshot_restores_original_lines_exactly():
+    host = EosShellHost()
+    host.eos_command = MagicMock(return_value={
+        "stdout": [[
+            "mac security",
+            "   profile 128_SCI",
+            "      cipher aes128-gcm",
+            "      mka key-server priority 64",
+            "   profile 128_SCI_NEW",
+        ]],
+    })
+    host.eos_config = MagicMock()
+
+    snapshot = _macsec_profile_snapshot(host, "128_SCI")
+    _restore_macsec_profile(host, "128_SCI", snapshot)
+
+    assert snapshot == {
+        "runtime": "eos",
+        "lines": ["cipher aes128-gcm", "mka key-server priority 64"],
+    }
+    assert host.eos_config.call_args_list == [
+        call(lines=["no profile 128_SCI"], parents=["mac security"]),
+        call(
+            lines=["cipher aes128-gcm", "mka key-server priority 64"],
+            parents=["mac security", "profile 128_SCI"],
+        ),
+    ]
+
+
+def test_csonic_profile_snapshot_restores_original_fields_exactly():
+    host = CsonicShellHost()
+    host.command = MagicMock(side_effect=[
+        {"rc": 0, "stdout": "priority\n64\npolicy\nsecurity\n"},
+        {"rc": 0, "stdout": "1"},
+        {"rc": 0, "stdout": "2"},
+    ])
+
+    snapshot = _macsec_profile_snapshot(host, "128_SCI")
+    _restore_macsec_profile(host, "128_SCI", snapshot)
+
+    assert snapshot == {
+        "runtime": "sonic",
+        "entries": [{
+            "namespace": None,
+            "fields": {"priority": "64", "policy": "security"},
+        }],
+    }
+    commands = [item.args[0] for item in host.command.call_args_list]
+    assert commands[0] == (
+        "sonic-db-cli CONFIG_DB HGETALL 'MACSEC_PROFILE|128_SCI'")
+    assert commands[1] == (
+        "sonic-db-cli CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'")
+    assert commands[2] == (
+        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|128_SCI' "
+        "priority 64 policy security")
+
+
+def test_multi_asic_profile_snapshot_preserves_each_namespace():
+    host = ShellHost()
+    host.is_multi_asic = True
+    host.get_asic_namespace_list = MagicMock(return_value=["asic0", "asic1"])
+    host.command = MagicMock(side_effect=[
+        {"rc": 0, "stdout": "priority\n64\n"},
+        {"rc": 0, "stdout": ""},
+        {"rc": 0, "stdout": "1"},
+        {"rc": 0, "stdout": "2"},
+        {"rc": 0, "stdout": "1"},
+    ])
+
+    snapshot = _macsec_profile_snapshot(host, "128_SCI")
+    _restore_macsec_profile(host, "128_SCI", snapshot)
+
+    assert snapshot["entries"] == [
+        {"namespace": "asic0", "fields": {"priority": "64"}},
+        {"namespace": "asic1", "fields": None},
+    ]
+    commands = [item.args[0] for item in host.command.call_args_list]
+    assert commands[2:] == [
+        "sonic-db-cli -n asic0 CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'",
+        "sonic-db-cli -n asic0 CONFIG_DB HSET 'MACSEC_PROFILE|128_SCI' priority 64",
+        "sonic-db-cli -n asic1 CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'",
     ]
 
 
@@ -395,7 +484,8 @@ def test_setup_configures_shared_csonic_profile_and_endpoint_once():
     submit = MagicMock(side_effect=lambda *_args, **_kwargs: MagicMock(exitcode=0))
     NAMESPACE["submit_async_task"] = submit
     NAMESPACE["_wait_for_macsec_tasks"] = MagicMock()
-    NAMESPACE["_macsec_profile_exists"] = MagicMock(return_value=False)
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(
+        return_value={"runtime": "sonic", "entries": []})
     NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
     NAMESPACE["wait_until"] = MagicMock(return_value=True)
 
@@ -437,7 +527,8 @@ def test_profile_failure_does_not_touch_existing_port_bindings():
     duthost = ShellHost()
     neighbor = CsonicShellHost()
     links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
-    NAMESPACE["_macsec_profile_exists"] = MagicMock(return_value=False)
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(
+        return_value={"runtime": "sonic", "entries": []})
     NAMESPACE["_macsec_port_profile"] = MagicMock(return_value="128_SCI")
     NAMESPACE["submit_async_task"] = MagicMock(
         return_value=MagicMock(exitcode=1))
@@ -461,11 +552,13 @@ def test_configuration_rollback_restores_only_attempted_bindings():
     NAMESPACE["disable_macsec_port"] = MagicMock(
         side_effect=RuntimeError("port failed"))
     NAMESPACE["enable_macsec_port"] = MagicMock()
-    NAMESPACE["delete_macsec_profile"] = MagicMock(
+    NAMESPACE["_restore_macsec_profile"] = MagicMock(
         side_effect=[RuntimeError("profile failed"), None])
+    first_snapshot = {"runtime": "sonic", "entries": []}
+    second_snapshot = {"runtime": "sonic", "entries": []}
 
     _rollback_macsec_configuration(
-        [first, second],
+        [(first, first_snapshot), (second, second_snapshot)],
         [(first, "Ethernet1", None), (second, "Ethernet2", "128_SCI")],
         "128_SCI_NEW")
 
@@ -473,7 +566,7 @@ def test_configuration_rollback_restores_only_attempted_bindings():
         first, "Ethernet1")
     NAMESPACE["enable_macsec_port"].assert_called_once_with(
         second, "Ethernet2", "128_SCI")
-    assert NAMESPACE["delete_macsec_profile"].call_count == 2
+    assert NAMESPACE["_restore_macsec_profile"].call_count == 2
 
 
 def test_csonic_readiness_uses_supervisor_without_nested_docker():
