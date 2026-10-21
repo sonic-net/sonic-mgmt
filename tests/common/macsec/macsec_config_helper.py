@@ -151,8 +151,8 @@ def _macsec_service_diagnostics(host):
         commands = [
             ("supervisor", "supervisorctl status macsecmgrd"),
             ("process", "pgrep -a -x macsecmgrd"),
-            ("post_state", "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state"),
-            ("feature", "sonic-db-cli CONFIG_DB HGET 'FEATURE|macsec' state"),
+            ("post_state", "sonic-db-cli STATE_DB HGET \"FIPS_MACSEC_POST_TABLE|sai\" post_state"),
+            ("feature", "sonic-db-cli CONFIG_DB HGET \"FEATURE|macsec\" state"),
             ("database", "sonic-db-cli CONFIG_DB PING"),
             ("supervisor_config", "test -e {0} && sed -n '1,80p' {0}".format(
                 CSONIC_MACSEC_SUPERVISOR_CONFIG)),
@@ -192,16 +192,16 @@ def _macsec_interface_diagnostics(host, interface_name):
         }
 
     commands = [
-        ("config_profile", "sonic-db-cli CONFIG_DB HGET 'PORT|{}' macsec".format(interface_name)),
-        ("state", "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|{}' state".format(interface_name)),
-        ("appl", "sonic-db-cli APPL_DB HGETALL 'MACSEC_PORT_TABLE:{}'".format(interface_name)),
+        ("config_profile", "sonic-db-cli CONFIG_DB HGET \"PORT|{}\" macsec".format(interface_name)),
+        ("state", "sonic-db-cli STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state".format(interface_name)),
+        ("appl", "sonic-db-cli APPL_DB HGETALL \"MACSEC_PORT_TABLE:{}\"".format(interface_name)),
         ("link", "ip -d link show {}".format(interface_name)),
     ]
     if isinstance(host, CsonicHost):
         runtime = "csonic"
         commands.extend([
             ("service", "supervisorctl status macsecmgrd"),
-            ("post_state", "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state"),
+            ("post_state", "sonic-db-cli STATE_DB HGET \"FIPS_MACSEC_POST_TABLE|sai\" post_state"),
             ("wpa_supplicant", "test -x /sbin/wpa_supplicant && /sbin/wpa_supplicant -v"),
             ("wpa_cli", "test -x /sbin/wpa_cli && /sbin/wpa_cli -v"),
             ("macsec_syslog", "grep -iE 'macsecmgrd|wpa_supplicant|macsec' /var/log/syslog 2>/dev/null | tail -n 80"),
@@ -229,22 +229,35 @@ def _macsec_interface_diagnostics(host, interface_name):
     }
 
 
+def _supervisor_macsec_state(result):
+    """Normalize Supervisor status text, including non-zero inactive states."""
+    if not isinstance(result, Mapping):
+        return "ERROR"
+    output = "{}\n{}".format(result.get("stdout", ""), result.get("stderr", ""))
+    if "no such process" in output.lower():
+        return "MISSING"
+    for state in ("RUNNING", "STARTING", "BACKOFF", "STOPPED", "EXITED", "FATAL"):
+        if state in output:
+            return state
+    return "ERROR"
+
+
+def _csonic_macsec_service_state(host):
+    """Capture pre-start state so failed setup can restore what it changed."""
+    status = host.shell(
+        "supervisorctl status macsecmgrd", module_ignore_errors=True)
+    config = host.shell(
+        "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG),
+        module_ignore_errors=True)
+    return {
+        "state": _supervisor_macsec_state(status),
+        "config_exists": _command_succeeded(config),
+    }
+
+
 def _start_csonic_macsec_service(host):
-    """Ensure monolithic docker-sonic-vs supervises its bundled daemon.
-
-    Some docker-sonic-vs images contain the macsecmgrd binary without its
-    wpa_supplicant runtime or a supervisor program. Install the missing Debian
-    runtime on demand and register only the daemon at the MACsec call site;
-    images that already provide either dependency skip that work.
-
-    macsecmgrd does not consume CONFIG_DB until the SAI MACsec POST state is
-    ``pass`` or ``disabled``. The standalone macsec container gets this state
-    from orchagent, but the monolithic VS neighbor does not consistently
-    publish it. VS has no hardware MACsec POST, so seed the same ``disabled``
-    state that orchagent uses when POST is unsupported before starting the
-    daemon.
-    """
-    command = """set -e
+    """Provision runtime dependencies and start the bundled daemon safely."""
+    provision = """set -e
 if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
@@ -253,12 +266,26 @@ if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]; then
 fi
 test -x /sbin/wpa_supplicant
 test -x /sbin/wpa_cli
-sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled >/dev/null
-status=$(supervisorctl status macsecmgrd 2>&1 || true)
-case "$status" in
-    *RUNNING*) exit 0 ;;
-    *"no such process"*)
-        cat > {config} <<'EOF'
+sonic-db-cli STATE_DB HSET \"FIPS_MACSEC_POST_TABLE|sai\" post_state disabled >/dev/null"""
+    if not _command_succeeded(host.shell(
+            provision, module_ignore_errors=True, timeout=300)):
+        return False
+
+    current = _csonic_macsec_service_state(host)
+    state = current["state"]
+    if state in ("RUNNING", "STARTING", "BACKOFF"):
+        return True
+    if state in ("STOPPED", "EXITED", "FATAL"):
+        return _command_succeeded(host.shell(
+            "supervisorctl start macsecmgrd", module_ignore_errors=True))
+    if state != "MISSING":
+        logger.error("Unexpected macsecmgrd Supervisor state on %s: %s",
+                     host.hostname, current)
+        return False
+
+    install = """set -e
+if [ ! -e {config} ]; then
+    cat > {config} <<'EOF'
 [program:macsecmgrd]
 command=/usr/bin/macsecmgrd
 priority=2
@@ -269,27 +296,60 @@ stdout_syslog=true
 stderr_logfile=NONE
 stderr_syslog=true
 EOF
-        supervisorctl reread
-        supervisorctl update
-        ;;
-    *) supervisorctl start macsecmgrd ;;
-esac""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
-    return _command_succeeded(host.shell(command, module_ignore_errors=True))
+fi
+supervisorctl reread
+supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
+    return _command_succeeded(host.shell(
+        install, module_ignore_errors=True))
 
 
 def _stop_csonic_macsec_service(host):
-    """Stop macsecmgrd and remove only the config installed above."""
-    command = """set -e
-status=$(supervisorctl status macsecmgrd 2>&1 || true)
-case "$status" in
-    *RUNNING*) supervisorctl stop macsecmgrd ;;
-esac
-if [ -e {config} ]; then
-    rm -f {config}
-    supervisorctl reread
-    supervisorctl update
-fi""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
-    return _command_succeeded(host.shell(command, module_ignore_errors=True))
+    """Stop active startup/retry states and remove only our helper config."""
+    current = _csonic_macsec_service_state(host)
+    state = current["state"]
+    if state in ("RUNNING", "STARTING", "BACKOFF"):
+        if not _command_succeeded(host.shell(
+                "supervisorctl stop macsecmgrd", module_ignore_errors=True)):
+            return False
+    elif state not in ("STOPPED", "EXITED", "FATAL", "MISSING"):
+        logger.error("Unexpected macsecmgrd Supervisor state on %s: %s",
+                     host.hostname, current)
+        return False
+
+    if not current["config_exists"]:
+        return True
+    cleanup = """set -e
+rm -f {config}
+supervisorctl reread
+supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
+    return _command_succeeded(host.shell(
+        cleanup, module_ignore_errors=True))
+
+
+def _rollback_csonic_macsec_service(host, initial):
+    """Undo only service/config changes made by this enable attempt."""
+    current = _csonic_macsec_service_state(host)
+    failures = []
+    if (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
+            current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
+        result = host.shell(
+            "supervisorctl stop macsecmgrd", module_ignore_errors=True)
+        if not _command_succeeded(result):
+            failures.append(_command_diagnostic(result))
+
+    if not initial["config_exists"] and current["config_exists"]:
+        cleanup = """set -e
+rm -f {config}
+supervisorctl reread
+supervisorctl update""".format(config=CSONIC_MACSEC_SUPERVISOR_CONFIG)
+        result = host.shell(cleanup, module_ignore_errors=True)
+        if not _command_succeeded(result):
+            failures.append(_command_diagnostic(result))
+    if failures:
+        logger.error("Failed to roll back cSONiC MACsec state on %s: %s",
+                     host.hostname, failures)
+        return False
+    return True
 
 
 def get_macsec_enable_status(host):
@@ -349,9 +409,8 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
             "primary_ckn": primary_ckn,
             "policy": policy,
             "send_sci": send_sci,
+            "rekey_period": rekey_period,
         }
-        if rekey_period > 0:
-            profile_entry["rekey_period"] = rekey_period
         _csonic_config_db_hset(
             host, "MACSEC_PROFILE|{}".format(profile_name), profile_entry)
     elif _host_is_multi_asic(host):
@@ -480,30 +539,43 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
     num_asics = duthost.num_asics()
     global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+    attempted = []
 
-    for nbr in [n["host"] for n in list(nbrhosts.values())]:
-        if isinstance(nbr, CsonicHost):
-            assert _start_csonic_macsec_service(nbr), \
-                "Failed to start macsecmgrd on {}".format(nbr.hostname)
-
-    def check_macsec_enabled():
-        dut_ready = _macsec_service_ready(duthost, num_asics)
-        neighbor_ready = []
+    try:
         for nbr in [n["host"] for n in list(nbrhosts.values())]:
-            if isinstance(nbr, EosHost):
-                continue
-            neighbor_ready.append(_macsec_service_ready(nbr, 1))
-        return dut_ready and all(neighbor_ready)
+            if isinstance(nbr, CsonicHost):
+                initial = _csonic_macsec_service_state(nbr)
+                attempted.append((nbr, initial))
+                assert _start_csonic_macsec_service(nbr), \
+                    "Failed to start macsecmgrd on {}".format(nbr.hostname)
 
-    if not wait_until(180, 5, 10, check_macsec_enabled):
-        diagnostics = [_macsec_service_diagnostics(duthost)]
-        diagnostics.extend(
-            _macsec_service_diagnostics(nbr)
-            for nbr in [n["host"] for n in list(nbrhosts.values())]
-            if not isinstance(nbr, EosHost)
-        )
-        logger.error("MACsec readiness timed out: %s", diagnostics)
-        assert False, "MACsec readiness timed out: {}".format(diagnostics)
+        def check_macsec_enabled():
+            dut_ready = _macsec_service_ready(duthost, num_asics)
+            neighbor_ready = []
+            for nbr in [n["host"] for n in list(nbrhosts.values())]:
+                if isinstance(nbr, EosHost):
+                    continue
+                neighbor_ready.append(_macsec_service_ready(nbr, 1))
+            return dut_ready and all(neighbor_ready)
+
+        if not wait_until(180, 5, 10, check_macsec_enabled):
+            diagnostics = [_macsec_service_diagnostics(duthost)]
+            diagnostics.extend(
+                _macsec_service_diagnostics(nbr)
+                for nbr in [n["host"] for n in list(nbrhosts.values())]
+                if not isinstance(nbr, EosHost)
+            )
+            logger.error("MACsec readiness timed out: %s", diagnostics)
+            raise AssertionError(
+                "MACsec readiness timed out: {}".format(diagnostics))
+    except Exception:
+        for nbr, initial in reversed(attempted):
+            try:
+                _rollback_csonic_macsec_service(nbr, initial)
+            except Exception:
+                logger.exception(
+                    "Failed to roll back MACsec setup on %s", nbr.hostname)
+        raise
 
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
