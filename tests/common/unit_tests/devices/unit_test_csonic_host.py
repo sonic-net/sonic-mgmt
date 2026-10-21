@@ -20,7 +20,9 @@ Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 """
 
 import os
+import shlex
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -45,6 +47,37 @@ def make_host():
 def docker_ok(stdout):
     """Shape a successful _docker_exec return with the given stdout."""
     return {"rc": 0, "stdout": stdout, "stderr": ""}
+
+
+def test_remote_docker_exec_shell_quotes_every_argument():
+    host = CsonicHost(
+        "csonic_vm", vm_host_ip="192.0.2.10", vm_host_user="admin")
+    script = (
+        "set -e\n"
+        "sonic-db-cli STATE_DB HSET "
+        "'FIPS_MACSEC_POST_TABLE|sai' post_state disabled\n"
+        "printf '%s\\n' \"done\""
+    )
+    expected_docker = ["docker", "exec", "csonic_vm", "bash", "-c", script]
+    expected_remote = " ".join(shlex.quote(part) for part in expected_docker)
+
+    with patch(
+            "tests.common.devices.csonic.subprocess.run",
+            return_value=SimpleNamespace(
+                stdout="ok\n", stderr="", returncode=0)) as run:
+        result = host.shell(script, timeout=123)
+
+    assert result["rc"] == 0
+    run.assert_called_once_with(
+        [
+            "ssh", "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-l", "admin", "192.0.2.10", expected_remote,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=123,
+    )
 
 
 # --- FRR JSON fixtures -----------------------------------------------------

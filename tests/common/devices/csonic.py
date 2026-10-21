@@ -9,6 +9,7 @@ inside the container.
 import json
 import logging
 import os
+import shlex
 import subprocess
 import time
 
@@ -70,9 +71,11 @@ class CsonicHost(NeighborDevice):
             if self.vm_host_user:
                 ssh_prefix.extend(['-l', self.vm_host_user])
             ssh_prefix.append(self.vm_host_ip)
-            # Wrap docker command for remote execution
-            docker_cmd = ssh_prefix + [' '.join(
-                "'{}'".format(c) if ' ' in c else c for c in docker_cmd
+            # SSH passes the final argument through the remote user's shell.
+            # Quote every docker argv element so pipes, quotes, and multiline
+            # ``bash -c`` scripts stay inside the container command.
+            docker_cmd = ssh_prefix + [" ".join(
+                shlex.quote(part) for part in docker_cmd
             )]
 
         logger.debug("CsonicHost [%s] executing: %s", self.container_name, cmd)

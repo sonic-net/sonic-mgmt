@@ -36,8 +36,11 @@ FUNCTION_NAMES = {
     "_command_diagnostic",
     "_macsec_service_diagnostics",
     "_macsec_interface_diagnostics",
+    "_supervisor_macsec_state",
+    "_csonic_macsec_service_state",
     "_start_csonic_macsec_service",
     "_stop_csonic_macsec_service",
+    "_rollback_csonic_macsec_service",
     "set_macsec_profile",
     "delete_macsec_profile",
     "enable_macsec_port",
@@ -66,6 +69,7 @@ NAMESPACE = {
 }
 exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"), NAMESPACE)
 
+CSONIC_MACSEC_SUPERVISOR_CONFIG = NAMESPACE["CSONIC_MACSEC_SUPERVISOR_CONFIG"]
 _command_output_lines = NAMESPACE["_command_output_lines"]
 _host_is_multi_asic = NAMESPACE["_host_is_multi_asic"]
 _host_platform_asic = NAMESPACE["_host_platform_asic"]
@@ -78,8 +82,11 @@ _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
 _macsec_service_diagnostics = NAMESPACE["_macsec_service_diagnostics"]
 _macsec_interface_diagnostics = NAMESPACE["_macsec_interface_diagnostics"]
+_supervisor_macsec_state = NAMESPACE["_supervisor_macsec_state"]
+_csonic_macsec_service_state = NAMESPACE["_csonic_macsec_service_state"]
 _start_csonic_macsec_service = NAMESPACE["_start_csonic_macsec_service"]
 _stop_csonic_macsec_service = NAMESPACE["_stop_csonic_macsec_service"]
+_rollback_csonic_macsec_service = NAMESPACE["_rollback_csonic_macsec_service"]
 set_macsec_profile = NAMESPACE["set_macsec_profile"]
 delete_macsec_profile = NAMESPACE["delete_macsec_profile"]
 enable_macsec_port = NAMESPACE["enable_macsec_port"]
@@ -151,9 +158,28 @@ def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
         "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|128_SCI' ")
     assert "priority 63" in host.commands[0]
     assert "send_sci true" in host.commands[0]
-    assert "rekey_period" not in host.commands[0]
+    assert "rekey_period 0" in host.commands[0]
     assert host.commands[1] == (
         "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet1' macsec 128_SCI")
+
+
+def test_csonic_macsec_profile_zero_resets_existing_rekey_period():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.commands = []
+
+        def command(self, command):
+            self.commands.append(command)
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host = CsonicCommandHost()
+    set_macsec_profile(
+        host, "128_SCI", 63, "GCM-AES-128", "cak", "ckn",
+        "security", "true", rekey_period=0)
+
+    assert "rekey_period 0" in host.commands[0]
 
 
 def test_csonic_macsec_profile_maps_flags_to_config_db_schema():
@@ -259,8 +285,8 @@ def test_csonic_interface_diagnostics_query_container_directly():
     assert diagnostics["runtime"] == "csonic"
     assert diagnostics["interface"] == "Ethernet1"
     commands = [call.args[0] for call in host.shell.call_args_list]
-    assert "sonic-db-cli STATE_DB HGET 'MACSEC_PORT_TABLE|Ethernet1' state" in commands
-    assert "sonic-db-cli STATE_DB HGET 'FIPS_MACSEC_POST_TABLE|sai' post_state" in commands
+    assert 'sonic-db-cli STATE_DB HGET "MACSEC_PORT_TABLE|Ethernet1" state' in commands
+    assert 'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state' in commands
     assert "test -x /sbin/wpa_supplicant && /sbin/wpa_supplicant -v" in commands
     assert "test -x /sbin/wpa_cli && /sbin/wpa_cli -v" in commands
     assert any("grep -iE 'macsecmgrd|wpa_supplicant|macsec'" in command for command in commands)
@@ -426,33 +452,108 @@ def test_ansible_mapping_results_are_supported():
     }
 
 
-def test_csonic_service_lifecycle_uses_supervisor_not_docker():
+def test_csonic_service_lifecycle_provisions_with_long_timeout():
     host = CsonicShellHost()
-    host.responses = MagicMock(return_value={"rc": 0, "stdout": ""})
 
     def shell(command, **kwargs):
         host.shell_calls.append((command, kwargs))
-        return {"rc": 0, "stdout": ""}
+        if command == "supervisorctl status macsecmgrd":
+            return {"rc": 4, "stdout": "macsecmgrd: ERROR (no such process)", "stderr": ""}
+        if command.startswith("test -e "):
+            return {"rc": 1, "stdout": "", "stderr": ""}
+        return {"rc": 0, "stdout": "", "stderr": ""}
 
     host.shell = shell
 
     assert _start_csonic_macsec_service(host)
-    assert _stop_csonic_macsec_service(host)
-    assert len(host.shell_calls) == 2
-    start_command = host.shell_calls[0][0]
-    post_state_command = (
-        "sonic-db-cli STATE_DB HSET 'FIPS_MACSEC_POST_TABLE|sai' post_state disabled")
-    dependency_guard = "if [ ! -x /sbin/wpa_supplicant ] || [ ! -x /sbin/wpa_cli ]"
-    install_command = "apt-get install -y --no-install-recommends wpasupplicant"
-    assert dependency_guard in start_command
-    assert install_command in start_command
-    assert start_command.index(dependency_guard) < start_command.index(install_command)
-    assert start_command.index(install_command) < start_command.index(post_state_command)
-    assert post_state_command in start_command
-    assert start_command.index(post_state_command) < start_command.index("supervisorctl status")
-    assert all("supervisorctl" in command for command, _ in host.shell_calls)
+    provision = host.shell_calls[0]
+    assert "apt-get install -y --no-install-recommends wpasupplicant" in provision[0]
+    assert 'HSET "FIPS_MACSEC_POST_TABLE|sai" post_state disabled' in provision[0]
+    assert provision[1] == {"module_ignore_errors": True, "timeout": 300}
+    assert host.shell_calls[1:] and "cat >" in host.shell_calls[-1][0]
     assert all("docker" not in command for command, _ in host.shell_calls)
-    assert all(kwargs == {"module_ignore_errors": True} for _, kwargs in host.shell_calls)
+
+
+def test_csonic_start_accepts_supervisor_transitional_states():
+    for supervisor_state in ("STARTING", "BACKOFF"):
+        host = CsonicShellHost()
+
+        def shell(command, **kwargs):
+            host.shell_calls.append((command, kwargs))
+            if command == "supervisorctl status macsecmgrd":
+                return {"rc": 3, "stdout": "macsecmgrd {}".format(supervisor_state), "stderr": ""}
+            if command.startswith("test -e "):
+                return {"rc": 0, "stdout": "", "stderr": ""}
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        host.shell = shell
+        assert _start_csonic_macsec_service(host)
+        assert all(command != "supervisorctl start macsecmgrd"
+                   for command, _ in host.shell_calls)
+
+
+def test_csonic_stop_handles_active_states_and_rejects_unknown_errors():
+    for supervisor_state in ("RUNNING", "STARTING", "BACKOFF"):
+        host = CsonicShellHost()
+
+        def shell(command, **kwargs):
+            host.shell_calls.append((command, kwargs))
+            if command == "supervisorctl status macsecmgrd":
+                return {"rc": 0, "stdout": "macsecmgrd {}".format(supervisor_state), "stderr": ""}
+            if command.startswith("test -e "):
+                return {"rc": 0, "stdout": "", "stderr": ""}
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        host.shell = shell
+        assert _stop_csonic_macsec_service(host)
+        assert any(command == "supervisorctl stop macsecmgrd"
+                   for command, _ in host.shell_calls)
+        assert any("rm -f" in command for command, _ in host.shell_calls)
+
+    broken = CsonicShellHost({
+        "supervisorctl status macsecmgrd": {
+            "rc": 1, "stdout": "", "stderr": "transport failure"},
+        "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG): {
+            "rc": 1, "stdout": "", "stderr": ""},
+    })
+    assert not _stop_csonic_macsec_service(broken)
+
+
+def test_csonic_rollback_stops_and_removes_only_new_resources():
+    host = CsonicShellHost()
+
+    def shell(command, **kwargs):
+        host.shell_calls.append((command, kwargs))
+        if command == "supervisorctl status macsecmgrd":
+            return {"rc": 0, "stdout": "macsecmgrd RUNNING", "stderr": ""}
+        if command.startswith("test -e "):
+            return {"rc": 0, "stdout": "", "stderr": ""}
+        return {"rc": 0, "stdout": "", "stderr": ""}
+
+    host.shell = shell
+    initial = {"state": "MISSING", "config_exists": False}
+    assert _rollback_csonic_macsec_service(host, initial)
+    assert any(command == "supervisorctl stop macsecmgrd"
+               for command, _ in host.shell_calls)
+    assert any("rm -f" in command for command, _ in host.shell_calls)
+
+
+def test_enable_rolls_back_csonic_initialization_on_readiness_failure():
+    duthost = ShellHost()
+    csonic = CsonicShellHost()
+    initial = {"state": "MISSING", "config_exists": False}
+    NAMESPACE["global_cmd"] = MagicMock()
+    NAMESPACE["_csonic_macsec_service_state"] = MagicMock(return_value=initial)
+    NAMESPACE["_start_csonic_macsec_service"] = MagicMock(return_value=True)
+    NAMESPACE["_macsec_service_diagnostics"] = MagicMock(return_value={})
+    NAMESPACE["wait_until"] = MagicMock(return_value=False)
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(return_value=True)
+
+    with pytest.raises(AssertionError, match="MACsec readiness timed out"):
+        enable_macsec_feature(duthost, {"csonic": {"host": csonic}})
+
+    NAMESPACE["_rollback_csonic_macsec_service"].assert_called_once_with(
+        csonic, initial)
 
 
 def test_enable_operates_on_shared_csonic_container_once():
@@ -470,7 +571,10 @@ def test_enable_operates_on_shared_csonic_container_once():
     }
     NAMESPACE["global_cmd"] = MagicMock()
     NAMESPACE["wait_until"] = MagicMock(side_effect=lambda _timeout, _interval, _delay, check: check())
+    NAMESPACE["_csonic_macsec_service_state"] = MagicMock(
+        return_value={"state": "MISSING", "config_exists": False})
     NAMESPACE["_start_csonic_macsec_service"] = MagicMock(return_value=True)
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(return_value=True)
 
     enable_macsec_feature(duthost, neighbors)
 
@@ -484,21 +588,15 @@ def test_enable_operates_on_shared_csonic_container_once():
 def test_disable_excludes_eos_and_stops_csonic_service():
     eos = EosShellHost()
     csonic = CsonicShellHost()
-
-    def shell(command, **kwargs):
-        csonic.shell_calls.append((command, kwargs))
-        return {"rc": 0, "stdout": ""}
-
-    csonic.shell = shell
     neighbors = {"eos": {"host": eos}, "csonic": {"host": csonic}}
     duthost = ShellHost()
     NAMESPACE["global_cmd"] = MagicMock()
+    NAMESPACE["_stop_csonic_macsec_service"] = MagicMock(return_value=True)
 
     disable_macsec_feature(duthost, neighbors)
 
     assert eos.shell_calls == []
-    assert len(csonic.shell_calls) == 1
-    assert "supervisorctl stop macsecmgrd" in csonic.shell_calls[0][0]
+    NAMESPACE["_stop_csonic_macsec_service"].assert_called_once_with(csonic)
     NAMESPACE["global_cmd"].assert_called_once_with(
         duthost, neighbors, "sudo config feature state macsec disabled"
     )
