@@ -66,41 +66,24 @@ def upgrade_by_onie(sonichosts, localhost, image_url, pause_time):
             module_attrs={"become": True, "async": 5, "poll": 0}
         )
 
-        addresses = {}
         for i in range(len(sonichosts.ips)):
-            hostname = sonichosts.hostnames[i]
-            ipv6 = sonichosts.get_host_visible_var(hostname, "ansible_hostv6")
-            # Try IPv4 first, then IPv6; skip unset addresses and do not repeat the boot delay.
-            ips = [ip.strip() for ip in (sonichosts.ips[i], ipv6) if ip and ip.strip()]
-            if not ips:
-                raise RunAnsibleModuleFailed("No management address configured for {}".format(hostname))
-            for j, ip in enumerate(ips):
-                try:
-                    localhost.wait_for(
-                        host=ip,
-                        port=22,
-                        state="started",
-                        search_regex="OpenSSH",
-                        delay=60 if i == 0 and j == 0 else 0,
-                        timeout=300,
-                        module_attrs={"changed_when": False}
-                    )
-                    addresses[hostname] = ip
-                    break
-                except RunAnsibleModuleFailed as e:
-                    if j == len(ips) - 1:
-                        raise
-                    logger.warning("SSH check failed for %s at %s; trying IPv6: %s", hostname, ip, e)
+            localhost.wait_for(
+                host=sonichosts.ips[i],
+                port=22,
+                state="started",
+                search_regex="OpenSSH",
+                delay=60 if i == 0 else 0,
+                timeout=300,
+                module_attrs={"changed_when": False}
+            )
         if pause_time > 0:
             localhost.pause(
                 seconds=pause_time, prompt="Pause {} seconds for ONIE initialization".format(str(pause_time))
             )
-        # Keep installs concurrent, using each DUT's address that passed the SSH check.
         sonichosts.onie(
             install="yes",
             url=image_url,
-            host="{{ onie_addresses[inventory_hostname] }}",
-            module_attrs={"connection": "onie", "vars": {"onie_addresses": addresses}}
+            module_attrs={"connection": "onie"}
         )
         return True
     except RunAnsibleModuleFailed as e:
