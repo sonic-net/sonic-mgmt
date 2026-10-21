@@ -97,6 +97,59 @@ def _csonic_config_db_hdel(host, key, field):
     return _run_required_macsec_command(host, command)
 
 
+def _command_stdout(host, command):
+    """Run a required read-only command and return stripped stdout."""
+    result = host.command(command)
+    if not _command_succeeded(result):
+        raise AssertionError(
+            "MACsec state query failed on {}: command={!r}, result={}".format(
+                getattr(host, "hostname", str(host)), command,
+                _command_diagnostic(result)))
+    return str(result.get("stdout", "")).strip()
+
+
+def _macsec_port_profile(host, port):
+    """Return the currently bound profile, or None when the port is unbound."""
+    if isinstance(host, EosHost):
+        result = host.eos_command(commands=[
+            "show running-config interfaces {}".format(port)])
+        output = result.get("stdout", [""])[0]
+        if isinstance(output, list):
+            output = "\n".join(output)
+        marker = "mac security profile "
+        for line in str(output).splitlines():
+            line = line.strip()
+            if line.startswith(marker):
+                return line[len(marker):].strip() or None
+        return None
+
+    command = 'sonic-db-cli {} CONFIG_DB HGET "PORT|{}" macsec'.format(
+        getns_prefix(host, port), port)
+    return _command_stdout(host, command) or None
+
+
+def _macsec_profile_exists(host, profile_name):
+    """Return whether a profile existed before this setup transaction."""
+    if isinstance(host, EosHost):
+        result = host.eos_command(commands=[
+            "show running-config section mac security"])
+        output = result.get("stdout", [""])[0]
+        if isinstance(output, list):
+            output = "\n".join(output)
+        return "profile {}".format(profile_name) in str(output)
+
+    namespaces = (host.get_asic_namespace_list()
+                  if _host_is_multi_asic(host) else [None])
+    for namespace in namespaces:
+        prefix = "-n {}".format(namespace) if namespace else ""
+        command = (
+            'sonic-db-cli {} CONFIG_DB EXISTS "MACSEC_PROFILE|{}"'
+            .format(prefix, profile_name))
+        if _command_stdout(host, command) == "1":
+            return True
+    return False
+
+
 def _wait_for_macsec_tasks(tasks, timeout):
     """Wait for setup workers and surface child-process failures immediately."""
     wait_all_complete(timeout=timeout)
@@ -266,9 +319,11 @@ def _csonic_macsec_service_state(host):
     post_state = host.shell(
         'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state',
         module_ignore_errors=True)
-    post_value = None
-    if _command_succeeded(post_state):
-        post_value = str(post_state.get("stdout", "")).strip() or None
+    if not _command_succeeded(post_state):
+        raise AssertionError(
+            "Failed to snapshot cSONiC POST state on {}: {}".format(
+                host.hostname, _command_diagnostic(post_state)))
+    post_value = str(post_state.get("stdout", "")).strip() or None
     return {
         "state": _supervisor_macsec_state(status),
         "config_exists": _command_succeeded(config),
@@ -366,10 +421,10 @@ def _stop_csonic_macsec_service(host):
     if initial is None:
         logger.error("Missing cSONiC MACsec ownership token on %s", host.hostname)
         return False
-    try:
-        return _rollback_csonic_macsec_service(host, initial)
-    finally:
+    success = _rollback_csonic_macsec_service(host, initial)
+    if success:
         delattr(host, "_sonic_mgmt_macsec_initial")
+    return success
 
 
 def _rollback_csonic_macsec_service(host, initial):
@@ -623,17 +678,21 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
                 "MACsec readiness timed out: {}".format(diagnostics))
     except Exception:
         for nbr, initial, ownership in reversed(attempted):
+            rollback_succeeded = False
             try:
-                _rollback_csonic_macsec_service(nbr, initial)
+                rollback_succeeded = _rollback_csonic_macsec_service(
+                    nbr, initial)
             except Exception:
                 logger.exception(
                     "Failed to roll back MACsec setup on %s", nbr.hostname)
             finally:
-                if ownership is None:
+                if ownership is not None:
+                    nbr._sonic_mgmt_macsec_initial = ownership
+                elif rollback_succeeded:
                     if hasattr(nbr, "_sonic_mgmt_macsec_initial"):
                         delattr(nbr, "_sonic_mgmt_macsec_initial")
                 else:
-                    nbr._sonic_mgmt_macsec_initial = ownership
+                    nbr._sonic_mgmt_macsec_initial = initial
         try:
             global_cmd(
                 duthost, nbrhosts,
@@ -736,16 +795,21 @@ def _macsec_configuration_targets(duthost, ctrl_links):
     return profile_hosts, endpoints
 
 
-def _rollback_macsec_configuration(profile_hosts, endpoints, profile_name):
-    """Best-effort reverse-order rollback for setup failures before yield."""
+def _rollback_macsec_configuration(
+        created_profile_hosts, attempted_endpoints, profile_name):
+    """Best-effort reverse-order rollback for changes this setup attempted."""
     failures = []
-    for host, port in reversed(endpoints):
+    for host, port, previous_profile in reversed(attempted_endpoints):
         try:
-            disable_macsec_port(host, port)
+            if previous_profile is None:
+                disable_macsec_port(host, port)
+            else:
+                enable_macsec_port(host, port, previous_profile)
         except Exception as error:
             failures.append({"host": str(host), "port": port,
+                             "previous_profile": previous_profile,
                              "exception": repr(error)})
-    for host in reversed(profile_hosts):
+    for host in reversed(created_profile_hosts):
         try:
             delete_macsec_profile(host, profile_name)
         except Exception as error:
@@ -809,6 +873,15 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     neighbor_profile_hosts, endpoints = _macsec_configuration_targets(
         duthost, ctrl_links)
     profile_hosts = [duthost] + neighbor_profile_hosts
+    created_profile_hosts = [
+        host for host in profile_hosts
+        if not _macsec_profile_exists(host, profile_name)
+    ]
+    endpoint_snapshots = [
+        (host, port, _macsec_port_profile(host, port))
+        for host, port in endpoints
+    ]
+    attempted_endpoints = []
 
     try:
         logger.info("Setup macsec configuration step1: set macsec profile")
@@ -826,10 +899,11 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
         logger.info("Setup macsec configuration step2: enable macsec profile")
         tasks = []
-        for endpoint in endpoints:
+        for host, port, previous_profile in endpoint_snapshots:
             time.sleep(3)
+            attempted_endpoints.append((host, port, previous_profile))
             tasks.append(submit_async_task(
-                enable_macsec_port, endpoint + (profile_name,)))
+                enable_macsec_port, (host, port, profile_name)))
         _wait_for_macsec_tasks(tasks, timeout=180)
 
         for dut_port, nbr in list(ctrl_links.items()):
@@ -852,7 +926,8 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         time.sleep(60)
         logger.info("Setup macsec configuration finished")
     except Exception:
-        _rollback_macsec_configuration(profile_hosts, endpoints, profile_name)
+        _rollback_macsec_configuration(
+            created_profile_hosts, attempted_endpoints, profile_name)
         raise
 
 

@@ -31,6 +31,9 @@ FUNCTION_NAMES = {
     "_csonic_config_db_hset",
     "_csonic_config_db_delete",
     "_csonic_config_db_hdel",
+    "_command_stdout",
+    "_macsec_port_profile",
+    "_macsec_profile_exists",
     "_wait_for_macsec_tasks",
     "_macsec_host_key",
     "_macsec_endpoint_key",
@@ -93,6 +96,9 @@ _command_output_lines = NAMESPACE["_command_output_lines"]
 _host_is_multi_asic = NAMESPACE["_host_is_multi_asic"]
 _host_platform_asic = NAMESPACE["_host_platform_asic"]
 _run_required_macsec_command = NAMESPACE["_run_required_macsec_command"]
+_command_stdout = NAMESPACE["_command_stdout"]
+_macsec_port_profile = NAMESPACE["_macsec_port_profile"]
+_macsec_profile_exists = NAMESPACE["_macsec_profile_exists"]
 _wait_for_macsec_tasks = NAMESPACE["_wait_for_macsec_tasks"]
 _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
 _macsec_service_ready = NAMESPACE["_macsec_service_ready"]
@@ -150,6 +156,21 @@ class EosShellHost(FakeEosHost, ShellHost):
 
 def _successful_lines(*lines):
     return {"rc": 0, "stdout_lines": list(lines), "stdout": "\n".join(lines)}
+
+
+def test_csonic_state_snapshots_are_required_and_preserve_bindings():
+    host = CsonicShellHost()
+    host.command = MagicMock(side_effect=[
+        {"rc": 0, "stdout": "128_SCI\n"},
+        {"rc": 0, "stdout": "1\n"},
+        {"rc": 1, "stdout": "", "stderr": "redis unavailable"},
+    ])
+    NAMESPACE["getns_prefix"] = MagicMock(return_value="")
+
+    assert _macsec_port_profile(host, "Ethernet1") == "128_SCI"
+    assert _macsec_profile_exists(host, "128_SCI") is True
+    with pytest.raises(AssertionError, match="MACsec state query failed"):
+        _command_stdout(host, "failing query")
 
 
 def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
@@ -359,6 +380,8 @@ def test_setup_configures_shared_csonic_profile_and_endpoint_once():
     submit = MagicMock(side_effect=lambda *_args, **_kwargs: MagicMock(exitcode=0))
     NAMESPACE["submit_async_task"] = submit
     NAMESPACE["_wait_for_macsec_tasks"] = MagicMock()
+    NAMESPACE["_macsec_profile_exists"] = MagicMock(return_value=False)
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
     NAMESPACE["wait_until"] = MagicMock(return_value=True)
 
     setup_macsec_configuration(
@@ -395,19 +418,46 @@ def test_session_cleanup_skips_physical_dut_but_keeps_vs_dut():
         virtual, neighbor]
 
 
-def test_configuration_rollback_continues_after_individual_failures():
+def test_profile_failure_does_not_touch_existing_port_bindings():
+    duthost = ShellHost()
+    neighbor = CsonicShellHost()
+    links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
+    NAMESPACE["_macsec_profile_exists"] = MagicMock(return_value=False)
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value="128_SCI")
+    NAMESPACE["submit_async_task"] = MagicMock(
+        return_value=MagicMock(exitcode=1))
+    NAMESPACE["_wait_for_macsec_tasks"] = MagicMock(
+        side_effect=AssertionError("profile failed"))
+    NAMESPACE["_rollback_macsec_configuration"] = MagicMock()
+
+    with pytest.raises(AssertionError, match="profile failed"):
+        setup_macsec_configuration(
+            duthost, links, "128_SCI_NEW", 64, "GCM-AES-128", "cak",
+            "ckn", "security", "true", 0, {})
+
+    rollback = NAMESPACE["_rollback_macsec_configuration"]
+    assert rollback.call_count == 1
+    assert rollback.call_args.args[1] == []
+
+
+def test_configuration_rollback_restores_only_attempted_bindings():
     first = CsonicShellHost(container_name="first")
     second = CsonicShellHost(container_name="second")
     NAMESPACE["disable_macsec_port"] = MagicMock(
-        side_effect=[RuntimeError("port failed"), None])
+        side_effect=RuntimeError("port failed"))
+    NAMESPACE["enable_macsec_port"] = MagicMock()
     NAMESPACE["delete_macsec_profile"] = MagicMock(
         side_effect=[RuntimeError("profile failed"), None])
 
     _rollback_macsec_configuration(
-        [first, second], [(first, "Ethernet1"), (second, "Ethernet2")],
-        "128_SCI")
+        [first, second],
+        [(first, "Ethernet1", None), (second, "Ethernet2", "128_SCI")],
+        "128_SCI_NEW")
 
-    assert NAMESPACE["disable_macsec_port"].call_count == 2
+    NAMESPACE["disable_macsec_port"].assert_called_once_with(
+        first, "Ethernet1")
+    NAMESPACE["enable_macsec_port"].assert_called_once_with(
+        second, "Ethernet2", "128_SCI")
     assert NAMESPACE["delete_macsec_profile"].call_count == 2
 
 
@@ -552,6 +602,21 @@ def test_ansible_mapping_results_are_supported():
     }
 
 
+def test_csonic_service_snapshot_aborts_on_post_query_failure():
+    host = CsonicShellHost({
+        "supervisorctl status macsecmgrd": {
+            "rc": 4, "stdout": "macsecmgrd: ERROR (no such process)",
+            "stderr": ""},
+        "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG): {
+            "rc": 1, "stdout": "", "stderr": ""},
+        'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state': {
+            "rc": 1, "stdout": "", "stderr": "redis unavailable"},
+    })
+
+    with pytest.raises(AssertionError, match="Failed to snapshot cSONiC POST state"):
+        NAMESPACE["_csonic_macsec_service_state"](host)
+
+
 def test_csonic_service_lifecycle_provisions_with_long_timeout():
     host = CsonicShellHost()
     initial = {"state": "MISSING", "config_exists": False, "post_state": None}
@@ -662,6 +727,37 @@ def test_csonic_stop_restores_only_fixture_owned_state():
         assert any("rm -f" in command for command, _ in host.shell_calls)
         assert any(" HDEL " in command for command, _ in host.shell_calls)
         assert not hasattr(host, "_sonic_mgmt_macsec_initial")
+
+
+def test_csonic_stop_retains_ownership_token_when_rollback_fails():
+    host = CsonicShellHost()
+    ownership = {
+        "state": "MISSING",
+        "config_exists": False,
+        "post_state": None,
+    }
+    host._sonic_mgmt_macsec_initial = ownership
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(
+        return_value=False)
+
+    assert not _stop_csonic_macsec_service(host)
+    assert host._sonic_mgmt_macsec_initial is ownership
+
+
+def test_csonic_stop_retains_ownership_token_when_rollback_raises():
+    host = CsonicShellHost()
+    ownership = {
+        "state": "MISSING",
+        "config_exists": False,
+        "post_state": None,
+    }
+    host._sonic_mgmt_macsec_initial = ownership
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(
+        side_effect=RuntimeError("restore failed"))
+
+    with pytest.raises(RuntimeError, match="restore failed"):
+        _stop_csonic_macsec_service(host)
+    assert host._sonic_mgmt_macsec_initial is ownership
 
 
 def test_csonic_stop_preserves_preexisting_running_daemon_and_post_state():
@@ -775,6 +871,30 @@ def test_failed_reenable_preserves_first_ownership_snapshot():
     NAMESPACE["_rollback_csonic_macsec_service"].assert_called_once_with(
         csonic, attempt)
     assert csonic._sonic_mgmt_macsec_initial is ownership
+
+
+def test_failed_first_enable_retains_snapshot_when_rollback_fails():
+    duthost = ShellHost()
+    csonic = CsonicShellHost()
+    initial = {
+        "state": "MISSING",
+        "config_exists": False,
+        "post_state": None,
+    }
+    NAMESPACE["global_cmd"] = MagicMock()
+    NAMESPACE["_csonic_macsec_service_state"] = MagicMock(
+        return_value=initial)
+    NAMESPACE["_start_csonic_macsec_service"] = MagicMock(
+        return_value=True)
+    NAMESPACE["_macsec_service_diagnostics"] = MagicMock(return_value={})
+    NAMESPACE["wait_until"] = MagicMock(return_value=False)
+    NAMESPACE["_rollback_csonic_macsec_service"] = MagicMock(
+        return_value=False)
+
+    with pytest.raises(AssertionError, match="MACsec readiness timed out"):
+        enable_macsec_feature(duthost, {"csonic": {"host": csonic}})
+
+    assert csonic._sonic_mgmt_macsec_initial is initial
 
 
 def test_enable_operates_on_shared_csonic_container_once():
