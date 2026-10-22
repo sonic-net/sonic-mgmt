@@ -776,8 +776,9 @@ def test_matching_profile_still_applies_lldp_workaround():
         {"runtime": "sonic", "entries": [{"namespace": None, "fields": fields63}]},
     ])
     NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
-    NAMESPACE["submit_async_task"] = MagicMock(
+    submit = MagicMock(
         side_effect=lambda *_args, **_kwargs: MagicMock(exitcode=0))
+    NAMESPACE["submit_async_task"] = submit
     NAMESPACE["_wait_for_macsec_tasks"] = MagicMock()
     NAMESPACE["wait_until"] = MagicMock(return_value=True)
     NAMESPACE["_prepare_macsec_lldp"] = MagicMock()
@@ -786,8 +787,58 @@ def test_matching_profile_still_applies_lldp_workaround():
         duthost, links, "128", 64, "GCM-AES-128", "cak", "ckn",
         "security", "false", 0, {})
 
-    assert NAMESPACE["_prepare_macsec_lldp"].call_args_list == [
-        call(duthost, "false"), call(neighbor, "false")]
+    assert [item.args for item in submit.call_args_list
+            if item.args[0] is NAMESPACE["_prepare_macsec_lldp"]] == [
+        (NAMESPACE["_prepare_macsec_lldp"], (duthost, "false")),
+        (NAMESPACE["_prepare_macsec_lldp"], (neighbor, "false")),
+    ]
+
+
+def test_matching_profile_lldp_failure_waits_for_profile_workers():
+    duthost = ShellHost()
+    neighbor = CsonicShellHost()
+    links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
+    changed = {"runtime": "sonic", "entries": []}
+    matching = {
+        "runtime": "sonic",
+        "entries": [{
+            "namespace": None,
+            "fields": _macsec_profile_fields(
+                63, "GCM-AES-128", "cak", "ckn", "security", "false", 0),
+        }],
+    }
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(
+        side_effect=[changed, matching])
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
+    submitted = []
+
+    def submit(target, args):
+        task = MagicMock(exitcode=0, target=target)
+        submitted.append((target, args, task))
+        return task
+
+    def wait_for_tasks(tasks, timeout):
+        assert timeout == 180
+        assert tasks == [submitted[0][2], submitted[1][2]]
+        assert submitted[0][:2] == (
+            set_macsec_profile,
+            (duthost, "128", 64, "GCM-AES-128", "cak", "ckn",
+             "security", "false", 0))
+        assert submitted[1][:2] == (
+            NAMESPACE["_prepare_macsec_lldp"], (neighbor, "false"))
+        raise AssertionError("LLDP preparation failed")
+
+    NAMESPACE["submit_async_task"] = submit
+    NAMESPACE["_wait_for_macsec_tasks"] = wait_for_tasks
+    NAMESPACE["_rollback_macsec_configuration"] = MagicMock()
+
+    with pytest.raises(AssertionError, match="LLDP preparation failed"):
+        setup_macsec_configuration(
+            duthost, links, "128", 64, "GCM-AES-128", "cak", "ckn",
+            "security", "false", 0, {})
+
+    NAMESPACE["_rollback_macsec_configuration"].assert_called_once_with(
+        [(duthost, changed)], [], "128")
 
 
 def test_session_cleanup_skips_physical_dut_but_keeps_vs_dut():

@@ -1121,7 +1121,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                 logger.info(
                     "MACsec profile %s already matches requested state on %s",
                     profile_name, getattr(host, "hostname", str(host)))
-                _prepare_macsec_lldp(host, send_sci)
+                if send_sci == "false":
+                    tasks.append(submit_async_task(
+                        _prepare_macsec_lldp, (host, send_sci)))
                 continue
             attempted_profiles.append((host, snapshot))
             tasks.append(submit_async_task(
