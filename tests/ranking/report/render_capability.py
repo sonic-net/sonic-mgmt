@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Render capability.json into a self-contained HTML capability report.
+"""Render a capability document into a self-contained HTML report.
 
 Layout: one row per attribute, three fixed operation columns (create / set /
 read), and a value-level child row per enum/bool value that can be expanded
@@ -8,7 +8,7 @@ from the attribute row. Grouping follows the SAI header module. The page
 carries its own CSS and JS -- no external assets -- so a vendor can open the
 single file straight out of a Jenkins artifact.
 
-Input contract (produced by aggregate_capability.py):
+Input contract (produced in memory by aggregate_capability.py):
 
     {"cells": [{"module","attr","op","value","enum_type","shape",
                 "applicable","verdict","sources"}],
@@ -18,11 +18,7 @@ Input contract (produced by aggregate_capability.py):
 verdict is one of supported / not_supported / not_tested. A cell with
 value=None is attribute-level; a cell with a value is value-level.
 """
-import argparse
 import html
-import json
-import sys
-import time
 from collections import OrderedDict
 
 # Fixed operation columns. The reader always compares the same three, so an
@@ -632,8 +628,8 @@ def _legend():
             '</div>' % (NA_SLASH, NA_SLASH))
 
 
-def render(doc):
-    """capability.json dict -> self-contained HTML string."""
+def render(doc, generated_at=None):
+    """Convert a capability document to a self-contained HTML string."""
     cells = doc.get('cells') or []
     summary = doc.get('summary') or {}
     modules = group_cells(cells)
@@ -643,9 +639,10 @@ def render(doc):
            'initial-scale=1.0">',
            '<title>SAI Capability Report</title><style>', _CSS,
            '</style></head><body><div class="container">',
-           '<h1>SAI Capability Report</h1>',
-           '<div class="meta"><strong>Generated:</strong> %s</div>'
-           % time.strftime('%Y-%m-%d %H:%M:%S')]
+           '<h1>SAI Capability Report</h1>']
+    if generated_at:
+        out.append('<div class="meta"><strong>Generated:</strong> %s</div>'
+                   % html.escape(str(generated_at)))
 
     unjoined = summary.get('unjoined_records', 0) or 0
     if unjoined:
@@ -673,40 +670,3 @@ def render(doc):
     out.append('<script>%s</script>' % _JS)
     out.append('</div></body></html>')
     return '\n'.join(out)
-
-
-def main():
-    p = argparse.ArgumentParser(
-        description='Render capability.json into a self-contained HTML report')
-    p.add_argument('--capability', required=True,
-                   help='capability.json produced by aggregate_capability.py')
-    p.add_argument('--out', required=True, help='output HTML file')
-    args = p.parse_args()
-
-    try:
-        with open(args.capability, 'r', encoding='utf-8') as f:
-            doc = json.load(f)
-    except (OSError, ValueError) as e:
-        print('Error: cannot read %s: %s' % (args.capability, e),
-              file=sys.stderr)
-        return 1
-    if not isinstance(doc, dict):
-        print('Error: %s is not a JSON object' % args.capability,
-              file=sys.stderr)
-        return 1
-
-    page = render(doc)
-    try:
-        with open(args.out, 'w', encoding='utf-8') as f:
-            f.write(page)
-    except OSError as e:
-        print('Error: cannot write %s: %s' % (args.out, e), file=sys.stderr)
-        return 1
-    summary = doc.get('summary') or {}
-    print('Capability report generated: %s (%d bytes, %d cells)'
-          % (args.out, len(page.encode('utf-8')), summary.get('total', 0)))
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())

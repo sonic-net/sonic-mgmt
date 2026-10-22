@@ -1,32 +1,20 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""Join per-case attr records with case outcomes into a four-state verdict.
+"""Join captured attribute records with final case results.
 
-Verdict source is the case outcome only: SAI status is not consulted and
-records carry no phase. Mixed positive and negative evidence is reported as
-partially_supported so neither source is hidden.
+Verdict source is the final case status only. Individual SAI call status is not
+consulted, so a passing negative test still contributes positive evidence.
 """
-import argparse
-import glob
-import json
-import os
-import re
-import sys
 
 SUPPORTED = 'supported'
 PARTIALLY_SUPPORTED = 'partially_supported'
 NOT_SUPPORTED = 'not_supported'
 NOT_TESTED = 'not_tested'
-ASSERTION_FAILURE = re.compile(
-    r'FAILED \(failures=[1-9][0-9]*'
-    r'(?:, (?:errors|skipped|expected failures|unexpected successes)=[0-9]+)*\)')
 
 
-def classify_outcome(raw):
-    """Treat only an explicit assertion failure as negative evidence."""
-    if raw == 'OK':
+def classify_status(status):
+    """Convert a final Run status into capability evidence."""
+    if status == 'passed':
         return SUPPORTED
-    if isinstance(raw, str) and ASSERTION_FAILURE.fullmatch(raw):
+    if status == 'failed':
         return NOT_SUPPORTED
     return NOT_TESTED
 
@@ -42,19 +30,6 @@ def aggregate(verdicts):
     return NOT_TESTED
 
 
-def load_records(json_dir):
-    rows = []
-    for p in sorted(glob.glob(os.path.join(json_dir, '*.json'))):
-        with open(p, encoding='utf-8') as f:
-            try:
-                doc = json.load(f)
-            except ValueError:
-                sys.stderr.write('skip unparsable %s\n' % p)
-                continue
-        rows.extend(doc.get('attr_records') or [])
-    return rows
-
-
 def resolve_value(raw, enum_type, enums):
     """Normalize bools or resolve a numeric value through its enum type."""
     if isinstance(raw, bool):
@@ -64,74 +39,41 @@ def resolve_value(raw, enum_type, enums):
     return enums.get(enum_type, {}).get(str(raw))
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--json-dir', required=True)
-    ap.add_argument('--skeleton', required=True)
-    ap.add_argument('--enum-values', required=True)
-    ap.add_argument('--ptf-results', required=True)
-    ap.add_argument('--out', required=True)
-    ap.add_argument('--allow-unjoined', action='store_true',
-                    help='write a diagnostic report when records have no '
-                         'matching ptf_results outcome')
-    args = ap.parse_args()
-
-    with open(args.skeleton, encoding='utf-8') as f:
-        skel = json.load(f)['cells']
-    with open(args.enum_values, encoding='utf-8') as f:
-        enums = json.load(f)
-    with open(args.ptf_results, encoding='utf-8') as f:
-        outcomes = json.load(f)
-
-    # cell key -> enum_type, so records can be resolved into the right value
+def build_document(records, skeleton, enums, statuses):
+    """Build the capability document consumed by the HTML renderer."""
     enum_by_attr = {}
-    for c in skel:
-        if c.get('enum_type'):
-            enum_by_attr[c['attr']] = c['enum_type']
+    for cell in skeleton:
+        if cell.get('enum_type'):
+            enum_by_attr[cell['attr']] = cell['enum_type']
 
     hits = {}
     unjoined = 0
-    for r in load_records(args.json_dir):
-        case = r.get('case')
-        if case not in outcomes:
+    for record in records:
+        case = record.get('case')
+        if case not in statuses:
             unjoined += 1
             continue
-        value = resolve_value(r.get('value'), enum_by_attr.get(r['attr']), enums)
-        key = (r['attr'], r['op'], value)
+        value = resolve_value(
+            record.get('value'), enum_by_attr.get(record['attr']), enums)
+        key = (record['attr'], record['op'], value)
         hits.setdefault(key, []).append(
-            {'case': case, 'outcome': outcomes[case]})
+            {'case': case, 'outcome': statuses[case]})
 
     cells = []
     counts = {SUPPORTED: 0, PARTIALLY_SUPPORTED: 0,
               NOT_SUPPORTED: 0, NOT_TESTED: 0}
-    for c in skel:
-        key = (c['attr'], c['op'], c.get('value'))
+    for cell in skeleton:
+        key = (cell['attr'], cell['op'], cell.get('value'))
         sources = hits.get(key, [])
-        verdict = aggregate([classify_outcome(s['outcome']) for s in sources])
+        verdict = aggregate([
+            classify_status(source['outcome']) for source in sources])
         counts[verdict] += 1
-        cells.append(dict(c, verdict=verdict, sources=sources))
-
-    sys.stderr.write(
-        'capability: total=%d supported=%d partial=%d not_supported=%d '
-        'not_tested=%d unjoined=%d\n' %
-        (len(cells), counts[SUPPORTED], counts[PARTIALLY_SUPPORTED],
-         counts[NOT_SUPPORTED], counts[NOT_TESTED], unjoined))
+        cells.append(dict(cell, verdict=verdict, sources=sources))
     if unjoined:
-        sys.stderr.write(
-            'ERROR: %d records had no matching case in ptf_results.json -- '
-            'identity mismatch between collection and orchestration\n' % unjoined)
-        if not args.allow_unjoined:
-            sys.stderr.write(
-                'Refusing to publish an incomplete capability verdict; rerun '
-                'with --allow-unjoined only for diagnostics.\n')
-            return 1
-
-    doc = {'cells': cells,
-           'summary': dict(counts, total=len(cells), unjoined_records=unjoined)}
-    with open(args.out, 'w', encoding='utf-8') as f:
-        json.dump(doc, f, indent=2)
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())
+        raise ValueError(
+            '{} capability records have no matching case status'.format(
+                unjoined))
+    return {
+        'cells': cells,
+        'summary': dict(counts, total=len(cells), unjoined_records=unjoined),
+    }

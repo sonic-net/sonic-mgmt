@@ -11,19 +11,10 @@ split into three tables by result_type:
 The report is driven by the measured spec results: every spec the run actually
 recorded becomes a row.
 
-Test-case pass/fail lives in result.txt, NOT here. This report only reports
-each spec metric's measured value.
-
-Usage:
-    python3 sai_report.py --json-dir per_case_json/ --output report.html \
-        --format html --asic-type th6 --build-id 53
+Test-case pass/fail lives in result.html, not here. This module accepts already
+validated in-memory result documents and renders measured spec values only.
 """
 
-import argparse
-import json
-import os
-from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
@@ -40,6 +31,21 @@ def _norm_type(result_type: Optional[str]) -> str:
 
 def _norm_op(operation) -> str:
     return operation if operation else ""
+
+
+def _report_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Adapt the collector schema for rendering without changing its archive."""
+    if "actual_value" not in spec:
+        return dict(spec)
+    details = dict(spec.get("extra") or {})
+    details["count"] = spec.get("count")
+    if "duration_seconds" in spec:
+        details["duration_seconds"] = spec["duration_seconds"]
+    enriched = dict(spec)
+    enriched["value"] = spec.get("actual_value")
+    enriched["threshold"] = spec.get("baseline")
+    enriched["details"] = details
+    return enriched
 
 
 @dataclass
@@ -77,56 +83,30 @@ class ReportSummary:
     not_measured: int = 0
     build_id: Optional[str] = None
     asic_type: Optional[str] = None
-    timestamp: str = ""
+    timestamp: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
 
-def load_actual_specs(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Load all spec_results from per-case JSON files.
-
-    Returns a dict keyed by (spec_name, operation) -> enriched spec dict
-    (the spec fields plus 'test_class' for provenance). ptf_results.json is
-    skipped (it is case-level, not spec-level).
-    """
+def build_actual_specs(results) -> Dict[tuple, Dict[str, Any]]:
+    """Build measured specs directly from merged per-case result documents."""
     actual = {}
-    json_path = Path(json_dir)
-    if not json_path.exists():
-        print(f"Warning: JSON directory {json_dir} does not exist")
-        return actual
-
-    for json_file in sorted(json_path.glob("*.json")):
-        if json_file.name == "ptf_results.json":
-            continue
-        try:
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-        except Exception as e:
-            print(f"Error loading {json_file}: {e}")
-            continue
-
-        test_class = data.get("test_class", "")
+    for data in results:
+        test_class = data.get("case", data.get("test_class", ""))
         for spec in data.get("spec_results", []):
             key = (spec.get("spec_name", "unknown"), _norm_op(spec.get("operation")))
-            enriched = dict(spec)
+            enriched = _report_spec(spec)
             enriched["test_class"] = test_class
             # Last writer wins if the same (spec, op) appears in multiple
             # cases; they describe the same metric so either value serves.
             actual[key] = enriched
-
     return actual
 
 
-def load_registry_definitions(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Load all metric definitions, including non-rendered incidental specs."""
-    path = Path(json_dir) / "spec_registry.json"
-    if not path.exists():
-        raise ValueError("spec registry %s does not exist" % path)
-    with open(path, 'r') as f:
-        registry = json.load(f)
-
+def build_registry_definitions(registry) -> Dict[tuple, Dict[str, Any]]:
+    """Expand a registry document into operation-specific definitions."""
     definitions = {}
     metric_types = {"performance", "scale", "fill_rate", "incidental"}
     for spec_name, definition in registry.items():
@@ -140,38 +120,17 @@ def load_registry_definitions(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
     return definitions
 
 
-def load_registered_specs(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Expand renderable registry definitions into expected report cells."""
-    return {key: definition
-            for key, definition in load_registry_definitions(json_dir).items()
-            if definition.get("result_type") != "incidental"}
-
-
-def load_fill_rate_rows(json_dir: str) -> List[Dict[str, Any]]:
-    """Collect every fill-rate measurement per scenario (test case).
+def build_fill_rate_rows(results) -> List[Dict[str, Any]]:
+    """Build every fill-rate row directly from per-case result documents.
 
     Covers all *_fill_rate specs (route fill rates AND fdb_fill_rate). Unlike
-    load_actual_specs, this does NOT dedupe by (spec_name, operation): each
-    route-scale case emits the same spec_name (ipv4_route_fill_rate ...) with
-    operation "", so deduping would collapse all deployment scenarios (mask16 /
-    mask24 / mixed ...) into one. Here each file = one scenario, so we keep them
-    all. Fill percentage is `value`; attempted and completed entries live in
-    typed `details` fields.
+    build_actual_specs, this does NOT dedupe by (spec_name, operation).
     """
     out: List[Dict[str, Any]] = []
-    json_path = Path(json_dir)
-    if not json_path.exists():
-        return out
-    for jf in json_path.glob("*.json"):
-        if jf.name == "ptf_results.json":
-            continue
-        try:
-            with open(jf, 'r') as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        tc = data.get("test_class", "")
+    for data in results:
+        tc = data.get("case", data.get("test_class", ""))
         for spec in data.get("spec_results", []):
+            spec = _report_spec(spec)
             name = spec.get("spec_name", "")
             if not name.endswith("_fill_rate"):
                 continue
@@ -188,18 +147,6 @@ def load_fill_rate_rows(json_dir: str) -> List[Dict[str, Any]]:
                                          "higher_better"),
             })
     return out
-
-
-def load_ptf_results(ptf_results_path: Optional[str]) -> Dict[str, str]:
-    """Load case-level PTF results (reserved; not rendered by this report)."""
-    if not ptf_results_path or not os.path.exists(ptf_results_path):
-        return {}
-    try:
-        with open(ptf_results_path, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Warning: failed to load ptf results: {e}")
-        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -262,9 +209,10 @@ def build_spec_rows(actual: Dict[tuple, Dict[str, Any]],
     return rows
 
 
-def summarize(rows: List[SpecRow], build_id, asic_type) -> ReportSummary:
+def summarize(rows: List[SpecRow], build_id, asic_type,
+              generated_at: Optional[str] = None) -> ReportSummary:
     s = ReportSummary(build_id=build_id, asic_type=asic_type,
-                      timestamp=datetime.now().isoformat(timespec="seconds"))
+                      timestamp=generated_at)
     for r in rows:
         if r.result == "NOT MEASURED":
             s.not_measured += 1
@@ -449,7 +397,8 @@ def _html_open(report_title, h1_text, summary, nav_html=""):
     h.append(f"<h1>{h1_text}{sub_txt}</h1>")
     if nav_html:
         h.append(f"<div class=\"meta\">{nav_html}</div>")
-    h.append(f"<div class=\"meta\"><strong>Generated:</strong> {summary.timestamp}</div>")
+    if summary.timestamp:
+        h.append(f"<div class=\"meta\"><strong>Generated:</strong> {summary.timestamp}</div>")
     return h
 
 
@@ -845,108 +794,3 @@ def _pivot_table(title: str, rows, header_unit=None, collapse=False) -> str:
         out.append("</tr>")
     out.append("</tbody></table>")
     return "\n".join(out)
-
-
-# ---------------------------------------------------------------------------
-# Text report (kept minimal, mirrors the three tables)
-# ---------------------------------------------------------------------------
-
-def generate_text_report(summary: ReportSummary, rows: List[SpecRow]) -> str:
-    L = ["=" * 78, "  SAI Spec Test Report"]
-    if summary.asic_type:
-        L.append(f"  ASIC: {summary.asic_type}")
-    if summary.build_id:
-        L.append(f"  Build: {summary.build_id}")
-    L.append(f"  Generated: {summary.timestamp}")
-    L.append("=" * 78)
-    L.append("")
-
-    def _seg(label, npass, nfail, nmeasured, total):
-        if total == 0:
-            return f"{label} -"
-        if npass > 0 or nfail > 0:
-            return f"{label} PASS {npass}/{total}"
-        if nmeasured > 0:
-            return f"{label} MEASURED {nmeasured}/{total}"
-        return f"{label} NOT MEASURED 0/{total}"
-
-    L.append(" | ".join([
-        _seg("Performance", summary.perf_pass, summary.perf_fail, summary.perf_measured, summary.perf_total),
-        _seg("Scale", summary.scale_pass, summary.scale_fail, summary.scale_measured, summary.scale_total),
-        _seg("Fill Rate", summary.fill_pass, summary.fill_fail, summary.fill_measured, summary.fill_total),
-        _seg("Capability", summary.cap_pass, summary.cap_fail, summary.cap_measured, summary.cap_total),
-        f"NOT MEASURED {summary.not_measured}",
-    ]))
-    L.append("")
-    for label, rt in (("Performance", "performance"), ("Scale", "scale"),
-                      ("Fill Rate", "fill_rate"), ("Capability", "capability")):
-        sub = [r for r in rows if r.result_type == rt]
-        if not sub:
-            continue
-        L.append(f"--- {label} ---")
-        for r in sorted(sub, key=lambda x: (x.spec_name, x.operation)):
-            mark = {"PASS": "✅", "FAIL": "❌", "NOT MEASURED": "⛔",
-                    "MEASURED": "▫"}.get(r.result, "?")
-            actual = _fmt_num(r.value) if r.value is not None else "NOT MEASURED"
-            L.append(f"  {mark} {r.spec_name} {r.operation}: "
-                     f"{actual} {r.unit}")
-        L.append("")
-    return "\n".join(L)
-
-
-# ---------------------------------------------------------------------------
-# main
-# ---------------------------------------------------------------------------
-
-def main():
-    p = argparse.ArgumentParser(description="Generate SAI spec metric report")
-    p.add_argument("--json-dir", required=True)
-    p.add_argument("--output", required=True)
-    p.add_argument("--format", choices=["html", "text"], default="html")
-    p.add_argument("--build-id", default=None)
-    p.add_argument("--asic-type", default=None)
-    p.add_argument("--ptf-results", default=None,
-                   help="(optional) ptf_results.json; not rendered, reserved.")
-    p.add_argument("--result-report", default="result.html",
-                   help="file name of the test execution report to link back to "
-                        "(default: result.html). Set empty to omit the link.")
-    p.add_argument("--cap-report", default="capability.html",
-                   help="file name of the value-level capability report to link "
-                        "to (default: capability.html). That report is rendered "
-                        "by the SAI repo tool ptf/ranking_test/report/"
-                        "render_capability.py. "
-                        "Set empty to omit the link.")
-    args = p.parse_args()
-
-    actual = load_actual_specs(args.json_dir)
-    definitions = load_registry_definitions(args.json_dir)
-    expected = {key: definition for key, definition in definitions.items()
-                if definition.get("result_type") != "incidental"}
-    route_fill_rows = load_fill_rate_rows(args.json_dir)
-    print(f"Loaded {len(actual)} actual spec results, "
-          f"{len(expected)} registered metric cells, "
-          f"{len(route_fill_rows)} fill-rate scenarios")
-
-    rows = build_spec_rows(actual, expected, definitions)
-    summary = summarize(rows, args.build_id, args.asic_type)
-
-    if args.format == "html":
-        report = generate_html_report(summary, rows, actual, route_fill_rows,
-                                      cap_report_name=args.cap_report,
-                                      result_report_name=args.result_report)
-        with open(args.output, 'w', encoding='utf-8') as f:
-            f.write(report)
-        print(f"Spec report generated: {args.output}")
-    else:
-        report = generate_text_report(summary, rows)
-        with open(args.output, 'w', encoding='utf-8') as f:
-            f.write(report)
-        print(f"Report generated: {args.output}")
-    print(f"perf {summary.perf_pass}/{summary.perf_total}, "
-          f"scale {summary.scale_pass}/{summary.scale_total}, "
-          f"cap {summary.cap_pass}/{summary.cap_total}, "
-          f"NOT MEASURED {summary.not_measured}")
-
-
-if __name__ == "__main__":
-    main()

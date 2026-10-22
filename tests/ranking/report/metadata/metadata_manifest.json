@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "source_identity": {
+    "repo": "SONiC/SAI",
+    "branch": "v1.10-pdx-capability",
+    "commit": "3e2e3631b57d8ce9f461ece2e14e451295cb520b"
+  },
+  "source_files": {
+    "spec_registry.json": "085c27d36a1213328ac97351cc6ceca57672da2b6eccfffbd0d70ae00efb6d61",
+    "skeleton.json": "cf90c62114ffeba39d5bb23acd3e94c9b99fb97d2d81ac4b8f704ec93a576cc8",
+    "enum_values.json": "404079193705378168fdd919b9e89e4244b092563cf569f72f8cc34de469edc9"
+  },
+  "files": {
+    "spec_registry.json": "085c27d36a1213328ac97351cc6ceca57672da2b6eccfffbd0d70ae00efb6d61",
+    "skeleton.json": "b6117b87f330356b96bbf23c074c6178b5c1fe16eae648608f2040756aaa7952",
+    "enum_values.json": "404079193705378168fdd919b9e89e4244b092563cf569f72f8cc34de469edc9"
+  },
+  "transforms": {
+    "skeleton.json": {
+      "schema_version": 1,
+      "name": "drop-non-runtime-source-paths",
+      "input_sha256": "cf90c62114ffeba39d5bb23acd3e94c9b99fb97d2d81ac4b8f704ec93a576cc8",
+      "output_sha256": "b6117b87f330356b96bbf23c074c6178b5c1fe16eae648608f2040756aaa7952",
+      "removed_fields": [
+        "attr_dirs",
+        "enum_dirs"
+      ]
+    }
+  }
+}
