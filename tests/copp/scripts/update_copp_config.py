@@ -83,9 +83,9 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
-            # For queue4_group3, use the default value in copp
+            # For queue4_group3 and queue3_group1, use the default value in copp
             # configuration as this is lower than 600 PPS
-            if tg == "queue4_group3":
+            if tg in ("queue4_group3", "queue3_group1"):
                 if asic_type == "cisco-8000":
                     group_config["cir"] = "600"
                     group_config["cbs"] = "600"
