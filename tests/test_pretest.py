@@ -708,7 +708,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
 def test_bmc_clock_in_sync(duthosts):
     """Verify BMC clocks are synchronized with the sonic-mgmt container."""
     bmc_duts = [duthost for duthost in duthosts if duthost.is_bmc()]
-    pytest_assert(bmc_duts, "BMC topology does not contain a NetworkBmc DUT")
+    pytest_require(bmc_duts, "BMC clock synchronization check only applies to BMC testbeds")
 
     for duthost in bmc_duts:
         assert_bmc_clock_in_sync(duthost)
