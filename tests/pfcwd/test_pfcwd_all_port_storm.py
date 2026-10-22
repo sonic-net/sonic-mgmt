@@ -359,20 +359,28 @@ class TestPfcwdAllPortStorm(object):
         # Track which ports actually enter storm state
         stormed_ports_list = []
 
-        # get all the tested ports
+        # get all the tested ports.  The DUT may be connected to more than one fanout
+        # (e.g. a t1-lag testbed has a T2 facing and a T0 facing fanout), so the
+        # fanout -> DUT port mapping has to be accumulated for every peer.  Keeping the
+        # port selection inside the per peer loop mirrors
+        # pfcwd_helper._get_storm_test_ports(), which is what
+        # verify_all_ports_pfc_storm_in_expected_state() uses to build its port list.
         queues = []
+        selected_test_ports = []
         for peer in storm_hndle.peer_params.keys():
             fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
             device_conn = storm_hndle.fanout_graph[peer]['device_conn']
             queues.append(storm_hndle.storm_handle[peer].pfc_queue_idx)
-        queues = list(set(queues))
-        selected_test_ports = []
 
-        if duthost.facts['asic_type'] != 'vs':
+            if duthost.facts['asic_type'] == 'vs':
+                continue
             for intf in fanout_intfs:
                 test_port = device_conn[intf]['peerport']
-                if test_port in setup_pfc_test['test_ports']:
+                if test_port in setup_pfc_test['test_ports'] and \
+                        test_port not in selected_test_ports:
                     selected_test_ports.append(test_port)
+        queues = list(set(queues))
+
         resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
                     setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
         try:
