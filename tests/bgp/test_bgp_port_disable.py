@@ -14,6 +14,8 @@ pytestmark = [
 FRR_USER_UID = '300'
 RESTRICTED_ACCESS_PORTS = ['2605', '2616']
 UID_RESTRICTED_PORTS = ['2601', '2620']
+CACLMGRD_STABILIZATION_TIME = 10
+CACLMGRD_MULTI_ASIC_STABILIZATION_TIME = 60
 
 
 def generate_iptables_rule():
@@ -31,7 +33,10 @@ def restart_caclmgrd(duthost):
         return int(duthost.shell(command, module_ignore_errors=True)['stdout']) >= 1
 
     duthost.shell('sudo systemctl restart caclmgrd')
-    time.sleep(10)
+    stabilization_time = CACLMGRD_MULTI_ASIC_STABILIZATION_TIME if (
+        duthost.is_multi_asic or duthost.get_facts().get("modular_chassis")
+    ) else CACLMGRD_STABILIZATION_TIME
+    time.sleep(stabilization_time)
     pytest_assert(wait_until(20, 1, 0, _check_caclmgrd_running), "caclmgrd not running")
 
 
