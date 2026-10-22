@@ -160,6 +160,33 @@ class TestMacsecHostContract:
             call("cat /sys/class/net/macsec_eth2/address"),
         ]
 
+    def test_get_macsec_iface_sci_reads_kernel_macsec_record(self):
+        host = make_host()
+        macsec_state = (
+            '[{"ifname":"macsec_eth1","sci":"0x1111111111110001"},'
+            '{"ifname":"macsec_eth2","sci":"0x8e6c5b52f5160001"}]')
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=[
+                    docker_ok("eth0\neth1\neth2\nEthernet0\nEthernet4\n"),
+                    docker_ok(macsec_state),
+                ]) as execute:
+            assert host.get_macsec_iface_sci("Ethernet4") == "8e6c5b52f5160001"
+        assert execute.call_args_list == [
+            call("ls /sys/class/net/"),
+            call("ip -j macsec show"),
+        ]
+
+    def test_get_macsec_iface_sci_rejects_malformed_state(self):
+        host = make_host()
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=[
+                    docker_ok("eth0\neth1\nEthernet0\n"),
+                    docker_ok('[{"ifname":"macsec_eth1","sci":"invalid"}]'),
+                ]):
+            assert host.get_macsec_iface_sci("Ethernet0") is None
+
     def test_get_dut_iface_mac_fails_closed(self):
         host = make_host()
         with patch.object(
