@@ -149,6 +149,22 @@ def get_max_allowed_lacp_session_wait(test_params):
     return lacp_multiplier * lacp_period_sec
 
 
+def get_max_lacp_packet_gap(lacp_pdu_times):
+    member_times = lacp_pdu_times.get("lacp_by_member", {})
+    gaps = []
+    for timestamps in member_times.values():
+        timestamps = sorted(timestamps)
+        gaps.extend(new - old for old, new in zip(timestamps, timestamps[1:]))
+    if gaps:
+        return max(gaps)
+
+    # Non-SONiC monitors retain the legacy flat timestamp list.
+    timestamps = sorted(lacp_pdu_times.get("lacp_all", []))
+    if len(timestamps) > 1:
+        return max(new - old for old, new in zip(timestamps, timestamps[1:]))
+    return None
+
+
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
     PKT_TOUT = 1
@@ -214,7 +230,9 @@ class ReloadTest(BaseTest):
         self.check_param('neighbor_type', 'eos', required=False)
         self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('csonic_neighbor', False, required=False)
-        self.check_param('csonic_lag_backend', 'teamd', required=False)
+        self.check_param('csonic_neighbor_login', 'admin', required=False)
+        self.check_param('csonic_neighbor_password', 'password', required=False)
+        self.check_param('csonic_lag_backend', 'unknown', required=False)
         self.check_param('csonic_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
@@ -1485,6 +1503,20 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
+    def _get_neighbor_handle(self, ip, queue=None, connect_timeout=None, test_params=None):
+        test_params = test_params or self.test_params
+        kwargs = {
+            "log_cb": self.log,
+            "connect_timeout": connect_timeout,
+        }
+        if self.test_params['csonic_neighbor']:
+            kwargs.update({
+                "login": self.test_params['csonic_neighbor_login'],
+                "password": self.test_params['csonic_neighbor_password'],
+            })
+        return HostDevice.getHostDeviceInstance(
+            self.test_params['neighbor_type'], ip, queue, test_params, **kwargs)
+
     def _verify_neighbors_reachable(self, connect_timeout=15):
         """Pre-flight: confirm every neighbor in ssh_targets is SSH-reachable.
 
@@ -1495,10 +1527,8 @@ class ReloadTest(BaseTest):
         bad = []
         for ip in self.ssh_targets:
             try:
-                handle = HostDevice.getHostDeviceInstance(
-                    self.test_params['neighbor_type'], ip, None,
-                    self.test_params, log_cb=self.log,
-                    connect_timeout=connect_timeout)
+                handle = self._get_neighbor_handle(
+                    ip, connect_timeout=connect_timeout)
                 handle.connect()
                 handle.disconnect()
                 self.log("Neighbor SSH probe ok for {}".format(ip))
@@ -1511,8 +1541,46 @@ class ReloadTest(BaseTest):
             self.fails['infrastructure'].add(msg)
             raise RuntimeError(msg)
 
+    def _detect_csonic_lag_backend(self, connect_timeout=15):
+        if not self.test_params['csonic_neighbor']:
+            return None
+
+        detected = set()
+        for ip in self.ssh_targets:
+            handle = self._get_neighbor_handle(ip, connect_timeout=connect_timeout)
+            try:
+                handle.connect()
+                raw_bonds = handle.do_cmd(
+                    "sudo ovs-vsctl --data=bare --no-heading --columns=name "
+                    "find Port lacp=active")
+                teamd_pids = handle.do_cmd("pgrep -x teamd || true")
+                teamd_supervisor = handle.do_cmd(
+                    "supervisorctl status teammgrd tlm_teamd 2>/dev/null || true")
+                teamd_running = bool(teamd_pids.strip()) or "RUNNING" in teamd_supervisor
+                if raw_bonds.strip() and not teamd_running:
+                    backend = "userspace_ovs"
+                elif not raw_bonds.strip() and teamd_running:
+                    backend = "teamd"
+                else:
+                    backend = "unknown"
+                detected.add(backend)
+                self.log("Detected cSONiC LAG backend {} on {}".format(backend, ip))
+            finally:
+                handle.disconnect()
+
+        if len(detected) != 1 or "unknown" in detected:
+            raise RuntimeError("Inconsistent or unknown cSONiC LAG backends: {}".format(sorted(detected)))
+        backend = detected.pop()
+        if self.test_params['csonic_neighbor_lacp_multiplier'] != 3 and backend != "userspace_ovs":
+            raise RuntimeError(
+                "cSONiC LACP multiplier {} requires the userspace_ovs backend; detected {}".format(
+                    self.test_params['csonic_neighbor_lacp_multiplier'], backend))
+        self.test_params['csonic_lag_backend'] = backend
+        return backend
+
     def runTest(self):
         self._verify_neighbors_reachable()
+        self._detect_csonic_lag_backend()
 
         restore_ceos_multiplier = (
             self.test_params['neighbor_type'] == "eos"
@@ -1628,8 +1696,7 @@ class ReloadTest(BaseTest):
         for neigh in self.ssh_targets:
             neigh_handle = None
             try:
-                neigh_handle = HostDevice.getHostDeviceInstance(
-                    self.test_params['neighbor_type'], neigh, None, self.test_params)
+                neigh_handle = self._get_neighbor_handle(neigh, connect_timeout=15)
                 neigh_handle.connect()
                 raw_bonds = neigh_handle.do_cmd(
                     "sudo ovs-vsctl --data=bare --no-heading --columns=name "
@@ -1693,8 +1760,7 @@ class ReloadTest(BaseTest):
             else:
                 self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                              if x['mgmt_addr'] == neigh]
-                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                     None, self.test_params)
+                self.neigh_handle = self._get_neighbor_handle(neigh, connect_timeout=15)
                 self.neigh_handle.connect()
                 fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
                 self.neigh_handle.disconnect()
@@ -1916,10 +1982,12 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started with queue {}'.format(ip, queue))
-        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                     if x['mgmt_addr'] == ip]
-        ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
-                                               self.test_params, log_cb=self.log)
+        neighbor_test_params = dict(self.test_params)
+        neighbor_test_params['port_channel_intf_idx'] = [
+            x['ptf_ports'][0] for x in self.vm_dut_map.values()
+            if x['mgmt_addr'] == ip]
+        ssh = self._get_neighbor_handle(
+            ip, queue=queue, connect_timeout=15, test_params=neighbor_test_params)
         try:
             self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         except Exception:
@@ -1941,33 +2009,27 @@ class ReloadTest(BaseTest):
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
-        lacp_pdu_all_times = lacp_pdu_times.get("lacp_all")
+        self.log('lacp_pdu_times: IP:{}: {}'.format(ip, lacp_pdu_times))
 
-        self.log('lacp_pdu_all_times: IP:{}: {}'.format(ip, lacp_pdu_all_times))
-
-        # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
-        max_lacp_session_wait = None
+        # Compare actual consecutive LACP packets on each monitored member.
+        # Lifecycle snapshots can be many seconds apart even when LACP is healthy.
+        max_lacp_session_wait = get_max_lacp_packet_gap(lacp_pdu_times)
 
         max_allowed_lacp_session_wait = get_max_allowed_lacp_session_wait(self.test_params)
         self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
             max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
 
-        if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
-            lacp_pdu_all_times.sort()
-            max_lacp_session_wait = 0
-            prev_time = lacp_pdu_all_times[0]
-            for new_time in lacp_pdu_all_times[1:]:
-                lacp_session_wait = new_time - prev_time
-                if lacp_session_wait > max_lacp_session_wait:
-                    max_lacp_session_wait = lacp_session_wait
-                prev_time = new_time
-
-        if 'warm-reboot' in self.reboot_type:
-            if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
+        enforce_lacp_gap = (
+            not self.kvm_test
+            or (self.test_params['csonic_neighbor']
+                and self.test_params['csonic_lag_backend'] == 'userspace_ovs'))
+        if 'warm-reboot' in self.reboot_type and enforce_lacp_gap:
+            if max_lacp_session_wait is not None \
+                    and max_lacp_session_wait >= max_allowed_lacp_session_wait:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
-                                      " post-reboot lacpdu came after {}s of lacpdu pre-boot"
+                                      " consecutive LACPDUs were {}s apart"
                                       .format(max_lacp_session_wait))
-            elif not max_lacp_session_wait and not self.kvm_test:
+            elif max_lacp_session_wait is None:
                 self.fails['dut'].add("LACP session timing not captured")
 
         self.lacp_session_pause[ip] = max_lacp_session_wait
