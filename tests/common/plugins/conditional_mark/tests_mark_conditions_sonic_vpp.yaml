@@ -156,14 +156,39 @@ dut_console/test_idle_timeout.py:
     conditions:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
-#######################################
-#####         Everflow            #####
-#######################################
-everflow:
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dscp_mirroring:
   skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring:
+  skip:
+    reason: "DSCP ACL rule fields are not supported by sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
+    conditions:
+      - "asic_type in ['vpp']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Everflow DSCP policer testing is out of scope for sonic-vpp"
     conditions:
       - "asic_type in ['vpp']"
 
