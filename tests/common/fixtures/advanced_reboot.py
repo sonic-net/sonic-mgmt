@@ -140,6 +140,9 @@ class AdvancedReboot:
         self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
         self.csonicNeighLacpMultiplier = self.request.config.getoption("--csonic_neighbor_lacp_multiplier")
         self.isCsonicNeighbor = self.neighborType == 'csonic'
+        self.csonicLagBackend = os.getenv('SONIC_MGMT_CSONIC_LAG_BACKEND', 'teamd')
+        if self.csonicLagBackend not in ('teamd', 'userspace_ovs'):
+            raise ValueError("Unsupported cSONiC LAG backend: {}".format(self.csonicLagBackend))
         if 'sonic' in self.neighborType:
             self.neighborType = 'sonic'
 
@@ -957,6 +960,7 @@ class AdvancedReboot:
             "kvm_support": True,
             "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
             "csonic_neighbor": self.isCsonicNeighbor,
+            "csonic_lag_backend": self.csonicLagBackend,
             "csonic_neighbor_lacp_multiplier": self.csonicNeighLacpMultiplier,
             "packet_capture_location": self.rebootData['packet_capture_location']
         }

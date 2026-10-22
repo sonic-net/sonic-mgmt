@@ -134,6 +134,21 @@ class StateMachine():
         return flooding
 
 
+def get_max_allowed_lacp_session_wait(test_params):
+    lacp_period_sec = 30
+    if test_params['csonic_neighbor'] and test_params.get('csonic_lag_backend') == 'userspace_ovs':
+        # The userspace OVS backend requests one-second LACP heartbeats.
+        lacp_period_sec = 1
+        lacp_multiplier = test_params['csonic_neighbor_lacp_multiplier']
+    elif test_params['neighbor_type'] == "eos":
+        lacp_multiplier = test_params.get('ceos_neighbor_lacp_multiplier') or 3
+    elif test_params['neighbor_type'] == "sonic":
+        lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
+    else:
+        lacp_multiplier = 3
+    return lacp_multiplier * lacp_period_sec
+
+
 class ReloadTest(BaseTest):
     TIMEOUT = 0.5
     PKT_TOUT = 1
@@ -199,6 +214,7 @@ class ReloadTest(BaseTest):
         self.check_param('neighbor_type', 'eos', required=False)
         self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('csonic_neighbor', False, required=False)
+        self.check_param('csonic_lag_backend', 'teamd', required=False)
         self.check_param('csonic_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
@@ -1498,14 +1514,25 @@ class ReloadTest(BaseTest):
     def runTest(self):
         self._verify_neighbors_reachable()
 
-        # Extend the neighbor receive window across the DUT's LACP silence.
-        if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
-            self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
-        if self.test_params['csonic_neighbor'] and self.test_params['csonic_neighbor_lacp_multiplier'] != 3:
-            self.csonic_set_lacp_all_neighs(self.test_params['csonic_neighbor_lacp_multiplier'])
-
-        self.pre_reboot_test_setup()
+        restore_ceos_multiplier = (
+            self.test_params['neighbor_type'] == "eos"
+            and self.test_params['ceos_neighbor_lacp_multiplier'] != 3)
+        restore_csonic_multiplier = (
+            self.test_params['csonic_neighbor']
+            and self.test_params['csonic_lag_backend'] == 'userspace_ovs'
+            and self.test_params['csonic_neighbor_lacp_multiplier'] != 3)
+        setup_complete = False
         try:
+            # Extend the neighbor receive window across the DUT's LACP silence.
+            # Restoration is armed before each change so partial setup failures
+            # are still cleaned up.
+            if restore_ceos_multiplier:
+                self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
+            if restore_csonic_multiplier:
+                self.csonic_set_lacp_all_neighs(self.test_params['csonic_neighbor_lacp_multiplier'])
+
+            self.pre_reboot_test_setup()
+            setup_complete = True
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add("DUT is not ready for test")
             self.wait_dut_to_warm_up()
@@ -1554,16 +1581,29 @@ class ReloadTest(BaseTest):
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
         except Exception:
+            if not setup_complete:
+                raise
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
             # Restore neighbor LACP receive multipliers to their default (3).
-            if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
-                self.ceos_set_lacp_all_neighs(3)
-            if self.test_params['csonic_neighbor'] and self.test_params['csonic_neighbor_lacp_multiplier'] != 3:
-                self.csonic_set_lacp_all_neighs(3)
+            # Cleanup failures are recorded independently so every configured
+            # backend and every cSONiC neighbor still gets a restore attempt.
+            if restore_ceos_multiplier:
+                try:
+                    self.ceos_set_lacp_all_neighs(3)
+                except Exception:
+                    self.fails['dut'].add("Failed to restore cEOS LACP multiplier:\n{}".format(
+                        traceback.format_exc()))
+            if restore_csonic_multiplier:
+                try:
+                    self.csonic_set_lacp_all_neighs(3, continue_on_error=True)
+                except Exception:
+                    self.fails['dut'].add("Failed to restore cSONiC LACP multiplier:\n{}".format(
+                        traceback.format_exc()))
 
-            self.handle_post_reboot_test_reports()
+            if setup_complete:
+                self.handle_post_reboot_test_reports()
 
     def ceos_set_lacp_all_neighs(self, multiplier):
         for neigh in self.ssh_targets:
@@ -1582,12 +1622,14 @@ class ReloadTest(BaseTest):
 
             self.neigh_handle.disconnect()
 
-    def csonic_set_lacp_all_neighs(self, multiplier):
+    def csonic_set_lacp_all_neighs(self, multiplier, continue_on_error=False):
         self.log("cSONiC LACP receive multiplier update started: requested={}".format(multiplier))
+        errors = []
         for neigh in self.ssh_targets:
-            neigh_handle = HostDevice.getHostDeviceInstance(
-                self.test_params['neighbor_type'], neigh, None, self.test_params)
+            neigh_handle = None
             try:
+                neigh_handle = HostDevice.getHostDeviceInstance(
+                    self.test_params['neighbor_type'], neigh, None, self.test_params)
                 neigh_handle.connect()
                 raw_bonds = neigh_handle.do_cmd(
                     "sudo ovs-vsctl --data=bare --no-heading --columns=name "
@@ -1596,24 +1638,48 @@ class ReloadTest(BaseTest):
                 if not bonds:
                     raise RuntimeError("No active userspace OVS LACP bonds found on {}".format(neigh))
                 for bond in bonds:
-                    quoted_bond = shlex.quote(bond)
-                    neigh_handle.do_cmd(
-                        "sudo ovs-vsctl set Port {} "
-                        "other_config:lacp-rx-multiplier={}".format(
-                            quoted_bond, multiplier))
-                    actual = neigh_handle.do_cmd(
-                        "sudo ovs-vsctl get Port {} "
-                        "other_config:lacp-rx-multiplier".format(quoted_bond))
-                    actual = actual.strip().strip('"')
-                    if actual != str(multiplier):
-                        raise RuntimeError(
-                            "Failed to set LACP receive multiplier {} on {}:{}; got {!r}".format(
-                                multiplier, neigh, bond, actual))
-                    self.log(
-                        "cSONiC LACP receive multiplier verified: neighbor={} bond={} "
-                        "requested={} actual={}".format(neigh, bond, multiplier, actual))
+                    try:
+                        quoted_bond = shlex.quote(bond)
+                        neigh_handle.do_cmd(
+                            "sudo ovs-vsctl set Port {} "
+                            "other_config:lacp-rx-multiplier={}".format(
+                                quoted_bond, multiplier))
+                        actual = neigh_handle.do_cmd(
+                            "sudo ovs-vsctl get Port {} "
+                            "other_config:lacp-rx-multiplier".format(quoted_bond))
+                        actual = actual.strip().strip('"')
+                        if actual != str(multiplier):
+                            raise RuntimeError(
+                                "Failed to set LACP receive multiplier {} on {}:{}; got {!r}".format(
+                                    multiplier, neigh, bond, actual))
+                        self.log(
+                            "cSONiC LACP receive multiplier verified: neighbor={} bond={} "
+                            "requested={} actual={}".format(neigh, bond, multiplier, actual))
+                    except Exception as error:
+                        if not continue_on_error:
+                            raise
+                        errors.append("{}:{}: {}".format(neigh, bond, error))
+                        self.log("cSONiC LACP receive multiplier update failed: neighbor={} bond={} "
+                                 "requested={} error={}".format(neigh, bond, multiplier, error))
+            except Exception as error:
+                if not continue_on_error:
+                    raise
+                errors.append("{}: {}".format(neigh, error))
+                self.log("cSONiC LACP receive multiplier update failed: neighbor={} "
+                         "requested={} error={}".format(neigh, multiplier, error))
             finally:
-                neigh_handle.disconnect()
+                if neigh_handle is not None:
+                    try:
+                        neigh_handle.disconnect()
+                    except Exception as error:
+                        if not continue_on_error:
+                            raise
+                        errors.append("{} disconnect: {}".format(neigh, error))
+                        self.log("cSONiC LACP receive multiplier disconnect failed: neighbor={} "
+                                 "error={}".format(neigh, error))
+        if errors:
+            raise RuntimeError("Failed to set cSONiC LACP receive multiplier {}: {}".format(
+                multiplier, errors))
         self.log("cSONiC LACP receive multiplier update completed: requested={}".format(multiplier))
 
     def neigh_lag_status_check(self):
@@ -1882,25 +1948,7 @@ class ReloadTest(BaseTest):
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
 
-        # Initialize max_allowed_lacp_session_wait.
-        lacp_period_sec = 30
-
-        if self.test_params['csonic_neighbor']:
-            # The userspace OVS backend requests one-second LACP heartbeats.
-            lacp_period_sec = 1
-            lacp_multiplier = self.test_params['csonic_neighbor_lacp_multiplier']
-        elif self.test_params['neighbor_type'] == "eos":
-            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
-                    and self.test_params['ceos_neighbor_lacp_multiplier']:
-                lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
-            else:
-                lacp_multiplier = 3
-        elif self.test_params['neighbor_type'] == "sonic":
-            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
-        else:
-            lacp_multiplier = 3
-
-        max_allowed_lacp_session_wait = lacp_multiplier * lacp_period_sec
+        max_allowed_lacp_session_wait = get_max_allowed_lacp_session_wait(self.test_params)
         self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
             max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
 

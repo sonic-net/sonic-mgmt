@@ -1,4 +1,5 @@
 import ast
+import argparse
 import shlex
 from operator import itemgetter
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 PTF_DIR = Path(__file__).parents[2] / "ptftests" / "py3"
 SCRIPT = PTF_DIR / "advanced-reboot.py"
 SONIC_SCRIPT = PTF_DIR / "sonic.py"
+CONFTEST = Path(__file__).parents[2] / "conftest.py"
 
 
 class FakeNeighbor:
@@ -34,7 +36,7 @@ class FakeNeighbor:
         return ""
 
 
-def load_method(neighbor):
+def load_method(neighbor, ssh_targets=None):
     tree = ast.parse(SCRIPT.read_text())
     reload_test = next(
         node for node in tree.body
@@ -49,6 +51,8 @@ def load_method(neighbor):
     class HostDevice:
         @staticmethod
         def getHostDeviceInstance(*args, **kwargs):
+            if isinstance(neighbor, dict):
+                return neighbor[args[1]]
             return neighbor
 
     namespace = {"HostDevice": HostDevice, "shlex": shlex}
@@ -62,7 +66,7 @@ def load_method(neighbor):
     ast.fix_missing_locations(test_class)
     exec(compile(ast.Module(body=[test_class], type_ignores=[]), str(SCRIPT), "exec"), namespace)
     harness = namespace["Harness"]()
-    harness.ssh_targets = ["10.0.0.1"]
+    harness.ssh_targets = ssh_targets or ["10.0.0.1"]
     harness.test_params = {"neighbor_type": "sonic"}
     harness.logs = []
     harness.log = harness.logs.append
@@ -137,3 +141,116 @@ def test_fails_when_readback_does_not_match():
     with pytest.raises(RuntimeError, match="Failed to set LACP receive multiplier"):
         load_method(neighbor).csonic_set_lacp_all_neighs(180)
     assert neighbor.disconnected
+
+
+def test_cleanup_attempts_every_csonic_neighbor():
+    neighbors = {
+        "10.0.0.1": FakeNeighbor(bonds=""),
+        "10.0.0.2": FakeNeighbor(),
+    }
+    harness = load_method(neighbors, ssh_targets=list(neighbors))
+
+    with pytest.raises(RuntimeError, match="10.0.0.1"):
+        harness.csonic_set_lacp_all_neighs(180, continue_on_error=True)
+
+    assert neighbors["10.0.0.1"].disconnected
+    assert neighbors["10.0.0.2"].disconnected
+    assert any("PortChannel1-bond" in call for call in neighbors["10.0.0.2"].calls)
+
+
+def load_function(path, name, namespace=None):
+    tree = ast.parse(path.read_text())
+    function = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == name
+    )
+    loaded = dict(namespace or {})
+    exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), "exec"), loaded)
+    return loaded[name]
+
+
+def test_csonic_multiplier_range_validation():
+    parse_multiplier = load_function(
+        CONFTEST, "_csonic_lacp_multiplier", {"argparse": argparse})
+
+    assert parse_multiplier("1") == 1
+    assert parse_multiplier("255") == 255
+    for invalid in ("0", "256", "not-an-integer"):
+        with pytest.raises(argparse.ArgumentTypeError):
+            parse_multiplier(invalid)
+
+
+def test_csonic_lacp_timing_is_backend_specific():
+    max_wait = load_function(SCRIPT, "get_max_allowed_lacp_session_wait")
+    common = {
+        "csonic_neighbor": True,
+        "neighbor_type": "sonic",
+        "csonic_neighbor_lacp_multiplier": 180,
+    }
+
+    assert max_wait(dict(common, csonic_lag_backend="userspace_ovs")) == 180
+    assert max_wait(dict(common, csonic_lag_backend="teamd")) == 150
+
+
+def load_reload_method(method_name):
+    tree = ast.parse(SCRIPT.read_text())
+    reload_test = next(
+        node for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "ReloadTest"
+    )
+    method = next(
+        node for node in reload_test.body
+        if isinstance(node, ast.FunctionDef) and node.name == method_name
+    )
+    namespace = {}
+    test_class = ast.ClassDef(
+        name="Harness",
+        bases=[],
+        keywords=[],
+        body=[method],
+        decorator_list=[],
+    )
+    ast.fix_missing_locations(test_class)
+    exec(compile(ast.Module(body=[test_class], type_ignores=[]), str(SCRIPT), "exec"), namespace)
+    return namespace["Harness"]()
+
+
+def make_run_test_harness(backend):
+    harness = load_reload_method("runTest")
+    harness.test_params = {
+        "neighbor_type": "sonic",
+        "ceos_neighbor_lacp_multiplier": 3,
+        "csonic_neighbor": True,
+        "csonic_lag_backend": backend,
+        "csonic_neighbor_lacp_multiplier": 180,
+    }
+    harness.fails = {"dut": set()}
+    updates = []
+    harness._verify_neighbors_reachable = lambda: None
+    harness.ceos_set_lacp_all_neighs = lambda multiplier: None
+    harness.csonic_set_lacp_all_neighs = (
+        lambda multiplier, continue_on_error=False: updates.append((multiplier, continue_on_error)))
+
+    def fail_setup():
+        raise RuntimeError("setup failed")
+
+    harness.pre_reboot_test_setup = fail_setup
+    return harness, updates
+
+
+def test_setup_failure_restores_csonic_multiplier():
+    harness, updates = make_run_test_harness("userspace_ovs")
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        harness.runTest()
+
+    assert updates == [(180, False), (3, True)]
+
+
+def test_teamd_backend_does_not_update_ovs_multiplier():
+    harness, updates = make_run_test_harness("teamd")
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        harness.runTest()
+
+    assert updates == []
