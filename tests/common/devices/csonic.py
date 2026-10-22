@@ -385,14 +385,15 @@ class CsonicHost(NeighborDevice):
         return result
 
     def _ovs_bond_member(self, interface_name, bond):
-        """Return the kernel device of interface_name that bond actually enslaves.
+        """Return the active OVS device for a logical PortChannel member.
 
         The EthernetN -> ethN convention is duplicated from ``kernel_member()`` in
         ansible/roles/sonic/files/csonic_ovs_lag.py, which is the source of truth
         but ships into the container as an Ansible module and cannot be imported
-        here; keep the two in sync. The regex only supplies the correspondence,
-        so confirm the derived device against the bond's OVS member list and
-        raise when it is absent rather than silently toggling EthernetN only.
+        here; keep the two in sync. MACsec-enabled OVS bonds use macsec_ethN so
+        decrypted traffic reaches the PortChannel, while ordinary bonds use ethN.
+        Confirm exactly one of those devices is present rather than silently
+        toggling EthernetN only.
         """
         match = re.fullmatch(r"Ethernet(\d+)", interface_name)
         if not match:
@@ -400,20 +401,131 @@ class CsonicHost(NeighborDevice):
                 "Unable to map unsupported cSONiC LAG member [{}] to a kernel device "
                 "of bond [{}]".format(interface_name, bond))
         device = "eth{}".format(match.group(1))
+        candidates = (device, "macsec_{}".format(device))
         # ovs_portchannel() creates each PortChannel as its own bridge and puts the
         # members into a Port named '<PortChannel>-bond'.
         bridge = bond[:-len("-bond")]
         result = self._docker_exec("ovs-vsctl list-ifaces {}".format(bridge),
                                    module_ignore_errors=True)
-        members = result['stdout_lines'] if result['rc'] == 0 else []
-        if device not in members:
+        if result.get("rc") != 0:
             raise Exception(
-                "Interface [{}] maps to kernel device [{}], which is not a member of "
-                "OVS bond [{}] (members: {}); refusing to toggle only [{}] because that "
-                "would leave the bond member up and LACP active".format(
-                    interface_name, device, bond, ",".join(members) or "none",
-                    interface_name))
-        return device
+                "Unable to list OVS bridge [{}] interfaces for bond [{}]: {}"
+                .format(bridge, bond, result.get("stderr", "")))
+        members = result.get("stdout_lines", [])
+        active = [candidate for candidate in candidates if candidate in members]
+        if len(active) != 1:
+            raise Exception(
+                "Interface [{}] maps to OVS devices [{}], but bond [{}] has {} "
+                "matching members (members: {}); refusing to toggle only [{}] "
+                "because that would leave the active bond member unchanged".format(
+                    interface_name, ",".join(candidates), bond, len(active),
+                    ",".join(members) or "none", interface_name))
+        return active[0]
+
+    def _ovs_bond_interfaces(self, bond):
+        """Return only the Interface names referenced by an OVS Port."""
+        result = self._docker_exec(
+            "ovs-vsctl get Port {} interfaces".format(shlex.quote(bond)),
+            module_ignore_errors=True)
+        if result.get("rc") != 0:
+            raise Exception(
+                "Unable to get OVS bond [{}] interface IDs: {}".format(
+                    bond, result.get("stderr", "")))
+        interface_ids = re.findall(
+            r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
+            result.get("stdout", ""))
+        if not interface_ids:
+            raise Exception(
+                "OVS bond [{}] has no interface IDs: {}".format(
+                    bond, result.get("stdout", "")))
+
+        interfaces = []
+        for interface_id in interface_ids:
+            record = self._docker_exec(
+                "ovs-vsctl get Interface {} name".format(interface_id),
+                module_ignore_errors=True)
+            if record.get("rc") != 0 or not record.get("stdout"):
+                raise Exception(
+                    "Unable to resolve OVS bond [{}] interface [{}]: {}"
+                    .format(bond, interface_id, record.get("stderr", "")))
+            interfaces.append(record["stdout"].strip().strip('"'))
+        return interfaces
+
+    def set_ovs_macsec_member(self, interface_name, enabled, timeout=60):
+        """Select the encrypted or plain device for a userspace-OVS LAG member.
+
+        The OVS backend is created before MACsec starts and initially bonds ethN.
+        Linux MACsec exposes decrypted/encrypted data through macsec_ethN while
+        retaining ethN for MKA (EAPOL). Replace only this member in the existing
+        OVS Port so LACP and L3 traffic traverse MACsec. Teamd-backed and
+        non-PortChannel interfaces are unchanged.
+        """
+        mapper = getattr(self, "_interface_name", None)
+        if callable(mapper):
+            interface_name = mapper(interface_name)
+        bond = self._lacp_bond_for_member(interface_name)
+        if bond is None:
+            return None
+
+        match = re.fullmatch(r"Ethernet(\d+)", interface_name)
+        if not match:
+            raise Exception(
+                "Unable to map unsupported cSONiC LAG member [{}] for MACsec "
+                "bond [{}]".format(interface_name, bond))
+        lower_device = "eth{}".format(match.group(1))
+        macsec_device = "macsec_{}".format(lower_device)
+        desired = macsec_device if enabled else lower_device
+
+        deadline = time.time() + timeout
+        while True:
+            link = self._docker_exec(
+                "ip link show dev {}".format(desired),
+                module_ignore_errors=True)
+            if link.get("rc") == 0:
+                break
+            if time.time() >= deadline:
+                raise Exception(
+                    "OVS MACsec bond member [{}] did not appear for interface "
+                    "[{}] on bond [{}] within {}s: {}".format(
+                        desired, interface_name, bond, timeout,
+                        link.get("stderr", "")))
+            time.sleep(1)
+
+        link = self._docker_exec(
+            "ip link set {} up".format(desired),
+            module_ignore_errors=True)
+        if link.get("rc") != 0:
+            raise Exception(
+                "Unable to bring OVS MACsec bond member [{}] up for bond [{}]: {}"
+                .format(desired, bond, link.get("stderr", "")))
+
+        current = self._ovs_bond_member(interface_name, bond)
+        if current == desired:
+            return None
+
+        # Mutate only this member. Rewriting the complete interfaces column can
+        # lose a concurrent swap of another member on the same PortChannel.
+        transaction = [
+            "ovs-vsctl",
+            "--", "--id=@current", "get", "Interface", current, "_uuid",
+            "--", "--id=@desired", "create", "Interface",
+            "name={}".format(desired),
+            "--", "remove", "Port", bond, "interfaces", "@current",
+            "--", "add", "Port", bond, "interfaces", "@desired",
+        ]
+        swap = self._docker_exec(" ".join(transaction))
+        if swap.get("rc") != 0:
+            raise Exception(
+                "Unable to replace OVS bond [{}] member [{}] with [{}]: {}"
+                .format(bond, current, desired, swap.get("stderr", "")))
+
+        updated = self._ovs_bond_interfaces(bond)
+        if desired not in updated or current in updated:
+            raise Exception(
+                "OVS bond [{}] member replacement did not converge: expected "
+                "[{}], removed [{}], members [{}]".format(
+                    bond, desired, current, ",".join(updated) or "none"))
+        return swap
 
     def _set_ovs_bond_member_link(self, interface_name, state):
         """Bring the userspace OVS LAG bond member of interface_name up/down.
@@ -511,13 +623,21 @@ class CsonicHost(NeighborDevice):
         result = self._docker_exec(
             "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
             module_ignore_errors=True)
-        keys = result['stdout_lines'] if result['rc'] == 0 else []
+        if result.get("rc") != 0:
+            raise Exception(
+                "Unable to query PortChannel membership for interface [{}]: {}"
+                .format(interface_name, result.get("stderr", "")))
+        keys = result.get("stdout_lines", [])
         if not keys:
             return None
         bond = "{}-bond".format(keys[0].split('|')[1])
         result = self._docker_exec("ovs-vsctl --if-exists get Port {} name".format(bond),
                                    module_ignore_errors=True)
-        if result['rc'] != 0 or not result['stdout']:
+        if result.get("rc") != 0:
+            raise Exception(
+                "Unable to query OVS bond [{}] for interface [{}]: {}".format(
+                    bond, interface_name, result.get("stderr", "")))
+        if not result.get("stdout"):
             return None
         return bond
 

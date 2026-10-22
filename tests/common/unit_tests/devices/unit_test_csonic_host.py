@@ -622,6 +622,16 @@ class TestShutdownBackendAware:
         assert "config interface startup Ethernet1" in calls
         assert "ip link set eth1 up" in calls
 
+    def test_ovs_backend_toggles_active_macsec_member(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=link_docker_exec(
+                    calls, bond_ifaces=("macsec_eth1", "eth2"))):
+            host.shutdown("Ethernet1")
+        assert "ip link set macsec_eth1 down" in calls
+
     def test_non_ovs_backend_touches_only_sonic_port(self):
         """teamd-backed (or non-member) interfaces keep the SONiC-CLI-only path."""
         host = make_host()
@@ -658,6 +668,167 @@ class TestShutdownBackendAware:
                 host.shutdown("Ethernet-BP0")
         assert "Ethernet-BP0" in str(excinfo.value)
         assert not [c for c in calls if c.startswith("ip link set")]
+
+
+# --- MACsec data path on userspace OVS LAGs ------------------------------
+
+
+def ovs_macsec_docker_exec(calls, initial_members=("eth1", "eth2"),
+                           missing_device=None):
+    members = list(initial_members)
+    interface_ids = {
+        "eth1": "00000000-0000-0000-0000-000000000001",
+        "eth2": "00000000-0000-0000-0000-000000000002",
+        "macsec_eth1": "00000000-0000-0000-0000-000000000101",
+        "macsec_eth2": "00000000-0000-0000-0000-000000000102",
+    }
+
+    def side(cmd, **kwargs):
+        calls.append(cmd)
+        if cmd.startswith("sonic-db-cli CONFIG_DB keys"):
+            member = cmd.rsplit("|", 1)[-1].rstrip("'")
+            key = "PORTCHANNEL_MEMBER|PortChannel1|{}".format(member)
+            return {"rc": 0, "stdout": key, "stdout_lines": [key],
+                    "stderr": ""}
+        if cmd.startswith("ovs-vsctl --if-exists get Port") and cmd.endswith(" name"):
+            return docker_ok("PortChannel1-bond")
+        if cmd == "ovs-vsctl get Port PortChannel1-bond interfaces":
+            return docker_ok("[{}]".format(
+                ", ".join(interface_ids[member] for member in members)))
+        if cmd.startswith("ovs-vsctl get Interface") and cmd.endswith(" name"):
+            interface_id = cmd.split()[3]
+            name = next(name for name, value in interface_ids.items()
+                        if value == interface_id)
+            return docker_ok('"{}"'.format(name))
+        if cmd.startswith("ip link show dev"):
+            device = cmd.rsplit(" ", 1)[-1]
+            if device == missing_device:
+                return {"rc": 1, "stdout": "", "stdout_lines": [],
+                        "stderr": "Device not found"}
+            return docker_ok(device)
+        if cmd.startswith("ip link set"):
+            return docker_ok("")
+        if cmd.startswith("ovs-vsctl list-ifaces"):
+            return {"rc": 0, "stdout": "\n".join(members),
+                    "stdout_lines": list(members), "stderr": ""}
+        if cmd.startswith("ovs-vsctl --"):
+            replacements = {
+                "eth1": "macsec_eth1",
+                "eth2": "macsec_eth2",
+                "macsec_eth1": "eth1",
+                "macsec_eth2": "eth2",
+            }
+            for current, desired in replacements.items():
+                if "create Interface name={}".format(desired) in cmd:
+                    members[members.index(current)] = desired
+                    break
+            return docker_ok("")
+        return {"rc": 1, "stdout": "", "stdout_lines": [],
+                "stderr": "unexpected cmd"}
+    return side
+
+
+class TestOvsMacsecMember:
+    def test_enable_replaces_plain_member_and_preserves_siblings(self):
+        host = make_host()
+        calls = []
+        with patch.object(host, "_docker_exec",
+                          side_effect=ovs_macsec_docker_exec(calls)):
+            host.set_ovs_macsec_member("Ethernet1", True)
+
+        swap = next(command for command in calls
+                    if command.startswith("ovs-vsctl -- --id="))
+        assert "--id=@current get Interface eth1 _uuid" in swap
+        assert "--id=@desired create Interface name=macsec_eth1" in swap
+        assert "remove Port PortChannel1-bond interfaces @current" in swap
+        assert "add Port PortChannel1-bond interfaces @desired" in swap
+
+    def test_disable_restores_plain_member(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=ovs_macsec_docker_exec(
+                    calls, initial_members=("macsec_eth1", "eth2"))):
+            host.set_ovs_macsec_member("Ethernet1", False)
+
+        swap = next(command for command in calls
+                    if command.startswith("ovs-vsctl -- --id="))
+        assert "--id=@current get Interface macsec_eth1 _uuid" in swap
+        assert "--id=@desired create Interface name=eth1" in swap
+        assert "remove Port PortChannel1-bond interfaces @current" in swap
+        assert "add Port PortChannel1-bond interfaces @desired" in swap
+
+    def test_enable_is_idempotent_when_macsec_member_is_active(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=ovs_macsec_docker_exec(
+                    calls, initial_members=("macsec_eth1", "eth2"))):
+            assert host.set_ovs_macsec_member("Ethernet1", True) is None
+        assert not [command for command in calls
+                    if command.startswith("ovs-vsctl -- --id=")]
+
+    def test_enable_maps_logical_converged_interface_before_ovs_lookup(self):
+        host = make_host()
+        host._interface_name = lambda interface: (
+            "Ethernet2" if interface == "Ethernet1" else interface)
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=ovs_macsec_docker_exec(
+                    calls, initial_members=("eth2",))):
+            host.set_ovs_macsec_member("Ethernet1", True)
+
+        assert any(
+            "PORTCHANNEL_MEMBER|*|Ethernet2" in command
+            for command in calls)
+        swap = next(command for command in calls
+                    if command.startswith("ovs-vsctl -- --id="))
+        assert "create Interface name=macsec_eth2" in swap
+
+    def test_enable_fails_when_macsec_device_never_appears(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=ovs_macsec_docker_exec(
+                    calls, missing_device="macsec_eth1")):
+            with pytest.raises(Exception, match="did not appear"):
+                host.set_ovs_macsec_member("Ethernet1", True, timeout=0)
+
+    def test_enable_fails_when_desired_link_cannot_be_brought_up(self):
+        host = make_host()
+        calls = []
+        normal = ovs_macsec_docker_exec(calls)
+
+        def side(command, **kwargs):
+            if command == "ip link set macsec_eth1 up":
+                calls.append(command)
+                return {"rc": 1, "stdout": "", "stdout_lines": [],
+                        "stderr": "link failure"}
+            return normal(command, **kwargs)
+
+        with patch.object(host, "_docker_exec", side_effect=side):
+            with pytest.raises(Exception, match="Unable to bring"):
+                host.set_ovs_macsec_member("Ethernet1", True)
+
+    def test_enable_fails_closed_when_portchannel_query_fails(self):
+        host = make_host()
+        calls = []
+        normal = ovs_macsec_docker_exec(calls)
+
+        def side(command, **kwargs):
+            if command.startswith("sonic-db-cli CONFIG_DB keys"):
+                calls.append(command)
+                return {"rc": 1, "stdout": "", "stdout_lines": [],
+                        "stderr": "database unavailable"}
+            return normal(command, **kwargs)
+
+        with patch.object(host, "_docker_exec", side_effect=side):
+            with pytest.raises(Exception, match="Unable to query PortChannel"):
+                host.set_ovs_macsec_member("Ethernet1", True)
 
 
 # --- get_route --------------------------------------------------------------
