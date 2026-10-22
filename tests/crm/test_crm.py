@@ -357,11 +357,13 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
             duthost.shell(restore_cmd)
             restart_rsyslog()
 
+
 def syslog_contains_pattern(duthost, first_line, pattern):
     result = duthost.shell(
         "sudo tail -n +{} /var/log/syslog".format(first_line),
         module_ignore_errors=True)
     return re.search(pattern, result.get("stdout", "")) is not None
+
 
 def current_syslog_line_number(duthost):
     result = duthost.shell(
@@ -373,6 +375,7 @@ def current_syslog_line_number(duthost):
         "Failed to determine the current syslog position"
     )
     return int(result["stdout"].strip()) + 1
+
 
 def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
     """Apply CRM thresholds and wait for the expected syslog message."""
