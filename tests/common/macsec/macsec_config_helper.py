@@ -200,6 +200,31 @@ def _macsec_profile_exists(host, profile_name):
     return any(entry["fields"] is not None for entry in snapshot["entries"])
 
 
+def _macsec_profile_fields(priority, cipher_suite, primary_cak, primary_ckn,
+                           policy, send_sci, rekey_period):
+    """Return the CONFIG_DB fields for a SONiC MACsec profile."""
+    return {
+        "priority": str(priority),
+        "cipher_suite": cipher_suite,
+        "primary_cak": primary_cak,
+        "primary_ckn": primary_ckn,
+        "policy": policy,
+        "send_sci": send_sci,
+        "rekey_period": str(rekey_period),
+    }
+
+
+def _macsec_profile_matches(snapshot, priority, cipher_suite, primary_cak,
+                            primary_ckn, policy, send_sci, rekey_period):
+    """Return whether every SONiC namespace already has the requested profile."""
+    if snapshot["runtime"] != "sonic" or not snapshot["entries"]:
+        return False
+    expected = _macsec_profile_fields(
+        priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci,
+        rekey_period)
+    return all(entry["fields"] == expected for entry in snapshot["entries"])
+
+
 def _restore_macsec_profile(host, profile_name, snapshot):
     """Restore one profile snapshot, deleting only transaction-created state."""
     if snapshot["runtime"] == "eos":
@@ -617,15 +642,9 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         opts += " --{} {}".format(k, v)
 
     if isinstance(host, CsonicHost):
-        profile_entry = {
-            "priority": priority,
-            "cipher_suite": cipher_suite,
-            "primary_cak": primary_cak,
-            "primary_ckn": primary_ckn,
-            "policy": policy,
-            "send_sci": send_sci,
-            "rekey_period": rekey_period,
-        }
+        profile_entry = _macsec_profile_fields(
+            priority, cipher_suite, primary_cak, primary_ckn, policy,
+            send_sci, rekey_period)
         _csonic_config_db_hset(
             host, "MACSEC_PROFILE|{}".format(profile_name), profile_entry)
     elif _host_is_multi_asic(host):
@@ -994,12 +1013,21 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
     try:
         logger.info("Setup macsec configuration step1: set macsec profile")
-        tasks = [submit_async_task(
-            set_macsec_profile,
-            (duthost, profile_name, default_priority, cipher_suite, primary_cak,
-             primary_ckn, policy, send_sci, rekey_period))]
+        profile_settings = [(duthost, default_priority)]
         for index, host in enumerate(neighbor_profile_hosts):
             priority = default_priority - 1 if index % 2 == 0 else default_priority + 1
+            profile_settings.append((host, priority))
+
+        tasks = []
+        for (host, priority), (_, snapshot) in zip(
+                profile_settings, profile_snapshots):
+            if _macsec_profile_matches(
+                    snapshot, priority, cipher_suite, primary_cak, primary_ckn,
+                    policy, send_sci, rekey_period):
+                logger.info(
+                    "MACsec profile %s already matches requested state on %s",
+                    profile_name, getattr(host, "hostname", str(host)))
+                continue
             tasks.append(submit_async_task(
                 set_macsec_profile,
                 (host, profile_name, priority, cipher_suite, primary_cak,
