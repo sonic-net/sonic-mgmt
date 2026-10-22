@@ -88,10 +88,8 @@ def test_sets_and_verifies_every_active_ovs_bond():
     assert neighbor.disconnected
     assert harness.logs == [
         "cSONiC LACP receive multiplier update started: requested=180",
-        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 "
-        "bond=PortChannel1-bond requested=180 actual=180",
-        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 "
-        "bond=PortChannel2-bond requested=180 actual=180",
+        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 bond=PortChannel1-bond requested=180 actual=180",
+        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 bond=PortChannel2-bond requested=180 actual=180",
         "cSONiC LACP receive multiplier update completed: requested=180",
     ]
 
