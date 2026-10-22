@@ -156,7 +156,7 @@ class TestMacsecHostContract:
             assert host.get_dut_iface_mac("Ethernet4") == "52:54:00:65:43:21"
         execute.assert_called_once_with("cat /sys/class/net/Ethernet4/address")
 
-    def test_get_macsec_iface_mac_reads_front_panel_kernel_interface(self):
+    def test_get_macsec_iface_mac_reads_macsec_interface(self):
         host = make_host()
         with patch.object(
                 host, "_docker_exec",
@@ -167,7 +167,7 @@ class TestMacsecHostContract:
             assert host.get_macsec_iface_mac("Ethernet4") == "52:54:00:12:34:56"
         assert execute.call_args_list == [
             call("ls /sys/class/net/"),
-            call("cat /sys/class/net/eth2/address"),
+            call("cat /sys/class/net/macsec_eth2/address"),
         ]
 
     def test_get_dut_iface_mac_maps_converged_logical_interface(self):
