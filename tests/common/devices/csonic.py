@@ -328,13 +328,16 @@ class CsonicHost(NeighborDevice):
 
         # Mutate only this member. Rewriting the complete interfaces column can
         # lose a concurrent swap of another member on the same PortChannel.
+        # Add the replacement before removing the current member: OVS enforces
+        # Port.interfaces' minimum cardinality on each operation, so removing
+        # the sole member first is rejected even within one transaction.
         transaction = [
             "ovs-vsctl",
             "--", "--id=@current", "get", "Interface", current, "_uuid",
             "--", "--id=@desired", "create", "Interface",
             "name={}".format(desired),
-            "--", "remove", "Port", bond, "interfaces", "@current",
             "--", "add", "Port", bond, "interfaces", "@desired",
+            "--", "remove", "Port", bond, "interfaces", "@current",
         ]
         swap = self._docker_exec(" ".join(transaction))
         if swap.get("rc") != 0:

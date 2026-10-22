@@ -536,8 +536,10 @@ class TestOvsMacsecMember:
                     if command.startswith("ovs-vsctl -- --id="))
         assert "--id=@current get Interface eth1 _uuid" in swap
         assert "--id=@desired create Interface name=macsec_eth1" in swap
-        assert "remove Port PortChannel1-bond interfaces @current" in swap
-        assert "add Port PortChannel1-bond interfaces @desired" in swap
+        add = "add Port PortChannel1-bond interfaces @desired"
+        remove = "remove Port PortChannel1-bond interfaces @current"
+        assert add in swap and remove in swap
+        assert swap.index(add) < swap.index(remove)
 
     def test_disable_restores_plain_member(self):
         host = make_host()
