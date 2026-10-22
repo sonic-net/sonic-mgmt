@@ -3,6 +3,7 @@ import pytest
 import logging
 
 from tests.common.utilities import wait_until
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import get_appl_db
 from tests.common.macsec.macsec_config_helper import disable_macsec_port, \
@@ -108,6 +109,12 @@ class TestFaultHandling():
         if isinstance(nbr["host"], EosHost):
             nbr["host"].shutdown(nbr_eth_port)
             sleep(TestFaultHandling.LACP_TIMEOUT)
+        elif isinstance(nbr["host"], CsonicHost):
+            # CsonicHost.shutdown also downs the active userspace-OVS bond
+            # member (macsec_ethN when MACsec is enabled). Keep the sleep in
+            # pytest so the host command does not hit CsonicHost's 30s timeout.
+            nbr["host"].shutdown(nbr["port"])
+            sleep(TestFaultHandling.LACP_TIMEOUT)
         else:
             nbr["host"].shell("ifconfig {} down && sleep {}".format(
                 nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
@@ -124,6 +131,8 @@ class TestFaultHandling():
 
         if isinstance(nbr["host"], EosHost):
             nbr["host"].no_shutdown(nbr_eth_port)
+        elif isinstance(nbr["host"], CsonicHost):
+            nbr["host"].no_shutdown(nbr["port"])
         else:
             nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
