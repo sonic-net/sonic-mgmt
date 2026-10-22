@@ -65,6 +65,7 @@ import multiprocessing
 import itertools
 import ast
 import socket
+import shlex
 
 import ptf
 import ptf.testutils as testutils
@@ -197,6 +198,8 @@ class ReloadTest(BaseTest):
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
         self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
+        self.check_param('csonic_neighbor', False, required=False)
+        self.check_param('csonic_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
@@ -1495,9 +1498,11 @@ class ReloadTest(BaseTest):
     def runTest(self):
         self._verify_neighbors_reachable()
 
-        # Set LACP timer multiplier for cEOS peers when it is not default (3)
+        # Extend the neighbor receive window across the DUT's LACP silence.
         if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
             self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
+        if self.test_params['csonic_neighbor'] and self.test_params['csonic_neighbor_lacp_multiplier'] != 3:
+            self.csonic_set_lacp_all_neighs(self.test_params['csonic_neighbor_lacp_multiplier'])
 
         self.pre_reboot_test_setup()
         try:
@@ -1552,9 +1557,11 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
-            # Restore cEOS LACP timer multiplier to default (3)
+            # Restore neighbor LACP receive multipliers to their default (3).
             if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
                 self.ceos_set_lacp_all_neighs(3)
+            if self.test_params['csonic_neighbor'] and self.test_params['csonic_neighbor_lacp_multiplier'] != 3:
+                self.csonic_set_lacp_all_neighs(3)
 
             self.handle_post_reboot_test_reports()
 
@@ -1574,6 +1581,34 @@ class ReloadTest(BaseTest):
                     self.neigh_handle.do_cmd(f"lacp timer multiplier {multiplier}")
 
             self.neigh_handle.disconnect()
+
+    def csonic_set_lacp_all_neighs(self, multiplier):
+        for neigh in self.ssh_targets:
+            neigh_handle = HostDevice.getHostDeviceInstance(
+                self.test_params['neighbor_type'], neigh, None, self.test_params)
+            try:
+                neigh_handle.connect()
+                raw_bonds = neigh_handle.do_cmd(
+                    "sudo ovs-vsctl --data=bare --no-heading --columns=name "
+                    "find Port lacp=active")
+                bonds = [bond.strip() for bond in raw_bonds.splitlines() if bond.strip()]
+                if not bonds:
+                    raise RuntimeError("No active userspace OVS LACP bonds found on {}".format(neigh))
+                for bond in bonds:
+                    quoted_bond = shlex.quote(bond)
+                    neigh_handle.do_cmd(
+                        "sudo ovs-vsctl set Port {} "
+                        "other_config:lacp-rx-multiplier={}".format(
+                            quoted_bond, multiplier))
+                    actual = neigh_handle.do_cmd(
+                        "sudo ovs-vsctl get Port {} "
+                        "other_config:lacp-rx-multiplier".format(quoted_bond))
+                    if actual.strip().strip('"') != str(multiplier):
+                        raise RuntimeError(
+                            "Failed to set LACP receive multiplier {} on {}:{}; got {!r}".format(
+                                multiplier, neigh, bond, actual))
+            finally:
+                neigh_handle.disconnect()
 
     def neigh_lag_status_check(self):
         """
@@ -1841,10 +1876,14 @@ class ReloadTest(BaseTest):
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
 
-        # Initialize max_allowed_lacp_session_wait
-        LACP_SLOW_PERIOD_SEC = 30
+        # Initialize max_allowed_lacp_session_wait.
+        lacp_period_sec = 30
 
-        if self.test_params['neighbor_type'] == "eos":
+        if self.test_params['csonic_neighbor']:
+            # The userspace OVS backend requests one-second LACP heartbeats.
+            lacp_period_sec = 1
+            lacp_multiplier = self.test_params['csonic_neighbor_lacp_multiplier']
+        elif self.test_params['neighbor_type'] == "eos":
             if 'ceos_neighbor_lacp_multiplier' in self.test_params \
                     and self.test_params['ceos_neighbor_lacp_multiplier']:
                 lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
@@ -1855,7 +1894,7 @@ class ReloadTest(BaseTest):
         else:
             lacp_multiplier = 3
 
-        max_allowed_lacp_session_wait = lacp_multiplier * LACP_SLOW_PERIOD_SEC
+        max_allowed_lacp_session_wait = lacp_multiplier * lacp_period_sec
         self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
             max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
 

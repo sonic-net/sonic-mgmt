@@ -138,6 +138,8 @@ class AdvancedReboot:
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
         self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
+        self.csonicNeighLacpMultiplier = self.request.config.getoption("--csonic_neighbor_lacp_multiplier")
+        self.isCsonicNeighbor = self.neighborType == 'csonic'
         if 'sonic' in self.neighborType:
             self.neighborType = 'sonic'
 
@@ -954,6 +956,8 @@ class AdvancedReboot:
             "neighbor_type": self.neighborType,
             "kvm_support": True,
             "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
+            "csonic_neighbor": self.isCsonicNeighbor,
+            "csonic_neighbor_lacp_multiplier": self.csonicNeighLacpMultiplier,
             "packet_capture_location": self.rebootData['packet_capture_location']
         }
 
