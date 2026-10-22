@@ -444,6 +444,30 @@ class TestConvergedLogicalHost:
         assert mock_exec.call_args[0][0] == (
             "config portchannel retry-count set PortChannel2 5")
 
+    def test_ip_route_mutations_are_scoped_to_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("ip route add 0.0.0.0/0 via 10.0.0.58")
+            host.shell("ip route del 0.0.0.0/0 via 10.0.0.58")
+        commands = [call.args[0] for call in mock_exec.call_args_list]
+        assert commands == [
+            "ip route add vrf VrfARISTA02T1 0.0.0.0/0 via 10.0.0.58",
+            "ip route del vrf VrfARISTA02T1 0.0.0.0/0 via 10.0.0.58",
+        ]
+
+    def test_ping_runs_in_logical_vrf(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("ping -c 6 -v 10.0.0.59")
+        assert mock_exec.call_args[0][0] == (
+            "ip vrf exec VrfARISTA02T1 ping -c 6 -v 10.0.0.59")
+
+    def test_stock_host_keeps_linux_network_commands_unchanged(self):
+        host = make_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("ping -c 1 10.0.0.59")
+        assert mock_exec.call_args[0][0] == "ping -c 1 10.0.0.59"
+
     def test_bgp_show_commands_are_scoped_to_logical_vrf(self):
         host = make_converged_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:

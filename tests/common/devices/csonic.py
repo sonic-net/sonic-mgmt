@@ -107,6 +107,50 @@ def _vrf_scope_bgp_reads(value, vrf):
     return _rewrite(value)
 
 
+_IP_ROUTE_MUTATION_RE = re.compile(
+    r'^(?P<indent>\s*)(?P<sudo>sudo\s+)?ip\s+route\s+'
+    r'(?P<action>add|del|replace)\s+(?!vrf\s+)',
+    re.IGNORECASE,
+)
+_VRF_NETWORK_TOOL_RE = re.compile(
+    r'^(?P<indent>\s*)(?P<sudo>sudo\s+)?(?P<tool>ping6?)\b',
+    re.IGNORECASE,
+)
+
+
+def _vrf_scope_linux_network_commands(value, vrf):
+    """Run converged-peer routes and probes in their Linux VRF."""
+    if not vrf or value is None:
+        return value
+
+    def _rewrite_text(text):
+        route = _IP_ROUTE_MUTATION_RE.match(text)
+        if route:
+            return "{}{}ip route {} vrf {} {}".format(
+                route.group('indent'), route.group('sudo') or '',
+                route.group('action'), vrf, text[route.end():])
+
+        tool = _VRF_NETWORK_TOOL_RE.match(text)
+        if tool:
+            return "{}{}ip vrf exec {} {}".format(
+                tool.group('indent'), tool.group('sudo') or '', vrf,
+                text[tool.start('tool'):])
+        return text
+
+    def _rewrite(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            result = dict(item)
+            result['command'] = _rewrite_text(item['command'])
+            return result
+        return item
+
+    if isinstance(value, list):
+        return [_rewrite(item) for item in value]
+    return _rewrite(value)
+
+
 _VTYSH_CLEAR_RE = re.compile(
     r"(?P<prefix>(?:sudo\s+)?vtysh\s+-c\s+)(?P<quote>['\"])(?P<command>clear\s+bgp\s+)(?P<rest>.*?)(?P=quote)",
     re.IGNORECASE,
@@ -210,6 +254,7 @@ class CsonicHost(NeighborDevice):
 
     def _translate_command(self, command):
         command = _apply_intf_map(command, self.intf_map)
+        command = _vrf_scope_linux_network_commands(command, self.bgp_vrf)
         command = _vrf_scope_bgp_reads(command, self.bgp_vrf)
         return _vrf_scope_vtysh_mutations(command, self.bgp_vrf)
 

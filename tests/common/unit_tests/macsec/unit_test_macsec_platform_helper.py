@@ -24,6 +24,7 @@ FUNCTION_NAMES = {
     "_runtime_port_name",
     "get_eth_ifname",
     "get_macsec_ifname",
+    "get_lldp_list",
 }
 NODES = [
     node for node in TREE.body
@@ -41,6 +42,7 @@ exec(compile(ast.Module(body=NODES, type_ignores=[]), str(MODULE_PATH), "exec"),
 global_cmd = NAMESPACE["global_cmd"]
 get_eth_ifname = NAMESPACE["get_eth_ifname"]
 get_macsec_ifname = NAMESPACE["get_macsec_ifname"]
+get_lldp_list = NAMESPACE["get_lldp_list"]
 
 
 class CommandHost:
@@ -119,3 +121,25 @@ def test_macsec_ifname_keeps_stock_virtual_port_mapping():
 
     assert get_eth_ifname(host, "Ethernet1") == "eth1"
     assert get_macsec_ifname(host, "Ethernet1") == "macsec_eth1"
+
+
+def test_lldp_list_preserves_duplicate_converged_system_names():
+    class LldpHost:
+        def command(self, command):
+            assert command == "show lldp table"
+            return {"stdout_lines": [
+                "Capability codes: (R) Router, (B) Bridge, (O) Other",
+                "LocalPort RemoteDevice RemotePortID Capability RemotePortDescr",
+                "--------- ------------ ------------ ---------- ---------------",
+                "Ethernet112 ARISTA01T1 fortyGigE0/0 BR Ethernet1",
+                "Ethernet116 ARISTA01T1 fortyGigE0/4 BR Ethernet2",
+                "--------------------------------------------------",
+                "Total entries displayed: 2",
+            ]}
+
+    result = get_lldp_list(LldpHost())
+
+    assert {entry["localport"] for entry in result.values()} == {
+        "Ethernet112", "Ethernet116",
+    }
+    assert all(entry["name"] == "ARISTA01T1" for entry in result.values())

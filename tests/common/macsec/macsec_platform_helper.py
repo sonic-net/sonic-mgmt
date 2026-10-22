@@ -181,5 +181,14 @@ def get_lldp_list(host):
     for line in lines:
         items = line.split()
         lldp = items[1]
-        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
+        key = lldp
+        if key in lldp_list:
+            # Converged peers share one LLDP system name across several links.
+            # Preserve every row instead of overwriting all but the last one.
+            key = "{}@{}".format(lldp, items[0])
+        lldp_list[key] = {
+            "name": lldp,
+            "localport": items[0],
+            "remoteport": items[2],
+        }
     return lldp_list
