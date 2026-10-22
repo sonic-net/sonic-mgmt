@@ -1,0 +1,2213 @@
+{
+  "modules": {
+    "ext_sai_counter_stress_test": {
+      "cases": {
+        "CollectACLCountersTest": {
+          "priority": "P2"
+        },
+        "CollectPGCountersTest": {
+          "priority": "P2"
+        },
+        "CollectPGWaterMarkCountersTest": {
+          "priority": "P2"
+        },
+        "CollectPolicerCountersTest": {
+          "priority": "P2"
+        },
+        "CollectPortCountersTest": {
+          "priority": "P2"
+        },
+        "CollectQueueCountersTest": {
+          "priority": "P2"
+        },
+        "CollectQueueWaterMarkCountersTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l2_scale_test": {
+      "cases": {
+        "L2FdbBurstTest": {
+          "priority": "P2"
+        },
+        "L2FdbStressTest": {
+          "priority": "P2"
+        },
+        "L2VlanStressTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l3_ecmp_scale_test": {
+      "cases": {
+        "L3IPv4EcmpMemberOperPerformanceTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpRouteFlapTest": {
+          "priority": "P2"
+        },
+        "L3IPv4MaxEcmpGroupScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv4MaxEcmpMemberPerGroupScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv4MaxRouteEcmpScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv6EcmpMemberOperPerformanceTest": {
+          "priority": "P2"
+        },
+        "L3IPv6EcmpRouteFlapTest": {
+          "priority": "P2"
+        },
+        "L3IPv6MaxEcmpGroupScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv6MaxEcmpMemberPerGroupScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv6MaxRouteEcmpScaleTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l3_neighbor_scale_test": {
+      "cases": {
+        "L3NeighborTableScaleIPv4Test": {
+          "priority": "P2"
+        },
+        "L3NeighborTableScaleIPv6Test": {
+          "priority": "P2"
+        },
+        "L3NeighborTableScaleTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l3_nexthop_scale_test": {
+      "cases": {
+        "L3IPv4IPv6NexthopScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv4NexthopScaleTest": {
+          "priority": "P2"
+        },
+        "L3IPv6NexthopScaleTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l3_route_scale_test": {
+      "cases": {
+        "L3IPv4IPv6MixSingleHopScale1Test": {
+          "priority": "P2"
+        },
+        "L3IPv4IPv6MixSingleHopScale2Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopMixScale1Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopMixScale2Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleIterate1Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleIterate2Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleIterate4Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleMask16Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleMask24Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleMask26Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleMask32Test": {
+          "priority": "P2"
+        },
+        "L3IPv4SingleHopScaleSetTest": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopMixScale1Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleIterate1Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleIterate2Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleIterate4Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleMask48Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleMask56Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleMask64Test": {
+          "priority": "P2"
+        },
+        "L3IPv6SingleHopScaleSetTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_l3_scale_base": {
+      "cases": {
+        "L3SubIntfScaleTest": {
+          "priority": "P2"
+        },
+        "L3VrfScaleTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "ext_sai_srv6_test": {
+      "cases": {
+        "Srv6DecapMySidTest": {
+          "priority": "P2"
+        },
+        "Srv6DecapMySidUsidTest": {
+          "priority": "P2"
+        },
+        "Srv6EncapTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiacl": {
+      "cases": {
+        "ACLGroupSeveralMembersTest": {
+          "priority": "P2"
+        },
+        "AclGroupTest": {
+          "priority": "P2"
+        },
+        "AclLagTest": {
+          "priority": "P2"
+        },
+        "AclPreIngressTest": {
+          "priority": "P2"
+        },
+        "AclRedirectPortAndLagTest": {
+          "priority": "P2"
+        },
+        "AclTableTypeTest": {
+          "priority": "P2"
+        },
+        "DstIpAclTest": {
+          "priority": "P2"
+        },
+        "IPAclFragmentTest": {
+          "priority": "P2"
+        },
+        "IPv6NextHdrTest": {
+          "priority": "P2"
+        },
+        "IngressL3AclDscpTest": {
+          "priority": "P2"
+        },
+        "L3AclCounterTest": {
+          "priority": "P2"
+        },
+        "L3AclRangeTest": {
+          "priority": "P2"
+        },
+        "L3L4PortTest": {
+          "priority": "P2"
+        },
+        "MACSrcAclTest": {
+          "priority": "P2"
+        },
+        "MultAclTableGroupBindTest": {
+          "priority": "P2"
+        },
+        "SrcIpAclTest": {
+          "priority": "P2"
+        },
+        "TCPFlagsACLTest": {
+          "priority": "P2"
+        },
+        "VlanAclTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiacl_extend": {
+      "cases": {
+        "AclAsetAddintmetaTest": {
+          "priority": "P2"
+        },
+        "AclAsetRemarkdscpTest": {
+          "priority": "P2"
+        },
+        "AclAsetSetmetaTest": {
+          "priority": "P2"
+        },
+        "AclAsetSetmetaTest1": {
+          "priority": "P2"
+        },
+        "AclAsetSetmetaTest2": {
+          "priority": "P2"
+        },
+        "AclAsetSetpolicerTest": {
+          "priority": "P2"
+        },
+        "AclAsetSettcTest": {
+          "priority": "P2"
+        },
+        "AclBindportAndLagMultiGroupTest": {
+          "priority": "P2"
+        },
+        "AclMixiptypeTest": {
+          "priority": "P2"
+        },
+        "AclQsetAethsyndromeTest": {
+          "priority": "P2"
+        },
+        "AclQsetBthopcodeTest": {
+          "priority": "P2"
+        },
+        "AclQsetBthreservedTest": {
+          "priority": "P2"
+        },
+        "AclQsetIptypeTest": {
+          "priority": "P2"
+        },
+        "AclQsetTtlTest": {
+          "priority": "P2"
+        },
+        "AclQsetecnTest": {
+          "priority": "P2"
+        },
+        "AclQsetinportsTest": {
+          "priority": "P2"
+        },
+        "AclQsetoutportTest": {
+          "priority": "P2"
+        },
+        "AclSetadminstateTestIgr": {
+          "priority": "P2"
+        },
+        "AclTableTypeSequenceTestIgr1": {
+          "priority": "P2"
+        },
+        "AclTableTypeSequenceTestIgr2": {
+          "priority": "P2"
+        },
+        "AclTableTypeStressTestEgr1": {
+          "priority": "P2"
+        },
+        "AclTableTypeStressTestIgr1": {
+          "priority": "P2"
+        },
+        "AclTableTypeTestEgr": {
+          "priority": "P2"
+        },
+        "AclTableTypeTestIgr": {
+          "priority": "P2"
+        },
+        "AclTableTypeTestIgrBind": {
+          "priority": "P2"
+        },
+        "AclTablegroupbindlagTest": {
+          "priority": "P2"
+        },
+        "AclTablesizestressTest": {
+          "priority": "P2"
+        },
+        "AclipprotocolTestEgr1": {
+          "priority": "P2"
+        },
+        "AclipprotocolTestIgr1": {
+          "priority": "P2"
+        },
+        "AclipprotocolipTypeTestEgr": {
+          "priority": "P2"
+        },
+        "AclipprotocolipTypeTestIgr": {
+          "priority": "P2"
+        },
+        "AggDropTestCustomissue2": {
+          "priority": "P2"
+        },
+        "AggDropTestEgr": {
+          "priority": "P2"
+        },
+        "AggDropperportTestIgr": {
+          "priority": "P2"
+        },
+        "BindLagsMultiTableMultiEntry": {
+          "priority": "P2"
+        },
+        "BindLagsOneTableSameEntry": {
+          "priority": "P2"
+        },
+        "BothDirBindLagsAndPortOneTableOneEntry": {
+          "priority": "P2"
+        },
+        "EgsBindLagsAndPortOneTableOneEntry": {
+          "priority": "P2"
+        },
+        "L3TestCustomissue2": {
+          "priority": "P2"
+        },
+        "L3TypeAclBindPortAndLagTest": {
+          "priority": "P2"
+        },
+        "L3TypeAclBindportAndLagStressTest": {
+          "priority": "P2"
+        },
+        "V6BindLagsAndPortMultiTableMultiEntry": {
+          "priority": "P2"
+        },
+        "V6BindLagsAndPortOneTableSameEntry": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saibfd": {
+      "cases": {
+        "BfdEchoSrv6Test": {
+          "priority": "P2"
+        },
+        "BfdSingleHopTest": {
+          "priority": "P2"
+        },
+        "SbfdInitiatorSrv6Test": {
+          "priority": "P2"
+        },
+        "SbfdReflectorSrv6Test": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saibridgeport": {
+      "cases": {
+        "BridgePortAttributeTest": {
+          "priority": "P2"
+        },
+        "BridgePortCreationTest": {
+          "priority": "P2"
+        },
+        "BridgePortNoFloodTest": {
+          "priority": "P2"
+        },
+        "BridgePortStateTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saibuffer": {
+      "cases": {
+        "BufferPoolNumber": {
+          "priority": "P2"
+        },
+        "BufferStatistics": {
+          "priority": "P2"
+        },
+        "Forwarding": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saibufferqos": {
+      "cases": {
+        "CpuQueue": {
+          "priority": "P2"
+        },
+        "FloodBufferIsolateTest": {
+          "priority": "P2"
+        },
+        "LosslessAlphaTest": {
+          "priority": "P2"
+        },
+        "LosslessCPUTest": {
+          "priority": "P2"
+        },
+        "LosslessEcnTest": {
+          "priority": "P2"
+        },
+        "LosslessPfcRxTxTest": {
+          "priority": "P2"
+        },
+        "LossyAlphaTest": {
+          "priority": "P2"
+        },
+        "LossyCPUTest": {
+          "priority": "P2"
+        },
+        "LossyEcnTest": {
+          "priority": "P2"
+        },
+        "LossyMinGarenteeTest": {
+          "priority": "P2"
+        },
+        "LossyPfcRxTest": {
+          "priority": "P2"
+        },
+        "LossySrcBalancingTest": {
+          "priority": "P2"
+        },
+        "LossyWredTest": {
+          "priority": "P2"
+        },
+        "MirrorBufferIsolateTest": {
+          "priority": "P2"
+        },
+        "PfcWD": {
+          "priority": "P2"
+        },
+        "SchedulerTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saidebugcounters": {
+      "cases": {
+        "GetDebugCounterAvailability": {
+          "priority": "P2"
+        },
+        "GetDebugCounterEnumValuesCapabilities": {
+          "priority": "P2"
+        },
+        "PortDebugCounterAddDropReason": {
+          "priority": "P2"
+        },
+        "PortDebugCounterRemoveDropReason": {
+          "priority": "P2"
+        },
+        "PortDropAclAnyTest": {
+          "priority": "P2"
+        },
+        "PortDropBlackHoleRoute": {
+          "priority": "P2"
+        },
+        "PortDropDIPLinkLocalTest": {
+          "priority": "P2"
+        },
+        "PortDropIPv4L3AnyRIFDisabled": {
+          "priority": "P2"
+        },
+        "PortDropIPv4Miss": {
+          "priority": "P2"
+        },
+        "PortDropIPv4RIFDisabled": {
+          "priority": "P2"
+        },
+        "PortDropIPv6L3AnyRIFDisabled": {
+          "priority": "P2"
+        },
+        "PortDropIPv6Miss": {
+          "priority": "P2"
+        },
+        "PortDropIPv6RIFDisabled": {
+          "priority": "P2"
+        },
+        "PortDropIngressVLANFilter": {
+          "priority": "P2"
+        },
+        "PortDropL2Any": {
+          "priority": "P2"
+        },
+        "PortDropL3AnyTest": {
+          "priority": "P2"
+        },
+        "PortDropMCSMAC": {
+          "priority": "P2"
+        },
+        "PortDropReasonIPHeaderErrorTest": {
+          "priority": "P2"
+        },
+        "PortDropReasonTTLTest": {
+          "priority": "P2"
+        },
+        "PortDropSIPClassETest": {
+          "priority": "P2"
+        },
+        "PortDropSIPLinkLocalTest": {
+          "priority": "P2"
+        },
+        "PortDropSIPMCTest": {
+          "priority": "P2"
+        },
+        "PortDropSIPUnspecifiedTest": {
+          "priority": "P2"
+        },
+        "PortDropSMACequalsDMAC": {
+          "priority": "P2"
+        },
+        "PortDropUCDIPMCDMACTest": {
+          "priority": "P2"
+        },
+        "PortMultiDebugCounters": {
+          "priority": "P2"
+        },
+        "SwitchDebugCounterAddDropReason": {
+          "priority": "P2"
+        },
+        "SwitchDebugCounterRemoveDropReason": {
+          "priority": "P2"
+        },
+        "SwitchDropDIPLoopback": {
+          "priority": "P2"
+        },
+        "SwitchDropIngressVLANFilter": {
+          "priority": "P2"
+        },
+        "SwitchDropL2Any": {
+          "priority": "P2"
+        },
+        "SwitchDropMCSMAC": {
+          "priority": "P2"
+        },
+        "SwitchDropReasonIPHeaderErrorTest": {
+          "priority": "P2"
+        },
+        "SwitchDropReasonTTLTest": {
+          "priority": "P2"
+        },
+        "SwitchDropSIPClassETest": {
+          "priority": "P2"
+        },
+        "SwitchDropSIPLoopback": {
+          "priority": "P2"
+        },
+        "SwitchDropSIPMCTest": {
+          "priority": "P2"
+        },
+        "SwitchDropSMACequalsDMAC": {
+          "priority": "P2"
+        },
+        "SwitchMultiDebugCounters": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saifdb": {
+      "cases": {
+        "FdbAgeTest": {
+          "priority": "P2"
+        },
+        "FdbAttributeTest": {
+          "priority": "P2"
+        },
+        "FdbEventTest": {
+          "priority": "P2"
+        },
+        "FdbFlushTest": {
+          "priority": "P2"
+        },
+        "FdbLearnTest": {
+          "priority": "P2"
+        },
+        "FdbMacMoveTest": {
+          "priority": "P2"
+        },
+        "FdbMissTest": {
+          "priority": "P2"
+        },
+        "FdbNoLearnTest": {
+          "priority": "P2"
+        },
+        "FdbStaticMacTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saihash": {
+      "cases": {
+        "EcmpHashAlgorithmTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4BasicHashNoLBTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4DstIPHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4DstPortHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4HashSaveRestoreTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4HashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4SrcIPHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4SrcPortHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv4vsIPv6HashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6DstIPHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6DstPortHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6HashSaveRestoreTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6HashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6SrcIPHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6SrcPortHashTest": {
+          "priority": "P2"
+        },
+        "EcmpIPv6vsIPv4HashTest": {
+          "priority": "P2"
+        },
+        "FGEcmpIPv4SrcIPHashTest": {
+          "priority": "P2"
+        },
+        "L2LagHashDstMACTest": {
+          "priority": "P2"
+        },
+        "L2LagHashEtherTypeTest": {
+          "priority": "P2"
+        },
+        "L2LagHashSeedTest": {
+          "priority": "P2"
+        },
+        "L2LagHashSrcMACTest": {
+          "priority": "P2"
+        },
+        "L2LagHashTest": {
+          "priority": "P2"
+        },
+        "L3EcmpIPv4HashSeedTest": {
+          "priority": "P2"
+        },
+        "L3EcmpIPv6HashSeedTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4DstIPHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4DstPortHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4HashSeedTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4HashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4SrcIPHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv4SrcPortHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6DstIPHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6DstPortHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6FlowLabelHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6HashSeedTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6HashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6SrcIPHashTest": {
+          "priority": "P2"
+        },
+        "L3LagIPv6SrcPortHashTest": {
+          "priority": "P2"
+        },
+        "LagHashAlgorithmTest": {
+          "priority": "P2"
+        },
+        "LagHashSaveRestoreTest": {
+          "priority": "P2"
+        },
+        "LagIPv4HashSaveRestoreTest": {
+          "priority": "P2"
+        },
+        "LagIPv6HashSaveRestoreTest": {
+          "priority": "P2"
+        },
+        "NonIPDstMacHashTest": {
+          "priority": "P2"
+        },
+        "NonIPSrcMacHashTest": {
+          "priority": "P2"
+        },
+        "NonIpHashTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saihostif": {
+      "cases": {
+        "aclIpSrcNetdevTrapTest": {
+          "priority": "P2"
+        },
+        "arpRxTxTest": {
+          "priority": "P2"
+        },
+        "arpTrapTest": {
+          "priority": "P2"
+        },
+        "bfdRxTrapTest": {
+          "priority": "P2"
+        },
+        "bfdv6RxTrapTest": {
+          "priority": "P2"
+        },
+        "bgpTrapTest": {
+          "priority": "P2"
+        },
+        "copyTrapActionTaggedTest": {
+          "priority": "P2"
+        },
+        "copyTrapActionTest": {
+          "priority": "P2"
+        },
+        "denyTrapActionTest": {
+          "priority": "P2"
+        },
+        "dhcpL2TrapTest": {
+          "priority": "P2"
+        },
+        "dhcpTrapTest": {
+          "priority": "P2"
+        },
+        "dhcpv6L2TrapTest": {
+          "priority": "P2"
+        },
+        "dhcpv6TrapTest": {
+          "priority": "P2"
+        },
+        "dropTrapActionTest": {
+          "priority": "P2"
+        },
+        "eapolTrapTest": {
+          "priority": "P2"
+        },
+        "forwardTrapActionTest": {
+          "priority": "P2"
+        },
+        "hostIfGenlTest": {
+          "priority": "P2"
+        },
+        "hostIfOperStatusTest": {
+          "priority": "P2"
+        },
+        "hostifKeepTagTest": {
+          "priority": "P2"
+        },
+        "hostifOriginalTagTest": {
+          "priority": "P2"
+        },
+        "hostifPriorityTest": {
+          "priority": "P2"
+        },
+        "hostifStripTagTest": {
+          "priority": "P2"
+        },
+        "igmpTrapTest": {
+          "priority": "P2"
+        },
+        "ip2meTrapTest": {
+          "priority": "P2"
+        },
+        "ipv6MldTrapTest": {
+          "priority": "P2"
+        },
+        "ipv6NDTrapTest": {
+          "priority": "P2"
+        },
+        "isisTrapTest": {
+          "priority": "P2"
+        },
+        "lacpTrapTest": {
+          "priority": "P2"
+        },
+        "lagHostifTxTest": {
+          "priority": "P2"
+        },
+        "lagNetdevHostifCreationTest": {
+          "priority": "P2"
+        },
+        "lldpTrapTest": {
+          "priority": "P2"
+        },
+        "logTrapActionTest": {
+          "priority": "P2"
+        },
+        "mplsRouterAlertTrapTest": {
+          "priority": "P2"
+        },
+        "mplsTtlErrorTrapTest": {
+          "priority": "P2"
+        },
+        "neighborTrapTest": {
+          "priority": "P2"
+        },
+        "ospfTrapTest": {
+          "priority": "P2"
+        },
+        "pimTrapTest": {
+          "priority": "P2"
+        },
+        "portHostifTxTest": {
+          "priority": "P2"
+        },
+        "portNetdevHostifCreationTest": {
+          "priority": "P2"
+        },
+        "ptpTrapTest": {
+          "priority": "P2"
+        },
+        "pvrstTrapTest": {
+          "priority": "P2"
+        },
+        "stpTrapTest": {
+          "priority": "P2"
+        },
+        "transitTrapActionTest": {
+          "priority": "P2"
+        },
+        "trapActionTest": {
+          "priority": "P2"
+        },
+        "trapGroupTest": {
+          "priority": "P2"
+        },
+        "trapPriorityTest": {
+          "priority": "P2"
+        },
+        "trapTrapActionTest": {
+          "priority": "P2"
+        },
+        "trapTypeTest": {
+          "priority": "P2"
+        },
+        "ttlErrorTrapTest": {
+          "priority": "P2"
+        },
+        "udldTrapTest": {
+          "priority": "P2"
+        },
+        "vlanSviNetdevHostifCreationTest": {
+          "priority": "P2"
+        },
+        "vrrpTrapTest": {
+          "priority": "P2"
+        },
+        "vrrpv6TrapTest": {
+          "priority": "P2"
+        },
+        "wildcardEntryCbChannelLacp": {
+          "priority": "P2"
+        },
+        "wildcardEntryCbChannelLldp": {
+          "priority": "P2"
+        },
+        "wildcardEntryCbChannelStp": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiifa": {
+      "cases": {
+        "IFAv2TransitMultiAclEntryStressTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiAclEntryTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiMSIPv4Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiMSIPv6Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeForwardNonIFAPktTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeIPv4Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeUsingIntAclTableTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitSingleMSIPv6Test": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiifa_extend": {
+      "cases": {
+        "IFAv2TransitMultiAclEntryStressTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiAclEntryTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiMSIPv4Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitMultiMSIPv6Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeForwardNonIFAPktTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeIPv4Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitNodeUsingIntAclTableTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitSingleMSIPv6Test": {
+          "priority": "P2"
+        },
+        "IFAv2TransitcustomissueTest": {
+          "priority": "P2"
+        },
+        "IFAv2TransitcustomissueTestiptype": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiisolationgroup": {
+      "cases": {
+        "PortIsolationTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sailag": {
+      "cases": {
+        "LAGAttrPortList": {
+          "priority": "P2"
+        },
+        "LAGCreateLagMember": {
+          "priority": "P2"
+        },
+        "LAGDisableEgressLagMember": {
+          "priority": "P2"
+        },
+        "LAGDisableIngressLagMember": {
+          "priority": "P2"
+        },
+        "LAGL2LoadBalancing": {
+          "priority": "P2"
+        },
+        "LAGL3LoadBalancing": {
+          "priority": "P2"
+        },
+        "LagL3Nhop": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saimacsec": {
+      "cases": {
+        "MACsecTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saimirror": {
+      "cases": {
+        "MirrorConfigData": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saimpls": {
+      "cases": {
+        "MplsCpuTrapTest": {
+          "priority": "P2"
+        },
+        "MplsCreationTest": {
+          "priority": "P2"
+        },
+        "MplsIpv4Test": {
+          "priority": "P2"
+        },
+        "MplsIpv4TtlModeTest": {
+          "priority": "P2"
+        },
+        "MplsIpv6Test": {
+          "priority": "P2"
+        },
+        "MplsIpv6TtlModeTest": {
+          "priority": "P2"
+        },
+        "MplsObjectsAvailabilityTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sainat": {
+      "cases": {
+        "dstNatAclTranslationDisableTest": {
+          "priority": "P2"
+        },
+        "dstNatTest": {
+          "priority": "P2"
+        },
+        "natRouteTest": {
+          "priority": "P2"
+        },
+        "natTrapTest": {
+          "priority": "P2"
+        },
+        "srcNatAclTranslationDisableTest": {
+          "priority": "P2"
+        },
+        "srcNatTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saineighbor": {
+      "cases": {
+        "addHostRouteIpv4NeighborTest": {
+          "priority": "P2"
+        },
+        "addHostRouteIpv6NeighborTest": {
+          "priority": "P2"
+        },
+        "addNeighborEntryAttrIPv4addrFamily": {
+          "priority": "P2"
+        },
+        "addNeighborEntryAttrIPv6addrFamily": {
+          "priority": "P2"
+        },
+        "noHostRouteIpv4NeighborTest": {
+          "priority": "P2"
+        },
+        "noHostRouteIpv6LinkLocalNeighborTest": {
+          "priority": "P2"
+        },
+        "noHostRouteIpv6NeighborTest": {
+          "priority": "P2"
+        },
+        "updateNeighborEntryAttributeDstMacAddr": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sainexthop": {
+      "cases": {
+        "cpuNexthopTest": {
+          "priority": "P2"
+        },
+        "l3InterfaceTunnelTest": {
+          "priority": "P2"
+        },
+        "removeNexthopTest": {
+          "priority": "P2"
+        },
+        "subPortTunnelTest": {
+          "priority": "P2"
+        },
+        "sviTunnelTest": {
+          "priority": "P2"
+        },
+        "tunnelVniTest": {
+          "priority": "P2"
+        },
+        "tunnelVrfTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sainexthopgroup": {
+      "cases": {
+        "L3IPv4EcmpHashPortLagTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpHostPortLagSharedMembersTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpHostPortLagTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpHostTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpHostTwoLagsDisabledLagMembersTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpHostTwoLagsTest": {
+          "priority": "P2"
+        },
+        "L3IPv4EcmpRoutingTest": {
+          "priority": "P2"
+        },
+        "L3IPv6EcmpHostTest": {
+          "priority": "P2"
+        },
+        "L3IPv6EcmpRoutingTest": {
+          "priority": "P2"
+        },
+        "L3SaiNhgSetGetTest": {
+          "priority": "P2"
+        },
+        "ecmpFGAddDelMemTest": {
+          "priority": "P2"
+        },
+        "ecmpFGBasicTest": {
+          "priority": "P2"
+        },
+        "ecmpFGGrpMemAttrTest": {
+          "priority": "P2"
+        },
+        "l3IPv4EcmpLpmTest": {
+          "priority": "P2"
+        },
+        "l3IPv4EcmpSVIHostTest": {
+          "priority": "P2"
+        },
+        "l3IPv4EcmpSVILagHostTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpHashPortLagTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpHostPortLagSharedMembersTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpHostPortLagTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpHostTwoLagsDisabledLagMembersTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpHostTwoLagsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpSVIHostTest": {
+          "priority": "P2"
+        },
+        "l3IPv6EcmpSVIPortLagHostTest": {
+          "priority": "P2"
+        },
+        "l3Ipv4EcmpLpmAddRemoveNhopTest": {
+          "priority": "P2"
+        },
+        "l3Ipv6EcmpAddRemoveNhopTest": {
+          "priority": "P2"
+        },
+        "l3Ipv6EcmpLpmTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saipbh": {
+      "cases": {
+        "L3IPv6EcmpPbhTest": {
+          "priority": "P2"
+        },
+        "PBHBasicfunctionTest": {
+          "priority": "P2"
+        },
+        "PBHStressNewTest": {
+          "priority": "P2"
+        },
+        "PBHStressTest": {
+          "priority": "P2"
+        },
+        "TunnelPBHTest": {
+          "priority": "P2"
+        },
+        "_pbhecmpEcmpAddRemoveNhopTest": {
+          "priority": "P2"
+        },
+        "_pbhecmpEcmpHashSeedTest": {
+          "priority": "P2"
+        },
+        "_pbhecmpSequenceTest1": {
+          "priority": "P2"
+        },
+        "_pbhecmpSequenceTest2": {
+          "priority": "P2"
+        },
+        "_pbhecmpSequenceTest3": {
+          "priority": "P2"
+        },
+        "_pbhecmpSequenceTest4": {
+          "priority": "P2"
+        },
+        "_pbhecmpSequenceTest5": {
+          "priority": "P2"
+        },
+        "vxlanPktPBHTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saipolicer": {
+      "cases": {
+        "BindPolicerToAclEntry": {
+          "priority": "P2"
+        },
+        "BindPolicerToPort": {
+          "priority": "P2"
+        },
+        "NoIncrementAfterUnbind": {
+          "priority": "P2"
+        },
+        "Overflow1Policer2TrapGroups": {
+          "priority": "P2"
+        },
+        "PolicerApiTests": {
+          "priority": "P2"
+        },
+        "StormControlTests": {
+          "priority": "P2"
+        },
+        "Underflow1Policer2TrapGroups": {
+          "priority": "P2"
+        },
+        "VerifyColors": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiport": {
+      "cases": {
+        "ListPortAttributesTest": {
+          "priority": "P2"
+        },
+        "PortAttributeTest": {
+          "priority": "P2"
+        },
+        "PortAutoNegAttributeTest": {
+          "priority": "P2"
+        },
+        "PortEgressAclGroupAddRemoveBindingTest": {
+          "priority": "P2"
+        },
+        "PortEgressAclGroupBindingTest": {
+          "priority": "P2"
+        },
+        "PortEgressAclTableAddRemoveBindingTest": {
+          "priority": "P2"
+        },
+        "PortEgressAclTableBindingTest": {
+          "priority": "P2"
+        },
+        "PortEgressMirrorSessionTest": {
+          "priority": "P2"
+        },
+        "PortFecModeAttributeTest": {
+          "priority": "P2"
+        },
+        "PortIngressAclGroupAddRemoveBindingTest": {
+          "priority": "P2"
+        },
+        "PortIngressAclGroupBindingTest": {
+          "priority": "P2"
+        },
+        "PortIngressAclTableAddRemoveBindingTest": {
+          "priority": "P2"
+        },
+        "PortIngressAclTableBindingTest": {
+          "priority": "P2"
+        },
+        "PortIngressMirrorSessionTest": {
+          "priority": "P2"
+        },
+        "PortQOSAttributeTest": {
+          "priority": "P2"
+        },
+        "PortQosMapAttributeTest": {
+          "priority": "P2"
+        },
+        "PortSpeedAttributeTest": {
+          "priority": "P2"
+        },
+        "SinglePortEgressAclGroupBindingTest": {
+          "priority": "P2"
+        },
+        "SinglePortEgressAclTableBindingTest": {
+          "priority": "P2"
+        },
+        "SinglePortIngressAclGroupBindingTest": {
+          "priority": "P2"
+        },
+        "SinglePortIngressAclTableBindingTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiqosmap": {
+      "cases": {
+        "defaultNoPfcToPpgMapping": {
+          "priority": "P2"
+        },
+        "defaultNoTcToPpgMapping": {
+          "priority": "P2"
+        },
+        "l2QosMapDifferentPCPToColorMultiIngresssPortTest": {
+          "priority": "P2"
+        },
+        "l2QosMapMultiPCPToOneColorMappingTest": {
+          "priority": "P2"
+        },
+        "l2QosMapMultiplePCPToOneTcMappingTest": {
+          "priority": "P2"
+        },
+        "l2QosMapOneToOnePCPToTcMappingTest": {
+          "priority": "P2"
+        },
+        "l2QosMapPCPToColorDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l2QosMapPCPToTcDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l2QosMapSamePCPToColorMultiIngresssPortTest": {
+          "priority": "P2"
+        },
+        "l2QosMapSamePcpToTcManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l2QosMapVariousPcpToTcManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapDscpToColorDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapDscpToTcDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapManyDscpToSameColorTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapMultipleDscpToSingleTcMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapOneDscpToOneTcMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapSameDscpToColorManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapTcColorToDscpDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapTcColorToDscpManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapTcColorToDscpMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapVariousDscpToColorManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosMapVariousTcColorToDscpManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosSameDscpToTcMappingManyPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv4QosVariousDscpToTcMappingManyPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapDscpToColorDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapDscpToTcDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapManyDscpToSameColorTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapMultipleDscpToSingleTcMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapOneDscpToOneTcMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapSameDscpToColorManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapTcColorToDscpDefaultMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapTcColorToDscpManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapTcColorToDscpMappingTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapVariousDscpToColorManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosMapVariousTcColorToDscpManyIngressPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosSameDscpToTcMappingManyPortsTest": {
+          "priority": "P2"
+        },
+        "l3IPv6QosVariousDscpToTcMappingManyPortsTest": {
+          "priority": "P2"
+        },
+        "multiplePfcToSamePpgMapping": {
+          "priority": "P2"
+        },
+        "multipleTcToSamePpgMapping": {
+          "priority": "P2"
+        },
+        "noPfcToPpgMapping": {
+          "priority": "P2"
+        },
+        "oneToOnePfcToPpgMapping": {
+          "priority": "P2"
+        },
+        "oneToOneTcToPpgMapping": {
+          "priority": "P2"
+        },
+        "qosMapDot1ToColorCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapDot1ToTcCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapDscpToColorCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapDscpToTcCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapPfcPrioToPrioGroupCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapPrioToQueueModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapTcColorToDot1pCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapTcColorToDscpCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapTcPgCreateModifyTest": {
+          "priority": "P2"
+        },
+        "qosMapTcToQueueModifyTest": {
+          "priority": "P2"
+        },
+        "samePfcToPpgMapOnManyIngressPorts": {
+          "priority": "P2"
+        },
+        "sameTcToPpgMapOnDifferentIngressPorts": {
+          "priority": "P2"
+        },
+        "variousPfcToPpgMapOnManyIngressPorts": {
+          "priority": "P2"
+        },
+        "variousTcToPpgMappingOnDifferentIngressPorts": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiqueue": {
+      "cases": {
+        "bufferQueueTest": {
+          "priority": "P2"
+        },
+        "cpuPortQueueObjectTest": {
+          "priority": "P2"
+        },
+        "dwrrBandwidthDistributionTest": {
+          "priority": "P2"
+        },
+        "pfcPriorityQueueTest": {
+          "priority": "P2"
+        },
+        "portQueueQueryTest": {
+          "priority": "P2"
+        },
+        "queueCreateTest": {
+          "priority": "P2"
+        },
+        "schedulerQueueTest": {
+          "priority": "P2"
+        },
+        "strictPriorityQueueTest": {
+          "priority": "P2"
+        },
+        "wredQueueTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sairif": {
+      "cases": {
+        "DuplicatePortRifCreationTest": {
+          "priority": "P2"
+        },
+        "DuplicateVlanRifCreationTest": {
+          "priority": "P2"
+        },
+        "IncorrectVlanIdTest": {
+          "priority": "P2"
+        },
+        "Ipv4DisableTest": {
+          "priority": "P2"
+        },
+        "Ipv4EgressAclTest": {
+          "priority": "P2"
+        },
+        "Ipv4FibLPMTest": {
+          "priority": "P2"
+        },
+        "Ipv4FibLagTest": {
+          "priority": "P2"
+        },
+        "Ipv4FibTest": {
+          "priority": "P2"
+        },
+        "Ipv4IngressAclTest": {
+          "priority": "P2"
+        },
+        "Ipv4MtuTest": {
+          "priority": "P2"
+        },
+        "Ipv4MtuTrapTest": {
+          "priority": "P2"
+        },
+        "Ipv6DisableTest": {
+          "priority": "P2"
+        },
+        "Ipv6FibLagTest": {
+          "priority": "P2"
+        },
+        "Ipv6FibLpmTest": {
+          "priority": "P2"
+        },
+        "Ipv6FibTest": {
+          "priority": "P2"
+        },
+        "Ipv6MtuTest": {
+          "priority": "P2"
+        },
+        "Ipv6MtuTrapTest": {
+          "priority": "P2"
+        },
+        "LoopbackRifTest": {
+          "priority": "P2"
+        },
+        "MacUpdateTest": {
+          "priority": "P2"
+        },
+        "McastDisableTest": {
+          "priority": "P2"
+        },
+        "MtuPacketStatsTest": {
+          "priority": "P2"
+        },
+        "NegativeRifTest": {
+          "priority": "P2"
+        },
+        "NoFloodTest": {
+          "priority": "P2"
+        },
+        "PvMissTest": {
+          "priority": "P2"
+        },
+        "RifCreateOrUpdateRmacTest": {
+          "priority": "P2"
+        },
+        "RifMyIPTest": {
+          "priority": "P2"
+        },
+        "RifSharedMtuTest": {
+          "priority": "P2"
+        },
+        "RifToSubPortTest": {
+          "priority": "P2"
+        },
+        "RifTypeLoopback": {
+          "priority": "P2"
+        },
+        "RifTypePort": {
+          "priority": "P2"
+        },
+        "RifTypeSubPort": {
+          "priority": "P2"
+        },
+        "RifTypeVlan": {
+          "priority": "P2"
+        },
+        "SubPortAdminV4StatusTest": {
+          "priority": "P2"
+        },
+        "SubPortAdminV6StatusTest": {
+          "priority": "P2"
+        },
+        "SubPortECMPTest": {
+          "priority": "P2"
+        },
+        "SubPortEgressAclTest": {
+          "priority": "P2"
+        },
+        "SubPortIngressAclTest": {
+          "priority": "P2"
+        },
+        "SubPortIpv4MtuTrapTest": {
+          "priority": "P2"
+        },
+        "SubPortIpv6MtuTrapTest": {
+          "priority": "P2"
+        },
+        "SubPortMyIPTest": {
+          "priority": "P2"
+        },
+        "SubPortNoTest": {
+          "priority": "P2"
+        },
+        "SubPortQosGroupTest": {
+          "priority": "P2"
+        },
+        "SubPortToRifTest": {
+          "priority": "P2"
+        },
+        "SubPortToSubPortTest": {
+          "priority": "P2"
+        },
+        "SubPortTunnelTest": {
+          "priority": "P2"
+        },
+        "SubPortV4MtuTest": {
+          "priority": "P2"
+        },
+        "SubPortV6MtuTest": {
+          "priority": "P2"
+        },
+        "SviArpReplyTest": {
+          "priority": "P2"
+        },
+        "SviBridgingTest": {
+          "priority": "P2"
+        },
+        "SviHostTest": {
+          "priority": "P2"
+        },
+        "SviHostVlanTaggingTest": {
+          "priority": "P2"
+        },
+        "SviIPv4ArpMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv4HostPostRoutedFloodTest": {
+          "priority": "P2"
+        },
+        "SviIPv4HostStaticMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv4LagHostDynamicMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv4LagHostStaticMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv4MtuTest": {
+          "priority": "P2"
+        },
+        "SviIPv6HostPostRoutedFloodTest": {
+          "priority": "P2"
+        },
+        "SviIPv6HostStaticMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv6IcmpMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv6LagHostDynamicMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv6LagHostStaticMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviIPv6MtuTest": {
+          "priority": "P2"
+        },
+        "SviIpv4MtuTrapTest": {
+          "priority": "P2"
+        },
+        "SviIpv6MtuTrapTest": {
+          "priority": "P2"
+        },
+        "SviLagHostDynamicMacTest": {
+          "priority": "P2"
+        },
+        "SviLagHostTest": {
+          "priority": "P2"
+        },
+        "SviMyIPTest": {
+          "priority": "P2"
+        },
+        "SviRifIPv4DisableTest": {
+          "priority": "P2"
+        },
+        "SviRifIPv6DisableTest": {
+          "priority": "P2"
+        },
+        "SviRifIpv4Test": {
+          "priority": "P2"
+        },
+        "SviRouteDynamicMacMoveTest": {
+          "priority": "P2"
+        },
+        "SviRouteDynamicMacTest": {
+          "priority": "P2"
+        },
+        "SviStatsTest": {
+          "priority": "P2"
+        },
+        "SviTaggingTest": {
+          "priority": "P2"
+        },
+        "SviToSviRoutingTest": {
+          "priority": "P2"
+        },
+        "VirtualInterfaceType": {
+          "priority": "P2"
+        },
+        "VirtualRIFType": {
+          "priority": "P2"
+        },
+        "VlanConflictTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "sairoute": {
+      "cases": {
+        "DirBcastForwardTest": {
+          "priority": "P0"
+        },
+        "DirBcastGleanAndForwardTest": {
+          "priority": "P0"
+        },
+        "RemoveAddNeighborTest": {
+          "priority": "P0"
+        },
+        "cpuForwardTest": {
+          "priority": "P0"
+        },
+        "dropRouteTest": {
+          "priority": "P0"
+        },
+        "emptyECMPGroupTest": {
+          "priority": "P0"
+        },
+        "multipleRoutesTest": {
+          "priority": "P0"
+        },
+        "routeIngressRifTest": {
+          "priority": "P0"
+        },
+        "routeNbrColisionTest": {
+          "priority": "P0"
+        },
+        "routeUpdateTest": {
+          "priority": "P0"
+        },
+        "sviNeighborTest": {
+          "priority": "P0"
+        }
+      }
+    },
+    "saisanity": {
+      "cases": {
+        "L2SanityTest": {
+          "priority": "P2"
+        },
+        "L2TrunkToAccessVlanTest": {
+          "priority": "P2"
+        },
+        "L2TrunkToTrunkVlanTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saischeduler": {
+      "cases": {
+        "SchedulerGroupAttachTest": {
+          "priority": "P2"
+        },
+        "SchedulerParamsTest": {
+          "priority": "P2"
+        },
+        "SchedulerPortAttachTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saischedulergroup": {
+      "cases": {
+        "SchGroupCreateFailTest": {
+          "priority": "P2"
+        },
+        "SchGroupParamsTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saisrv6": {
+      "cases": {
+        "MySidObjectsAvailibilityTest": {
+          "priority": "P2"
+        },
+        "Srv6MySidDropTest": {
+          "priority": "P2"
+        },
+        "Srv6MySidTest": {
+          "priority": "P2"
+        },
+        "Srv6MySidUsidTest": {
+          "priority": "P2"
+        },
+        "Srv6SrcEncapTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiswitch": {
+      "cases": {
+        "AvailableAclTableGroupTest": {
+          "priority": "P2"
+        },
+        "AvailableAclTableTest": {
+          "priority": "P2"
+        },
+        "AvailableDnatEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableFdbEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv4NeighborEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv4NexthopEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv4RouteEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv6NeighborEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv6NexthopEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableIPv6RouteEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableNexthopGroupEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableNexthopGroupMemberEntryTest": {
+          "priority": "P2"
+        },
+        "AvailableSnatEntryTest": {
+          "priority": "P2"
+        },
+        "ReadOnlyAttributesTest": {
+          "priority": "P2"
+        },
+        "RefreshIntervalTest": {
+          "priority": "P2"
+        },
+        "SwitchAttrAclTest": {
+          "priority": "P2"
+        },
+        "SwitchAttrSimplifiedTest": {
+          "priority": "P2"
+        },
+        "SwitchAttrTest": {
+          "priority": "P2"
+        },
+        "SwitchDefaultVlanTest": {
+          "priority": "P2"
+        },
+        "SwitchVxlanTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saitest": {
+      "cases": {
+        "FrameworkTester": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saitunnel": {
+      "cases": {
+        "IpInIpP2MpTnnnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "IpInIpP2MpTnnnelIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "IpInIpTnnnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "IpInIpTnnnelIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "MultipleMapperEntriesIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "MultipleMapperEntriesIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "MultipleOvrfMultiTunnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "MultipleOvrfMultiTunnelIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "SingleOvrfMultiTunnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "SingleOvrfMultiTunnelIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelAttributesTest": {
+          "priority": "P2"
+        },
+        "TunnelMalformedDecapPacketsBase": {
+          "priority": "P2"
+        },
+        "TunnelMalformedDecapPacketsIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelMalformedDecapPacketsIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelMalformedEncapPacketsBase": {
+          "priority": "P2"
+        },
+        "TunnelMalformedEncapPacketsIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelMalformedEncapPacketsIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelNhopResolutionBase": {
+          "priority": "P2"
+        },
+        "TunnelNhopResolutionIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelNhopResolutionIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "TunnelQosModeTest": {
+          "priority": "P2"
+        },
+        "TunnelTtlModeTest": {
+          "priority": "P2"
+        },
+        "VxLanBaseSetup": {
+          "priority": "P2"
+        },
+        "VxLanEvpnTest": {
+          "priority": "P2"
+        },
+        "VxLanP2MpTnnnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "VxLanP2MpTnnnelIpv6UnderlayTest": {
+          "priority": "P2"
+        },
+        "VxLanRifsConfigTunnelIpv4UnderlayOecmpTest": {
+          "priority": "P2"
+        },
+        "VxLanRifsConfigTunnelIpv4UnderlayOportsTest": {
+          "priority": "P2"
+        },
+        "VxLanRifsConfigTunnelIpv6UnderlayOecmpTest": {
+          "priority": "P2"
+        },
+        "VxLanRifsConfigTunnelIpv6UnderlayOportsTest": {
+          "priority": "P2"
+        },
+        "VxLanTunnelIpv4UnderlayTest": {
+          "priority": "P2"
+        },
+        "VxLanTunnelIpv6UnderlayTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saivlan": {
+      "cases": {
+        "CountersClearTest": {
+          "priority": "P2"
+        },
+        "ForwardingTest": {
+          "priority": "P2"
+        },
+        "LagPVMissTest": {
+          "priority": "P2"
+        },
+        "NativeVlanTest": {
+          "priority": "P2"
+        },
+        "PriorityTaggingTest": {
+          "priority": "P2"
+        },
+        "PvDropTest": {
+          "priority": "P2"
+        },
+        "SingleVlanMemberTest": {
+          "priority": "P2"
+        },
+        "VlanEgressAclTest": {
+          "priority": "P2"
+        },
+        "VlanFloodDisableTest": {
+          "priority": "P2"
+        },
+        "VlanFloodEnhancedTest": {
+          "priority": "P2"
+        },
+        "VlanFloodPruneTest": {
+          "priority": "P2"
+        },
+        "VlanFloodTest": {
+          "priority": "P2"
+        },
+        "VlanIngressAclTest": {
+          "priority": "P2"
+        },
+        "VlanLearningTest": {
+          "priority": "P2"
+        },
+        "VlanMaxLearnedAddressesTest": {
+          "priority": "P2"
+        },
+        "VlanMemberList": {
+          "priority": "P2"
+        },
+        "VlanNegativeTest": {
+          "priority": "P2"
+        },
+        "VlanStatsTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saivrf": {
+      "cases": {
+        "VrfMultipleRifCreationTest": {
+          "priority": "P2"
+        },
+        "VrfScaleTest": {
+          "priority": "P2"
+        },
+        "aclFwdEcmpNhopTest": {
+          "priority": "P2"
+        },
+        "aclFwdL3LagNhopTest": {
+          "priority": "P2"
+        },
+        "aclFwdL3NhopTest": {
+          "priority": "P2"
+        },
+        "aclFwdSubportNhopTest": {
+          "priority": "P2"
+        },
+        "aclFwdSviNhopTest": {
+          "priority": "P2"
+        },
+        "interVrfFwdEcmpNhopTest": {
+          "priority": "P2"
+        },
+        "interVrfFwdL3LagNhopTest": {
+          "priority": "P2"
+        },
+        "interVrfFwdL3NhopTest": {
+          "priority": "P2"
+        },
+        "interVrfFwdSubportNhopTest": {
+          "priority": "P2"
+        },
+        "interVrfFwdSviNhopTest": {
+          "priority": "P2"
+        },
+        "overlappingIPv4HostTest": {
+          "priority": "P2"
+        },
+        "overlappingIPv4LpmTest": {
+          "priority": "P2"
+        },
+        "overlappingIPv6HostTest": {
+          "priority": "P2"
+        },
+        "overlappingIPv6LpmTest": {
+          "priority": "P2"
+        },
+        "testSMACCreateSet": {
+          "priority": "P2"
+        },
+        "testSMACSet": {
+          "priority": "P2"
+        },
+        "vrfStateTest": {
+          "priority": "P2"
+        }
+      }
+    },
+    "saiwred": {
+      "cases": {
+        "_WredBindProfileMultipleQueuesTest": {
+          "priority": "P2"
+        },
+        "_WredBindProfileTest": {
+          "priority": "P2"
+        },
+        "_WredIPv4NonECNTest": {
+          "priority": "P2"
+        },
+        "_WredReplaceProfileTest": {
+          "priority": "P2"
+        }
+      }
+    }
+  },
+  "schema_version": 2,
+  "source_identity": {
+    "branch": "v1.10-pdx-capability",
+    "commit": "3e2e3631b57d8ce9f461ece2e14e451295cb520b",
+    "repo": "SONiC/SAI"
+  }
+}

@@ -11,24 +11,20 @@ split into three tables by result_type:
 The report is driven by the measured spec results: every spec the run actually
 recorded becomes a row.
 
-Test-case pass/fail lives in result.txt, NOT here. This report only reports
-each spec metric's measured value.
-
-Usage:
-    python3 sai_report.py --json-dir per_case_json/ --output report.html \
-        --format html --asic-type th6 --build-id 53
+Test-case pass/fail belongs to the Test Results section, not here. This module
+accepts validated in-memory result documents and renders spec values only.
 """
 
-import argparse
-import json
-import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from html import escape
+from typing import Dict, List, Optional, Any
 
 
 _KNOWN_TYPES = ("performance", "scale", "fill_rate", "capability", "incidental")
+
+
+def _html(value) -> str:
+    return escape(str(value), quote=True)
 
 
 def _norm_type(result_type: Optional[str]) -> str:
@@ -40,6 +36,21 @@ def _norm_type(result_type: Optional[str]) -> str:
 
 def _norm_op(operation) -> str:
     return operation if operation else ""
+
+
+def _report_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """Adapt the collector schema for rendering without changing its archive."""
+    if "actual_value" not in spec:
+        return dict(spec)
+    details = dict(spec.get("extra") or {})
+    details["count"] = spec.get("count")
+    if "duration_seconds" in spec:
+        details["duration_seconds"] = spec["duration_seconds"]
+    enriched = dict(spec)
+    enriched["value"] = spec.get("actual_value")
+    enriched["threshold"] = spec.get("baseline")
+    enriched["details"] = details
+    return enriched
 
 
 @dataclass
@@ -54,6 +65,8 @@ class SpecRow:
     details: Dict[str, Any]
     result: str               # MEASURED | NOT MEASURED
     test_class: str           # source case (provenance only; may be "")
+    scenario: str = ""       # case-defined measurement scenario
+    occurrence: int = 0      # repeated measurement within the same scenario
 
 
 @dataclass
@@ -66,67 +79,43 @@ class ReportSummary:
     scale_fail: int = 0
     scale_measured: int = 0
     scale_total: int = 0
-    cap_pass: int = 0
-    cap_fail: int = 0
-    cap_measured: int = 0
-    cap_total: int = 0
     fill_pass: int = 0
     fill_fail: int = 0
     fill_measured: int = 0
     fill_total: int = 0
-    not_measured: int = 0
-    build_id: Optional[str] = None
-    asic_type: Optional[str] = None
-    timestamp: str = ""
 
 
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
 
-def load_actual_specs(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Load all spec_results from per-case JSON files.
-
-    Returns a dict keyed by (spec_name, operation) -> enriched spec dict
-    (the spec fields plus 'test_class' for provenance). ptf_results.json is
-    skipped (it is case-level, not spec-level).
-    """
+def build_actual_specs(results) -> Dict[tuple, Dict[str, Any]]:
+    """Build measured specs directly from merged per-case result documents."""
     actual = {}
-    json_path = Path(json_dir)
-    if not json_path.exists():
-        print(f"Warning: JSON directory {json_dir} does not exist")
-        return actual
-
-    for json_file in sorted(json_path.glob("*.json")):
-        if json_file.name == "ptf_results.json":
-            continue
-        try:
-            with open(json_file, 'r') as f:
-                data = json.load(f)
-        except Exception as e:
-            print(f"Error loading {json_file}: {e}")
-            continue
-
-        test_class = data.get("test_class", "")
+    occurrences = {}
+    for data in results:
+        test_class = data.get("case", data.get("test_class", ""))
         for spec in data.get("spec_results", []):
-            key = (spec.get("spec_name", "unknown"), _norm_op(spec.get("operation")))
-            enriched = dict(spec)
+            enriched = _report_spec(spec)
             enriched["test_class"] = test_class
-            # Last writer wins if the same (spec, op) appears in multiple
-            # cases; they describe the same metric so either value serves.
+            scenario = str(enriched.get("details", {}).get("scenario") or "")
+            identity = (
+                spec.get("spec_name", "unknown"),
+                _norm_op(spec.get("operation")),
+                test_class,
+                scenario,
+            )
+            occurrence = occurrences.get(identity, 0)
+            occurrences[identity] = occurrence + 1
+            enriched["scenario"] = scenario
+            enriched["occurrence"] = occurrence
+            key = identity + (occurrence,)
             actual[key] = enriched
-
     return actual
 
 
-def load_registry_definitions(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Load all metric definitions, including non-rendered incidental specs."""
-    path = Path(json_dir) / "spec_registry.json"
-    if not path.exists():
-        raise ValueError("spec registry %s does not exist" % path)
-    with open(path, 'r') as f:
-        registry = json.load(f)
-
+def build_registry_definitions(registry) -> Dict[tuple, Dict[str, Any]]:
+    """Expand a registry document into operation-specific definitions."""
     definitions = {}
     metric_types = {"performance", "scale", "fill_rate", "incidental"}
     for spec_name, definition in registry.items():
@@ -140,38 +129,17 @@ def load_registry_definitions(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
     return definitions
 
 
-def load_registered_specs(json_dir: str) -> Dict[tuple, Dict[str, Any]]:
-    """Expand renderable registry definitions into expected report cells."""
-    return {key: definition
-            for key, definition in load_registry_definitions(json_dir).items()
-            if definition.get("result_type") != "incidental"}
-
-
-def load_fill_rate_rows(json_dir: str) -> List[Dict[str, Any]]:
-    """Collect every fill-rate measurement per scenario (test case).
+def build_fill_rate_rows(results) -> List[Dict[str, Any]]:
+    """Build every fill-rate row directly from per-case result documents.
 
     Covers all *_fill_rate specs (route fill rates AND fdb_fill_rate). Unlike
-    load_actual_specs, this does NOT dedupe by (spec_name, operation): each
-    route-scale case emits the same spec_name (ipv4_route_fill_rate ...) with
-    operation "", so deduping would collapse all deployment scenarios (mask16 /
-    mask24 / mixed ...) into one. Here each file = one scenario, so we keep them
-    all. Fill percentage is `value`; attempted and completed entries live in
-    typed `details` fields.
+    build_actual_specs, this does NOT dedupe by (spec_name, operation).
     """
     out: List[Dict[str, Any]] = []
-    json_path = Path(json_dir)
-    if not json_path.exists():
-        return out
-    for jf in json_path.glob("*.json"):
-        if jf.name == "ptf_results.json":
-            continue
-        try:
-            with open(jf, 'r') as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        tc = data.get("test_class", "")
+    for data in results:
+        tc = data.get("case", data.get("test_class", ""))
         for spec in data.get("spec_results", []):
+            spec = _report_spec(spec)
             name = spec.get("spec_name", "")
             if not name.endswith("_fill_rate"):
                 continue
@@ -188,18 +156,6 @@ def load_fill_rate_rows(json_dir: str) -> List[Dict[str, Any]]:
                                          "higher_better"),
             })
     return out
-
-
-def load_ptf_results(ptf_results_path: Optional[str]) -> Dict[str, str]:
-    """Load case-level PTF results (reserved; not rendered by this report)."""
-    if not ptf_results_path or not os.path.exists(ptf_results_path):
-        return {}
-    try:
-        with open(ptf_results_path, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Warning: failed to load ptf results: {e}")
-        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -237,37 +193,53 @@ def build_spec_rows(actual: Dict[tuple, Dict[str, Any]],
     rows = []
     expected = expected or {}
     definitions = definitions or expected
-    for key in sorted(set(expected) | set(actual)):
-        registered = definitions.get(key, {})
-        measured = actual.get(key)
-        if measured and not registered:
-            raise ValueError("unregistered measured spec: %s/%s" % key)
-        source = registered
-        rt = _norm_type(source.get("result_type"))
+    measured_provenance = {}
+    for key in sorted(actual):
+        spec_name, operation, test_class, scenario, occurrence = key
+        base = (spec_name, operation)
+        registered = definitions.get(base, {})
+        if not registered:
+            raise ValueError("unregistered measured spec: %s/%s" % base)
+        rt = _norm_type(registered.get("result_type"))
         if rt == "incidental":
             continue
-        spec_name, operation = key
-        direction = source.get("direction", "higher_better")
-        value = measured.get("value") if measured else None
-        threshold = measured.get("threshold") if measured else None
+        measured_provenance.setdefault(spec_name, set()).add(
+            (test_class, scenario, occurrence))
+        measured = actual[key]
+        direction = registered.get("direction", "higher_better")
+        value = measured.get("value")
+        threshold = measured.get("threshold")
         rows.append(SpecRow(
             spec_name=spec_name, operation=operation, result_type=rt,
-            unit=source.get("unit", ""), direction=direction,
-            value=value,
-            details=measured.get("details", {}) if measured else {},
-            result=(_decide_result(value, threshold, direction)
-                    if measured else "NOT MEASURED"),
-            test_class=measured.get("test_class", "") if measured else ""))
+            unit=registered.get("unit", ""), direction=direction,
+            value=value, details=measured.get("details", {}),
+            result=_decide_result(value, threshold, direction),
+            test_class=test_class, scenario=scenario,
+            occurrence=occurrence))
+
+    for spec_name, operation in sorted(expected):
+        registered = definitions.get((spec_name, operation), {})
+        rt = _norm_type(registered.get("result_type"))
+        if rt == "incidental":
+            continue
+        provenances = measured_provenance.get(spec_name) or {("", "", 0)}
+        for test_class, scenario, occurrence in sorted(provenances):
+            if (spec_name, operation, test_class, scenario, occurrence) in actual:
+                continue
+            rows.append(SpecRow(
+                spec_name=spec_name, operation=operation, result_type=rt,
+                unit=registered.get("unit", ""),
+                direction=registered.get("direction", "higher_better"),
+                value=None, details={}, result="NOT MEASURED",
+                test_class=test_class, scenario=scenario,
+                occurrence=occurrence))
 
     return rows
 
 
-def summarize(rows: List[SpecRow], build_id, asic_type) -> ReportSummary:
-    s = ReportSummary(build_id=build_id, asic_type=asic_type,
-                      timestamp=datetime.now().isoformat(timespec="seconds"))
+def summarize(rows: List[SpecRow]) -> ReportSummary:
+    s = ReportSummary()
     for r in rows:
-        if r.result == "NOT MEASURED":
-            s.not_measured += 1
         if r.result_type == "performance":
             s.perf_total += 1
             if r.result == "PASS":
@@ -292,14 +264,6 @@ def summarize(rows: List[SpecRow], build_id, asic_type) -> ReportSummary:
                 s.fill_fail += 1
             elif r.result == "MEASURED":
                 s.fill_measured += 1
-        elif r.result_type == "capability":
-            s.cap_total += 1
-            if r.result == "PASS":
-                s.cap_pass += 1
-            elif r.result == "FAIL":
-                s.cap_fail += 1
-            elif r.result == "MEASURED":
-                s.cap_measured += 1
         # 'incidental' specs are not summarized (and not rendered).
     return s
 
@@ -312,18 +276,6 @@ def _fmt_num(v):
     if isinstance(v, (int, float)):
         return f"{v:,.2f}" if isinstance(v, float) else f"{v:,}"
     return "—"
-
-
-def _result_class(result: str) -> str:
-    if result == "PASS":
-        return "pass"
-    if result == "FAIL":
-        return "fail"
-    if result == "NOT MEASURED":
-        return "notmeasured"
-    if result == "MEASURED":
-        return "measured"
-    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +321,9 @@ _CSS = """
     table {
       width: 100%; border-collapse: collapse; margin: 14px 0 8px;
       font-size: 13.5px; background: var(--panel); border-radius: 8px; overflow: hidden;
+    }
+    .table-scroll {
+      max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
     th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border); }
     th {
@@ -435,49 +390,26 @@ _CSS = """
 """
 
 
-def _html_open(report_title, h1_text, summary, nav_html=""):
-    h = ["<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\">",
-         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">",
-         f"<title>{report_title}</title><style>", _CSS]
-    h.append("</style></head><body><div class=\"container\">")
-    sub = []
-    if summary.asic_type:
-        sub.append(summary.asic_type.upper())
-    if summary.build_id:
-        sub.append(f"Build #{summary.build_id}")
-    sub_txt = ("<span class=\"sub\">" + "  ·  ".join(sub) + "</span>") if sub else ""
-    h.append(f"<h1>{h1_text}{sub_txt}</h1>")
-    if nav_html:
-        h.append(f"<div class=\"meta\">{nav_html}</div>")
-    h.append(f"<div class=\"meta\"><strong>Generated:</strong> {summary.timestamp}</div>")
-    return h
-
-
 def _nm_count(rows, want_cap: bool) -> int:
     return sum(1 for r in rows
                if r.result == "NOT MEASURED"
                and (r.result_type == "capability") == want_cap)
 
 
-def generate_html_report(summary: ReportSummary, rows: List[SpecRow],
-                         actual: Dict[tuple, Dict[str, Any]],
-                         route_fill_rows: Optional[List[Dict[str, Any]]] = None,
-                         cap_report_name: Optional[str] = None,
-                         result_report_name: Optional[str] = None) -> str:
-    """Main page: performance / scale / fill-rate / route-flap / counters.
+def styles():
+    return _CSS
 
-    Capability is reported separately at value granularity by the SAI repo tool
-    ptf/ranking_test/report/render_capability.py.
+
+def render_section(summary: ReportSummary, rows: List[SpecRow],
+                   actual: Dict[tuple, Dict[str, Any]],
+                   route_fill_rows: Optional[List[Dict[str, Any]]] = None
+                   ) -> str:
+    """Document-free performance / scale / fill-rate / counter markup.
+
+    Capability is rendered separately by render_capability.render_section.
     """
     route_fill_rows = route_fill_rows or []
-    nav_links = []
-    if result_report_name:
-        nav_links.append(f"<a href=\"{result_report_name}\">→ Test Execution report</a>")
-    if cap_report_name:
-        nav_links.append(f"<a href=\"{cap_report_name}\">→ Basic Function (Capability) report</a>")
-    nav = "&nbsp;&nbsp;·&nbsp;&nbsp;".join(nav_links)
-    h = _html_open("SAI Spec Test Report", "SAI Spec Test Report",
-                   summary, nav)
+    h = ['<div class="container">', '<h2>Performance &amp; Scale</h2>']
 
     h.append("<h2>Overview</h2><div class=\"summary-grid\">")
     h.append(_metric_card("Performance", summary.perf_pass, summary.perf_fail,
@@ -514,19 +446,20 @@ def generate_html_report(summary: ReportSummary, rows: List[SpecRow],
     if counters:
         h.append(_counter_perf_table(counters))
     if op_lat:
-        h.append(_pivot_table("Op Latency (ms)", op_lat, header_unit="ms"))
+        h.append(_pivot_table("Operation Latency (ms)", op_lat,
+                              header_unit="ms"))
     if scale:
         h.append(_pivot_table("Scale (capacity)", scale))
     if route_fill_rows:
         h.append(_fill_rate_table(route_fill_rows, actual))
 
-    h.append("</div></body></html>")
+    h.append("</div>")
     return "\n".join(h)
 
 
 def _card(title, value, cls=""):
-    return (f"<div class=\"summary-card {cls}\"><h3>{title}</h3>"
-            f"<div class=\"value\">{value}</div></div>")
+    return (f"<div class=\"summary-card {_html(cls)}\"><h3>{_html(title)}</h3>"
+            f"<div class=\"value\">{_html(value)}</div></div>")
 
 
 def _metric_label_value(label, npass, nfail, nmeasured, total):
@@ -556,54 +489,28 @@ def _metric_card(label, npass, nfail, nmeasured, total):
     return _card(title, value, cls)
 
 
-# Display label for the three-state result, with leading glyph.
-_RESULT_TEXT = {
-    "PASS": "✓ PASS",
-    "FAIL": "✗ FAIL",
-    "MEASURED": "▫ MEASURED",
-    "NOT MEASURED": "⛔ NOT MEASURED",
-}
-
-
-def _result_text(result: str) -> str:
-    return _RESULT_TEXT.get(result, result)
-
-
 def _metric_label(r) -> str:
-    """Row identity = spec_name·operation, the cross-chip join key."""
-    if r.operation:
-        return (f"<strong>{r.spec_name}</strong>"
-                f"<span class=\"op\">·{r.operation}</span>")
-    return f"<strong>{r.spec_name}</strong>"
+    """Render one metric plus the case/scenario that produced it."""
+    label = f"<strong>{_html(r.spec_name)}</strong>"
+    provenance = []
+    if r.test_class:
+        provenance.append(str(r.test_class))
+    if r.scenario:
+        provenance.append(str(r.scenario))
+    if r.occurrence:
+        provenance.append("measurement {}".format(r.occurrence + 1))
+    if provenance:
+        label += '<span class="src">{}</span>'.format(
+            _html(' · '.join(provenance)))
+    return label
 
 
 def _num_unit(num_str: str, unit: str) -> str:
     """Self-contained value: bold number + dimmed small unit suffix."""
     if not unit:
-        return f"<span class=\"val\">{num_str}</span>"
-    return (f"<span class=\"val\">{num_str}</span>"
-            f"<span class=\"unit\">{unit}</span>")
-
-
-def _value_cell(r) -> str:
-    """The single key-data column. Self-contained (value + unit)."""
-    if r.result == "NOT MEASURED":
-        return "<span class=\"na\">n/m</span>"
-    a = r.value
-    rt = r.result_type
-    if rt == "capability":
-        if a == 1:
-            return "<span class=\"yes\">✓ Supported</span>"
-        if a == 0:
-            return "<span class=\"no\">✗ Not supported</span>"
-        return "<span class=\"na\">—</span>"
-    if rt == "fill_rate":
-        return (f"<span class=\"val\">{a:.2f}%</span>"
-                if isinstance(a, (int, float)) else "<span class=\"na\">—</span>")
-    # performance / scale: number + unit
-    if isinstance(a, (int, float)):
-        return _num_unit(_fmt_num(a), r.unit)
-    return "<span class=\"na\">—</span>"
+        return f"<span class=\"val\">{_html(num_str)}</span>"
+    return (f"<span class=\"val\">{_html(num_str)}</span>"
+            f"<span class=\"unit\">{_html(unit)}</span>")
 
 
 # Operation column ordering: create-like first, remove-like last.
@@ -644,7 +551,7 @@ def _cell(r, header_unit) -> str:
     colorcls = {"PASS": "pass", "FAIL": "fail",
                 "MEASURED": "measured"}.get(r.result, "")
     tip = _tooltip_full(r)
-    ta = f" title=\"{tip}\"" if tip else ""
+    ta = f" title=\"{_html(tip)}\"" if tip else ""
     return f"<td class=\"{colorcls}\"{ta}>{inner}</td>"
 
 
@@ -692,7 +599,7 @@ _CAPACITY_NOTE = ("scale = SAI_SWITCH_ATTR_AVAILABLE_* , i.e. entries still "
                   "the smaller of the two available counts, not their sum")
 
 
-def _capacity_of(spec_name, actual):
+def _capacity_of(spec_name, actual, test_class=None):
     """Smallest measured scale spec backing this fill-rate spec.
 
     v4 and v6 available counts are two views of one shared route table, so the
@@ -703,9 +610,18 @@ def _capacity_of(spec_name, actual):
     """
     scale, used = None, []
     for cap_spec in _CAPACITY_OF.get(spec_name, ()):
-        v = (actual.get((cap_spec, "")) or {}).get("value")
-        if isinstance(v, (int, float)):
-            scale = v if scale is None else min(scale, v)
+        values = []
+        for key, measured in actual.items():
+            if key[0:2] != (cap_spec, ""):
+                continue
+            if test_class and key[2] != test_class:
+                continue
+            value = measured.get("value")
+            if isinstance(value, (int, float)):
+                values.append(value)
+        if values:
+            value = min(values)
+            scale = value if scale is None else min(scale, value)
             used.append(cap_spec)
     return scale, used
 
@@ -718,7 +634,7 @@ def _fill_rate_table(rfrows, actual) -> str:
     The fill cell is colored by its own result.
     """
     out = ["<h2>Fill Rate &amp; Scale</h2>",
-           "<table><thead><tr>",
+           "<div class=\"table-scroll\"><table><thead><tr>",
            "<th>Scenario (case)</th>",
            f"<th title=\"{_CAPACITY_NOTE}\">Scale</th>",
            "<th>Installed</th><th>Fill rate</th>",
@@ -734,14 +650,15 @@ def _fill_rate_table(rfrows, actual) -> str:
                 else "—")
         inst = (_fmt_num(r["installed"])
                 if isinstance(r["installed"], (int, float)) else "—")
-        cap, cap_src = _capacity_of(r["spec_name"], actual)
+        cap, cap_src = _capacity_of(
+            r["spec_name"], actual, test_class=r["test_class"])
         if cap is None:
             cap_cell = "<td><span class=\"na\">—</span></td>"
         else:
             src = ', '.join(cap_src)
             if len(cap_src) > 1:
                 src = "min of " + src
-            cap_cell = (f"<td title=\"from {src}\">"
+            cap_cell = (f"<td title=\"from {_html(src)}\">"
                         f"<span class=\"val\">{_fmt_num(cap)}</span></td>")
         # attempted (the fill-rate denominator) is derivable from fill% and
         # installed, so it lives in the tooltip rather than its own column.
@@ -751,11 +668,11 @@ def _fill_rate_table(rfrows, actual) -> str:
         scenario = r["test_class"] or "—"
         if r.get("order"):
             scenario += f" ({r['order']})"
-        out.append(f"<tr{ta}><td><strong>{scenario}</strong></td>")
+        out.append(f"<tr{ta}><td><strong>{_html(scenario)}</strong></td>")
         out.append(cap_cell)
         out.append(f"<td><span class=\"val\">{inst}</span></td>")
         out.append(f"<td class=\"{colorcls}\"><span class=\"val\">{fill}</span></td></tr>")
-    out.append("</tbody></table>")
+    out.append("</tbody></table></div>")
     return "\n".join(out)
 
 
@@ -769,20 +686,31 @@ def _counter_perf_table(rows) -> str:
     """
     def _obj(spec_name):
         base = spec_name.replace("_counter_read", "")
-        return " ".join("PG" if w == "pg" else w for w in base.split("_"))
+        return " ".join(w.upper() if w in ("acl", "pg") else w
+                        for w in base.split("_"))
 
     def _verb(op):
         return {"read": "Read", "clear": "Clear"}.get(op, (op or "read").capitalize())
 
     ordered = sorted(rows, key=lambda r: (r.spec_name,
                                           0 if r.operation == "read" else 1))
-    out = ["<h2>Counter perf</h2><table><thead><tr>"
-           "<th>Counter perf</th><th>Time</th></tr></thead><tbody>"]
+    out = ["<h2>Counter Performance</h2>"
+           "<div class=\"table-scroll\"><table><thead><tr>"
+           "<th>Counter Performance</th><th>Time</th></tr></thead><tbody>"]
     for r in ordered:
         observed = r.details.get('observed_count')
         cnt = (f"{int(observed)} "
                if isinstance(observed, (int, float)) and observed else "")
         desc = f"{_verb(r.operation)} {cnt}{_obj(r.spec_name)} counters"
+        provenance = []
+        if r.test_class:
+            provenance.append(str(r.test_class))
+        if r.scenario:
+            provenance.append(str(r.scenario))
+        if r.occurrence:
+            provenance.append("measurement {}".format(r.occurrence + 1))
+        if provenance:
+            desc += " ({})".format(" · ".join(provenance))
         colorcls = {"PASS": "pass", "FAIL": "fail",
                     "MEASURED": "measured"}.get(r.result, "")
         if r.result == "NOT MEASURED":
@@ -792,8 +720,8 @@ def _counter_perf_table(rows) -> str:
                     f"{r.details['duration_seconds'] * 1000:.1f} ms</span></td>")
         else:
             cell = '<td><span class="na">—</span></td>'
-        out.append(f"<tr><td>{desc}</td>{cell}</tr>")
-    out.append("</tbody></table>")
+        out.append(f"<tr><td>{_html(desc)}</td>{cell}</tr>")
+    out.append("</tbody></table></div>")
     return "\n".join(out)
 
 
@@ -808,30 +736,34 @@ def _pivot_table(title: str, rows, header_unit=None, collapse=False) -> str:
     """
     by_spec = {}
     for r in rows:
-        by_spec.setdefault(r.spec_name, {})[r.operation] = r
+        identity = (r.spec_name, r.test_class, r.scenario, r.occurrence)
+        by_spec.setdefault(identity, {})[r.operation] = r
     ops = sorted({r.operation for r in rows}, key=_op_sort_key)
     single = collapse or (ops == [""])
 
     hdr = (f"Measured ({header_unit})" if (single and header_unit) else "Measured")
-    out = [f"<h2>{title}</h2><table><thead><tr><th>Metric</th>"]
+    out = [f"<h2>{_html(title)}</h2><div class=\"table-scroll\">"
+           "<table><thead><tr><th>Metric</th>"]
     if single:
-        out.append(f"<th>{hdr}</th>")
+        out.append(f"<th>{_html(hdr)}</th>")
     else:
         for op in ops:
-            label = op if op else "—"
+            label = _html(op if op else "—")
             note = _OP_NOTE.get(op)
             if note:
-                label += f"<span class=\"op-note\">({note})</span>"
+                label += f"<span class=\"op-note\">({_html(note)})</span>"
             if header_unit:
-                label += f"<span class=\"unit\">{header_unit}</span>"
+                label += f"<span class=\"unit\">{_html(header_unit)}</span>"
             out.append(f"<th>{label}</th>")
     out.append("</tr></thead><tbody>")
 
-    for spec in sorted(by_spec):
-        opmap = by_spec[spec]
+    for identity in sorted(by_spec):
+        opmap = by_spec[identity]
+        representative = next(iter(opmap.values()))
         all_nm = all(x.result == "NOT MEASURED" for x in opmap.values())
         rowcls = "row-notmeasured" if all_nm else ""
-        out.append(f"<tr class=\"{rowcls}\"><td><strong>{spec}</strong></td>")
+        out.append(
+            f"<tr class=\"{rowcls}\"><td>{_metric_label(representative)}</td>")
         col_ops = [""] if single else ops
         for op in col_ops:
             r = opmap.get(op) if not single else (
@@ -843,110 +775,5 @@ def _pivot_table(title: str, rows, header_unit=None, collapse=False) -> str:
             else:
                 out.append(_cell(r, header_unit))
         out.append("</tr>")
-    out.append("</tbody></table>")
+    out.append("</tbody></table></div>")
     return "\n".join(out)
-
-
-# ---------------------------------------------------------------------------
-# Text report (kept minimal, mirrors the three tables)
-# ---------------------------------------------------------------------------
-
-def generate_text_report(summary: ReportSummary, rows: List[SpecRow]) -> str:
-    L = ["=" * 78, "  SAI Spec Test Report"]
-    if summary.asic_type:
-        L.append(f"  ASIC: {summary.asic_type}")
-    if summary.build_id:
-        L.append(f"  Build: {summary.build_id}")
-    L.append(f"  Generated: {summary.timestamp}")
-    L.append("=" * 78)
-    L.append("")
-
-    def _seg(label, npass, nfail, nmeasured, total):
-        if total == 0:
-            return f"{label} -"
-        if npass > 0 or nfail > 0:
-            return f"{label} PASS {npass}/{total}"
-        if nmeasured > 0:
-            return f"{label} MEASURED {nmeasured}/{total}"
-        return f"{label} NOT MEASURED 0/{total}"
-
-    L.append(" | ".join([
-        _seg("Performance", summary.perf_pass, summary.perf_fail, summary.perf_measured, summary.perf_total),
-        _seg("Scale", summary.scale_pass, summary.scale_fail, summary.scale_measured, summary.scale_total),
-        _seg("Fill Rate", summary.fill_pass, summary.fill_fail, summary.fill_measured, summary.fill_total),
-        _seg("Capability", summary.cap_pass, summary.cap_fail, summary.cap_measured, summary.cap_total),
-        f"NOT MEASURED {summary.not_measured}",
-    ]))
-    L.append("")
-    for label, rt in (("Performance", "performance"), ("Scale", "scale"),
-                      ("Fill Rate", "fill_rate"), ("Capability", "capability")):
-        sub = [r for r in rows if r.result_type == rt]
-        if not sub:
-            continue
-        L.append(f"--- {label} ---")
-        for r in sorted(sub, key=lambda x: (x.spec_name, x.operation)):
-            mark = {"PASS": "✅", "FAIL": "❌", "NOT MEASURED": "⛔",
-                    "MEASURED": "▫"}.get(r.result, "?")
-            actual = _fmt_num(r.value) if r.value is not None else "NOT MEASURED"
-            L.append(f"  {mark} {r.spec_name} {r.operation}: "
-                     f"{actual} {r.unit}")
-        L.append("")
-    return "\n".join(L)
-
-
-# ---------------------------------------------------------------------------
-# main
-# ---------------------------------------------------------------------------
-
-def main():
-    p = argparse.ArgumentParser(description="Generate SAI spec metric report")
-    p.add_argument("--json-dir", required=True)
-    p.add_argument("--output", required=True)
-    p.add_argument("--format", choices=["html", "text"], default="html")
-    p.add_argument("--build-id", default=None)
-    p.add_argument("--asic-type", default=None)
-    p.add_argument("--ptf-results", default=None,
-                   help="(optional) ptf_results.json; not rendered, reserved.")
-    p.add_argument("--result-report", default="result.html",
-                   help="file name of the test execution report to link back to "
-                        "(default: result.html). Set empty to omit the link.")
-    p.add_argument("--cap-report", default="capability.html",
-                   help="file name of the value-level capability report to link "
-                        "to (default: capability.html). That report is rendered "
-                        "by the SAI repo tool ptf/ranking_test/report/"
-                        "render_capability.py. "
-                        "Set empty to omit the link.")
-    args = p.parse_args()
-
-    actual = load_actual_specs(args.json_dir)
-    definitions = load_registry_definitions(args.json_dir)
-    expected = {key: definition for key, definition in definitions.items()
-                if definition.get("result_type") != "incidental"}
-    route_fill_rows = load_fill_rate_rows(args.json_dir)
-    print(f"Loaded {len(actual)} actual spec results, "
-          f"{len(expected)} registered metric cells, "
-          f"{len(route_fill_rows)} fill-rate scenarios")
-
-    rows = build_spec_rows(actual, expected, definitions)
-    summary = summarize(rows, args.build_id, args.asic_type)
-
-    if args.format == "html":
-        report = generate_html_report(summary, rows, actual, route_fill_rows,
-                                      cap_report_name=args.cap_report,
-                                      result_report_name=args.result_report)
-        with open(args.output, 'w', encoding='utf-8') as f:
-            f.write(report)
-        print(f"Spec report generated: {args.output}")
-    else:
-        report = generate_text_report(summary, rows)
-        with open(args.output, 'w', encoding='utf-8') as f:
-            f.write(report)
-        print(f"Report generated: {args.output}")
-    print(f"perf {summary.perf_pass}/{summary.perf_total}, "
-          f"scale {summary.scale_pass}/{summary.scale_total}, "
-          f"cap {summary.cap_pass}/{summary.cap_total}, "
-          f"NOT MEASURED {summary.not_measured}")
-
-
-if __name__ == "__main__":
-    main()

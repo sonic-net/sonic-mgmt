@@ -1,0 +1,310 @@
+{
+  "acl_counter_read": {
+    "description": "ACL counter read latency per counter",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "ecmp_group": {
+    "description": "Max ECMP next hop groups supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "groups"
+  },
+  "ecmp_group_scale": {
+    "description": "ECMP next hop group create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "groups/s"
+  },
+  "ecmp_member": {
+    "description": "Max ECMP next hop group members supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "members"
+  },
+  "ecmp_member_op_latency": {
+    "description": "Single ECMP member add/remove latency (avg, per op)",
+    "direction": "lower_better",
+    "operations": [
+      "add",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "ms"
+  },
+  "ecmp_member_scale": {
+    "description": "ECMP next hop group member create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "members/s"
+  },
+  "ecmp_route_scale": {
+    "description": "Route-with-ECMP-next-hop create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "routes/s"
+  },
+  "fdb_entry": {
+    "description": "Max FDB entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "fdb_fill_rate": {
+    "description": "FDB table learn fill rate under burst test",
+    "direction": "higher_better",
+    "operations": [
+      "learn"
+    ],
+    "result_type": "fill_rate",
+    "unit": "percent"
+  },
+  "ipv4_ipv6_route_fill_rate": {
+    "description": "Mixed route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "fill_rate",
+    "unit": "percent"
+  },
+  "ipv4_ipv6_route_scale": {
+    "description": "Mixed IPv4/IPv6 route remove throughput (mixed-family tests are load-factor only; create is measured as fill_rate, set is not exercised cross-family)",
+    "direction": "higher_better",
+    "operations": [
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "routes/s"
+  },
+  "ipv4_neighbor": {
+    "description": "Max IPv4 neighbor entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv4_nexthop": {
+    "description": "Max IPv4 next hop entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv4_prefix": {
+    "description": "Max IPv4 route entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv4_route_fill_rate": {
+    "description": "IPv4 route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "fill_rate",
+    "unit": "percent"
+  },
+  "ipv4_route_scale": {
+    "description": "IPv4 route create/remove/set throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove",
+      "set"
+    ],
+    "result_type": "performance",
+    "unit": "routes/s"
+  },
+  "ipv6_neighbor": {
+    "description": "Max IPv6 neighbor entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv6_nexthop": {
+    "description": "Max IPv6 next hop entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv6_prefix": {
+    "description": "Max IPv6 route entries supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "entries"
+  },
+  "ipv6_route_fill_rate": {
+    "description": "IPv6 route table fill rate under load-factor test",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "fill_rate",
+    "unit": "percent"
+  },
+  "ipv6_route_scale": {
+    "description": "IPv6 route create/remove/set throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove",
+      "set"
+    ],
+    "result_type": "performance",
+    "unit": "routes/s"
+  },
+  "neighbor_scale": {
+    "description": "Neighbor entry create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "neighbors/s"
+  },
+  "nexthop_route_scale": {
+    "description": "Incidental route throughput from the nexthop scale tests (not reported; route perf is owned by the route scale tests)",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "incidental",
+    "unit": "routes/s"
+  },
+  "nexthop_scale": {
+    "description": "Next hop create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "nexthops/s"
+  },
+  "pg_counter_read": {
+    "description": "Priority group counter read latency per PG",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "pg_watermark_counter_read": {
+    "description": "PG watermark counter read/clear latency per PG",
+    "direction": "lower_better",
+    "operations": [
+      "read",
+      "clear"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "policer_counter_read": {
+    "description": "Policer counter read latency per policer",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "port_counter_read": {
+    "description": "Port counter read latency per port",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "queue_counter_read": {
+    "description": "Queue counter read latency per queue",
+    "direction": "lower_better",
+    "operations": [
+      "read"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "queue_watermark_counter_read": {
+    "description": "Queue watermark counter read/clear latency per queue",
+    "direction": "lower_better",
+    "operations": [
+      "read",
+      "clear"
+    ],
+    "result_type": "performance",
+    "unit": "s/op"
+  },
+  "route_flap": {
+    "description": "ECMP route flap group/member rebuild throughput",
+    "direction": "higher_better",
+    "operations": [
+      "group_create",
+      "member_create",
+      "group_remove",
+      "member_remove"
+    ],
+    "result_type": "performance",
+    "unit": "routes/s"
+  },
+  "vlan_member_scale": {
+    "description": "VLAN member create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "members/s"
+  },
+  "vlan_scale": {
+    "description": "VLAN create/remove throughput",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "performance",
+    "unit": "vlans/s"
+  },
+  "vrf": {
+    "description": "Max virtual routers supported",
+    "direction": "higher_better",
+    "operations": [],
+    "result_type": "scale",
+    "unit": "vrfs"
+  },
+  "vrf_route_scale": {
+    "description": "Incidental route throughput from the VRF scale test (not reported; route perf is owned by the route scale tests)",
+    "direction": "higher_better",
+    "operations": [
+      "create",
+      "remove"
+    ],
+    "result_type": "incidental",
+    "unit": "routes/s"
+  }
+}

@@ -1,39 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Render capability.json into a self-contained HTML capability report.
+"""Render a capability document into unified-report markup.
 
 Layout: one row per attribute, three fixed operation columns (create / set /
 read), and a value-level child row per enum/bool value that can be expanded
-from the attribute row. Grouping follows the SAI header module. The page
-carries its own CSS and JS -- no external assets -- so a vendor can open the
-single file straight out of a Jenkins artifact.
+from the attribute row. Grouping follows the SAI header module. The renderer
+exposes document-free markup, CSS, and local JavaScript for the unified report.
 
-Input contract (produced by aggregate_capability.py):
+Input contract (produced in memory by aggregate_capability.py):
 
     {"cells": [{"module","attr","op","value","enum_type","shape",
                 "applicable","verdict","sources"}],
-     "summary": {"supported","not_supported","not_tested","total",
-                 "unjoined_records"}}
+     "summary": {"supported","partially_supported","not_supported",
+                 "not_tested","total"}}
 
-verdict is one of supported / not_supported / not_tested. A cell with
-value=None is attribute-level; a cell with a value is value-level.
+A cell with value=None is attribute-level; a cell with a value is value-level.
 """
-import argparse
 import html
-import json
-import sys
-import time
 from collections import OrderedDict
 
 # Fixed operation columns. The reader always compares the same three, so an
 # operation missing from the input still gets a column (rendered as a slash).
 OPS = ['create', 'set', 'read']
+OP_LABELS = {'create': 'CREATE', 'set': 'SET', 'read': 'GET'}
 
 VERDICTS = ['supported', 'partially_supported', 'not_supported', 'not_tested']
 
 VERDICT_TEXT = {
     'supported': 'Supported',
-    'partially_supported': 'PARTIAL',
+    'partially_supported': 'Partially supported',
     'not_supported': 'Not supported',
     'not_tested': 'Not tested',
 }
@@ -49,6 +44,15 @@ VERDICT_CLASS = {
 # NOT emitted: a single value can carry 150+ cases and embedding them all
 # would multiply the report size for no reader benefit.
 MAX_SOURCES = 5
+
+OUTCOME_PRIORITY = {
+    'failed': 0,
+    'timeout': 1,
+    'error': 2,
+    'infrastructure': 2,
+    'skipped': 3,
+    'passed': 4,
+}
 
 NA_SLASH = '／'
 EM_DASH = '—'
@@ -110,9 +114,9 @@ _CSS = """
     td .partial { color: var(--amber); font-weight: 700; }
     td .no { color: var(--red); font-weight: 700; }
 
-    /* --- verdict decision matrix (declared x measured) --- */
+    /* --- verdict decision matrix (allowed operation x test result) --- */
     .vm-wrap { margin: 18px 0 6px; overflow-x: auto; }
-    table.vm { border-collapse: collapse; font-size: 13.5px; width: auto; }
+    table.vm { border-collapse: collapse; font-size: 13.5px; width: 100%; }
     table.vm th, table.vm td {
       border: 1px solid var(--border); padding: 11px 16px; text-align: center;
     }
@@ -120,59 +124,69 @@ _CSS = """
       background: var(--panel-2); color: var(--text-dim); font-weight: 600;
       text-transform: uppercase; font-size: 11.5px; letter-spacing: 0.6px;
     }
+    .vm-axis-labels {
+      display: flex; flex-direction: column; gap: 5px; font-weight: 600;
+    }
     table.vm th.vm-corner {
-      background: var(--panel-2); text-align: left; font-weight: 600;
-    }
-    table.vm th.vm-corner .ax-col {
-      display: block; color: var(--accent); text-transform: none;
-      letter-spacing: 0; font-size: 11.5px;
-    }
-    table.vm th.vm-corner .ax-row {
-      display: block; color: var(--text-dim); text-transform: none;
-      letter-spacing: 0; font-size: 11.5px; margin-top: 2px;
+      background: var(--panel-2); color: var(--text); min-width: 230px;
+      text-align: left; text-transform: none; font-size: 13px;
+      letter-spacing: 0;
     }
     table.vm tbody th {
       background: var(--panel-2); color: var(--text); font-weight: 600;
       text-align: left; white-space: nowrap;
     }
-    table.vm tbody th .hint {
-      display: block; color: var(--text-dim); font-weight: 400; font-size: 11px;
-    }
-    table.vm td .why {
-      display: block; color: var(--text-dim); font-weight: 400; font-size: 11px;
-      margin-top: 2px;
-    }
     .summary-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 16px; margin: 22px 0 8px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px; margin: 16px 0 8px;
     }
     .summary-card {
-      background: var(--panel-2); padding: 18px 20px; border-radius: 10px;
+      background: var(--panel-2); padding: 13px 15px; border-radius: 8px;
       border: 1px solid var(--border); border-left: 4px solid var(--accent);
     }
     .summary-card.pass { border-left-color: var(--green); }
     .summary-card.partial { border-left-color: var(--amber); }
     .summary-card.fail { border-left-color: var(--red); }
     .summary-card h3 {
-      margin: 0 0 10px; font-size: 12px; color: var(--text-dim);
+      margin: 0 0 6px; font-size: 11px; color: var(--text-dim);
       text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
     }
-    .summary-card .value { font-size: 30px; font-weight: 700; color: var(--text); }
-    .banner {
-      background: rgba(210,153,34,0.12); border: 1px solid var(--amber);
-      color: var(--amber); padding: 12px 16px; border-radius: 8px; margin: 16px 0;
-      font-size: 13.5px;
+    .summary-card .value { font-size: 24px; font-weight: 700; color: var(--text); }
+    .summary-card.secondary .value { color: var(--text-dim); }
+    table.verdict-legend {
+      margin: 14px 0 2px; border: 1px solid var(--border);
+      font-size: 12.5px; table-layout: fixed;
     }
-    .legend {
-      margin: 18px 0 2px; font-size: 12px; display: flex; gap: 18px;
-      flex-wrap: wrap; align-items: center; color: var(--text-dim);
+    table.verdict-legend th, table.verdict-legend td {
+      padding: 9px 12px; border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    table.verdict-legend th {
+      width: 170px; color: var(--text); text-transform: none;
+      letter-spacing: 0; font-size: 12.5px; white-space: nowrap;
+    }
+    table.verdict-legend td { color: var(--text-dim); }
+    table.verdict-legend tr:last-child th,
+    table.verdict-legend tr:last-child td {
+      border-bottom: 0;
+    }
+    .verdict-note {
+      margin: 8px 2px 0; color: var(--text-dim); font-size: 12px;
     }
     /* --- capability matrix: filters, module sections, value child rows --- */
     .filters {
       display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-      margin: 16px 0 4px; font-size: 13px;
+      position: sticky; top: 0; z-index: 5;
+      margin: 12px 0 8px; padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel); font-size: 13px;
     }
     .filters label { color: var(--text-dim); font-size: 12px; }
+    .filter-field {
+      display: flex; align-items: center; gap: 6px; min-width: 0;
+    }
+    .filter-field.search { flex: 1 1 280px; }
+    .filter-field select { flex: 1 1 auto; min-width: 0; max-width: 100%; }
     .filters select, .filters input {
       font-family: inherit; font-size: 13px; padding: 5px 8px;
       border: 1px solid var(--border); border-radius: 6px;
@@ -180,6 +194,15 @@ _CSS = """
     }
     .filters input { min-width: 260px; }
     #f-stat { color: var(--text-dim); font-size: 12px; margin-left: auto; }
+    details.verdict-help {
+      margin: 10px 0 16px; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--panel-2);
+    }
+    details.verdict-help > summary {
+      cursor: pointer; padding: 9px 12px; color: var(--text-dim);
+      font-size: 13px; font-weight: 600; user-select: none;
+    }
+    .verdict-help-body { padding: 0 12px 12px; }
     details.module { margin: 8px 0 18px; }
     details.module.hidden { display: none; }
     details.module > summary {
@@ -190,29 +213,75 @@ _CSS = """
     details.module > summary .mod-count {
       color: var(--text-dim); font-size: 12px; font-weight: 400; margin-left: 8px;
     }
-    td.c-gran { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
-    td.c-src { color: var(--text-dim); font-size: 11.5px; }
-    td.c-src .src-more { color: var(--accent); margin-left: 4px; }
+    details.module > summary .mod-risk {
+      color: var(--text-dim); font-size: 12px; font-weight: 400;
+      margin-left: 10px;
+    }
+    details.module > summary .mod-risk.yes { color: var(--green); }
+    details.module > summary .mod-risk.partial { color: var(--amber); }
+    details.module > summary .mod-risk.no { color: var(--red); }
+    .gran-tag {
+      display: inline-block; margin-left: 8px; padding: 1px 6px;
+      border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text-dim); background: var(--panel-2);
+      font-size: 10.5px; font-weight: 500; vertical-align: middle;
+    }
+    .evidence {
+      margin: 3px 0 0 16px; color: var(--text-dim);
+      font-size: 11.5px; font-weight: 400; line-height: 1.35;
+    }
+    .evidence strong { color: var(--text-dim); font-weight: 600; }
+    .evidence-count { margin-bottom: 2px; }
+    .evidence-group { margin-top: 1px; overflow-wrap: anywhere; }
+    .evidence-group.outcome-failed strong { color: var(--red); }
+    .evidence-group.outcome-timeout strong,
+    .evidence-group.outcome-error strong,
+    .evidence-group.outcome-infrastructure strong { color: var(--amber); }
+    .evidence-group.outcome-passed strong { color: var(--green); }
+    details.evidence-more { margin-top: 2px; }
+    details.evidence-more > summary {
+      cursor: pointer; color: var(--accent); font-weight: 600;
+      list-style-position: inside;
+    }
+    .evidence-full { margin: 2px 0 0 12px; }
     .twisty {
       display: inline-block; width: 12px; color: var(--text-dim);
-      cursor: pointer; user-select: none; margin-right: 4px;
+      user-select: none; margin-right: 4px;
     }
     .twisty.leaf { cursor: default; }
+    .attr-toggle {
+      display: inline-flex; align-items: center; max-width: 100%; padding: 2px 0;
+      border: 0; background: transparent; color: inherit; font: inherit;
+      text-align: left; cursor: pointer;
+    }
+    .attr-toggle:hover strong { color: var(--accent); }
+    .attr-toggle:focus-visible {
+      border-radius: 4px; outline: 2px solid var(--accent); outline-offset: 2px;
+    }
     tr.child { display: none; background: rgba(9,105,218,0.03); }
     tr.child.shown { display: table-row; }
     tr.child td.c-attr { padding-left: 38px; font-size: 12.5px; }
     tr.hidden { display: none; }
+    @media (max-width: 720px) {
+      .filters { position: static; gap: 8px; align-items: stretch; }
+      .filter-field { flex: 1 1 160px; }
+      .filter-field label { white-space: nowrap; }
+      .filter-field.search { flex-basis: 100%; }
+      .filter-field.search input { width: 100%; min-width: 0; }
+      #f-stat { flex-basis: 100%; margin-left: 0; }
+    }
 """
 
 _JS = """
 (function () {
-  function byId(id) { return document.getElementById(id); }
+  var root = document.getElementById('report-capability-panel') || document;
+  function byId(id) { return root.querySelector('#' + id); }
   var fMod = byId('f-module'), fVer = byId('f-verdict'),
       fGran = byId('f-granularity'), fSearch = byId('f-search'),
       stat = byId('f-stat');
-  var rows = [].slice.call(document.querySelectorAll('tr.attr'));
+  var rows = [].slice.call(root.querySelectorAll('tr.attr'));
   var kids = {};
-  [].forEach.call(document.querySelectorAll('tr.child'), function (tr) {
+  [].forEach.call(root.querySelectorAll('tr.child'), function (tr) {
     var p = tr.getAttribute('data-parent');
     (kids[p] = kids[p] || []).push(tr);
   });
@@ -232,6 +301,7 @@ _JS = """
   function apply() {
     var mod = fMod.value, ver = fVer.value, gran = fGran.value;
     var term = fSearch.value.trim().toLowerCase();
+    var filtering = !!(mod || ver || gran || term);
     var shown = 0;
     rows.forEach(function (tr) {
       var ok = matches(tr, mod, ver, gran, term);
@@ -242,32 +312,46 @@ _JS = """
         c.classList.toggle('shown', open);
       });
     });
-    [].forEach.call(document.querySelectorAll('details.module'),
+    [].forEach.call(root.querySelectorAll('details.module'),
       function (d) {
         var live = d.querySelectorAll('tr.attr:not(.hidden)').length;
         d.classList.toggle('hidden', live === 0);
+        if (filtering) {
+          if (!d.hasAttribute('data-filter-open')) {
+            d.setAttribute('data-filter-open', d.open ? 'true' : 'false');
+          }
+          d.open = live > 0;
+        } else if (d.hasAttribute('data-filter-open')) {
+          d.open = d.getAttribute('data-filter-open') === 'true';
+          d.removeAttribute('data-filter-open');
+        }
         var c = d.querySelector('.mod-count');
-        if (c) { c.textContent = live + ' / ' + c.getAttribute('data-total')
-                                 + ' attributes'; }
+        if (c) {
+          var total = c.getAttribute('data-total');
+          c.textContent = filtering
+            ? live + ' / ' + total + ' attributes shown'
+            : total + ' attributes';
+        }
       });
     stat.textContent = shown + ' / ' + rows.length + ' attributes shown';
   }
 
-  function toggle(tr) {
+  function toggle(tr, control) {
     if (tr.getAttribute('data-granularity') !== 'value') { return; }
     var open = !tr.classList.contains('open');
     tr.classList.toggle('open', open);
     var t = tr.querySelector('.twisty');
     if (t) { t.textContent = open ? '\\u25bc' : '\\u25b6'; }
+    control.setAttribute('aria-expanded', open ? 'true' : 'false');
     (kids[tr.getAttribute('data-row')] || []).forEach(function (c) {
       c.classList.toggle('shown', open);
     });
   }
 
   rows.forEach(function (tr) {
-    var t = tr.querySelector('.twisty');
-    if (t && !t.classList.contains('leaf')) {
-      t.addEventListener('click', function () { toggle(tr); });
+    var control = tr.querySelector('.attr-toggle');
+    if (control) {
+      control.addEventListener('click', function () { toggle(tr, control); });
     }
   });
   [fMod, fVer, fGran].forEach(function (el) {
@@ -354,22 +438,83 @@ def group_cells(cells):
     return modules
 
 
-def _sources_cell(sources):
-    """Source column: '<module>.<class> (<outcome>)', folding past MAX_SOURCES."""
+def _evidence(sources):
+    """Outcome-grouped source evidence below the attribute or enum value."""
     if not sources:
-        return '<td class="c-src">%s</td>' % EM_DASH
-    shown = sources[:MAX_SOURCES]
-    bits = []
-    for s in shown:
-        case = _esc(s.get('case'))
-        outcome = s.get('outcome')
-        bits.append('%s (%s)' % (case, _esc(outcome)) if outcome else case)
-    text = ', '.join(bits)
-    extra = len(sources) - len(shown)
-    if extra > 0:
-        text += ('<span class="src-more" title="%d more source case(s)">'
-                 '&hellip; +%d</span>' % (extra, extra))
-    return '<td class="c-src">%s</td>' % text
+        return ''
+
+    records = []
+    seen = set()
+    for source in sources:
+        case = str(source.get('case') or '')
+        outcome = str(source.get('outcome') or 'unknown').lower()
+        key = (case, outcome)
+        if key not in seen:
+            seen.add(key)
+            records.append({'case': case, 'outcome': outcome})
+
+    def sort_key(source):
+        outcome = source['outcome']
+        return (OUTCOME_PRIORITY.get(outcome, 5), outcome, source['case'])
+
+    records.sort(key=sort_key)
+    groups = OrderedDict()
+    for source in records:
+        groups.setdefault(source['outcome'], []).append(source)
+
+    selected = OrderedDict((outcome, []) for outcome in groups)
+    remaining_slots = MAX_SOURCES
+    # First reserve one preview slot per outcome so mixed evidence can never
+    # render as though every visible case had the same result.
+    for outcome, group in groups.items():
+        if remaining_slots and group:
+            selected[outcome].append(group[0])
+            remaining_slots -= 1
+    # Fill the remaining preview slots in risk order: failed first, passed last.
+    for outcome, group in groups.items():
+        if not remaining_slots:
+            break
+        available = group[len(selected[outcome]):]
+        taken = available[:remaining_slots]
+        selected[outcome].extend(taken)
+        remaining_slots -= len(taken)
+
+    def label(outcome):
+        return outcome.replace('_', ' ').capitalize()
+
+    def render_group(outcome, group):
+        cases = ', '.join(_esc(source['case']) for source in group)
+        return ('<div class="evidence-group outcome-%s"><strong>%s:</strong> '
+                '%s</div>' % (_qesc(outcome), _esc(label(outcome)), cases))
+
+    count_bits = ['%d %s' % (len(records),
+                             'case' if len(records) == 1 else 'cases')]
+    count_bits.extend('%d %s' % (len(group), _esc(outcome))
+                      for outcome, group in groups.items())
+    out = ['<div class="evidence">',
+           '<div class="evidence-count"><strong>Evidence:</strong> %s</div>'
+           % ' &middot; '.join(count_bits),
+           '<div class="evidence-preview">']
+    for outcome, group in selected.items():
+        if group:
+            out.append(render_group(outcome, group))
+    out.append('</div>')
+
+    remaining = OrderedDict()
+    for outcome, group in groups.items():
+        tail = group[len(selected[outcome]):]
+        if tail:
+            remaining[outcome] = tail
+    remaining_count = sum(len(group) for group in remaining.values())
+    if remaining_count:
+        out.append('<details class="evidence-more"><summary>Show remaining '
+                   '%d</summary><div class="evidence-full">'
+                   % remaining_count)
+        for outcome, group in remaining.items():
+            out.append(render_group(outcome, group))
+        out.append('</div></details>')
+    out.append('</div>')
+    return ''.join(out)
 
 
 def _verdict_cell(cell):
@@ -388,8 +533,9 @@ def _verdict_cell(cell):
 def _aggregate_cell(supported, partial, total):
     """create/set cell: fully-supported values and mixed-evidence values."""
     cls = 'yes' if supported else 'na'
-    suffix = ' +%d partial' % partial if partial else ''
-    return ('<td title="%d of %d values fully supported; %d partial">'
+    suffix = ' +%d partially supported' % partial if partial else ''
+    return ('<td title="%d of %d values fully supported; %d partially '
+            'supported">'
             '<span class="%s">%d/%d%s</span></td>'
             % (supported, total, partial, cls, supported, total, suffix))
 
@@ -432,22 +578,39 @@ def _attr_rows(row, row_id):
     expandable = bool(reduced_values)
     granularity = 'value' if expandable else 'attr'
     if expandable:
-        gran_cell = '<td class="c-gran"%s>value (%d)</td>' % (
-            (' title="%s"' % _qesc(row['enum_type'])) if row['enum_type'] else '',
-            len(reduced_values))
+        gran_tag = '<span class="gran-tag"%s>Enum value (%d)</span>' % (
+            (' title="%s"' % _qesc(row['enum_type']))
+            if row['enum_type'] else '', len(reduced_values))
     else:
-        gran_cell = '<td class="c-gran">attr</td>'
+        gran_tag = '<span class="gran-tag">Attribute</span>'
 
+    attr_sources = []
+    seen = set()
+    for cell in reduced_ops.values():
+        for source in cell['sources']:
+            key = (source.get('case'), source.get('outcome'))
+            if key not in seen:
+                seen.add(key)
+                attr_sources.append(source)
+
+    child_ids = ['cap-value-%d-%d' % (row_id, index)
+                 for index in range(len(reduced_values))]
     out = ['<tr class="attr" data-row="%d" data-module="%s" '
            'data-granularity="%s" data-verdict="%s" data-search="%s">'
            % (row_id, _qesc(row['module']), granularity,
               _qesc(' '.join(_row_verdicts(reduced_ops, reduced_values))),
               _qesc(_search_blob(attr, reduced_ops, reduced_values)))]
-    twisty = ('<span class="twisty">&#9654;</span>' if expandable
-              else '<span class="twisty leaf"></span>')
-    out.append('<td class="c-attr">%s<strong>%s</strong></td>'
-               % (twisty, _esc(attr)))
-    out.append(gran_cell)
+    if expandable:
+        control = ('<button type="button" class="attr-toggle" '
+                   'aria-expanded="false" aria-controls="%s">'
+                   '<span class="twisty" aria-hidden="true">&#9654;</span>'
+                   '<strong>%s</strong>%s</button>'
+                   % (' '.join(child_ids), _esc(attr), gran_tag))
+    else:
+        control = ('<span class="twisty leaf" aria-hidden="true"></span>'
+                   '<strong>%s</strong>%s' % (_esc(attr), gran_tag))
+    out.append('<td class="c-attr">%s%s</td>'
+               % (control, _evidence(attr_sources)))
     for op in OPS:
         probed = [v[op] for v in reduced_values.values() if op in v]
         if probed:
@@ -459,18 +622,9 @@ def _attr_rows(row, row_id):
             out.append(_aggregate_cell(supported, partial, len(reduced_values)))
         else:
             out.append(_verdict_cell(reduced_ops.get(op)))
-    attr_sources = []
-    seen = set()
-    for cell in reduced_ops.values():
-        for s in cell['sources']:
-            key = (s.get('case'), s.get('outcome'))
-            if key not in seen:
-                seen.add(key)
-                attr_sources.append(s)
-    out.append(_sources_cell(attr_sources))
     out.append('</tr>')
 
-    for value, per_op in reduced_values.items():
+    for value_index, (value, per_op) in enumerate(reduced_values.items()):
         verdicts = []
         sources = []
         seen = set()
@@ -482,22 +636,48 @@ def _attr_rows(row, row_id):
                 if key not in seen:
                     seen.add(key)
                     sources.append(s)
-        out.append('<tr class="child" data-parent="%d" data-module="%s" '
+        out.append('<tr class="child" id="%s" data-parent="%d" data-module="%s" '
                    'data-verdict="%s" data-search="%s">'
-                   % (row_id, _qesc(row['module']),
+                   % (child_ids[value_index], row_id, _qesc(row['module']),
                       _qesc(' '.join(verdicts)),
                       _qesc(('%s %s' % (attr, value)).lower())))
         # Full enum name, never abbreviated: the vendor greps this report for
         # SAI_PACKET_ACTION_DROP, not for DROP.
-        out.append('<td class="c-attr">%s</td>' % _esc(value))
-        out.append('<td class="c-gran"></td>')
+        out.append('<td class="c-attr">%s%s</td>'
+                   % (_esc(value), _evidence(sources)))
         for op in OPS:
-            # A missing value-level op cell means the value does not act on
-            # that operation (read is the common case) -> slash.
-            out.append(_verdict_cell(per_op.get(op)))
-        out.append(_sources_cell(sources))
+            # Applicability belongs to the parent attribute row. A missing
+            # value-level cell only means this enum/bool value was not tested
+            # for the operation; it must not reuse the parent's slash meaning.
+            cell = per_op.get(op)
+            if cell is None:
+                cell = {'verdict': 'not_tested', 'applicable': True}
+            out.append(_verdict_cell(cell))
         out.append('</tr>')
     return out
+
+
+def _module_stats(rows):
+    """Return non-exclusive attribute-level evidence counts for a module."""
+    stats = {'total': len(rows), 'tested': 0, 'supported': 0,
+             'partial': 0, 'not_supported': 0}
+    for row in rows:
+        reduced_ops = OrderedDict(
+            (op, _reduce(cells)) for op, cells in row['attr_ops'].items())
+        reduced_values = OrderedDict(
+            (value, OrderedDict((op, _reduce(cells))
+                                for op, cells in per_op.items()))
+            for value, per_op in row['values'].items())
+        verdicts = set(_row_verdicts(reduced_ops, reduced_values))
+        if verdicts - {'not_tested'}:
+            stats['tested'] += 1
+        if 'supported' in verdicts:
+            stats['supported'] += 1
+        if 'partially_supported' in verdicts:
+            stats['partial'] += 1
+        if 'not_supported' in verdicts:
+            stats['not_supported'] += 1
+    return stats
 
 
 def _module_section(module, rows, next_row_id):
@@ -507,14 +687,27 @@ def _module_section(module, rows, next_row_id):
             header = row['header']
             break
     title = '%s (%s)' % (_esc(module), _esc(header)) if header else _esc(module)
-    out = ['<details class="module" data-module="%s" open>' % _qesc(module),
-           '<summary>%s<span class="mod-count" data-total="%d">%d / %d '
-           'attributes</span></summary>'
-           % (title, len(rows), len(rows), len(rows)),
-           '<table><thead><tr><th>Attr</th><th>Granularity</th>']
+    stats = _module_stats(rows)
+    badges = [
+        '<span class="mod-count" data-total="{total}">{total} attributes'
+        '</span>'.format(**stats),
+        '<span class="mod-risk">{tested} tested</span>'.format(**stats),
+    ]
+    if stats['supported']:
+        badges.append('<span class="mod-risk yes">%d supported</span>'
+                      % stats['supported'])
+    if stats['partial']:
+        badges.append('<span class="mod-risk partial">%d partially supported</span>'
+                      % stats['partial'])
+    if stats['not_supported']:
+        badges.append('<span class="mod-risk no">%d not supported</span>'
+                      % stats['not_supported'])
+    out = ['<details class="module" data-module="%s">' % _qesc(module),
+           '<summary>%s%s</summary>' % (title, ''.join(badges)),
+           '<table><thead><tr><th>Attribute</th>']
     for op in OPS:
-        out.append('<th>%s</th>' % _esc(op))
-    out.append('<th>Source</th></tr></thead><tbody>')
+        out.append('<th>%s</th>' % _esc(OP_LABELS[op]))
+    out.append('</tr></thead><tbody>')
     for row in rows:
         out.extend(_attr_rows(row, next_row_id))
         next_row_id += 1
@@ -535,49 +728,50 @@ def _verdict_matrix():
     def na():
         return '<span class="na-slash">%s</span>' % NA_SLASH
 
-    measured = [('Passed', 'supported', 'all captured evidence passed'),
-                ('Mixed', 'partially_supported',
-                 'both passing and negative evidence'),
-                ('Failed', 'not_supported',
-                 'all captured evidence was negative'),
-                ('Not run', 'not_tested', 'no evidence either way')]
+    measured = [('ALL PASSED', 'supported'),
+                ('MIXED', 'partially_supported'),
+                ('ALL FAILED', 'not_supported'),
+                ('NOT RUN', 'not_tested')]
 
     out = ['<div class="vm-wrap">', '<table class="vm">', '<thead><tr>',
-           '<th class="vm-corner">'
-           '<span class="ax-col">Measured on chip &rarr;</span>'
-           '<span class="ax-row">&darr; Declared in SAI spec</span></th>']
-    for label, _key, _why in measured:
+           '<th class="vm-corner"><div class="vm-axis-labels">'
+           '<span>Test results on chip &rarr;</span>'
+           '<span>&darr; Operation allowed by SAI</span>'
+           '</div></th>']
+    for label, _key in measured:
         out.append('<th>%s</th>' % label)
     out.append('</tr></thead><tbody>')
 
-    out.append('<tr><th>Declared'
-               '<span class="hint">the spec allows this operation</span></th>')
-    for _label, key, why in measured:
-        out.append('<td>%s<span class="why">%s</span></td>' % (state(key), why))
+    out.append('<tr><th>ALLOWED</th>')
+    for _label, key in measured:
+        out.append('<td>%s</td>' % state(key))
     out.append('</tr>')
 
-    out.append('<tr><th>Not declared'
-               '<span class="hint">the spec has no such operation</span></th>')
-    for _label, _key, _why in measured:
-        out.append('<td>%s<span class="why">not applicable</span></td>' % na())
+    out.append('<tr><th>NOT ALLOWED</th>')
+    for _label, _key in measured:
+        out.append('<td>%s</td>' % na())
     out.append('</tr>')
 
     out.append('</tbody></table></div>')
-    out.append('<div class="legend"><span>An attribute\'s <strong>@flags</strong> '
-               'in the SAI headers -- CREATE_ONLY, CREATE_AND_SET or READ_ONLY -- '
-               'decide what is declared. An operation the spec does not define '
-               'can be neither supported nor unsupported, so it is never counted '
-               'in the totals.</span></div>')
     return out
 
 
-def _summary_cards(summary):
-    total = summary.get('total', 0)
-    cards = [('Total', total, ''),
-             ('Supported', summary.get('supported', 0), 'pass'),
-             ('Partial', summary.get('partially_supported', 0), 'partial'),
-             ('Not supported', summary.get('not_supported', 0), 'fail'),
-             ('Not tested', summary.get('not_tested', 0), '')]
+def _summary_cards(summary, attribute_count):
+    total = summary.get('total', 0) or 0
+    supported = summary.get('supported', 0) or 0
+    partial = summary.get('partially_supported', 0) or 0
+    not_supported = summary.get('not_supported', 0) or 0
+    not_tested = summary.get('not_tested', 0) or 0
+    tested = supported + partial + not_supported
+    coverage = (100.0 * tested / total) if total else 0.0
+    cards = [('Attributes', attribute_count, ''),
+             ('Capability cells', total, ''),
+             ('Tested cells', tested, ''),
+             ('Coverage', '{:.1f}%'.format(coverage), ''),
+             ('Supported', supported, 'pass'),
+             ('Partially supported', partial, 'partial'),
+             ('Not supported', not_supported, 'fail'),
+             ('Not tested', not_tested, 'secondary')]
     out = ['<div class="summary-grid">']
     for title, value, cls in cards:
         out.append('<div class="summary-card %s"><h3>%s</h3>'
@@ -588,79 +782,83 @@ def _summary_cards(summary):
 
 
 def _filters(modules):
-    out = ['<div class="filters">',
+    out = ['<div class="filters">', '<div class="filter-field">',
            '<label for="f-module">Module</label>',
            '<select id="f-module"><option value="">All modules</option>']
     for module in modules:
         out.append('<option value="%s">%s</option>'
                    % (_qesc(module), _esc(module)))
-    out.append('</select>')
-    out.append('<label for="f-verdict">Verdict</label>'
+    out.append('</select></div>')
+    out.append('<div class="filter-field">'
+               '<label for="f-verdict">Verdict</label>'
                '<select id="f-verdict"><option value="">All verdicts</option>')
     for verdict in VERDICTS:
         out.append('<option value="%s">%s</option>'
                    % (verdict, VERDICT_TEXT[verdict]))
-    out.append('</select>')
-    out.append('<label for="f-granularity">Granularity</label>'
+    out.append('</select></div>')
+    out.append('<div class="filter-field">'
+               '<label for="f-granularity">Granularity</label>'
                '<select id="f-granularity">'
                '<option value="">All granularities</option>'
-               '<option value="attr">attr</option>'
-               '<option value="value">value</option></select>')
-    out.append('<label for="f-search">Search</label>'
+               '<option value="attr">Attribute</option>'
+               '<option value="value">Enum value</option></select></div>')
+    out.append('<div class="filter-field search">'
+               '<label for="f-search">Search</label>'
                '<input id="f-search" type="search" '
-               'placeholder="attribute, enum value or case name">')
+               'placeholder="attribute, enum value or case name"></div>')
     out.append('<span id="f-stat"></span></div>')
     return out
 
 
 def _legend():
-    return ('<div class="legend">'
-            '<span><span class="yes">Supported</span> all captured evidence '
-            'passed</span>'
-            '<span><span class="partial">PARTIAL</span> both passing and '
-            'negative evidence; inspect Sources</span>'
-            '<span><span class="no">Not supported</span> all captured evidence '
-            'was negative</span>'
-            '<span><span class="na">Not tested</span> no case exercised it'
-            '</span>'
-            '<span>%s on an attribute row: the operation does not apply to '
-            'this attribute</span>'
-            '<span>%s in a value row read column: the value does not act on '
-            'get</span>'
-            '<span>n/N: fully supported values out of all values; partial '
-            'values are shown separately</span>'
-            '</div>' % (NA_SLASH, NA_SLASH))
+    rows = [
+        ('Allowed', 'The attribute\'s SAI <strong>@flags</strong> allow this '
+         'operation.'),
+        ('Not allowed', 'SAI does not allow this operation for the attribute; '
+         'it is excluded from capability totals.'),
+        ('Supported', 'All conclusive test results passed.'),
+        ('Partially supported', 'Both passing and failing conclusive test '
+         'results were recorded.'),
+        ('Not supported', 'All conclusive test results failed.'),
+        ('Not tested', 'No conclusive test results are available.'),
+        (NA_SLASH, 'The operation is not allowed by SAI for this attribute.'),
+    ]
+    out = ['<table class="verdict-legend"><tbody>']
+    for term, explanation in rows:
+        out.append('<tr><th>%s</th><td>%s</td></tr>' % (term, explanation))
+    out.append('</tbody></table>')
+    out.append('<p class="verdict-note">Timeout, error, and skipped cases are '
+               'inconclusive; they are shown in Evidence and do not change '
+               'the verdict.</p>')
+    return ''.join(out)
 
 
-def render(doc):
-    """capability.json dict -> self-contained HTML string."""
+def styles():
+    return _CSS
+
+
+def script():
+    return _JS
+
+
+def render_section(doc):
+    """Convert a capability document to document-free section markup."""
     cells = doc.get('cells') or []
     summary = doc.get('summary') or {}
     modules = group_cells(cells)
 
-    out = ['<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">',
-           '<meta name="viewport" content="width=device-width, '
-           'initial-scale=1.0">',
-           '<title>SAI Capability Report</title><style>', _CSS,
-           '</style></head><body><div class="container">',
-           '<h1>SAI Capability Report</h1>',
-           '<div class="meta"><strong>Generated:</strong> %s</div>'
-           % time.strftime('%Y-%m-%d %H:%M:%S')]
-
-    unjoined = summary.get('unjoined_records', 0) or 0
-    if unjoined:
-        out.append('<div class="banner">%d unjoined record(s): probe records '
-                   'that matched no attribute cell and are therefore absent '
-                   'from the matrix below. The report understates coverage '
-                   'until they are joined.</div>' % unjoined)
-
+    out = ['<div class="container">']
     out.append('<h2>Overview</h2>')
-    out.extend(_summary_cards(summary))
+    attribute_count = sum(len(rows) for rows in modules.values())
+    out.extend(_summary_cards(summary, attribute_count))
     out.append('<h2>Capability Matrix</h2>')
-    out.append('<h3>How each state is decided</h3>')
-    out.extend(_verdict_matrix())
     out.extend(_filters(modules))
+    out.append('<details class="verdict-help">'
+               '<summary>How verdicts work</summary>'
+               '<div class="verdict-help-body">')
+    out.extend(_verdict_matrix())
     out.append(_legend())
+    out.append('</div></details>')
 
     if modules:
         row_id = 0
@@ -670,43 +868,5 @@ def render(doc):
     else:
         out.append('<div class="meta">No capability cells to render.</div>')
 
-    out.append('<script>%s</script>' % _JS)
-    out.append('</div></body></html>')
+    out.append('</div>')
     return '\n'.join(out)
-
-
-def main():
-    p = argparse.ArgumentParser(
-        description='Render capability.json into a self-contained HTML report')
-    p.add_argument('--capability', required=True,
-                   help='capability.json produced by aggregate_capability.py')
-    p.add_argument('--out', required=True, help='output HTML file')
-    args = p.parse_args()
-
-    try:
-        with open(args.capability, 'r', encoding='utf-8') as f:
-            doc = json.load(f)
-    except (OSError, ValueError) as e:
-        print('Error: cannot read %s: %s' % (args.capability, e),
-              file=sys.stderr)
-        return 1
-    if not isinstance(doc, dict):
-        print('Error: %s is not a JSON object' % args.capability,
-              file=sys.stderr)
-        return 1
-
-    page = render(doc)
-    try:
-        with open(args.out, 'w', encoding='utf-8') as f:
-            f.write(page)
-    except OSError as e:
-        print('Error: cannot write %s: %s' % (args.out, e), file=sys.stderr)
-        return 1
-    summary = doc.get('summary') or {}
-    print('Capability report generated: %s (%d bytes, %d cells)'
-          % (args.out, len(page.encode('utf-8')), summary.get('total', 0)))
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())
