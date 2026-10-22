@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import secrets
@@ -162,6 +163,31 @@ def _eos_macsec_profile_lines(host, profile_name):
     return None
 
 
+def _decode_macsec_profile_fields(host, namespace, output):
+    """Decode legacy and JSON ``sonic-db-cli HGETALL`` output."""
+    text = str(output).strip()
+    if not text:
+        return None
+    parsed = None
+    if text:
+        for decoder in (json.loads, ast.literal_eval):
+            try:
+                parsed = decoder(text)
+                break
+            except (TypeError, ValueError, SyntaxError):
+                continue
+    if isinstance(parsed, Mapping):
+        return dict(parsed) if parsed else None
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if lines and len(lines) % 2 == 0:
+        return dict(zip(lines[::2], lines[1::2]))
+    raise AssertionError(
+        "Malformed MACsec profile snapshot on {}: namespace={}, "
+        "output={!r}".format(
+            getattr(host, "hostname", str(host)), namespace, output))
+
+
 def _macsec_profile_snapshot(host, profile_name):
     """Capture the exact profile state before a setup transaction mutates it."""
     if isinstance(host, EosHost):
@@ -174,7 +200,10 @@ def _macsec_profile_snapshot(host, profile_name):
                   if _host_is_multi_asic(host) else [None])
     entries = []
     for namespace in namespaces:
-        command = ["sonic-db-cli", "-j"]
+        # Plain HGETALL is supported by old and new sonic-db-cli versions.
+        # Depending on the image it returns a dict representation or legacy
+        # alternating field/value lines; decode both without requiring ``-j``.
+        command = ["sonic-db-cli"]
         if namespace is not None:
             command.extend(["-n", namespace])
         command.extend([
@@ -183,21 +212,7 @@ def _macsec_profile_snapshot(host, profile_name):
         ])
         output = _command_stdout(
             host, " ".join(shlex.quote(part) for part in command))
-        try:
-            fields = json.loads(output)
-        except (TypeError, ValueError) as error:
-            raise AssertionError(
-                "Malformed MACsec profile snapshot on {}: namespace={}, "
-                "output={!r}, error={}".format(
-                    getattr(host, "hostname", str(host)), namespace,
-                    output, error))
-        if not isinstance(fields, Mapping):
-            raise AssertionError(
-                "Malformed MACsec profile snapshot on {}: namespace={}, "
-                "expected JSON object, got {!r}".format(
-                    getattr(host, "hostname", str(host)), namespace,
-                    fields))
-        fields = dict(fields) if fields else None
+        fields = _decode_macsec_profile_fields(host, namespace, output)
         entries.append({"namespace": namespace, "fields": fields})
     return {"runtime": "sonic", "entries": entries}
 
@@ -671,15 +686,18 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         cmd = "config macsec profile add {} {}".format(profile_name, opts)
         _run_required_macsec_command(host, cmd)
 
-    if send_sci == "false":
-        # The MAC address of SONiC host is locally administrated
-        # So, LLDPd will use an arbitrary fixed value (00:60:08:69:97:ef)
-        # as the source MAC address of LLDP packet (https://lldpd.github.io/usage.html)
-        # But the MACsec driver in Linux used by SONiC VM has a bug that
-        # cannot handle the packet with different source MAC address to SCI if the send_sci = false
-        # So, if send_sci = false and the neighbor device is SONiC VM,
-        # LLDPd need to use the real MAC address as the source MAC address
-        host.command("lldpcli configure system bond-slave-src-mac-type real")
+    _prepare_macsec_lldp(host, send_sci)
+
+
+def _prepare_macsec_lldp(host, send_sci):
+    """Apply the source-MAC workaround independently of profile writes."""
+    if isinstance(host, EosHost) or send_sci != "false":
+        return
+    # The MAC address of SONiC host is locally administrated, so LLDPd would
+    # otherwise use an arbitrary source MAC. Linux MACsec cannot handle that
+    # mismatch when SCI transmission is disabled.
+    _run_required_macsec_command(
+        host, "lldpcli configure system bond-slave-src-mac-type real")
 
 
 def is_macsec_configured(host, mac_profile, ctrl_links):
@@ -822,10 +840,31 @@ def replace_macsec_port(host, port, profile_name):
     enable_macsec_port(host, port, profile_name)
 
 
+def _macsec_feature_state(host):
+    """Return the exact CONFIG_DB feature state before a temporary enable."""
+    return _command_stdout(
+        host, 'sonic-db-cli CONFIG_DB HGET "FEATURE|macsec" state') or None
+
+
+def _restore_macsec_feature_state(host, state):
+    """Restore a previously captured MACsec feature state or field absence."""
+    if state is None:
+        return _run_required_macsec_command(
+            host, 'sonic-db-cli CONFIG_DB HDEL "FEATURE|macsec" state')
+    return _run_required_macsec_command(
+        host, "sudo config feature state macsec {}".format(state))
+
+
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = _unique_macsec_neighbor_hosts(macsec_nbrhosts)
     num_asics = duthost.num_asics()
     attempted = []
+    feature_hosts = [duthost]
+    feature_hosts.extend(
+        nbr["host"] for nbr in nbrhosts.values()
+        if not isinstance(nbr["host"], EosHost))
+    feature_snapshots = [
+        (host, _macsec_feature_state(host)) for host in feature_hosts]
 
     try:
         global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
@@ -874,12 +913,13 @@ def enable_macsec_feature(duthost, macsec_nbrhosts):
                         delattr(nbr, "_sonic_mgmt_macsec_initial")
                 else:
                     nbr._sonic_mgmt_macsec_initial = initial
-        try:
-            global_cmd(
-                duthost, nbrhosts,
-                "sudo config feature state macsec disabled")
-        except Exception:
-            logger.exception("Failed to roll back MACsec feature state")
+        for host, state in reversed(feature_snapshots):
+            try:
+                _restore_macsec_feature_state(host, state)
+            except Exception:
+                logger.exception(
+                    "Failed to restore MACsec feature state on %s",
+                    getattr(host, "hostname", str(host)))
         raise
 
 
@@ -1062,6 +1102,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         (host, port, _macsec_port_profile(host, port))
         for host, port in endpoints
     ]
+    attempted_profiles = []
     attempted_endpoints = []
 
     try:
@@ -1080,7 +1121,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                 logger.info(
                     "MACsec profile %s already matches requested state on %s",
                     profile_name, getattr(host, "hostname", str(host)))
+                _prepare_macsec_lldp(host, send_sci)
                 continue
+            attempted_profiles.append((host, snapshot))
             tasks.append(submit_async_task(
                 set_macsec_profile,
                 (host, profile_name, priority, cipher_suite, primary_cak,
@@ -1117,7 +1160,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         logger.info("Setup macsec configuration finished")
     except Exception:
         _rollback_macsec_configuration(
-            profile_snapshots, attempted_endpoints, profile_name)
+            attempted_profiles, attempted_endpoints, profile_name)
         raise
 
 
