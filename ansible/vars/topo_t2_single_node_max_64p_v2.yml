@@ -179,82 +179,82 @@ topology:
     ARISTA17T3:
       vlans:
         - 48
-      vm_offset: 48
+      vm_offset: 32
 
     ARISTA18T3:
       vlans:
         - 49
-      vm_offset: 49
+      vm_offset: 33
 
     ARISTA19T3:
       vlans:
         - 50
-      vm_offset: 50
+      vm_offset: 34
 
     ARISTA20T3:
       vlans:
         - 51
-      vm_offset: 51
+      vm_offset: 35
 
     ARISTA21T3:
       vlans:
         - 52
-      vm_offset: 52
+      vm_offset: 36
 
     ARISTA22T3:
       vlans:
         - 53
-      vm_offset: 53
+      vm_offset: 37
 
     ARISTA23T3:
       vlans:
         - 54
-      vm_offset: 54
+      vm_offset: 38
 
     ARISTA24T3:
       vlans:
         - 55
-      vm_offset: 55
+      vm_offset: 39
 
     ARISTA25T3:
       vlans:
         - 56
-      vm_offset: 56
+      vm_offset: 40
 
     ARISTA26T3:
       vlans:
         - 57
-      vm_offset: 57
+      vm_offset: 41
 
     ARISTA27T3:
       vlans:
         - 58
-      vm_offset: 58
+      vm_offset: 42
 
     ARISTA28T3:
       vlans:
         - 59
-      vm_offset: 59
+      vm_offset: 43
 
     ARISTA29T3:
       vlans:
         - 60
-      vm_offset: 60
+      vm_offset: 44
 
     ARISTA30T3:
       vlans:
         - 61
-      vm_offset: 61
+      vm_offset: 45
 
     ARISTA31T3:
       vlans:
         - 62
-      vm_offset: 62
+      vm_offset: 46
 
     ARISTA32T3:
       vlans:
         - 63
-      vm_offset: 63
+      vm_offset: 47
 
   DUT:
     loopback:
