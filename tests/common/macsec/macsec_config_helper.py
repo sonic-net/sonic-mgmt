@@ -216,13 +216,17 @@ def _macsec_profile_fields(priority, cipher_suite, primary_cak, primary_ckn,
 
 def _macsec_profile_matches(snapshot, priority, cipher_suite, primary_cak,
                             primary_ckn, policy, send_sci, rekey_period):
-    """Return whether every SONiC namespace already has the requested profile."""
+    """Return whether every SONiC namespace has the requested profile fields."""
     if snapshot["runtime"] != "sonic" or not snapshot["entries"]:
         return False
     expected = _macsec_profile_fields(
         priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci,
         rekey_period)
-    return all(entry["fields"] == expected for entry in snapshot["entries"])
+    return all(
+        entry["fields"] is not None and
+        all(entry["fields"].get(field) == value
+            for field, value in expected.items())
+        for entry in snapshot["entries"])
 
 
 def _restore_macsec_profile(host, profile_name, snapshot):

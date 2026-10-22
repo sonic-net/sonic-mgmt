@@ -292,14 +292,15 @@ def test_csonic_profile_snapshot_rejects_malformed_json(output):
         _macsec_profile_snapshot(host, "128_SCI")
 
 
-def test_sonic_profile_match_requires_exact_fields_in_every_namespace():
+def test_sonic_profile_match_requires_requested_fields_in_every_namespace():
     fields = _macsec_profile_fields(
         64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
     snapshot = {
         "runtime": "sonic",
         "entries": [
             {"namespace": "asic0", "fields": dict(fields)},
-            {"namespace": "asic1", "fields": dict(fields)},
+            {"namespace": "asic1", "fields": dict(
+                fields, enable_replay_protect="false")},
         ],
     }
 
