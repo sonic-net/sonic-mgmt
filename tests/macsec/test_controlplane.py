@@ -54,7 +54,10 @@ class TestControlPlane():
                 nbr_macsec_port = get_macsec_ifname(
                     nbr["host"], nbr["port"])
                 dut_macaddress = duthost.get_dut_iface_mac(port_name)
-                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
+                nbr_mac_reader = getattr(
+                    nbr["host"], "get_macsec_iface_mac",
+                    nbr["host"].get_dut_iface_mac)
+                nbr_macaddress = nbr_mac_reader(nbr["port"])
                 dut_sci = get_sci(dut_macaddress)
                 nbr_sci = get_sci(nbr_macaddress)
                 check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,

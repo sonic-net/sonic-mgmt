@@ -615,7 +615,29 @@ class CsonicHost(NeighborDevice):
         return data if isinstance(data, dict) else {}
 
     def get_dut_iface_mac(self, interface_name):
-        """Return the MAC of the Linux device that carries interface traffic.
+        """Return the MAC of the SONiC-facing interface.
+
+        APPL_DB MACsec tables are keyed by the SCI derived from this
+        ``EthernetN`` device, even though software MACsec runs on a separate
+        injected ``ethN`` device in cSONiC.
+        """
+        interface_name = (
+            self._interface_name(interface_name)
+            if hasattr(self, "_interface_name") else interface_name)
+        try:
+            result = self._docker_exec(
+                "cat /sys/class/net/{}/address".format(
+                    shlex.quote(interface_name)))
+            if result.get("rc") == 0 and result.get("stdout"):
+                return result["stdout"].strip()
+        except Exception as error:
+            logger.error(
+                'Failed to get MAC address for interface "%s", exception: %r',
+                interface_name, error)
+        return None
+
+    def get_macsec_iface_mac(self, interface_name):
+        """Return the MAC of the Linux device that carries MACsec traffic.
 
         cSONiC exposes SONiC-facing ``EthernetN`` devices alongside the
         injected ``ethN`` front-panel devices. Software MACsec is created on

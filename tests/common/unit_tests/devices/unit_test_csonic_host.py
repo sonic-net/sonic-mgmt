@@ -148,7 +148,15 @@ class TestMacsecHostContract:
             "num_asic": 1,
         }
 
-    def test_get_dut_iface_mac_reads_front_panel_kernel_interface(self):
+    def test_get_dut_iface_mac_reads_sonic_interface(self):
+        host = make_host()
+        with patch.object(
+                host, "_docker_exec",
+                return_value=docker_ok("52:54:00:65:43:21\n")) as execute:
+            assert host.get_dut_iface_mac("Ethernet4") == "52:54:00:65:43:21"
+        execute.assert_called_once_with("cat /sys/class/net/Ethernet4/address")
+
+    def test_get_macsec_iface_mac_reads_front_panel_kernel_interface(self):
         host = make_host()
         with patch.object(
                 host, "_docker_exec",
@@ -156,7 +164,7 @@ class TestMacsecHostContract:
                     docker_ok("eth0\neth1\neth2\nEthernet0\nEthernet4\n"),
                     docker_ok("52:54:00:12:34:56\n"),
                 ]) as execute:
-            assert host.get_dut_iface_mac("Ethernet4") == "52:54:00:12:34:56"
+            assert host.get_macsec_iface_mac("Ethernet4") == "52:54:00:12:34:56"
         assert execute.call_args_list == [
             call("ls /sys/class/net/"),
             call("cat /sys/class/net/eth2/address"),
@@ -182,6 +190,7 @@ class TestMacsecHostContract:
                 host, "_docker_exec",
                 return_value={"rc": 1, "stdout": "", "stderr": "missing"}):
             assert host.get_dut_iface_mac("Ethernet1") is None
+            assert host.get_macsec_iface_mac("Ethernet1") is None
 
 
 # --- iface_macsec_ok ------------------------------------------------------
