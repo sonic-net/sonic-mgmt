@@ -95,37 +95,40 @@ The test requires the following testbed configuration:
    config sflow collector add <collector_name> <collector_ip> [--port <udp_port>]
    ```
 
-3. **Enable drop monitoring:**
-   ```bash
-   config sflow drop-monitor enable
-   ```
-
-4. **Configure drop monitor limit (optional):**
+3. **Configure drop monitor limit:**
    ```bash
    config sflow drop-monitor-limit <packets_per_second>
+  
+   | `drop_monitor_limit` | Behavior |
+   |----------------------|----------|
+   | `0` | Drop monitoring disabled |
+   | `1`-`500` | Drop monitoring enabled; rate limit in packets per second |
+   | any other value | Rejected (YANG range `0\|1..500`) | 
    ```
 
 ### CONFIG_DB Schema
 
-The drop monitor feature adds the following fields to the `SFLOW|global` table:
+The drop monitor feature adds one field, `drop_monitor_limit`, to the existing `SFLOW|global` entry. 
 
 ```json
 {
   "SFLOW|global": {
     "admin_state": "up",
-    "polling_interval": "20",
-    "agent_id": "default",
-    "drop_monitor_limit": "500",
+    "agent_id": "eth0",
+    "drop_monitor_limit": "100"
+  },
+  "SFLOW_SESSION|all": {
+    "admin_state": "down"
+  },
+  "SFLOW_SESSION|Ethernet80": {
+    "admin_state": "up",
+    "sample_rate": "256",
     "sample_direction": "rx"
   },
   "SFLOW_COLLECTOR|<collector_name>": {
     "collector_ip": "<ip_address>",
     "collector_port": "6343",
     "collector_vrf": "default"
-  },
-  "SFLOW_DROP_SESSION|global": {
-    "admin_state": "up",
-    "drop_monitor_limit": "500"
   }
 }
 ```
@@ -134,9 +137,15 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 
 ```json
 {
-  "SFLOW_DROP_SESSION_TABLE:global": {
+  "SFLOW_TABLE:global": {
     "admin_state": "up",
-    "drop_monitor_limit": "500"
+    "agent_id": "eth0",
+    "drop_monitor_limit": "100"
+  },
+  "SFLOW_SESSION_TABLE:<interface>": {
+    "admin_state": "up",
+    "sample_rate": "256",
+    "sample_direction": "rx"
   }
 }
 ```
@@ -167,14 +176,14 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Steps:**
 1. Enable sFlow globally
 2. Configure sFlow collector
-3. Enable drop monitor via CLI: `config sflow drop-monitor enable`
+3. Enable drop monitor via CLI: `config sflow drop-monitor-limit 500`
 4. Verify CONFIG_DB entry:
    ```bash
-   redis-cli -n 4 hgetall "SFLOW_DROP_SESSION|global"
+   redis-cli -n 4 hget "SFLOW|global" drop_monitor_limit
    ```
 5. Verify APPL_DB entry:
    ```bash
-   redis-cli -n 0 hgetall "SFLOW_DROP_SESSION_TABLE:global"
+   redis-cli -n 0 hget "SFLOW_TABLE:global" drop_monitor_limit
    ```
 6. Verify drop monitor status via show command:
    ```bash
@@ -182,9 +191,9 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
    ```
 
 **Expected Results:**
-- CONFIG_DB contains `SFLOW_DROP_SESSION|global` with `admin_state: up`
-- APPL_DB contains `SFLOW_DROP_SESSION_TABLE:global` with `admin_state: up`
-- Show command displays drop monitor as enabled
+- CONFIG_DB contains `SFLOW|global` has `drop_monitor_limit: 500`
+- APPL_DB contains `SFLOW_TABLE:global` has `drop_monitor_limit: 500` 
+- Show command displays `drop monitor limit 500` 
 
 ---
 
@@ -194,18 +203,18 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 
 **Test Steps:**
 1. Enable sFlow and configure collector
-2. Enable drop monitor: `config sflow drop-monitor enable`
-3. Verify drop monitor is enabled in CONFIG_DB
-4. Disable drop monitor: `config sflow drop-monitor disable`
-5. Verify drop monitor is disabled in CONFIG_DB
-6. Verify APPL_DB reflects the disabled state
-7. Re-enable drop monitor
-8. Verify functionality is restored
+2. Enable drop monitor: `config sflow drop-monitor-limit 500`
+3. Verify `drop_monitor_limit` is 500 in CONFIG_DB (SFLOW|global) and APPL_DB (SFLOW_TABLE:global)
+4. Disable drop monitoring: `config sflow drop-monitor-limit 0`
+5. Verify `drop_monitor_limit` is `0` in CONFIG_DB and APPL_DB
+6. Re-enable drop monitor
+7. Verify functionality is restored
 
 **Expected Results:**
-- Drop monitor state changes are reflected in both CONFIG_DB and APPL_DB
-- State transitions occur without errors
-- hsflowd service remains stable during state changes
+- drop_monitor_limit changes are reflected in both CONFIG_DB and APPL_DB
+- drop_monitor_limit = 0 stops drop notifications; a non-zero value restores them
+- Drop notifications are not exported while sFlow is globally disabled
+- State transitions occur without errors; hsflowd and orchagent remain stable
 
 ---
 
@@ -214,15 +223,15 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop monitor rate limit can be configured.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow
 2. Configure drop monitor limit: `config sflow drop-monitor-limit 100`
 3. Verify limit in CONFIG_DB:
    ```bash
-   redis-cli -n 4 hget "SFLOW_DROP_SESSION|global" "drop_monitor_limit"
+   redis-cli -n 4 hget "SFLOW|global" drop_monitor_limit
    ```
-4. Configure different limit values: 10, 500, 1000
+4. Configure different limit values: 10, 500
 5. Verify each configuration is applied correctly
-6. Test invalid limit values (0, negative, exceeding max)
+6. Test invalid limit values (negative, exceeding max)
 
 **Expected Results:**
 - Valid limit values are accepted and stored in CONFIG_DB
@@ -236,7 +245,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped by ACL rules generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Configure ACL rule to drop traffic:
    ```bash
    config acl add table DROP_TEST L3 -s ingress
@@ -269,7 +278,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped due to TTL expiration generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Start sFlow collector capture
 3. Send packets with TTL=1 from PTF:
    ```python
@@ -290,7 +299,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped due to L3 routing miss (no route) generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Ensure destination IP has no route in routing table
 3. Start sFlow collector capture
 4. Send traffic to unknown destination:
@@ -312,7 +321,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped due to MTU exceeded generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Configure interface with small MTU:
    ```bash
    config interface mtu Ethernet0 1500
@@ -336,7 +345,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped due to VLAN membership generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Configure VLAN on interface
 3. Start sFlow collector capture
 4. Send traffic with incorrect VLAN tag:
@@ -357,7 +366,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that packets dropped due to buffer exhaustion generate sFlow drop notifications.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Start sFlow collector capture
 3. Generate traffic burst to cause congestion:
    ```python
@@ -380,7 +389,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop notifications are rate limited according to configuration.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow
 2. Configure drop monitor limit to 10 pps:
    ```bash
    config sflow drop-monitor-limit 10
@@ -403,7 +412,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 
 **Test Steps:**
 1. Enable sFlow with polling interval: `config sflow polling-interval 20`
-2. Enable drop monitor
+2. Enable drop monitoring (`drop_monitor_limit` > 0)
 3. Start sFlow collector capture
 4. Generate dropped traffic
 5. Wait for at least 2 polling intervals
@@ -422,7 +431,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 
 **Test Steps:**
 1. Enable sFlow with packet sampling on interface
-2. Enable drop monitor
+2. Enable drop monitoring (`drop_monitor_limit` > 0)
 3. Start sFlow collector capture
 4. Generate mixed traffic: normal forwarded packets and dropped packets
 5. Analyze sFlow datagrams
@@ -440,9 +449,9 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop monitor configuration persists across config reload.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
-2. Configure drop monitor limit
-3. Save configuration: `config save`
+1. Enable sFlow
+2. Configure a non-default drop monitor limit: `config sflow drop-monitor-limit 100`
+3. Save configuration: `config save -y`
 4. Reload configuration: `config reload -y`
 5. Verify drop monitor state and limit are preserved
 6. Verify drop notifications are generated correctly
@@ -458,7 +467,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop monitor recovers after hsflowd service restart.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Verify drop notifications are working
 3. Restart sflow container: `sudo systemctl restart sflow`
 4. Wait for service to stabilize
@@ -476,7 +485,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that different drop reasons can be reported simultaneously.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Configure multiple drop scenarios:
    - ACL drop rule
    - Ensure routing miss for certain destinations
@@ -496,7 +505,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop notification sequence numbers increment correctly.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Start sFlow collector capture
 3. Generate dropped packets in controlled manner
 4. Extract sequence numbers from `discarded_packet` records
@@ -514,7 +523,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that sFlow datagrams contain correct drop extension data.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
 2. Start packet capture on collector (tcpdump/wireshark)
 3. Generate dropped packets
 4. Decode sFlow datagrams and verify structure:
@@ -540,13 +549,17 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that drop monitor configuration survives warm/cold reboot.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
-2. Configure drop monitor limit
-3. Save configuration
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
+2. Configure a non-default drop monitor limit: `config sflow drop-monitor-limit 100`
+3. Save configuration: `config save -y`
 4. Perform warm reboot: `sudo warm-reboot`
 5. Verify configuration after warm reboot
 6. Perform cold reboot: `sudo reboot`
-7. Verify configuration after cold reboot
+7. Verify configuration after warm and cold reboot
+   ```bash
+   redis-cli -n 4 hget "SFLOW|global" drop_monitor_limit
+   redis-cli -n 0 hget "SFLOW_TABLE:global" drop_monitor_limit
+   ```
 
 **Expected Results:**
 - Drop monitor configuration persists across warm reboot
@@ -565,7 +578,7 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
    config sflow collector add collector1 10.0.0.100
    config sflow collector add collector2 10.0.0.101
    ```
-2. Enable drop monitor
+2. Enable drop monitor (`drop_monitor_limit` > 0)
 3. Start capture on both collectors
 4. Generate dropped packets
 5. Verify both collectors receive drop notifications
@@ -582,8 +595,8 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 **Test Objective:** Verify that CLI show commands display drop monitor information correctly.
 
 **Test Steps:**
-1. Enable sFlow and drop monitor
-2. Configure drop monitor limit
+1. Enable sFlow and enable drop monitoring (`drop_monitor_limit` > 0)
+2. Configure drop monitor limit: `config sflow drop-monitor-limit 500`
 3. Execute show commands:
    ```bash
    show sflow
@@ -592,9 +605,8 @@ The drop monitor feature adds the following fields to the `SFLOW|global` table:
 4. Verify output includes drop monitor status and configuration
 
 **Expected Results:**
-- `show sflow` displays:
-  - Drop monitor admin state (up/down)
-  - Drop monitor limit
+- `show sflow` displays the drop monitor limit read from `SFLOW|global` -> `drop_monitor_limit`
+- No separate drop monitor admin state is shown; `0` means disabled, `1`-`500` means enabled
 - Output format is consistent and readable
 
 **Expected Output Format:**
@@ -603,7 +615,7 @@ sFlow Global Information:
   sFlow Admin State:          up
   sFlow Polling Interval:     20
   sFlow Sample Direction:     rx
-  sFlow AgentID:              default
+  sFlow AgentID:              eth0
   sFlow Drop Monitor:         up
   sFlow Drop Monitor Limit:   500
 
@@ -620,6 +632,7 @@ sFlow Global Information:
 
 ```bash
 # Enable/Disable sFlow globally
+config feature state sflow enabled
 config sflow enable
 config sflow disable
 
@@ -637,12 +650,8 @@ config sflow polling-interval <seconds>
 # Configure sample direction
 config sflow sample-direction <rx|tx|both>
 
-# Enable/Disable drop monitor
-config sflow drop-monitor enable
-config sflow drop-monitor disable
-
-# Configure drop monitor limit
-config sflow drop-monitor-limit <packets_per_second>
+# Configure drop monitor limit (0 = disabled, 1-500 = enabled, rate limit in pps)
+config sflow drop-monitor-limit <0-500>
 
 # Interface-level sFlow configuration
 config sflow interface enable <interface>
@@ -666,17 +675,14 @@ show sflow interface
 # Check sFlow container status
 docker ps | grep sflow
 
-# Check hsflowd logs
-docker exec -it sflow cat /var/log/hsflowd.log
-
 # Check CONFIG_DB entries
 redis-cli -n 4 keys "SFLOW*"
 redis-cli -n 4 hgetall "SFLOW|global"
-redis-cli -n 4 hgetall "SFLOW_DROP_SESSION|global"
 
 # Check APPL_DB entries
 redis-cli -n 0 keys "SFLOW*"
-redis-cli -n 0 hgetall "SFLOW_DROP_SESSION_TABLE:global"
+redis-cli -n 0 hgetall "SFLOW_TABLE:global"
+redis-cli -n 0 hget "SFLOW_TABLE:global" drop_monitor_limit
 
 # Check SAI TAM objects (platform specific)
 # Verify TAM objects are created for MOD functionality
@@ -733,7 +739,7 @@ The following drop reason codes are supported (based on sflow_drops.txt specific
 ### Test File Location
 
 ```
-sonic-mgmt/tests/sflow/test_sflow_drop_notification.py
+sonic-mgmt/tests/sflow/test_sflow_drop_monitor_limit.py
 ```
 
 ### Pytest Markers
@@ -768,12 +774,12 @@ def setup_sflow_drop_monitor(duthost, sflow_collector):
     duthost.shell(f"config sflow collector add test_collector {sflow_collector.ip}")
     
     # Enable drop monitor
-    duthost.shell("config sflow drop-monitor enable")
+    duthost.shell("config sflow drop-monitor-limit 500")
     
     yield
     
     # Cleanup
-    duthost.shell("config sflow drop-monitor disable")
+    duthost.shell("config sflow drop-monitor-limit 0")
     duthost.shell("config sflow collector del test_collector")
     duthost.shell("config sflow disable")
 
@@ -783,12 +789,16 @@ class TestSflowDropNotification:
     def test_drop_monitor_config(self, duthost, setup_sflow_drop_monitor):
         """Test Case 1: Verify drop monitor configuration"""
         # Verify CONFIG_DB
-        result = duthost.shell("redis-cli -n 4 hget 'SFLOW_DROP_SESSION|global' admin_state")
-        assert result['stdout'].strip() == 'up'
-        
+        result = duthost.shell('redis-cli -n 4 hget "SFLOW|global" drop_monitor_limit')
+        assert result['stdout'].strip() == '500'
+
         # Verify APPL_DB
-        result = duthost.shell("redis-cli -n 0 hget 'SFLOW_DROP_SESSION_TABLE:global' admin_state")
-        assert result['stdout'].strip() == 'up'
+        result = duthost.shell('redis-cli -n 0 hget "SFLOW_TABLE:global" drop_monitor_limit')
+        assert result['stdout'].strip() == '500'
+
+        # No separate drop session table
+        result = duthost.shell('redis-cli -n 4 keys "*DROP_SESSION*"')
+        assert result['stdout'].strip() == ''        
     
     def test_acl_drop_notification(self, duthost, ptfadapter, setup_sflow_drop_monitor, sflow_collector):
         """Test Case 4: Verify ACL drop generates notification"""
