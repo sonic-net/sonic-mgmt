@@ -409,13 +409,13 @@ class CsonicHost(NeighborDevice):
         return None
 
     def get_macsec_iface_mac(self, interface_name):
-        """Return the MAC of the Linux device that carries MACsec traffic.
+        """Return the MAC of the Linux MACsec interface carrying traffic.
 
-        cSONiC exposes SONiC-facing ``EthernetN`` devices alongside the
-        injected ``ethN`` front-panel devices. Software MACsec is created on
-        the latter (for example ``macsec_eth1``), so its SCI is derived from
-        the corresponding ``ethN`` MAC rather than the SAI-facing device MAC.
-        Match the two ordered interface lists just like
+        cSONiC exposes SONiC-facing ``EthernetN`` devices alongside injected
+        ``ethN`` front-panel devices, then creates ``macsec_ethN`` on the
+        latter. The MACsec interface address carries its configured SCI and
+        may differ from the lower ``ethN`` address, so read ``macsec_ethN``
+        itself. Match the ordered Ethernet/eth lists just like
         ``macsec_platform_helper.get_eth_ifname``; this also handles stock
         cSONiC where Ethernet0 maps to eth1 instead of relying on equal numeric
         suffixes.
@@ -443,7 +443,7 @@ class CsonicHost(NeighborDevice):
                 index = ethernet_ports.index(interface_name)
                 if index >= len(kernel_ports):
                     return None
-                interface_name = kernel_ports[index]
+                interface_name = "macsec_{}".format(kernel_ports[index])
             result = self._docker_exec(
                 "cat /sys/class/net/{}/address".format(
                     shlex.quote(interface_name)))
