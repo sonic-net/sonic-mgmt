@@ -222,9 +222,11 @@ def _macsec_profile_matches(snapshot, priority, cipher_suite, primary_cak,
     expected = _macsec_profile_fields(
         priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci,
         rekey_period)
+    # The SONiC CLI omits rekey_period from CONFIG_DB when it is disabled.
     return all(
         entry["fields"] is not None and
-        all(entry["fields"].get(field) == value
+        all(entry["fields"].get(
+            field, "0" if field == "rekey_period" else None) == value
             for field, value in expected.items())
         for entry in snapshot["entries"])
 
