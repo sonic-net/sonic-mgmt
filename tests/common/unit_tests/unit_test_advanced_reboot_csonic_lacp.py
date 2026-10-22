@@ -174,8 +174,9 @@ def test_csonic_multiplier_range_validation():
         CONFTEST, "_csonic_lacp_multiplier", {"argparse": argparse})
 
     assert parse_multiplier("1") == 1
+    assert parse_multiplier("3") == 3
     assert parse_multiplier("255") == 255
-    for invalid in ("0", "256", "not-an-integer"):
+    for invalid in ("-1", "0", "256", "300", "not-an-integer"):
         with pytest.raises(argparse.ArgumentTypeError):
             parse_multiplier(invalid)
 
