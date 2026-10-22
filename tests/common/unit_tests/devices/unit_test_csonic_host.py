@@ -191,7 +191,7 @@ class TestMacsecHostContract:
                 "Ethernet1") == "52:54:00:65:43:21"
         assert execute.call_args_list == [
             call("ls /sys/class/net/"),
-            call("cat /sys/class/net/eth2/address"),
+            call("cat /sys/class/net/macsec_eth2/address"),
         ]
 
     def test_get_dut_iface_mac_fails_closed(self):
