@@ -755,13 +755,13 @@ def enable_macsec_port(host, port, profile_name):
         return
 
     if isinstance(host, CsonicHost):
-        port = _runtime_port_name(host, port)
+        runtime_port = _runtime_port_name(host, port)
         ovs_macsec_member = getattr(host, "set_ovs_macsec_member", None)
         previous_profile = (
             _macsec_port_profile(host, port)
             if callable(ovs_macsec_member) else None)
         _csonic_config_db_hset(
-            host, "PORT|{}".format(port), {"macsec": profile_name})
+            host, "PORT|{}".format(runtime_port), {"macsec": profile_name})
         if callable(ovs_macsec_member):
             try:
                 ovs_macsec_member(port, True)
@@ -774,10 +774,10 @@ def enable_macsec_port(host, port, profile_name):
                         getattr(host, "hostname", str(host)))
                 if previous_profile is None:
                     _csonic_config_db_hdel(
-                        host, "PORT|{}".format(port), "macsec")
+                        host, "PORT|{}".format(runtime_port), "macsec")
                 else:
                     _csonic_config_db_hset(
-                        host, "PORT|{}".format(port),
+                        host, "PORT|{}".format(runtime_port),
                         {"macsec": previous_profile})
                 raise
         return
@@ -804,12 +804,13 @@ def disable_macsec_port(host, port):
         return
 
     if isinstance(host, CsonicHost):
-        port = _runtime_port_name(host, port)
+        runtime_port = _runtime_port_name(host, port)
         ovs_macsec_member = getattr(host, "set_ovs_macsec_member", None)
         if callable(ovs_macsec_member):
             ovs_macsec_member(port, False)
         try:
-            _csonic_config_db_hdel(host, "PORT|{}".format(port), "macsec")
+            _csonic_config_db_hdel(
+                host, "PORT|{}".format(runtime_port), "macsec")
         except Exception:
             if callable(ovs_macsec_member):
                 try:

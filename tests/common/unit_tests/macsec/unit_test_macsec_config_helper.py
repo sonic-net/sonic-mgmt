@@ -419,14 +419,20 @@ def test_csonic_macsec_port_maps_logical_interface_for_config_and_ovs():
             self.events = []
 
         def _interface_name(self, port):
-            return "Ethernet2" if port == "Ethernet1" else port
+            return {
+                "Ethernet1": "Ethernet2",
+                "Ethernet2": "Ethernet3",
+            }.get(port, port)
 
         def command(self, command):
             self.events.append(("command", command))
             return {"rc": 0, "stdout": "", "stderr": ""}
 
         def set_ovs_macsec_member(self, port, enabled):
-            self.events.append(("ovs", port, enabled))
+            # Match the real API: it accepts the logical port and resolves it
+            # internally. An already translated argument would become
+            # Ethernet3 with this intentionally overlapping map.
+            self.events.append(("ovs", self._interface_name(port), enabled))
 
     host = CsonicCommandHost()
     enable_macsec_port(host, "Ethernet1", "128_SCI")
@@ -435,6 +441,35 @@ def test_csonic_macsec_port_maps_logical_interface_for_config_and_ovs():
         ("command", 'sonic-db-cli CONFIG_DB HGET "PORT|Ethernet2" macsec'),
         ("command", "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet2' macsec 128_SCI"),
         ("ovs", "Ethernet2", True),
+    ]
+
+
+def test_csonic_macsec_port_disable_maps_logical_interface_once():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def _interface_name(self, port):
+            return {
+                "Ethernet1": "Ethernet2",
+                "Ethernet2": "Ethernet3",
+            }.get(port, port)
+
+        def command(self, command):
+            self.events.append(("command", command))
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", self._interface_name(port), enabled))
+
+    host = CsonicCommandHost()
+    disable_macsec_port(host, "Ethernet1")
+
+    assert host.events == [
+        ("ovs", "Ethernet2", False),
+        ("command", "sonic-db-cli CONFIG_DB HDEL 'PORT|Ethernet2' macsec"),
     ]
 
 
