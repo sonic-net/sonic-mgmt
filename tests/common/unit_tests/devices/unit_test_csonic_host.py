@@ -174,11 +174,21 @@ class TestMacsecHostContract:
         host = make_converged_host()
         with patch.object(
                 host, "_docker_exec",
+                return_value=docker_ok("52:54:00:65:43:21\n")) as execute:
+            assert host.get_dut_iface_mac("Ethernet1") == "52:54:00:65:43:21"
+        execute.assert_called_once_with(
+            "cat /sys/class/net/Ethernet2/address")
+
+    def test_get_macsec_iface_mac_maps_converged_logical_interface(self):
+        host = make_converged_host()
+        with patch.object(
+                host, "_docker_exec",
                 side_effect=[
                     docker_ok("eth0\neth1\neth2\nEthernet1\nEthernet2\n"),
                     docker_ok("52:54:00:65:43:21\n"),
                 ]) as execute:
-            assert host.get_dut_iface_mac("Ethernet1") == "52:54:00:65:43:21"
+            assert host.get_macsec_iface_mac(
+                "Ethernet1") == "52:54:00:65:43:21"
         assert execute.call_args_list == [
             call("ls /sys/class/net/"),
             call("cat /sys/class/net/eth2/address"),
