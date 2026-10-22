@@ -207,23 +207,43 @@ class CsonicHost(NeighborDevice):
         self._set_ovs_bond_member_link(ifname, "up")
         return result
 
+    def _kernel_interface_name(self, interface_name):
+        """Map a runtime SONiC port to its injected kernel dataplane link."""
+        if not re.fullmatch(r"Ethernet\d+", interface_name):
+            return interface_name
+
+        links = self._docker_exec("ls /sys/class/net/")
+        if links.get("rc") != 0:
+            return None
+        link_names = (links.get("stdout_lines") or
+                      links.get("stdout", "").splitlines())
+        ethernet_ports = sorted(
+            (name for name in link_names
+             if re.fullmatch(r"Ethernet\d+", name)),
+            key=lambda name: int(re.search(r"\d+", name).group(0)))
+        kernel_ports = sorted(
+            (name for name in link_names
+             if re.fullmatch(r"eth[1-9]\d*", name)),
+            key=lambda name: int(re.search(r"\d+", name).group(0)))
+        if interface_name not in ethernet_ports:
+            return None
+        index = ethernet_ports.index(interface_name)
+        return kernel_ports[index] if index < len(kernel_ports) else None
+
     def _ovs_bond_member(self, interface_name, bond):
         """Return the active OVS device for a logical PortChannel member.
 
-        The EthernetN -> ethN convention is duplicated from ``kernel_member()`` in
-        ansible/roles/sonic/files/csonic_ovs_lag.py, which is the source of truth
-        but ships into the container as an Ansible module and cannot be imported
-        here; keep the two in sync. MACsec-enabled OVS bonds use macsec_ethN so
-        decrypted traffic reaches the PortChannel, while ordinary bonds use ethN.
-        Confirm exactly one of those devices is present rather than silently
-        toggling EthernetN only.
+        The ordinal SONiC-port mapping is duplicated from ``kernel_member()``
+        in ansible/roles/sonic/files/csonic_ovs_lag.py, which ships into the
+        container as an Ansible module and cannot be imported here; keep the
+        two in sync. MACsec-enabled OVS bonds use macsec_ethN so decrypted
+        traffic reaches the PortChannel, while ordinary bonds use ethN.
         """
-        match = re.fullmatch(r"Ethernet(\d+)", interface_name)
-        if not match:
+        device = self._kernel_interface_name(interface_name)
+        if not device or not re.fullmatch(r"eth[1-9]\d*", device):
             raise Exception(
                 "Unable to map unsupported cSONiC LAG member [{}] to a kernel device "
                 "of bond [{}]".format(interface_name, bond))
-        device = "eth{}".format(match.group(1))
         candidates = (device, "macsec_{}".format(device))
         # ovs_portchannel() creates each PortChannel as its own bridge and puts the
         # members into a Port named '<PortChannel>-bond'.
@@ -290,12 +310,11 @@ class CsonicHost(NeighborDevice):
         if bond is None:
             return None
 
-        match = re.fullmatch(r"Ethernet(\d+)", interface_name)
-        if not match:
+        lower_device = self._kernel_interface_name(interface_name)
+        if not lower_device or not re.fullmatch(r"eth[1-9]\d*", lower_device):
             raise Exception(
                 "Unable to map unsupported cSONiC LAG member [{}] for MACsec "
                 "bond [{}]".format(interface_name, bond))
-        lower_device = "eth{}".format(match.group(1))
         macsec_device = "macsec_{}".format(lower_device)
         desired = macsec_device if enabled else lower_device
 
@@ -415,26 +434,9 @@ class CsonicHost(NeighborDevice):
             if hasattr(self, "_interface_name") else interface_name)
         if not re.fullmatch(r"Ethernet\d+", interface_name):
             return interface_name
-
-        links = self._docker_exec("ls /sys/class/net/")
-        if links.get("rc") != 0:
-            return None
-        link_names = (links.get("stdout_lines") or
-                      links.get("stdout", "").splitlines())
-        ethernet_ports = sorted(
-            (name for name in link_names
-             if re.fullmatch(r"Ethernet\d+", name)),
-            key=lambda name: int(re.search(r"\d+", name).group(0)))
-        kernel_ports = sorted(
-            (name for name in link_names
-             if re.fullmatch(r"eth[1-9]\d*", name)),
-            key=lambda name: int(re.search(r"\d+", name).group(0)))
-        if interface_name not in ethernet_ports:
-            return None
-        index = ethernet_ports.index(interface_name)
-        if index >= len(kernel_ports):
-            return None
-        return "macsec_{}".format(kernel_ports[index])
+        kernel_interface = self._kernel_interface_name(interface_name)
+        return ("macsec_{}".format(kernel_interface)
+                if kernel_interface is not None else None)
 
     def get_macsec_iface_mac(self, interface_name):
         """Return the MAC of the Linux MACsec interface carrying traffic."""
