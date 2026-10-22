@@ -612,6 +612,10 @@ def consumes_memory_and_checks_monit(duthost, container):
     # Monit container memory check should still be failed at this point
     container.wait_monit_mem_failed(10)
 
+    # Capture the second restart before it can occur during the first log analysis.
+    second_start_date = container.get_last_start_date()
+    second_marker = loganalyzer.update_marker_prefix("test_monit_counter")
+
     # Start consuming memory early and then check the logs so we hit the memory
     # limit before monit first cycle
     container.start_consume_memory()
@@ -620,14 +624,12 @@ def consumes_memory_and_checks_monit(duthost, container):
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
-    marker = loganalyzer.update_marker_prefix("test_monit_counter")
-
     logger.info("Waiting for container %s to restart after monit initial delay", container.name)
-    container.wait_restarted()
+    container.wait_restarted(second_start_date)
     container.wait_ready()
 
     logger.info("Analyzing syslog messages to verify whether '%s' is restarted ...", container.name)
-    loganalyzer.analyze(marker)
+    loganalyzer.analyze(second_marker)
 
     logger.info("Monit was able to restart '%s'", container.name)
 
