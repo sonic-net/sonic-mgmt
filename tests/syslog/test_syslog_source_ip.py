@@ -738,9 +738,17 @@ class TestSSIP:
             self.duthost.command("sudo config save -y")
 
         reboot_type = request.config.getoption("--ssip_reboot_type")
+        # Remove this override once warm/fast reboot is supported on SN6600 LD.
+        sn6600_ld_warm_unsupported = "sn6600_ld" in self.duthost.facts.get("platform", "")
         if reboot_type == "random":
             reboot_type_list = ["cold", "warm", "fast", "soft"]
+            if sn6600_ld_warm_unsupported:
+                reboot_type_list = [rt for rt in reboot_type_list if rt not in ("warm", "fast")]
             reboot_type = random.choice(reboot_type_list)
+        elif reboot_type in ("warm", "fast") and sn6600_ld_warm_unsupported:
+            logger.info("Overriding {} reboot with cold reboot on SN6600 LD because "
+                        "warm/fast reboot is unsupported on this platform".format(reboot_type))
+            reboot_type = "cold"
         with allure.step("Do {}".format(reboot_type)):
             reboot(self.duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
