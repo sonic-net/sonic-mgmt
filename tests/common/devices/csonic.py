@@ -94,6 +94,8 @@ def _scope_bgp_show(command, vrf):
             return 'show bgp vrf {} {} unicast {}'.format(
                 vrf, afi, suffix)
         return 'show bgp vrf {} {}'.format(vrf, suffix)
+    if re.match(r'^unicast(?:\s|$)', suffix, re.IGNORECASE):
+        return 'show bgp vrf {} {} {}'.format(vrf, afi, suffix)
     return 'show bgp vrf {} {} unicast{}'.format(
         vrf, afi, ' {}'.format(suffix) if suffix else '')
 

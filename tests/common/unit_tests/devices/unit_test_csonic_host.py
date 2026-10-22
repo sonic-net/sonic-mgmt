@@ -599,6 +599,19 @@ class TestConvergedLogicalHost:
             "neighbors fc00::75 received-routes json'",
         ]
 
+    def test_explicit_unicast_bgp_reads_do_not_duplicate_keyword(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell(
+                "vtysh -c 'show bgp ipv4 unicast 192.0.2.0/24 json'")
+            host.shell("show bgp ipv6 unicast 2001:db8::/64 json")
+        assert [item.args[0] for item in mock_exec.call_args_list] == [
+            "vtysh -c 'show bgp vrf VrfARISTA02T1 ipv4 unicast "
+            "192.0.2.0/24 json'",
+            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv6 unicast '
+            '2001:db8::/64 json"',
+        ]
+
     def test_bgp_neighbor_detail_uses_valid_vrf_level_frr_syntax(self):
         host = make_converged_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
