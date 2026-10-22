@@ -1,16 +1,14 @@
 import ast
 import shlex
+from operator import itemgetter
 from pathlib import Path
 
 import pytest
 
 
-SCRIPT = (
-    Path(__file__).parents[2]
-    / "ptftests"
-    / "py3"
-    / "advanced-reboot.py"
-)
+PTF_DIR = Path(__file__).parents[2] / "ptftests" / "py3"
+SCRIPT = PTF_DIR / "advanced-reboot.py"
+SONIC_SCRIPT = PTF_DIR / "sonic.py"
 
 
 class FakeNeighbor:
@@ -92,6 +90,39 @@ def test_sets_and_verifies_every_active_ovs_bond():
         "bond=PortChannel2-bond requested=180 actual=180",
         "cSONiC LACP receive multiplier update completed: requested=180",
     ]
+
+
+def load_sonic_method(method_name):
+    tree = ast.parse(SONIC_SCRIPT.read_text())
+    sonic_class = next(
+        node for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "Sonic"
+    )
+    method = next(
+        node for node in sonic_class.body
+        if isinstance(node, ast.FunctionDef) and node.name == method_name
+    )
+    namespace = {"itemgetter": itemgetter}
+    test_class = ast.ClassDef(
+        name="Harness",
+        bases=[],
+        keywords=[],
+        body=[method],
+        decorator_list=[],
+    )
+    ast.fix_missing_locations(test_class)
+    exec(compile(ast.Module(body=[test_class], type_ignores=[]), str(SONIC_SCRIPT), "exec"), namespace)
+    harness = namespace["Harness"]()
+    harness.reboot_type = "warm-reboot"
+    harness.bgp_v4_v6_time_diff = 40
+    return harness
+
+
+def test_sonic_log_parser_tolerates_missing_teamd_stream_for_userspace_ovs():
+    result = load_sonic_method("parse_logs").parse_logs({})
+
+    assert result["PortChannel was down (seconds)"] == 0
+    assert result["route_timeout"] == {}
 
 
 def test_fails_when_no_active_ovs_bonds_exist():

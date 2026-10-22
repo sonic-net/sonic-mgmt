@@ -301,7 +301,14 @@ class Sonic(host_device.HostDevice):
                     break
                 estab_time = result_bgp[ip][-1][0]
 
-        po_carrier_data = [k for k in data["teamd#teamd_PortChannel1"] if "carrier changed to" in k[1]]
+        # cSONiC's userspace-OVS LAG backend intentionally stops teamd, so
+        # there is no teamd_PortChannel1 log stream.  Absence of that optional
+        # log means there are no teamd carrier events to report; LACP packet
+        # timing and the OVS state checks remain the continuity signals.
+        po_carrier_data = [
+            event for event in data.get("teamd#teamd_PortChannel1", [])
+            if "carrier changed to" in event[1]
+        ]
 
         if len(po_carrier_data) > 0:
             # first state is down, last state is up
