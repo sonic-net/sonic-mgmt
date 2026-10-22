@@ -50,7 +50,7 @@ As the testing of a server NIC device operation is out of the scope of this test
 ### Testbed Assumptions
 - Both dT0 VTEPs reachable to each other and to T2 via underlay (eBGP loopback peering).
 - Server simulator supports LACP (active or passive mode) on its single LAG, which has one member link to each dT0.
-- All EVPN control-plane daemons (`bgpd`, `neighorch`) running.
+- Required processes are running: `bgpd` in the BGP container, and `orchagent` (which contains NeighOrch) and `neighsyncd` in the SWSS container.
 - LACP fast rate (1 s PDUs, 3 s timeout) is configured on both dT0s and the server simulator.
 - The dT0s share one ASN and reach each other's Loopback0 addresses only through T2, so each would drop the other's loopback route (its own ASN appears in the AS path). T2 sessions must use allowas-in on the dT0s in the IPv4 and IPv6 address families, or T2 must use as-override. Otherwise the peer's VTEP loopback is unreachable and the EVPN session between the dT0 loopbacks cannot be established.
 - The server VLAN interface on both dT0s has static_anycast_gateway enabled, uses the same gateway_mac, and has proxy ARP/ND enabled. In addition, all server-facing PortChannels in that VLAN are configured with the platform-supported L2 port-isolation feature (same setting on both dT0s) so traffic is not bridged directly between server-facing PortChannels. Under this isolation, inter-server resolution/forwarding in the SS scenarios is expected to occur via the anycast gateway path (routed), not direct L2 bridging.
