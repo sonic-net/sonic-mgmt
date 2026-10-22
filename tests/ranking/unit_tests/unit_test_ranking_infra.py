@@ -923,7 +923,7 @@ def test_invoke_role_keep_finalizes_the_receipt(execution_spec, tmp_path):
         assert entry['released'] is False
 
 
-def test_invoke_role_keep_failure_keeps_the_receipt_unfabricated(
+def test_invoke_role_keep_failure_preserves_handles_and_marks_uncertainty(
         execution_spec, tmp_path):
     setup_dir = tmp_path / 'setup'
     keep_dir = tmp_path / 'keep'
@@ -945,12 +945,12 @@ def test_invoke_role_keep_failure_keeps_the_receipt_unfabricated(
                              str(keep_dir), receipt=str(receipt_path))
     assert result.rc == 3
     receipt = read_receipt(receipt_path)
-    assert receipt['phase'] == 'prepared'
+    assert receipt['phase'] == 'failed'
     for entry in receipt['resources']:
         assert entry['handle']['operation_id'] == 'op-a'
         assert entry['handle']['created'] is True
         assert entry['released'] is False
-        assert entry['uncertain'] is False
+        assert entry['uncertain'] is True
 
 
 @pytest.mark.parametrize('outcome', [None, {}, {'kept': False}])
@@ -965,10 +965,11 @@ def test_invoke_role_keep_requires_an_attested_keep(execution_spec, tmp_path,
                                             'keep': outcome})):
         invoke_role('setup', execution_spec, 'env-a', 'op-a', None, None,
                     str(setup_dir))
-        invoke_role('keep', execution_spec, 'env-a', 'op-a', None, None,
-                    str(keep_dir), receipt=str(receipt_path))
+        with pytest.raises(ReceiptError):
+            invoke_role('keep', execution_spec, 'env-a', 'op-a', None, None,
+                        str(keep_dir), receipt=str(receipt_path))
     receipt = read_receipt(receipt_path)
-    assert receipt['phase'] == 'prepared'
+    assert receipt['phase'] == 'failed'
     for entry in receipt['resources']:
         assert entry['handle']['operation_id'] == 'op-a'
         assert entry['released'] is False
@@ -994,7 +995,7 @@ def test_invoke_role_teardown_finalizes_the_receipt(execution_spec, tmp_path):
         assert entry['uncertain'] is False
 
 
-def test_invoke_role_teardown_failure_keeps_the_receipt_unfabricated(
+def test_invoke_role_teardown_failure_retains_confirmed_release(
         execution_spec, tmp_path):
     setup_dir = tmp_path / 'setup'
     teardown_dir = tmp_path / 'teardown'
@@ -1010,9 +1011,9 @@ def test_invoke_role_teardown_failure_keeps_the_receipt_unfabricated(
                              None, str(teardown_dir), receipt=str(receipt_path))
     assert result.rc == 5
     receipt = read_receipt(receipt_path)
-    assert receipt['phase'] == 'prepared'
+    assert receipt['phase'] == 'failed'
     for entry in receipt['resources']:
-        assert entry['released'] is False
+        assert entry['restored'] and entry['released'] and entry['uncertain']
         assert entry['handle']['operation_id'] == 'op-a'
 
 
@@ -1042,7 +1043,7 @@ def test_invoke_role_rejects_a_receipt_from_another_environment(
                         str(keep_dir), receipt=str(receipt_path))
 
 
-def test_invoke_role_keep_ignores_an_unprepared_receipt(execution_spec, tmp_path):
+def test_invoke_role_keep_refuses_an_unprepared_receipt(execution_spec, tmp_path):
     setup_dir = tmp_path / 'setup'
     keep_dir = tmp_path / 'keep'
     receipt_path = setup_dir / 'env-a' / RECEIPT_FILE
@@ -1050,8 +1051,9 @@ def test_invoke_role_keep_ignores_an_unprepared_receipt(execution_spec, tmp_path
 
     with patch('tests.ranking.ranking_infra.subprocess.run',
                side_effect=playbook_router({'keep': keep_outcome()})):
-        invoke_role('keep', execution_spec, 'env-a', 'op-a', None, None,
-                    str(keep_dir), receipt=str(receipt_path))
+        with pytest.raises(ReceiptError):
+            invoke_role('keep', execution_spec, 'env-a', 'op-a', None, None,
+                        str(keep_dir), receipt=str(receipt_path))
     assert read_receipt(receipt_path)['phase'] == 'created'
 
 
@@ -1231,10 +1233,11 @@ def test_cli_retains_the_environment_after_a_failed_teardown(
         code = main(['--action', 'teardown', '--receipt', str(path)])
     assert code == 1
     final = read_receipt(path)
-    assert final['phase'] == 'kept'
+    assert final['phase'] == 'failed'
     assert final['operation_id'] == 'op-a'
     assert isinstance(final['primary_error'], str) and final['primary_error']
     assert [entry['released'] for entry in final['resources']] == [False, False]
+    assert all(entry['uncertain'] for entry in final['resources'])
 
 
 def test_cli_keeps_the_original_record_when_the_outcome_is_unknown(
@@ -1243,13 +1246,17 @@ def test_cli_keeps_the_original_record_when_the_outcome_is_unknown(
         execution_spec, tmp_path,
         [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a'))],
         'prepared')
-    before = path.read_bytes()
+    before = read_receipt(path)
     with patch('tests.ranking.ranking_infra.ansible_agent_invoke', invoke), \
             patch('tests.ranking.ranking_infra.subprocess.run',
                   return_value=completed(7, b'out', b'err')):
         code = main(['--action', 'teardown', '--receipt', str(path)])
     assert code == 1
-    assert path.read_bytes() == before
+    final = read_receipt(path)
+    assert final['phase'] == 'failed'
+    assert final['primary_error']
+    for original, retained in zip(before['resources'], final['resources']):
+        assert retained == dict(original, uncertain=True)
 
 
 def test_cli_retains_uncertainty_when_action_completion_fails_after_release(execution_spec, tmp_path):
@@ -1282,6 +1289,140 @@ def test_cli_keeps_the_original_record_when_the_playbook_cannot_run(
         code = main(['--action', 'teardown', '--receipt', str(path)])
     assert code == 1
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('rc, changes, complete', [
+    (0, {}, True),
+    (7, {}, False),
+    (0, {'uncertain': True}, False),
+    (0, {'released': [DUT_RESOURCE]}, False),
+    (7, {'released': [DUT_RESOURCE]}, False),
+    (0, {'restored': False, 'released': []}, False),
+    (0, {'restored': False}, False),
+    (0, {'environment_id': 'another-environment'}, False),
+    (0, {'action': 'keep'}, False),
+    (0, {'schema_version': True}, False),
+    (0, {'released': [DUT_RESOURCE, DUT_RESOURCE]}, False),
+    (0, {'uncertain': 'false'}, False),
+    (0, None, False),
+    (7, None, False),
+])
+def test_normal_and_cli_teardown_apply_identical_receipt_rules(
+        execution_spec, tmp_path, rc, changes, complete):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    normal, _, _, _, _ = recovery_world(
+        execution_spec, tmp_path / 'normal', copy.deepcopy(entries), 'prepared')
+    recovery, _, _, invoke, _ = recovery_world(
+        execution_spec, tmp_path / 'cli', copy.deepcopy(entries), 'prepared')
+    outcome = None if changes is None else dict(teardown_outcome(), **changes)
+    fake_run = playbook_router({'teardown': outcome}, rc=rc)
+    with patch('tests.ranking.ranking_infra.subprocess.run', side_effect=fake_run):
+        if rc == 0 and not complete:
+            with pytest.raises(ReceiptError):
+                invoke_role('teardown', execution_spec, 'env-a', 'op-a', None,
+                            None, str(tmp_path / 'normal-call'), receipt=normal)
+        else:
+            assert invoke_role('teardown', execution_spec, 'env-a', 'op-a', None,
+                               None, str(tmp_path / 'normal-call'), receipt=normal).rc == rc
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke', invoke), \
+            patch('tests.ranking.ranking_infra.subprocess.run', side_effect=fake_run):
+        assert main(['--action', 'teardown', '--receipt', str(recovery)]) == (0 if complete else 1)
+    assert read_receipt(normal) == read_receipt(recovery)
+
+
+@pytest.mark.parametrize('malformed', [
+    '"restored": false,', '"uncertain": true,',
+    '"extra": NaN,', '"extra": Infinity,',
+])
+def test_both_finalizers_refuse_ambiguous_or_nonfinite_outcome_json(
+        execution_spec, tmp_path, malformed):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    normal, _, _, _, _ = recovery_world(
+        execution_spec, tmp_path / 'normal', copy.deepcopy(entries), 'prepared')
+    recovery, _, _, invoke, _ = recovery_world(
+        execution_spec, tmp_path / 'cli', copy.deepcopy(entries), 'prepared')
+    raw_outcome = '{' + malformed + json.dumps(teardown_outcome())[1:]
+
+    def fake_run(argv, **kwargs):
+        directory = Path(argv[argv.index('-e') + 1][1:]).parent
+        (directory / 'role-outcome.json').write_text(raw_outcome)
+        return completed(0)
+
+    with patch('tests.ranking.ranking_infra.subprocess.run', side_effect=fake_run):
+        with pytest.raises(ReceiptError):
+            invoke_role('teardown', execution_spec, 'env-a', 'op-a', None,
+                        None, str(tmp_path / 'normal-call'), receipt=normal)
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke', invoke), \
+            patch('tests.ranking.ranking_infra.subprocess.run', side_effect=fake_run):
+        assert main(['--action', 'teardown', '--receipt', str(recovery)]) == 1
+    final = read_receipt(normal)
+    assert final == read_receipt(recovery)
+    assert final['phase'] == 'failed'
+    assert all(entry['uncertain'] and not entry['restored'] and not entry['released']
+               for entry in final['resources'])
+
+
+@pytest.mark.parametrize('action, outcome', [
+    ('keep', keep_outcome()), ('teardown', teardown_outcome()),
+])
+def test_normal_cleanup_preserves_the_original_failure(
+        execution_spec, tmp_path, action, outcome):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    path, _, _, _, _ = recovery_world(execution_spec, tmp_path, entries, 'prepared')
+    receipt = read_receipt(path)
+    receipt['primary_error'] = 'original test failure'
+    update_receipt(path, receipt)
+    with patch('tests.ranking.ranking_infra.subprocess.run',
+               side_effect=playbook_router({action: outcome})):
+        invoke_role(action, execution_spec, 'env-a', 'op-a', None, None,
+                    str(tmp_path / 'cleanup-call'), receipt=path)
+    assert read_receipt(path)['primary_error'] == 'original test failure'
+
+
+def test_normal_keep_records_ended_operations_after_late_failure(execution_spec, tmp_path):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    path, _, _, _, _ = recovery_world(execution_spec, tmp_path, entries, 'prepared')
+    with patch('tests.ranking.ranking_infra.subprocess.run',
+               side_effect=playbook_router({'keep': keep_outcome()}, rc=7)):
+        assert invoke_role('keep', execution_spec, 'env-a', 'op-a', None, None,
+                           str(tmp_path / 'keep-call'), receipt=path).rc == 7
+    final = read_receipt(path)
+    assert final['phase'] == 'failed'
+    assert all(entry['handle']['operation_id'] is None and entry['uncertain']
+               for entry in final['resources'])
+
+
+def test_cli_finishes_a_normal_partial_release_without_losing_the_primary_error(
+        execution_spec, tmp_path):
+    entries = [resource_entry(DUT_RESOURCE, 'dut-a', reservation_handle(DUT_RESOURCE, 'op-a')),
+               resource_entry(PTF_RESOURCE, 'server-a', reservation_handle(PTF_RESOURCE, 'op-a'))]
+    path, events, _, invoke, _ = recovery_world(execution_spec, tmp_path, entries, 'prepared')
+    receipt = read_receipt(path)
+    receipt['primary_error'] = 'original test failure'
+    update_receipt(path, receipt)
+    partial = dict(teardown_outcome(), released=[DUT_RESOURCE])
+    with patch('tests.ranking.ranking_infra.subprocess.run',
+               side_effect=playbook_router({'teardown': partial})):
+        with pytest.raises(ReceiptError):
+            invoke_role('teardown', execution_spec, 'env-a', 'op-a', None, None,
+                        str(tmp_path / 'partial-call'), receipt=path)
+    partial_receipt = read_receipt(path)
+    assert partial_receipt['phase'] == 'failed'
+    assert all(entry['restored'] and not entry['uncertain']
+               for entry in partial_receipt['resources'])
+    with patch('tests.ranking.ranking_infra.ansible_agent_invoke', invoke), \
+            patch('tests.ranking.ranking_infra.subprocess.run') as run:
+        assert main(['--action', 'teardown', '--receipt', str(path)]) == 0
+    run.assert_not_called()
+    assert events == [('agent', 'validate'), ('agent', 'begin_action'),
+                      ('agent', 'release'), ('agent', 'end_action')]
+    final = read_receipt(path)
+    assert final['phase'] == 'released'
+    assert final['primary_error'] == 'original test failure'
 
 
 def test_cli_releases_attested_remaining_resources_directly(execution_spec,

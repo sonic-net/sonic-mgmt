@@ -23,6 +23,8 @@ Ranking does not build the image or provision the testbed.
 | --- | --- | --- |
 | Controller input compiler | Case selection, mapping, configuration view, source and profile fingerprints | Reads local input; does not contact a device or import SAI cases |
 | Controller lifecycle | One environment, ordered case runs, finalization, local artifacts | Calls the Ranking role; does not implement Docker or service operations |
+| Controller receipt store | Receipt schema validation and atomic local persistence | Does not decide lifecycle transitions or contact hosts |
+| Controller receipt policy | Setup attestation, keep/release transitions, completion decisions | Applies execution evidence without file or device operations |
 | Host ownership and state agent | Resource reservation, exclusive action guards, authorized snapshots, file restoration, attempted-change ledger | Uses host-local storage; does not run Docker, systemd, or networking commands |
 | Host transport | Deployment of the agent and its JSON requests through Ansible | Carries requests; does not decide whether an environment may be released |
 | Ranking Ansible role | Service/container changes, staging, reset, collection, restoration checks | Acts on the authorized DUT and PTF environment |
@@ -219,8 +221,8 @@ input validation are integration boundaries adapted for sonic-mgmt.
   evidence.
 - Teardown removes only the recorded owned container, restores declared files
   and original service state, and checks restoration before releasing resources.
-  Failure or uncertain state retains the reservation; there is no timeout-based
-  force takeover.
+  Unconfirmed restoration blocks release; uncertainty blocks automatic recovery.
+  There is no timeout-based force takeover.
 - `--ranking-keep-env` retains the environment while ending the operation.
   `--ranking-skip-setup` requires `--ranking-environment-id` and must reacquire
   and validate that retained environment.
@@ -232,6 +234,19 @@ dies before guard completion, Ranking refuses automatic takeover. An operator
 must investigate the host and unfinished action before recovery; elapsed time
 alone proves neither process exit nor restoration. There is no guard expiry or
 automatic crash takeover.
+
+Normal lifecycle finalization and CLI recovery apply the same receipt policy.
+`receipt_store.py` validates and saves the local record; `receipt_policy.py`
+returns an updated record, a completion decision, and a diagnostic. The
+`ranking_infra.py` adapters persist that decision and report an incomplete
+finalization even when the playbook returned zero.
+
+Confirmed restoration, release, and ended-operation facts survive a later
+failure. For example, the role can confirm release before its action guards
+finish; a subsequent failure preserves the release facts and marks the result
+uncertain. Unknown or contradictory evidence also prevents completion. A known,
+restored partial release can be finished through guarded CLI recovery. Cleanup
+preserves the original error and records later failures separately.
 
 Recovery refuses mismatching or uncertain ownership:
 
