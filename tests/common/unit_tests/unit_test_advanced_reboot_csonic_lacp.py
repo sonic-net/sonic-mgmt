@@ -66,12 +66,15 @@ def load_method(neighbor):
     harness = namespace["Harness"]()
     harness.ssh_targets = ["10.0.0.1"]
     harness.test_params = {"neighbor_type": "sonic"}
+    harness.logs = []
+    harness.log = harness.logs.append
     return harness
 
 
 def test_sets_and_verifies_every_active_ovs_bond():
     neighbor = FakeNeighbor()
-    load_method(neighbor).csonic_set_lacp_all_neighs(180)
+    harness = load_method(neighbor)
+    harness.csonic_set_lacp_all_neighs(180)
 
     sets = [call for call in neighbor.calls if " set Port " in " {} ".format(call)]
     gets = [call for call in neighbor.calls if " get Port " in " {} ".format(call)]
@@ -81,6 +84,14 @@ def test_sets_and_verifies_every_active_ovs_bond():
     ]
     assert len(gets) == 2
     assert neighbor.disconnected
+    assert harness.logs == [
+        "cSONiC LACP receive multiplier update started: requested=180",
+        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 "
+        "bond=PortChannel1-bond requested=180 actual=180",
+        "cSONiC LACP receive multiplier verified: neighbor=10.0.0.1 "
+        "bond=PortChannel2-bond requested=180 actual=180",
+        "cSONiC LACP receive multiplier update completed: requested=180",
+    ]
 
 
 def test_fails_when_no_active_ovs_bonds_exist():

@@ -1583,6 +1583,7 @@ class ReloadTest(BaseTest):
             self.neigh_handle.disconnect()
 
     def csonic_set_lacp_all_neighs(self, multiplier):
+        self.log("cSONiC LACP receive multiplier update started: requested={}".format(multiplier))
         for neigh in self.ssh_targets:
             neigh_handle = HostDevice.getHostDeviceInstance(
                 self.test_params['neighbor_type'], neigh, None, self.test_params)
@@ -1603,12 +1604,17 @@ class ReloadTest(BaseTest):
                     actual = neigh_handle.do_cmd(
                         "sudo ovs-vsctl get Port {} "
                         "other_config:lacp-rx-multiplier".format(quoted_bond))
-                    if actual.strip().strip('"') != str(multiplier):
+                    actual = actual.strip().strip('"')
+                    if actual != str(multiplier):
                         raise RuntimeError(
                             "Failed to set LACP receive multiplier {} on {}:{}; got {!r}".format(
                                 multiplier, neigh, bond, actual))
+                    self.log(
+                        "cSONiC LACP receive multiplier verified: neighbor={} bond={} "
+                        "requested={} actual={}".format(neigh, bond, multiplier, actual))
             finally:
                 neigh_handle.disconnect()
+        self.log("cSONiC LACP receive multiplier update completed: requested={}".format(multiplier))
 
     def neigh_lag_status_check(self):
         """
