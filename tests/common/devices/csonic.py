@@ -615,11 +615,41 @@ class CsonicHost(NeighborDevice):
         return data if isinstance(data, dict) else {}
 
     def get_dut_iface_mac(self, interface_name):
-        """Return an interface MAC address from inside the cSONiC container."""
+        """Return the MAC of the Linux device that carries interface traffic.
+
+        cSONiC exposes SONiC-facing ``EthernetN`` devices alongside the
+        injected ``ethN`` front-panel devices. Software MACsec is created on
+        the latter (for example ``macsec_eth1``), so its SCI is derived from
+        the corresponding ``ethN`` MAC rather than the SAI-facing device MAC.
+        Match the two ordered interface lists just like
+        ``macsec_platform_helper.get_eth_ifname``; this also handles stock
+        cSONiC where Ethernet0 maps to eth1 instead of relying on equal numeric
+        suffixes.
+        """
         interface_name = (
             self._interface_name(interface_name)
             if hasattr(self, "_interface_name") else interface_name)
         try:
+            if re.fullmatch(r"Ethernet\d+", interface_name):
+                links = self._docker_exec("ls /sys/class/net/")
+                if links.get("rc") != 0:
+                    return None
+                link_names = (links.get("stdout_lines") or
+                              links.get("stdout", "").splitlines())
+                ethernet_ports = sorted(
+                    (name for name in link_names
+                     if re.fullmatch(r"Ethernet\d+", name)),
+                    key=lambda name: int(re.search(r"\d+", name).group(0)))
+                kernel_ports = sorted(
+                    (name for name in link_names
+                     if re.fullmatch(r"eth[1-9]\d*", name)),
+                    key=lambda name: int(re.search(r"\d+", name).group(0)))
+                if interface_name not in ethernet_ports:
+                    return None
+                index = ethernet_ports.index(interface_name)
+                if index >= len(kernel_ports):
+                    return None
+                interface_name = kernel_ports[index]
             result = self._docker_exec(
                 "cat /sys/class/net/{}/address".format(
                     shlex.quote(interface_name)))

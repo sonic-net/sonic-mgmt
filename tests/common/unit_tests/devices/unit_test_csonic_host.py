@@ -24,7 +24,7 @@ Follows the repo unit-test convention (unit_test_*.py, unittest.mock).
 import os
 import shlex
 import sys
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -148,13 +148,33 @@ class TestMacsecHostContract:
             "num_asic": 1,
         }
 
-    def test_get_dut_iface_mac_reads_container_interface(self):
+    def test_get_dut_iface_mac_reads_front_panel_kernel_interface(self):
         host = make_host()
         with patch.object(
                 host, "_docker_exec",
-                return_value=docker_ok("52:54:00:12:34:56\n")) as execute:
-            assert host.get_dut_iface_mac("Ethernet1") == "52:54:00:12:34:56"
-        execute.assert_called_once_with("cat /sys/class/net/Ethernet1/address")
+                side_effect=[
+                    docker_ok("eth0\neth1\neth2\nEthernet0\nEthernet4\n"),
+                    docker_ok("52:54:00:12:34:56\n"),
+                ]) as execute:
+            assert host.get_dut_iface_mac("Ethernet4") == "52:54:00:12:34:56"
+        assert execute.call_args_list == [
+            call("ls /sys/class/net/"),
+            call("cat /sys/class/net/eth2/address"),
+        ]
+
+    def test_get_dut_iface_mac_maps_converged_logical_interface(self):
+        host = make_converged_host()
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=[
+                    docker_ok("eth0\neth1\neth2\nEthernet1\nEthernet2\n"),
+                    docker_ok("52:54:00:65:43:21\n"),
+                ]) as execute:
+            assert host.get_dut_iface_mac("Ethernet1") == "52:54:00:65:43:21"
+        assert execute.call_args_list == [
+            call("ls /sys/class/net/"),
+            call("cat /sys/class/net/eth2/address"),
+        ]
 
     def test_get_dut_iface_mac_fails_closed(self):
         host = make_host()
