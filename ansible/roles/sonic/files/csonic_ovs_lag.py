@@ -53,7 +53,26 @@ def kernel_member(config_db_member):
     if not match:
         raise RuntimeError("unsupported cSONiC LAG member {}".format(
             config_db_member))
-    return "eth{}".format(match.group(1))
+
+    # VSLIB ports are not necessarily numbered contiguously (for example,
+    # Ethernet0 and Ethernet4 can be backed by eth1 and eth2). Match the
+    # ordering used when the dataplane devices are injected instead of
+    # assuming that the SONiC and kernel suffixes are identical.
+    link_names = os.listdir("/sys/class/net")
+    ethernet_ports = sorted(
+        (name for name in link_names if re.fullmatch(r"Ethernet\d+", name)),
+        key=lambda name: int(re.search(r"\d+", name).group(0)))
+    kernel_ports = sorted(
+        (name for name in link_names if re.fullmatch(r"eth[1-9]\d*", name)),
+        key=lambda name: int(re.search(r"\d+", name).group(0)))
+    if config_db_member not in ethernet_ports:
+        raise RuntimeError("cSONiC LAG member {} has no SONiC link".format(
+            config_db_member))
+    index = ethernet_ports.index(config_db_member)
+    if index >= len(kernel_ports):
+        raise RuntimeError("cSONiC LAG member {} has no kernel link".format(
+            config_db_member))
+    return kernel_ports[index]
 
 
 def start_ovs():

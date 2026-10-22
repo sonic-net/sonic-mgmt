@@ -703,6 +703,8 @@ def link_docker_exec(calls, member_key="PORTCHANNEL_MEMBER|PortChannel1|Ethernet
         if cmd.startswith("ovs-vsctl list-ifaces"):
             return {"rc": 0, "stdout": "\n".join(bond_ifaces),
                     "stdout_lines": list(bond_ifaces), "stderr": ""}
+        if cmd == "ls /sys/class/net/":
+            return docker_ok("eth0\neth1\neth2\nEthernet1\nEthernet2\n")
         if cmd.startswith("ip link set"):
             return docker_ok("")
         return {"rc": 1, "stdout": "", "stdout_lines": [], "stderr": "unexpected cmd"}
@@ -780,7 +782,9 @@ class TestShutdownBackendAware:
 
 
 def ovs_macsec_docker_exec(calls, initial_members=("eth1", "eth2"),
-                           missing_device=None):
+                           missing_device=None,
+                           link_names=("eth0", "eth1", "eth2",
+                                       "Ethernet1", "Ethernet2")):
     members = list(initial_members)
     interface_ids = {
         "eth1": "00000000-0000-0000-0000-000000000001",
@@ -798,6 +802,8 @@ def ovs_macsec_docker_exec(calls, initial_members=("eth1", "eth2"),
                     "stderr": ""}
         if cmd.startswith("ovs-vsctl --if-exists get Port") and cmd.endswith(" name"):
             return docker_ok("PortChannel1-bond")
+        if cmd == "ls /sys/class/net/":
+            return docker_ok("\n".join(link_names))
         if cmd == "ovs-vsctl get Port PortChannel1-bond interfaces":
             return docker_ok("[{}]".format(
                 ", ".join(interface_ids[member] for member in members)))
@@ -894,6 +900,22 @@ class TestOvsMacsecMember:
             for command in calls)
         swap = next(command for command in calls
                     if command.startswith("ovs-vsctl -- --id="))
+        assert "create Interface name=macsec_eth2" in swap
+
+    def test_enable_maps_noncontiguous_sonic_port_to_injected_device(self):
+        host = make_host()
+        calls = []
+        with patch.object(
+                host, "_docker_exec",
+                side_effect=ovs_macsec_docker_exec(
+                    calls, initial_members=("eth2",),
+                    link_names=("eth0", "eth1", "eth2",
+                                "Ethernet0", "Ethernet4"))):
+            host.set_ovs_macsec_member("Ethernet4", True)
+
+        swap = next(command for command in calls
+                    if command.startswith("ovs-vsctl -- --id="))
+        assert "get Interface eth2 _uuid" in swap
         assert "create Interface name=macsec_eth2" in swap
 
     def test_enable_fails_when_macsec_device_never_appears(self):

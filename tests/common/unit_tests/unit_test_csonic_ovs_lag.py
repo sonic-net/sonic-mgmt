@@ -57,3 +57,12 @@ def test_missing_addresses_compares_canonical_exact_ips():
         "10.0.0.1/31",
         "2001:DB8::1/64",
     ]
+
+
+def test_kernel_member_uses_port_order_for_noncontiguous_names(monkeypatch):
+    monkeypatch.setattr(
+        csonic_ovs_lag.os, "listdir",
+        lambda path: ["eth0", "eth1", "eth2", "Ethernet0", "Ethernet4"])
+
+    assert csonic_ovs_lag.kernel_member("Ethernet0") == "eth1"
+    assert csonic_ovs_lag.kernel_member("Ethernet4") == "eth2"
