@@ -60,38 +60,68 @@ def _apply_intf_map(value, intf_map):
 
 
 _BGP_SHOW_RE = re.compile(
-    r'^\s*(?:sudo\s+)?show\s+(ip|ipv6)\s+bgp(?:\s+(.*?))?\s*$',
+    r'^\s*(?:sudo\s+)?show\s+'
+    r'(?:(?P<legacy>ip|ipv6)\s+bgp|bgp\s+(?P<frr>ipv4|ipv6))'
+    r'(?:\s+(?P<suffix>.*?))?\s*$',
+    re.IGNORECASE,
+)
+_VTYSH_BGP_SHOW_RE = re.compile(
+    r'(?P<prefix>(?:sudo\s+)?vtysh\s+-c\s+)'
+    r'(?P<quote>[\'\"])(?P<command>show\s+.*?)(?P=quote)',
     re.IGNORECASE,
 )
 
 
+def _scope_bgp_show(command, vrf):
+    """Return one FRR BGP read scoped to ``vrf``, or None if unrelated."""
+    match = _BGP_SHOW_RE.match(command)
+    if not match:
+        return None
+    family = match.group('legacy') or match.group('frr')
+    afi = 'ipv4' if family.lower() == 'ip' else family.lower()
+    suffix = (match.group('suffix') or '').strip()
+    if re.search(r'(^|\s)vrf\s+', suffix, re.IGNORECASE):
+        return None
+    if suffix.lower().startswith('summary'):
+        return 'show bgp vrf {} {} {}'.format(vrf, afi, suffix)
+    if re.match(r'^neighbors?\b', suffix, re.IGNORECASE):
+        # Neighbor detail is VRF-level. Route-list subcommands require the
+        # address family so IPv6 reads do not fall back to IPv4 unicast.
+        if re.match(
+                r'^neighbors?\s+\S+\s+'
+                r'(?:received-routes|advertised-routes|routes)\b',
+                suffix, re.IGNORECASE):
+            return 'show bgp vrf {} {} unicast {}'.format(
+                vrf, afi, suffix)
+        return 'show bgp vrf {} {}'.format(vrf, suffix)
+    return 'show bgp vrf {} {} unicast{}'.format(
+        vrf, afi, ' {}'.format(suffix) if suffix else '')
+
+
 def _vrf_scope_bgp_reads(value, vrf):
-    """Scope legacy SONiC ``show * bgp`` commands to a logical peer VRF."""
+    """Scope bare and quoted ``vtysh`` BGP reads to a logical peer VRF."""
     if not vrf or value is None:
         return value
 
     def _rewrite_text(text):
+        def _rewrite_vtysh(match):
+            scoped = _scope_bgp_show(match.group('command'), vrf)
+            if scoped is None:
+                return match.group(0)
+            return '{}{}{}{}'.format(
+                match.group('prefix'), match.group('quote'), scoped,
+                match.group('quote'))
+
+        rewritten, count = _VTYSH_BGP_SHOW_RE.subn(_rewrite_vtysh, text)
+        if count:
+            return rewritten
+
         command, separator, pipe = text.partition('|')
-        match = _BGP_SHOW_RE.match(command)
-        if not match:
+        scoped = _scope_bgp_show(command, vrf)
+        if scoped is None:
             return text
-        afi = 'ipv4' if match.group(1).lower() == 'ip' else 'ipv6'
-        suffix = (match.group(2) or '').strip()
-        if re.search(r'(^|\s)vrf\s+', suffix, re.IGNORECASE):
-            return text
-        if suffix.lower().startswith('summary'):
-            scoped = 'vtysh -c "show bgp vrf {} {} {}"'.format(
-                vrf, afi, suffix)
-        elif re.match(r'^neighbors?\b', suffix, re.IGNORECASE):
-            # FRR accepts per-neighbor detail queries at the VRF level, without
-            # an intervening address-family.  The otherwise-canonical
-            # ``<afi> unicast neighbors <peer>`` form is incomplete unless a
-            # trailing detail subcommand is supplied.
-            scoped = 'vtysh -c "show bgp vrf {} {}"'.format(vrf, suffix)
-        else:
-            scoped = 'vtysh -c "show bgp vrf {} {} unicast{}"'.format(
-                vrf, afi, ' {}'.format(suffix) if suffix else '')
-        return '{} |{}'.format(scoped, pipe) if separator else scoped
+        result = 'vtysh -c "{}"'.format(scoped)
+        return '{} |{}'.format(result, pipe) if separator else result
 
     def _rewrite(item):
         if isinstance(item, str):
@@ -905,7 +935,14 @@ class CsonicHost(NeighborDevice):
                 "vtysh -c 'show bgp vrf {} summary json'".format(self.bgp_vrf),
                 module_ignore_errors=True)
             if vrf_status.get('rc', 1) == 0 and vrf_status.get('stdout'):
-                return result
+                try:
+                    summary = json.loads(vrf_status['stdout'])
+                except (json.JSONDecodeError, ValueError):
+                    summary = None
+                if isinstance(summary, dict) and any(
+                        key in summary for key in
+                        ('ipv4Unicast', 'ipv6Unicast')):
+                    return result
             time.sleep(2)
         return {
             'rc': 1,

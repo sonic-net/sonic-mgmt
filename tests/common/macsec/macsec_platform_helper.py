@@ -80,6 +80,8 @@ def get_all_ifnames(host, asic=None):
 
 def _runtime_port_name(host, port_name):
     """Translate a logical cSONiC port to its runtime interface name."""
+    if isinstance(host, EosHost):
+        return port_name
     mapper = getattr(host, "_interface_name", None)
     return mapper(port_name) if callable(mapper) else port_name
 

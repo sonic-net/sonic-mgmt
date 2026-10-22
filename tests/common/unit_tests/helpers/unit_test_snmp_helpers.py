@@ -10,7 +10,8 @@ from unittest.mock import MagicMock
 MODULE_PATH = Path(__file__).resolve().parents[2] / "helpers/snmp_helpers.py"
 SOURCE = MODULE_PATH.read_text()
 TREE = ast.parse(SOURCE)
-FUNCTION_NAMES = {"resolve_snmp_host", "format_snmp_cli_target"}
+FUNCTION_NAMES = {
+    "resolve_snmp_host", "format_snmp_cli_target", "_csonic_runtime_vrf"}
 FUNCTIONS = [
     node for node in TREE.body
     if isinstance(node, ast.FunctionDef) and node.name in FUNCTION_NAMES
@@ -23,6 +24,7 @@ exec(compile(ast.Module(body=FUNCTIONS, type_ignores=[]), str(MODULE_PATH), "exe
 
 resolve_snmp_host = NAMESPACE["resolve_snmp_host"]
 format_snmp_cli_target = NAMESPACE["format_snmp_cli_target"]
+_csonic_runtime_vrf = NAMESPACE["_csonic_runtime_vrf"]
 
 
 def _make_duthost(ipv6_only, ansible_host="192.0.2.10", mgmt_ipv6="2001:db8::10"):
@@ -62,3 +64,17 @@ def test_format_snmp_cli_target_wraps_ipv6_address():
 def test_format_snmp_cli_target_preserves_ipv4_and_hostname():
     assert format_snmp_cli_target("192.0.2.10") == "192.0.2.10"
     assert format_snmp_cli_target("dut.example.test") == "dut.example.test"
+
+
+def test_csonic_runtime_vrf_uses_host_when_link_metadata_is_absent():
+    nbr = {"host": SimpleNamespace(bgp_vrf="VrfARISTA02T1")}
+    assert _csonic_runtime_vrf(nbr) == "VrfARISTA02T1"
+
+
+def test_csonic_runtime_vrf_prefers_explicit_link_metadata():
+    nbr = {
+        "host": SimpleNamespace(bgp_vrf="VrfFromHost"),
+        "is_multi_vrf_peer": True,
+        "multi_vrf_data": {"vrf": "VrfFromMetadata"},
+    }
+    assert _csonic_runtime_vrf(nbr) == "VrfFromMetadata"

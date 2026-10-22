@@ -433,6 +433,28 @@ class TestStartBgpd:
         assert result["rc"] == 1
         assert result["stderr"] == "restart failed"
 
+    def test_converged_host_ignores_empty_vrf_summary(self):
+        host = make_converged_host()
+        summaries = iter([docker_ok("{}"),
+                          docker_ok('{"ipv4Unicast": {"peers": {}}}')])
+
+        def side(command, **kwargs):
+            if command == "supervisorctl start bgpd":
+                return docker_ok("bgpd: started")
+            if command == "supervisorctl status bgpd":
+                return docker_ok("bgpd RUNNING")
+            if command == "supervisorctl restart frrcfgd":
+                return docker_ok("frrcfgd: restarted")
+            if "show bgp vrf VrfARISTA02T1 summary json" in command:
+                return next(summaries)
+            raise AssertionError(command)
+
+        with patch.object(host, "_docker_exec", side_effect=side), \
+                patch("tests.common.devices.csonic.time.sleep") as sleep:
+            result = host.start_bgpd()
+        assert result["rc"] == 0
+        sleep.assert_called_once_with(2)
+
     def test_converged_host_waits_for_logical_vrf_after_frrcfgd_restart(self):
         host = make_converged_host()
         calls = []
@@ -562,6 +584,20 @@ class TestConvergedLogicalHost:
         assert commands[1] == (
             'vtysh -c "show bgp vrf VrfARISTA02T1 neighbors fc00::75" '
             '| grep Established')
+
+    def test_quoted_vtysh_route_reads_keep_address_family(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell(
+                "sudo vtysh -c 'show ip bgp neighbors 10.0.0.58 received-routes json'")
+            host.shell(
+                "sudo vtysh -c 'show bgp ipv6 neighbors fc00::75 received-routes json'")
+        assert [item.args[0] for item in mock_exec.call_args_list] == [
+            "sudo vtysh -c 'show bgp vrf VrfARISTA02T1 ipv4 unicast "
+            "neighbors 10.0.0.58 received-routes json'",
+            "sudo vtysh -c 'show bgp vrf VrfARISTA02T1 ipv6 unicast "
+            "neighbors fc00::75 received-routes json'",
+        ]
 
     def test_bgp_neighbor_detail_uses_valid_vrf_level_frr_syntax(self):
         host = make_converged_host()

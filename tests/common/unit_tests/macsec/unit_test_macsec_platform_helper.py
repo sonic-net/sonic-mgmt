@@ -12,7 +12,8 @@ import pytest
 
 
 class FakeEosHost:
-    pass
+    def __getattr__(self, name):
+        raise RuntimeError("optional EOS shell credentials are unavailable")
 
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "macsec/macsec_platform_helper.py"
@@ -88,6 +89,11 @@ def test_global_cmd_skips_eos_neighbors():
     global_cmd(dut, {"eos": {"host": eos}}, "required command")
 
     assert dut.commands == ["required command"]
+
+
+def test_runtime_port_mapping_bypasses_eos_optional_attributes():
+    assert NAMESPACE["_runtime_port_name"](
+        FakeEosHost(), "Ethernet1") == "Ethernet1"
 
 
 class VirtualPortHost:

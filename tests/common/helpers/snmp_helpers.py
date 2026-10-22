@@ -40,6 +40,14 @@ def format_snmp_cli_target(host):
     return host
 
 
+def _csonic_runtime_vrf(nbr):
+    """Resolve a logical cSONiC peer's VRF from host or legacy metadata."""
+    vrf = getattr(nbr.get("host"), "bgp_vrf", "") or ""
+    if nbr.get("is_multi_vrf_peer", False):
+        vrf = nbr.get("multi_vrf_data", {}).get("vrf") or vrf
+    return vrf
+
+
 def is_snmp_subagent_running(duthost):
     cmd = "docker exec snmp supervisorctl status snmp-subagent"
     output = duthost.shell(cmd)
@@ -136,9 +144,8 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
         # query to a DUT-facing interface address via --clientaddr.
         addr_family = "-6" if isinstance(ipaddr, ipaddress.IPv6Address) else "-4"
         source_intf = "PortChannel1"
-        csonic_vrf = ""
+        csonic_vrf = _csonic_runtime_vrf(nbr)
         if nbr.get("is_multi_vrf_peer", False):
-            csonic_vrf = nbr.get("multi_vrf_data", {}).get("vrf", "")
             family_key = "ipv6" if isinstance(ipaddr, ipaddress.IPv6Address) else "ipv4"
             intf_config = nbr.get("multi_vrf_data", {}).get("intf_config", {})
             candidates = [

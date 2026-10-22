@@ -31,6 +31,12 @@ def _make_results_serializable(obj):
     return str(obj)
 
 
+def _all_pids_listening(lines, pids):
+    """Require an exact ``ss`` process token for every expected PID."""
+    listeners = "\n".join(lines)
+    return all("pid={},".format(pid) in listeners for pid in pids)
+
+
 def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
     logging.info('Reboot DUT to recover')
 
@@ -203,10 +209,8 @@ def re_announce_routes(ptfhost, localhost, topo_name, ptf_ip, neighbor_number):
         # total on dual-stack PTF images even though every ExaBGP process is
         # healthy. Require at least one listening socket for each expected PID
         # instead of requiring exactly one row per process.
-        listeners = "\n".join(output["stdout_lines"])
-        return output["rc"] == 0 and all(
-            "pid={}".format(pid) in listeners for pid in exabgp_pids
-        )
+        return output["rc"] == 0 and _all_pids_listening(
+            output["stdout_lines"], exabgp_pids)
 
     def _op_routes(action):
         try:
