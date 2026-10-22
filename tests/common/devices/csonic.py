@@ -636,42 +636,40 @@ class CsonicHost(NeighborDevice):
                 interface_name, error)
         return None
 
-    def get_macsec_iface_mac(self, interface_name):
-        """Return the MAC of the Linux MACsec interface carrying traffic.
-
-        cSONiC exposes SONiC-facing ``EthernetN`` devices alongside injected
-        ``ethN`` front-panel devices, then creates ``macsec_ethN`` on the
-        latter. The MACsec interface address carries its configured SCI and
-        may differ from the lower ``ethN`` address, so read ``macsec_ethN``
-        itself. Match the ordered Ethernet/eth lists just like
-        ``macsec_platform_helper.get_eth_ifname``; this also handles stock
-        cSONiC where Ethernet0 maps to eth1 instead of relying on equal numeric
-        suffixes.
-        """
+    def _get_macsec_ifname(self, interface_name):
+        """Map a SONiC-facing port to its Linux MACsec interface."""
         interface_name = (
             self._interface_name(interface_name)
             if hasattr(self, "_interface_name") else interface_name)
+        if not re.fullmatch(r"Ethernet\d+", interface_name):
+            return interface_name
+
+        links = self._docker_exec("ls /sys/class/net/")
+        if links.get("rc") != 0:
+            return None
+        link_names = (links.get("stdout_lines") or
+                      links.get("stdout", "").splitlines())
+        ethernet_ports = sorted(
+            (name for name in link_names
+             if re.fullmatch(r"Ethernet\d+", name)),
+            key=lambda name: int(re.search(r"\d+", name).group(0)))
+        kernel_ports = sorted(
+            (name for name in link_names
+             if re.fullmatch(r"eth[1-9]\d*", name)),
+            key=lambda name: int(re.search(r"\d+", name).group(0)))
+        if interface_name not in ethernet_ports:
+            return None
+        index = ethernet_ports.index(interface_name)
+        if index >= len(kernel_ports):
+            return None
+        return "macsec_{}".format(kernel_ports[index])
+
+    def get_macsec_iface_mac(self, interface_name):
+        """Return the MAC of the Linux MACsec interface carrying traffic."""
         try:
-            if re.fullmatch(r"Ethernet\d+", interface_name):
-                links = self._docker_exec("ls /sys/class/net/")
-                if links.get("rc") != 0:
-                    return None
-                link_names = (links.get("stdout_lines") or
-                              links.get("stdout", "").splitlines())
-                ethernet_ports = sorted(
-                    (name for name in link_names
-                     if re.fullmatch(r"Ethernet\d+", name)),
-                    key=lambda name: int(re.search(r"\d+", name).group(0)))
-                kernel_ports = sorted(
-                    (name for name in link_names
-                     if re.fullmatch(r"eth[1-9]\d*", name)),
-                    key=lambda name: int(re.search(r"\d+", name).group(0)))
-                if interface_name not in ethernet_ports:
-                    return None
-                index = ethernet_ports.index(interface_name)
-                if index >= len(kernel_ports):
-                    return None
-                interface_name = "macsec_{}".format(kernel_ports[index])
+            interface_name = self._get_macsec_ifname(interface_name)
+            if interface_name is None:
+                return None
             result = self._docker_exec(
                 "cat /sys/class/net/{}/address".format(
                     shlex.quote(interface_name)))
@@ -680,6 +678,31 @@ class CsonicHost(NeighborDevice):
         except Exception as error:
             logger.error(
                 'Failed to get MAC address for interface "%s", exception: %r',
+                interface_name, error)
+        return None
+
+    def get_macsec_iface_sci(self, interface_name):
+        """Return the SCI configured on the active Linux MACsec interface.
+
+        Linux permits a MACsec interface's configured SCI to differ from its
+        device MAC address. The kernel MACsec record is therefore the
+        authoritative source for cSONiC MKA validation.
+        """
+        try:
+            interface_name = self._get_macsec_ifname(interface_name)
+            if interface_name is None:
+                return None
+            result = self._docker_exec("ip -j macsec show")
+            if result.get("rc") != 0 or not result.get("stdout"):
+                return None
+            for port in json.loads(result["stdout"]):
+                if port.get("ifname") != interface_name:
+                    continue
+                sci = str(port.get("sci", "")).lower().removeprefix("0x")
+                return sci if re.fullmatch(r"[0-9a-f]{16}", sci) else None
+        except (TypeError, ValueError, json.JSONDecodeError) as error:
+            logger.error(
+                'Failed to get MACsec SCI for interface "%s", exception: %r',
                 interface_name, error)
         return None
 
