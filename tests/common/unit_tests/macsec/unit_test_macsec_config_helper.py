@@ -37,6 +37,8 @@ FUNCTION_NAMES = {
     "_eos_macsec_profile_lines",
     "_macsec_profile_snapshot",
     "_macsec_profile_exists",
+    "_macsec_profile_fields",
+    "_macsec_profile_matches",
     "_restore_macsec_profile",
     "_wait_for_macsec_tasks",
     "_macsec_host_key",
@@ -105,6 +107,8 @@ _command_stdout = NAMESPACE["_command_stdout"]
 _macsec_port_profile = NAMESPACE["_macsec_port_profile"]
 _macsec_profile_snapshot = NAMESPACE["_macsec_profile_snapshot"]
 _macsec_profile_exists = NAMESPACE["_macsec_profile_exists"]
+_macsec_profile_fields = NAMESPACE["_macsec_profile_fields"]
+_macsec_profile_matches = NAMESPACE["_macsec_profile_matches"]
 _restore_macsec_profile = NAMESPACE["_restore_macsec_profile"]
 _wait_for_macsec_tasks = NAMESPACE["_wait_for_macsec_tasks"]
 _unique_macsec_neighbor_hosts = NAMESPACE["_unique_macsec_neighbor_hosts"]
@@ -286,6 +290,25 @@ def test_csonic_profile_snapshot_rejects_malformed_json(output):
 
     with pytest.raises(AssertionError, match="Malformed MACsec profile snapshot"):
         _macsec_profile_snapshot(host, "128_SCI")
+
+
+def test_sonic_profile_match_requires_exact_fields_in_every_namespace():
+    fields = _macsec_profile_fields(
+        64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
+    snapshot = {
+        "runtime": "sonic",
+        "entries": [
+            {"namespace": "asic0", "fields": dict(fields)},
+            {"namespace": "asic1", "fields": dict(fields)},
+        ],
+    }
+
+    assert _macsec_profile_matches(
+        snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
+
+    snapshot["entries"][1]["fields"]["priority"] = "63"
+    assert not _macsec_profile_matches(
+        snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
 
 
 def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
@@ -519,6 +542,51 @@ def test_setup_configures_shared_csonic_profile_and_endpoint_once():
         (duthost, "Ethernet0"),
         (duthost, "Ethernet4"),
         (csonic, "Ethernet1"),
+    ]
+
+
+def test_setup_reuses_matching_profiles_before_rebinding_ports():
+    duthost = ShellHost()
+    neighbor = CsonicShellHost()
+    links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
+    submit = MagicMock(side_effect=lambda *_args, **_kwargs: MagicMock(exitcode=0))
+    NAMESPACE["submit_async_task"] = submit
+    NAMESPACE["_wait_for_macsec_tasks"] = MagicMock()
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(side_effect=[
+        {
+            "runtime": "sonic",
+            "entries": [{
+                "namespace": None,
+                "fields": _macsec_profile_fields(
+                    64, "GCM-AES-128", "cak", "ckn", "security", "true", 0),
+            }],
+        },
+        {
+            "runtime": "sonic",
+            "entries": [{
+                "namespace": None,
+                "fields": _macsec_profile_fields(
+                    63, "GCM-AES-128", "cak", "ckn", "security", "true", 0),
+            }],
+        },
+    ])
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value="128_SCI_NEW")
+    NAMESPACE["wait_until"] = MagicMock(return_value=True)
+
+    setup_macsec_configuration(
+        duthost, links, "128_SCI", 64, "GCM-AES-128", "cak", "ckn",
+        "security", "true", 0, {})
+
+    assert not [
+        item for item in submit.call_args_list
+        if item.args[0] is set_macsec_profile
+    ]
+    assert [
+        item.args[1][:2] for item in submit.call_args_list
+        if item.args[0] is enable_macsec_port
+    ] == [
+        (duthost, "Ethernet0"),
+        (neighbor, "Ethernet1"),
     ]
 
 
