@@ -45,14 +45,6 @@ class CsonicHost(NeighborDevice):
             lag_backend or
             os.getenv("SONIC_MGMT_CSONIC_LAG_BACKEND", "teamd"))
         self.is_local = vm_host_ip is None or vm_host_ip in ('localhost', '127.0.0.1')
-        # cSONiC neighbor containers expose one SONiC ASIC and need the small
-        # host contract consumed by the shared MACsec helpers.
-        self.is_multi_asic = False
-        self.facts = {
-            "asic_type": "vs",
-            "platform_asic": "vs",
-            "num_asic": 1,
-        }
 
     def __str__(self):
         return '<CsonicHost {}>'.format(self.container_name)

@@ -1,11 +1,11 @@
 import ast
 import re
 import logging
-from collections.abc import Mapping
 from multiprocessing.pool import ThreadPool
 
 import pytest
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 
 
@@ -22,34 +22,14 @@ __all__ = [
 
 
 def global_cmd(duthost, nbrhosts, cmd):
-    """Run a required command on every SONiC endpoint and surface failures."""
-    hosts = [duthost]
-    hosts.extend(
-        nbr["host"] for nbr in list(nbrhosts.values())
-        if not isinstance(nbr["host"], EosHost))
-    pool = ThreadPool(len(hosts))
-    tasks = [(host, pool.apply_async(host.command, args=(cmd,)))
-             for host in hosts]
+    pool = ThreadPool(1 + len(nbrhosts))
+    pool.apply_async(duthost.command, args=(cmd,))
+    for nbr in list(nbrhosts.values()):
+        if isinstance(nbr["host"], EosHost):
+            continue
+        pool.apply_async(nbr["host"].command, args=(cmd, ))
     pool.close()
-    try:
-        failures = []
-        for host, task in tasks:
-            try:
-                result = task.get()
-            except Exception as error:
-                failures.append({
-                    "host": getattr(host, "hostname", str(host)),
-                    "exception": repr(error),
-                })
-                continue
-            if not isinstance(result, Mapping) or result.get("rc") != 0:
-                failures.append({
-                    "host": getattr(host, "hostname", str(host)),
-                    "result": repr(result),
-                })
-        assert not failures, "Required MACsec command failed: {}".format(failures)
-    finally:
-        pool.join()
+    pool.join()
 
 
 def sonic_db_cli(host, cmd):
@@ -58,7 +38,7 @@ def sonic_db_cli(host, cmd):
 
 def get_all_ifnames(host, asic=None):
     cmd_prefix = " "
-    if getattr(host, "is_multi_asic", False) and asic is not None:
+    if host.is_multi_asic and asic is not None:
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         cmd_prefix = "sudo ip netns exec {} ".format(ns)
 
@@ -79,10 +59,14 @@ def get_all_ifnames(host, asic=None):
 
 
 def get_eth_ifname(host, port_name):
+    if isinstance(host, CsonicHost):
+        interface = host._kernel_interface_name(port_name)
+        assert interface is not None
+        return interface
     asic = None
     if "x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
-        if getattr(host, "is_multi_asic", False):
+        if host.is_multi_asic:
             asic = host.get_port_asic_instance(port_name)
         ports = get_all_ifnames(host, asic)
         assert port_name in ports["Ethernet"]
@@ -92,12 +76,14 @@ def get_eth_ifname(host, port_name):
 
 
 def get_macsec_ifname(host, port_name):
+    if isinstance(host, CsonicHost):
+        return host._get_macsec_ifname(port_name)
     asic = None
     if "x86_64-kvm_x86_64" not in get_platform(host):
         logging.info(
             "Can only get the macsec ifname on the virtual SONiC switch")
         return None
-    if getattr(host, "is_multi_asic", False):
+    if host.is_multi_asic:
         asic = host.get_port_asic_instance(port_name)
     ports = get_all_ifnames(host, asic)
     assert port_name in ports["Ethernet"]

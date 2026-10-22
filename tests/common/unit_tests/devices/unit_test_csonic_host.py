@@ -129,15 +129,11 @@ def route_docker_exec(cmd, **kwargs):
 # --- MACsec host contract -------------------------------------------------
 
 class TestMacsecHostContract:
-    def test_single_asic_vs_facts_are_exposed(self):
+    def test_does_not_claim_the_shared_sonic_host_contract(self):
         host = make_host()
 
-        assert host.is_multi_asic is False
-        assert host.facts == {
-            "asic_type": "vs",
-            "platform_asic": "vs",
-            "num_asic": 1,
-        }
+        assert not hasattr(host, "is_multi_asic")
+        assert not hasattr(host, "facts")
 
     def test_get_dut_iface_mac_reads_sonic_interface(self):
         host = make_host()

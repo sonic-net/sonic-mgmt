@@ -2,8 +2,6 @@ import binascii
 import re
 import json
 import logging
-import os
-import signal
 import time
 from collections import defaultdict, deque
 from multiprocessing import Process
@@ -40,54 +38,11 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 process_queue = []
-_PROCESS_TERMINATE_GRACE_SECONDS = 5
-
-
-def _run_async_task(target, args):
-    """Run one task in its own process group so child commands are cancellable."""
-    os.setsid()
-    target(*args)
-
-
-def _signal_async_task(proc, sig):
-    """Signal a task and every external command still running beneath it."""
-    if proc.pid is None:
-        return
-    try:
-        # The group can outlive its Python leader, so signal the expected group
-        # ID directly instead of returning when ``proc.is_alive()`` is false.
-        os.killpg(proc.pid, sig)
-        return
-    except ProcessLookupError:
-        pass
-
-    # ``setsid`` should always establish the group. Fall back to the Python
-    # worker only if startup failed before that point.
-    if proc.is_alive():
-        if sig == signal.SIGTERM:
-            proc.terminate()
-        else:
-            proc.kill()
-
-
-def _cancel_async_tasks(processes):
-    """Cancel and fully reap all workers before their caller may roll back."""
-    for proc in processes:
-        _signal_async_task(proc, signal.SIGTERM)
-
-    deadline = time.monotonic() + _PROCESS_TERMINATE_GRACE_SECONDS
-    for proc in processes:
-        proc.join(max(0, deadline - time.monotonic()))
-
-    for proc in processes:
-        _signal_async_task(proc, signal.SIGKILL)
-    for proc in processes:
-        proc.join()
 
 
 def submit_async_task(target, args):
     global process_queue
-    proc = Process(target=_run_async_task, args=(target, args))
+    proc = Process(target=target, args=args)
     process_queue.append(proc)
     proc.start()
     return proc
@@ -95,21 +50,13 @@ def submit_async_task(target, args):
 
 def wait_all_complete(timeout=300):
     global process_queue
-    processes = process_queue
+    for proc in process_queue:
+        proc.join(timeout)
+        # If process timeout, terminate all processes, otherwise the pytest process will never finish.
+        if proc.is_alive():
+            [p.terminate() for p in process_queue]
+            raise RuntimeError("Process {} timeout {}".format(proc, timeout))
     process_queue = []
-    try:
-        for proc in processes:
-            proc.join(timeout)
-            if proc.is_alive():
-                raise RuntimeError(
-                    "Process {} timeout {}".format(proc, timeout))
-    except BaseException:
-        # A multiprocessing worker may be blocked in subprocess.run(). Killing
-        # only that Python process leaves the command alive and lets it mutate
-        # MACsec state after setup has started snapshot rollback. Each task owns
-        # a process group, so cancel the complete operation and drain it here.
-        _cancel_async_tasks(processes)
-        raise
 
 
 def check_wpa_supplicant_process(host, ctrl_port_name):
@@ -140,8 +87,10 @@ QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABL
 
 
 def getns_prefix(host, intf):
+    if isinstance(host, CsonicHost):
+        return " "
     ns_prefix = " "
-    if getattr(host, "is_multi_asic", False):
+    if host.is_multi_asic:
         asic = host.get_port_asic_instance(intf)
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         ns_prefix = "-n {}".format(ns)
@@ -150,8 +99,10 @@ def getns_prefix(host, intf):
 
 
 def get_ipnetns_prefix(host, intf):
+    if isinstance(host, CsonicHost):
+        return " "
     ns_prefix = " "
-    if getattr(host, "is_multi_asic", False):
+    if host.is_multi_asic:
         asic = host.get_port_asic_instance(intf)
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         ns_prefix = "sudo ip netns exec {}".format(ns)

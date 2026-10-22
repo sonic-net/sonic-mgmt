@@ -26,6 +26,8 @@ def test_userspace_ovs_image_bakes_macsec_runtime_dependencies():
     assert "CONFIG_DRIVER_MACSEC_SONIC=y" in contents
     assert "macsec_sonic" in contents
     assert "/etc/wpa_supplicant.conf" in contents
+    assert "/etc/supervisor/conf.d/sonic-mgmt-macsec.conf" in contents
+    assert "autostart=false" in contents
     assert "apt-get install -y --no-install-recommends \\\n        wpasupplicant" not in contents
 
 
@@ -37,6 +39,7 @@ def test_userspace_ovs_provisions_host_macsec_kernel_module():
     assert "linux-modules-extra-{{ csonic_macsec_host_kernel.stdout | trim }}" in contents
     assert "name: macsec" in contents
     assert contents.count("csonic_lag_backend == 'userspace_ovs'") >= 4
+    assert contents.count("SONIC_MGMT_CSONIC_MACSEC") >= 4
 
 
 def test_missing_addresses_compares_canonical_exact_ips():

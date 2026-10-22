@@ -7,7 +7,9 @@
   register: csonic_macsec_modprobe
   changed_when: false
   failed_when: false
-  when: csonic_lag_backend == 'userspace_ovs'
+  when:
+    - csonic_lag_backend == 'userspace_ovs'
+    - (lookup('env', 'SONIC_MGMT_CSONIC_MACSEC') | default('', true) | lower) in ['1', 'true', 'yes']
 
 - name: Read host kernel release when the MACsec module is absent
   command: uname -r
@@ -16,6 +18,7 @@
   changed_when: false
   when:
     - csonic_lag_backend == 'userspace_ovs'
+    - (lookup('env', 'SONIC_MGMT_CSONIC_MACSEC') | default('', true) | lower) in ['1', 'true', 'yes']
     - csonic_macsec_modprobe.rc != 0
 
 # Ubuntu's linux-modules-extra package depends on the matching linux-modules
@@ -35,6 +38,7 @@
   until: csonic_macsec_kernel_modules is success
   when:
     - csonic_lag_backend == 'userspace_ovs'
+    - (lookup('env', 'SONIC_MGMT_CSONIC_MACSEC') | default('', true) | lower) in ['1', 'true', 'yes']
     - csonic_macsec_modprobe.rc != 0
 
 - name: Load installed host Linux MACsec support for cSONiC peers
@@ -45,6 +49,7 @@
   delegate_to: "{{ VM_host[0] }}"
   when:
     - csonic_lag_backend == 'userspace_ovs'
+    - (lookup('env', 'SONIC_MGMT_CSONIC_MACSEC') | default('', true) | lower) in ['1', 'true', 'yes']
     - csonic_macsec_modprobe.rc != 0
 
 - name: Create cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}

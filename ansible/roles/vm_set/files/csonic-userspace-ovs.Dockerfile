@@ -72,6 +72,17 @@ COPY --from=wpa-builder /src/wpa/wpa_supplicant/wpa_cli /sbin/wpa_cli
 
 RUN printf 'eapol_version=3\nap_scan=0\nfast_reauth=1\n' \
         > /etc/wpa_supplicant.conf \
+    && printf '%s\n' \
+        '[program:macsecmgrd]' \
+        'command=/usr/bin/macsecmgrd' \
+        'priority=2' \
+        'autostart=false' \
+        'autorestart=false' \
+        'stdout_logfile=NONE' \
+        'stdout_syslog=true' \
+        'stderr_logfile=NONE' \
+        'stderr_syslog=true' \
+        > /etc/supervisor/conf.d/sonic-mgmt-macsec.conf \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         openvswitch-switch \
