@@ -28,17 +28,22 @@ class CsonicHost(NeighborDevice):
     executing commands via 'docker exec' on the VM host rather than SSH.
     """
 
-    def __init__(self, container_name, vm_host_ip=None, vm_host_user=None):
+    def __init__(self, container_name, vm_host_ip=None, vm_host_user=None,
+                 lag_backend=None):
         """
         Args:
             container_name: Docker container name (e.g., 'csonic_vms6-1_VM0100')
             vm_host_ip: IP of the host running the container (default: localhost)
             vm_host_user: SSH user for the VM host (only needed if remote)
+            lag_backend: cSONiC LAG implementation (teamd or userspace_ovs)
         """
         self.container_name = container_name
         self.hostname = container_name
         self.vm_host_ip = vm_host_ip
         self.vm_host_user = vm_host_user
+        self.lag_backend = (
+            lag_backend or
+            os.getenv("SONIC_MGMT_CSONIC_LAG_BACKEND", "teamd"))
         self.is_local = vm_host_ip is None or vm_host_ip in ('localhost', '127.0.0.1')
         # cSONiC neighbor containers expose one SONiC ASIC and need the small
         # host contract consumed by the shared MACsec helpers.
@@ -266,32 +271,19 @@ class CsonicHost(NeighborDevice):
         return active[0]
 
     def _ovs_bond_interfaces(self, bond):
-        """Return only the Interface names referenced by an OVS Port."""
+        """Return a bond's interfaces from one consistent OVSDB read."""
+        bridge = bond[:-len("-bond")]
         result = self._docker_exec(
-            "ovs-vsctl get Port {} interfaces".format(shlex.quote(bond)),
+            "ovs-vsctl list-ifaces {}".format(shlex.quote(bridge)),
             module_ignore_errors=True)
         if result.get("rc") != 0:
             raise Exception(
-                "Unable to get OVS bond [{}] interface IDs: {}".format(
-                    bond, result.get("stderr", "")))
-        interface_ids = re.findall(
-            r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",
-            result.get("stdout", ""))
-        if not interface_ids:
-            raise Exception(
-                "OVS bond [{}] has no interface IDs: {}".format(
-                    bond, result.get("stdout", "")))
-
-        interfaces = []
-        for interface_id in interface_ids:
-            record = self._docker_exec(
-                "ovs-vsctl get Interface {} name".format(interface_id),
-                module_ignore_errors=True)
-            if record.get("rc") != 0 or not record.get("stdout"):
-                raise Exception(
-                    "Unable to resolve OVS bond [{}] interface [{}]: {}"
-                    .format(bond, interface_id, record.get("stderr", "")))
-            interfaces.append(record["stdout"].strip().strip('"'))
+                "Unable to list OVS bridge interfaces for bond [{}]: {}"
+                .format(bond, result.get("stderr", "")))
+        interfaces = result.get("stdout_lines") or [
+            line for line in result.get("stdout", "").splitlines() if line]
+        if not interfaces:
+            raise Exception("OVS bond [{}] has no interfaces".format(bond))
         return interfaces
 
     def set_ovs_macsec_member(self, interface_name, enabled, timeout=60):
@@ -516,6 +508,9 @@ class CsonicHost(NeighborDevice):
         Only the userspace OVS LAG backend creates these bonds (``<PortChannel>-bond``);
         returns None when the member has no PortChannel or the bond does not exist.
         """
+        if self.lag_backend != "userspace_ovs":
+            return None
+
         result = self._docker_exec(
             "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*|{}'".format(interface_name),
             module_ignore_errors=True)

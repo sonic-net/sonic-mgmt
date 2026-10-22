@@ -36,6 +36,7 @@ FUNCTION_NAMES = {
     "_command_stdout",
     "_macsec_port_profile",
     "_eos_macsec_profile_lines",
+    "_decode_macsec_profile_fields",
     "_macsec_profile_snapshot",
     "_macsec_profile_exists",
     "_macsec_profile_fields",
@@ -58,10 +59,13 @@ FUNCTION_NAMES = {
     "_macsec_configuration_targets",
     "_rollback_macsec_configuration",
     "_macsec_session_cleanup_hosts",
+    "_prepare_macsec_lldp",
     "set_macsec_profile",
     "delete_macsec_profile",
     "enable_macsec_port",
     "disable_macsec_port",
+    "_macsec_feature_state",
+    "_restore_macsec_feature_state",
     "enable_macsec_feature",
     "disable_macsec_feature",
     "setup_macsec_configuration",
@@ -81,6 +85,7 @@ NODES = [
 NAMESPACE = {
     "CsonicHost": FakeCsonicHost,
     "EosHost": FakeEosHost,
+    "ast": ast,
     "json": json,
     "Mapping": Mapping,
     "shlex": shlex,
@@ -94,6 +99,8 @@ ORIGINAL_NAMESPACE = NAMESPACE.copy()
 @pytest.fixture(autouse=True)
 def restore_extracted_namespace():
     """Keep per-test mocks from leaking through extracted function globals."""
+    NAMESPACE["_macsec_feature_state"] = MagicMock(return_value="disabled")
+    NAMESPACE["_restore_macsec_feature_state"] = MagicMock()
     yield
     NAMESPACE.clear()
     NAMESPACE.update(ORIGINAL_NAMESPACE)
@@ -106,6 +113,7 @@ _host_platform_asic = NAMESPACE["_host_platform_asic"]
 _run_required_macsec_command = NAMESPACE["_run_required_macsec_command"]
 _command_stdout = NAMESPACE["_command_stdout"]
 _macsec_port_profile = NAMESPACE["_macsec_port_profile"]
+_decode_macsec_profile_fields = NAMESPACE["_decode_macsec_profile_fields"]
 _macsec_profile_snapshot = NAMESPACE["_macsec_profile_snapshot"]
 _macsec_profile_exists = NAMESPACE["_macsec_profile_exists"]
 _macsec_profile_fields = NAMESPACE["_macsec_profile_fields"]
@@ -122,10 +130,13 @@ _rollback_csonic_macsec_service = NAMESPACE["_rollback_csonic_macsec_service"]
 _macsec_configuration_targets = NAMESPACE["_macsec_configuration_targets"]
 _rollback_macsec_configuration = NAMESPACE["_rollback_macsec_configuration"]
 _macsec_session_cleanup_hosts = NAMESPACE["_macsec_session_cleanup_hosts"]
+_prepare_macsec_lldp = NAMESPACE["_prepare_macsec_lldp"]
 set_macsec_profile = NAMESPACE["set_macsec_profile"]
 delete_macsec_profile = NAMESPACE["delete_macsec_profile"]
 enable_macsec_port = NAMESPACE["enable_macsec_port"]
 disable_macsec_port = NAMESPACE["disable_macsec_port"]
+_macsec_feature_state = NAMESPACE["_macsec_feature_state"]
+_restore_macsec_feature_state = NAMESPACE["_restore_macsec_feature_state"]
 enable_macsec_feature = NAMESPACE["enable_macsec_feature"]
 disable_macsec_feature = NAMESPACE["disable_macsec_feature"]
 setup_macsec_configuration = NAMESPACE["setup_macsec_configuration"]
@@ -249,7 +260,7 @@ def test_csonic_profile_snapshot_restores_original_fields_exactly():
     }
     commands = [item.args[0] for item in host.command.call_args_list]
     assert commands[0] == (
-        "sonic-db-cli -j CONFIG_DB HGETALL 'MACSEC_PROFILE|128_SCI'")
+        "sonic-db-cli CONFIG_DB HGETALL 'MACSEC_PROFILE|128_SCI'")
     assert commands[1] == (
         "sonic-db-cli CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'")
     assert commands[2] == (
@@ -284,13 +295,28 @@ def test_multi_asic_profile_snapshot_preserves_each_namespace():
     ]
 
 
-@pytest.mark.parametrize("output", ["", "[]", "not-json"])
-def test_csonic_profile_snapshot_rejects_malformed_json(output):
+@pytest.mark.parametrize("output", ["[]", "not-json", "priority\n"])
+def test_csonic_profile_snapshot_rejects_malformed_output(output):
     host = CsonicShellHost()
     host.command = MagicMock(return_value={"rc": 0, "stdout": output})
 
     with pytest.raises(AssertionError, match="Malformed MACsec profile snapshot"):
         _macsec_profile_snapshot(host, "128_SCI")
+
+
+def test_profile_snapshot_accepts_legacy_field_value_lines_and_empty_output():
+    host = CsonicShellHost()
+    host.command = MagicMock(side_effect=[
+        {"rc": 0, "stdout": "priority\n64\npolicy\nsecurity\n"},
+        {"rc": 0, "stdout": ""},
+    ])
+
+    populated = _macsec_profile_snapshot(host, "128_SCI")
+    absent = _macsec_profile_snapshot(host, "MISSING")
+
+    assert populated["entries"][0]["fields"] == {
+        "priority": "64", "policy": "security"}
+    assert absent["entries"][0]["fields"] is None
 
 
 def test_sonic_profile_match_requires_requested_fields_in_every_namespace():
@@ -738,6 +764,32 @@ def test_setup_reuses_matching_profiles_before_rebinding_ports():
     ]
 
 
+def test_matching_profile_still_applies_lldp_workaround():
+    duthost = ShellHost()
+    neighbor = CsonicShellHost()
+    links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
+    fields64 = _macsec_profile_fields(
+        64, "GCM-AES-128", "cak", "ckn", "security", "false", 0)
+    fields63 = dict(fields64, priority="63")
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(side_effect=[
+        {"runtime": "sonic", "entries": [{"namespace": None, "fields": fields64}]},
+        {"runtime": "sonic", "entries": [{"namespace": None, "fields": fields63}]},
+    ])
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
+    NAMESPACE["submit_async_task"] = MagicMock(
+        side_effect=lambda *_args, **_kwargs: MagicMock(exitcode=0))
+    NAMESPACE["_wait_for_macsec_tasks"] = MagicMock()
+    NAMESPACE["wait_until"] = MagicMock(return_value=True)
+    NAMESPACE["_prepare_macsec_lldp"] = MagicMock()
+
+    setup_macsec_configuration(
+        duthost, links, "128", 64, "GCM-AES-128", "cak", "ckn",
+        "security", "false", 0, {})
+
+    assert NAMESPACE["_prepare_macsec_lldp"].call_args_list == [
+        call(duthost, "false"), call(neighbor, "false")]
+
+
 def test_session_cleanup_skips_physical_dut_but_keeps_vs_dut():
     physical = ShellHost()
     physical.facts = {"asic_type": "mellanox"}
@@ -771,6 +823,38 @@ def test_profile_failure_does_not_touch_existing_port_bindings():
     rollback = NAMESPACE["_rollback_macsec_configuration"]
     assert rollback.call_count == 1
     assert rollback.call_args.args[1] == []
+
+
+def test_profile_failure_restores_only_profiles_attempted_by_setup():
+    duthost = ShellHost()
+    neighbor = CsonicShellHost()
+    links = {"Ethernet0": {"host": neighbor, "port": "Ethernet1"}}
+    matching = {
+        "runtime": "sonic",
+        "entries": [{
+            "namespace": None,
+            "fields": _macsec_profile_fields(
+                64, "GCM-AES-128", "cak", "ckn", "security", "true", 0),
+        }],
+    }
+    changed = {"runtime": "sonic", "entries": []}
+    NAMESPACE["_macsec_profile_snapshot"] = MagicMock(
+        side_effect=[matching, changed])
+    NAMESPACE["_macsec_port_profile"] = MagicMock(return_value=None)
+    NAMESPACE["submit_async_task"] = MagicMock(
+        return_value=MagicMock(exitcode=1))
+    NAMESPACE["_wait_for_macsec_tasks"] = MagicMock(
+        side_effect=AssertionError("neighbor profile failed"))
+    NAMESPACE["_rollback_macsec_configuration"] = MagicMock()
+
+    with pytest.raises(AssertionError, match="neighbor profile failed"):
+        setup_macsec_configuration(
+            duthost, links, "128_SCI", 64, "GCM-AES-128", "cak",
+            "ckn", "security", "true", 0, {})
+
+    rollback = NAMESPACE["_rollback_macsec_configuration"]
+    rollback.assert_called_once_with(
+        [(neighbor, changed)], [], "128_SCI")
 
 
 def test_configuration_rollback_restores_only_attempted_bindings():
@@ -1190,6 +1274,29 @@ def test_csonic_rollback_stops_removes_and_restores_new_resources():
     assert any(" HDEL " in command for command in commands)
 
 
+def test_feature_state_snapshot_and_restore_preserve_absence():
+    host = CsonicShellHost()
+    host.command = MagicMock(side_effect=[
+        {"rc": 0, "stdout": "enabled"},
+        {"rc": 0, "stdout": ""},
+        {"rc": 0, "stdout": "1"},
+        {"rc": 0, "stdout": "1"},
+    ])
+
+    assert _macsec_feature_state(host) == "enabled"
+    assert _macsec_feature_state(host) is None
+    _restore_macsec_feature_state(host, "enabled")
+    _restore_macsec_feature_state(host, None)
+
+    commands = [item.args[0] for item in host.command.call_args_list]
+    assert commands == [
+        'sonic-db-cli CONFIG_DB HGET "FEATURE|macsec" state',
+        'sonic-db-cli CONFIG_DB HGET "FEATURE|macsec" state',
+        "sudo config feature state macsec enabled",
+        'sonic-db-cli CONFIG_DB HDEL "FEATURE|macsec" state',
+    ]
+
+
 def test_enable_rolls_back_csonic_initialization_on_readiness_failure():
     duthost = ShellHost()
     csonic = CsonicShellHost()
@@ -1206,6 +1313,8 @@ def test_enable_rolls_back_csonic_initialization_on_readiness_failure():
 
     NAMESPACE["_rollback_csonic_macsec_service"].assert_called_once_with(
         csonic, initial)
+    assert NAMESPACE["_restore_macsec_feature_state"].call_args_list == [
+        call(csonic, "disabled"), call(duthost, "disabled")]
 
 
 def test_failed_reenable_preserves_first_ownership_snapshot():

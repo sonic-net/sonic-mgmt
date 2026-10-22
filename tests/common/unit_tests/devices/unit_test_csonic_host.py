@@ -42,8 +42,9 @@ from tests.common.devices.csonic import CsonicHost  # noqa: E402
 
 
 def make_host():
-    """Instantiate a CsonicHost without touching Docker (init does no I/O)."""
-    return CsonicHost("csonic_test_VM0100")
+    """Instantiate the opt-in userspace-OVS host used by these unit tests."""
+    return CsonicHost(
+        "csonic_test_VM0100", lag_backend="userspace_ovs")
 
 
 def docker_ok(stdout):
@@ -473,7 +474,19 @@ class TestShutdownBackendAware:
         assert "ip link set macsec_eth1 down" in calls
 
     def test_non_ovs_backend_touches_only_sonic_port(self):
-        """teamd-backed (or non-member) interfaces keep the SONiC-CLI-only path."""
+        """teamd-backed interfaces must not probe the optional OVS CLI."""
+        host = CsonicHost("csonic_test_VM0100", lag_backend="teamd")
+        calls = []
+        with patch.object(host, "_docker_exec",
+                          side_effect=link_docker_exec(calls)):
+            host.shutdown("Ethernet1")
+            host.no_shutdown("Ethernet1")
+        assert not [c for c in calls if c.startswith("ovs-vsctl")]
+        assert not [c for c in calls if c.startswith("ip link set")]
+        assert "config interface shutdown Ethernet1" in calls
+        assert "config interface startup Ethernet1" in calls
+
+    def test_ovs_non_member_touches_only_sonic_port(self):
         host = make_host()
         for kwargs in ({"member_key": ""}, {"bond_exists": False}):
             calls = []
@@ -482,8 +495,6 @@ class TestShutdownBackendAware:
                 host.shutdown("Ethernet1")
                 host.no_shutdown("Ethernet1")
             assert not [c for c in calls if c.startswith("ip link set")]
-            assert "config interface shutdown Ethernet1" in calls
-            assert "config interface startup Ethernet1" in calls
 
     def test_member_not_in_bond_raises(self):
         """A derived device missing from the bond must raise, never silently fall
