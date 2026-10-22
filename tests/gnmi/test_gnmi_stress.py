@@ -6,6 +6,7 @@ import grpc
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.helpers.gnmi_audit import get_audit_log_offset, read_audit_log
 from tests.common.helpers.gnmi_connection import (
     build_native_set_request,
     gnmi_connection,
@@ -64,8 +65,7 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
 
     log_start = None
     try:
-        log_start = tuple(map(int, duthost.shell(
-            "sudo timeout -k 1 5 stat -c '%i %s' /var/log/gnmi.log")["stdout"].split()))
+        log_start = get_audit_log_offset(duthost)
     except Exception:
         logger.warning("Unable to record gNMI log starting position", exc_info=True)
 
@@ -84,20 +84,10 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
                 total_latencies.append(total_latency)
                 logger.info(f"Total iteration latency: {total_latency:.2f} ms")
     except grpc.RpcError:
-        # Read once after channel closure and before fixture rollback. No polling
-        # for late completion; the remote command timeout does not bound SSH setup.
+        # Read once after channel closure and before fixture rollback.
         if log_start is not None:
             try:
-                inode, offset = log_start
-                output = duthost.shell(
-                    "sudo timeout -k 1 10 sh -c 'exec 3< /var/log/gnmi.log; "
-                    "set -- $(stat -Lc \"%i %s\" /proc/self/fd/3); "
-                    "[ \"$1\" = {0} ] && [ \"$2\" -ge {1} ] || "
-                    "{{ echo \"gNMI log rotated or truncated; slice unavailable\"; exit 1; }}; "
-                    "tail -c +{2} <&3 | head -c 65536'".format(inode, offset, offset + 1),
-                    module_ignore_errors=True)
-                logger.warning("gNMI log since test start (first 64 KiB), rc=%s:\n%s\n%s",
-                               output.get("rc"), output.get("stdout", ""), output.get("stderr", ""))
+                logger.warning("gNMI log since test start:\n%s", read_audit_log(duthost, log_start))
             except Exception:
                 logger.warning("Unable to read gNMI failure log", exc_info=True)
         raise
