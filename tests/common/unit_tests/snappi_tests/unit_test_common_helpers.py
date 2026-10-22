@@ -109,3 +109,27 @@ def test_get_queue_scheduler_weight_dict_defaults_when_unconfigured():
     # DSCP annotations from DSCP_TO_TC_MAP / TC_TO_QUEUE_MAP still apply.
     assert result[0]["dscp"] == 8
     assert result[3]["dscp"] == 3
+
+
+def test_get_queue_scheduler_weight_dict_voq_composite_keys():
+    """Normalize hostname-wrapped multi-ASIC VOQ QUEUE entries."""
+    host = MagicMock()
+    host.hostname = "test_dut"
+    host.facts = {"switch_type": "voq"}
+    facts = {k: v for k, v in CONFIG_FACTS.items()}
+    facts["QUEUE"] = {
+        "test_dut": {
+            "asic0|Ethernet64|0": {"scheduler": "scheduler.0"},
+            "asic0|Ethernet64|3": {"scheduler": "scheduler.1"},
+            "asic0|Ethernet64|4": {"scheduler": "scheduler.1"},
+            "asic1|Ethernet64|0": {"scheduler": "scheduler.1"},
+        }
+    }
+    host.config_facts.return_value = {"ansible_facts": facts}
+
+    result = _load("get_queue_scheduler_weight_dict")(
+        host, asic_value="asic0", port="Ethernet64")
+
+    assert result[0]["weight"] == 14
+    assert result[3]["weight"] == 15
+    assert result[4]["weight"] == 15
