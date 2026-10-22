@@ -1,19 +1,22 @@
-import logging
-import pytest
-import time
 import json
+import logging
+import time
 
 import grpc
+import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection
+from tests.common.helpers.gnmi_connection import (
+    build_native_set_request,
+    gnmi_connection,
+)
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp"),
 ]
 
 
@@ -23,24 +26,24 @@ def get_first_interface(duthost):
 
     # Find the first interface with lanes (physical port, not portchannel)
     for interface_name, interface_config in port_table.items():
-        if 'lanes' in interface_config:
+        if "lanes" in interface_config:
             # Check if admin status is up
-            if interface_config.get('admin_status', '').lower() == 'up':
+            if interface_config.get("admin_status", "").lower() == "up":
                 return interface_name
 
     # If no interface with admin_status up found, return the first one with lanes
     for interface_name, interface_config in port_table.items():
-        if 'lanes' in interface_config:
+        if "lanes" in interface_config:
             return interface_name
 
     return None
 
 
 def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  # noqa: F811
-    '''
+    """
     Verify GNMI native write latency
     Update interface description repeatedly and check latency
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
@@ -49,10 +52,10 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
         pytest.skip("No valid interface found on DUT '%s'" % rand_one_dut_hostname)
 
     test_loop = 10
-    text = "\"down\""
+    text = '"down"'
     down_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/description" % interface]
     down_request = build_native_set_request(down_list[0].split(":", 1)[1].split("/"), json.loads(text))
-    text = "\"up\""
+    text = '"up"'
     up_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/description" % interface]
     up_request = build_native_set_request(up_list[0].split(":", 1)[1].split("/"), json.loads(text))
 
@@ -109,4 +112,4 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
     logger.info(f"Test completed: {test_loop} iterations on interface {interface}")
     cmd = "lscpu"
     output = duthost.shell(cmd)
-    logger.info("CPU Info:\n%s" % output['stdout'])
+    logger.info("CPU Info:\n%s" % output["stdout"])
