@@ -312,6 +312,25 @@ def test_sonic_profile_match_requires_requested_fields_in_every_namespace():
         snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
 
 
+def test_sonic_profile_match_accepts_omitted_zero_rekey_period():
+    fields = _macsec_profile_fields(
+        64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
+    fields.pop("rekey_period")
+    snapshot = {
+        "runtime": "sonic",
+        "entries": [{"namespace": None, "fields": fields}],
+    }
+
+    assert _macsec_profile_matches(
+        snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
+    assert not _macsec_profile_matches(
+        snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 240)
+
+    fields.pop("primary_cak")
+    assert not _macsec_profile_matches(
+        snapshot, 64, "GCM-AES-128", "cak", "ckn", "security", "true", 0)
+
+
 def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
     class CsonicCommandHost(FakeCsonicHost):
         hostname = "csonic_vm"
