@@ -2,8 +2,8 @@
 Parser tests for spytest/templates/show_interfaces_counters_detailed.tmpl.
 
 sonic-utilities prints SAI_PORT_STAT_IP_IN_RECEIVES as "Overruns Received" in
-older releases and as "IP Packets Received" after sonic-net/sonic-utilities#4665.
-Both labels must keep filling pkt_rx_overruns.
+older releases; sonic-net/sonic-utilities#4665 relabels it "IP Packets Received"
+and then "IPv4 Packets Received". All three labels must keep filling pkt_rx_overruns.
 
 Run without a DUT:
     python3 -m pytest --noconftest spytest/tests/unit_tests/test_show_interfaces_counters_detailed.py -v
@@ -64,8 +64,9 @@ WRED Red Dropped Packets....................... 35
 WRED Total Dropped Packets..................... 36
 """
 
-OLD_RX_IP_LINE = "Overruns Received.............................. 18"
-NEW_RX_IP_LINE = "IP Packets Received............................ 18"
+OVERRUNS_LINE = "Overruns Received.............................. 18"
+IP_PACKETS_LINE = "IP Packets Received............................ 18"
+IPV4_PACKETS_LINE = "IPv4 Packets Received.......................... 18"
 
 
 def parse(output, cmd=COMMAND):
@@ -79,7 +80,8 @@ def parse(output, cmd=COMMAND):
     return tmpl, [dict(zip(header, row)) for row in cli_table]
 
 
-@pytest.mark.parametrize("rx_ip_line", [OLD_RX_IP_LINE, NEW_RX_IP_LINE], ids=["overruns_label", "ip_packets_label"])
+@pytest.mark.parametrize("rx_ip_line", [OVERRUNS_LINE, IP_PACKETS_LINE, IPV4_PACKETS_LINE],
+                         ids=["overruns_label", "ip_packets_label", "ipv4_packets_label"])
 def test_rx_ip_receives_label_parsed_into_pkt_rx_overruns(rx_ip_line):
     tmpl, rows = parse(DETAILED_OUTPUT.format(rx_ip_line=rx_ip_line))
 
@@ -92,8 +94,10 @@ def test_rx_ip_receives_label_parsed_into_pkt_rx_overruns(rx_ip_line):
     assert row["pkt_tx_broadcast"] == "32"
 
 
-def test_old_and_new_labels_produce_identical_rows():
-    _, old_rows = parse(DETAILED_OUTPUT.format(rx_ip_line=OLD_RX_IP_LINE))
-    _, new_rows = parse(DETAILED_OUTPUT.format(rx_ip_line=NEW_RX_IP_LINE))
+@pytest.mark.parametrize("rx_ip_line", [IP_PACKETS_LINE, IPV4_PACKETS_LINE],
+                         ids=["ip_packets_label", "ipv4_packets_label"])
+def test_new_label_produces_same_rows_as_overruns_label(rx_ip_line):
+    _, old_rows = parse(DETAILED_OUTPUT.format(rx_ip_line=OVERRUNS_LINE))
+    _, new_rows = parse(DETAILED_OUTPUT.format(rx_ip_line=rx_ip_line))
 
     assert new_rows == old_rows
