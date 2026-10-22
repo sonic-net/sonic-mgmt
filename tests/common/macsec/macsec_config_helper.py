@@ -66,6 +66,12 @@ def _host_platform_asic(host):
     return facts.get("platform_asic") if isinstance(facts, Mapping) else None
 
 
+def _runtime_port_name(host, port):
+    """Translate a logical cSONiC port to its runtime interface name."""
+    mapper = getattr(host, "_interface_name", None)
+    return mapper(port) if callable(mapper) else port
+
+
 def _run_required_macsec_command(host, command):
     """Run a setup command and fail closed for CsonicHost's result API."""
     result = host.command(command)
@@ -124,8 +130,12 @@ def _macsec_port_profile(host, port):
                 return line[len(marker):].strip() or None
         return None
 
-    command = 'sonic-db-cli {} CONFIG_DB HGET "PORT|{}" macsec'.format(
-        getns_prefix(host, port), port)
+    port = _runtime_port_name(host, port)
+    if isinstance(host, CsonicHost):
+        command = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" macsec'.format(port)
+    else:
+        command = 'sonic-db-cli {} CONFIG_DB HGET "PORT|{}" macsec'.format(
+            getns_prefix(host, port), port)
     return _command_stdout(host, command) or None
 
 
@@ -727,8 +737,31 @@ def enable_macsec_port(host, port, profile_name):
         return
 
     if isinstance(host, CsonicHost):
+        port = _runtime_port_name(host, port)
+        ovs_macsec_member = getattr(host, "set_ovs_macsec_member", None)
+        previous_profile = (
+            _macsec_port_profile(host, port)
+            if callable(ovs_macsec_member) else None)
         _csonic_config_db_hset(
             host, "PORT|{}".format(port), {"macsec": profile_name})
+        if callable(ovs_macsec_member):
+            try:
+                ovs_macsec_member(port, True)
+            except Exception:
+                try:
+                    ovs_macsec_member(port, previous_profile is not None)
+                except Exception:
+                    logger.exception(
+                        "Failed to restore cSONiC OVS MACsec path on %s",
+                        getattr(host, "hostname", str(host)))
+                if previous_profile is None:
+                    _csonic_config_db_hdel(
+                        host, "PORT|{}".format(port), "macsec")
+                else:
+                    _csonic_config_db_hset(
+                        host, "PORT|{}".format(port),
+                        {"macsec": previous_profile})
+                raise
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
@@ -753,7 +786,21 @@ def disable_macsec_port(host, port):
         return
 
     if isinstance(host, CsonicHost):
-        _csonic_config_db_hdel(host, "PORT|{}".format(port), "macsec")
+        port = _runtime_port_name(host, port)
+        ovs_macsec_member = getattr(host, "set_ovs_macsec_member", None)
+        if callable(ovs_macsec_member):
+            ovs_macsec_member(port, False)
+        try:
+            _csonic_config_db_hdel(host, "PORT|{}".format(port), "macsec")
+        except Exception:
+            if callable(ovs_macsec_member):
+                try:
+                    ovs_macsec_member(port, True)
+                except Exception:
+                    logger.exception(
+                        "Failed to restore cSONiC OVS MACsec path on %s",
+                        getattr(host, "hostname", str(host)))
+            raise
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))

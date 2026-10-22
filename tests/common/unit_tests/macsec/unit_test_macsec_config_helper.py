@@ -28,6 +28,7 @@ FUNCTION_NAMES = {
     "_command_output_lines",
     "_host_is_multi_asic",
     "_host_platform_asic",
+    "_runtime_port_name",
     "_run_required_macsec_command",
     "_csonic_config_db_hset",
     "_csonic_config_db_delete",
@@ -360,6 +361,85 @@ def test_csonic_macsec_setup_writes_config_db_without_optional_cli_plugin():
         "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet1' macsec 128_SCI")
 
 
+def test_csonic_macsec_port_switches_ovs_data_path_after_config_db():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def command(self, command):
+            self.events.append(("command", command))
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", port, enabled))
+
+    host = CsonicCommandHost()
+    enable_macsec_port(host, "Ethernet1", "128_SCI")
+
+    assert host.events == [
+        ("command", 'sonic-db-cli CONFIG_DB HGET "PORT|Ethernet1" macsec'),
+        ("command", "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet1' macsec 128_SCI"),
+        ("ovs", "Ethernet1", True),
+    ]
+
+
+def test_csonic_macsec_port_maps_logical_interface_for_config_and_ovs():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def _interface_name(self, port):
+            return "Ethernet2" if port == "Ethernet1" else port
+
+        def command(self, command):
+            self.events.append(("command", command))
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", port, enabled))
+
+    host = CsonicCommandHost()
+    enable_macsec_port(host, "Ethernet1", "128_SCI")
+
+    assert host.events == [
+        ("command", 'sonic-db-cli CONFIG_DB HGET "PORT|Ethernet2" macsec'),
+        ("command", "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet2' macsec 128_SCI"),
+        ("ovs", "Ethernet2", True),
+    ]
+
+
+def test_csonic_macsec_port_rolls_back_config_when_ovs_swap_fails():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def command(self, command):
+            self.events.append(("command", command))
+            stdout = "OLD" if " HGET " in command else ""
+            return {"rc": 0, "stdout": stdout, "stderr": ""}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", port, enabled))
+            if enabled and len([event for event in self.events
+                                if event == ("ovs", port, enabled)]) == 1:
+                raise RuntimeError("swap failed")
+
+    host = CsonicCommandHost()
+    with pytest.raises(RuntimeError, match="swap failed"):
+        enable_macsec_port(host, "Ethernet1", "NEW")
+
+    assert host.events[-2:] == [
+        ("ovs", "Ethernet1", True),
+        ("command", "sonic-db-cli CONFIG_DB HSET 'PORT|Ethernet1' macsec OLD"),
+    ]
+
+
 def test_csonic_macsec_profile_zero_resets_existing_rekey_period():
     class CsonicCommandHost(FakeCsonicHost):
         hostname = "csonic_vm"
@@ -421,6 +501,54 @@ def test_csonic_macsec_cleanup_deletes_config_db_entries_directly():
     assert host.commands == [
         ("sonic-db-cli CONFIG_DB HDEL 'PORT|Ethernet1' macsec", {}),
         ("sonic-db-cli CONFIG_DB DEL 'MACSEC_PROFILE|128_SCI'", {}),
+    ]
+
+
+def test_csonic_macsec_port_restores_plain_ovs_path_before_config_db_delete():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def command(self, command, **kwargs):
+            self.events.append(("command", command))
+            return {"rc": 0, "stdout": "", "stderr": ""}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", port, enabled))
+
+    host = CsonicCommandHost()
+    disable_macsec_port(host, "Ethernet1")
+
+    assert host.events == [
+        ("ovs", "Ethernet1", False),
+        ("command", "sonic-db-cli CONFIG_DB HDEL 'PORT|Ethernet1' macsec"),
+    ]
+
+
+def test_csonic_macsec_port_restores_ovs_path_when_config_delete_fails():
+    class CsonicCommandHost(FakeCsonicHost):
+        hostname = "csonic_vm"
+
+        def __init__(self):
+            self.events = []
+
+        def command(self, command, **kwargs):
+            self.events.append(("command", command))
+            return {"rc": 1, "stdout": "", "stderr": "delete failed"}
+
+        def set_ovs_macsec_member(self, port, enabled):
+            self.events.append(("ovs", port, enabled))
+
+    host = CsonicCommandHost()
+    with pytest.raises(AssertionError, match="MACsec command failed"):
+        disable_macsec_port(host, "Ethernet1")
+
+    assert host.events == [
+        ("ovs", "Ethernet1", False),
+        ("command", "sonic-db-cli CONFIG_DB HDEL 'PORT|Ethernet1' macsec"),
+        ("ovs", "Ethernet1", True),
     ]
 
 
