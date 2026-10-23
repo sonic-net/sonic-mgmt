@@ -76,9 +76,6 @@ class TestWatchdogApi(PlatformApiTestBase):
             or duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
         ):
             duthost.shell("watchdogutil disarm")
-        elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
-            duthost.shell("systemctl disable watchdog.timer --now")
-            duthost.shell("watchdogutil disarm")
         elif duthost.is_bmc():
             # BMC platforms (e.g. Aspeed) may arm the hardware watchdog at boot via
             # the hw-watchdog-mgrd daemon, but that is driven by the platform.json
@@ -99,8 +96,6 @@ class TestWatchdogApi(PlatformApiTestBase):
                     duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
                     duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0':
                 duthost.shell("systemctl start cpu_wdt.service")
-            elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
-                duthost.shell("systemctl enable watchdog.timer --now")
             elif duthost.is_bmc():
                 # Restore the pre-test arm state (driven by the daemon's boot_arm
                 # policy) rather than assuming the watchdog should be armed.
