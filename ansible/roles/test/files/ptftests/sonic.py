@@ -1,6 +1,7 @@
 import datetime
 import time
 import threading
+import queue as Queue
 import json
 import re
 from collections import defaultdict
@@ -40,6 +41,7 @@ class Sonic(host_device.HostDevice):
         self.csonic_lag_backend = test_params.get('csonic_lag_backend', 'teamd')
         self.port_channel_last_lacp_pdu_time_lock = threading.Lock()
         self.lacp_pdu_timings_by_member = defaultdict(list)
+        self.reboot_lacp_boundary = None
 
     def log(self, msg):
         if self.log_cb is not None:
@@ -132,15 +134,17 @@ class Sonic(host_device.HostDevice):
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
             if not quit_enabled:
-                cmd = self.queue.get()
+                try:
+                    cmd = self.queue.get(timeout=1)
+                except Queue.Empty:
+                    cmd = None
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
-                elif cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up':
-                    # LACP packet timestamps are collected directly by each
-                    # member's packet callback; lifecycle notifications are
-                    # intentionally not used as packet samples.
-                    pass
+                elif cmd == 'cpu_down':
+                    # Keep only the reboot boundary. Packet samples themselves
+                    # are recorded directly by each member's packet callback.
+                    self.reboot_lacp_boundary = time.time()
 
             cur_time = time.time()
             info = {}
@@ -249,13 +253,16 @@ class Sonic(host_device.HostDevice):
             self.fails.add('More than one port channel flap occurred!')
 
         self.log('Finishing run()')
+        capture_end = time.time()
         with self.port_channel_last_lacp_pdu_time_lock:
             lacp_by_member = {
                 str(member): list(timestamps)
                 for member, timestamps in self.lacp_pdu_timings_by_member.items()
             }
         return self.fails, self.info, cli_data, log_data, {
-            "lacp_by_member": lacp_by_member
+            "lacp_by_member": lacp_by_member,
+            "reboot_boundary": self.reboot_lacp_boundary,
+            "capture_end": capture_end,
             }
 
     def extract_from_logs(self, regexp, data, min_timestamp=None):

@@ -13,6 +13,7 @@ PTF_DIR = Path(__file__).parents[2] / "ptftests" / "py3"
 SCRIPT = PTF_DIR / "advanced-reboot.py"
 SONIC_SCRIPT = PTF_DIR / "sonic.py"
 CONFTEST = Path(__file__).parents[2] / "conftest.py"
+ADVANCED_REBOOT_FIXTURE = Path(__file__).parents[1] / "fixtures" / "advanced_reboot.py"
 
 
 class FakeNeighbor:
@@ -95,6 +96,8 @@ def load_method(neighbor, ssh_targets=None):
         "csonic_lag_backend": "unknown",
     }
     harness.host_device_calls = HostDevice.calls
+    harness.csonic_neighbor_login = "configured-admin"
+    harness.csonic_neighbor_password = "configured-password"
     harness.logs = []
     harness.log = harness.logs.append
     return harness
@@ -272,6 +275,14 @@ def load_function(path, name, namespace=None):
     return loaded[name]
 
 
+def test_csonic_credentials_use_non_logged_file_transport():
+    source = ADVANCED_REBOOT_FIXTURE.read_text()
+
+    assert 'params["csonic_neighbor_credentials_file"]' in source
+    assert '"csonic_neighbor_password"' not in source
+    assert "mode='0600'" in source
+
+
 def test_csonic_multiplier_range_validation():
     parse_multiplier = load_function(
         CONFTEST, "_csonic_lacp_multiplier", {"argparse": argparse})
@@ -289,11 +300,35 @@ def test_consecutive_lacp_gap_is_calculated_per_member():
 
     assert max_gap({
         "lacp_by_member": {
-            "1": [1.0, 2.0, 3.0],
+            "1": [1.0, 2.0, 3.0, 8.0],
+            "2": [1.5, 5.5, 6.5, 9.0],
+        },
+        "reboot_boundary": 7.0,
+        "capture_end": 10.0,
+    }) == 5.0
+
+
+def test_lacp_gap_requires_post_reboot_packet_from_every_member():
+    max_gap = load_function(SCRIPT, "get_max_lacp_packet_gap")
+
+    assert max_gap({
+        "lacp_by_member": {
+            "1": [1.0, 2.0, 8.0],
             "2": [1.5, 5.5, 6.5],
-        }
-    }) == 4.0
-    assert max_gap({"lacp_by_member": {"1": [1.0]}}) is None
+        },
+        "reboot_boundary": 7.0,
+        "capture_end": 10.0,
+    }) is None
+
+
+def test_lacp_gap_accounts_for_trailing_silence():
+    max_gap = load_function(SCRIPT, "get_max_lacp_packet_gap")
+
+    assert max_gap({
+        "lacp_by_member": {"1": [1.0, 2.0, 8.0]},
+        "reboot_boundary": 7.0,
+        "capture_end": 15.0,
+    }) == 7.0
 
 
 def test_csonic_lacp_timing_is_backend_specific():

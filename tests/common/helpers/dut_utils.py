@@ -834,7 +834,6 @@ def creds_on_dut(duthost):
     cred_vars = [
         "sonicadmin_user",
         "sonicadmin_password",
-        "sonic_login",
         "sonic_password",
         "docker_registry_host",
         "docker_registry_username",

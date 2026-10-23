@@ -151,12 +151,20 @@ def get_max_allowed_lacp_session_wait(test_params):
 
 def get_max_lacp_packet_gap(lacp_pdu_times):
     member_times = lacp_pdu_times.get("lacp_by_member", {})
-    gaps = []
-    for timestamps in member_times.values():
-        timestamps = sorted(timestamps)
-        gaps.extend(new - old for old, new in zip(timestamps, timestamps[1:]))
-    if gaps:
-        return max(gaps)
+    if member_times:
+        reboot_boundary = lacp_pdu_times.get("reboot_boundary")
+        capture_end = lacp_pdu_times.get("capture_end")
+        if reboot_boundary is None or capture_end is None:
+            return None
+
+        gaps = []
+        for timestamps in member_times.values():
+            timestamps = sorted(timestamps)
+            if not any(timestamp > reboot_boundary for timestamp in timestamps):
+                return None
+            gaps.extend(new - old for old, new in zip(timestamps, timestamps[1:]))
+            gaps.append(capture_end - timestamps[-1])
+        return max(gaps) if gaps else None
 
     # Non-SONiC monitors retain the legacy flat timestamp list.
     timestamps = sorted(lacp_pdu_times.get("lacp_all", []))
@@ -230,8 +238,7 @@ class ReloadTest(BaseTest):
         self.check_param('neighbor_type', 'eos', required=False)
         self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('csonic_neighbor', False, required=False)
-        self.check_param('csonic_neighbor_login', 'admin', required=False)
-        self.check_param('csonic_neighbor_password', 'password', required=False)
+        self.check_param('csonic_neighbor_credentials_file', '', required=False)
         self.check_param('csonic_lag_backend', 'unknown', required=False)
         self.check_param('csonic_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
@@ -239,6 +246,23 @@ class ReloadTest(BaseTest):
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
             self.test_params['inboot_oper'] = None
+
+        self.csonic_neighbor_login = 'admin'
+        self.csonic_neighbor_password = 'password'
+        if self.test_params['csonic_neighbor']:
+            credentials_path = self.test_params['csonic_neighbor_credentials_file']
+            if not credentials_path:
+                raise RuntimeError("cSONiC neighbor credentials file is required")
+            try:
+                with open(credentials_path) as credentials_file:
+                    credentials = json.load(credentials_file)
+            finally:
+                if os.path.exists(credentials_path):
+                    os.remove(credentials_path)
+            if credentials.get('login') != 'admin' or not credentials.get('password'):
+                raise RuntimeError("Invalid cSONiC neighbor credentials file")
+            self.csonic_neighbor_login = credentials['login']
+            self.csonic_neighbor_password = credentials['password']
 
         self.dataplane_loss_checked_successfully = False
 
@@ -1511,8 +1535,8 @@ class ReloadTest(BaseTest):
         }
         if self.test_params['csonic_neighbor']:
             kwargs.update({
-                "login": self.test_params['csonic_neighbor_login'],
-                "password": self.test_params['csonic_neighbor_password'],
+                "login": self.csonic_neighbor_login,
+                "password": self.csonic_neighbor_password,
             })
         return HostDevice.getHostDeviceInstance(
             self.test_params['neighbor_type'], ip, queue, test_params, **kwargs)
