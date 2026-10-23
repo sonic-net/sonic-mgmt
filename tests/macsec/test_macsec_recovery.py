@@ -177,6 +177,7 @@ def test_dirty_container_kill_preserves_sak_consistency(
 
 
 @pytest.mark.backstop
+@pytest.mark.macsec_profiles("128_XPN", "256_XPN")
 def test_dirty_container_kill_recovers_encoding_an(
         macsec_duthost, profile_name, ctrl_links, policy, cipher_suite,
         send_sci, force_dut_key_server):
@@ -207,11 +208,6 @@ def test_dirty_container_kill_recovers_encoding_an(
     cipher-suite-independent; running every profile only multiplied runtime
     and exposed cumulative testbed degradation across the long sweep.
     """
-    if profile_name not in ("128_XPN", "256_XPN"):
-        pytest.skip(
-            "stale-AN test runs only on 128_XPN/256_XPN (most common in "
-            "production); the bug is cipher-suite-independent")
-
     duthost = macsec_duthost
 
     logger.info("Step 1: verifying initial MKA convergence on %s",
