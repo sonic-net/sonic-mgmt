@@ -15,14 +15,6 @@ def get_audit_log_offset(duthost):
     )
 
 
-def read_audit_log(duthost, offset, module_ignore_errors=False):
-    """Read log text after a byte offset, without waiting or asserting records."""
-    return duthost.shell(
-        "sudo tail -c +{} /var/log/gnmi.log".format(offset + 1),
-        module_ignore_errors=module_ignore_errors,
-    )["stdout"]
-
-
 def parse_audit_records(log_text, method, principal, code=None, path=None):
     records = []
     decoder = json.JSONDecoder()
@@ -47,7 +39,10 @@ def parse_audit_records(log_text, method, principal, code=None, path=None):
 
 def _audit_records_written(duthost, offset, method, principal,
                            expected_count, code, path):
-    new_log = read_audit_log(duthost, offset, module_ignore_errors=True)
+    new_log = duthost.shell(
+        "sudo tail -c +{} /var/log/gnmi.log".format(offset + 1),
+        module_ignore_errors=True,
+    )["stdout"]
     records = parse_audit_records(
         new_log, method, principal, code=code, path=path
     )
@@ -64,7 +59,9 @@ def wait_for_audit_records(duthost, offset, method, principal,
             expected_count, method
         ),
     )
-    new_log = read_audit_log(duthost, offset)
+    new_log = duthost.shell(
+        "sudo tail -c +{} /var/log/gnmi.log".format(offset + 1)
+    )["stdout"]
     records = parse_audit_records(
         new_log, method, principal, code=code, path=path
     )

@@ -6,7 +6,6 @@ import grpc
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.common.helpers.gnmi_audit import get_audit_log_offset, read_audit_log
 from tests.common.helpers.gnmi_connection import (
     build_native_set_request,
     gnmi_connection,
@@ -63,34 +62,23 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
     # Initialize latency tracking
     total_latencies = []
 
-    log_start = None
-    try:
-        log_start = get_audit_log_offset(duthost)
-    except Exception:
-        logger.warning("Unable to record gNMI log starting position", exc_info=True)
+    with gnmi_connection(gnmi_tls) as (channel, client):
+        grpc.channel_ready_future(channel).result(timeout=30)
+        logger.info("Latency measures paired Set calls on a ready shared TLS channel; excludes legacy PTF/CLI setup")
+        for i in range(test_loop):
+            logger.info(f"Starting iteration {i+1}/{test_loop}")
 
-    try:
-        with gnmi_connection(gnmi_tls) as (channel, client):
-            grpc.channel_ready_future(channel).result(timeout=30)
-            logger.info("Latency measures paired Set calls on a ready shared TLS channel; "
-                        "excludes legacy PTF/CLI setup")
-            for i in range(test_loop):
-                logger.info(f"Starting iteration {i+1}/{test_loop}")
-                start_time = time.time()
-                client.Set(down_request, timeout=60)
-                client.Set(up_request, timeout=60)
+            # Measure total latency for both operations
+            start_time = time.time()
 
-                total_latency = (time.time() - start_time) / 2 * 1000
-                total_latencies.append(total_latency)
-                logger.info(f"Total iteration latency: {total_latency:.2f} ms")
-    except grpc.RpcError:
-        # Read once after channel closure and before fixture rollback.
-        if log_start is not None:
-            try:
-                logger.warning("gNMI log since test start:\n%s", read_audit_log(duthost, log_start))
-            except Exception:
-                logger.warning("Unable to read gNMI failure log", exc_info=True)
-        raise
+            # Update description
+            client.Set(down_request, timeout=60)
+            # Update description
+            client.Set(up_request, timeout=60)
+
+            total_latency = (time.time() - start_time) / 2 * 1000  # Convert to milliseconds
+            total_latencies.append(total_latency)
+            logger.info(f"Total iteration latency: {total_latency:.2f} ms")
 
     # Calculate and log statistics
     avg_total = sum(total_latencies) / len(total_latencies)
