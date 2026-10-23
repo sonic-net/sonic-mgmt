@@ -40,7 +40,7 @@ and meets the diversified requirements of more new services.
 The test is to verify the functions in SRv6 phase I and II.
 
 ### Scale
-Max number of MY_SID entries is 10, it would be covered in this test plan.
+Max number of MY_SID entries is 128, it would be covered in this test plan.
 
 ### Control-plane Test
 #### uN Config
@@ -61,28 +61,28 @@ Max number of MY_SID entries is 10, it would be covered in this test plan.
 ### Data-plane Test
 
 #### Comprehensive Test for SRv6 dataplane uN function
-1. Configure SRV6_MY_SIDS with uN action at the same time for different SIDs <br>
-  a. Configure all of the SRV6_MY_SIDS as __pipe__ mode <br>
-2. Validate correct SRv6 CRM resource items had been used
-3. Clear srv6 counter <br>
-4. Send IPv6 packets from downstream to upstream neighbors <br>
-  a. Including IPv6 packets with reduced SRH(no SRH header) for uN action <br>
-  b. Including IPv6 packets with 1 uSID container in SRH for uN action <br>
-  c. Including IPv6 packets with 2 uSID container in SRH for uN action <br>
-  d. Including IPinIPv6 packets with reduced SRH(no SRH header) and uSID container in SRH for USD flavor<br>
-  e. Including IPv6inIPv6 packets with reduced SRH(no SRH header) and uSID container in SRH for USD flavor <br>
-5. All types of IPv6 packets should be handled correctly <br>
-  a. For uN action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
-  b. For uN action USD flavor, IP tunnel decap should happen <br>
-  c. For each SID, the SRv6 counter for packet number and size should be updated correctly
-6. Randomly choose one action from cold reboot/config reload and do it
-7. Resend the all types of IPv6 packets
-8. All types of IPv6 packets should be handled correctly <br>
-  a. For uN action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
-  b. For uN action USD flavor, IP tunnel decap should happen <br>
-  c. For each SID, the SRv6 counter for packet number and size should be updated correctly
-9. Remove all the configured SRV6_MY_SIDS <br>
-10. Check all the SRv6 CRM resource had been released <br>
+1. Configure SRV6_MY_SIDS with uN action for all test SIDs (128 entries in implementation).<br>
+  a. Configure all SIDs with decap_dscp_mode = __pipe__ (current tunnel mode in test).<br>
+  b. Validate correct SRv6 CRM resource usage after configuration.
+2. Clear SRv6 counters.
+3. Run dataplane validation with `--srv6_dscp_mode_test` option:
+  a. `both` (default): run both `dscp_mode` and `no_dscp_mode` stages.<br>
+  b. `dscp_mode`: run only decap_dscp_mode-configured stage.<br>
+  c. `no_dscp_mode`: run only stage without decap_dscp_mode.
+4. In `dscp_mode` stage, send IPv6 packets from downstream to upstream neighbors including:
+  a. IPv6 packets with reduced SRH (no SRH header) for uN action.<br>
+  b. IPv6 packets with 1 uSID container in SRH for uN action.<br>
+  c. IPv6 packets with 2 uSID containers in SRH for uN action.<br>
+  d. USD flavor traffic (IPinIPv6/IPv6inIPv6 decapsulation cases).
+5. For `no_dscp_mode` stage, SRv6 configuration update is done by reconfigure all the SRv6 SIDs without dscp_mode value.
+6. In `no_dscp_mode` stage, generate and send 128 non-USD traffic patterns (USD flavor patterns are excluded in this stage) so all tested SIDs are verifiable by counters.
+7. Validate packet processing result:
+  a. For uN action, DIP shift/uSID container copy to DIP/segment-left decrement should happen.<br>
+  b. In `dscp_mode` stage, USD flavor decapsulation should happen.<br>
+  c. SRv6 counters (packets/bytes) should match sent traffic for the active stage.
+8. In the `no_dscp_mode` stage, randomly choose one action from cold reboot/config reload/BGP restart and execute it.
+9. Re-run dataplane validation for the selected `--srv6_dscp_mode_test` stage after reboot/reload/restart.
+10. Remove all configured SRV6_MY_SIDS/SRV6_MY_LOCATORS and verify SRv6 CRM resources are released.
 
 #### Test SRv6 uN forwarding function and control-plane integrity after configuration reload
 - Set up SRv6 configuration and relevant static-route configuration in CONFIG_DB
