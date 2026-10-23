@@ -1,0 +1,20 @@
+[
+        {
+                "DASH_ENI_TABLE:F4939FEFC47E" : {
+                        "eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+                        "mac_address":"F4:93:9F:EF:C4:7E",
+                        "underlay_ip":"25.1.1.1",
+                        "admin_state":"enabled",
+                        "vnet":"vnet1",
+                        "qos":"qos100"
+                },
+                "OP": "SET"
+        },
+        {
+                "DASH_ROUTE_TABLE:group_id_1:10.1.0.0/16" : {
+                        "action_type":"vnet",
+                        "vnet":"vnet1"
+                },
+                "OP": "{{ op }}"
+        }
+]
