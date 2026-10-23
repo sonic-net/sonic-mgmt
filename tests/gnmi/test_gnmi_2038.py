@@ -1,21 +1,28 @@
-import pytest
 import logging
 import re
 from datetime import datetime, timezone
+
+import pytest
 from dateutil import parser
 
-from tests.common.fixtures.grpc_fixtures import _restart_gnoi_server
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
-from tests.common.helpers.gnmi_utils import prepare_root_cert, prepare_server_cert, prepare_client_cert, \
-    copy_certificate_to_dut, copy_certificate_to_ptf, delete_gnmi_certs
+from tests.common.fixtures.grpc_fixtures import _restart_gnoi_server
+from tests.common.helpers.gnmi_utils import (
+    copy_certificate_to_dut,
+    copy_certificate_to_ptf,
+    delete_gnmi_certs,
+    prepare_client_cert,
+    prepare_root_cert,
+    prepare_server_cert,
+)
 from tests.common.pygnmi_client import PygnmiClient
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp"),
 ]
 
 ROOT_CERT_DAYS = 4850
@@ -24,9 +31,9 @@ CLIENT_CERT_DAYS = 4800
 
 
 def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls):  # noqa: F811
-    '''
+    """
     Verify certificate after 2038 year problem
-    '''
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     try:
@@ -40,19 +47,26 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
         # CONFIG_DB's GNMI certificate schema requires .cer paths.
         duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
         duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
-        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" '
-                      'ca_crt /etc/sonic/telemetry/gnmiCA.cer '
-                      'server_crt /etc/sonic/telemetry/gnmiserver.cer '
-                      'server_key /etc/sonic/telemetry/gnmiserver.key')
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB hset "GNMI|certs" '
+            "ca_crt /etc/sonic/telemetry/gnmiCA.cer "
+            "server_crt /etc/sonic/telemetry/gnmiserver.cer "
+            "server_key /etc/sonic/telemetry/gnmiserver.key"
+        )
         _restart_gnoi_server(duthost)
 
         # Verify certificate date on DUT
         check_cert_date_on_dut(duthost)
 
         # A successful RPC verifies TLS connectivity with the long-validity certificates.
-        client = PygnmiClient(gnmi_tls.host, gnmi_tls.port,
-                              ca_cert="gnmiCA.pem", client_cert="gnmiclient.crt",
-                              client_key="gnmiclient.key", connect=False)
+        client = PygnmiClient(
+            gnmi_tls.host,
+            gnmi_tls.port,
+            ca_cert="gnmiCA.pem",
+            client_cert="gnmiclient.crt",
+            client_key="gnmiclient.key",
+            connect=False,
+        )
         client.get("proc/uptime", target="OTHERS")
     finally:
         delete_gnmi_certs(localhost)
@@ -61,7 +75,7 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
 def check_cert_date_on_dut(duthost):
     cmd = "openssl x509 -in /etc/sonic/telemetry/gnmiCA.cer -text"
     output = duthost.shell(cmd, module_ignore_errors=True)
-    not_after_line = re.search(r"Not After\s*:\s*(.*)", output['stdout'])
+    not_after_line = re.search(r"Not After\s*:\s*(.*)", output["stdout"])
     if not_after_line:
         not_after_date_str = not_after_line.group(1).strip()
         # Convert the date string to a datetime object

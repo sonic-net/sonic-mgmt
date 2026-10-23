@@ -4,6 +4,13 @@ import logging
 import warnings
 from pathlib import Path
 
+from ansible.errors import AnsibleConnectionFailure, AnsibleError
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
+from retry import retry
+
+from tests.common.devices.base import AnsibleHostBase
+from tests.common.errors import RunAnsibleModuleFail
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
 from tests.common.platform.interface_utils import (
     get_physical_port_indices,
     get_lport_to_first_subport_mapping,
@@ -12,6 +19,7 @@ from tests.common.platform.interface_utils import (
 # Import common port attributes builder (reusable across test packages)
 from tests.common.port_attributes import build_port_attributes_dict
 
+from tests.transceiver.attribute_parser.attribute_keys import SYSTEM_ATTRIBUTES_KEY
 from tests.transceiver.attribute_parser.template_validator import STATUS_FULLY, STATUS_PARTIAL, TemplateValidator
 from tests.transceiver.attribute_parser.exceptions import DutInfoError, AttributeMergeError, TemplateValidationError
 from tests.transceiver.attribute_parser.utils import format_kv_block
@@ -33,6 +41,7 @@ from tests.transceiver.common.health_checks import (
     run_pre_check,
     verify_health,
 )
+from tests.transceiver.common.topology import resolve_lldp_peer_aliases, resolve_peer_connections
 
 logger = logging.getLogger(__name__)
 
@@ -301,6 +310,72 @@ def port_attributes_dict(request, ansible_root, duthost):
             pytest.skip(error)
         pytest.fail(error)
     return attributes
+
+
+@pytest.fixture(scope='session')
+def port_peers(duthost, duthosts, localhost, ansible_adhoc, port_attributes_dict):
+    """Map LLDP-enabled ports to expected identities and resolution errors.
+
+    Load the graph through its shared loader because the conn_graph_facts
+    fixture is module-scoped. Batch local graph lookups and peer alias reads
+    by ASIC. Peers with LLDP enabled must be accessible through inventory,
+    but need not be selected as testbed DUTs. Cabling and port/alias mappings
+    must stay fixed for the session. Transport failures get up to three
+    attempts, two seconds apart, before caching a per-peer failure.
+    """
+    lldp_ports = [
+        port for port, attrs in port_attributes_dict.items()
+        if attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get("verify_lldp_on_link_up", True)
+    ]
+    if not lldp_ports:
+        return {}
+    graph = get_graph_facts(duthost, localhost, [duthost.hostname])
+    connections = resolve_peer_connections(duthost, graph, lldp_ports)
+    ports_by_peer = {}
+    for port, (peer, error) in connections.items():
+        if error is None:
+            ports_by_peer.setdefault(peer.device, {})[port] = peer
+
+    hosts = {host.hostname: host for host in duthosts}
+    hosts[duthost.hostname] = duthost
+
+    @retry((AnsibleConnectionFailure, PytestAnsibleConnectionFailure), tries=3, delay=2, logger=None)
+    def read_peer_aliases(device, peer_connections):
+        try:
+            peer_host = hosts.get(device)
+            namespaces = None
+            if peer_host is None:
+                peer_host = AnsibleHostBase(ansible_adhoc, device)
+            else:
+                namespaces = peer_host.get_frontend_asic_namespace_list()
+            return resolve_lldp_peer_aliases(peer_host, peer_connections, namespaces=namespaces)
+        except RunAnsibleModuleFail as error:
+            result = error.results or {}
+            if result.get("unreachable") or result.get("rc") == 255:
+                raise AnsibleConnectionFailure("LLDP peer transport failed") from error
+            raise
+
+    for device, peer_connections in ports_by_peer.items():
+        try:
+            connections.update(read_peer_aliases(device, peer_connections))
+        except (pytest.fail.Exception, AnsibleError, KeyError, ValueError) as error:
+            logger.warning("LLDP peer %s alias resolution failed", device, exc_info=True)
+            if isinstance(error, AnsibleConnectionFailure) and isinstance(error.__cause__, RunAnsibleModuleFail):
+                error = error.__cause__
+            if isinstance(error, RunAnsibleModuleFail):
+                result = error.results or {}
+                reason = result.get("stderr") or result.get("msg") or error.message
+                reason = (str(reason).strip() or type(error).__name__).splitlines()[-1]
+                reason = f"rc={result.get('rc', 'unknown')}: {reason}"
+            elif isinstance(error, PytestAnsibleConnectionFailure):
+                result = (error.dark or {}).get(device, {})
+                reason = result.get("msg") or result.get("stderr") or str(error)
+            else:
+                reason = str(error)
+            detail = f"LLDP peer {device} alias resolution failed: {' '.join(reason.split())[:300]}"
+            for port in peer_connections:
+                connections[port] = None, detail
+    return connections
 
 
 def _build_port_attributes_loader(
