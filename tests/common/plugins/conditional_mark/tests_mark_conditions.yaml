@@ -4090,6 +4090,12 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
     conditions:
       - "asic_type in ['vpp']"
 
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_during_warm_reboot:
+  skip:
+    reason: "Warm reboot is unsupported on sonic-vpp; uninterrupted packet trimming during warm reboot is outside the initial dataplane enablement (tracking sonic-net/sonic-buildimage#25789)."
+    conditions:
+      - "asic_type in ['vpp']"
+
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_reload_and_reboot:
   skip:
     reason: "Reload/reboot persistence of packet trimming is deferred on sonic-vpp; config persistence not yet validated (tracking sonic-net/sonic-buildimage#25789)."

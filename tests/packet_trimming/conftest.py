@@ -122,12 +122,13 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
 
         egress_ports.append(egress_port_2_dict)
 
+    trim_buffer_profiles = {'uplink': f"queue{block_queue}_uplink_lossy_profile"}
+    if len(egress_ports) > 1:
+        trim_buffer_profiles['downlink'] = f"queue{block_queue}_downlink_lossy_profile"
+
     test_param = {
         'block_queue': block_queue,
-        'trim_buffer_profiles': {
-            'uplink': f"queue{block_queue}_uplink_lossy_profile",
-            'downlink': f"queue{block_queue}_downlink_lossy_profile",
-        },
+        'trim_buffer_profiles': trim_buffer_profiles,
         'ingress_port': {
             'name': ingress_port_name,
             'ptf_id': ingress_port[ingress_port_name]['ptf_port_id'],
@@ -148,8 +149,8 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     counter_param = copy.deepcopy(test_params)
     counter_param['block_queue'] = counter_queue
     counter_param['trim_buffer_profiles'] = {
-        'uplink': f"queue{counter_queue}_uplink_lossy_profile",
-        'downlink': f"queue{counter_queue}_downlink_lossy_profile",
+        direction: f"queue{counter_queue}_{direction}_lossy_profile"
+        for direction in test_params['trim_buffer_profiles']
     }
     logger.info(f"The counter parameters: {counter_param}")
 
