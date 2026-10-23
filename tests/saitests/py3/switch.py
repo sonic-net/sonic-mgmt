@@ -742,6 +742,22 @@ def sai_thrift_clear_all_counters(client, target):
             client.sai_thrift_clear_queue_stats(queue, cnt_ids, len(cnt_ids))
 
 
+def sai_thrift_clear_queue_watermarks(client, port_ids, target='dst'):
+    """Clear queue shared watermarks for the specified ports."""
+    wm_ids = [SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES]
+    for port_id in port_ids:
+        port = port_list[target][port_id]
+        queue_list = []
+        port_attr_list = client.sai_thrift_get_port_attribute(port)
+        attr_list = port_attr_list.attr_list
+        for attribute in attr_list:
+            if attribute.id == SAI_PORT_ATTR_QOS_QUEUE_LIST:
+                for queue_id in attribute.value.objlist.object_id_list:
+                    queue_list.append(queue_id)
+        for queue in queue_list[:8]:
+            client.sai_thrift_clear_queue_stats(queue, wm_ids, len(wm_ids))
+
+
 def sai_thrift_port_tx_disable(client, asic_type, port_ids, target='dst'):
     if asic_type == 'mellanox':
         # Close DST port
