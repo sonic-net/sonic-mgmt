@@ -2,8 +2,6 @@ import pytest
 import random
 import logging
 from tests.common.helpers.assertions import pytest_require                                              # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
-    fanout_graph_facts_multidut                                                                         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
@@ -21,9 +19,8 @@ def number_of_tx_rx_ports():
     yield (1, 1)
 
 
+@pytest.mark.parametrize('low_rate', [False, True])
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     # noqa: F811
-                                                conn_graph_facts,               # noqa: F811
-                                                fanout_graph_facts_multidut,    # noqa: F811
                                                 duthosts,
                                                 lossless_prio_list,             # noqa: F811
                                                 get_snappi_ports,               # noqa: F811
@@ -31,6 +28,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
                                                 tgen_port_info,                 # noqa: F811
                                                 number_of_tx_rx_ports,          # noqa: F811
                                                 prio_dscp_map,                  # noqa: F811
+                                                low_rate,
                                                 ):
 
     """
@@ -42,14 +40,13 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of lossless priorities.
         get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
         tbinfo (pytest fixture): fixture provides information about testbed
         tgen_port_info (pytest fixture): fixture provides list of interfaces of appropriate speed and sub-type.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        low_rate (bool): selects standard or low-rate traffic profile
 
     Returns:
         N/A
@@ -66,11 +63,10 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
     run_pfcwd_burst_storm_test(api=snappi_api,
                                testbed_config=testbed_config,
                                port_config_list=port_config_list,
-                               conn_data=conn_graph_facts,
-                               fanout_data=fanout_graph_facts_multidut,
                                dut_port=snappi_ports[0]['peer_port'],
                                prio_list=[lossless_prio],
                                prio_dscp_map=prio_dscp_map,
-                               snappi_extra_params=snappi_extra_params)
+                               snappi_extra_params=snappi_extra_params,
+                               low_rate=low_rate)
 
     cleanup_config(duthosts, snappi_ports)
