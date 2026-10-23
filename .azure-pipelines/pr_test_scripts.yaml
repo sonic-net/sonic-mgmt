@@ -127,7 +127,6 @@ t0:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -298,6 +297,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -466,7 +466,6 @@ t1-lag:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -612,6 +611,7 @@ t1-lag:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - gnmi/test_events.py
   - test_features.py
   - test_interfaces.py
@@ -631,6 +631,7 @@ t1-lag:
 
 t1-lag-vpp:
   - acl/test_acl.py
+  - arp/test_arp_l3_no_rx_drop.py
   - arp/test_arpall.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_aging.py
@@ -673,8 +674,17 @@ t1-lag-vpp:
   - bgp/test_bgp_port_disable.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_vnet.py
-  - bgp/test_bgpmon_v6.py
+  - bgp/test_bgp_max_route.py
+  - bgp/test_bgp_route_weight.py
+  - bgp/test_frr_config_check.py
+  - bgp/test_frr_set_src_route_map.py
+  - bgp/test_prefix_list_suppress.py
   - bgp/test_traffic_shift_sup.py
+  - cacl/test_cacl_application.py
+  - cacl/test_cacl_function.py
+  - cacl/test_ebtables_application.py
+  - clock/test_clock.py
+  - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
   - decap/test_decap.py
@@ -706,6 +716,7 @@ t1-lag-vpp:
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - log_fidelity/test_bgp_shutdown.py
+  - mpls/test_mpls.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py
@@ -727,12 +738,14 @@ t1-lag-vpp:
   - ssh/test_ssh_ciphers.py
   - ssh/test_ssh_default_password.py
   - ssh/test_ssh_limit.py
+  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
+  - vxlan/test_vxlan_underlay_ecmp.py
   - vxlan/test_vnet_decap.py
   - vxlan/test_vnet_bgp_route_precedence.py
   - vxlan/test_vxlan_ecmp_switchover.py
@@ -741,14 +754,20 @@ t1-lag-vpp:
   - vxlan/test_vnet_route_leak.py
   - vxlan/test_vxlan_crm.py
   - vxlan/test_vxlan_multi_tunnel.py
+  - vxlan/test_vxlan_route_advertisement.py
+  - vxlan/test_vxlan_multiple_tunnels.py
+  - vxlan/test_vxlan_bfd_tsa.py
 
 
 t0-vpp:
   - acl/test_acl.py
+  - arp/test_arp_extended.py
+  - arp/test_arp_l3_no_rx_drop.py
   - arp/test_arp_update.py
   - arp/test_neighbor_mac_aging.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
+  - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_command.py
   - bgp/test_bgp_dual_asn.py
@@ -766,6 +785,7 @@ t0-vpp:
   - clock/test_clock.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - crm/test_crm.py
   - crm/test_crm_available.py
   - database/test_db_config.py
   - database/test_db_scripts.py
@@ -814,7 +834,15 @@ t0-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - sflow/test_sflow.py
   - span/test_port_mirroring.py
+  - ssh/test_ssh_stress.py
+  - vlan/test_autostate_disabled.py
+  - vlan/test_host_vlan.py
+  - vlan/test_secondary_subnet.py
+  - vlan/test_vlan.py
+  - vlan/test_vlan_ping.py
+  - vlan/test_vlan_ports_down.py
 
 
 multi-asic-t1-lag:
@@ -842,6 +870,7 @@ multi-asic-t1-lag:
   - tacacs/test_jit_user.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
+  - tacacs/test_secret_masking.py
   - test_interfaces.py
 
 dpu:
@@ -975,12 +1004,20 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_extended.py
+  - dualtor/test_ipinip.py
+  - dualtor/test_mux_port_iptables_entries.py
+  - dualtor/test_switchover_failure.py
   - dualtor_io/test_grpc_server_failure.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
 
 specific_param:
   t0-sonic:

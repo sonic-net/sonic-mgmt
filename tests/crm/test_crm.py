@@ -18,7 +18,7 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
      EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
-from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
+from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology, get_plt_wait_time
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
@@ -95,6 +95,30 @@ def handle_default_acl_rules(duthost, tbinfo):
         RESTORE_CMDS["test_acl_counter"].append({"data_acl": data_acl})
 
 
+def wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3):
+    """
+    Wait until ASIC_DB ACL_ENTRY count stabilizes (two consecutive reads match).
+    This ensures orchagent has finished processing ACL deletions/additions.
+    """
+    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
+    previous_count = None
+
+    def _count_stable():
+        nonlocal previous_count
+        keys = asichost.shell(cmd)["stdout"].split()
+        current_count = len(keys) if keys != [''] else 0
+
+        if previous_count is not None and current_count == previous_count:
+            logger.info(f"ACL entry count stabilized at {current_count}")
+            return True
+
+        logger.info(f"ACL entry count: {current_count} (previous: {previous_count})")
+        previous_count = current_count
+        return False
+
+    return wait_until(timeout, interval, 0, _count_stable)
+
+
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
     base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -146,6 +170,8 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         except BaseException:
             acl_tbl_key = None
             return False
+
+    wait_for_acl_entry_count_stable(asichost, timeout=30, interval=3)
 
     pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
                   "ACL configuration did not propagate within timeout")
@@ -839,15 +865,17 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after adding {total_routes} routes...")
-    expected_min_used = crm_stats_route_used + max(1, total_routes - CRM_COUNTER_TOLERANCE)
+    expected_used_after_add = crm_stats_route_used + total_routes
 
     def check_route_added():
-        return get_route_used() >= expected_min_used
+        return get_route_used() == expected_used_after_add
 
-    pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added),
-                  f"Route counter did not update after adding {total_routes} routes "
-                  f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
-                  f"Expected: used >= {expected_min_used}, Actual: used={get_route_used()}")
+    if not wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added):
+        for i in range(total_routes):
+            RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
+        pytest.fail(f"Route counter did not update after adding {total_routes} routes "
+                    f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
+                    f"Expected: used == {expected_used_after_add}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
@@ -882,15 +910,14 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used + min(total_routes - 1, CRM_COUNTER_TOLERANCE)
 
     def check_route_deleted():
-        return get_route_used() <= expected_max_used
+        return get_route_used() == crm_stats_route_used
 
     pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_deleted),
                   f"Route counter did not update after deleting {total_routes} routes "
                   f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
-                  f"Expected: used <= {expected_max_used}, Actual: used={get_route_used()}")
+                  f"Expected: used == {crm_stats_route_used}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
@@ -1079,8 +1106,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
-                      crm_cmd=get_nexthop_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
+                          crm_cmd=get_nexthop_stats)
 
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
@@ -1170,8 +1198,9 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
-    verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
-                      crm_cmd=get_neighbor_stats)
+    with disable_swss_syslog_rate_limit(duthost, asichost):
+        verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
+                          crm_cmd=get_neighbor_stats)
 
 
 @pytest.mark.usefixtures('disable_route_checker')
@@ -1373,8 +1402,12 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         # Wait for ACL entry resources to stabilize using polling
         expected_acl_used = new_crm_stats_acl_entry_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
         logger.info("Waiting for {} ACL entry resources to stabilize".format(nexthop_group_num))
+        # ACL rule programming can be very slow on some platforms (e.g. Broadcom DNX on the
+        # max topology) where the full batch takes ~2min to land in the ASIC. Allow the
+        # stabilization timeout to be overridden per-testbed via inventory plt_wait_time.
+        acl_stabilize_timeout = get_plt_wait_time(duthost, "crm/test_crm.py").get("timeout", 60)
         wait_for_crm_counter_update(get_acl_entry_stats, duthost, expected_used=expected_acl_used,
-                                    oper_used=">=", timeout=60, interval=5)
+                                    oper_used=">=", timeout=acl_stabilize_timeout, interval=5)
 
     # Verify thresholds for "ACL entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
@@ -1581,8 +1614,10 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         used, _ = get_crm_stats(get_fdb_stats, duthost)
         return used == 0
 
-    # Wait for FDB clear; if it doesn't fully clear, proceed with current state
-    wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial)
+    pytest_assert(
+        wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial),
+        "FDB entries are not cleared before CRM validation"
+    )
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)

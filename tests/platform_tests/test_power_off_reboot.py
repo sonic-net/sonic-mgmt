@@ -1,4 +1,6 @@
+import json
 import logging
+import math
 import re
 import pytest
 
@@ -20,15 +22,97 @@ INTERFACE_WAIT_TIME = 300
 
 DPU_STATUS_TIMEOUT = 360
 DPU_STATUS_INTERVAL = 30
+PSU_STATUS_CMD = "show platform psustatus --json"
+
+
+def _is_present(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ["1", "present", "true", "yes"]
+
+
+def _has_positive_watts(value):
+    if isinstance(value, bool):
+        return False
+    try:
+        reading = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(reading) and reading > 0
+
+
+def _get_dut_psu_status(duthost):
+    result = duthost.command(PSU_STATUS_CMD, module_ignore_errors=True)
+    pytest_assert(result.get("rc") == 0,
+                  "Failed to run '{}': {}".format(PSU_STATUS_CMD, result))
+    try:
+        entries = json.loads(result.get("stdout", ""))
+    except (TypeError, ValueError) as error:
+        pytest.fail("Failed to parse '{}': {}".format(PSU_STATUS_CMD, error))
+    pytest_assert(isinstance(entries, list),
+                  "Unexpected '{}' output: {}".format(PSU_STATUS_CMD, entries))
+    for entry in entries:
+        pytest_assert(isinstance(entry, dict),
+                      "Unexpected '{}' entry: {}".format(PSU_STATUS_CMD, entry))
+    return entries
+
+
+def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=None):
+    active_pdus = [pdu for pdu in pdus if pdu.get("outlet_on") is True]
+    pytest_assert(active_pdus, "No mapped PDU outlet is ON for PSU {}".format(psu))
+
+    watt_readings = [
+        pdu["output_watts"]
+        for pdu in active_pdus
+        if "output_watts" in pdu
+    ]
+    if not watt_readings or any(_has_positive_watts(value) for value in watt_readings):
+        return dut_psu_status
+    if dut_psu_status is not None:
+        return dut_psu_status
+
+    dut_psu_status = _get_dut_psu_status(duthost)
+    present_psus = [
+        entry for entry in dut_psu_status
+        if _is_present(entry.get("presence"))
+    ]
+    unhealthy_psus = [
+        {
+            "name": entry.get("name"),
+            "presence": entry.get("presence"),
+            "status": entry.get("status"),
+        }
+        for entry in present_psus
+        if str(entry.get("status", "")).strip().upper() != "OK"
+    ]
+    pytest_assert(
+        not unhealthy_psus,
+        "PDU metering is unavailable, and present DUT PSU status is not healthy: {}"
+        .format(unhealthy_psus),
+    )
+    pytest_assert(
+        len(present_psus) >= expected_psu_count,
+        "PDU metering is unavailable for PSU {}, but the PDU graph has {} PSU group(s) "
+        "and '{}' reports only {} present, healthy PSU(s): {}"
+        .format(psu, expected_psu_count, PSU_STATUS_CMD, len(present_psus),
+                [entry.get("name") for entry in present_psus]),
+    )
+    logging.warning(
+        "PDU metering is unavailable for PSU %s, but the DUT reports %d present, healthy PSU(s)",
+        psu,
+        len(present_psus),
+    )
+    return dut_psu_status
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_supervisor_dut_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global INTERFACE_WAIT_TIME
+    duthost = duthosts[enum_supervisor_dut_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         INTERFACE_WAIT_TIME = plt_reboot_ctrl.get('timeout', 300)
@@ -208,9 +292,15 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
+    dut_psu_status = None
     for psu, pdus in psu_to_pdus.items():
-        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
-                      0 for pdu in pdus), "PSU {} is not getting power".format(psu))
+        dut_psu_status = _validate_psu_power(
+            duthost,
+            psu,
+            pdus,
+            len(psu_to_pdus),
+            dut_psu_status,
+        )
         if not is_chassis:
             power_on_seq_list.append(pdus)
     # Append all_outlets unless it would duplicate the single existing entry
