@@ -46,9 +46,7 @@ DYNAMIC_BINDING_NAME = "test_binding"
 ACL_SUBNET = "192.168.0.0/24"
 BR_MAC = ["22:22:22:22:22:21"]
 PORT_CHANNEL_TEMP = 'PortChannel10{}'
-VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1),
-               "port_id": {"t0": ["28"], "t0-64": ["0", "1"], "t0-64-32": ["0", "1"]}
-               },
+VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1)},
        "blue": {"ip": "192.168.0.101", "id": "2", "mask": "24", "gw": "192.168.0.1", "port_id": "6"},
        "yellow": {"ip": "192.168.0.201", "id": "3", "mask": "24", "gw": "192.168.0.1", "port_id": "7"}
        }
@@ -465,7 +463,7 @@ def setup_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, 
         bond_interface = "bond1"
         ptfhost.shell("ip link add {} type bond".format(bond_interface))
         ptfhost.shell("ip link set {} type bond miimon 100 mode balance-xor".format(bond_interface))
-        for iface_id in port_id[testbed['topo']['name']]:
+        for iface_id in port_id:
             ptfhost.shell("ip link set eth{} down".format(iface_id))
             ptfhost.shell("ip link set eth{} master {}".format(iface_id, bond_interface))
         ptfhost.shell("ip link set dev {} up".format(bond_interface))
@@ -508,7 +506,7 @@ def teardown_ptf_interfaces(testbed, ptfhost, gw_ip, vrf_id, ip_address, mask, p
         ptfhost.shell("ip rule del iif {} table {}".format(vrf_name, vrf_id))
         ptfhost.shell("ip rule del oif {} table {}".format(vrf_name, vrf_id))
         ptfhost.shell("ip link set {} nomaster".format(bond_interface))
-        for iface_id in port_id[testbed['topo']['name']]:
+        for iface_id in port_id:
             ptfhost.shell("ip link set eth{} nomaster".format(iface_id))
             ptfhost.shell("ip link set eth{} up".format(iface_id))
         ptfhost.shell("ip link del {}".format(bond_interface))
@@ -538,7 +536,11 @@ def conf_ptf_interfaces(testbed, ptfhost, duthost, setup_info, interface_type, t
         vrf_name = key
         ip_address = setup_info[interface_type]["vrf_conf"][key]["ip"]
         gw_ip = setup_info[interface_type]["vrf_conf"][key]["gw"]
-        port_id = setup_info[interface_type]["vrf_conf"][key]["port_id"]
+        if vrf_name == "red":
+            # bond1 takes over PortChannel101, so it uses the PTF ports cabled to ARISTA01T1
+            port_id = setup_info[interface_type]["outer_port_id"]
+        else:
+            port_id = setup_info[interface_type]["vrf_conf"][key]["port_id"]
         mask = setup_info[interface_type]["vrf_conf"][key]["mask"]
         if teardown:
             teardown_ptf_interfaces(testbed, ptfhost, gw_ip, vrf_id, ip_address, mask, port_id, vrf_name)
@@ -693,16 +695,16 @@ def perform_handshake(ptfhost, setup_info, protocol_type, direction,
         dst_vrf = setup_info["outer_vrf"][1]
 
     if direction == "host-tor":
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None &".format(protocol_type.lower(),
-                                                                                    ip_dst, dest_l4_port,
-                                                                                    ip_src, source_l4_port,
-                                                                                    dst_vrf, src_vrf)
-    else:
-        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {} &".format(protocol_type.lower(),
-                                                                                  ip_src, source_l4_port,
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} None".format(protocol_type.lower(),
                                                                                   ip_dst, dest_l4_port,
-                                                                                  dst_vrf, src_vrf,
-                                                                                  public_ip)
+                                                                                  ip_src, source_l4_port,
+                                                                                  dst_vrf, src_vrf)
+    else:
+        echo_cmd = "python /tmp/nat_ptf_echo.py {} {} {} {} {} {} {} {}".format(protocol_type.lower(),
+                                                                                ip_src, source_l4_port,
+                                                                                ip_dst, dest_l4_port,
+                                                                                dst_vrf, src_vrf,
+                                                                                public_ip)
     ptfhost.copy(src="./scripts/nat_ptf_echo.py", dest="/tmp")
     ptfhost.command(echo_cmd)
 
