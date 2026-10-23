@@ -1,0 +1,23 @@
+---
+# Append one entry to macsec_nbr per DUT-facing Ethernet interface of `mlink.vm`.
+# DUT-facing physical ports are the Ethernet* interfaces in the topo's
+# configuration block (Port-Channel/Loopback entries are excluded).
+- name: Append neighbor ports for {{ mlink.vm }}
+  set_fact:
+    macsec_nbr: >-
+      {{ macsec_nbr + [{
+           'vm': mlink.vm,
+           'ip': neighbor_eosvm_mgmt[mlink.vm],
+           'port': port_item,
+           'profile': mlink.profile,
+           'lacp': (configuration[mlink.vm].interfaces[port_item].get('lacp', 0) | int)
+         }] }}
+  loop: >-
+    {{ configuration[mlink.vm].interfaces.keys()
+       | select('match', '^Ethernet')
+       | list }}
+  loop_control:
+    loop_var: port_item
+  when:
+    - mlink.vm in configuration
+    - configuration[mlink.vm].interfaces is defined
