@@ -19,6 +19,10 @@ CLIENT_KEY = 'restapiclient.key'
 
 SHOW_VNET_ROUTES_CMD = "show vnet routes tunnel"
 SHOW_VNET_ALIAS_CMD = "show vnet alias"
+# orchagent publishes every VNET tunnel route it has programmed in STATE_DB (DB 6) as
+# VNET_ROUTE_TUNNEL_TABLE|<vnet>|<prefix> with field "state", and removes it when the route is deleted.
+VNET_ROUTE_STATE_DUMP_CMD = "redis-dump -d 6 -k 'VNET_ROUTE_TUNNEL_TABLE|{}|*'"
+VNET_ROUTE_STATE_TIMEOUT = 30
 
 ROUTES_DATA = [
     {"nexthop": "100.78.60.37,100.78.61.37", "ip_prefix": "10.1.0.1/32"},
@@ -63,16 +67,59 @@ def get_vnet_routes(duthost, vnet_alias):
     return vnet_routes
 
 
+def get_vnet_route_states(duthost, vnet_name):
+    """
+    Gets the state of the VNET tunnel routes that orchagent has programmed for a VNET,
+    as a dict of ip_prefix -> state. Routes that orchagent has not programmed are not included.
+    """
+    output = duthost.shell(VNET_ROUTE_STATE_DUMP_CMD.format(vnet_name))["stdout"]
+    entries = json.loads(output) if output.strip() else {}
+    return {key.split("|", 2)[2]: entry.get("value", {}).get("state") for key, entry in entries.items()}
+
+
+def vnet_route_states_match(duthost, vnet_name, routes):
+    """
+    Checks that orchagent has programmed exactly the given routes for the VNET and that all of them are active.
+    """
+    expected = {route["ip_prefix"]: "active" for route in routes}
+    actual = get_vnet_route_states(duthost, vnet_name)
+    if actual != expected:
+        logger.info("VNET {} route states in STATE_DB: {}, expected: {}".format(vnet_name, actual, expected))
+        return False
+    return True
+
+
+def verify_vnet_routes_programmed(duthost, vnet_alias, routes):
+    """
+    Verifies that orchagent has programmed the VNET routes requested through the REST API.
+
+    'show vnet routes tunnel' lists the routes from APPL_DB, which the REST server writes directly,
+    so it also lists routes that orchagent failed to program, for example because the VXLAN tunnel
+    or the VNET could not be created. Check the route state that orchagent publishes in STATE_DB.
+    """
+    vnet_name = get_vnet_name(duthost, vnet_alias)
+    pytest_assert(vnet_name is not None, "VNET with alias {} not found".format(vnet_alias))
+    if not wait_until(VNET_ROUTE_STATE_TIMEOUT, 2, 0, vnet_route_states_match, duthost, vnet_name, routes):
+        pytest.fail("VNET {} routes are not programmed as expected. Expected active routes: {}, "
+                    "STATE_DB VNET_ROUTE_TUNNEL_TABLE: {}. Check syslog for orchagent VNET or VXLAN tunnel errors."
+                    .format(vnet_name, sorted(route["ip_prefix"] for route in routes),
+                            get_vnet_route_states(duthost, vnet_name)))
+
+
 '''
 This test runs the following sequence to stress the restapi behaviour.
 add 2 routes A,B
+verify that orchagent programmed A,B
 loop 10 times
     verify A,B by reading routes.
     add 3 more routes C,D,E
+    verify that orchagent programmed A, B, C, D, E
     verify 5 routes by reading routes A, B, C, D, E 10 times.
     delete the 3 added routes. C, D, E
+    verify that orchagent removed C, D, E and kept A,B
 delete the last 2 routes A, B
 verify all routes deleted.
+verify that orchagent removed all routes
 '''
 
 
@@ -107,6 +154,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members, duthost):
     pytest_assert(r.status_code == 204)
     # Wait to apply the patch
     pytest_assert(wait_until(10, 2, 0, lambda: get_vnet_routes(duthost, 'vnet-default') == INITIAL_ROUTES))
+    verify_vnet_routes_programmed(duthost, 'vnet-default', INITIAL_ROUTES)
 
     for i in range(1, 10):
         # Read the 2 routes
@@ -127,6 +175,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members, duthost):
         pytest_assert(r.status_code == 204)
         # Wait to apply the patch
         pytest_assert(wait_until(10, 2, 0, lambda: get_vnet_routes(duthost, 'vnet-default') == ROUTES_DATA))
+        verify_vnet_routes_programmed(duthost, 'vnet-default', ROUTES_DATA)
 
         # Read all the routes 10 times.
         params = '{}'
@@ -147,6 +196,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members, duthost):
         pytest_assert(r.status_code == 204)
         # Wait to apply the patch
         pytest_assert(wait_until(10, 2, 0, lambda: get_vnet_routes(duthost, 'vnet-default') == INITIAL_ROUTES))
+        verify_vnet_routes_programmed(duthost, 'vnet-default', INITIAL_ROUTES)
 
     # Verify first 2 routes
     params = '{}'
@@ -166,6 +216,7 @@ def test_vxlan_ecmp_multirequest(construct_url, vlan_members, duthost):
     pytest_assert(r.status_code == 204)
     # Wait to apply the patch
     pytest_assert(wait_until(10, 2, 0, lambda: get_vnet_routes(duthost, 'vnet-default') == []))
+    verify_vnet_routes_programmed(duthost, 'vnet-default', [])
 
     # Verify route absence.
     params = '{}'
