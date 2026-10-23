@@ -73,3 +73,18 @@ def nbr_macs(nbrhosts):
         logger.info("parallel_results %s = %s", res, results[res])
 
     return results
+
+@pytest.fixture(autouse=True)
+def ignore_voq_platform_init_errors(loganalyzer, duthosts):
+    if not loganalyzer:
+        return
+    ignore_regex = [
+        r".* ERR syncd\d*#syncd:.*SAI_API_UNSPECIFIED:sai_api_query:\d+ Invalid sai_api_t \d+.*",
+        r".* ERR syncd\d*#syncd:.*_brcm_sai_get_recycle_port_attribute:\d+ .*",
+        r".* ERR syncd\d*#syncd:.*sai_query_stats_capability:\d+ Get count failed for type \d+.*",
+        r".* ERR swss\d*#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute (ecmp|lag)_hash_offset.*",
+        r".* ERR monit\[\d+\]: 'chrony' process is not running.*",
+    ]
+    for duthost in duthosts:
+        if duthost.hostname in loganalyzer:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex)
