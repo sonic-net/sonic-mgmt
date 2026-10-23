@@ -10,12 +10,16 @@ from ptf.mask import Mask
 
 
 pytestmark = [
-    pytest.mark.topology("t0"),
+    pytest.mark.topology("t0", "t1"),
     pytest.mark.disable_loganalyzer
 ]
 
 VNI = 8000
 VXLAN_DST_PORT = 4789
+INNER_TTL = 2
+OUTER_TTL = 64
+# Create the VxLAN tunnel without ttl_mode, as the REST API does, so the platform's default decap TTL mode applies.
+TTL_MODE_DEFAULT = "default"
 
 logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -28,6 +32,11 @@ def inner_ip_version(request):
 
 @pytest.fixture(scope="module", params=["v4", "v6"])
 def outer_ip_version(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=["pipe", TTL_MODE_DEFAULT])
+def decap_ttl_mode(request):
     return request.param
 
 
@@ -81,13 +90,15 @@ def is_a_vxlan_tunnel_in_asic_db(duthost):
 
 
 @pytest.fixture
-def create_vxlan_tunnel(duthost, tbinfo, outer_ip_version, configure_vxlan_global):  # noqa F811
+def create_vxlan_tunnel(duthost, tbinfo, outer_ip_version, decap_ttl_mode, configure_vxlan_global):  # noqa F811
     """
         Fixture to configure a VxLAN tunnel before a test and remove it after the test.
     """
-    logger.info("Creating a VxLAN tunnel...")
+    logger.info(f"Creating a VxLAN tunnel with decap TTL mode '{decap_ttl_mode}'...")
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version, ttl_mode="pipe")
+    # An empty ttl_mode makes create_vxlan_tunnel() leave ttl_mode out of VXLAN_TUNNEL on every platform.
+    ttl_mode = "" if decap_ttl_mode == TTL_MODE_DEFAULT else decap_ttl_mode
+    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version, ttl_mode=ttl_mode)
     pytest_assert(wait_until(10, 2, 0, is_vxlan_tunnel_in_app_db, duthost, vxlan_tunnel),
                   "The VxLAN tunnel is not created in APP DB.")
     yield vxlan_tunnel
@@ -162,7 +173,12 @@ def select_egress_ip_and_ports(duthost, minigraph_facts, inner_ip_version, exclu
     for intf, info in ip_interfaces.items():
         if not (intf.startswith("Ethernet") or intf.startswith("PortChannel")):
             continue
-        if intf in exclude_ports:
+        if intf.startswith("PortChannel"):
+            members = portchannel_info[intf]["members"]
+        else:
+            members = [intf]
+        # On t1 the ingress port is a PortChannel member, so also skip the PortChannel it belongs to.
+        if intf in exclude_ports or any(member in exclude_ports for member in members):
             continue
         if inner_ip_version == "v4":
             if info["oper_state"].lower() != "up":
@@ -177,10 +193,6 @@ def select_egress_ip_and_ports(duthost, minigraph_facts, inner_ip_version, exclu
             if not neigh_ip or neigh_ip.lower() == "n/a":
                 continue
 
-        if intf.startswith("PortChannel"):
-            members = portchannel_info[intf]["members"]
-        else:
-            members = [intf]
         logger.info(f"Selected egress packet's dest IP '{neigh_ip}' and egress interface '{intf}'.")
         return (neigh_ip, members)
     pytest.skip("No suitable egress interface found on the DUT.")
@@ -193,12 +205,12 @@ def get_inner_packet(dst_mac, src_mac, ip_version, dst_ip, ttl):
         return testutils.simple_udpv6_packet(eth_dst=dst_mac, eth_src=src_mac, ipv6_dst=dst_ip, ipv6_hlim=ttl)
 
 
-def get_outer_packet(eth_dst, eth_src, ip_version, ip_dst, inner_pkt):
+def get_outer_packet(eth_dst, eth_src, ip_version, ip_dst, inner_pkt, ttl=OUTER_TTL):
     if ip_version == "v4":
-        return testutils.simple_vxlan_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst,
+        return testutils.simple_vxlan_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_ttl=ttl,
                                              udp_dport=VXLAN_DST_PORT, vxlan_vni=VNI, inner_frame=inner_pkt)
     else:
-        return testutils.simple_vxlanv6_packet(eth_dst=eth_dst, eth_src=eth_src, ipv6_dst=ip_dst,
+        return testutils.simple_vxlanv6_packet(eth_dst=eth_dst, eth_src=eth_src, ipv6_dst=ip_dst, ipv6_hlim=ttl,
                                                udp_dport=VXLAN_DST_PORT, vxlan_vni=VNI, inner_frame=inner_pkt)
 
 
@@ -229,21 +241,42 @@ def get_expected_packet_mask_ipv6(inner_pkt):
     return exp_pkt_mask
 
 
-def get_expected_packet_mask(inner_pkt, inner_ip_version):
+def get_expected_packet_mask(inner_pkt, inner_ip_version, ignore_ttl=False):
+    """
+        Returns the mask of the decapsulated packet, whose TTL/Hop limit is the inner one minus 1 (pipe model).
+        With ignore_ttl the TTL/Hop limit is not compared, so that the caller can check it separately.
+    """
     if inner_ip_version == "v4":
-        return get_expected_packet_mask_ipv4(inner_pkt)
+        exp_pkt_mask = get_expected_packet_mask_ipv4(inner_pkt)
+        if ignore_ttl:
+            exp_pkt_mask.set_do_not_care_packet(packet.IP, "ttl")
     else:
-        return get_expected_packet_mask_ipv6(inner_pkt)
+        exp_pkt_mask = get_expected_packet_mask_ipv6(inner_pkt)
+        if ignore_ttl:
+            exp_pkt_mask.set_do_not_care_packet(packet.IPv6, "hlim")
+    return exp_pkt_mask
+
+
+def get_ttl(pkt, ip_version):
+    """
+        Returns the TTL (IPv4) or Hop limit (IPv6) of a received packet.
+    """
+    pkt = packet.Ether(pkt)
+    return pkt[packet.IP].ttl if ip_version == "v4" else pkt[packet.IPv6].hlim
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_upper_tor
 @pytest.mark.dualtor_active_active_setup_standby_on_lower_tor
-def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_version, inner_ip_version):  # noqa F811
+def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_version, inner_ip_version,  # noqa F811
+                         decap_ttl_mode):
     """
         In this test, the DUT acts as a VNET endpoint and decapulates VxLAN packets sent to it that match
         the VNI of the VNET configured on it.
-        The test verifies that TTL/Hop limit of the egress packet is set correctly when using the pipe model
+        With decap TTL mode "pipe", the test verifies that TTL/Hop limit of the egress packet is set correctly
         (i.e., to the TTL/Hop limit of the inner ingress packet minus 1).
+        With the default decap TTL mode (the VxLAN tunnel is created without ttl_mode, as the REST API does),
+        the test verifies that the packet is decapsulated and forwarded, and that its TTL/Hop limit follows
+        either the pipe model (inner minus 1) or the uniform model (outer minus 1).
     """
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts["router_mac"]
@@ -261,12 +294,22 @@ def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_vers
     outer_dst_mac = get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_port, router_mac)
 
     inner_pkt = get_inner_packet(dst_mac=router_mac, src_mac=ptf_src_mac, ip_version=inner_ip_version,
-                                 dst_ip=inner_dst_ip, ttl=2)
+                                 dst_ip=inner_dst_ip, ttl=INNER_TTL)
     outer_pkt = get_outer_packet(eth_dst=outer_dst_mac, eth_src=ptf_src_mac, ip_version=outer_ip_version,
-                                 ip_dst=vnet_endpoint, inner_pkt=inner_pkt)
+                                 ip_dst=vnet_endpoint, inner_pkt=inner_pkt, ttl=OUTER_TTL)
 
-    exp_pkt_mask = get_expected_packet_mask(inner_pkt, inner_ip_version)
+    # The TTL/Hop limit model of the default decap TTL mode is platform specific; it is checked separately below.
+    default_mode = decap_ttl_mode == TTL_MODE_DEFAULT
+    exp_pkt_mask = get_expected_packet_mask(inner_pkt, inner_ip_version, ignore_ttl=default_mode)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, ptf_indices[ingress_port], outer_pkt)
     _, received_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt_mask, egress_port_indices)
     logger.info(f"Received packet: \n{packet.Ether(received_pkt)}\n")
+
+    if default_mode:
+        ttl_models = {INNER_TTL - 1: "pipe", OUTER_TTL - 1: "uniform"}
+        received_ttl = get_ttl(received_pkt, inner_ip_version)
+        pytest_assert(received_ttl in ttl_models,
+                      f"Unexpected TTL/Hop limit {received_ttl} after decap with the default decap TTL mode, "
+                      f"expected {INNER_TTL - 1} (pipe model) or {OUTER_TTL - 1} (uniform model).")
+        logger.info(f"The default decap TTL mode follows the {ttl_models[received_ttl]} model.")
