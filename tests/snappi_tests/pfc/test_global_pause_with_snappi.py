@@ -14,7 +14,10 @@ from tests.snappi_tests.cisco.helper import disable_voq_watchdog                
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+pytestmark = [
+    pytest.mark.topology('multidut-tgen', 'tgen'),
+    pytest.mark.use_running_config_baseline,
+]
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -57,6 +60,7 @@ def test_global_pause(snappi_api,                           # noqa: F811
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+    snappi_extra_params.snappi_api = snappi_api
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
