@@ -60,7 +60,7 @@ if __name__ == "__main__":
         # Try to parse the address to determine if it's IPv6
         socket.inet_pton(socket.AF_INET6, args.bind)
         # If successful, it's an IPv6 address
-        httpd = IPv6HTTPServer((args.bind, args.port), TempHttpServer)
+        httpd: HTTPServer = IPv6HTTPServer((args.bind, args.port), TempHttpServer)
         log_to_file("crl.log", f"IPv6 HTTPServer started on [{args.bind}]:{args.port}\n")
     except socket.error:
         # Not a valid IPv6 address, fallback to IPv4
