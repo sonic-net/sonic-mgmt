@@ -3984,6 +3984,15 @@ nat:
       - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
+#####           ntp               #####
+#######################################
+ntp/test_ntp.py:
+  xfail:
+    reason: "Failed to restart chrony.service on NTP server add"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23904"
+
+#######################################
 #####             ospf            #####
 #######################################
 ospf:
