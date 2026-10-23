@@ -61,7 +61,7 @@ As the testing of a server NIC device operation is out of the scope of this test
     * If any check fails, mark SS prerequisite failed and do not run SS functional checks.
 - BGP graceful restart (GR) is disabled on all sessions; BFD is not used.
 
-**BGP peering:** each dT0 runs IPv4 and IPv6 unicast eBGP sessions to the T2 simulators, which only provide underlay reachability between the dT0 loopbacks. EVPN (L3VNI) runs only between the two dT0s, as an iBGP session between their Loopback0 addresses over that underlay. The VXLAN tunnel is between the two dT0 VTEPs.
+**BGP peering:** each dT0 runs IPv4 and IPv6 unicast eBGP sessions to the T2 simulators, which only provide underlay reachability between the dT0 loopbacks. The VXLAN tunnel is between the two dT0 VTEPs.
 
 ### Convergence & Detection Targets
 **Target release and failover model:** this plan covers the release **without UAP** (the upcoming feature where a dT0 stops attracting traffic for the servers behind its failed link) and without hardware fast reroute. T2 has only the subnet route, so it keeps sending 01dT0 its share of a server's traffic after 01dT0 loses its link; withdrawing the Type-1 does not change that. 01dT0 tunnels that share to 02dT0 until the link recovers. The dT0 that lost its link moves traffic in software (tens to hundreds of ms).
