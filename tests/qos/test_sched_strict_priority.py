@@ -34,6 +34,7 @@ from tests.common.helpers.ptf_tests_helper import (
     detect_portchannel_egress_member
 )
 from tests.common.config_reload import config_reload
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -124,16 +125,28 @@ class StrictPriorityRateLimitingDriver:
             router_mac = self.duthost.facts["router_mac"]
 
             # Create packet with correct DSCP for target queue
-            test_packet = testutils.simple_tcp_packet(
-                pktlen=TEST_CONFIG['packet_size'],
-                eth_dst=router_mac,  # Send to DUT's router MAC for L3 routing
-                ip_src=self.source_ip,  # Source IP in interface subnet
-                ip_dst=self.destination_ip,  # Destination IP that will route through target interface
-                ip_tos=self.dscp_value << 2,  # DSCP is upper 6 bits of ToS field
-                ip_ttl=64,
-                tcp_sport=1234,
-                tcp_dport=80
-            )
+            if is_ipv6_only_topology(self.testbed_info):
+                test_packet = testutils.simple_tcpv6_packet(
+                    pktlen=TEST_CONFIG['packet_size'],
+                    eth_dst=router_mac,  # Send to DUT's router MAC for L3 routing
+                    ipv6_src=self.source_ip,  # Source IP in interface subnet
+                    ipv6_dst=self.destination_ip,  # Destination IP that will route through target interface
+                    ipv6_tc=self.dscp_value << 2,  # DSCP is upper 6 bits of tc field
+                    ipv6_hlim=64,
+                    tcp_sport=1234,
+                    tcp_dport=80
+                )
+            else:
+                test_packet = testutils.simple_tcp_packet(
+                    pktlen=TEST_CONFIG['packet_size'],
+                    eth_dst=router_mac,  # Send to DUT's router MAC for L3 routing
+                    ip_src=self.source_ip,  # Source IP in interface subnet
+                    ip_dst=self.destination_ip,  # Destination IP that will route through target interface
+                    ip_tos=self.dscp_value << 2,  # DSCP is upper 6 bits of ToS field
+                    ip_ttl=64,
+                    tcp_sport=1234,
+                    tcp_dport=80
+                )
 
             logger.info(f"Created packet template: {self.source_ip} -> {self.destination_ip}, DSCP {self.dscp_value}")
             return test_packet
