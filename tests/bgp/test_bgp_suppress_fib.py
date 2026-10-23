@@ -24,7 +24,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports, parse_intf_status
 from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_vm_name_list, \
-    get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, operate_orchagent, \
+    get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, operate_fpmsyncd, \
     get_upstream_ptf_intfs, get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 
@@ -165,65 +165,87 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
-            "\\(.* minutes\\).*",
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
             r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
-            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*",
             r".* ERR monit.*'chrony' process is not running.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def disable_zmq_for_fib_suppress(duthosts):
+def enable_zmq_for_fib_suppress(duthosts):
     """
-    Disable SYSTEM_DEFAULTS|swss_zmq for the duration of the module.
-    When swss_zmq is enabled, fpmsyncd uses ZMQ instead of Redis
-    ConsumerStateTable to communicate with orchagent. Pausing orchagent
-    (SIGSTOP) blocks ZMQ send, which causes fpmsyncd to time out and
-    prevents route updates from being received - breaking tests that
-    intentionally stop orchagent to simulate route install delays.
+    Enable SYSTEM_DEFAULTS|swss_zmq for the duration of the module.
 
-    Applied to every DUT in duthosts so multi-DUT topologies where both
-    upstream and downstream orchagent are paused keep ZMQ disabled on each.
-    On multi-ASIC DUTs, reads and writes SYSTEM_DEFAULTS|swss_zmq in every
-    ASIC namespace so each swss instance sees the same setting.
-    Restores the original value at module teardown.
+    The tests pause fpmsyncd to hold routes in queued state before they are
+    synchronously sent to orchagent over ZMQ. This exercises suppress-fib-pending
+    with the production ZMQ path instead of changing the DUT to the legacy Redis
+    ConsumerStateTable path.
+
+    Apply the setting to every ASIC namespace and restore the original state at
+    module teardown, including when setup or a test fails.
     """
     original_status = {}
-    for dut in duthosts:
-        ns_statuses = _get_swss_zmq_status_for_dut(dut)
-        original_status[dut] = ns_statuses
-        logger.info("Original swss_zmq status on {}: {}".format(dut.hostname, ns_statuses))
+    changed_namespaces = {}
+    try:
+        for dut in duthosts:
+            ns_statuses = _get_swss_zmq_status_for_dut(dut, fail_on_error=True)
+            original_status[dut] = ns_statuses
+            logger.info("Original swss_zmq status on {}: {}".format(dut.hostname, ns_statuses))
 
-        if any(status == "enabled" for status in ns_statuses.values()):
-            logger.info("Disabling swss_zmq on {} for suppress-fib tests".format(dut.hostname))
-            for namespace, status in ns_statuses.items():
-                if status == "enabled":
-                    _set_swss_zmq_status_for_namespace(dut, "disabled", namespace)
-            dut.shell('sudo config save -y')
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-            # LLDP neighbors re-appear only after the remote side sends its next hello
-            # (up to 30 s after reload). config_reload has no LLDP option; wait explicitly.
-            logger.info("Waiting for LLDP neighbors to repopulate after config reload on {}"
-                        .format(dut.hostname))
-            wait_until(90, 5, 0,
-                       lambda d=dut: bool(d.shell(
-                           "show lldp table | grep -v LocalPort | grep -v '^$'",
-                           module_ignore_errors=True)['stdout'].strip()))
-
-    yield
-
-    for dut, ns_statuses in original_status.items():
-        if any(status == "enabled" for status in ns_statuses.values()):
-            logger.info("Restoring swss_zmq status on {}".format(dut.hostname))
-            for namespace, status in ns_statuses.items():
-                if status == "enabled":
+            changed_namespaces[dut] = []
+            for namespace, state in ns_statuses.items():
+                if state['status'] != "enabled":
+                    logger.info("Enabling swss_zmq on {} namespace {}".format(dut.hostname, namespace))
                     _set_swss_zmq_status_for_namespace(dut, "enabled", namespace)
-            dut.shell('sudo config save -y')
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+                    changed_namespaces[dut].append(namespace)
+
+            if changed_namespaces[dut]:
+                dut.shell('sudo config save -y')
+                config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+                logger.info("Waiting for LLDP neighbors to repopulate after config reload on {}"
+                            .format(dut.hostname))
+                pytest_assert(
+                    wait_until(90, 5, 0,
+                               lambda d=dut: bool(d.shell(
+                                   "show lldp table | grep -v LocalPort | grep -v '^$'",
+                                   module_ignore_errors=True)['stdout'].strip())),
+                    "LLDP neighbors did not repopulate after enabling swss_zmq on {}".format(dut.hostname))
+
+            current_status = _get_swss_zmq_status_for_dut(dut, fail_on_error=True)
+            pytest_assert(
+                all(state['status'] == "enabled" for state in current_status.values()),
+                "swss_zmq is not enabled in every namespace on {}: {}".format(
+                    dut.hostname, current_status))
+
+        yield
+    finally:
+        restore_failures = []
+        for dut, namespaces in reversed(list(changed_namespaces.items())):
+            if not namespaces:
+                continue
+            for namespace in namespaces:
+                try:
+                    state = original_status[dut][namespace]
+                    logger.info("Restoring swss_zmq state on {} namespace {}: {}".format(
+                        dut.hostname, namespace, state))
+                    _restore_swss_zmq_status_for_namespace(dut, state, namespace)
+                except Exception as err:
+                    logger.exception("Failed to restore swss_zmq on {} namespace {}".format(
+                        dut.hostname, namespace))
+                    restore_failures.append("{} namespace {}: {}".format(dut.hostname, namespace, err))
+
+            try:
+                dut.shell('sudo config save -y')
+                config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                              yang_validate=False)
+            except Exception as err:
+                logger.exception("Failed to save/reload swss_zmq state on {}".format(dut.hostname))
+                restore_failures.append("{} save/reload: {}".format(dut.hostname, err))
+
+        pytest_assert(not restore_failures,
+                      "Failed to restore swss_zmq state: {}".format('; '.join(restore_failures)))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -381,38 +403,38 @@ def generate_traffic_data(route_list, action):
     return traffic_data_list
 
 
-def is_orchagent_stopped(duthost):
+def is_fpmsyncd_stopped(duthost):
     """
-    Check if process 'orchagent' is stopped
+    Check if process 'fpmsyncd' is stopped
     Compatible for multi-asic
     """
     out_list = []
-    pids = duthost.shell("pgrep -x orchagent")['stdout'].split()
+    pids = duthost.shell("pgrep -x fpmsyncd")['stdout'].split()
     for pid in pids:
         cmd = 'cat /proc/{}/status | grep State'.format(pid)
         out = duthost.shell(cmd)['stdout']
-        logger.info('Orchagent process - {}'.format(out))
+        logger.info('fpmsyncd process - {}'.format(out))
         out_list.append(out)
     return any(ACTION_STOP in state for state in out_list)
 
 
 @pytest.fixture(scope="function", autouse=True)
-def restore_orchagent(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
-                      get_exabgp_ptf_ports):
+def restore_fpmsyncd(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+                     get_exabgp_ptf_ports):
     """
-    Fixture to restore process 'orchagent' in case of unexpected failures in case
+    Fixture to restore process 'fpmsyncd' in case of unexpected failures in case
     On both Upstream and Downstream
     """
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
     yield
-    if is_orchagent_stopped(duthost_down):
-        logger.info('Orchagent process stopped, will restore it')
-        operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+    if is_fpmsyncd_stopped(duthost_down):
+        logger.info('fpmsyncd process stopped, will restore it')
+        operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
 
-    if is_orchagent_stopped(duthost_up):
-        logger.info('Orchagent process stopped, will restore it')
-        operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+    if is_fpmsyncd_stopped(duthost_up):
+        logger.info('fpmsyncd process stopped, will restore it')
+        operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
 
 
 def get_cfg_facts(duthost):
@@ -833,14 +855,23 @@ def _parse_bgp_suppress_fib_output(stdout):
 
 
 def _read_swss_zmq_status_for_namespace(duthost, namespace=None, module_ignore_errors=True):
-    """Read swss_zmq status from CONFIG_DB for a single ASIC namespace."""
-    cmd = duthost.get_cli_cmd_for_namespace(
+    """Read swss_zmq field existence and value for a single ASIC namespace."""
+    exists_cmd = duthost.get_cli_cmd_for_namespace(
+        'sonic-db-cli CONFIG_DB HEXISTS "SYSTEM_DEFAULTS|swss_zmq" "status"',
+        namespace)
+    exists_rets = duthost.shell(exists_cmd, module_ignore_errors=module_ignore_errors)
+    if exists_rets['rc'] != 0:
+        return None
+    if exists_rets['stdout'].strip() == '0':
+        return {'exists': False, 'status': None}
+
+    get_cmd = duthost.get_cli_cmd_for_namespace(
         'sonic-db-cli CONFIG_DB HGET "SYSTEM_DEFAULTS|swss_zmq" "status"',
         namespace)
-    rets = duthost.shell(cmd, module_ignore_errors=module_ignore_errors)
-    if rets['rc'] != 0:
+    get_rets = duthost.shell(get_cmd, module_ignore_errors=module_ignore_errors)
+    if get_rets['rc'] != 0:
         return None
-    return rets['stdout'].strip()
+    return {'exists': True, 'status': get_rets['stdout'].strip()}
 
 
 def _set_swss_zmq_status_for_namespace(duthost, status, namespace=None):
@@ -851,8 +882,20 @@ def _set_swss_zmq_status_for_namespace(duthost, status, namespace=None):
     duthost.shell(cmd)
 
 
+def _restore_swss_zmq_status_for_namespace(duthost, state, namespace=None):
+    """Restore swss_zmq status, including an originally absent field."""
+    if state['exists']:
+        _set_swss_zmq_status_for_namespace(duthost, state['status'], namespace)
+        return
+
+    cmd = duthost.get_cli_cmd_for_namespace(
+        'sonic-db-cli CONFIG_DB HDEL "SYSTEM_DEFAULTS|swss_zmq" "status"',
+        namespace)
+    duthost.shell(cmd)
+
+
 def _get_swss_zmq_status_for_dut(duthost, module_ignore_errors=True, fail_on_error=False):
-    """Return swss_zmq status for every ASIC namespace on the DUT ({namespace: status})."""
+    """Return swss_zmq state for every ASIC namespace on the DUT."""
     statuses = {}
     for namespace in duthost.get_asic_namespace_list():
         status = _read_swss_zmq_status_for_namespace(
@@ -1237,8 +1280,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
-                    with allure.step("Suspend orchagent process to simulate a route install delay"):
-                        operate_orchagent(duthost_down)
+                    with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                        operate_fpmsyncd(duthost_down)
 
                     with allure.step("Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "):
                         announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
@@ -1267,11 +1310,11 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                                          ptf_interfaces, recv_port)
 
                     if multi_dut:
-                        with allure.step("Suspend orchagent process on Upstream Node"):
-                            operate_orchagent(duthost_up)
+                        with allure.step("Suspend fpmsyncd process on Upstream Node"):
+                            operate_fpmsyncd(duthost_up)
 
-                    with allure.step("Restore orchagent process"):
-                        operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+                    with allure.step("Restore fpmsyncd process"):
+                        operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
 
                     with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
                         validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port,
@@ -1290,8 +1333,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                               tbinfo, nbrhosts, queue=True, vrf_type=vrf_type)
 
-                        with allure.step("Restore orchagent process on Upstream"):
-                            operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+                        with allure.step("Restore fpmsyncd process on Upstream"):
+                            operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
 
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                               tbinfo, nbrhosts, queue=False, vrf_type=vrf_type)
@@ -1344,33 +1387,35 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_down)
+            with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                operate_fpmsyncd(duthost_down)
                 if multi_dut:
-                    operate_orchagent(duthost_up)
+                    operate_fpmsyncd(duthost_up)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
 
-            with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
+            # The ZMQ path queues routes while fpmsyncd is paused. With suppress-fib disabled,
+            # those queued routes must still be advertised before hardware installation.
+            with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(QUEUED)):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                      tbinfo, check_point=QUEUED, action=ACTION_NOT_IN,
+                                      tbinfo, check_point=QUEUED,
                                       verify_oth_asic=duthost_down.is_multi_asic)
                 if multi_dut:
                     for asichost in duthost_up.asics:
                         validate_route_states(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                               tbinfo, check_point=QUEUED,
-                                              action=ACTION_NOT_IN, asic_namespace=asichost.namespace)
+                                              asic_namespace=asichost.namespace)
 
             with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
                                          ipv6_route_list)
 
-            with allure.step("Restore orchagent process"):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+            with allure.step("Resume fpmsyncd process to complete route installation"):
+                operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
                 if multi_dut:
-                    operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+                    operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(OFFLOADED)):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
@@ -1389,6 +1434,10 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
                 validate_traffic(ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
                                  ptf_interfaces, recv_port)
         finally:
+            operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
+            if multi_dut:
+                operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
+
             with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
@@ -1421,8 +1470,8 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
 
         for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
             try:
-                with allure.step("Suspend orchagent process to simulate a route install delay"):
-                    operate_orchagent(duthost_down)
+                with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                    operate_fpmsyncd(duthost_down)
 
                 with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                                  f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1487,11 +1536,11 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                                      ptf_interfaces, static_ptf_recvport)
 
                 if multi_dut:
-                    with allure.step("Suspend orchagent process on Upstream Node"):
-                        operate_orchagent(duthost_up)
+                    with allure.step("Suspend fpmsyncd process on Upstream Node"):
+                        operate_fpmsyncd(duthost_up)
 
-                with allure.step("Restore orchagent process"):
-                    operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+                with allure.step("Restore fpmsyncd process"):
+                    operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
 
                 with allure.step("Validate announced BGP ipv4 and ipv6 routes are not in {} state".format(QUEUED)):
                     validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
@@ -1507,8 +1556,8 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                     upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                           tbinfo, nbrhosts, queue=True)
 
-                    with allure.step("Restore orchagent process on Upstream"):
-                        operate_orchagent(duthost_up, action=ACTION_CONTINUE)
+                    with allure.step("Restore fpmsyncd process on Upstream"):
+                        operate_fpmsyncd(duthost_up, action=ACTION_CONTINUE)
 
                     upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
                                           tbinfo, nbrhosts, queue=False)
@@ -1572,8 +1621,8 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
                            fargs=[ptfadapter, [traffic_data_ipv4_forward, traffic_data_ipv6_forward], router_mac,
                                   ptf_interfaces, ptf_interfaces, True], tries=3, delay=2)
 
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_up)
+            with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                operate_fpmsyncd(duthost_up)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1621,9 +1670,9 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
     Steps:
     1. Enable BGP suppress-fib-pending at the downstream DUT.
     2. Do BGP route flap to stress the route processing pipeline.
-    3. Suspend orchagent to simulate a route install delay.
+    3. Suspend fpmsyncd to simulate a route install delay.
     4. Announce routes and verify they are held in queued state (blackholing).
-    5. Restore orchagent and verify routes transition to offloaded state and traffic is forwarded.
+    5. Restore fpmsyncd and verify routes transition to offloaded state and traffic is forwarded.
     """
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
@@ -1650,12 +1699,12 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                                            ptf_ip, ipv4_route_list, exabgp_port,
                                            ipv6_route_list, exabgp_port_v6, flap_time=flap_time)
 
-            with allure.step("Verify stress routes are fully withdrawn before pausing orchagent"):
+            with allure.step("Verify stress routes are fully withdrawn before pausing fpmsyncd"):
                 validate_route_propagate(duthost_up, nbrhosts, tbinfo,
                                          ipv4_route_list, ipv6_route_list, exist=False)
 
-            with allure.step("Suspend orchagent process to simulate a route install delay"):
-                operate_orchagent(duthost_down)
+            with allure.step("Suspend fpmsyncd process to simulate a route install delay"):
+                operate_fpmsyncd(duthost_down)
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
                              f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
@@ -1674,8 +1723,8 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                 validate_traffic(ptfadapter, [traffic_data_ipv4_drop, traffic_data_ipv6_drop],
                                  router_mac_up, ptf_interfaces, recv_port)
 
-            with allure.step("Restore orchagent process"):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+            with allure.step("Restore fpmsyncd process"):
+                operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
 
             with allure.step("Verify the BGP routes are in offloaded state in the DUT routing table"):
                 validate_route_states(duthost_down, ipv4_route_list, ipv6_route_list, exabgp_port,
@@ -1695,8 +1744,8 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
                                           exabgp_port_v6, action=WITHDRAW)
 
-            if is_orchagent_stopped(duthost_down):
-                operate_orchagent(duthost_down, action=ACTION_CONTINUE)
+            if is_fpmsyncd_stopped(duthost_down):
+                operate_fpmsyncd(duthost_down, action=ACTION_CONTINUE)
 
 
 def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
