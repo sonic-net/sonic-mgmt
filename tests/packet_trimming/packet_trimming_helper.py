@@ -39,7 +39,7 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              WARM_REBOOT_PACKET_RATE, WARM_REBOOT_PACKET_SIZE,
                                              WARM_REBOOT_CAPTURE_SNAP_LEN, WARM_REBOOT_CAPTURE_BUFFER_SIZE,
                                              WARM_REBOOT_CAPTURE_START_WAIT, WARM_REBOOT_ANALYZER_WAIT,
-                                             DYNAMIC_TH,
+                                             DYNAMIC_TH, FALLBACK_BLOCK_QUEUE_RESERVED_BYTES,
                                              QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -1716,6 +1716,11 @@ def ensure_block_queue_buffer_profile(duthost, block_queue_profile):
     profile bound to the egress lossy pool on demand when the profile is missing. This is a
     no-op on platforms that already define the profile, so behavior on those SKUs is unchanged.
 
+    The fallback reserves buffer memory, not a maximum packet length. It retains the
+    shared Force10-S6000 egress-lossy profile's 1518-byte reservation; MTU changes do
+    not require changing this value. VPP blocking is driven by the scheduler PIR,
+    not by this reservation.
+
     Args:
         duthost: DUT host object
         block_queue_profile (str): Buffer profile name referenced by the blocking queue
@@ -1730,7 +1735,7 @@ def ensure_block_queue_buffer_profile(duthost, block_queue_profile):
         return False
 
     pool = TRIM_QUEUE_PROFILE_CONFIG["pool"]
-    fields = f"pool {pool} size 1518 dynamic_th {DYNAMIC_TH}"
+    fields = f"pool {pool} size {FALLBACK_BLOCK_QUEUE_RESERVED_BYTES} dynamic_th {DYNAMIC_TH}"
     duthost.shell(f"redis-cli -n 4 hset 'BUFFER_PROFILE|{block_queue_profile}' {fields}")
     logger.info(f"Created missing blocking-queue buffer profile '{block_queue_profile}': {fields}")
     return True
