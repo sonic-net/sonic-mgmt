@@ -3984,6 +3984,15 @@ nat:
       - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
+#####             ntp             #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  skip:
+    reason: "Chrony stepping is enabled by default on switch BMCs"
+    conditions:
+      - "topo_type in ['bmc']"
+
+#######################################
 #####             ospf            #####
 #######################################
 ospf:
