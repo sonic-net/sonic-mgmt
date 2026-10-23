@@ -231,7 +231,9 @@ class StrictPriorityRateLimitingDriver:
                     target_mbps = (traffic_rate_bytes_per_sec * 8) / 1000000
                     logger.error(f"Failed to achieve target bandwidth: {actual_rate_mbps: .1f} Mbps "
                                  f"vs target {target_mbps: .1f} Mbps ({accuracy_percent: .1f}%)")
-                    pytest.skip(f"Cannot achieve desired bandwidth: got {accuracy_percent: .1f}% of target rate")
+                    pytest_assert(
+                        False,
+                        f"Cannot achieve desired bandwidth: got {accuracy_percent: .1f}% of target rate")
 
             time.sleep(2)
 
