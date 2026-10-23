@@ -9,12 +9,15 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut, tgen_port_info, snappi_port_selection                               # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
 from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfcwd_test
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import get_test_subtype_from_ports
+from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000                          # noqa: F401
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
+from tests.common.helpers.parallel import parallel_run
+from tests.snappi_tests.variables import MULTIDUT_TESTBED
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +27,10 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#10: PFCWD-enabled DROP mode test.
 # This test-script also covers testcase#11: PFCWD-enabled FWD mode test.
+
+
+port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
+over_subs_port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 
 def create_port_map(snappi_ports, tx_count, rx_count):
@@ -55,6 +62,39 @@ def _parse_storm_detect_restore(pfcwd_stats):
     return det, rest
 
 
+def _verify_port_speed(port_list, tbinfo, port_map):
+
+    # port_map is defined as port-speed combination.
+    # first two parameters are count of egress links and its speed.
+    # last two parameters are count of ingress links and its speed.
+    speed_specific_port_list = []
+    tx_port_count = port_map[0]
+    rx_port_count = port_map[2]
+    for item in port_list:
+        if (int(item['speed']) == (port_map[1] * 1000)):
+            speed_specific_port_list.append(item)
+    pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                   "The testbed name from testbed name in testbed.yaml doesn't"
+                   " match with MULTIDUT_TESTBED in variables.py ")
+    pytest_require(
+        len(speed_specific_port_list) >= tx_port_count + rx_port_count,
+        "Need Minimum of {} ports of speed {}G defined in "
+        "ansible/files/*links.csv file".format(
+            tx_port_count + rx_port_count, port_map[1]))
+    return (port_map, speed_specific_port_list)
+
+
+@pytest.fixture(params=port_map, autouse=False)
+def verify_port_speed(tgen_port_info, tbinfo, request):  # noqa: F811
+    return (_verify_port_speed(tgen_port_info[2], tbinfo, request.param))
+
+
+@pytest.fixture(params=over_subs_port_map, autouse=False)
+def verify_port_speed_oversubscribe(tgen_port_info, tbinfo, request):   # noqa: F811
+    return (_verify_port_speed(tgen_port_info[2], tbinfo, request.param))
+
+
+@pytest.fixture(autouse=True, scope="module")
 def log_pfcwd_stats(test_prio_list, snappi_ports, dut_list, when='start', egress_count=1):
     """
     Log PFC-WD stats on DUT egress ports and return storm counters.
@@ -108,8 +148,19 @@ def number_of_tx_rx_ports(request):
         yield (1, 1)
 
 
+def pfcwd_actions_cleanup(duthosts, get_snappi_ports, tgen_port_info):  # noqa: F811
+    cleanup_config(duthosts, get_snappi_ports)
+
+    def do_config_reload(node, results):
+        return (config_reload(sonic_host=node))
+    parallel_run(do_config_reload, [], {}, list(set([get_snappi_ports[0]['duthost'], get_snappi_ports[1]['duthost']])))
+
+
 @pytest.fixture(autouse=False)
 def disable_voq_wd_cisco_8000(duthosts):
+    for dut in duthosts:
+        if dut.facts.get('asic_type') == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(dut, False)
     yield
     for dut in duthosts:
         if dut.facts.get('asic_type') == "cisco-8000":
@@ -118,7 +169,7 @@ def disable_voq_wd_cisco_8000(duthosts):
 
 # This is a single-tx-single-rx test.
 @pytest.mark.parametrize("number_of_tx_rx_ports", [False], indirect=True)
-def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
+def test_pfcwd_drop_90_10(snappi_api,                   # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
                           duthosts,
@@ -126,7 +177,8 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                           lossless_prio_list,           # noqa: F811
                           lossy_prio_list,              # noqa: F811
                           tbinfo,
-                          tgen_port_info):              # noqa: F811
+                          tgen_port_info,               # noqa: F811
+                          verify_port_speed):           # noqa: F811
     """
     Purpose of the test case is to enable PFCWD in drop mode and send 90% lossless traffic and 10%
     lossy traffic and check the behavior. DUT is receiving pause storm on the egress port. DUT should
@@ -148,8 +200,8 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
     """
 
     pkt_size = 1024
+    port_map, snappi_ports = verify_port_speed
     testbed_config, port_config_list, snappi_ports = tgen_port_info
-    port_map = create_port_map(snappi_ports, 1, 1)
     testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
@@ -229,6 +281,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         lossless_prio_list,           # noqa: F811
                         lossy_prio_list,              # noqa: F811
                         tbinfo,
+                        verify_port_speed,
                         tgen_port_info):              # noqa: F811
     """
     Purpose of the test case is to enable PFCWD in drop mode and send 40% lossless traffic and 60%
@@ -252,7 +305,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
 
     pkt_size = 1024
     testbed_config, port_config_list, snappi_ports = tgen_port_info
-    port_map = create_port_map(snappi_ports, 1, 1)
+    port_map, snappi_ports = verify_port_speed
     testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
@@ -438,6 +491,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     lossless_prio_list,           # noqa: F811
                                     lossy_prio_list,              # noqa: F811
                                     tbinfo,
+                                    verify_port_speed_oversubscribe,
                                     tgen_port_info):              # noqa: F811
 
     """
@@ -465,7 +519,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     pkt_size = 1024
 
     testbed_config, port_config_list, snappi_ports = tgen_port_info
-    port_map = create_port_map(snappi_ports, 1, 2)
+    port_map, snappi_ports = verify_port_speed_oversubscribe
     testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
@@ -655,8 +709,9 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
                                    tbinfo,
-                                   tgen_port_info,               # noqa: F811
-                                   disable_voq_wd_cisco_8000):   # noqa: F811
+                                   verify_port_speed,
+                                   disable_voq_wd_cisco_8000,
+                                   tgen_port_info):              # noqa: F811
 
     """
     Purpose of the test case is to exercise pause congestion with PFCWD and credit watchdog
@@ -687,7 +742,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     pkt_size = 1024
 
     testbed_config, port_config_list, snappi_ports = tgen_port_info
-    port_map = create_port_map(snappi_ports, 1, 2)
+    port_map, snappi_ports = verify_port_speed
     testbed_type = get_test_subtype_from_ports(snappi_ports, port_map, tbinfo)
 
     # Percentage drop expected for lossless and lossy traffic.
@@ -730,8 +785,6 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
 
     for dut in duthosts:
         clear_fabric_counters(dut)
-        if dut.facts.get('asic_type') == "cisco-8000":
-            modify_voq_watchdog_cisco_8000(dut, False)
 
     try:
         run_pfcwd_test(api=snappi_api,
