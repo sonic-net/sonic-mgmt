@@ -1,6 +1,7 @@
 import binascii
 import json
 import argparse
+import os
 import os.path
 from collections import defaultdict
 import logging
@@ -17,6 +18,12 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 # import that here because this script is distributed to and executed inside
 # the PTF container, where the sonic-mgmt test tree is not on sys.path.
 DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
+
+# Created only once every capture socket is bound, i.e. once ARP requests can
+# actually be answered. Callers must wait for this rather than treating process
+# start as readiness: the scapy import above costs 10-15 seconds, and requests
+# arriving in that window go unanswered, leaving neighbors unresolved on the DUT.
+READY_FLAG_PATH = '/tmp/arp_responder.ready'
 
 
 class ARPResponder(object):
@@ -96,6 +103,17 @@ class ARPResponder(object):
         return neigh_adv_pkt
 
 
+def set_ready_flag():
+    with open(READY_FLAG_PATH, 'w') as ready_flag:
+        ready_flag.write(str(os.getpid()))
+    print("arp_responder ready", flush=True)
+
+
+def clear_ready_flag():
+    if os.path.exists(READY_FLAG_PATH):
+        os.remove(READY_FLAG_PATH)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf',
@@ -109,6 +127,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    clear_ready_flag()
 
     if not os.path.exists(args.conf):
         print(("Can't find file %s" % args.conf))
@@ -169,7 +189,11 @@ def main():
     ARPResponder.ip_sets = ip_sets
     ARPResponder.sockets = sockets
 
-    scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
+    set_ready_flag()
+    try:
+        scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
+    finally:
+        clear_ready_flag()
 
 
 if __name__ == '__main__':
