@@ -9,14 +9,15 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut, tgen_port_info, snappi_port_selection                               # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list                                                                  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.snappi_tests.common_helpers import get_pfcwd_stats
 from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfcwd_test
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import get_test_subtype_from_ports
+from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
 from tests.common.helpers.parallel import parallel_run
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.variables import MULTIDUT_TESTBED
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#10: PFCWD-enabled DROP mode test.
 # This test-script also covers testcase#11: PFCWD-enabled FWD mode test.
+
+
+port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
+over_subs_port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 
 def create_port_map(snappi_ports, tx_count, rx_count):
