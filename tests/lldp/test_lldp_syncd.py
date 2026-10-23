@@ -50,6 +50,11 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                 [
                     # Interface flaps in test_lldp_entry_table_after_flap can cause routeCheck to fail momentarily
                     r".*ERR.* 'routeCheck' status failed.*",
+                    # The batched/continuous flap cases churn routes on every port at once, which can
+                    # make routeCheck run long enough for monit to hit its timeout and kill it. The
+                    # resulting "'routeCheck' program timed out ... Killing program" ERR is the same
+                    # benign, flap-induced noise as the "status failed" message above.
+                    r".*ERR.* 'routeCheck' program timed out.*",
                 ]
             )
 
