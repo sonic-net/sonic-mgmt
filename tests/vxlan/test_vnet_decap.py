@@ -57,8 +57,13 @@ def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac):
     the frame at L2 and it gets flooded in the VLAN instead of being decapsulated.
     """
     if tbinfo["topo"]["type"] == "t0" and ingress_intf is not None:
+        logical_intfs = {ingress_intf}
+        for portchannel, portchannel_info in minigraph_facts.get("minigraph_portchannels", {}).items():
+            if ingress_intf in portchannel_info.get("members", []):
+                logical_intfs.add(portchannel)
+
         for vlan_name, vlan_info in minigraph_facts.get("minigraph_vlans", {}).items():
-            if ingress_intf in vlan_info.get("members", []):
+            if logical_intfs.intersection(vlan_info.get("members", [])):
                 return duthost.get_dut_iface_mac(vlan_name)
     return router_mac
 
