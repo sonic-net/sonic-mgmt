@@ -464,17 +464,32 @@ class GenericHashTest(BaseTest):
         Check if the traffic is balanced across the ECMP groups and the LAG members
         """
 
-        def _calculate_balance(hit_cnt_per_port):
+        def _calculate_balance(hit_cnt_per_port=None):
+            """Check that every port's actual hit count is within the expected range.
+
+            If hit_cnt_per_port is None, compute per-port expectation from port_groups:
+              expected_per_port = total / num_nexthops / num_members_in_group
+            """
             result = True
-            for port_index in hit_count_map.keys():
-                (p, r) = self.check_within_expected_range(hit_count_map[port_index], hit_cnt_per_port)
-                result &= r
+            if hit_cnt_per_port is not None:
+                for port_index in hit_count_map.keys():
+                    (p, r) = self.check_within_expected_range(hit_count_map[port_index], hit_cnt_per_port)
+                    result &= r
+            else:
+                num_nexthops = len(self.expected_port_groups)
+                expected_per_nexthop = expected_total_hit_cnt / num_nexthops
+                for port_group in self.expected_port_groups:
+                    expected_per_port = expected_per_nexthop / len(port_group)
+                    for port_index in port_group:
+                        if port_index not in hit_count_map:
+                            continue
+                        (p, r) = self.check_within_expected_range(hit_count_map[port_index], expected_per_port)
+                        result &= r
             return result
 
         def _check_ecmp_and_lag_hash_balancing():
             logging.info('Checking there is ecmp and lag hash')
-            expected_hit_cnt_per_port = self.balancing_test_times
-            assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
+            assert _calculate_balance(), "The balancing result is beyond the range."
 
         def _check_only_ecmp_hash_balancing():
             logging.info('Checking there is only ecmp hash')
@@ -522,14 +537,33 @@ class GenericHashTest(BaseTest):
         min_received_ports = [port for port, count in hit_count_map.items() if count == min_received_packets]
         max_received_ports = [port for port, count in hit_count_map.items() if count == max_received_packets]
         expected_total_hit_cnt = self.balancing_test_times * len(self.expected_port_list)
-        expected_hit_cnt_per_port = self.balancing_test_times
-        if self.ecmp_hash and not self.lag_hash:
-            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups)
-        elif not self.ecmp_hash and self.lag_hash:
-            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups[0])
-        max_deviation = max(abs(expected_hit_cnt_per_port - min_received_packets),
-                            abs(expected_hit_cnt_per_port - max_received_packets))
-        max_deviation_percentage = str(max_deviation / expected_hit_cnt_per_port * 100) + "%"
+        if self.ecmp_hash and self.lag_hash:
+            # Mixed topology: compute per-port expected from port_groups
+            num_nexthops = len(self.expected_port_groups)
+            expected_per_nexthop = expected_total_hit_cnt / num_nexthops
+            port_expected = {}
+            for port_group in self.expected_port_groups:
+                expected_per_port = expected_per_nexthop / len(port_group)
+                for port_index in port_group:
+                    port_expected[port_index] = expected_per_port
+            max_deviation = max(
+                abs(hit_count_map[p] - port_expected[p])
+                for p in hit_count_map if p in port_expected
+            )
+            max_deviation_pct = max(
+                abs(hit_count_map[p] - port_expected[p]) / port_expected[p]
+                for p in hit_count_map if p in port_expected
+            ) * 100
+            max_deviation_percentage = f"{max_deviation_pct}%"
+        else:
+            expected_hit_cnt_per_port = self.balancing_test_times
+            if self.ecmp_hash and not self.lag_hash:
+                expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups)
+            elif not self.ecmp_hash and self.lag_hash:
+                expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups[0])
+            max_deviation = max(abs(expected_hit_cnt_per_port - min_received_packets),
+                                abs(expected_hit_cnt_per_port - max_received_packets))
+            max_deviation_percentage = f"{max_deviation / expected_hit_cnt_per_port * 100}%"
         logging.info(f"\nTotal number of receiving ports: {total_receiving_ports}\n"
                      f"Total packet count: {total_received_packets}\n"
                      f"Average packet count: {average_packets}\n"
