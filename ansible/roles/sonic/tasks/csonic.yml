@@ -150,6 +150,81 @@
   failed_when: false
   changed_when: false
 
+# Most sonic-mgmt tests use CsonicHost and docker exec from the VM host.  The
+# advanced-reboot PTF test is different: its long-running neighbor monitor runs
+# inside the PTF container and reaches every SONiC-family neighbor over SSH.
+# docker-sonic-vs ships openssh-server and host keys, but it does not create the
+# lab admin account, /run/sshd, or an sshd supervisor process.  Provision the
+# existing lab credentials here and bind sshd only to the management address so
+# the PTF monitor can use the same transport as it does for vSONiC peers.
+- name: Configure cSONiC SSH account and daemon prerequisites
+  become: yes
+  shell: |
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} sh -eu -c '
+      id -u admin >/dev/null 2>&1 || useradd --create-home --shell /bin/bash admin
+      usermod -aG sudo,frr,frrvty admin
+      install -d -m 0755 /run/sshd
+      printf "%s\n" "admin ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sonic-mgmt-admin
+      chmod 0440 /etc/sudoers.d/sonic-mgmt-admin
+      ssh-keygen -A
+      /usr/sbin/sshd -t
+    '
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+
+- name: Set cSONiC SSH admin password
+  become: yes
+  command: docker exec -i csonic_{{ vm_set_name }}_{{ inventory_hostname }} chpasswd
+  args:
+    stdin: "admin:{{ sonic_password }}"
+  delegate_to: "{{ VM_host[0] }}"
+  no_log: true
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+
+- name: Install and start cSONiC SSH supervisor program
+  become: yes
+  shell: |
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} sh -eu -c '
+      printf "%s\n" \
+        "[program:sshd]" \
+        "command=/usr/sbin/sshd -D -e -o ListenAddress={{ ansible_host }} -o PasswordAuthentication=yes -o PermitRootLogin=no -o AllowUsers=admin" \
+        "priority=10" \
+        "autostart=true" \
+        "autorestart=true" \
+        "stopsignal=TERM" \
+        "stdout_logfile=/dev/stdout" \
+        "stdout_logfile_maxbytes=0" \
+        "stderr_logfile=/dev/stderr" \
+        "stderr_logfile_maxbytes=0" \
+        > /etc/supervisor/conf.d/sshd.conf
+      supervisorctl reread
+      supervisorctl update
+      supervisorctl restart sshd
+    '
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+
+- name: Verify cSONiC SSH daemon is running
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl status sshd
+  delegate_to: "{{ VM_host[0] }}"
+  register: csonic_sshd_status
+  changed_when: false
+  failed_when: csonic_sshd_status.rc != 0 or 'RUNNING' not in csonic_sshd_status.stdout
+  when:
+    - ansible_host is defined and ansible_host | length > 0
+    - mgmt_prefixlen is defined and (mgmt_prefixlen | string) | length > 0
+
 - name: Wait for bgpcfgd to configure FRR from ConfigDB
   become: yes
   command: >
