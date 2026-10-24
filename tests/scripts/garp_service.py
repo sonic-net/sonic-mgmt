@@ -17,9 +17,27 @@ class GarpService:
         self.packets = {}
         self.dataplane = ptf.dataplane_instance
 
+    @staticmethod
+    def _as_address_list(value):
+        '''
+        Normalize a config value that may be absent, a single address, or a list of addresses
+        '''
+        if not value:
+            return []
+
+        if not isinstance(value, (list, tuple)):
+            value = [value]
+
+        return [str(ip_interface(addr).ip) for addr in value if addr]
+
     def gen_garp_packets(self):
         '''
-        Read the config file and generate a GARP packet for each configured interface
+        Read the config file and generate GARP/NA packets for each configured interface
+
+        'target_ip', 'target_ipv6' and 'dst_ipv6' each accept either a single address or a
+        list of addresses, so one port can announce an address in several VLAN subnets.
+        A 'dst_ipv6' list is paired with 'target_ipv6' by index; a single 'dst_ipv6' is
+        used for every IPv6 target.
         '''
 
         with open(self.garp_config_file) as f:
@@ -28,33 +46,39 @@ class GarpService:
         for port, config in list(garp_config.items()):
             intf_name = 'eth{}'.format(port)
             source_mac = get_if_hwaddr(intf_name)
-            source_ip_str = config['target_ip']
-            source_ipv6_str = config['target_ipv6']
             dut_mac = config['dut_mac']
-            dst_ipv6 = config['dst_ipv6']
-            source_ip = str(ip_interface(source_ip_str).ip) if source_ip_str else None
-            source_ipv6 = str(ip_interface(source_ipv6_str).ip) if source_ipv6_str else None
+            source_ips = self._as_address_list(config.get('target_ip'))
+            source_ipv6s = self._as_address_list(config.get('target_ipv6'))
+            dst_ipv6s = self._as_address_list(config.get('dst_ipv6'))
+
+            packets = []
 
             # PTF uses Scapy to create packets, so this is ok to create
             # packets through PTF even though we are using Scapy to send the packets
-            garp_pkt = None
-            na_pkt = None
-            if source_ip:
-                garp_pkt = testutils.simple_arp_packet(
+            for source_ip in source_ips:
+                packets.append(testutils.simple_arp_packet(
                     eth_src=source_mac,
                     hw_snd=source_mac,
                     ip_snd=source_ip,
                     # Re-use server IP as target IP, since it is within the subnet of the VLAN IP
                     ip_tgt=source_ip,
-                    arp_op=2)
+                    arp_op=2))
 
-            if source_ipv6:
-                na_pkt = Ether(src=source_mac, dst=dut_mac) \
-                    / IPv6(dst=dst_ipv6, src=source_ipv6) \
-                    / ICMPv6ND_NA(tgt=source_ipv6, S=1, R=0, O=0) \
-                    / ICMPv6NDOptSrcLLAddr(type=2, lladdr=source_mac)
+            for index, source_ipv6 in enumerate(source_ipv6s):
+                if index < len(dst_ipv6s):
+                    dst_ipv6 = dst_ipv6s[index]
+                elif dst_ipv6s:
+                    dst_ipv6 = dst_ipv6s[0]
+                else:
+                    # No gateway configured for this subnet, fall back to all-nodes multicast
+                    dst_ipv6 = 'ff02::1'
 
-            self.packets[intf_name] = [garp_pkt, na_pkt]
+                packets.append(Ether(src=source_mac, dst=dut_mac)
+                               / IPv6(dst=dst_ipv6, src=source_ipv6)
+                               / ICMPv6ND_NA(tgt=source_ipv6, S=1, R=0, O=0)
+                               / ICMPv6NDOptSrcLLAddr(type=2, lladdr=source_mac))
+
+            self.packets[intf_name] = packets
 
     def send_garp_packets(self):
         '''
@@ -65,16 +89,17 @@ class GarpService:
 
         sockets = {}
 
-        for intf, packet in list(self.packets.items()):
+        for intf, packet_list in list(self.packets.items()):
+            if not packet_list:
+                continue
             socket = conf.L2socket(iface=intf)
-            sockets[socket] = packet
+            sockets[socket] = packet_list
 
         try:
             while True:
                 for socket, packet_list in list(sockets.items()):
                     for packet in packet_list:
-                        if packet:
-                            socket.send(packet)
+                        socket.send(packet)
 
                 if self.interval is None:
                     break

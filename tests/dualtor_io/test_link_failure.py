@@ -40,7 +40,8 @@ def link_down_downstream_active_duplication_setting(duthost, mux_config):   # no
 def test_active_link_down_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
-    shutdown_fanout_upper_tor_intfs, cable_type                         # noqa: F811
+    shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa: F811
+    server_subnet                                                       # noqa: F811
 ):
     """
     Send traffic from server to T1 and shutdown the active ToR link.
@@ -49,7 +50,8 @@ def test_active_link_down_upstream(
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=1, action=shutdown_fanout_upper_tor_intfs,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -62,7 +64,8 @@ def test_active_link_down_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs,
+            server_subnet=server_subnet
         )
 
         verify_tor_states(
@@ -78,7 +81,8 @@ def test_active_link_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
     shutdown_fanout_upper_tor_intfs, cable_type,                        # noqa: F811
-    link_down_downstream_active_duplication_setting                     # noqa: F811
+    link_down_downstream_active_duplication_setting,                    # noqa: F811
+    server_subnet                                                       # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR link.
@@ -87,7 +91,8 @@ def test_active_link_down_downstream_active(
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -101,7 +106,8 @@ def test_active_link_down_downstream_active(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1, allowed_duplication=allowed_duplication,
             action=shutdown_fanout_upper_tor_intfs,
-            merge_duplications_into_disruptions=merge_duplications
+            merge_duplications_into_disruptions=merge_duplications,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -391,7 +397,7 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa: F811
-    cable_type, active_active_ports                                      # noqa: F811
+    cable_type, active_active_ports, server_subnet                       # noqa: F811
 ):
     if cable_type == CableType.active_active:
         try:
@@ -401,7 +407,8 @@ def test_active_link_admin_down_config_reload_upstream(
 
             send_server_to_t1_with_action(
                 lower_tor_host, verify=True, allowed_disruption=0,
-                action=lambda: config_reload(upper_tor_host, wait=0)
+                action=lambda: config_reload(upper_tor_host, wait=0),
+                server_subnet=server_subnet
             )
 
             verify_tor_states(
@@ -422,7 +429,7 @@ def test_active_link_admin_down_config_reload_upstream(
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_downstream(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa: F811
-    cable_type, active_active_ports                                      # noqa: F811
+    cable_type, active_active_ports, server_subnet                       # noqa: F811
 ):
     if cable_type == CableType.active_active:
         try:
@@ -443,7 +450,8 @@ def test_active_link_admin_down_config_reload_downstream(
                 upper_tor_host, verify=True,
                 stop_after=60,
                 allowed_disruption=0,
-                allow_disruption_before_traffic=True
+                allow_disruption_before_traffic=True,
+                server_subnet=server_subnet
             )
 
         finally:
@@ -455,7 +463,8 @@ def test_active_link_admin_down_config_reload_downstream(
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
-    cable_type, active_active_ports, setup_loganalyzer                  # noqa: F811
+    cable_type, active_active_ports, setup_loganalyzer,                 # noqa: F811
+    server_subnet                                                       # noqa: F811
 ):
     """
     Send traffic from server to T1 and unshut the active-active mux ports.
@@ -490,7 +499,8 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
                 upper_tor_host,
                 verify=True,
                 allowed_disruption=0,
-                action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+                action=lambda: config_interface_admin_status(upper_tor_host, active_active_ports, "up"),
+                server_subnet=server_subnet
             )
 
             verify_tor_states(
@@ -509,7 +519,8 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
 def test_active_link_admin_down_config_reload_link_up_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     cable_type, active_active_ports, setup_loganalyzer,                 # noqa F811
-    link_down_downstream_active_duplication_setting                     # noqa F811
+    link_down_downstream_active_duplication_setting,                    # noqa F811
+    server_subnet                                                       # noqa F811
 ):
     """
     Send traffic from T1 to standby ToR and unshut the active-active mux ports.
@@ -552,7 +563,8 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
                 allow_disruption_before_traffic=True,
                 allowed_duplication=allowed_duplication,
                 merge_duplications_into_disruptions=merge_duplications,
-                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC
+                delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+                server_subnet=server_subnet
             )
 
             verify_tor_states(

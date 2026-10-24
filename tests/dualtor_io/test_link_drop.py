@@ -95,7 +95,7 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
 def test_active_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa: F811
-    drop_flow_upper_tor_active_active, cable_type                       # noqa: F811
+    drop_flow_upper_tor_active_active, cable_type, server_subnet        # noqa: F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the active ToR.
@@ -107,7 +107,8 @@ def test_active_link_drop_upstream(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor_all
+            action=drop_flow_upper_tor_all,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -122,7 +123,8 @@ def test_active_link_drop_upstream(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1,
-            action=drop_flow_upper_tor_active_active
+            action=drop_flow_upper_tor_active_active,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -137,7 +139,7 @@ def test_active_link_drop_upstream(
 def test_active_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa: F811
-    drop_flow_upper_tor_active_active, cable_type                       # noqa: F811
+    drop_flow_upper_tor_active_active, cable_type, server_subnet        # noqa: F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -150,7 +152,8 @@ def test_active_link_drop_downstream_active(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor_all
+            action=drop_flow_upper_tor_all,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -165,7 +168,8 @@ def test_active_link_drop_downstream_active(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1,
-            action=drop_flow_upper_tor_active_active
+            action=drop_flow_upper_tor_active_active,
+            server_subnet=server_subnet
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
