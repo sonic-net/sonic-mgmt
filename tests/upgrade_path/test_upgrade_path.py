@@ -1,6 +1,8 @@
 import pytest
 import random
 import logging
+import json
+from tests.common import reboot, config_reload
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -63,6 +65,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
         # add fail step to reboot script
         modify_reboot_script(upgrade_type)
 
+
 def regenerate_and_apply_golden_config_db(dut, tbinfo):
     """Regenerate T2 or UT2 golden config before reloading minigraph."""
     if tbinfo['topo']['type'] == 't2':
@@ -86,6 +89,7 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo):
             bgp_confd_peers=common.get('dut_confed_peers'))
         config_reload(dut, config_source="minigraph", override_config=True,
                       safe_reload=True, wait_for_bgp=True)
+
 
 @pytest.mark.device_type('vs')
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
