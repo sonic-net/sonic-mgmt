@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from unittest.mock import Mock
 
 import grpc
 import pytest
@@ -10,6 +11,7 @@ from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import (
     PygnmiClient,
     PygnmiClientCallError,
+    PygnmiClientTimeoutError,
     StreamMode,
     SubscribeMode,
 )
@@ -251,6 +253,31 @@ def test_pygnmi_subscribe_once(gnmi_tls):  # noqa: F811
 
 
 # --- offline unit tests (no DUT required) -----------------------------------
+
+
+@pytest.mark.parametrize("times_out", [False, True], ids=["sync_only", "timeout"])
+def test_subscribe_poll_result_and_timeout(monkeypatch, times_out):
+    """Preserve sync-only results and propagate pygnmi's per-update timeout."""
+    subscriber = Mock(spec=["get_update", "close"])
+    response = {"update": {}, "sync_response": True}
+    subscriber.get_update.return_value = response
+    if times_out:
+        subscriber.get_update.side_effect = TimeoutError("no update")
+    transport = Mock()
+    transport.subscribe2.return_value = subscriber
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: transport)
+    client = _offline_client()
+    result = client.subscribe("counter", mode=SubscribeMode.POLL, poll_count=2, poll_interval=0)
+    if times_out:
+        with pytest.raises(PygnmiClientTimeoutError, match="no update"):
+            list(result)
+    else:
+        assert list(result) == [response, response]
+        assert subscriber.get_update.call_count == 2
+    subscriber.get_update.assert_called_with(timeout=client.timeout)
+    subscriber.close.assert_called_once()
+    transport.close.assert_called_once()
+    assert client._client is None
 
 
 def _offline_client():
