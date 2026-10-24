@@ -83,3 +83,7 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## Redis database access and dumps
+
+`unit_test_native_reader_endpoint.py` checks configured native reader arguments for host and ASIC contexts, including numeric database IDs and socket quoting. `unit_test_local_redis_dump.py` checks database names, namespaces, filters and output paths used by the common dump and snapshot helpers. These component checks do not qualify installed images or hardware.

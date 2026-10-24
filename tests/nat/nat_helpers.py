@@ -44,6 +44,11 @@ DYNAMIC_POOL_NAME = "test_pool"
 ACL_TABLE_GLOBAL_NAME = "test_acl_table"
 DYNAMIC_BINDING_NAME = "test_binding"
 ACL_SUBNET = "192.168.0.0/24"
+SONIC_DB_NAME_BY_ID = {
+    0: "APPL_DB",
+    1: "ASIC_DB",
+    4: "CONFIG_DB",
+}
 BR_MAC = ["22:22:22:22:22:21"]
 PORT_CHANNEL_TEMP = 'PortChannel10{}'
 VRF = {"red": {"ip": "11.1.0.2", "id": "1", "mask": "30", "gw": "11.1.0.1", "dut_iface": PORT_CHANNEL_TEMP.format(1),
@@ -1139,7 +1144,11 @@ def get_redis_val(duthost, db, key):
     :param key: key to be selected
     """
     try:
-        output = exec_command(duthost, ["redis-dump -d {} --pretty -k *{}*".format(db, key)])
+        db_name = SONIC_DB_NAME_BY_ID[db]
+        output = exec_command(
+            duthost,
+            ["sonic-db-dump -n {} --pretty -k *{}*".format(db_name, key)]
+        )
         if output["rc"]:
             raise Exception('Return code is {} not 0'.format(output["rc"]))
         redis_dict = json.loads(output['stdout'])

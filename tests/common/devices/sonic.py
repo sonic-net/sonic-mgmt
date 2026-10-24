@@ -874,7 +874,7 @@ class SonicHost(AnsibleHostBase):
         @summary: get db value in state db to check the daemon expected status
         """
         ret_val = None
-        get_db_value_cmd = 'redis-cli -n 6 hget "{}" {}'.format(daemon_db_table_key, field)
+        get_db_value_cmd = 'sonic-db-cli STATE_DB hget "{}" {}'.format(daemon_db_table_key, field)
 
         cmd_output = self.shell(get_db_value_cmd, module_ignore_errors=True)
         if cmd_output['rc'] == 0:
@@ -2774,7 +2774,7 @@ Totals               6450                 6449
         return re.search('up +up', output['stdout_lines'][-1])
 
     def get_port_fec(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
+        out = self.shell('sonic-db-cli CONFIG_DB HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
         if out["stdout_lines"] and out["stdout_lines"][0] != "(nil)":
             return out["stdout_lines"][0]
@@ -2788,13 +2788,13 @@ Totals               6450                 6449
         return res['rc'] == 0
 
     def count_portlanes(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+        out = self.shell('sonic-db-cli CONFIG_DB HGET "PORT|{}" "lanes"'.format(portname))
         assert_exit_non_zero(out)
         lanes = out["stdout_lines"][0].split(',')
         return len(lanes)
 
     def get_sfp_type(self, portname):
-        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+        out = self.shell('sonic-db-cli STATE_DB HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type

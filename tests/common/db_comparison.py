@@ -713,7 +713,7 @@ class SonicRedisDBSnapshotter:
         snapshot_dir = f"{self._snapshot_base_dir}/{snapshot_name}/"
         os.makedirs(snapshot_dir, exist_ok=True)
         for db in snapshot_dbs:
-            cmd = f"redis-dump -d {db.value} --pretty"
+            cmd = f"sonic-db-dump -n {db.name}_DB --pretty"
             dump = dut_dump(cmd, self._duthost, snapshot_dir, db.name)
             with open(f"{snapshot_dir}/{db.name}.json", "w") as f:
                 f.write(json.dumps(dump, indent=4, default=str))
