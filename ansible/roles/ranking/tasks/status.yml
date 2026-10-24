@@ -1,0 +1,133 @@
+- name: Build the DUT environment status request
+  ansible.builtin.set_fact:
+    ranking_status_request:
+      action: read
+      handle: '{{ ranking_dut_handle }}'
+      name: environment.json
+- name: Stage the DUT environment status request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/read-environment.json'
+    content: '{{ ranking_status_request | to_json }}'
+    mode: '0600'
+- name: Read the DUT environment record
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-environment.json']
+  register: ranking_status_environment_read
+  failed_when: ranking_status_environment_read.rc != 0
+  changed_when: false
+- name: Parse the DUT environment status envelope
+  ansible.builtin.set_fact:
+    ranking_status_environment_json: '{{ ranking_status_environment_read.stdout | from_json }}'
+- name: Bind the DUT environment status record
+  ansible.builtin.set_fact:
+    ranking_status_environment: '{{ ranking_status_environment_json.result }}'
+- name: Inspect the current saiserver container
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_status_container_info
+  failed_when: ranking_status_container_info.rc != 0
+  changed_when: false
+- name: Parse the current saiserver container record
+  ansible.builtin.set_fact:
+    ranking_status_container_record_json: '{{ ranking_status_container_info.stdout | from_json }}'
+- name: Bind the current saiserver container record
+  ansible.builtin.set_fact:
+    ranking_status_container_record: '{{ ranking_status_container_record_json[0] }}'
+- name: Require the current saiserver container running
+  ansible.builtin.fail:
+    msg: current saiserver container is not running
+  when: ranking_status_container_record.State.Running != true
+- name: Require the current saiserver container identity
+  ansible.builtin.fail:
+    msg: current saiserver container does not match the environment record
+  when: ranking_status_container_record.Id != ranking_status_environment.current_saiserver_container_id
+- name: Build the DUT baseline status request
+  ansible.builtin.set_fact:
+    ranking_status_baseline_request:
+      action: read
+      handle: '{{ ranking_dut_handle }}'
+      name: baseline.json
+- name: Stage the DUT baseline status request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/read-status-baseline.json'
+    content: '{{ ranking_status_baseline_request | to_json }}'
+    mode: '0600'
+- name: Read the DUT baseline record
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-status-baseline.json']
+  register: ranking_status_baseline_read
+  failed_when: ranking_status_baseline_read.rc != 0
+  changed_when: false
+- name: Parse the DUT baseline status envelope
+  ansible.builtin.set_fact:
+    ranking_status_baseline_json: '{{ ranking_status_baseline_read.stdout | from_json }}'
+- name: Bind the DUT baseline status record
+  ansible.builtin.set_fact:
+    ranking_status_baseline: '{{ ranking_status_baseline_json.result }}'
+- name: Build the DUT snapshot status request
+  ansible.builtin.set_fact:
+    ranking_status_snapshot_request:
+      action: read
+      handle: '{{ ranking_dut_handle }}'
+      name: snapshot.json
+- name: Stage the DUT snapshot status request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/read-status-snapshot.json'
+    content: '{{ ranking_status_snapshot_request | to_json }}'
+    mode: '0600'
+- name: Read the DUT snapshot record
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-status-snapshot.json']
+  register: ranking_status_snapshot_read
+  failed_when: ranking_status_snapshot_read.rc != 0
+  changed_when: false
+- name: Parse the DUT snapshot status envelope
+  ansible.builtin.set_fact:
+    ranking_status_snapshot_json: '{{ ranking_status_snapshot_read.stdout | from_json }}'
+- name: Bind the DUT snapshot status record
+  ansible.builtin.set_fact:
+    ranking_status_snapshot: '{{ ranking_status_snapshot_json.result }}'
+- name: Require the persisted baseline proof
+  ansible.builtin.fail:
+    msg: ranking baseline does not match the persisted snapshot
+  when: ranking_status_baseline.snapshot_identity != ranking_status_snapshot.identity
+- name: Require the DUT image to match the original snapshot
+  ansible.builtin.fail:
+    msg: current DUT image does not match the original snapshot
+  when: ranking_status_snapshot.identity.image_id != ranking_dut_image_fingerprint
+- name: Require the saiserver image to match the environment
+  ansible.builtin.fail:
+    msg: local saiserver image does not match the persisted environment
+  when: ranking_status_environment.saiserver_image_id != ranking_saiserver_image_info_json[0].Id
+- name: Require the environment profile
+  ansible.builtin.fail:
+    msg: ranking environment profile does not match the requested inputs
+  when: ranking_status_environment.profile_id != ranking_execution.profile_id or ranking_status_environment.profile_hash != ranking_profile_hash
+- name: Require the environment mapping
+  ansible.builtin.fail:
+    msg: ranking environment mapping does not match the requested inputs
+  when: ranking_status_environment.mapping_hash != ranking_mapping_hash
+- name: Require the environment source
+  ansible.builtin.fail:
+    msg: ranking environment source does not match the requested inputs
+  when: ranking_status_environment.source_hash != ranking_source_hash or ranking_status_environment.source_identity != ranking_source_identity
+- name: Assemble the ranking status outcome record
+  ansible.builtin.set_fact:
+    ranking_role_outcome:
+      schema_version: 1
+      environment_id: '{{ ranking_environment_id }}'
+      action: status
+      restored: false
+      released: []
+      kept: false
+      uncertain: false
+- name: Stage the ranking role outcome record
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/role-outcome.json'
+    content: '{{ ranking_role_outcome | to_json }}'
+    mode: '0600'
+- name: Fetch the ranking role outcome record
+  ansible.builtin.fetch:
+    src: '{{ ranking_request_root }}/role-outcome.json'
+    dest: '{{ ranking_artifacts_dir }}/role-outcome.json'
+    flat: true

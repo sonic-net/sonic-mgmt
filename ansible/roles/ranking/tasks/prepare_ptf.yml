@@ -1,0 +1,176 @@
+- name: Bind the ranking PTF staging locations
+  ansible.builtin.set_fact:
+    ranking_ptf_stage_root: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}'
+    ranking_ptf_artifact_dir: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/ptf/ranking_test'
+    ranking_ptf_adapter_file: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/binding/sai_thrift/sai_adapter.py'
+    ranking_ptf_batch_inputs:
+      - spec_registry.json
+      - skeleton.json
+      - enum_values.json
+      - attr_map.json
+- name: Build the PTF staging marker request
+  ansible.builtin.set_fact:
+    ranking_ptf_stage_request:
+      action: mark_attempt
+      handle: '{{ ranking_ptf_handle }}'
+      marker: stage:ptf
+- name: Stage the PTF staging marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-stage-ptf.json'
+    content: '{{ ranking_ptf_stage_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Mark the PTF staging attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-stage-ptf.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_stage_mark
+  failed_when: ranking_ptf_stage_mark.rc != 0
+  changed_when: true
+- name: Stage the ranking PTF runtime tree
+  block:
+    - name: Create the PTF runtime directories
+      ansible.builtin.file:
+        path: '{{ ranking_ptf_stage_root }}/{{ item }}'
+        state: directory
+        mode: '0700'
+      loop: [ptf, binding, resources, runner, requests, runs, pipeline, headers, headers-experimental]
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the ranking case source into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.case_source }}/'
+        dest: '{{ ranking_ptf_stage_root }}/ptf/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the validated controller pipeline into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_pipeline_dir }}/'
+        dest: '{{ ranking_ptf_stage_root }}/pipeline/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the SAI headers into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.header_dir }}/'
+        dest: '{{ ranking_ptf_stage_root }}/headers/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the experimental SAI headers into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.experimental_header_dir }}/'
+        dest: '{{ ranking_ptf_stage_root }}/headers-experimental/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Create the PTF host-control secret directory
+      ansible.builtin.file:
+        path: '{{ ranking_ptf_stage_root }}/secrets'
+        state: directory
+        mode: '0700'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Import the DUT SSH identity into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.dut_ssh.identity_file }}'
+        dest: '{{ ranking_ptf_stage_root }}/secrets/dut_identity'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+      no_log: true
+    - name: Import the DUT SSH known hosts into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.dut_ssh.known_hosts }}'
+        dest: '{{ ranking_ptf_stage_root }}/secrets/known_hosts'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the case binding into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_execution.binding_dir }}/'
+        dest: '{{ ranking_ptf_stage_root }}/binding/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the prebuilt resources into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_execution.prebuilt_dir }}/'
+        dest: '{{ ranking_ptf_stage_root }}/resources/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the validated SAI adapter into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runtime.adapter_path }}'
+        dest: '{{ ranking_ptf_adapter_file }}'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the ranking PTF runner into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_runner_path }}'
+        dest: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runner/ptf_runner.py'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Generate the ranking batch inputs
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ ranking_ptf_stage_root }}/pipeline/generate_artifacts.py'
+          - --inc
+          - '{{ ranking_ptf_stage_root }}/headers'
+          - --experimental
+          - '{{ ranking_ptf_stage_root }}/headers-experimental'
+          - --adapter
+          - '{{ ranking_ptf_adapter_file }}'
+          - --out-dir
+          - '{{ ranking_ptf_artifact_dir }}'
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_generate_artifacts
+      failed_when: ranking_ptf_generate_artifacts.rc != 0
+      changed_when: true
+    - name: Inspect the staged ranking batch inputs
+      ansible.builtin.stat:
+        path: '{{ ranking_ptf_artifact_dir }}/{{ item }}'
+        follow: false
+      loop: '{{ ranking_ptf_batch_inputs }}'
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_batch_input_stats
+    - name: Require regular staged ranking batch inputs
+      ansible.builtin.fail:
+        msg: 'required ranking batch input is not a regular file: {{ item.item }}'
+      loop: '{{ ranking_ptf_batch_input_stats.results }}'
+      when: not item.stat.isreg | default(false)
+    - name: Create the canonical PTF container staging directory
+      ansible.builtin.command:
+        argv: [docker, exec, '{{ ranking_ptf_container_id }}', mkdir, -p, '{{ ranking_ptf_stage_root }}']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_container_stage
+      failed_when: ranking_ptf_container_stage.rc != 0
+      changed_when: true
+    - name: Copy the complete runtime tree into the PTF container
+      ansible.builtin.command:
+        argv: [docker, cp, '{{ ranking_ptf_stage_root }}/.', '{{ ranking_ptf_container_id }}:{{ ranking_ptf_stage_root }}']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_tree_cp
+      failed_when: ranking_ptf_tree_cp.rc != 0
+      changed_when: true
+    - name: Bind the staged ranking runtime records
+      ansible.builtin.set_fact:
+        ranking_case_pythonpath: '{{ ranking_ptf_stage_root }}/binding'
+        ranking_staging_binding:
+          root: '{{ ranking_ptf_stage_root }}/binding'
+          source_hash: '{{ ranking_source_hash }}'
+        ranking_staging_pipeline:
+          root: '{{ ranking_ptf_stage_root }}/pipeline'
+          package_source: '{{ ranking_pipeline_dir }}'
+          source_hash: '{{ ranking_source_hash }}'
+  rescue:
+    - name: Remove the partially staged PTF container tree
+      ansible.builtin.command:
+        argv: [docker, exec, '{{ ranking_ptf_container_id }}', rm, -rf, --, '{{ ranking_ptf_stage_root }}']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_container_stage_rollback
+      failed_when: false
+      changed_when: true
+      when: ranking_ptf_stage_mark.rc == 0
+    - name: Remove the partially staged PTF host tree
+      ansible.builtin.file:
+        path: '{{ ranking_ptf_stage_root }}'
+        state: absent
+      when: ranking_ptf_stage_mark.rc == 0
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Report the failed PTF staging
+      ansible.builtin.fail:
+        msg: ranking PTF staging failed; the staged trees were removed and ownership is retained

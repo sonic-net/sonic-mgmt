@@ -1,0 +1,29 @@
+- name: Build the service stop marker request
+  ansible.builtin.set_fact:
+    ranking_stop_request:
+      action: mark_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: 'stop:{{ item }}'
+- name: Stage the service stop marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-stop-{{ item }}.json'
+    content: '{{ ranking_stop_request | to_json }}'
+    mode: '0600'
+- name: Mark the service stop attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-stop-{{ item }}.json']
+  register: ranking_dut_stop_mark
+  failed_when: ranking_dut_stop_mark.rc != 0
+  changed_when: true
+- name: Stop the original service
+  ansible.builtin.command:
+    argv: [systemctl, stop, '{{ item }}']
+  register: ranking_dut_service_stop
+  failed_when: ranking_dut_service_stop.rc != 0
+  changed_when: true
+- name: Verify the stopped service is inactive
+  ansible.builtin.command:
+    argv: [systemctl, is-active, '{{ item }}']
+  register: ranking_dut_service_active
+  failed_when: ranking_dut_service_active.rc == 0
+  changed_when: false

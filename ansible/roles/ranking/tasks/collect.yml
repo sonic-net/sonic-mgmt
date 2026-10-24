@@ -1,0 +1,448 @@
+- name: Bind the ranking case collection locations
+  ansible.builtin.set_fact:
+    ranking_collect_authorized: '{{ ranking_ownership_acquired | bool and ranking_case_run_initiated | default(false) | bool }}'
+    ranking_collect_run_dir: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runs/{{ ranking_run_id }}'
+    ranking_collect_batch_dir: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/ptf/ranking_test'
+    ranking_collect_collector_name: '{{ ranking_case | replace(".", "_") }}.json'
+    ranking_collect_preserved_names: [outcome.json, stdout.log, stderr.log]
+    ranking_collect_batch_names: [spec_registry.json, skeleton.json, enum_values.json, attr_map.json]
+    ranking_collect_metadata_names: [case-id.txt, collection-status.json]
+- name: Bind the complete ranking collection set
+  ansible.builtin.set_fact:
+    ranking_collect_mandatory_names: '{{ ranking_collect_preserved_names + ranking_collect_batch_names + ["case-id.txt"] }}'
+    ranking_collect_payload_names: '{{ ranking_collect_preserved_names + [ranking_collect_collector_name] + ranking_collect_batch_names + ["case-id.txt"] }}'
+    ranking_collect_archive_names: '{{ ranking_collect_preserved_names + [ranking_collect_collector_name] + ranking_collect_batch_names + ranking_collect_metadata_names }}'
+    ranking_collect_errors: {}
+    ranking_collect_flags: {}
+    ranking_collect_host_refusals: []
+- name: Check for already archived case artifacts
+  ansible.builtin.stat:
+    path: '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/{{ ranking_run_id }}/{{ item }}'
+    follow: false
+  delegate_to: localhost
+  register: ranking_collect_existing
+  loop: '{{ ranking_collect_archive_names }}'
+  when: ranking_collect_authorized | bool
+- name: Record archive overwrite refusals
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({item.item: "refused to overwrite existing controller artifact"}) }}'
+  loop: '{{ ranking_collect_existing.results | default([]) }}'
+  when: item.stat.exists | default(false)
+- name: Build the owned run collection marker request
+  ansible.builtin.set_fact:
+    ranking_collect_marker_request:
+      action: mark_attempt
+      handle: '{{ ranking_ptf_handle }}'
+      marker: stage:ptf
+  when: ranking_collect_authorized | bool
+- name: Stage the owned run collection marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-collect-run.json'
+    content: '{{ ranking_collect_marker_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_collect_authorized | bool
+- name: Mark the owned run collection attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-collect-run.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_mark
+  failed_when: false
+  changed_when: true
+  when: ranking_collect_authorized | bool
+- name: Record a collection authorization failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"authorization": ranking_collect_mark.stderr | default("collection authorization failed", true)}) }}'
+  when: ranking_collect_authorized | bool and ranking_collect_mark.rc | default(1) != 0
+- name: Bind the authorized owned run collection attempt
+  ansible.builtin.set_fact:
+    ranking_collect_authorized: '{{ ranking_collect_authorized | bool and ranking_collect_mark.rc | default(1) == 0 }}'
+  when: ranking_collect_authorized | bool
+- name: Slurp the ranking process outcome before state updates
+  ansible.builtin.slurp:
+    src: '{{ ranking_collect_run_dir }}/outcome.json'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_outcome_slurp
+  failed_when: false
+  when: ranking_collect_authorized | bool
+- name: Strictly validate the ranking process outcome
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_ptf_runner_path }}', --validate-outcome, '-']
+    stdin: '{{ ranking_collect_outcome_slurp.content | b64decode }}'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_outcome_validate
+  failed_when: false
+  changed_when: false
+  when: ranking_collect_authorized | bool and ranking_collect_outcome_slurp.content is defined
+- name: Parse the validated ranking process outcome
+  ansible.builtin.set_fact:
+    ranking_collect_outcome: '{{ ranking_collect_outcome_validate.stdout | from_json }}'
+  when: ranking_collect_authorized | bool and ranking_collect_outcome_validate.rc | default(1) == 0
+- name: Bind the ranking outcome container provenance
+  ansible.builtin.set_fact:
+    ranking_collect_provenance_matches: '{{ ranking_collect_outcome_validate.rc | default(1) == 0 and ranking_collect_outcome.container_id | default(ranking_ptf_container_id) == ranking_ptf_container_id }}'
+    ranking_collect_container_id: '{{ ranking_collect_outcome.container_id | default(ranking_ptf_container_id) }}'
+  when: ranking_collect_authorized | bool
+- name: Record a mismatched ranking outcome container
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"container_provenance": "outcome container ID does not match the owned PTF container"}) }}'
+  when: ranking_collect_authorized | bool and ranking_collect_outcome_validate.rc | default(1) == 0 and not ranking_collect_provenance_matches | bool
+- name: Bind the initial ranking process exit state
+  ansible.builtin.set_fact:
+    ranking_collect_process_exited: '{{ ranking_collect_provenance_matches | bool and ranking_collect_outcome.process_exited | default(false) | bool }}'
+  when: ranking_collect_authorized | bool
+- name: Recover a surviving owned ranking process
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_ptf_runner_path }}', --recover-outcome, '{{ ranking_collect_run_dir }}/outcome.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_recovery
+  failed_when: false
+  changed_when: true
+  when:
+    - ranking_collect_authorized | bool
+    - ranking_collect_outcome_validate.rc | default(1) == 0
+    - ranking_collect_provenance_matches | bool
+    - not ranking_collect_process_exited | bool
+- name: Parse the recovered ranking process outcome
+  ansible.builtin.set_fact:
+    ranking_collect_outcome: '{{ ranking_collect_recovery.stdout | from_json }}'
+    ranking_collect_process_exited: '{{ (ranking_collect_recovery.stdout | from_json).process_exited | bool }}'
+  when:
+    - ranking_collect_authorized | bool
+    - not ranking_collect_recovery.skipped | default(false)
+    - ranking_collect_recovery.rc | default(1) == 0
+- name: Record an unreadable or invalid process outcome
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"outcome.json": ranking_collect_outcome_validate.stderr | default("process outcome is missing or invalid", true)}) }}'
+  when: ranking_collect_authorized | bool and ranking_collect_outcome_validate.rc | default(1) != 0
+- name: Record a surviving process recovery failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"process_recovery": ranking_collect_recovery.stderr | default("owned process recovery failed", true)}) }}'
+  when:
+    - ranking_collect_authorized | bool
+    - not ranking_collect_recovery.skipped | default(false)
+    - ranking_collect_recovery.rc | default(1) != 0
+- name: Build the collecting run state request
+  ansible.builtin.set_fact:
+    ranking_collecting_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: collecting
+        process_exited: '{{ ranking_collect_process_exited }}'
+        collected: false
+        outcome_path: '{{ ranking_collect_run_dir }}/outcome.json'
+  when: ranking_collect_authorized | bool
+- name: Stage the collecting run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-collecting.json'
+    content: '{{ ranking_collecting_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_collect_authorized | bool
+- name: Record the collecting ranking run state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-collecting.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collecting_write
+  failed_when: false
+  changed_when: true
+  when: ranking_collect_authorized | bool
+- name: Record a collecting state update failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"run-state.json": ranking_collecting_write.stderr | default("failed to write collecting run state", true)}) }}'
+  when: ranking_collect_authorized | bool and ranking_collecting_write.rc | default(1) != 0
+- name: Bind the collecting run state gate
+  ansible.builtin.set_fact:
+    ranking_collect_state_recorded: '{{ ranking_collecting_write.rc | default(1) == 0 }}'
+  when: ranking_collect_authorized | bool
+- name: Inspect owned run artifact paths before collection
+  ansible.builtin.stat:
+    path: '{{ ranking_collect_run_dir }}/{{ item }}'
+    follow: false
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_run_existing
+  loop: '{{ ranking_collect_archive_names }}'
+  when: ranking_collect_authorized | bool
+- name: Record unsafe owned run artifact paths
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({item.item: "owned run artifact path is not a regular file"}) }}'
+  loop: '{{ ranking_collect_run_existing.results | default([]) }}'
+  when: item.stat.exists | default(false) and not item.stat.isreg | default(false)
+- name: Record owned run metadata overwrite refusals
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({item.item: "refused to overwrite existing owned run metadata"}) }}'
+    ranking_collect_host_refusals: '{{ ranking_collect_host_refusals + [item.item] }}'
+  loop: '{{ ranking_collect_run_existing.results | default([]) }}'
+  when: item.item in ranking_collect_batch_names + ranking_collect_metadata_names and item.stat.exists | default(false)
+- name: Inspect the optional collector in the owned PTF container
+  ansible.builtin.command:
+    argv: [docker, exec, '{{ ranking_collect_container_id }}', test, -f, '{{ ranking_collect_run_dir }}/{{ ranking_collect_collector_name }}']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_collector_inspect
+  failed_when: false
+  changed_when: false
+  when: ranking_collect_authorized | bool and ranking_collect_provenance_matches | bool
+- name: Bind the optional collector presence
+  ansible.builtin.set_fact:
+    ranking_collect_collector_present: '{{ ranking_collect_collector_inspect.rc | default(1) == 0 }}'
+  when: ranking_collect_authorized | bool
+- name: Record an optional collector inspection failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({ranking_collect_collector_name: "could not inspect optional collector in owned container"}) }}'
+  when: ranking_collect_authorized | bool and (ranking_collect_collector_inspect.rc | default(1)) not in [0, 1]
+- name: Record an optional collector presence mismatch
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({ranking_collect_collector_name: "optional collector presence differs between container and host"}) }}'
+  when:
+    - ranking_collect_authorized | bool
+    - not ranking_collect_collector_present | bool
+    - ranking_collect_run_existing.results | selectattr("item", "equalto", ranking_collect_collector_name) | map(attribute="stat.exists") | first | default(false)
+- name: Copy the named collector out of the PTF container
+  ansible.builtin.command:
+    argv:
+      - docker
+      - cp
+      - '{{ ranking_collect_container_id }}:{{ ranking_collect_run_dir }}/{{ ranking_collect_collector_name }}'
+      - '{{ ranking_collect_run_dir }}/{{ ranking_collect_collector_name }}'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_collector_cp
+  failed_when: false
+  changed_when: true
+  when:
+    - ranking_collect_authorized | bool
+    - ranking_collect_provenance_matches | bool
+    - ranking_collect_collector_present | bool
+    - not (ranking_collect_run_existing.results | selectattr("item", "equalto", ranking_collect_collector_name) | map(attribute="stat.exists") | first | default(false))
+- name: Record an optional collector copy failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({ranking_collect_collector_name: ranking_collect_collector_cp.stderr | default("optional collector was present but could not be copied", true)}) }}'
+  when:
+    - ranking_collect_authorized | bool
+    - ranking_collect_collector_present | bool
+    - not (ranking_collect_collector_cp.skipped | default(false))
+    - ranking_collect_collector_cp.rc | default(1) != 0
+- name: Copy the batch inputs into the owned run archive
+  ansible.builtin.copy:
+    src: '{{ ranking_collect_batch_dir }}/{{ item }}'
+    dest: '{{ ranking_collect_run_dir }}/{{ item }}'
+    remote_src: true
+    force: false
+    mode: preserve
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_batch_copy
+  failed_when: false
+  loop: '{{ ranking_collect_batch_names }}'
+  when:
+    - ranking_collect_authorized | bool
+    - not (ranking_collect_run_existing.results | selectattr("item", "equalto", item) | map(attribute="stat.exists") | first | default(false))
+- name: Write the owned run case identity
+  ansible.builtin.copy:
+    dest: '{{ ranking_collect_run_dir }}/case-id.txt'
+    content: '{{ ranking_case }}{{ "\n" }}'
+    force: false
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_case_id_write
+  failed_when: false
+  when:
+    - ranking_collect_authorized | bool
+    - not (ranking_collect_run_existing.results | selectattr("item", "equalto", "case-id.txt") | map(attribute="stat.exists") | first | default(false))
+- name: Inspect the owned run payload
+  ansible.builtin.stat:
+    path: '{{ ranking_collect_run_dir }}/{{ item }}'
+    follow: false
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collect_payload_stats
+  loop: '{{ ranking_collect_payload_names }}'
+  when: ranking_collect_authorized | bool
+- name: Record the owned run payload flags
+  ansible.builtin.set_fact:
+    ranking_collect_source_flags: '{{ ranking_collect_source_flags | default({}) | combine({item.item: (item.stat.isreg | default(false)) and item.item not in ranking_collect_host_refusals and (item.item != ranking_collect_collector_name or ranking_collect_collector_present | bool)}) }}'
+  loop: '{{ ranking_collect_payload_stats.results | default([]) }}'
+  when: ranking_collect_authorized | bool
+- name: Record missing required owned run payloads
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({item: "required owned run artifact is missing"}) }}'
+  loop: '{{ ranking_collect_preserved_names + ranking_collect_batch_names + ["case-id.txt"] }}'
+  when: ranking_collect_authorized | bool and not ranking_collect_source_flags[item] | default(false)
+- name: Fetch the owned run payloads from the PTF host
+  ansible.builtin.fetch:
+    src: '{{ ranking_collect_run_dir }}/{{ item }}'
+    dest: '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/{{ ranking_run_id }}/{{ item }}'
+    flat: true
+    fail_on_missing: true
+  delegate_to: '{{ ranking_ptf_host }}'
+  failed_when: false
+  register: ranking_collect_fetch
+  loop: '{{ ranking_collect_payload_names }}'
+  when:
+    - ranking_collect_authorized | bool
+    - ranking_collect_source_flags[item] | default(false)
+    - not (ranking_collect_existing.results | selectattr("item", "equalto", item) | map(attribute="stat.exists") | first | default(false))
+- name: Record the fetched owned run payload flags
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | combine({item.item: (item.dest is defined) and not (item.failed | default(false))}) }}'
+  loop: '{{ ranking_collect_fetch.results | default([]) }}'
+  when: ranking_collect_authorized | bool
+- name: Default every owned run payload fetch flag
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | combine({item: ranking_collect_flags[item] | default(false)}) }}'
+  loop: '{{ ranking_collect_payload_names }}'
+  when: ranking_collect_authorized | bool
+- name: Record payload fetch failures
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({item: "owned run artifact was not fetched"}) }}'
+  loop: '{{ ranking_collect_preserved_names + ranking_collect_batch_names + ["case-id.txt"] }}'
+  when: ranking_collect_authorized | bool and not ranking_collect_flags[item] | bool
+- name: Record an optional collector fetch mismatch
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({ranking_collect_collector_name: "optional collector presence and fetch flags differ"}) }}'
+  when: >-
+    (ranking_collect_authorized | bool) and
+    ((ranking_collect_collector_present | bool) !=
+     (ranking_collect_flags[ranking_collect_collector_name] | bool))
+- name: Assemble the ranking collection status
+  ansible.builtin.set_fact:
+    ranking_collection_status:
+      schema_version: 1
+      environment_id: '{{ ranking_environment_id }}'
+      run_id: '{{ ranking_run_id }}'
+      case: '{{ ranking_case }}'
+      outcome_fetched: '{{ ranking_collect_flags["outcome.json"] | default(false) }}'
+      stdout_fetched: '{{ ranking_collect_flags["stdout.log"] | default(false) }}'
+      stderr_fetched: '{{ ranking_collect_flags["stderr.log"] | default(false) }}'
+      case_id_fetched: '{{ ranking_collect_flags["case-id.txt"] | default(false) }}'
+      collector:
+        name: '{{ ranking_collect_collector_name }}'
+        present: '{{ ranking_collect_collector_present | default(false) }}'
+        fetched: '{{ ranking_collect_flags[ranking_collect_collector_name] | default(false) }}'
+      batch_inputs:
+        spec_registry.json: '{{ ranking_collect_flags["spec_registry.json"] | default(false) }}'
+        skeleton.json: '{{ ranking_collect_flags["skeleton.json"] | default(false) }}'
+        enum_values.json: '{{ ranking_collect_flags["enum_values.json"] | default(false) }}'
+        attr_map.json: '{{ ranking_collect_flags["attr_map.json"] | default(false) }}'
+      collection_errors: '{{ ranking_collect_errors }}'
+  when: ranking_collect_authorized | bool
+- name: Write the ranking collection status
+  ansible.builtin.copy:
+    dest: '{{ ranking_collect_run_dir }}/collection-status.json'
+    content: '{{ ranking_collection_status | to_json }}'
+    force: false
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collection_status_write
+  failed_when: false
+  when:
+    - ranking_collect_authorized | bool
+    - not (ranking_collect_run_existing.results | selectattr("item", "equalto", "collection-status.json") | map(attribute="stat.exists") | first | default(false))
+- name: Fetch the ranking collection status
+  ansible.builtin.fetch:
+    src: '{{ ranking_collect_run_dir }}/collection-status.json'
+    dest: '{{ ranking_artifacts_dir }}/{{ ranking_environment_id }}/{{ ranking_run_id }}/collection-status.json'
+    flat: true
+    fail_on_missing: true
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_collection_status_fetch
+  failed_when: false
+  when:
+    - ranking_collect_authorized | bool
+    - not (ranking_collect_run_existing.results | selectattr("item", "equalto", "collection-status.json") | map(attribute="stat.exists") | first | default(false))
+    - not (ranking_collect_existing.results | selectattr("item", "equalto", "collection-status.json") | map(attribute="stat.exists") | first | default(false))
+    - not (ranking_collection_status_write.failed | default(false))
+- name: Record the collection status fetch flag
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | combine({"collection-status.json": (ranking_collection_status_fetch.dest is defined) and not (ranking_collection_status_fetch.failed | default(false))}) }}'
+  when: ranking_collect_authorized | bool and not (ranking_collection_status_fetch.skipped | default(false))
+- name: Default the collection status fetch flag
+  ansible.builtin.set_fact:
+    ranking_collect_flags: '{{ ranking_collect_flags | combine({"collection-status.json": false}) }}'
+  when: ranking_collect_authorized | bool and ranking_collect_flags["collection-status.json"] is not defined
+- name: Record a collection status fetch failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"collection-status.json": "collection status was not fetched"}) }}'
+  when: ranking_collect_authorized | bool and not ranking_collect_flags["collection-status.json"] | default(false)
+- name: Bind the complete artifact collection result
+  ansible.builtin.set_fact:
+    ranking_run_artifacts_collected: >-
+      {{
+        (ranking_collect_state_recorded | default(false) | bool) and
+        (ranking_collect_process_exited | bool) and
+        ((ranking_collect_mandatory_names | map('extract', ranking_collect_flags) |
+          select('equalto', true) | list | length) ==
+         (ranking_collect_mandatory_names | length)) and
+        (ranking_collect_flags['collection-status.json'] | default(false) | bool) and
+        (ranking_collect_errors | length == 0)
+      }}
+  when: ranking_collect_authorized | bool
+- name: Bind the final ranking run phase
+  ansible.builtin.set_fact:
+    ranking_final_run_phase: '{{ "collected" if (ranking_collect_process_exited | bool) and (ranking_case_run.rc | default(-1)) == 0 and (ranking_run_artifacts_collected | bool) else "failed" }}'
+  when: ranking_collect_authorized | bool
+- name: Build the final run state request
+  ansible.builtin.set_fact:
+    ranking_final_run_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: '{{ ranking_final_run_phase }}'
+        process_exited: '{{ ranking_collect_process_exited }}'
+        collected: '{{ ranking_run_artifacts_collected }}'
+        outcome_path: '{{ ranking_collect_run_dir }}/outcome.json'
+  when: ranking_collect_authorized | bool
+- name: Stage the final run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-final.json'
+    content: '{{ ranking_final_run_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  when: ranking_collect_authorized | bool
+- name: Record the final ranking run state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-final.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_final_run_write
+  failed_when: false
+  changed_when: true
+  when: ranking_collect_authorized | bool
+- name: Record a final run state update failure
+  ansible.builtin.set_fact:
+    ranking_collect_errors: '{{ ranking_collect_errors | combine({"run-state.json": ranking_final_run_write.stderr | default("failed to write final run state", true)}) }}'
+    ranking_run_artifacts_collected: false
+  when: ranking_collect_authorized | bool and ranking_final_run_write.rc | default(1) != 0
+- name: Assemble the ranking role outcome record
+  ansible.builtin.set_fact:
+    ranking_role_outcome:
+      schema_version: 1
+      environment_id: '{{ ranking_environment_id }}'
+      run_id: '{{ ranking_run_id }}'
+      case: '{{ ranking_case }}'
+      collected: '{{ ranking_collect_flags }}'
+      collection_errors: '{{ ranking_collect_errors }}'
+      case_rc: '{{ ranking_case_run.rc | default(-1) }}'
+      case_error: '{{ ranking_case_run.stderr | default("") }}'
+- name: Stage the ranking role outcome record
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/role-outcome.json'
+    content: '{{ ranking_role_outcome | to_json }}'
+    mode: '0600'
+- name: Fetch the ranking role outcome record
+  ansible.builtin.fetch:
+    src: '{{ ranking_request_root }}/role-outcome.json'
+    dest: '{{ ranking_artifacts_dir }}/role-outcome.json'
+    flat: true
+- name: Fail a successful case with incomplete required collection
+  ansible.builtin.fail:
+    msg: ranking case completed but required artifact collection was incomplete
+  when:
+    - ranking_case_run_initiated | default(false) | bool
+    - ranking_case_run.rc | default(-1) == 0
+    - not ranking_run_artifacts_collected | default(false) | bool

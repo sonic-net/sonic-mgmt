@@ -1,0 +1,47 @@
+- name: Build the service restore marker request
+  ansible.builtin.set_fact:
+    ranking_teardown_service_mark_request:
+      action: mark_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: 'stop:{{ item }}'
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Stage the service restore marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-teardown-restart-{{ item }}.json'
+    content: '{{ ranking_teardown_service_mark_request | to_json }}'
+    mode: '0600'
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Mark the service restore attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-teardown-restart-{{ item }}.json']
+  register: ranking_teardown_service_mark
+  failed_when: ranking_teardown_service_mark.rc != 0
+  changed_when: true
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Start the original active service
+  ansible.builtin.command:
+    argv: [systemctl, start, '{{ item }}']
+  register: ranking_teardown_service_start
+  failed_when: ranking_teardown_service_start.rc != 0
+  changed_when: true
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Build the service restore completion request
+  ansible.builtin.set_fact:
+    ranking_teardown_service_complete_request:
+      action: complete_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: 'stop:{{ item }}'
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Stage the service restore completion request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/complete-teardown-restart-{{ item }}.json'
+    content: '{{ ranking_teardown_service_complete_request | to_json }}'
+    mode: '0600'
+  when: ranking_teardown_snapshot.services[item] == 'active'
+- name: Complete the service restore attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/complete-teardown-restart-{{ item }}.json']
+  register: ranking_teardown_service_complete
+  failed_when: ranking_teardown_service_complete.rc != 0
+  changed_when: true
+  when: ranking_teardown_snapshot.services[item] == 'active'

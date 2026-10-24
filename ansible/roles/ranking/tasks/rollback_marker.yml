@@ -1,0 +1,50 @@
+- name: Build the rollback marker request
+  ansible.builtin.set_fact:
+    ranking_rollback_marker_request:
+      action: mark_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: '{{ item }}'
+- name: Stage the rollback marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-rollback-{{ item }}.json'
+    content: '{{ ranking_rollback_marker_request | to_json }}'
+    mode: '0600'
+- name: Reaffirm the rollback marker
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-rollback-{{ item }}.json']
+  register: ranking_rollback_mark
+  failed_when: ranking_rollback_mark.rc != 0
+  changed_when: true
+- name: Reverse the stopped service
+  ansible.builtin.command:
+    argv: [systemctl, start, '{{ item | replace("stop:", "") }}']
+  register: ranking_rollback_service_start
+  failed_when: ranking_rollback_service_start.rc != 0
+  changed_when: true
+  when: item is match('stop:')
+- name: Inspect the started saiserver container for rollback
+  ansible.builtin.command:
+    argv: [docker, inspect, --type, container, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_rollback_saiserver_info
+  failed_when: ranking_rollback_saiserver_info.rc != 0 and 'no such' not in (ranking_rollback_saiserver_info.stderr | lower)
+  changed_when: false
+  when: item is match('start:saiserver')
+- name: Parse the rollback container identity
+  ansible.builtin.set_fact:
+    ranking_rollback_saiserver_record: '{{ ranking_rollback_saiserver_info.stdout | from_json }}'
+  when: item is match('start:saiserver') and ranking_rollback_saiserver_info.rc == 0
+- name: Require the rollback container to match the owned launcher result
+  ansible.builtin.fail:
+    msg: rollback container identity does not match the owned launcher result
+  when:
+    - item is match('start:saiserver')
+    - ranking_rollback_saiserver_info.rc == 0
+    - ranking_rollback_saiserver_record[0].Id != ranking_saiserver_start.stdout | default("") | trim or ranking_rollback_saiserver_record[0].Image != ranking_saiserver_image_info_json[0].Id
+# A launcher that failed before creating the container leaves nothing to stop.
+- name: Reverse the started saiserver container
+  ansible.builtin.command:
+    argv: [docker, stop, '{{ ranking_rollback_saiserver_record[0].Id }}']
+  register: ranking_rollback_saiserver_stop
+  failed_when: ranking_rollback_saiserver_stop.rc != 0
+  changed_when: true
+  when: item is match('start:saiserver') and ranking_rollback_saiserver_info.rc == 0
