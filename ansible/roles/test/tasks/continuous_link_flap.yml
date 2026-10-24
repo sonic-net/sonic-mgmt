@@ -21,7 +21,7 @@
     - debug: msg="Memory Status {{memory_output.stdout}}"
 
     - name: Record Redis Memory at start
-      shell: redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
+      shell: sonic-db-cli APPL_DB info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
       register: start_time_redis_memory
 
     - debug: msg="Redis Memory {{start_time_redis_memory.stdout}} M"
@@ -154,7 +154,7 @@
     - debug: msg="Orchagent CPU Util {{orch_cpu.stdout|int}}"
 
     - name: Record Redis Memory at end
-      shell: redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
+      shell: sonic-db-cli APPL_DB info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
       register: end_time_redis_memory
 
     - debug: msg="Redis Memory {{start_time_redis_memory.stdout}} M"

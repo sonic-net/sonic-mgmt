@@ -1,3 +1,22 @@
+- name: Read local database endpoints for native hash output
+  command: docker exec database cat /var/run/redis/sonic-db/database_config.json
+  register: neighbour_database_metadata
+  changed_when: false
+
+- name: Select the configured ASIC database endpoint
+  set_fact:
+    neighbour_asic_cli: >-
+      {% set config = neighbour_database_metadata.stdout | from_json %}
+      {% set database = config.DATABASES.ASIC_DB %}
+      {% set instance = config.INSTANCES[database.instance] %}
+      redis-cli
+      {% if instance.port | default(6379) | int == 0 %}
+      -s {{ instance.unix_socket_path | quote }}
+      {% else %}
+      -h {{ instance.hostname | default('localhost') | quote }} -p {{ instance.port | default(6379) }}
+      {% endif %}
+      -n {{ database.id }}
+
 ##################################################################################
 # Playbook to test IPv4 and IPv4 neighbor mac address change
 # test use Linux kernel ip neigh change command to similate SONiC change mac
@@ -80,12 +99,12 @@
     assert: { that: "arptable.v4[v4_nei]['macaddress'] | lower ==  v4_mac2" }
 
   - name: Get the SONiC Asic DB key holding neighbour MAC for {{ v4_nei }}
-    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v4_nei }}"'
+    shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v4_nei }}"'
     register: neighbour_key
     failed_when: neighbour_key.rc != 0
 
   - name: Check if mac changed in DUT ASIC DB. Should be {{ v4_mac2 }}
-    shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+    shell: docker exec database {{ neighbour_asic_cli }} HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
     register: neighbour_mac
 
   - assert: { that: "neighbour_mac.stdout | lower == v4_mac2" }
@@ -124,12 +143,12 @@
     assert: { that: "arptable.v6[v6_nei]['macaddress'] | lower == v6_mac2" }
 
   - name: Get the SONiC DB key holding neighbour MAC for {{ v6_nei }}
-    shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v6_nei }}"'
+    shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep -Fe '"{{ v6_nei }}"'
     register: neighbour_key
     failed_when: neighbour_key.rc != 0
 
   - name: Check if mac changed in DUT ASIC. Should be {{ v6_mac2 }}
-    shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+    shell: docker exec database {{ neighbour_asic_cli }} HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
     register: neighbour_mac
 
   - assert: { that: "neighbour_mac.stdout | lower == v6_mac2" }

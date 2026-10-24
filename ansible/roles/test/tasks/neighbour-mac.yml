@@ -1,3 +1,22 @@
+- name: Read local database endpoints for native hash output
+  command: docker exec database cat /var/run/redis/sonic-db/database_config.json
+  register: neighbour_database_metadata
+  changed_when: false
+
+- name: Select the configured ASIC database endpoint
+  set_fact:
+    neighbour_asic_cli: >-
+      {% set config = neighbour_database_metadata.stdout | from_json %}
+      {% set database = config.DATABASES.ASIC_DB %}
+      {% set instance = config.INSTANCES[database.instance] %}
+      redis-cli
+      {% if instance.port | default(6379) | int == 0 %}
+      -s {{ instance.unix_socket_path | quote }}
+      {% else %}
+      -h {{ instance.hostname | default('localhost') | quote }} -p {{ instance.port | default(6379) }}
+      {% endif %}
+      -n {{ database.id }}
+
 # docker exec -it syncd sx_api_port_speed_set_100G.py
 # Test run example:
 # ansible-playbook -i inventory --limit arc-switch1027 test_sonic.yml -b -e "ptf_host=ptf-1" --tags neighbour
@@ -42,7 +61,7 @@
 
 - name: Get the SONiC DB key holding neighbour MAC for {{ host_ip }}
   become: true
-  shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
+  shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
   register: neighbour_key
   failed_when: neighbour_key.rc != 0
 
@@ -52,7 +71,7 @@
 #   v1.0        - SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS
 - name: Check neighbour MAC1 on DUT. Should be {{ nei_mac1 }}
   become: true
-  shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+  shell: docker exec database {{ neighbour_asic_cli }} HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
   register: neighbour_mac
   failed_when: neighbour_mac.stdout != "{{ nei_mac1 }}"
 
@@ -72,12 +91,12 @@
 
 - name: Get the SONiC DB key holding neighbour MAC for {{ host_ip }}
   become: true
-  shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
+  shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
   register: neighbour_key
   failed_when: neighbour_key.rc != 0
 
 - name: Check neighbour MAC2 on DUT. Should be {{ nei_mac2 }}
   become: true
-  shell: docker exec database redis-cli -n 1 HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
+  shell: docker exec database {{ neighbour_asic_cli }} HGETALL '{{ neighbour_key.stdout }}' | grep "_ATTR_DST_MAC_ADDRESS" -A 1 | tail -1
   register: neighbour_mac
   failed_when: neighbour_mac.stdout != "{{ nei_mac2 }}"

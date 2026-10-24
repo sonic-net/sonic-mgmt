@@ -204,6 +204,6 @@
       when: lldp_container.stdout != "" and fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox']
 
 - name: Increase Redis busy threshold on 7215 fanouts
-  shell: docker exec database redis-cli CONFIG SET lua-time-limit 15000 && docker exec database redis-cli CONFIG REWRITE
+  shell: docker exec database sonic-db-cli APPL_DB CONFIG SET lua-time-limit 15000 && docker exec database sonic-db-cli APPL_DB CONFIG REWRITE
   become: yes
   when: "'7215' in device_info[inventory_hostname]['HwSku']"

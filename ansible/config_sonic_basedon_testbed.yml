@@ -1040,7 +1040,7 @@
 
         - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
           become: true
-          shell: redis-cli -n 4 del "DSCP_TO_TC_MAP|AZURE"
+          shell: sonic-db-cli CONFIG_DB del "DSCP_TO_TC_MAP|AZURE"
           when:
           - hwsku is defined
           - hwsku == 'cisco-8101-p4-32x100-vs'
@@ -1183,7 +1183,7 @@
         become: true
         shell: |
           for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
-            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+            for ip in $(sonic-db-cli CONFIG_DB keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
               echo "Removing $pc $ip"
               config interface ip remove $pc $ip || true
             done

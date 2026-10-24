@@ -222,7 +222,7 @@
   - debug: var=target_q_wred
 
 - name: Get the WRED profile key for "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 KEYS "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_wred}}"
+  shell: sonic-db-cli CONFIG_DB KEYS "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_wred}}"
   register: wred_profile_name
 
 - fail:
@@ -234,7 +234,7 @@
     wred_profile_name="{{wred_profile_name.stdout|replace('[','')|replace(']','')}}"
 
 - name: Get the WRED profile for "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 HGET "{{wred_profile_name}}" wred_profile
+  shell: sonic-db-cli CONFIG_DB HGET "{{wred_profile_name}}" wred_profile
   register: wred_profile
 
 - fail:
@@ -246,7 +246,7 @@
     wred_profile="{{wred_profile.stdout|replace('[','')|replace(']','')}}"
 
 - name: Get green_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
-  shell: redis-cli -n 4 HGET "{{wred_profile}}" green_max_threshold
+  shell: sonic-db-cli CONFIG_DB HGET "{{wred_profile}}" green_max_threshold
   register: green_max_threshold
 
 - fail:
@@ -258,7 +258,7 @@
     green_max_threshold="{{green_max_threshold.stdout|int}}"
 
 - name: Get yellow_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
-  shell: redis-cli -n 4 HGET "{{wred_profile}}" yellow_max_threshold
+  shell: sonic-db-cli CONFIG_DB HGET "{{wred_profile}}" yellow_max_threshold
   register: yellow_max_threshold
 
 - fail:
@@ -270,7 +270,7 @@
     yellow_max_threshold="{{yellow_max_threshold.stdout|int}}"
 
 - name: Get red_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
-  shell: redis-cli -n 4 HGET "{{wred_profile}}" red_max_threshold
+  shell: sonic-db-cli CONFIG_DB HGET "{{wred_profile}}" red_max_threshold
   register: red_max_threshold
 
 - fail:
@@ -287,7 +287,7 @@
     msg="Get watermark counter status before the test"
 
 - name: Get watermark polling status before the test
-  shell: redis-cli -n 4 HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
+  shell: sonic-db-cli CONFIG_DB HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
   register: watermark_status
 
 - debug:
@@ -302,7 +302,7 @@
 - debug: var=target_q_sched
 
 - name: Get lossy scheduler profile for "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  shell: sonic-db-cli CONFIG_DB HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
   register: lossy_sched_profile
 
 - fail:
@@ -314,7 +314,7 @@
     lossy_sched_profile="{{lossy_sched_profile.stdout|replace('[','')|replace(']','')}}"
 
 - name: Get lossy scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 HGET "{{lossy_sched_profile}}" weight
+  shell: sonic-db-cli CONFIG_DB HGET "{{lossy_sched_profile}}" weight
   register: lossy_sched_weight
 
 - fail:
@@ -329,7 +329,7 @@
 - debug: var=target_q_sched
 
 - name: Get lossless scheduler profile "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  shell: sonic-db-cli CONFIG_DB HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
   register: lossless_sched_profile
 
 - fail:
@@ -341,7 +341,7 @@
     lossless_sched_profile="{{lossless_sched_profile.stdout|replace('[','')|replace(']','')}}"
 
 - name: Get lossless scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
-  shell: redis-cli -n 4 HGET "{{lossless_sched_profile}}" weight
+  shell: sonic-db-cli CONFIG_DB HGET "{{lossless_sched_profile}}" weight
   register: lossless_sched_weight
 
 - fail:

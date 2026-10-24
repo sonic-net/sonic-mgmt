@@ -50,7 +50,7 @@
         seconds: 10
 
     - name: Verify session state is active.
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -62,7 +62,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -74,7 +74,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -86,7 +86,7 @@
         seconds: 10
 
     - name: Verify session state is active
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
       register: session_status
       failed_when: session_status.stdout != "active"
 
@@ -98,7 +98,7 @@
         seconds: 10
 
     - name: Verify session state is inactive.
-      shell: docker exec -i swss redis-cli HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
+      shell: sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:"{{ session_name }}" status
       register: session_status
       failed_when: session_status.stdout != "inactive"
 

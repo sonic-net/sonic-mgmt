@@ -54,7 +54,7 @@
 
     - block:
         - name: See that Redis DB has got an appropriate field.
-          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          shell: docker exec -i database sonic-db-cli ASIC_DB KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
           register: grep
           failed_when: grep.rc != 0
 
@@ -130,7 +130,7 @@
 
     - block:
         - name: See that Redis-DB has NOT got an appropriate field.
-          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          shell: docker exec -i database sonic-db-cli ASIC_DB KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
           register: grep
           failed_when: grep.rc == 0
 
@@ -153,7 +153,7 @@
 
     - block:
         - name: See that Redis-DB has NOT got an appropriate field.
-          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          shell: docker exec -i database sonic-db-cli ASIC_DB KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
           register: grep
           failed_when: grep.rc == 0
 
@@ -192,7 +192,7 @@
 
           # Sending packets with L4 port permitted (counters value should be increased).
         - name: Read initial counters value (before sending packets).
-          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
           register: counters_value_initial
         - debug: var="counters_value_initial.stdout|int"
 
@@ -210,7 +210,7 @@
             seconds: 10
 
         - name: Read result counters value (after sending packets).
-          command: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          command: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
           register: counters_value_result
         - debug: var="counters_value_result.stdout|int"
 
@@ -219,7 +219,7 @@
 
           # Sending packets with L4 port forbidden (counters value should NOT be increased).
         - name: Read initial counters value (before sending packets).
-          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
           register: counters_value_initial
         - debug: var="counters_value_initial.stdout|int"
 
@@ -237,7 +237,7 @@
             seconds: 10
 
         - name: Read result counters value (after sending packets).
-          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
           register: counters_value_result
         - debug: var="counters_value_result.stdout|int"
 

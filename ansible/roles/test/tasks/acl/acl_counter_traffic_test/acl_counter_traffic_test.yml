@@ -41,7 +41,7 @@
       include_tasks: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
       register: counters_value_initial
     - debug: var="counters_value_initial|int"
 
@@ -56,7 +56,7 @@
           seconds: 10
 
     - name: Read result counters value (after ping).
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
       register: counters_value_result
     - debug: var="counters_value_result|int"
 
@@ -75,7 +75,7 @@
           seconds: 10
 
     - name: Read counters value.
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
       register: counters_value_result
 
     - fail: msg="Counters value is not equal to number of packets transmitted. Used {{ table_name}} / {{ rule_name }}"
@@ -121,7 +121,7 @@
       include_tasks: "{{ acl_check_db }}"
 
     - name: Read initial counters value (before ping).
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
       register: counters_value_initial
 
     - name: Ping switch from host to check counters of mirror rule.
@@ -135,7 +135,7 @@
           seconds: 10
 
     - name: Read result counters value (after ping).
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
       register: counters_value_result
 
     - fail: msg="Counters value is not equal to number of packets transmitted"

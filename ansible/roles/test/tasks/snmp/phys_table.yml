@@ -4,7 +4,7 @@
   delegate_to: localhost
 
 - name: Get Transceiver info
-  shell: redis-cli -n 6 keys *TRANSCEIVER_INFO* |cut -d "|" -f 2
+  shell: sonic-db-cli STATE_DB keys *TRANSCEIVER_INFO* |cut -d "|" -f 2
   register: trans_output
 
 - set_fact:
