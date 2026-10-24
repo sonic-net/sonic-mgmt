@@ -2,7 +2,7 @@ import pytest
 import random
 import logging
 import json
-from tests.common import reboot, config_reload
+from tests.common import config_reload
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
