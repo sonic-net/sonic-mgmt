@@ -1757,6 +1757,15 @@ platform_tests/test_sfp_thermal_state_db.py:
       - "'bmc' in topo_type"
 
 #######################################
+#####      test_tmpfiles.py        #####
+#######################################
+platform_tests/test_tmpfiles.py::test_tmpfiles_age_disabled:
+  skip:
+    reason: "These older SONiC releases predate the Debian 13 tmpfiles aging policy"
+    conditions:
+      - "release in ['202305', '202311', '202405', '202411', '202505']"
+
+#######################################
 #####   test_xcvr_info_in_db.py   #####
 #######################################
 
