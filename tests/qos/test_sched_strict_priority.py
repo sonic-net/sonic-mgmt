@@ -34,6 +34,7 @@ from tests.common.helpers.ptf_tests_helper import (
     detect_portchannel_egress_member
 )
 from tests.common.config_reload import config_reload
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -374,7 +375,7 @@ class StrictPriorityRateLimitingDriver:
         try:
             # Method 1: Try to discover existing queue key from Redis
             logger.info(f"Attempting to discover queue key for {interface} queue {queue} from Redis...")
-            search_cmd = f"redis-cli -n 4 KEYS 'QUEUE|*{interface}|{queue}'"
+            search_cmd = f"sonic-db-cli CONFIG_DB KEYS 'QUEUE|*{interface}|{queue}'"
             result = self.duthost.shell(search_cmd, module_ignore_errors=True)
 
             if result['rc'] == 0 and result['stdout'].strip():
@@ -438,18 +439,21 @@ class StrictPriorityRateLimitingDriver:
             scheduler_key = f"SCHEDULER|{policy_name}"
 
             # Set scheduler parameters (rates in bytes per second)
-            self.duthost.shell(f"redis-cli -n 4 HSET '{scheduler_key}' 'type' 'STRICT'")
-            self.duthost.shell(f"redis-cli -n 4 HSET '{scheduler_key}' 'cir' '{TEST_CONFIG['cir_bytes_per_sec']}'")
-            self.duthost.shell(f"redis-cli -n 4 HSET '{scheduler_key}' 'pir' '{TEST_CONFIG['pir_bytes_per_sec']}'")
+            self.duthost.shell(f"sonic-db-cli CONFIG_DB HSET '{scheduler_key}' 'type' 'STRICT'")
+            self.duthost.shell(
+                f"sonic-db-cli CONFIG_DB HSET '{scheduler_key}' 'cir' '{TEST_CONFIG['cir_bytes_per_sec']}'")
+            self.duthost.shell(
+                f"sonic-db-cli CONFIG_DB HSET '{scheduler_key}' 'pir' '{TEST_CONFIG['pir_bytes_per_sec']}'")
 
             # Get the correct queue key format for this platform
             queue_key = self._get_queue_key(self.test_interface, self.target_queue)
 
             # Apply scheduler policy to queue
-            self.duthost.shell(f"redis-cli -n 4 HSET '{queue_key}' 'scheduler' '{policy_name}'")
+            self.duthost.shell(f"sonic-db-cli CONFIG_DB HSET '{queue_key}' 'scheduler' '{policy_name}'")
 
             # Show the queue configuration after setting scheduler
-            queue_config = self.duthost.shell(f"redis-cli -n 4 HGETALL '{queue_key}'")
+            queue_config = self.duthost.shell(
+                (redis_cli_command(self.duthost, 'CONFIG_DB') + f" HGETALL '{queue_key}'"))
             logger.info("Queue configuration after setting scheduler:")
             logger.info(f"  {queue_config['stdout']}")
 

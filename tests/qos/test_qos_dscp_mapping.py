@@ -110,13 +110,14 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
         apply_dscp_cfg_teardown(duthost, loganalyzer)
         return
 
-    is_global_map_key_exist = duthost.shell('redis-cli -n 4 -c KEYS "PORT_QOS_MAP|global"')["stdout"]
+    is_global_map_key_exist = duthost.shell('sonic-db-cli CONFIG_DB KEYS "PORT_QOS_MAP|global"')["stdout"]
     if is_global_map_key_exist:
-        origin_dscp_to_tc_map = duthost.shell('redis-cli -n 4 -c HGET "PORT_QOS_MAP|global" "dscp_to_tc_map"')["stdout"]
+        origin_dscp_to_tc_map = duthost.shell(
+            'sonic-db-cli CONFIG_DB HGET "PORT_QOS_MAP|global" "dscp_to_tc_map"')["stdout"]
         logger.info(f"Original dscp_to_tc_map: {origin_dscp_to_tc_map}")
 
     logger.info(f"Set dscp_to_tc_map to {DEFAULT_MAPPING_TYPE}")
-    duthost.shell(f'redis-cli -n 4 -c HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{DEFAULT_MAPPING_TYPE}"')
+    duthost.shell(f'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{DEFAULT_MAPPING_TYPE}"')
     apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
 
     yield
@@ -124,9 +125,9 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     apply_dscp_cfg_teardown(duthost, loganalyzer)
     logger.info("Recover the original QoS map configuration")
     if is_global_map_key_exist:
-        duthost.shell(f'redis-cli -n 4 -c HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
+        duthost.shell(f'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
     else:
-        duthost.shell('redis-cli -n 4 -c DEL "PORT_QOS_MAP|global"')
+        duthost.shell('sonic-db-cli CONFIG_DB DEL "PORT_QOS_MAP|global"')
 
 
 @pytest.fixture(scope='function')
@@ -458,7 +459,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             pytest_assert(wait_until(30, 10, 0, duthost.links_status_up, dut_test_ports), "Test ports are not up")
 
         def check_tunnel_dscp_mode(duthost, dscp_mode):
-            real_dscp_mode = duthost.shell('redis-cli hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
+            real_dscp_mode = duthost.shell(
+                'sonic-db-cli APPL_DB hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
         def check_ip_route(duthost, step):
@@ -698,7 +700,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         reset_qos_drop_diag_budget()
 
         def check_tunnel_dscp_mode(duthost, dscp_mode):
-            real_dscp_mode = duthost.shell('redis-cli hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
+            real_dscp_mode = duthost.shell(
+                'sonic-db-cli APPL_DB hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
         def check_ip_route(duthost, step):

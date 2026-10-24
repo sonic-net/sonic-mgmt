@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUFFER_MODEL=$(redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model)
+BUFFER_MODEL=$(sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model)
 
 if [[ "$BUFFER_MODEL" != "dynamic" ]]; then
     exit 0

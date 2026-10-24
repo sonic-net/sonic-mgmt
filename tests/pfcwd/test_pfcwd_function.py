@@ -38,7 +38,7 @@ WD_ACTION_MSG_PFX = {"dontcare": "Verify PFCWD detection when queue buffer is no
                      "forward": "Verify proper function of pfcwd forward action"
                      }
 MMU_ACTIONS = ['change', 'noop', 'restore', 'noop']
-DB_SEPARATORS = {'0': ':', '4': '|'}
+DB_SEPARATORS = {'APPL_DB': ':', 'CONFIG_DB': '|'}
 BF_PROFILE = "BUFFER_PROFILE|{}"
 BF_PROFILE_TABLE = "BUFFER_PROFILE_TABLE:{}"
 
@@ -83,14 +83,14 @@ def is_static_profile(asic, profile):
         bool : True if the profile uses a static threshold, False otherwise
     """
     if PfcCmd.isBufferInApplDb(asic):
-        db = "0"
+        db = "APPL_DB"
         table_template = BF_PROFILE_TABLE
     else:
-        db = "4"
+        db = "CONFIG_DB"
         table_template = BF_PROFILE
     result = asic.run_redis_cmd(
         argv=[
-            "redis-cli", "-n", db, "HGET", table_template.format(profile), "static_th"
+            "sonic-db-cli", db, "HGET", table_template.format(profile), "static_th"
         ]
     )
     return bool(result) and result[0] not in (None, "")
@@ -105,7 +105,7 @@ class PfcCmd(object):
         if not PfcCmd.buffer_model_initialized:
             result = asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", "4", "hget",
+                    "sonic-db-cli", "CONFIG_DB", "hget",
                     "DEVICE_METADATA|localhost", "buffer_model"
                 ]
             )
@@ -136,7 +136,7 @@ class PfcCmd(object):
         asic = dut.get_queue_oid_asic_instance(queue_oid)
         return six.text_type(asic.run_redis_cmd(
             argv=[
-                "redis-cli", "-n", "2", "HGET",
+                "sonic-db-cli", "COUNTERS_DB", "HGET",
                 "COUNTERS:{}".format(queue_oid), attr
             ]
         )[0])
@@ -154,7 +154,7 @@ class PfcCmd(object):
         asic = dut.get_queue_oid_asic_instance(queue_oid)
         asic.run_redis_cmd(
             argv=[
-                "redis-cli", "-n", "2", "HSET",
+                "sonic-db-cli", "COUNTERS_DB", "HSET",
                 "COUNTERS:{}".format(queue_oid),
                 "DEBUG_STORM", storm_status
             ]
@@ -176,21 +176,21 @@ class PfcCmd(object):
         asic = dut.get_port_asic_instance(port)
 
         if PfcCmd.isBufferInApplDb(asic):
-            db = "0"
+            db = "APPL_DB"
         else:
-            db = "4"
-        table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
+            db = "CONFIG_DB"
+        table_template = BF_PROFILE if db == "CONFIG_DB" else BF_PROFILE_TABLE
 
         if is_static_profile(asic, profile):
             asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
+                    "sonic-db-cli", db, "HSET", table_template.format(profile), "static_th", static_th
                 ]
             )
         else:
             asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
+                    "sonic-db-cli", db, "HSET", table_template.format(profile), "dynamic_th", value
                 ]
             )
 
@@ -216,35 +216,35 @@ class PfcCmd(object):
 
         asic = dut.get_port_asic_instance(port)
         if PfcCmd.isBufferInApplDb(asic):
-            db = "0"
+            db = "APPL_DB"
             pg_pattern = "BUFFER_PG_TABLE:{}:{}"
         else:
-            db = "4"
+            db = "CONFIG_DB"
             pg_pattern = "BUFFER_PG|{}|{}"
 
         pg_profile = six.text_type(asic.run_redis_cmd(
             argv=[
-                "redis-cli", "-n", db, "HGET",
+                "sonic-db-cli", db, "HGET",
                 pg_pattern.format(port, queue_range), "profile"
             ]
         )[0])
 
         if BF_PROFILE[:-2] in pg_profile or BF_PROFILE_TABLE[:-2] in pg_profile:
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
-        table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
+        table_template = BF_PROFILE if db == "CONFIG_DB" else BF_PROFILE_TABLE
 
         alpha = 0
         static_th = 0
         if is_static_profile(asic, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
+                    "sonic-db-cli", db, "HGET", table_template.format(pg_profile), "static_th"
                 ]
             )[0])
         else:
             alpha = six.text_type(asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
+                    "sonic-db-cli", db, "HGET", table_template.format(pg_profile), "dynamic_th"
                 ]
             )[0])
 

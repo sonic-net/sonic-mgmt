@@ -18,6 +18,7 @@ from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa: F401
 from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa: F401
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
+from tests.common.helpers.sonic_db import redis_cli_command
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -69,7 +70,7 @@ def detect_ingress_pool_number(duthost):
     """
     global DEFAULT_INGRESS_POOL_NUMBER
     pools = duthost.shell(
-        'redis-cli -n 4 keys "BUFFER_POOL|ingress*"')['stdout']
+        'sonic-db-cli CONFIG_DB keys "BUFFER_POOL|ingress*"')['stdout']
     DEFAULT_INGRESS_POOL_NUMBER = len(pools.split())
 
 
@@ -84,13 +85,13 @@ def detect_shared_headroom_pool_mode(duthost):
     global DEFAULT_OVER_SUBSCRIBE_RATIO
 
     over_subscribe_ratio = duthost.shell(
-        'redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
+        'sonic-db-cli CONFIG_DB hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     if over_subscribe_ratio and over_subscribe_ratio != '0':
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_OVER_SUBSCRIBE_RATIO = int(over_subscribe_ratio)
 
     shared_headroom_pool_size = duthost.shell(
-        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
+        'sonic-db-cli CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     if shared_headroom_pool_size and shared_headroom_pool_size != '0':
         DEFAULT_SHARED_HEADROOM_POOL_ENABLED = True
         DEFAULT_SHARED_HEADROOM_POOL_SIZE = int(shared_headroom_pool_size)
@@ -105,7 +106,7 @@ def detect_default_mtu(duthost, port_to_test):
     global DEFAULT_MTU
     if not DEFAULT_MTU:
         DEFAULT_MTU = duthost.shell(
-            'redis-cli -n 4 hget "PORT|{}" mtu'.format(port_to_test))['stdout']
+            'sonic-db-cli CONFIG_DB hget "PORT|{}" mtu'.format(port_to_test))['stdout']
         logging.info("Default MTU {}".format(DEFAULT_MTU))
 
 
@@ -115,19 +116,19 @@ def get_asic_table_data_from_db(duthost):
     """
     # Get cell size from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'cell_size'
-    asic_keys = duthost.shell('redis-cli -n 6 keys *ASIC_TABLE*')['stdout']
+    asic_keys = duthost.shell('sonic-db-cli STATE_DB keys *ASIC_TABLE*')['stdout']
     cell_size = float(duthost.shell(
-        'redis-cli -n 6 hget "{}" "cell_size"'.format(asic_keys))['stdout'])
+        'sonic-db-cli STATE_DB hget "{}" "cell_size"'.format(asic_keys))['stdout'])
 
     # Get PIPELINE_LATENCY from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'pipeline_latency'
     pipeline_latency = float(
-        duthost.shell('redis-cli -n 6 hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
+        duthost.shell('sonic-db-cli STATE_DB hget "{}" "pipeline_latency"'.format(asic_keys))['stdout']) * 1024
 
     # Get MAC_PHY_DELAY from state DB
     # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-2" 'mac_phy_delay'
     mac_phy_delay = float(duthost.shell(
-        'redis-cli -n 6 hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
+        'sonic-db-cli STATE_DB hget "{}" "mac_phy_delay"'.format(asic_keys))['stdout']) * 1024
 
     return cell_size, pipeline_latency, mac_phy_delay
 
@@ -154,14 +155,14 @@ def get_lossless_traffic_pattern_data_from_db(duthost):
     # Get LOSSLESS_MTU from config DB
     # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'mtu'
     lossless_traffic_keys = duthost.shell(
-        'redis-cli -n 4 keys LOSSLESS_TRAFFIC_PATTERN*')['stdout']
+        'sonic-db-cli CONFIG_DB keys LOSSLESS_TRAFFIC_PATTERN*')['stdout']
     lossless_mtu = float(duthost.shell(
-        'redis-cli -n 4 hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
+        'sonic-db-cli CONFIG_DB hget "{}" "mtu"'.format(lossless_traffic_keys))['stdout'])
 
     # Get SMALL_PACKET_PERCENTAGE from config DB
     # Command: redis-cli -n 4 hget 'LOSSLESS_TRAFFIC_PATTERN|AZURE' 'small_packet_percentage'
-    small_packet_percentage = float(
-        duthost.shell('redis-cli -n 4 hget "{}" "small_packet_percentage"'.format(lossless_traffic_keys))['stdout'])
+    small_packet_percentage = float(duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "{}" "small_packet_percentage"'.format(lossless_traffic_keys))['stdout'])
 
     return lossless_mtu, small_packet_percentage
 
@@ -257,7 +258,7 @@ def load_test_parameters(duthost):
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell(
-            'redis-cli -n 4 keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
+            'sonic-db-cli CONFIG_DB keys "BUFFER_POOL|ingress_lossy_pool"')['stdout']
         if ingress_lossy_pool:
             ingress_profile_list = TESTPARAM_ADMIN_DOWN.get(
                 'BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE')
@@ -320,7 +321,7 @@ def configure_shared_headroom_pool(duthost, enable):
 
     def _check_shp_ratio_configured(duthost, expected_ratio):
         ratio = duthost.shell(
-            'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" over_subscribe_ratio')['stdout']
+            'sonic-db-cli CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool" over_subscribe_ratio')['stdout']
         return ratio == expected_ratio
 
     pytest_assert(wait_until(30, 2, 0, _check_shp_ratio_configured, duthost, expected_ratio),
@@ -355,7 +356,7 @@ def setup_module(duthosts, rand_one_dut_hostname, request, is_buffer_model_dynam
     # As the buffer test has already taken ~30 minutes, we don't want to extend the wait time.
     # So disabling BGP neighbors is a reasonal way to tolerance this situation.
     bgp_neighbors = duthost.shell(
-        'redis-cli -n 4 keys BGP_NEIGHBOR*')['stdout']
+        'sonic-db-cli CONFIG_DB keys BGP_NEIGHBOR*')['stdout']
     if bgp_neighbors:
         duthost.shell('config bgp shutdown all')
         logging.info(
@@ -482,19 +483,19 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
         ports_info = conn_graph_facts['device_conn'][hostname]
         if not ports_info:
             ports = [port.split('|')[1] for port in duthost.shell(
-                'redis-cli -n 4 keys "PORT|*"')['stdout'].split('\n')]
+                'sonic-db-cli CONFIG_DB keys "PORT|*"')['stdout'].split('\n')]
         else:
             ports = list(ports_info.keys())
         if PORTS_WITH_8LANES is None:
             PORTS_WITH_8LANES = []
             for port in ports:
                 lanes = duthost.shell(
-                    'redis-cli -n 4 hget "PORT|{}" lanes'.format(port))['stdout']
+                    'sonic-db-cli CONFIG_DB hget "PORT|{}" lanes'.format(port))['stdout']
                 if len(lanes.split(',')) == 8:
                     PORTS_WITH_8LANES.append(port)
 
         lossless_pgs = duthost.shell(
-            'redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split()
+            'sonic-db-cli APPL_DB keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split()
         lossless_pgs_8lane = [
             pg for pg in lossless_pgs if pg[16:-4] in PORTS_WITH_8LANES]
         return len(lossless_pgs_8lane) * 2 * 9216
@@ -508,7 +509,7 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             return 0
 
         total = 0
-        for pg in duthost.shell('redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split():
+        for pg in duthost.shell('sonic-db-cli APPL_DB keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split():
             if not pg:
                 continue
             ok, data = mellanox_calculate_headroom_data(duthost, pg.split(':')[1])
@@ -622,23 +623,23 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             expected_pool_size,
             expected_shp_size,
             duthost.shell(
-                'redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                'sonic-db-cli APPL_DB hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
             duthost.shell(
-                'redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
+                'sonic-db-cli APPL_DB hget "BUFFER_POOL_TABLE:ingress_lossless_pool" xoff')['stdout'],
             get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
         if DEFAULT_OVER_SUBSCRIBE_RATIO else
         "Pool size isn't correct in database: expected {}, size in APPL_DB pool {}, size in ASIC_DB {}".format(
             expected_pool_size,
             duthost.shell(
-                'redis-cli hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
+                'sonic-db-cli APPL_DB hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size')['stdout'],
             get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid))
         )
 
 
 def get_pool_size_from_asic_db(duthost, ingress_lossless_pool_oid):
     pool_sai = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 1 hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
-        .format(ingress_lossless_pool_oid))['stdout'].split('\n'))
+        (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:{}'
+         .format(ingress_lossless_pool_oid)))['stdout'].split('\n'))
     return pool_sai.get('SAI_BUFFER_POOL_ATTR_SIZE'), pool_sai.get('SAI_BUFFER_POOL_ATTR_XOFF_SIZE')
 
 
@@ -654,8 +655,12 @@ def ensure_pool_size(duthost, timeout, expected_pool_size, expected_shp_size, in
         If it is omitted, the ASIC DB won't be checked
     """
     def _ensure_pool_size(duthost, expected_pool_size, expected_shp_size, ingress_lossless_pool_oid=None):
-        pool_app = _compose_dict_from_cli(duthost.shell(
-            'redis-cli hgetall "BUFFER_POOL_TABLE:ingress_lossless_pool"')['stdout'].split('\n'))
+        pool_app = _compose_dict_from_cli(
+            duthost.shell(
+                (redis_cli_command(
+                    duthost,
+                    'APPL_DB') +
+                    ' hgetall "BUFFER_POOL_TABLE:ingress_lossless_pool"'))['stdout'].split('\n'))
 
         if expected_pool_size and int(pool_app['size']) != expected_pool_size:
             return False
@@ -698,11 +703,11 @@ def check_pg_profile(duthost, pg, expected_profile, fail_test=True):
     def _check_pg_profile(duthost, pg, expected_profile):
         if check_qos_db_fv_reference_with_table(duthost) is True:
             profile = duthost.shell(
-                'redis-cli hget {} profile'.format(pg))['stdout'][1:-1]
+                'sonic-db-cli APPL_DB hget {} profile'.format(pg))['stdout'][1:-1]
             return (profile == 'BUFFER_PROFILE_TABLE:' + expected_profile)
         else:
             profile = duthost.shell(
-                'redis-cli hget {} profile'.format(pg))['stdout']
+                'sonic-db-cli APPL_DB hget {} profile'.format(pg))['stdout']
             return (profile == expected_profile)
 
     if wait_until(10, 2, 0, _check_pg_profile, duthost, pg, expected_profile):
@@ -725,14 +730,14 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
     """
     def _check_pfc_enable(duthost, port, expected_pfc_enable_map):
         pfc_enable = duthost.shell(
-            'redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
+            'sonic-db-cli CONFIG_DB hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']
         return (expected_pfc_enable_map == pfc_enable)
 
     pytest_assert(wait_until(10, 2, 0, _check_pfc_enable, duthost, port, expected_pfc_enable_map),
                   "Port {} pfc enable check failed expected: {} got: {}".format(
                       port,
                       expected_pfc_enable_map,
-                      duthost.shell('redis-cli -n 4 hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']))
+                      duthost.shell('sonic-db-cli CONFIG_DB hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']))
 
 
 def check_lossless_profile_removed(duthost, profile, sai_oid=None):
@@ -744,25 +749,25 @@ def check_lossless_profile_removed(duthost, profile, sai_oid=None):
                  If it is None the ASIC_DB won't be checked
     """
     profile_info = duthost.shell(
-        'redis-cli -n 6 hgetall "BUFFER_PROFILE_TABLE|{}"'.format(profile))['stdout']
+        (redis_cli_command(duthost, 'STATE_DB') + ' hgetall "BUFFER_PROFILE_TABLE|{}"'.format(profile)))['stdout']
     pytest_assert(not profile_info,
                   "Profile {} isn't removed from STATE_DB".format(profile))
     profile_info = duthost.shell(
-        'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(profile))['stdout']
+        (redis_cli_command(duthost, 'APPL_DB') + ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(profile)))['stdout']
     pytest_assert(not profile_info,
                   "Profile {} isn't removed from APPL_DB".format(profile))
     logging.debug(
         'Profile {} has been removed from STATE_DB and APPL_DB'.format(profile))
     if sai_oid:
         profile_info = duthost.shell(
-            'redis-cli -n 1 hgetall {}'.format(sai_oid))['stdout']
+            (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall {}'.format(sai_oid)))['stdout']
         pytest_assert(
             not profile_info, "Profile {} hasn't been removed from ASIC_DB".format(sai_oid))
 
 
 def fetch_initial_asic_db(duthost):
     profiles_in_asicdb = duthost.shell(
-        'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout']
+        'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout']
     return set(profiles_in_asicdb.split('\n'))
 
 
@@ -792,8 +797,12 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
         profile_oid: SAI OID of the profile
         pool_oid: SAI OID of ingress lossless pool
     """
-    profile_appldb = _compose_dict_from_cli(duthost.shell(
-        'redis-cli hgetall BUFFER_PROFILE_TABLE:{}'.format(profile_name))['stdout'].split('\n'))
+    profile_appldb = _compose_dict_from_cli(
+        duthost.shell(
+            (redis_cli_command(
+                duthost,
+                'APPL_DB') +
+                ' hgetall BUFFER_PROFILE_TABLE:{}'.format(profile_name)))['stdout'].split('\n'))
     logging.debug("APPL_DB buffer profile {}: {} ".format(
         profile_name, profile_appldb))
 
@@ -851,7 +860,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
                     .format(speed))
 
     profiles_in_asicdb = set(duthost.shell(
-        'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
+        'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE*"')['stdout'].split('\n'))
     diff = profiles_in_asicdb - initial_profiles
     if len(diff) == 1:
         profile_oid = diff.pop()
@@ -862,7 +871,7 @@ def check_buffer_profile_details(duthost, initial_profiles, profile_name, profil
         initial_profiles, profiles_in_asicdb, diff))
 
     profile_sai = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 1 hgetall {}'.format(profile_oid))['stdout'].split('\n'))
+        (redis_cli_command(duthost, 'ASIC_DB') + ' hgetall {}'.format(profile_oid)))['stdout'].split('\n'))
 
     logging.debug("SAI object for new profile {}: oid {} content {}".format(
         profile_name, profile_oid, profile_sai))
@@ -1066,32 +1075,32 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
     """
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
-        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout'].split(',')
+        'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout'].split(',')
     if supported_speeds and speed_to_test not in supported_speeds:
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
 
     if check_qos_db_fv_reference_with_table(duthost) is True:
         profile = duthost.shell(
-            'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+            'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
     else:
         profile = "BUFFER_PROFILE_TABLE:" + \
             duthost.shell(
-                'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+                'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
     detect_default_mtu(duthost, port_to_test)
 
     original_pg_size = int(duthost.shell(
-        'redis-cli hget "{}" size'.format(profile))['stdout'])
+        'sonic-db-cli APPL_DB hget "{}" size'.format(profile))['stdout'])
     original_pool_size = int(duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout'])
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout'])
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_pg_xoff = int(duthost.shell(
-            'redis-cli hget "{}" xoff'.format(profile))['stdout'])
+            'sonic-db-cli APPL_DB hget "{}" xoff'.format(profile))['stdout'])
         original_shp_size = int(duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
         original_pg_xoff = None
         original_shp_size = None
@@ -1104,7 +1113,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
                 'Speed, MTU and cable length matches the default value, nothing to test, skip')
         expected_profile = make_expected_profile_name(
             speed_to_test, cable_len_to_test)
-        if duthost.shell('redis-cli hget BUFFER_PROFILE_TABLE:{}'.format(expected_profile))['stdout']:
+        if duthost.shell('sonic-db-cli APPL_DB hget BUFFER_PROFILE_TABLE:{}'.format(expected_profile))['stdout']:
             pytest.skip(
                 'The buffer profile has existed, most of the checks can not be performed, skip')
 
@@ -1146,8 +1155,8 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
 
         # Check whether profile exist
         pg_size = int(duthost.shell(
-            'redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
-        pg_xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(
+            'sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
+        pg_xoff = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(
             expected_profile))['stdout']) if DEFAULT_OVER_SUBSCRIBE_RATIO else None
         check_pool_size(duthost,
                         pool_oid,
@@ -1224,8 +1233,8 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
                 port_to_test), expected_profile)
 
             pg_size = int(duthost.shell(
-                'redis-cli hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
-            pg_xoff = int(duthost.shell('redis-cli hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(
+                'sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" size'.format(expected_profile))['stdout'])
+            pg_xoff = int(duthost.shell('sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:{}" xoff'.format(
                 expected_profile))['stdout']) if DEFAULT_OVER_SUBSCRIBE_RATIO else None
             check_pool_size(duthost,
                             pool_oid,
@@ -1397,21 +1406,21 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 
     if check_qos_db_fv_reference_with_table(duthost) is True:
         original_profile = duthost.shell(
-            'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+            'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
     else:
         original_profile = duthost.shell(
-            'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+            'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
         original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
 
     original_pg_size = duthost.shell(
-        'redis-cli hget "{}" size'.format(original_profile))['stdout']
+        'sonic-db-cli APPL_DB hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_shp_size = duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
         original_pg_xoff = duthost.shell(
-            'redis-cli hget "{}" xoff'.format(original_profile))['stdout']
+            'sonic-db-cli APPL_DB hget "{}" xoff'.format(original_profile))['stdout']
     else:
         original_shp_size = None
         original_pg_xoff = None
@@ -1502,7 +1511,7 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
             'config buffer profile remove headroom-override', module_ignore_errors=True)
 
         profile = duthost.shell(
-            'redis-cli hgetall "BUFFER_PROFILE_TABLE:headroom-override"')['stdout']
+            (redis_cli_command(duthost, 'APPL_DB') + ' hgetall "BUFFER_PROFILE_TABLE:headroom-override"'))['stdout']
         pytest_assert(
             profile, 'Headroom override profile has been removed when being referenced')
         logging.info("[Restore configuration]")
@@ -1535,12 +1544,12 @@ def test_headroom_override(duthosts, rand_one_dut_hostname, conn_graph_facts, po
 def check_buffer_profiles_for_shp(duthost, shp_enabled=True):
     def _check_buffer_profiles_for_shp(duthost, shp_enabled):
         buffer_profiles = duthost.shell(
-            'redis-cli keys "BUFFER_PROFILE_TABLE:*"')['stdout'].split('\n')
+            'sonic-db-cli APPL_DB keys "BUFFER_PROFILE_TABLE:*"')['stdout'].split('\n')
         for profile_name in buffer_profiles:
             m = re.search(LOSSLESS_PROFILE_PATTERN, profile_name)
             if m:
                 profile_obj = _compose_dict_from_cli(duthost.shell(
-                    'redis-cli hgetall {}'.format(profile_name))['stdout'].split('\n'))
+                    (redis_cli_command(duthost, 'APPL_DB') + ' hgetall {}'.format(profile_name)))['stdout'].split('\n'))
                 if shp_enabled:
                     if not profile_obj['xon'] == profile_obj['size']:
                         return False
@@ -1585,18 +1594,18 @@ def test_shared_headroom_pool_configure(duthosts,
     duthost = duthosts[rand_one_dut_hostname]
 
     pool_size_before_shp = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     shp_size_before_shp = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     original_over_subscribe_ratio = duthost.shell(
-        'redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
+        'sonic-db-cli CONFIG_DB hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     original_configured_shp_size = duthost.shell(
-        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
+        'sonic-db-cli CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
 
     if not TESTPARAM_SHARED_HEADROOM_POOL:
         pytest.skip(
@@ -1612,8 +1621,16 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell(
             'config interface cable-length {} 10m'.format(port_to_test))
         expected_profile = make_expected_profile_name(original_speed, '10m')
-        pytest_assert(wait_until(30, 2, 0, lambda: duthost.shell(
-            'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(expected_profile))['stdout'] != ''),
+        pytest_assert(
+            wait_until(
+                30,
+                2,
+                0,
+                lambda: duthost.shell(
+                    (redis_cli_command(
+                        duthost,
+                        'APPL_DB') +
+                        ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(expected_profile)))['stdout'] != ''),
             "Buffer profile {} not created in time".format(expected_profile))
         profile_oid, pool_oid = check_buffer_profile_details(
             duthost, initial_asic_db_profiles, expected_profile, None, None, port_to_test)
@@ -1623,8 +1640,16 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell(
             'config interface cable-length {} {}'.format(port_to_test, original_cable_len))
         restored_profile = make_expected_profile_name(original_speed, original_cable_len)
-        pytest_assert(wait_until(30, 2, 0, lambda: duthost.shell(
-            'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile))['stdout'] != ''),
+        pytest_assert(
+            wait_until(
+                30,
+                2,
+                0,
+                lambda: duthost.shell(
+                    (redis_cli_command(
+                        duthost,
+                        'APPL_DB') +
+                        ' hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile)))['stdout'] != ''),
             "Buffer profile {} not restored in time".format(restored_profile))
 
         if original_over_subscribe_ratio != '2':
@@ -1636,7 +1661,7 @@ def test_shared_headroom_pool_configure(duthosts,
         # Make sure the shared headroom pool configuration has been deployed
         def _check_shp_config_deployed(duthost):
             pool_info = duthost.shell(
-                'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+                'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
             return pool_info != ''
 
         pytest_assert(wait_until(45, 2, 5, _check_shp_config_deployed, duthost),
@@ -1647,9 +1672,9 @@ def test_shared_headroom_pool_configure(duthosts,
 
         # Fetch initial buffer pool size and shared headroom pool size
         original_pool_size = duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
         original_shp_size = duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
         logging.info(
             '[Test: check shared headroom pool size consistency between APPL_DB and ASIC_DB]')
@@ -1770,13 +1795,13 @@ def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_len = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_pool_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     original_shp_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     initial_asic_db_profiles = fetch_initial_asic_db(duthost)
 
@@ -1983,11 +2008,11 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             profile_field_name: profile for BUFFER_QUEUE table and profile_list for buffer profile list tables
         """
         objects_in_configdb = duthost.shell(
-            'redis-cli -n 4 keys "{}"'.format(key))['stdout'].split()
+            'sonic-db-cli CONFIG_DB keys "{}"'.format(key))['stdout'].split()
         if objects_in_configdb:
             for object_in_configdb in objects_in_configdb:
                 profile_in_configdb = duthost.shell(
-                    'redis-cli -n 4 hget "{}" {}'.format(object_in_configdb, profile_field_name))['stdout']
+                    'sonic-db-cli CONFIG_DB hget "{}" {}'.format(object_in_configdb, profile_field_name))['stdout']
                 # Convert config db reference to appl db reference
                 if is_qos_db_reference_with_table:
                     expected_profile_in_appldb = _convert_ref_from_configdb_to_appldb(
@@ -1998,7 +2023,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                 object_in_app_db = _convert_ref_from_configdb_to_appldb(
                     object_in_configdb)
                 profile_in_appl_db = duthost.shell(
-                    'redis-cli hget "{}" {}'.format(object_in_app_db, profile_field_name))['stdout']
+                    'sonic-db-cli APPL_DB hget "{}" {}'.format(object_in_app_db, profile_field_name))['stdout']
                 pytest_assert(profile_in_appl_db == expected_profile_in_appldb,
                               "Buffer object {} contains {} which isn't expected ({})"
                               .format(key, profile_in_appl_db, expected_profile_in_appldb))
@@ -2014,7 +2039,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                               Typically, they are zero profiles.
         """
         objects_in_appl_db = duthost.shell(
-            'redis-cli keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
+            'sonic-db-cli APPL_DB keys "{}:{}:*"'.format(table, port_to_test))['stdout'].split()
         if expected_objects:
             expected_object_keys = ['{}:{}:{}'.format(
                 table, port_to_test, objectid) for objectid in list(expected_objects.keys())]
@@ -2023,7 +2048,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                           .format(table, objects_in_appl_db, expected_object_keys))
             for objectid, expected_profile in list(expected_objects.items()):
                 profile = duthost.shell(
-                    'redis-cli hget {}:{}:{} profile'.format(table, port_to_test, objectid))['stdout']
+                    'sonic-db-cli APPL_DB hget {}:{}:{} profile'.format(table, port_to_test, objectid))['stdout']
                 pytest_assert(profile == expected_profile,
                               "Profile in {}:{}:{} should be {} but got {}"
                               .format(table, port_to_test, objectid, expected_objects[objectid], profile))
@@ -2042,7 +2067,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                               They are predefined parameters and loaded at the beginning of the test.
         """
         object_list_in_appl_db = duthost.shell(
-            'redis-cli hget "{}:{}" profile_list'.format(table, port_to_test))['stdout'].split(',')
+            'sonic-db-cli APPL_DB hget "{}:{}" profile_list'.format(table, port_to_test))['stdout'].split(',')
         if expected_objects:
             pytest_assert(set(expected_objects) == set(object_list_in_appl_db),
                           "Profile in {}:{} should be {} but got {}"
@@ -2061,23 +2086,23 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
     is_qos_db_reference_with_table = check_qos_db_fv_reference_with_table(
         duthost)
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     raw_lanes_str = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" lanes'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" lanes'.format(port_to_test))['stdout']
     list_of_lanes = raw_lanes_str.split(',')
     original_cable_len = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     if check_qos_db_fv_reference_with_table(duthost) is True:
         original_profile = duthost.shell(
-            'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
+            'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout'][1:-1]
     else:
         original_profile = duthost.shell(
-            'redis-cli hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
+            'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:3-4" profile'.format(port_to_test))['stdout']
         original_profile = "BUFFER_PROFILE_TABLE:" + original_profile
     original_pg_size = duthost.shell(
-        'redis-cli hget "{}" size'.format(original_profile))['stdout']
+        'sonic-db-cli APPL_DB hget "{}" size'.format(original_profile))['stdout']
     original_pool_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
 
     new_cable_len = '15m'
 
@@ -2090,9 +2115,9 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_pg_xoff = int(duthost.shell(
-            'redis-cli hget "{}" xoff'.format(original_profile))['stdout'])
+            'sonic-db-cli APPL_DB hget "{}" xoff'.format(original_profile))['stdout'])
         original_shp_size = int(duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
         original_pg_xoff = None
         original_shp_size = None
@@ -2175,7 +2200,7 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
             def _check_port_admin_down_buffer(duthost, port_to_test):
                 pgs = duthost.shell(
-                    'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                    'sonic-db-cli APPL_DB keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
                 return not pgs.strip()
 
             wait_until(20, 2, 2, _check_port_admin_down_buffer, duthost, port_to_test)
@@ -2244,12 +2269,12 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
 
                 def _check_pgs_removed(duthost, port_to_test):
                     pgs = duthost.shell(
-                        'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                        'sonic-db-cli APPL_DB keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
                     return not pgs.strip()
 
                 wait_until(20, 2, 2, _check_pgs_removed, duthost, port_to_test)
                 pgs_in_appl_db = duthost.shell(
-                    'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                    'sonic-db-cli APPL_DB keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
                 pytest_assert(
                     not pgs_in_appl_db, "There shouldn't be PGs 3-4 but we got {}".format(pgs_in_appl_db))
 
@@ -2344,19 +2369,19 @@ def test_port_auto_neg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_t
 
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
-        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+        'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
     if not supported_speeds:
         pytest.skip('No supported_speeds found for port {}, skip the test'.format(
             port_to_test))['stdout']
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_cable_length = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_pool_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     if DEFAULT_OVER_SUBSCRIBE_RATIO:
         original_shp_size = int(duthost.shell(
-            'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
+            'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout'])
     else:
         original_shp_size = None
 
@@ -2495,23 +2520,23 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
     """
     duthost = duthosts[rand_one_dut_hostname]
     max_headroom_size = duthost.shell(
-        'redis-cli -n 6 hget "BUFFER_MAX_PARAM_TABLE|{}" max_headroom_size'.format(port_to_test))['stdout']
+        'sonic-db-cli STATE_DB hget "BUFFER_MAX_PARAM_TABLE|{}" max_headroom_size'.format(port_to_test))['stdout']
     if not max_headroom_size:
         pytest.skip(
             'No max headroom found on port {}, skip'.format(port_to_test))
 
     original_cable_len = duthost.shell(
-        'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(port_to_test))['stdout']
     original_speed = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" speed'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" speed'.format(port_to_test))['stdout']
     original_over_subscribe_ratio = duthost.shell(
-        'redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
+        'sonic-db-cli CONFIG_DB hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" over_subscribe_ratio')['stdout']
     original_configured_shp_size = duthost.shell(
-        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
+        'sonic-db-cli CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool" xoff')['stdout']
     original_pool_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool size')['stdout']
     original_shp_size = duthost.shell(
-        'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+        'sonic-db-cli APPL_DB hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
 
     try:
         if disable_shp:
@@ -2604,8 +2629,12 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
 
         maximum_profile_name = make_expected_profile_name(
             original_speed, '{}m'.format(maximum_cable_length))
-        maximum_profile = _compose_dict_from_cli(duthost.shell(
-            'redis-cli hgetall BUFFER_PROFILE_TABLE:{}'.format(maximum_profile_name))['stdout'].split())
+        maximum_profile = _compose_dict_from_cli(
+            duthost.shell(
+                (redis_cli_command(
+                    duthost,
+                    'APPL_DB') +
+                    ' hgetall BUFFER_PROFILE_TABLE:{}'.format(maximum_profile_name)))['stdout'].split())
 
         # Config the cable length to the longest acceptable value and check the profile
         logging.info(
@@ -2689,14 +2718,14 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
             # This should make it exceed the limit, so the profile should not applied to the APPL_DB
             def _check_profile_not_updated(duthost, param_name, expected_value):
                 size_in_appldb = duthost.shell(
-                    f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
+                    f'sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
                 return size_in_appldb == expected_value
 
             pytest_assert(wait_until(30, 2, 2, _check_profile_not_updated,
                           duthost, param_name, maximum_profile[param_name]),
                           'The profile with a large size was applied to APPL_DB, which can make headroom exceeding.')
             size_in_appldb = duthost.shell(
-                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
+                f'sonic-db-cli APPL_DB hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
                           'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
                           f'size_in_appldb: {size_in_appldb}, '
@@ -2800,14 +2829,14 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, sk
         logging.info('[Config load_minigraph]')
         config_reload(duthost, config_source='minigraph')
         buffer_model = duthost.shell(
-            'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+            'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
         pytest_assert(buffer_model == 'traditional',
                       'Got buffer model {} after executing config load_minigraph, traditional expected')
 
         logging.info('[Recover the DUT to default buffer model]')
         _recovery_to_dynamic_buffer_model(duthost)
         buffer_model = duthost.shell(
-            'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+            'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
         pytest_assert(buffer_model == 'dynamic',
                       'Got buffer model {} after executing recovering the buffer model to dynamic')
     finally:
@@ -2983,11 +3012,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
     # Check whether the COUNTERS_PG_NAME_MAP and COUNTERS_QUEUE_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 2 hgetall COUNTERS_PG_NAME_MAP')['stdout'].split())
+        (redis_cli_command(duthost, 'COUNTERS_DB') + ' hgetall COUNTERS_PG_NAME_MAP'))['stdout'].split())
     queue_name_map = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
+        (redis_cli_command(duthost, 'COUNTERS_DB') + ' hgetall COUNTERS_QUEUE_NAME_MAP'))['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "CABLE_LENGTH|AZURE"'))['stdout'].split())
 
     if not pg_name_map or not queue_name_map or not cable_length_map:
         raise Exception("COUNTERS_PG_NAME_MAP, COUNTERS_QUEUE_NAME_MAP or CABLE_LENGTH|AZURE not found in the database")
@@ -3082,13 +3111,13 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         is_qos_db_reference_with_table = False
 
     configdb_ports = [x.split('|')[1] for x in duthost.shell(
-        'redis-cli -n 4 keys "PORT|*"')['stdout'].split()]
+        'sonic-db-cli CONFIG_DB keys "PORT|*"')['stdout'].split()]
     # no lossless traffic on DPU NPU ports, so skip them for the test
     dpu_npu_port_list = get_dpu_npu_ports_from_hwsku(duthost)
     configdb_ports = list(set(configdb_ports) - set(dpu_npu_port_list))
 
     configdb_ports = [port for port in configdb_ports if duthost.shell(
-        f'redis-cli -n 4 hget "PORT|{port}" "admin_status"')['stdout'] == 'up']
+        f'sonic-db-cli CONFIG_DB hget "PORT|{port}" "admin_status"')['stdout'] == 'up']
     logging.info(f"test ports is {configdb_ports}")
     profiles_checked = {}
     lossless_pool_oid = None
@@ -3227,7 +3256,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                 profile_name = None
             else:
                 profile_name = duthost.shell(
-                    'redis-cli hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
+                    'sonic-db-cli APPL_DB hget "BUFFER_PG_TABLE:{}:{}" profile'.format(port, pg_id_name))['stdout']
 
             return profile_name
 
@@ -3306,14 +3335,14 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # effective speed is the maximum speed in the speeds list
     # else the effective speed can not be conducted and the test fail
     port_info = _compose_dict_from_cli(duthost.shell(
-        'redis-cli -n 4 hgetall "PORT|{}"'.format(port_to_test))['stdout'].split('\n'))
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' hgetall "PORT|{}"'.format(port_to_test)))['stdout'].split('\n'))
     if port_info.get('autoneg') == 'on':
         adv_speeds = port_info.get('adv_speeds')
         if adv_speeds and adv_speeds != 'all':
             available_speeds = adv_speeds
         else:
             available_speeds = duthost.shell(
-                'redis-cli -n 6 hget "PORT_TABLE|{}" "supported_speeds"'.format(port_to_test))['stdout']
+                'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" "supported_speeds"'.format(port_to_test))['stdout']
         port_speed_raw = natsorted(available_speeds.split(','))[-1]
     else:
         port_speed_raw = port_info.get('speed')
@@ -3331,15 +3360,15 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         # Get default peer response time from State DB
         # Command: redis-cli -n 6 hget "ASIC_TABLE|MELLANOX-SPECTRUM-3" "peer_response_time"
         peer_response_time_keys = duthost.shell(
-            'redis-cli -n 6 keys ASIC_TABLE*')['stdout']
+            'sonic-db-cli STATE_DB keys ASIC_TABLE*')['stdout']
         peer_response_time = float(duthost.shell(
-            'redis-cli -n 6 hget "{}" "peer_response_time"'.format(peer_response_time_keys))['stdout'])
+            'sonic-db-cli STATE_DB hget "{}" "peer_response_time"'.format(peer_response_time_keys))['stdout'])
         use_default_peer_response_time = True
 
     # Get port mtu from config DB
     # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'mtu'
     port_mtu_raw = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" "mtu"'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" "mtu"'.format(port_to_test))['stdout']
     if port_mtu_raw:
         port_mtu = int(port_mtu_raw)
     else:
@@ -3352,16 +3381,16 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
         gearbox_delay = 0
     else:
         gearbox_delay_keys = duthost.shell(
-            'redis-cli -n 6 keys PERIPHERAL_TABLE*')['stdout']
+            'sonic-db-cli STATE_DB keys PERIPHERAL_TABLE*')['stdout']
         gearbox_delay = float(duthost.shell(
-            'redis-cli -n 6 hget "{}" "gearbox_delay"'.format(gearbox_delay_keys))['stdout'])
+            'sonic-db-cli STATE_DB hget "{}" "gearbox_delay"'.format(gearbox_delay_keys))['stdout'])
 
     # Get cable length from config DB
     # Command: redis-cli -n 4 hget "CABLE_LENGTH|AZURE"  'Ethernet0'
     cable_length_keys = duthost.shell(
-        'redis-cli -n 4 keys *CABLE_LENGTH*')['stdout']
+        'sonic-db-cli CONFIG_DB keys *CABLE_LENGTH*')['stdout']
     cable_length_raw = duthost.shell(
-        'redis-cli -n 4 hget "{}" "{}"'.format(cable_length_keys, port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "{}" "{}"'.format(cable_length_keys, port_to_test))['stdout']
     if cable_length_raw and cable_length_raw.endswith('m'):
         cable_length = float(cable_length_raw[:-1])
     else:
@@ -3375,7 +3404,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Get port lanes number from config DB
     # Command: redis-cli -n 4 hget "PORT|Ethernet0" 'lanes'
     port_lanes = duthost.shell(
-        'redis-cli -n 4 hget "PORT|{}" "lanes"'.format(port_to_test))['stdout']
+        'sonic-db-cli CONFIG_DB hget "PORT|{}" "lanes"'.format(port_to_test))['stdout']
     is_8lane = port_lanes and len(port_lanes.split(',')) == 8
 
     if not ASIC_TABLE_KEYS_LOADED:
@@ -3389,16 +3418,16 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Get over_subscribe_ratio from config DB
     # Command: redis-cli -n 4 hget "DEFAULT_LOSSLESS_BUFFER_PARAMETER|AZURE" 'over_subscribe_ratio'
     default_lossless_param_keys = duthost.shell(
-        'redis-cli -n 4 keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'][0]
+        'sonic-db-cli CONFIG_DB keys DEFAULT_LOSSLESS_BUFFER_PARAMETER*')['stdout'][0]
     over_subscribe_ratio_raw = duthost.shell(
-        'redis-cli -n 4 hget "{}" "over_subscribe_ratio"'.format(default_lossless_param_keys))['stdout']
+        'sonic-db-cli CONFIG_DB hget "{}" "over_subscribe_ratio"'.format(default_lossless_param_keys))['stdout']
     if over_subscribe_ratio_raw:
         over_subscribe_ratio = float(over_subscribe_ratio_raw)
     else:
         over_subscribe_ratio = None
 
     shp_size_raw = duthost.shell(
-        'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool", "xoff"')['stdout']
+        'sonic-db-cli CONFIG_DB hget "BUFFER_POOL|ingress_lossless_pool", "xoff"')['stdout']
     if shp_size_raw:
         shp_size = float(shp_size_raw)
     else:

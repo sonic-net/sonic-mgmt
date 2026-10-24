@@ -72,7 +72,7 @@ def setup_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("Setup the default pfcwd config for warm-reboot test")
-    duthost.command("redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" "
+    duthost.command("sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" "
                     "default_pfcwd_status enable")
     duthost.command("pfcwd stop")
     time.sleep(5)
@@ -91,7 +91,7 @@ class PfcCmd(object):
             storm_status(string) : debug storm status (enabled/disabled)
         """
         logger.info("Setting DEBUG storm status {} on queue oid {}".format(storm_status, queue_oid))
-        cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
+        cmd = "sonic-db-cli COUNTERS_DB HSET COUNTERS:{} DEBUG_STORM {}"
         dut.command(cmd.format(queue_oid, storm_status))
 
     @staticmethod
@@ -107,7 +107,7 @@ class PfcCmd(object):
         Returns:
             queue oid(string)
         """
-        cmd = "redis-cli -n 2 HGET COUNTERS_QUEUE_NAME_MAP {}:{}".format(port, queue_num)
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP {}:{}".format(port, queue_num)
         return dut.command(cmd)['stdout']
 
 

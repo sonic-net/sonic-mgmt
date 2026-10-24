@@ -6,6 +6,7 @@ from typing import Optional
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common import config_reload
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -136,21 +137,21 @@ def apply_trim_mode(
         # Ensure TC_TO_DSCP_MAP & PORT_QOS_MAP entries exist
         # Create TC_TO_DSCP_MAP if missing
         tc_map_key = f"TC_TO_DSCP_MAP|{ASYM_MAP_NAME}"
-        existing = _run_cmd(duthost, f"redis-cli -n 4 EXISTS '{tc_map_key}'")[
+        existing = _run_cmd(duthost, (redis_cli_command(duthost, 'CONFIG_DB') + f" EXISTS '{tc_map_key}'"))[
             "stdout"
         ].strip()
         if existing != "1":
             _run_cmd(
                 duthost,
-                f"redis-cli -n 4 HSET '{tc_map_key}' '{TRIM_TC_DEFAULT}' '{ASYM_MAP_DSCP_VALUE}'",
+                f"sonic-db-cli CONFIG_DB HSET '{tc_map_key}' '{TRIM_TC_DEFAULT}' '{ASYM_MAP_DSCP_VALUE}'",
             )
         current_map = _run_cmd(
-            duthost, f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}''tc_to_dscp_map'"
+            duthost, f"sonic-db-cli CONFIG_DB HGET 'PORT_QOS_MAP|{egress_port}''tc_to_dscp_map'"
         )["stdout"].strip()
         if current_map != ASYM_MAP_NAME:
             _run_cmd(
                 duthost,
-                f"redis-cli -n 4 HSET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'"
+                f"sonic-db-cli CONFIG_DB HSET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'"
                 f" '{ASYM_MAP_NAME}'",
             )
         _run_cmd(
@@ -162,7 +163,7 @@ def apply_trim_mode(
     # Enable trimming on every queue profile EXCEPT the designated trim queue's profile.
     trim_queue_key = f"BUFFER_QUEUE|{egress_port}|{TRIM_QUEUE_DEFAULT}"
     trim_queue_profile = _run_cmd(
-        duthost, f"redis-cli -n 4 HGET '{trim_queue_key}' 'profile'"
+        duthost, f"sonic-db-cli CONFIG_DB HGET '{trim_queue_key}' 'profile'"
     )["stdout"].strip()
     pytest_assert(trim_queue_profile, f"Failed to fetch profile for {trim_queue_key}")
     logger.info(f"Trim queue profile for {trim_queue_key}: {trim_queue_profile}")
@@ -173,7 +174,7 @@ def apply_trim_mode(
 
     for qi in range(0, 8):
         queue_key = f"BUFFER_QUEUE|{egress_port}|{qi}"
-        profile = _run_cmd(duthost, f"redis-cli -n 4 HGET '{queue_key}' 'profile'")[
+        profile = _run_cmd(duthost, f"sonic-db-cli CONFIG_DB HGET '{queue_key}' 'profile'")[
             "stdout"
         ].strip()
         if not profile:
@@ -184,7 +185,7 @@ def apply_trim_mode(
             )
             action = _run_cmd(
                 duthost,
-                f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile}' "
+                f"sonic-db-cli CONFIG_DB HGET 'BUFFER_PROFILE|{profile}' "
                 f"'packet_discard_action'",
             )["stdout"].strip()
             if action == "trim":
@@ -202,7 +203,7 @@ def apply_trim_mode(
     for profile in enabled_profiles:
         action = _run_cmd(
             duthost,
-            f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile}' 'packet_discard_action'",
+            f"sonic-db-cli CONFIG_DB HGET 'BUFFER_PROFILE|{profile}' 'packet_discard_action'",
         )["stdout"].strip()
         pytest_assert(
             action == "trim",
@@ -210,7 +211,7 @@ def apply_trim_mode(
         )
     trim_action = _run_cmd(
         duthost,
-        f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{skipped_profile}' "
+        f"sonic-db-cli CONFIG_DB HGET 'BUFFER_PROFILE|{skipped_profile}' "
         f"'packet_discard_action'",
     )["stdout"].strip()
     if trim_action == "trim":
@@ -237,16 +238,16 @@ def apply_trim_mode(
         )
         tc_map_present = _run_cmd(
             duthost,
-            f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
+            f"sonic-db-cli CONFIG_DB HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
         )["stdout"].strip()
         if tc_map_present:  # Remove if lingering
             _run_cmd(
                 duthost,
-                f"redis-cli -n 4 HDEL 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
+                f"sonic-db-cli CONFIG_DB HDEL 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
             )
             tc_map_present = _run_cmd(
                 duthost,
-                f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
+                f"sonic-db-cli CONFIG_DB HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
             )["stdout"].strip()
         pytest_assert(
             tc_map_present == "", "tc_to_dscp_map should not exist for symmetric mode"
@@ -271,7 +272,7 @@ def apply_trim_mode(
         # Ensure tc_to_dscp_map present
         tc_map_present = _run_cmd(
             duthost,
-            f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
+            f"sonic-db-cli CONFIG_DB HGET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'",
         )["stdout"].strip()
         pytest_assert(
             tc_map_present == ASYM_MAP_NAME,
@@ -312,7 +313,7 @@ def teardown_trim_mode(duthost) -> None:
 def redis_hgetall_table_prefix(duthost, table_prefix):
     """Return mapping name->field dict for all hash keys matching prefix in DB 4."""
     keys_out = (
-        duthost.shell(f"redis-cli -n 4 KEYS '{table_prefix}|*'")["stdout"]
+        duthost.shell(f"sonic-db-cli CONFIG_DB KEYS '{table_prefix}|*'")["stdout"]
         .strip()
         .splitlines()
     )
@@ -321,7 +322,7 @@ def redis_hgetall_table_prefix(duthost, table_prefix):
         if not key:
             continue
         fields = (
-            duthost.shell(f"redis-cli -n 4 HGETALL '{key}'")["stdout"]
+            duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL '{key}'"))["stdout"]
             .strip()
             .splitlines()
         )
@@ -335,7 +336,7 @@ def redis_hgetall_table_prefix(duthost, table_prefix):
 
 def get_port_qos_map_names(duthost, port_name):
     """Return (dscp_to_tc_map, tc_to_queue_map) names for a port."""
-    port_qos = duthost.shell(f"redis-cli -n 4 HGETALL 'PORT_QOS_MAP|{port_name}'")[
+    port_qos = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL 'PORT_QOS_MAP|{port_name}'"))[
         "stdout"
     ].splitlines()
     dscp_to_tc = tc_to_q = None
