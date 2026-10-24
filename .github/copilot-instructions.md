@@ -338,3 +338,63 @@ ptf_runner(duthost, ptfhost, 'my_ptf_test',
 - **Flaky tests**: Add retries with `@pytest.mark.flaky(reruns=3)` for inherently flaky network tests
 - **VS limitations**: VS doesn't support all features — check VS compatibility before expecting tests to pass
 - **Ansible inventory**: Tests need correct inventory files matching the testbed topology
+
+## PR Review and Merge Risk
+
+When reviewing a PR, assess both correctness and the risk of merging it.
+Do not modify code unless explicitly requested.
+
+### Review approach
+- Compare the PR against its target branch. Inspect changed code and relevant
+  callers, fixtures, configuration, and tests to understand behavioral impact.
+- Prioritize actionable regressions introduced by the PR over style issues.
+- For each finding, identify the affected file/line, triggering conditions,
+  consequences, and suggested mitigation.
+- Separate confirmed defects from potential risks and missing evidence.
+- Do not invent findings or treat "no findings" as proof that merging is safe.
+
+### sonic-mgmt risk checklist
+- Blast radius: distinguish isolated test changes from shared fixtures, helpers,
+  pytest plugins, Ansible roles, inventory, and CI changes.
+- Compatibility: assess affected topologies, vendors, SONiC versions,
+  multi-ASIC systems, and SmartSwitch NPU/DPU behavior where relevant.
+- Test integrity: check for weakened assertions, excessive skips, retries that
+  hide defects, false passes, and timing-dependent failures.
+- Isolation and recovery: verify cleanup on success, failure, and partial setup;
+  check fixture scope, persistent DUT state, idempotency, and parallel execution.
+- Disruptive operations: identify reboot, reload, image installation, service
+  restart, and network changes that could affect DUT or testbed availability.
+- Validation: determine whether CI and reported tests exercise the changed
+  behavior on representative platforms/topologies. Distinguish lint or test
+  collection from actual execution; VS cannot validate all hardware behavior.
+- Backports: identify branch-specific dependencies and compatibility concerns.
+
+### Risk classification
+Assess overall merge risk separately from individual finding severity:
+- Low: narrow impact, no credible significant regression identified, and
+  validation is proportionate to the change.
+- Medium: meaningful behavioral change, wider impact, or validation gaps that
+  require targeted testing or owner confirmation.
+- High: credible risk of widespread regressions, misleading test results,
+  persistent state corruption, or disruptive operations without reliable recovery.
+- Insufficient evidence: essential context or validation is unavailable; explain
+  what is missing instead of assuming low risk.
+
+Use the highest material risk, not an average. A small diff can be high risk.
+Missing validation increases uncertainty but is not itself a confirmed defect.
+
+### Required review output
+1. Summary of behavior changes and affected scope.
+2. Findings ordered by severity, with file/line references and evidence.
+   Explicitly state when no actionable defects were found.
+3. Overall merge risk: Low / Medium / High / Insufficient evidence, with reasons.
+4. Validation evidence: what was run, reported, inspected, or unavailable.
+5. Remaining validation: specific tests, platforms, and failure paths to cover.
+6. Recommendation: Ready based on available evidence / Validate before merge /
+   Changes required, with explicit blockers and residual risks.
+7. End the review with exactly one machine-readable line:
+   `MERGE_RISK=<Low|Medium|High|Insufficient evidence>`
+
+Never claim tests passed unless supported by observed results. Distinguish
+author-reported results from independently verified results. The recommendation
+is advisory and does not replace required checks or maintainer approval.
