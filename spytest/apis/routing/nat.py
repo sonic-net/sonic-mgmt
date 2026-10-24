@@ -997,7 +997,7 @@ def set_nat_timeout_db(dut, prot, seconds):
         timeout = "nat_timeout"
 
     string = "\"NAT_GLOBAL|Values\" \"{}\" {}".format(timeout, seconds)
-    command = redis.build(dut, redis.CONFIG_DB, "hset {}".format(string))
+    command = redis.build_sonic_db_cli(redis.CONFIG_DB, "hset {}".format(string))
     st.config(dut, command)
     return True
 
