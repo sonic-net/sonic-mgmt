@@ -393,16 +393,20 @@ def _collect_conftest_files(filepath, location):
 
     pytest discovers fixtures by walking up the directory tree; a test
     file implicitly imports fixtures from every conftest.py above it.
+
+    The conftest.py directly in *location* is skipped. It applies to every
+    test, so it cannot tell data-plane tests from control-plane ones, and
+    tests/conftest.py imports ptf, which would mark every test as data-plane.
     """
     conftests = []
     directory = os.path.dirname(os.path.abspath(filepath))
     location_abs = os.path.abspath(location) if location else ""
     while location_abs and directory.startswith(location_abs):
+        if directory == location_abs:
+            break
         conftest = os.path.join(directory, "conftest.py")
         if os.path.isfile(conftest) and conftest != os.path.abspath(filepath):
             conftests.append(conftest)
-        if directory == location_abs:
-            break
         parent = os.path.dirname(directory)
         if parent == directory:
             break
@@ -419,7 +423,7 @@ def _has_traffic_pattern(filepath, location="", depth=0):
     to avoid accidentally deduping tests we can't inspect.
 
     At depth 0 (the test file itself), also scans conftest.py files in
-    the directory chain up to *location*, since pytest fixtures defined
+    the directory chain below *location*, since pytest fixtures defined
     there are implicitly available to the test.
     """
     if depth > 2:
@@ -475,9 +479,10 @@ def _detect_data_plane_tests(script_names, location):
     return data_plane
 
 
-def main(features, location):
+def main(features, location, dedup_control_plane=False):
     scripts_list = collect_scripts_by_topology_type(features, location)
-    scripts_list = dedup_control_plane_tests(scripts_list, location)
+    if dedup_control_plane:
+        scripts_list = dedup_control_plane_tests(scripts_list, location)
     print(json.dumps(scripts_list))
 
 
@@ -485,8 +490,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--features", help="Impacted area", nargs='?', const="", type=str, default="")
     parser.add_argument("--location", help="The location of folder `tests`", type=str, default="")
+    parser.add_argument("--dedup-control-plane", action="store_true",
+                        help="Apply CONTROL_PLANE_DEDUP_RULES. PR builds use this; the baseline keeps every script.")
     args = parser.parse_args()
 
     features = args.features
     location = args.location
-    main(features, location)
+    main(features, location, args.dedup_control_plane)
