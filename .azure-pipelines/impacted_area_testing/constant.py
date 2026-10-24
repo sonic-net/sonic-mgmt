@@ -9,7 +9,7 @@
 # - t0-vpp
 # - t1-lag
 # - t1-lag-vpp
-PR_TOPOLOGY_TYPE = ["t0_checker", "t0-2vlans_checker", "t0-sonic_checker", "t0-vpp_checker",
+PR_TOPOLOGY_TYPE = ["t0_checker", "secureboot_checker", "t0-2vlans_checker", "t0-sonic_checker", "t0-vpp_checker",
                     "t1_checker", "t1-multi-asic_checker", "t1-lag-vpp_checker", "dpu_checker",
                     "dualtor_checker", "dualtor-aa-vpp_checker", "t2_checker"]
 
