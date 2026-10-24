@@ -712,9 +712,7 @@ class SonicAsic(object):
         else:
             def_rt_str = 'ROUTE_TABLE:::/0'
 
-        dump_cmd = "sonic-db-dump -n APPL_DB"
-        if self.namespace != DEFAULT_NAMESPACE:
-            dump_cmd += " --netns {}".format(self.namespace)
+        dump_cmd = self.sonichost.get_sonic_db_dump_command("APPL_DB", self.namespace)
         def_rt_entry = self.sonichost.shell(
             "{} -y -k \"{}\" --pretty".format(dump_cmd, def_rt_str))['stdout']
         if def_rt_entry is not None:

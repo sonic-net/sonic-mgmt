@@ -3164,15 +3164,16 @@ def collect_db_dump_on_duts(request, duthosts):
 
         namespace_list = duthosts[0].get_asic_namespace_list() if duthosts[0].is_multi_asic else []
         if namespace_list:
-            for namespace in namespace_list:
-                # Collect DB dump
-                dump_dest_path = os.path.join(db_dump_path, namespace)
-                dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
-                for db_id, db_name in db_names_by_id.items():
-                    dump_cmd = "sonic-db-dump --netns {} -n {} -y -o {}/{}" \
-                               .format(namespace, db_name, dump_dest_path, db_id)
-                    dump_cmds.append(dump_cmd)
-                duthosts.shell_cmds(cmds=dump_cmds)
+            for duthost in duthosts:
+                for namespace in namespace_list:
+                    # Collect DB dump
+                    dump_dest_path = os.path.join(db_dump_path, namespace)
+                    dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
+                    for db_id, db_name in db_names_by_id.items():
+                        dump_cmd = "{} -y -o {}/{}".format(
+                            duthost.get_sonic_db_dump_command(db_name, namespace), dump_dest_path, db_id)
+                        dump_cmds.append(dump_cmd)
+                    duthost.shell_cmds(cmds=dump_cmds)
         else:
             # Collect DB dump
             dump_dest_path = db_dump_path

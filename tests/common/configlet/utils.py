@@ -218,10 +218,9 @@ def chk_for_pfc_wd(duthost):
 
     if pfc_status == "enable":
         for namespace in duthost.get_frontend_asic_namespace_list():
-            cmd_prefix = 'sonic-db-dump '
-            if duthost.is_multi_asic:
-                cmd_prefix = 'sonic-db-dump --netns {} '.format(namespace)
-            res = duthost.shell(cmd_prefix + '-n CONFIG_DB --pretty -k \"PFC_WD*\"')
+            dump_cmd = duthost.get_sonic_db_dump_command(
+                "CONFIG_DB", namespace if duthost.is_multi_asic else None)
+            res = duthost.shell(dump_cmd + ' --pretty -k \"PFC_WD*\"')
             pfc_wd_data = json.loads(res["stdout"])
             if len(pfc_wd_data):
                 ret = True

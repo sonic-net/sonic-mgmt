@@ -1854,6 +1854,16 @@ Totals               6450                 6449
         cmd = "sonic-db-cli {}".format(sonic_db_cmd)
         return self.command(cmd, verbose=False)
 
+    def get_sonic_db_dump_command(self, db_name, namespace=None):
+        """Build a sonic-db-dump command compatible with the installed namespace options."""
+        command = "sonic-db-dump -n {}".format(shlex.quote(db_name))
+        if namespace is None:
+            return command
+        help_text = self.command("sonic-db-dump --help")["stdout"]
+        if "--netns" in help_text:
+            command += " --netns {}".format(shlex.quote(namespace))
+        return "sudo ip netns exec {} {}".format(shlex.quote(namespace), command)
+
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
         return self.command(cmd, verbose=False)
