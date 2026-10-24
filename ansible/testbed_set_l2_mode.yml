@@ -14,6 +14,18 @@
     set_fact:
       l2_config: "{{ output.stdout | from_json }}"
 
+  - name: Sort generated VLAN members
+    set_fact:
+      sorted_l2_vlan_members: "{{ l2_config['VLAN_MEMBER'] | dict2items | sort(attribute='key') }}"
+    when: max_l2_vlan_members is defined
+
+  - name: Limit generated VLAN members
+    set_fact:
+      l2_config: "{{ l2_config | combine({'VLAN_MEMBER': sorted_l2_vlan_members[:max_l2_vlan_members | int] | items2dict}) }}"
+    when:
+      - max_l2_vlan_members is defined
+      - sorted_l2_vlan_members | length > max_l2_vlan_members | int
+
   - set_fact:
       mgmt_addr: "{{ ansible_ssh_host + '/' + mgmt_subnet_mask_length | string }}"
 
