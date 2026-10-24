@@ -484,7 +484,7 @@ def __check_vlan(duthost, vlan_id, removed=False):
         Bool value which confirm availability of VLAN in redis-db
     """
     vlan_name = 'Vlan{}'.format(vlan_id)
-    out = duthost.shell('redis-cli -n 4 keys "VLAN|{}"'.format(vlan_name))["stdout"]
+    out = duthost.shell('sonic-db-cli CONFIG_DB keys "VLAN|{}"'.format(vlan_name))["stdout"]
 
     if removed:
         return vlan_name not in out
@@ -506,7 +506,7 @@ def __check_vlan_member(duthost, vlan_id, vlan_member, removed=False):
         Bool value which confirm availability of VLAN member in redis-db
     """
     vlan_name = 'Vlan{}'.format(vlan_id)
-    out = duthost.shell('redis-cli -n 4 keys "VLAN_MEMBER|{}|{}"'.format(vlan_name, vlan_member))["stdout"]
+    out = duthost.shell('sonic-db-cli CONFIG_DB keys "VLAN_MEMBER|{}|{}"'.format(vlan_name, vlan_member))["stdout"]
 
     if removed:
         return vlan_name not in out
@@ -870,7 +870,7 @@ def remove_sub_port(duthost, sub_port, ip):
     """
     cmds = []
     cmds.append('config interface ip remove {} {}'.format(sub_port, ip))
-    cmds.append('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
+    cmds.append('sonic-db-cli CONFIG_DB del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
 
     duthost.shell_cmds(cmds=cmds)
 

@@ -63,7 +63,7 @@ class TestVrfAttrSrcMac():
         duthost = duthosts[rand_one_dut_hostname]
         # get vrf1 new router_mac from config_db
         vrf1_mac = duthost.shell(
-            "redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
+            "sonic-db-cli CONFIG_DB hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
 
     def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa: F811

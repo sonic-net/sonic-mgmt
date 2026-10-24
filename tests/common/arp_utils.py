@@ -99,7 +99,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
     dip = result['stdout']
     logger.info('VxLan Sender {0}'.format(dip))
 
-    vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+    vxlan_port_out = duthost.shell('sonic-db-cli APPL_DB hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
         ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1} -p {2}'.format(

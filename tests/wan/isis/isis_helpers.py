@@ -239,7 +239,7 @@ def set_frrcfgd_mode(duthost, frrcfgd_mode):
         duthost.copy(content=frrcfgd_template.render(FRRCFGD_MODE=frrcfgd_mode), dest=SONIC_FRRCFGD_ENABLE_FILE)
         duthost.shell("sudo sonic-cfggen -j '{}' --write-to-db".format(SONIC_FRRCFGD_ENABLE_FILE))
     else:
-        duthost.shell('redis-cli -n 4 HDEL "DEVICE_METADATA|localhost" "value" "frr_mgmt_framework_config"')
+        duthost.shell('sonic-db-cli CONFIG_DB HDEL "DEVICE_METADATA|localhost" "value" "frr_mgmt_framework_config"')
 
     try:
         duthost.restart_service("bgp")

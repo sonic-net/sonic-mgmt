@@ -26,6 +26,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
+from tests.common.helpers.sonic_db import redis_cli_command
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx', 't0-2vlans'),
@@ -115,10 +116,11 @@ def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
 
 def get_subtype_from_configdb(duthost):
     # HEXISTS returns 1 if the key exists, otherwise 0
-    subtype_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "DEVICE_METADATA|localhost" "subtype"')["stdout"])
+    subtype_exist = int(duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+                        ' HEXISTS "DEVICE_METADATA|localhost" "subtype"'))["stdout"])
     subtype_value = ""
     if subtype_exist:
-        subtype_value = duthost.shell('redis-cli -n 4 HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
+        subtype_value = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
     return subtype_exist, subtype_value
 
 

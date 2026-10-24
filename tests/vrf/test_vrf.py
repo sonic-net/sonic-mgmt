@@ -23,6 +23,7 @@ from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies  # noqa: F401
+from tests.common.helpers.sonic_db import redis_cli_command
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -190,7 +191,7 @@ def finalize_warmboot(duthost, comp_list=None, retry=30, interval=5):
     for _ in range(retry):
         for comp in comp_list:
             state = duthost.shell(
-                '/usr/bin/redis-cli -n 6 hget "WARM_RESTART_TABLE|{}" state'.format(comp), module_ignore_errors=True
+                'sonic-db-cli STATE_DB hget "WARM_RESTART_TABLE|{}" state'.format(comp), module_ignore_errors=True
             )["stdout"]
             logger.info("{} : {}".format(comp, state))
             if EXP_STATE == state:
@@ -487,8 +488,8 @@ def get_dut_vlan_ptf_ports(mg_facts):
 
 
 def check_vlan_members(duthost, member1, member2, exp_count):
-    out1 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))["stdout"]
-    out2 = duthost.shell("redis-cli -n 6 keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))["stdout"]
+    out1 = duthost.shell("sonic-db-cli STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))["stdout"]
+    out2 = duthost.shell("sonic-db-cli STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))["stdout"]
     added = int(out1) + int(out2)
     if added >= exp_count * 2:
         logger.info("All vlan members added")
@@ -736,12 +737,12 @@ class TestVrfCreateAndBind:
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in app_db
         for vrf in list(cfg_facts["VRF"].keys()):
-            res = duthost.shell("redis-cli -n 0 keys VRF_TABLE:%s" % vrf)
+            res = duthost.shell("sonic-db-cli APPL_DB keys VRF_TABLE:%s" % vrf)
             assert vrf in res["stdout"], "%s should be added in APPL_DB!" % vrf
 
         for vrf, intfs in list(g_vars["vrf_intfs"].items()):
             for intf in intfs:
-                res = duthost.shell('redis-cli -n 0 hgetall "INTF_TABLE:%s"' % intf)
+                res = duthost.shell((redis_cli_command(duthost, 'APPL_DB') + ' hgetall "INTF_TABLE:%s"' % intf))
                 assert vrf in res["stdout"], "The vrf of interface %s should be %s !" % (intf, vrf)
 
     def test_vrf_in_asic_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -749,7 +750,7 @@ class TestVrfCreateAndBind:
         # verify vrf in asic_db
         # plus default virtual router
         vrf_count = len(list(cfg_facts["VRF"].keys())) + 1
-        res = duthost.shell("redis-cli -n 1 keys *VIRTUAL_ROUTER*")
+        res = duthost.shell("sonic-db-cli ASIC_DB keys *VIRTUAL_ROUTER*")
         assert len(res["stdout_lines"]) == vrf_count
 
 
@@ -901,7 +902,8 @@ class TestVrfAclRedirect:
         Check if switch supports acl redirect_action, if not then skip test cases
         """
         duthost = duthosts[rand_one_dut_hostname]
-        acl_stage_cap = duthost.shell('redis-cli -n 6 hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')["stdout"]
+        acl_stage_cap = duthost.shell(
+            'sonic-db-cli STATE_DB hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')["stdout"]
         if "REDIRECT_ACTION" not in acl_stage_cap:
             pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
 
@@ -958,10 +960,10 @@ class TestVrfAclRedirect:
         yield
 
         # -------- Teardown ----------
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
-        duthost.shell("redis-cli -n 4 del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
-        duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
-        duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
+        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
+        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
+        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
+        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
     def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more

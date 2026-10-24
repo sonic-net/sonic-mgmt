@@ -183,27 +183,27 @@ def cleanup_dut_vnets(duthost, vnet_config):
 
     for intf in vnet_config['vlan_intf_list']:
         duthost.shell(
-            "redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+            "sonic-db-cli CONFIG_DB del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
 
     for intf in vnet_config['vlan_intf_list']:
         duthost.shell(
-            "redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
+            "sonic-db-cli CONFIG_DB del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
 
     for intf in vnet_config['vlan_intf_list']:
         duthost.shell(
-            "redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(intf['ifname'], intf['port']))
+            "sonic-db-cli CONFIG_DB del \"VLAN_MEMBER|{}|{}\"".format(intf['ifname'], intf['port']))
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("redis-cli -n 4 del \"VLAN|{}\"".format(intf['ifname']))
+        duthost.shell("sonic-db-cli CONFIG_DB del \"VLAN|{}\"".format(intf['ifname']))
 
     for vnet in vnet_config['vnet_id_list']:
-        duthost.shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        duthost.shell("sonic-db-cli CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     for intf in vnet_config['intf_list']:
         duthost.shell(
-            "redis-cli -n 4 del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+            "sonic-db-cli CONFIG_DB del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
         duthost.shell(
-            "redis-cli -n 4 del \"INTERFACE|{}\"".format(intf['ifname']))
+            "sonic-db-cli CONFIG_DB del \"INTERFACE|{}\"".format(intf['ifname']))
 
 
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
@@ -220,7 +220,7 @@ def cleanup_vxlan_tunnels(duthost, vnet_test_params):
         tunnels.append("tunnel_v6")
 
     for tunnel in tunnels:
-        duthost.shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+        duthost.shell("sonic-db-cli CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
 
 def cleanup_vnet_routes(duthost, vnet_config, num_routes):
@@ -255,7 +255,7 @@ def count_routes_from_conf(duthost):
 
 
 def count_routes_from_asic_db(duthost):
-    num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
+    num_routes = int(duthost.shell("sonic-db-cli ASIC_DB keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
     return num_routes
 
 

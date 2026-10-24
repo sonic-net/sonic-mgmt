@@ -466,12 +466,12 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
         pytest.skip('Skip test for multi-asic environment')
 
     # Set BBR status in config_db
-    duthost.shell('redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
+    duthost.shell('sonic-db-cli CONFIG_DB HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
     duthost.shell('sudo config save -y')
     config_reload(duthost)
 
     # Verify BBR status after config reload
-    bbr_status_after_reload = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
+    bbr_status_after_reload = duthost.shell('sonic-db-cli CONFIG_DB HGET "BGP_BBR|all" "status"')["stdout"]
     pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
 
     # Check if BBR is enabled or disabled using the running configuration

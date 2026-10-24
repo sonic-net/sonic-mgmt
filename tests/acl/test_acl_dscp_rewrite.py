@@ -15,6 +15,7 @@ from tests.common.vxlan_ecmp_utils import Ecmp_Utils     # noqa F401
 import ptf.testutils as testutils
 from ptf import mask
 from scapy.all import Ether, IP, VXLAN, IPv6, UDP
+from tests.common.helpers.sonic_db import redis_cli_command
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -220,12 +221,12 @@ def fixture_setUp_vxlan_vnet_routes(rand_selected_dut,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
 
 def setup_acl_tables(duthost, setUp_vnet):
@@ -246,14 +247,20 @@ def setup_acl_tables(duthost, setUp_vnet):
 
     def table_is_active(table_name):
         status = duthost.shell(
-            "redis-cli -n 6 hget 'ACL_TABLE_TABLE|{}' 'status'".format(table_name))['stdout']
+            "sonic-db-cli STATE_DB hget 'ACL_TABLE_TABLE|{}' 'status'".format(table_name))['stdout']
         return status == 'Active'
 
     for table_name in (TABLE_V4, TABLE_V6):
         if not wait_until(60, 2, 0, lambda t=table_name: table_is_active(t)):
             Logger.error("Generated ACL table JSON:\n%s", duthost.shell("cat {}".format(dest_path))['stdout'])
-            Logger.error("STATE_DB %s:\n%s", table_name,
-                         duthost.shell("redis-cli -n 6 hgetall 'ACL_TABLE_TABLE|{}'".format(table_name))['stdout'])
+            Logger.error(
+                "STATE_DB %s:\n%s",
+                table_name,
+                duthost.shell(
+                    (redis_cli_command(
+                        duthost,
+                        'STATE_DB') +
+                        " hgetall 'ACL_TABLE_TABLE|{}'".format(table_name)))['stdout'])
             py_assert(False, "ACL table {} is not active".format(table_name))
 
 
@@ -292,48 +299,49 @@ def create_acl_rule(duthost, tableName, ruleNumber, priority, dscpAction, dstIp,
     rule_key = f'ACL_RULE_TABLE|{tableName}|RULE{ruleNumber}'
 
     def rule_is_active():
-        status = duthost.shell(f"redis-cli -n 6 hget '{rule_key}' 'status'")['stdout']
+        status = duthost.shell(f"sonic-db-cli STATE_DB hget '{rule_key}' 'status'")['stdout']
         return status == 'Active'
 
     if not wait_until(30, 2, 0, rule_is_active):
         Logger.error("Generated ACL rule JSON:\n%s", duthost.shell("cat {}".format(dest_path))['stdout'])
-        Logger.error("STATE_DB rule:\n%s", duthost.shell(f"redis-cli -n 6 hgetall '{rule_key}'")['stdout'])
+        Logger.error("STATE_DB rule:\n%s", duthost.shell(
+            (redis_cli_command(duthost, 'STATE_DB') + f" hgetall '{rule_key}'"))['stdout'])
         py_assert(False, f"ACL rule {tableName}|RULE{ruleNumber} is not active")
 
 
 def del_acl_rule(duthost, table, ruleId):
     config_key = f'ACL_RULE|{table}|RULE{ruleId}'
     state_key = f'ACL_RULE_TABLE|{table}|RULE{ruleId}'
-    duthost.shell(f"redis-cli -n 4 del '{config_key}'")
+    duthost.shell(f"sonic-db-cli CONFIG_DB del '{config_key}'")
 
     def rule_is_removed():
-        exists = duthost.shell(f"redis-cli -n 6 exists '{state_key}'")['stdout'].strip()
+        exists = duthost.shell((redis_cli_command(duthost, 'STATE_DB') + f" exists '{state_key}'"))['stdout'].strip()
         if exists == '0':
             return True
-        status = duthost.shell(f"redis-cli -n 6 hget '{state_key}' 'status'")['stdout'].strip()
+        status = duthost.shell(f"sonic-db-cli STATE_DB hget '{state_key}' 'status'")['stdout'].strip()
         return status != 'Active'
 
     if not wait_until(30, 2, 0, rule_is_removed):
         Logger.error("STATE_DB rule after delete:\n%s",
-                     duthost.shell(f"redis-cli -n 6 hgetall '{state_key}'")['stdout'])
+                     duthost.shell((redis_cli_command(duthost, 'STATE_DB') + f" hgetall '{state_key}'"))['stdout'])
         py_assert(False, f"ACL rule {table}|RULE{ruleId} not removed from STATE_DB")
 
 
 def del_all_acl_rules(duthost):
     """Remove all ACL rules for both overlay DSCP tables."""
     for table in (TABLE_V4, TABLE_V6):
-        out = duthost.shell("redis-cli -n 4 KEYS 'ACL_RULE|{}|*'".format(table))['stdout'].strip()
+        out = duthost.shell("sonic-db-cli CONFIG_DB KEYS 'ACL_RULE|{}|*'".format(table))['stdout'].strip()
         if not out:
             continue
         for key in out.splitlines():
             key = key.strip()
             if key:
-                duthost.shell("redis-cli -n 4 del '{}'".format(key))
+                duthost.shell("sonic-db-cli CONFIG_DB del '{}'".format(key))
 
     def all_rules_removed():
         for table in (TABLE_V4, TABLE_V6):
             remaining = duthost.shell(
-                "redis-cli -n 6 KEYS 'ACL_RULE_TABLE|{}|*'".format(table))['stdout'].strip()
+                "sonic-db-cli STATE_DB KEYS 'ACL_RULE_TABLE|{}|*'".format(table))['stdout'].strip()
             if remaining:
                 return False
         return True
@@ -345,22 +353,27 @@ def del_all_acl_rules(duthost):
 def del_acl_tables(duthost):
     Logger.info("Cleaning up ACL rules and tables")
     del_all_acl_rules(duthost)
-    duthost.shell("redis-cli -n 4 del 'ACL_TABLE|OVERLAY_MARK_META_TEST' ")
-    duthost.shell("redis-cli -n 4 del 'ACL_TABLE|OVERLAY_MARK_META_TESTV6' ")
+    duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TEST' ")
+    duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TESTV6' ")
 
     def table_is_removed(table_name):
-        exists = duthost.shell(
-            "redis-cli -n 6 exists 'ACL_TABLE_TABLE|{}'".format(table_name))['stdout'].strip()
+        exists = duthost.shell((redis_cli_command(duthost, 'STATE_DB') +
+                                " exists 'ACL_TABLE_TABLE|{}'".format(table_name)))['stdout'].strip()
         if exists == '0':
             return True
         status = duthost.shell(
-            "redis-cli -n 6 hget 'ACL_TABLE_TABLE|{}' 'status'".format(table_name))['stdout'].strip()
+            "sonic-db-cli STATE_DB hget 'ACL_TABLE_TABLE|{}' 'status'".format(table_name))['stdout'].strip()
         return status != 'Active'
 
     for table_name in (TABLE_V4, TABLE_V6):
         if not wait_until(30, 2, 0, lambda t=table_name: table_is_removed(t)):
-            Logger.error("STATE_DB table after delete:\n%s",
-                         duthost.shell("redis-cli -n 6 hgetall 'ACL_TABLE_TABLE|{}'".format(table_name))['stdout'])
+            Logger.error(
+                "STATE_DB table after delete:\n%s",
+                duthost.shell(
+                    (redis_cli_command(
+                        duthost,
+                        'STATE_DB') +
+                        " hgetall 'ACL_TABLE_TABLE|{}'".format(table_name)))['stdout'])
             py_assert(False, "ACL table {} not removed from STATE_DB".format(table_name))
 
 

@@ -25,7 +25,7 @@ def enable_pvst_and_verify(duthosts, rand_one_dut_hostname):
     duthost.shell("config spanning-tree enable pvst", module_ignore_errors=True)
 
     # Step 2: Validate STP|GLOBAL exists in Redis DB 4
-    redis_check = duthost.shell("redis-cli -n 4 keys 'STP|GLOBAL'", module_ignore_errors=True)
+    redis_check = duthost.shell("sonic-db-cli CONFIG_DB keys 'STP|GLOBAL'", module_ignore_errors=True)
 
     py_assert("STP|GLOBAL" in redis_check["stdout"],
               "Failed to find 'STP|GLOBAL' in Redis DB 4 — PVST not applied.")

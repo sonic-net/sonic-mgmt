@@ -8,6 +8,7 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -180,14 +181,14 @@ def remove_mirror_session(duthost, session_name):
 def get_mirror_session_config_db_field(duthost, session_name, field):
     '''Return a CONFIG_DB MIRROR_SESSION field value (empty string when unset).'''
     output = duthost.shell(
-        'redis-cli -n 4 hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
+        'sonic-db-cli CONFIG_DB hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
     return output['stdout'].strip()
 
 
 def mirror_session_config_db_exists(duthost, session_name):
     '''Return True if the CONFIG_DB MIRROR_SESSION key for session_name exists.'''
     output = duthost.shell(
-        'redis-cli -n 4 exists "MIRROR_SESSION|{}"'.format(session_name))
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' exists "MIRROR_SESSION|{}"'.format(session_name)))
     return output['stdout'].strip() == '1'
 
 

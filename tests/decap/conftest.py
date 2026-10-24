@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def _read_appl_db_field(duthost, key, field):
     try:
-        cmd = f"redis-cli -n 0 hget '{key}' '{field}'"
+        cmd = f"sonic-db-cli APPL_DB hget '{key}' '{field}'"
         res = duthost.shell(cmd, module_ignore_errors=True)
         return (res.get('stdout') or '').strip()
     except Exception as e:

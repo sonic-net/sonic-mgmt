@@ -16,6 +16,7 @@ from tests.common.utilities import wait_until
 import ptf.testutils as testutils
 from ptf.mask import Mask
 from scapy.all import IP, Ether
+from tests.common.helpers.sonic_db import redis_cli_command
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -245,12 +246,12 @@ def validate_state_db_entry(duthost, peer, vnet, dynamic_peer):
         peer_config_db_key = "BGP_NEIGHBOR" + "|" + vnet + "|" + peer
     peer_state_db_key = "BGP_PEER_CONFIGURED_TABLE" + "|" + vnet + "|" + peer
     expected_state = duthost.shell(
-        'redis-cli -n 4 --json HGETALL "{}"'.format(str(peer_config_db_key)))['stdout']
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' --json HGETALL "{}"'.format(str(peer_config_db_key))))['stdout']
     expected_state = json.loads(expected_state)
     if isinstance(expected_state, dict):
         expected_state = {k.rstrip('@'): v for k, v in expected_state.items()}
     peer_state = duthost.shell(
-        'redis-cli -n 6 --json HGETALL "{}"'.format(str(peer_state_db_key)))['stdout']
+        (redis_cli_command(duthost, 'STATE_DB') + ' --json HGETALL "{}"'.format(str(peer_state_db_key))))['stdout']
     peer_state = json.loads(peer_state)
     assert peer_state == expected_state, \
         "Peer {} vnet {} state in state db is not {}. Found {}".format(peer, vnet, expected_state, peer_state)
@@ -663,7 +664,7 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
     try:
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
-        redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+        redis_cmd = 'sonic-db-cli CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
         duthost.shell(redis_cmd)
         time.sleep(10)
 
@@ -739,7 +740,7 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
         for i in range(20):
-            redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+            redis_cmd = 'sonic-db-cli CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
             duthost.shell(redis_cmd)
             time.sleep(10)
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')

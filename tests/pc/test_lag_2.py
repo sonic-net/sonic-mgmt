@@ -558,13 +558,13 @@ def teardown(duthost):
 
 def get_oper_status_from_db(asichost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = asichost.get_docker_cmd("redis-cli -n 6 hget \"PORT_TABLE|{}\" netdev_oper_status"
+    cmd = asichost.get_docker_cmd("sonic-db-cli STATE_DB hget \"PORT_TABLE|{}\" netdev_oper_status"
                                   .format(port_name), "database")
     status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key netdev_oper_status,
     # check oper_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = asichost.get_docker_cmd("redis-cli -n 0 hget \"PORT_TABLE:{}\" oper_status"
+        cmd = asichost.get_docker_cmd("sonic-db-cli APPL_DB hget \"PORT_TABLE:{}\" oper_status"
                                       .format(port_name), "database")
         status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     return status
@@ -572,13 +572,13 @@ def get_oper_status_from_db(asichost, port_name):
 
 def get_admin_status_from_db(asichost, port_name):
     """Get netdev_oper_status from state_db for interface"""
-    cmd = asichost.get_docker_cmd("redis-cli -n 6 hget \"PORT_TABLE|{}\" admin_status"
+    cmd = asichost.get_docker_cmd("sonic-db-cli STATE_DB hget \"PORT_TABLE|{}\" admin_status"
                                   .format(port_name), "database")
     status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     # If PORT_TABLE in STATE_DB doesn't have key admin_status,
     # check admin_status in APPL_DB instead. This scenario happens on 202012.
     if not status:
-        cmd = asichost.get_docker_cmd("redis-cli -n 0 hget \"PORT_TABLE:{}\" admin_status"
+        cmd = asichost.get_docker_cmd("sonic-db-cli APPL_DB hget \"PORT_TABLE:{}\" admin_status"
                                       .format(port_name), "database")
         status = asichost.sonichost.shell(cmd, module_ignore_errors=False)['stdout']
     return status

@@ -83,3 +83,7 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## Routing and switching database callers
+
+`unit_test_network_database_callers.py` checks BGP presence-test output, VXLAN cleanup key/field arguments and local configuration commands. These isolated checks do not replace routing, forwarding or multi-ASIC testbed runs.

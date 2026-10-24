@@ -1,3 +1,4 @@
+from tests.common.helpers.sonic_db import redis_cli_command
 import pytest
 import logging
 import random
@@ -188,7 +189,8 @@ def check_acl_table_and_type_tables(duthost):
     }
     logger.info(f"Expected ACL tables for ENI based forwarding: \n{expected_tables}")
     for table, table_fields in expected_tables.items():
-        actual_table = json.loads(duthost.shell(f"redis-cli --json -n 0 HGETALL {table}")['stdout'])
+        actual_table = json.loads(duthost.shell(
+            (redis_cli_command(duthost, "APPL_DB") + f" --json HGETALL {table}"))['stdout'])
         logger.info(f"Actual table for key {table}: {actual_table}")
         if not actual_table == table_fields:
             logger.error(
@@ -236,12 +238,14 @@ def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
     }
     logger.info(
         f"3 ENIs are configured in this test, expected {len(expected_rules)} ACL rules: \n{expected_rules}")
-    actual_rule_num = int(duthost.shell("redis-cli -n 0 keys 'ACL_RULE_TABLE:ENI*' | grep 'ACL' | wc -l")['stdout'])
+    actual_rule_num = int(duthost.shell(
+        "sonic-db-cli APPL_DB keys 'ACL_RULE_TABLE:ENI*' | grep 'ACL' | wc -l")['stdout'])
     if not actual_rule_num == len(expected_rules):
         logger.error(f"Expected {len(expected_rules)} ENI forwarding ACL rules, but got {actual_rule_num}")
         return False
     for rule_name, rule_fields in expected_rules.items():
-        actual_rule = json.loads(duthost.shell(f"redis-cli --json -n 0 HGETALL {rule_name}")['stdout'])
+        actual_rule = json.loads(duthost.shell(
+            (redis_cli_command(duthost, "APPL_DB") + f" --json HGETALL {rule_name}"))['stdout'])
         logger.info(f"Actual rule for key {rule_name}: {actual_rule}")
         if not actual_rule == rule_fields:
             logger.error(

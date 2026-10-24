@@ -5,6 +5,7 @@ import time
 import yaml
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.helpers.sonic_db import redis_cli_command
 
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 logger = logging.getLogger(__name__)
@@ -15,11 +16,12 @@ def get_bbr_default_state(duthost):
     bbr_default_state = "disabled"
 
     # Check BBR configuration from config_db first
-    bbr_config_db_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"')["stdout"])
+    bbr_config_db_exist = int(duthost.shell(
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'))["stdout"])
     if bbr_config_db_exist:
         # key exist, BBR is supported
         bbr_supported = True
-        bbr_default_state = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
+        bbr_default_state = duthost.shell('sonic-db-cli CONFIG_DB HGET "BGP_BBR|all" "status"')["stdout"]
     else:
         # Check BBR configuration from constants.yml
         constants = yaml.safe_load(duthost.shell("cat {}".format(CONSTANTS_FILE))["stdout"])
@@ -47,10 +49,10 @@ def config_bbr_by_gcu(duthost, status):
 
     # Check both key existence and field existence to pick the right JSON patch op
     bbr_key_exists = int(duthost.shell(
-        'redis-cli -n 4 EXISTS "BGP_BBR|all"', module_ignore_errors=True
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' EXISTS "BGP_BBR|all"'), module_ignore_errors=True
     )["stdout"])
     bbr_field_exists = int(duthost.shell(
-        'redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"', module_ignore_errors=True
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'), module_ignore_errors=True
     )["stdout"])
 
     logger.info("BGP_BBR|all key exists: %d, status field exists: %d", bbr_key_exists, bbr_field_exists)
@@ -69,26 +71,26 @@ def config_bbr_by_gcu(duthost, status):
     try:
         apply_gcu_patch(duthost, json_patch)
     except Exception as e:
-        # The redis-cli fallback bypasses GCU schema validation.  If the GCU
+        # The sonic-db-cli fallback bypasses GCU schema validation.  If the GCU
         # failure is due to a schema violation this could put CONFIG_DB into an
         # inconsistent state, so log at error level for post-run diagnosis.
         logger.error(
             "GCU patch for BGP_BBR failed (possible schema drift): %s. "
-            "Falling back to direct redis-cli HSET — CONFIG_DB may be inconsistent.",
+            "Falling back to direct sonic-db-cli HSET — CONFIG_DB may be inconsistent.",
             e,
         )
         duthost.shell(
-            'redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}"'.format(status),
+            'sonic-db-cli CONFIG_DB HSET "BGP_BBR|all" "status" "{}"'.format(status),
             module_ignore_errors=True,
         )
         # Allow bgpcfgd to pick up the CONFIG_DB change
         time.sleep(3)
         # Verify the fallback took effect
         actual = duthost.shell(
-            'redis-cli -n 4 HGET "BGP_BBR|all" "status"', module_ignore_errors=True
+            'sonic-db-cli CONFIG_DB HGET "BGP_BBR|all" "status"', module_ignore_errors=True
         )["stdout"].strip()
         if actual != status:
             raise RuntimeError(
-                "Failed to set BGP_BBR status to '{}' via both GCU and redis-cli fallback. "
+                "Failed to set BGP_BBR status to '{}' via both GCU and sonic-db-cli fallback. "
                 "Current value: '{}'".format(status, actual)
             )

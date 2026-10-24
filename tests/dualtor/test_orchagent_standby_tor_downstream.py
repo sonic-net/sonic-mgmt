@@ -139,7 +139,7 @@ def check_mux_status(duthost, tor_mux_intfs, state):
     instead of ``dualtor_neighbor_check.py``, which requires a real dual-ToR peer.
     """
     for intf in tor_mux_intfs:
-        out = duthost.shell('redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
+        out = duthost.shell('sonic-db-cli APPL_DB HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
         if out['stdout_lines'][0] != state:
             logger.info(
                 "Mux state for %s is %s, expected %s",

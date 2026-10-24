@@ -299,7 +299,7 @@ def vnet_test_params(duthost, request):
     params[VXLAN_UDP_SPORT_MASK_KEY] = 0
 
     vxlan_range_enable = duthost.shell(
-        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" \
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" \
             vxlan_port_range')['stdout'] == "enable"
 
     if request.config.option.udp_src_port is not None or \
