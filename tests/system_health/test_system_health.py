@@ -21,6 +21,7 @@ from tests.common.fixtures.duthost_utils import (  # noqa F401
     is_support_pdb,
     is_support_psu,
 )
+from tests.common.helpers.sonic_db import redis_cli_command
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -537,7 +538,7 @@ def get_system_health_config(duthost, key, default):
 
 
 def redis_table_exists(duthost, db_id, key):
-    cmd = 'redis-cli --raw -n {} EXISTS \"{}\"'.format(db_id, key)
+    cmd = redis_cli_command(duthost, db_id) + ' --raw EXISTS \"{}\"'.format(key)
     logger.info('Checking if table exists in redis with cmd: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
@@ -545,8 +546,8 @@ def redis_table_exists(duthost, db_id, key):
 
 
 def redis_get_field_value(duthost, db_id, key, field_name):
-    cmd = 'redis-cli --raw -n {} HGET \"{}\" \"{}\"'.format(
-        db_id, key, field_name)
+    cmd = redis_cli_command(duthost, db_id) + ' --raw HGET \"{}\" \"{}\"'.format(
+        key, field_name)
     logger.info('Getting field value from redis with cmd: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
@@ -554,7 +555,7 @@ def redis_get_field_value(duthost, db_id, key, field_name):
 
 
 def redis_get_system_health_info(duthost, db_id, key):
-    cmd = 'redis-cli --raw -n {} HGETALL \"{}\"'.format(db_id, key)
+    cmd = redis_cli_command(duthost, db_id) + ' --raw HGETALL \"{}\"'.format(key)
     output = duthost.shell(cmd)['stdout'].strip()
     return output
 

@@ -66,9 +66,9 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, snmp_psu_module
 
     for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
-            "redis-cli -n 6 hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
+            "sonic-db-cli STATE_DB hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
         get_status = duthost.shell(
-            "redis-cli -n 6 hget '{}' status".format(psu_keys[int(psu_indx)-1]))
+            "sonic-db-cli STATE_DB hget '{}' status".format(psu_keys[int(psu_indx)-1]))
         status = get_status['stdout'] == 'true'
         presence = get_presence['stdout'] == 'true'
 

@@ -39,7 +39,7 @@ DEFAULT_MAX_CORE_LIMIT = 5.0
 DEFAULT_SINCE = '2 days ago'
 
 KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
-CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS = 'sudo redis-cli --raw -n 6  KEYS AUTO_TECHSUPPORT*'
+CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS = 'sudo sonic-db-cli STATE_DB KEYS AUTO_TECHSUPPORT*'
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 SAI_CALL_TEMPLATE_FILE_PATH = os.path.join(TEMPLATES_DIR, 'sai_call_fail_config.j2')
 DUT_SAI_CALL_CONFIG_PATH = '/tmp/sai_call_fail_config.json'
@@ -1339,7 +1339,7 @@ def clear_auto_techsupport_history(duthost):
     """
     auto_tech_history_entries = duthost.shell(CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS)['stdout_lines']
     for entry in auto_tech_history_entries:
-        duthost.shell('sudo redis-cli -n 6 DEL "{}"'.format(entry))
+        duthost.shell('sudo sonic-db-cli STATE_DB DEL "{}"'.format(entry))
 
 
 def clear_folders(duthost):

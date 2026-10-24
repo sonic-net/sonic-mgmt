@@ -618,7 +618,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
                     "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
                 continue
 
-            sfp_type_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf)
+            sfp_type_cmd = 'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{}" type'.format(intf)
             sfp_type_docker_cmd = asichost.get_docker_cmd(sfp_type_cmd, "database")
             sfp_type = duthost.command(sfp_type_docker_cmd)["stdout"]
 

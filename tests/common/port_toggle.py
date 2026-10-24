@@ -102,7 +102,7 @@ def log_system_resources(duthost, logger):
     logger.info("Orchagent CPU Util: %s", orch_cpu)
 
     # Watch Redis Memory
-    redis_memory = duthost.shell("redis-cli info memory | grep used_memory_human")["stdout"]
+    redis_memory = duthost.shell("sonic-db-cli APPL_DB info memory | grep used_memory_human")["stdout"]
     logger.info("Redis Memory: %s", redis_memory)
 
 

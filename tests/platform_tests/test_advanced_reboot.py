@@ -244,11 +244,5 @@ def flush_dbs(duthost):
     This Function will flush all unnecessary databases, to mimic reboot from other vendor
     """
     logger.info('Flushing databases from switch')
-    db_dic = {0: 'Application DB',
-              1: 'ASIC DB',
-              2: 'Counters DB',
-              5: 'Flex Counters DB',
-              6: 'State DB'
-              }
-    for db in list(db_dic.keys()):
-        duthost.shell('redis-cli -n {} flushdb'.format(db))
+    for db in ('APPL_DB', 'ASIC_DB', 'COUNTERS_DB', 'FLEX_COUNTER_DB', 'STATE_DB'):
+        duthost.shell('sonic-db-cli {} FLUSHDB'.format(db))

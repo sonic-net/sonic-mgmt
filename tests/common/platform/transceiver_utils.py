@@ -44,7 +44,7 @@ def all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
     """
     Check if transceiver information of all the specified interfaces have been detected.
     """
-    cmd = r"redis-cli --raw -n 6 keys TRANSCEIVER_INFO\*"
+    cmd = r"sonic-db-cli STATE_DB keys TRANSCEIVER_INFO\*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     db_output = dut.command(docker_cmd)["stdout_lines"]
@@ -63,7 +63,7 @@ def check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list):
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether transceiver information of all ports are in redis")
-    cmd = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
+    cmd = "sonic-db-cli STATE_DB keys TRANSCEIVER_INFO*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_info = dut.command(docker_cmd)
@@ -117,7 +117,7 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     @param interfaces: List of interfaces that need to be checked.
     """
     logging.info("Check whether TRANSCEIVER_DOM_SENSOR of all ports in redis")
-    cmd = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
+    cmd = "sonic-db-cli STATE_DB keys TRANSCEIVER_DOM_SENSOR*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_dom_sensor = dut.command(docker_cmd)
