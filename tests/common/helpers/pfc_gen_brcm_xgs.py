@@ -74,6 +74,13 @@ class FanoutPfcStorm():
     def _bcmshellCmd(self, cmd):
         return self._cliCmd(f"en\nplatform trident shell\n{cmd}")
 
+    def _tomahawk3BcmshellCmd(self, cmd):
+        result = subprocess.run([f"bcmcmd '{cmd}'"], capture_output=True, text=True, shell=True)
+        output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+        if result.returncode != 0 or "Failed to execute the diagnostic command" in output:
+            raise RuntimeError("Tomahawk3 SDK command failed: {}\n{}".format(cmd, output))
+        return result.stdout
+
     def _parseInterfaceMapFull(self):
         intfToMmuPort = {}
         intfToPort = {}
@@ -113,7 +120,6 @@ class FanoutPfcStorm():
                     mmuPort = entries[4]
                     if lport in lPortToIntf:
                         intfToMmuPort[lPortToIntf[lport]] = mmuPort
-                    intfTolPort[mo.group('intf')] = mo.group('lport')
         else:
             output = self._cliCmd('knet netif show')
             for info in output.split("Interface ID"):
@@ -130,7 +136,6 @@ class FanoutPfcStorm():
                     mmuPort = entries[4]
                     if lport in lPortToIntf:
                         intfToMmuPort[lPortToIntf[lport]] = mmuPort
-                    intfTolPort[mo.group('intf')] = mo.group('lport')
 
         return intfToMmuPort, intfTolPort
 
@@ -141,29 +146,43 @@ class FanoutPfcStorm():
         The users of this class are only expected to call
         startPfcStorm and endAllPfcStorm
         '''
-        mmuPort = self.intfToMmuPort[intf]
+        errors = []
         port = self.intfToPort[intf]
-        if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
-            self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
-            self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
-        else:
-            self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP=0")
-        if self.os == 'sonic':
-            for prio in range(8):
-                self._shellCmd(f"config interface pfc priority {intf} {prio} off")
-            self._shellCmd(f"redis-cli -n 4 DEL \"PORT_QOS_MAP|{intf}\"")
-        else:
-            self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
-            for prio in range(8):
-                self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
+        try:
+            if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
+                mmuPort = self.intfToMmuPort[intf]
+                self._bcmltshellCmd(
+                    f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
+                self._bcmltshellCmd(
+                    f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
+            elif self.os == 'sonic' and self.switchChip.startswith("Tomahawk3"):
+                for cmd in (
+                        f"setreg MMU_INTFO_TO_XPORT_BKP.{port} PAUSE_PFC_BKP=0",
+                        f"setreg MMU_INTFO_XPORT_BKP_HW_UPDATE_DIS.{port} PAUSE_PFC_BKP=0"):
+                    try:
+                        self._tomahawk3BcmshellCmd(cmd)
+                    except RuntimeError as err:
+                        errors.append(str(err))
+            else:
+                self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP=0")
+        finally:
+            if self.os == 'sonic':
+                for prio in range(8):
+                    if (1 << prio) & self.priority:
+                        self._shellCmd(f"config interface pfc priority {intf} {prio} off")
+                self._shellCmd(f"redis-cli -n 4 DEL \"PORT_QOS_MAP|{intf}\"")
+            else:
+                self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
+                for prio in range(8):
+                    self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
+        if errors:
+            raise RuntimeError("\n".join(errors))
 
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
             return
         self.intfsEnabled.append(intf)
 
-        mmuPort = self.intfToMmuPort[intf]
-        port = self.intfToPort[intf]
         if self.os == 'sonic':
             self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
             for prio in range(8):
@@ -176,14 +195,28 @@ class FanoutPfcStorm():
                     self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
 
         if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
+            mmuPort = self.intfToMmuPort[intf]
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
+        elif self.os == 'sonic' and self.switchChip.startswith("Tomahawk3"):
+            port = self.intfToPort[intf]
+            self._tomahawk3BcmshellCmd(
+                f"setreg MMU_INTFO_XPORT_BKP_HW_UPDATE_DIS.{port} PAUSE_PFC_BKP=1")
+            self._tomahawk3BcmshellCmd(
+                f"setreg MMU_INTFO_TO_XPORT_BKP.{port} PAUSE_PFC_BKP={self.priority}")
         else:
+            port = self.intfToPort[intf]
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 
     def endAllPfcStorm(self):
+        errors = []
         for intf in self.intfsEnabled:
-            self._endPfcStorm(intf)
+            try:
+                self._endPfcStorm(intf)
+            except Exception as err:
+                errors.append("{}: {}".format(intf, err))
+        if errors:
+            raise RuntimeError("\n".join(errors))
 
 
 def main():
@@ -199,6 +232,8 @@ def main():
                       help="Name of chip in the switch, i.e. Tomahawk5")
     parser.add_option("-o", "--os", type="string", dest="os",
                       help="Operating system (eos or sonic)", default="eos")
+    parser.add_option("-s", "--sendtime", type="int", dest="sendtime",
+                      help="Duration to generate PFC storm in seconds", default=0)
 
     (options, args) = parser.parse_args()
 
@@ -217,6 +252,11 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    if options.sendtime < 0:
+        print("PFC storm duration must not be negative.")
+        parser.print_help()
+        sys.exit(1)
+
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
     handler.ident = 'pfc_gen: '
@@ -224,16 +264,35 @@ def main():
 
     # List of front panel kernel intfs
     interfaces = options.interface.split(',')
+    if options.os == 'eos':
+        interfaces = [frontPanelIntfFromKernelIntfName(intf) for intf in interfaces]
 
     fs = FanoutPfcStorm(options.priority, options.chipName, options.os)
+    missing_interfaces = [intf for intf in interfaces if intf not in fs.intfToPort]
+    if options.chipName.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
+        missing_interfaces.extend(intf for intf in interfaces if intf not in fs.intfToMmuPort)
+    if missing_interfaces:
+        print("Unable to map interfaces to ASIC ports: {}".format(",".join(sorted(set(missing_interfaces)))))
+        sys.exit(1)
     SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
-    for intf in interfaces:
-        if options.os == 'eos':
-            intf = frontPanelIntfFromKernelIntfName(intf)
-        fs.startPfcStorm(intf)
+    try:
+        for intf in interfaces:
+            fs.startPfcStorm(intf)
+    except Exception:
+        try:
+            fs.endAllPfcStorm()
+        except Exception:
+            logger.exception("Failed to clean up partial PFC storm setup")
+        raise
     logger.debug('PFC_STORM_START')
+
+    if options.sendtime > 0:
+        time.sleep(options.sendtime)
+        fs.endAllPfcStorm()
+        logger.debug('PFC_STORM_END')
+        return
 
     # wait forever until stop
     while True:
