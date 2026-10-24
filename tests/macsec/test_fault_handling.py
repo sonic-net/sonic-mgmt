@@ -3,6 +3,7 @@ import pytest
 import logging
 
 from tests.common.utilities import wait_until
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import get_appl_db
 from tests.common.macsec.macsec_config_helper import disable_macsec_port, \
@@ -108,6 +109,12 @@ class TestFaultHandling():
         if isinstance(nbr["host"], EosHost):
             nbr["host"].shutdown(nbr_eth_port)
             sleep(TestFaultHandling.LACP_TIMEOUT)
+        elif isinstance(nbr["host"], CsonicHost):
+            # CsonicHost.shutdown also downs the active userspace-OVS bond
+            # member (macsec_ethN when MACsec is enabled). Keep the sleep in
+            # pytest so the host command does not hit CsonicHost's 30s timeout.
+            nbr["host"].shutdown(nbr["port"])
+            sleep(TestFaultHandling.LACP_TIMEOUT)
         else:
             nbr["host"].shell("ifconfig {} down && sleep {}".format(
                 nbr_eth_port, TestFaultHandling.LACP_TIMEOUT))
@@ -124,6 +131,8 @@ class TestFaultHandling():
 
         if isinstance(nbr["host"], EosHost):
             nbr["host"].no_shutdown(nbr_eth_port)
+        elif isinstance(nbr["host"], CsonicHost):
+            nbr["host"].no_shutdown(nbr["port"])
         else:
             nbr["host"].shell("ifconfig {} up".format(nbr_eth_port))
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -154,25 +163,29 @@ class TestFaultHandling():
                    lambda: not duthost.iface_macsec_ok(port_name) and
                    not nbr["host"].iface_macsec_ok(nbr["port"]))
 
-        # Set a wrong cak to the profile
+        # Give the uncontrolled neighbor a dedicated bad profile. Converged
+        # logical peers can share one cSONiC CONFIG_DB, so mutating the active
+        # profile_name would also disrupt the controlled links in that container.
+        mismatch_profile = "{}_MISMATCH".format(profile_name)
         primary_cak = "0" * len(primary_cak)
         enable_macsec_port(duthost, port_name, profile_name)
-        set_macsec_profile(nbr["host"], profile_name, default_priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci)
-        enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+        try:
+            set_macsec_profile(
+                nbr["host"], mismatch_profile, default_priority,
+                cipher_suite, primary_cak, primary_ckn, policy, send_sci)
+            enable_macsec_port(
+                nbr["host"], nbr["port"], mismatch_profile)
 
-        def check_mka_establishment():
-            _, _, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
-                duthost, port_name, nbr["host"], nbr["port"])
-            return dut_ingress_sc_table or dut_egress_sa_table or dut_ingress_sa_table
-        # The mka should be establishing or established
-        # To check whether the MKA establishment happened within 90 seconds
-        assert not wait_until(90, 1, 12, check_mka_establishment), (
-            "MKA establishment failed. Expected MKA to not establish within expected time, but it did. "
-        )
-
-        # Teardown
-        disable_macsec_port(duthost, port_name)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], profile_name)
+            def check_mka_establishment():
+                _, _, dut_ingress_sc_table, dut_egress_sa_table, dut_ingress_sa_table = get_appl_db(
+                    duthost, port_name, nbr["host"], nbr["port"])
+                return dut_ingress_sc_table or dut_egress_sa_table or dut_ingress_sa_table
+            # To check whether the MKA establishment happened within 90 seconds
+            assert not wait_until(90, 1, 12, check_mka_establishment), (
+                "MKA establishment failed. Expected MKA to not establish within expected time, but it did. "
+            )
+        finally:
+            disable_macsec_port(duthost, port_name)
+            disable_macsec_port(nbr["host"], nbr["port"])
+            delete_macsec_profile(nbr["host"], mismatch_profile)
         sleep(300)

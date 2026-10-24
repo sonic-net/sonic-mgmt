@@ -156,7 +156,10 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
     nbrhost = nbrhosts[test_neighbor_name]
     if nbrhost.get('is_multi_vrf_peer', False):
-        vrf = test_neighbor_name
+        # cEOS uses the logical peer name as its VRF, while cSONiC maps it to a
+        # SONiC-safe runtime name.  The converger metadata is authoritative for
+        # both backends.
+        vrf = nbrhost['multi_vrf_data']['vrf']
         exabgp_ips = [nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv4"),
                       nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv6")]
         exabgp_ips = list(filter(None, exabgp_ips))

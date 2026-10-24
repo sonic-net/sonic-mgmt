@@ -1,6 +1,7 @@
 import ast
 import re
 import logging
+from collections.abc import Mapping
 from multiprocessing.pool import ThreadPool
 
 import pytest
@@ -21,14 +22,34 @@ __all__ = [
 
 
 def global_cmd(duthost, nbrhosts, cmd):
-    pool = ThreadPool(1 + len(nbrhosts))
-    pool.apply_async(duthost.command, args=(cmd,))
-    for nbr in list(nbrhosts.values()):
-        if isinstance(nbr["host"], EosHost):
-            continue
-        pool.apply_async(nbr["host"].command, args=(cmd, ))
+    """Run a required command on every SONiC endpoint and surface failures."""
+    hosts = [duthost]
+    hosts.extend(
+        nbr["host"] for nbr in list(nbrhosts.values())
+        if not isinstance(nbr["host"], EosHost))
+    pool = ThreadPool(len(hosts))
+    tasks = [(host, pool.apply_async(host.command, args=(cmd,)))
+             for host in hosts]
     pool.close()
-    pool.join()
+    try:
+        failures = []
+        for host, task in tasks:
+            try:
+                result = task.get()
+            except Exception as error:
+                failures.append({
+                    "host": getattr(host, "hostname", str(host)),
+                    "exception": repr(error),
+                })
+                continue
+            if not isinstance(result, Mapping) or result.get("rc") != 0:
+                failures.append({
+                    "host": getattr(host, "hostname", str(host)),
+                    "result": repr(result),
+                })
+        assert not failures, "Required MACsec command failed: {}".format(failures)
+    finally:
+        pool.join()
 
 
 def sonic_db_cli(host, cmd):
@@ -37,7 +58,7 @@ def sonic_db_cli(host, cmd):
 
 def get_all_ifnames(host, asic=None):
     cmd_prefix = " "
-    if host.is_multi_asic and asic is not None:
+    if getattr(host, "is_multi_asic", False) and asic is not None:
         ns = host.get_namespace_from_asic_id(asic.asic_index)
         cmd_prefix = "sudo ip netns exec {} ".format(ns)
 
@@ -57,11 +78,20 @@ def get_all_ifnames(host, asic=None):
     return ports
 
 
+def _runtime_port_name(host, port_name):
+    """Translate a logical cSONiC port to its runtime interface name."""
+    if isinstance(host, EosHost):
+        return port_name
+    mapper = getattr(host, "_interface_name", None)
+    return mapper(port_name) if callable(mapper) else port_name
+
+
 def get_eth_ifname(host, port_name):
+    port_name = _runtime_port_name(host, port_name)
     asic = None
     if "x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
-        if host.is_multi_asic:
+        if getattr(host, "is_multi_asic", False):
             asic = host.get_port_asic_instance(port_name)
         ports = get_all_ifnames(host, asic)
         assert port_name in ports["Ethernet"]
@@ -71,12 +101,13 @@ def get_eth_ifname(host, port_name):
 
 
 def get_macsec_ifname(host, port_name):
+    port_name = _runtime_port_name(host, port_name)
     asic = None
     if "x86_64-kvm_x86_64" not in get_platform(host):
         logging.info(
             "Can only get the macsec ifname on the virtual SONiC switch")
         return None
-    if host.is_multi_asic:
+    if getattr(host, "is_multi_asic", False):
         asic = host.get_port_asic_instance(port_name)
     ports = get_all_ifnames(host, asic)
     assert port_name in ports["Ethernet"]
@@ -152,5 +183,14 @@ def get_lldp_list(host):
     for line in lines:
         items = line.split()
         lldp = items[1]
-        lldp_list[lldp] = {"name": lldp, "localport": items[0], "remoteport": items[2]}
+        key = lldp
+        if key in lldp_list:
+            # Converged peers share one LLDP system name across several links.
+            # Preserve every row instead of overwriting all but the last one.
+            key = "{}@{}".format(lldp, items[0])
+        lldp_list[key] = {
+            "name": lldp,
+            "localport": items[0],
+            "remoteport": items[2],
+        }
     return lldp_list

@@ -3,6 +3,7 @@ import logging
 import ipaddress
 
 from tests.common.utilities import wait_until
+from tests.common.devices.csonic import CsonicHost
 from tests.common.macsec.macsec_helper import getns_prefix
 from tests.common.macsec.macsec_config_helper import disable_macsec_port, enable_macsec_port
 from tests.common.macsec.macsec_platform_helper import find_portchannel_from_member, \
@@ -15,6 +16,19 @@ pytestmark = [
     pytest.mark.macsec_required,
     pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
+
+
+def _lldp_neighbor_present(duthost, ctrl_port, nbr):
+    lldp_list = get_lldp_list(duthost)
+    if (isinstance(nbr["host"], CsonicHost) and
+            nbr["host"].bgp_vrf):
+        # A converged cSONiC container advertises one system name for all of
+        # its logical peers. Verify the physical DUT link instead of a logical
+        # peer name that LLDP cannot distinguish.
+        return any(
+            entry["localport"] == ctrl_port
+            for entry in lldp_list.values())
+    return nbr["name"] in lldp_list
 
 
 class TestInteropProtocol():
@@ -79,7 +93,7 @@ class TestInteropProtocol():
                 LLDP_TIMEOUT,
                 LLDP_ADVERTISEMENT_INTERVAL,
                 0,
-                lambda: nbr["name"] in get_lldp_list(duthost)
+                lambda: _lldp_neighbor_present(duthost, ctrl_port, nbr)
             ), \
                 "LLDP neighbor '{}' not found. Current LLDP list: {}".format(
                     nbr["name"], get_lldp_list(duthost)
@@ -94,7 +108,7 @@ class TestInteropProtocol():
                 LLDP_TIMEOUT,
                 LLDP_ADVERTISEMENT_INTERVAL,
                 0,
-                lambda: nbr["name"] in get_lldp_list(duthost)
+                lambda: _lldp_neighbor_present(duthost, ctrl_port, nbr)
             ), \
                 "LLDP neighbor '{}' not found. Current LLDP list: {}".format(
                     nbr["name"], get_lldp_list(duthost)
@@ -109,7 +123,7 @@ class TestInteropProtocol():
                 LLDP_TIMEOUT,
                 LLDP_ADVERTISEMENT_INTERVAL,
                 0,
-                lambda: nbr["name"] in get_lldp_list(duthost)
+                lambda: _lldp_neighbor_present(duthost, ctrl_port, nbr)
             ), (
                 "LLDP neighbor '{}' not found. Current LLDP list: {}".format(
                     nbr["name"], get_lldp_list(duthost)
