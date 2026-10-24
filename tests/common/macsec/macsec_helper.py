@@ -15,6 +15,7 @@ import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
 from tests.common.macsec.macsec_platform_helper import sonic_db_cli
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import convert_scapy_packet_to_bytes, wait_until
 
@@ -86,6 +87,8 @@ QUERY_MACSEC_EGRESS_SA = "sonic-db-cli {} APPL_DB HGETALL 'MACSEC_EGRESS_SA_TABL
 
 
 def getns_prefix(host, intf):
+    if isinstance(host, CsonicHost):
+        return " "
     ns_prefix = " "
     if host.is_multi_asic:
         asic = host.get_port_asic_instance(intf)
@@ -96,6 +99,8 @@ def getns_prefix(host, intf):
 
 
 def get_ipnetns_prefix(host, intf):
+    if isinstance(host, CsonicHost):
+        return " "
     ns_prefix = " "
     if host.is_multi_asic:
         asic = host.get_port_asic_instance(intf)
@@ -223,7 +228,8 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
 
 
 def get_mka_session(host):
-    cmd = "docker exec syncd ip -j macsec show"
+    cmd = "ip -j macsec show" if isinstance(host, CsonicHost) else \
+        "docker exec syncd ip -j macsec show"
     '''
     Here is an output example of `ip macsec show`
     admin@vlab-01:~$ ip macsec show
