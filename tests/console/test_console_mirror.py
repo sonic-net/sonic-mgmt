@@ -835,9 +835,9 @@ def mirror_test_context(duthost, mirror_port: MirrorPort):
             )
 
     for client in context.clients:
-        disconnect_console_client(client)
         try:
-            client.close(force=True)
+            if not disconnect_console_client(client):
+                teardown_errors.append("Console client did not disconnect gracefully")
         except (Exception, pytest.fail.Exception) as error:  # noqa: BLE001
             teardown_errors.append(f"Failed to close console client: {error}")
 
