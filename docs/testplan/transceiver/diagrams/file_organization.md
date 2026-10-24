@@ -122,6 +122,8 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute suffixes, min/max and integer validation,
+│   │                                        #   and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
@@ -131,7 +133,8 @@ tests/transceiver/
 │   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
 │   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
 │   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
-│   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
+│   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers;
+│   │                                        #   namespace-batched per-port reads and shared freshness/numeric parsing
 │   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
 │   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
 │   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
@@ -236,8 +239,16 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field plans, table-specific readers, availability/range checks,
+│   │                                        #   and four-table threshold hierarchy/value validation
+│   ├── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
+│   ├── test_vdm_operational_range.py        # Basic TC 2: Inclusive operational ranges and freshness
+│   ├── test_vdm_threshold.py                # Basic TC 3: Threshold hierarchy and optional exact values
+│   └── test_vdm_consistency.py              # Basic TC 4: Owns private sampling, timestamp advancement,
+│                                            #   freshness/range, and statistic-coherence checks
 │
 └── pm/
     ├── __init__.py
