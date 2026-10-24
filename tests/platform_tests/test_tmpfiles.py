@@ -1,7 +1,6 @@
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -9,9 +8,8 @@ pytestmark = [
 
 
 def test_tmpfiles_age_disabled(duthosts, enum_dut_hostname):
-    """Verify /tmp and /var/tmp have no cleanup age on SONiC releases newer than 202511."""
+    """Verify /tmp and /var/tmp have no cleanup age on SONiC 202511 and later."""
     duthost = duthosts[enum_dut_hostname]
-    skip_release(duthost, ["202305", "202311", "202405", "202411", "202505", "202511"])
 
     output = duthost.command("systemd-tmpfiles --no-pager --cat-config")
     # Ignore blank lines and comments, then split each rule into columns.
