@@ -65,6 +65,8 @@ import multiprocessing
 import itertools
 import ast
 import socket
+import ipaddress
+import shlex
 
 import ptf
 import ptf.testutils as testutils
@@ -152,6 +154,8 @@ class ReloadTest(BaseTest):
         self.sad_handle = None
         self.process_id = str(os.getpid())
         self.test_params = testutils.test_params_get()
+        self.bgp_service_restart = self.test_params.get('bgp_service_restart', False)
+        self.routed_traffic = self.test_params.get('routed_traffic', False)
         self.check_param('verbose', False, required=False)
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
@@ -304,6 +308,7 @@ class ReloadTest(BaseTest):
 
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+        self.ssh_jobs = []
         self.start_sender_delay = 60
 
         # Check if platform type is kvm
@@ -316,6 +321,14 @@ class ReloadTest(BaseTest):
             self.check_param('service_list', None, required=True)
             self.check_param('service_data', None, required=True)
             self.service_data = self.test_params['service_data']
+            self.service_restart_done = threading.Event()
+            self.service_restart_error = None
+            self.service_traffic_error = None
+            self.stop_service_traffic = threading.Event()
+            self.service_traffic_started = threading.Event()
+            self.sniffer_started = threading.Event()
+            self.bgp_peer_ready = {}
+            self.stop_bgp_peer_monitors = threading.Event()
             for service_name in self.test_params['service_list']:
                 if service_name not in self.service_data:
                     self.service_data[service_name] = {}
@@ -385,13 +398,21 @@ class ReloadTest(BaseTest):
 
         active_portchannels = list()
         for neighbor_info in list(self.vm_dut_map.values()):
-            active_portchannels.append(neighbor_info["dut_portchannel"])
+            if self.bgp_service_restart:
+                if "dut_portchannel" in neighbor_info:
+                    active_portchannels.append(neighbor_info["dut_portchannel"])
+            else:
+                active_portchannels.append(neighbor_info["dut_portchannel"])
 
         pc_ifaces = []
         for pc in portchannel_content.values():
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member]
                                  for member in pc['members']])
+        if self.bgp_service_restart:
+            for neighbor_info in self.vm_dut_map.values():
+                if "dut_portchannel" not in neighbor_info:
+                    pc_ifaces.extend(neighbor_info["ptf_ports"])
 
         dualtor_pc_ifaces = []
         if self.is_dualtor:
@@ -738,17 +759,29 @@ class ReloadTest(BaseTest):
         self.log("Converted addresses VMs: %s" % str(self.ssh_targets))
         self.init_sad_oper()
 
-        self.vlan_host_map = self.generate_vlan_servers()
-        arp_responder_conf = self.generate_arp_responder_conf(
-            self.vlan_host_map)
-        self.dump_arp_responder_config(arp_responder_conf)
+        if self.routed_traffic:
+            self.generate_routed_traffic()
+        else:
+            self.vlan_host_map = self.generate_vlan_servers()
+            arp_responder_conf = self.generate_arp_responder_conf(self.vlan_host_map)
+            self.dump_arp_responder_config(arp_responder_conf)
 
-        self.random_vlan = random.choice(self.vlan_ports)
-        self.from_server_src_port = self.random_vlan
-        self.from_server_src_addr = random.choice(list(self.vlan_host_map[self.random_vlan].keys()))
-        self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
-        self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
+            self.random_vlan = random.choice(self.vlan_ports)
+            self.from_server_src_port = self.random_vlan
+            self.from_server_src_addr = random.choice(list(self.vlan_host_map[self.random_vlan].keys()))
+            self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
+            if self.bgp_service_restart:
+                endpoint = self.test_params['bgp_traffic_endpoints'][0]
+                self.from_server_dst_addr = endpoint['ip']
+                self.from_server_dst_ports = endpoint['ports']
+            else:
+                self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
+                self.from_server_dst_ports = (self.dualtor_portchannel_ports if self.is_dualtor
+                                              else self.portchannel_ports)
+            self.generate_from_t1()
+            self.generate_from_vlan()
+            self.generate_arp_ping_packet()
+            self.generate_arp_vlan_gw_packets()
 
         self.log("Test params:")
         self.log("DUT ssh: %s@%s" %
@@ -766,11 +799,7 @@ class ReloadTest(BaseTest):
 
         self.log("Reboot type is %s" % self.reboot_type)
 
-        self.generate_from_t1()
-        self.generate_from_vlan()
         self.generate_ping_dut_lo()
-        self.generate_arp_ping_packet()
-        self.generate_arp_vlan_gw_packets()
 
         if 'warm-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
@@ -786,13 +815,13 @@ class ReloadTest(BaseTest):
             filename = os.path.join(config["log_dir"], str(self)) + ".pcap"
             self.dataplane.start_pcap(filename)
 
-        self.log("Enabling arp_responder")
-        self.cmd(["supervisorctl", "restart", "arp_responder"])
+        if not self.routed_traffic:
+            self.log("Enabling arp_responder")
+            self.cmd(["supervisorctl", "restart", "arp_responder"])
 
-        # Give arp_responder 15 seconds to start up, because with the libpcap backend, scapy will first get information
-        # about all of the interfaces on the system (which takes a bit of time) and then proceeds.
-        self.log("Waiting 15 seconds for ARP responder to complete initialization")
-        time.sleep(15)
+            # Scapy enumerates all interfaces before the ARP responder can answer.
+            self.log("Waiting 15 seconds for ARP responder to complete initialization")
+            time.sleep(15)
 
         return
 
@@ -820,8 +849,11 @@ class ReloadTest(BaseTest):
 
     def tearDown(self):
 
-        self.log("Disabling arp_responder")
-        self.cmd(["supervisorctl", "stop", "arp_responder"])
+        if self.reboot_type == 'service-warm-restart':
+            self.stop_service_workers()
+        if not self.routed_traffic:
+            self.log("Disabling arp_responder")
+            self.cmd(["supervisorctl", "stop", "arp_responder"])
         if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
             self.log("Remove the tcpdump pcap on the vm host.")
             self.vmhost_connection.execCommand(f"sudo rm -rf {self.remote_capture_pcap}")
@@ -844,12 +876,50 @@ class ReloadTest(BaseTest):
     def hex_to_mac(hex_mac):
         return ':'.join(hex_mac[i:i+2] for i in range(0, len(hex_mac), 2))
 
+    def generate_routed_traffic(self):
+        """Use two learned BGP destinations instead of inventing a VLAN on routed DUTs."""
+        upper, lower = self.test_params['bgp_traffic_endpoints']
+        self.portchannel_ports = upper['ports']
+        self.vlan_ports = lower['ports']
+        self.from_server_src_addr = lower['ip']
+        self.from_server_dst_addr = upper['ip']
+        self.from_server_src_port = lower['ports'][0]
+        self.from_server_dst_ports = upper['ports']
+        self.setup_fdb_before_test = False
+        self.vlan_host_ping_map = {
+            port: {lower['ip']: self.VLAN_BASE_MAC_PATTERN.format(index)}
+            for index, port in enumerate(lower['ports'])
+        }
+        groups = []
+        masks = []
+        for source, destination, ttl in ((upper, lower, 255), (lower, upper, 64)):
+            packets = []
+            for index, port in enumerate(source['ports']):
+                packet = simple_tcp_packet(
+                    eth_src=self.hex_to_mac(self.LAG_BASE_MAC_PATTERN.format(index)),
+                    eth_dst=self.dut_mac, ip_src=source['ip'], ip_dst=destination['ip'],
+                    ip_ttl=ttl, tcp_dport=5000)
+                packets.append((port, bytes(packet)))
+            expected = packet.copy()
+            expected[scapy.IP].ttl -= 1
+            mask = Mask(expected)
+            for layer, field in ((scapy.Ether, 'src'), (scapy.Ether, 'dst'), (scapy.IP, 'chksum')):
+                mask.set_do_not_care_scapy(layer, field)
+            groups.append(packets)
+            masks.append(mask)
+        self.from_t1, self.from_servers = groups
+        self.from_t1_exp_packet, self.from_vlan_exp_packet = masks
+        self.nr_vl_pkts = len(self.from_t1)
+        self.watcher_from_server_iter = itertools.cycle(self.from_servers)
+        self.log("Routed traffic destinations: {}".format(self.test_params['bgp_traffic_endpoints']))
+
     def generate_from_t1(self):
         self.from_t1 = []
 
         # for each server host create a packet destinating server IP
         for counter, host_port in enumerate(self.vlan_host_map):
-            src_addr = self.random_ip(self.default_ip_range)
+            src_addr = (self.test_params['bgp_traffic_endpoints'][0]['ip'] if self.bgp_service_restart
+                        else self.random_ip(self.default_ip_range))
             src_port = self.random_port(self.portchannel_ports)
 
             for server_ip in self.vlan_host_map[host_port]:
@@ -1047,6 +1117,8 @@ class ReloadTest(BaseTest):
         self.lacp_session_pause = dict()
         for addr in self.ssh_targets:
             q = Queue.Queue(1)
+            if self.bgp_service_restart:
+                self.bgp_peer_ready[addr] = threading.Event()
             self.lacp_session_pause[addr] = None
             thr = threading.Thread(target=self.peer_state_check, kwargs={
                                    'ip': addr, 'queue': q})
@@ -1172,9 +1244,94 @@ class ReloadTest(BaseTest):
             "read start time of {}".format(service_name), attempts=attempts)
         return str(stdout[0]).strip()
 
+    @staticmethod
+    def route_next_hops(snapshot):
+        routes = {}
+        for prefix, entry in snapshot.items():
+            fields = entry['value']
+            nexthops = fields.get('nexthop', '').split(',')
+            interfaces = fields.get('ifname', '').split(',')
+            if len(nexthops) != len(interfaces):
+                raise ValueError("Unpaired next hops/interfaces in {}".format(prefix))
+            routes[prefix] = (sorted(zip(nexthops, interfaces)), fields.get('blackhole', 'false'))
+        return routes
+
+    def read_dut_json(self, command):
+        return json.loads(''.join(self.run_dut_command(command, command)))
+
+    def wait_until_bgp_converged(self):
+        baseline = self.route_next_hops(self.read_json('bgp_routes_file'))
+        data = self.service_data['bgp']
+        deadline = time.monotonic() + self.test_params['warm_up_timeout_secs']
+        last_state = None
+        while time.monotonic() < deadline:
+            state = self.read_dut_json(
+                "sonic-db-dump -n STATE_DB -k 'WARM_RESTART_TABLE|bgp' -y")
+            state = state.get('WARM_RESTART_TABLE|bgp', {}).get('value', {})
+            last_state = state
+            if state.get('state') == 'reconciled' and int(state.get('restore_count', 0)) > data['restore_count']:
+                neighbors = self.read_dut_json("vtysh -c 'show bgp neighbors json'")
+                established = all(neighbors.get(peer, {}).get('bgpState') == 'Established'
+                                  for peer in data['bgp_neighbors'])
+                routes = self.route_next_hops(self.read_dut_json(
+                    "sonic-db-dump -n APPL_DB -k 'ROUTE_TABLE:*' -y"))
+                if established and routes == baseline:
+                    self.report['bgp_recovery'] = {
+                        'warm_restart': state, 'previous_restore_count': data['restore_count'],
+                        'neighbors_established': data['bgp_neighbors'],
+                        'route_prefixes_and_next_hops_restored': True,
+                        'route_count': len(routes)}
+                    return
+                self.log("Waiting for BGP recovery: established={}, missing={}, added={}, changed={}".format(
+                    established, sorted(set(baseline) - set(routes))[:10],
+                    sorted(set(routes) - set(baseline))[:10],
+                    [prefix for prefix in baseline if prefix in routes and baseline[prefix] != routes[prefix]][:10]))
+            time.sleep(5)
+        raise RuntimeError("BGP did not complete a new warm reconciliation with its original routes/peers: {}".format(
+            last_state))
+
+    def run_service_traffic_worker(self, operation):
+        try:
+            operation()
+        except Exception:
+            self.service_traffic_error = traceback.format_exc()
+            self.log(self.service_traffic_error)
+            self.fails['infrastructure'].add(self.service_traffic_error)
+            self.stop_service_traffic.set()
+
+    def start_service_traffic(self):
+        self.sender_thr = threading.Thread(target=self.run_service_traffic_worker, args=(self.send_in_background,))
+        self.sniff_thr = threading.Thread(target=self.run_service_traffic_worker, args=(self.sniff_in_background,))
+        self.sniff_thr.start()
+        self.sender_thr.start()
+        if not self.service_traffic_started.wait(timeout=self.start_sender_delay + 10):
+            raise RuntimeError("Capture and bidirectional traffic must start before restarting a service: {}".format(
+                self.service_traffic_error))
+        if self.service_traffic_error or not self.sniff_thr.is_alive() or not self.sender_thr.is_alive():
+            raise RuntimeError("Service traffic workers failed before the interruption")
+
+    def stop_service_workers(self):
+        self.stop_service_traffic.set()
+        self.stop_bgp_peer_monitors.set()
+        self.kill_sniffer = True
+        self.watching = False
+        deadline = time.monotonic() + self.start_sender_delay + 30
+        workers = [self.sender_thr, self.sniff_thr]
+        if self.bgp_service_restart:
+            workers.extend(worker for worker, _ in self.ssh_jobs)
+        for worker in workers:
+            if worker.ident is not None:
+                worker.join(timeout=max(0, deadline - time.monotonic()))
+                if worker.is_alive():
+                    self.fails['infrastructure'].add("Service worker did not stop: {}".format(worker.name))
+
     def wait_until_service_restart(self):
         self.log("Wait until sevice restart")
-        self.reboot_start = datetime.datetime.now()
+        timeout = self.task_timeout * len(self.test_params['service_list']) + self.reboot_delay + 30
+        if not self.service_restart_done.wait(timeout=timeout):
+            raise RuntimeError("Service restart command did not finish within {} seconds".format(timeout))
+        if self.service_restart_error:
+            raise RuntimeError(self.service_restart_error)
         service_set = set(self.test_params['service_list'])
         wait_time = 120
         while wait_time > 0:
@@ -1200,16 +1357,28 @@ class ReloadTest(BaseTest):
 
         # TODO: add timestamp
         self.log("Service has restarted")
+        if self.bgp_service_restart:
+            self.wait_until_bgp_converged()
 
     def handle_advanced_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add(
             "Data plane has a forwarding problem after CPU went down")
         self.check_alive()
-        self.fails['dut'].clear()
+        self.fails['dut'].discard("Data plane has a forwarding problem after CPU went down")
+
+        if self.reboot_type == 'service-warm-restart':
+            self.stop_service_traffic.set()
+            self.sender_thr.join(timeout=self.start_sender_delay + 30)
+            self.sniff_thr.join(timeout=30)
+            if self.sender_thr.is_alive() or self.sniff_thr.is_alive():
+                raise RuntimeError("Service traffic capture did not finish")
+            if self.service_traffic_error:
+                raise RuntimeError(self.service_traffic_error)
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
+        while self.reboot_type != 'service-warm-restart' and not (
+                self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
             time.sleep(1)
 
         self.log("IO sender and sniffer threads have started, wait until completion")
@@ -1284,7 +1453,7 @@ class ReloadTest(BaseTest):
                 # verify there are no interface flaps after warm boot
                 self.neigh_lag_status_check()
 
-        if 'service-warm-restart' == self.reboot_type:
+        if 'service-warm-restart' == self.reboot_type and not self.bgp_service_restart:
             # verify there are no interface flaps after warm boot
             self.neigh_lag_status_check()
 
@@ -1504,7 +1673,16 @@ class ReloadTest(BaseTest):
             self.log("Check that device is alive and pinging")
             self.fails['dut'].add("DUT is not ready for test")
             self.wait_dut_to_warm_up()
-            self.fails['dut'].clear()
+            self.fails['dut'].discard("DUT is not ready for test")
+
+            if self.bgp_service_restart:
+                for address, ready in self.bgp_peer_ready.items():
+                    if not ready.wait(timeout=self.start_sender_delay):
+                        raise RuntimeError("BGP route monitor is not ready on {}".format(address))
+                    if self.fails.get(address):
+                        raise RuntimeError("BGP route preflight failed on {}".format(address))
+            if self.reboot_type == 'service-warm-restart' and (not self.kvm_test or self.bgp_service_restart):
+                self.start_service_traffic()
 
             self.clear_dut_counters()
             self.log("Schedule to reboot the remote switch in %s sec" %
@@ -1527,7 +1705,7 @@ class ReloadTest(BaseTest):
                 thr.start()
                 self.warmboot_finalizer_thread = thr
 
-            if self.kvm_test:
+            if self.kvm_test and not self.bgp_service_restart:
                 self.handle_advanced_reboot_health_check_kvm()
                 self.handle_post_reboot_health_check_kvm()
             else:
@@ -1552,6 +1730,8 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
+            if self.reboot_type == 'service-warm-restart':
+                self.stop_service_workers()
             # Restore cEOS LACP timer multiplier to default (3)
             if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
                 self.ceos_set_lacp_all_neighs(3)
@@ -1716,7 +1896,15 @@ class ReloadTest(BaseTest):
                 "sudo " + self.reboot_type + ignore_db_integrity_check, timeout=10)
 
         else:
-            self.restart_service()
+            self.reboot_start = datetime.datetime.now()
+            try:
+                self.restart_service()
+            except Exception:
+                self.service_restart_error = traceback.format_exc()
+                self.log(self.service_restart_error)
+                self.fails['dut'].add(self.service_restart_error)
+            finally:
+                self.service_restart_done.set()
             return
 
         if not self.kvm_test and\
@@ -1749,17 +1937,25 @@ class ReloadTest(BaseTest):
         return
 
     def restart_service(self):
+        from service_warm_restart import docker_image_fingerprint
+
         for service_name in self.test_params['service_list']:
-            if 'image_path_on_dut' in self.service_data[service_name]:
+            data = self.service_data[service_name]
+            image_path = data.get('image_path_on_dut')
+            if data.get('mode') == 'upgrade' and not image_path:
+                raise ValueError("Upgrade requested without a staged image for {}".format(service_name))
+            if image_path:
                 stdout, stderr, return_code = self.dut_connection.execCommand(
                     "sudo sonic-installer upgrade-docker {} {} -y --warm"
-                    .format(service_name, self.service_data[service_name]['image_path_on_dut']), timeout=30)
+                    .format(shlex.quote(service_name), shlex.quote(image_path)), timeout=self.task_timeout)
             else:
-                self.dut_connection.execCommand(
+                _, stderr, return_code = self.dut_connection.execCommand(
                     'sudo config warm_restart enable {}'.format(service_name))
+                if return_code:
+                    raise RuntimeError("Failed to enable warm restart for {}: {}".format(service_name, stderr))
                 self.pre_service_warm_restart(service_name)
                 stdout, stderr, return_code = self.dut_connection.execCommand(
-                    'sudo service {} restart'.format(service_name))
+                    'sudo service {} restart'.format(service_name), timeout=self.task_timeout)
 
             if stdout != []:
                 self.log("stdout from %s %s: %s" %
@@ -1767,15 +1963,30 @@ class ReloadTest(BaseTest):
             if stderr != []:
                 self.log("stderr from %s %s: %s" %
                          (self.reboot_type, service_name, str(stderr)))
-                self.fails['dut'].add(
-                    "service warm restart {} failed with error {}".format(service_name, stderr))
-                thread.interrupt_main()
-                raise Exception("{} failed with error {}".format(
-                    self.reboot_type, stderr))
             self.log("return code from %s %s: %s" %
                      (self.reboot_type, service_name, str(return_code)))
-            if return_code not in [0, 255]:
-                thread.interrupt_main()
+            if return_code != 0:
+                raise RuntimeError("Service {} restart/upgrade failed (rc={}): {}".format(
+                    service_name, return_code, stderr))
+            image_id = ''.join(self.run_dut_command(
+                "docker inspect --format '{{{{.Image}}}}' {}".format(shlex.quote(service_name)),
+                "read image identity for {}".format(service_name))).strip()
+            if image_path and image_id == data.get('image_id'):
+                raise RuntimeError(
+                    "Unexpected image for {}: upgrade left the original image running".format(service_name))
+            if not image_path and data.get('image_id') and image_id != data['image_id']:
+                raise RuntimeError("Unexpected image change during restart-only operation for {}".format(service_name))
+            image = self.read_dut_json('docker image inspect {}'.format(shlex.quote(image_id)))[0]
+            fingerprint = docker_image_fingerprint(image)
+            expected = data['target_image_fingerprint'] if image_path else data['image_fingerprint']
+            if fingerprint != expected:
+                raise RuntimeError("Unexpected image content for {}: expected {}, got {}".format(
+                    service_name, expected, fingerprint))
+            data['running_image_id'] = image_id
+            self.report.setdefault('services', {})[service_name] = {
+                'mode': data.get('mode', 'upgrade' if image_path else 'restart'),
+                'previous_image_id': data.get('image_id'), 'running_image_id': image_id,
+                'running_image_fingerprint': fingerprint, 'target_config_digest': data.get('target_config_digest')}
 
     def pre_service_warm_restart(self, service_name):
         """
@@ -1790,9 +2001,12 @@ class ReloadTest(BaseTest):
                 self.log(
                     'orchagent is not in clean state, RESTARTCHECK failed: {}'.format(return_code))
         elif service_name == 'bgp':
-            self.dut_connection.execCommand(
-                'docker exec -i bgp pkill -9 zebra')
-            self.dut_connection.execCommand('docker exec -i bgp pkill -9 bgpd')
+            for process in ('zebra', 'bgpd'):
+                stdout, stderr, return_code = self.dut_connection.execCommand(
+                    'docker exec -i bgp pkill -9 {}'.format(process))
+                if return_code:
+                    raise RuntimeError("BGP warm-restart preparation failed for {}: {}, {}".format(
+                        process, stdout, stderr))
         elif service_name == 'teamd':
             self.dut_connection.execCommand(
                 'docker exec -i teamd pkill -USR1 teamd > /dev/null')
@@ -1813,6 +2027,9 @@ class ReloadTest(BaseTest):
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
+        if self.bgp_service_restart:
+            self.monitor_bgp_peer(ssh, ip, queue)
+            return
         try:
             self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
         except Exception:
@@ -1879,6 +2096,62 @@ class ReloadTest(BaseTest):
 
         self.lacp_session_pause[ip] = max_lacp_session_wait
 
+    def peer_route_next_hops(self, ssh, prefix):
+        version = ipaddress.ip_network(prefix).version
+        family = 'ip' if version == 4 else 'ipv6'
+        if self.test_params['neighbor_type'] == 'sonic':
+            output = ssh.do_cmd('vtysh -c "show {} route {} json"'.format(family, prefix))
+            routes = json.loads(output)
+            return {(ipaddress.ip_address(nexthop['ip'].split('%')[0]), nexthop.get('interfaceName'))
+                    for route in routes.get(prefix, []) if route.get('selected')
+                    for nexthop in route.get('nexthops', []) if nexthop.get('fib') and 'ip' in nexthop}
+        output = ssh.do_cmd('show {} route {} | json'.format(family, prefix))
+        routes = json.loads(output[output.index('{'):output.rindex('}') + 1])
+        if 'vrfs' in routes:
+            routes = routes['vrfs']['default']
+        route = routes['routes'].get(prefix, {})
+        if route.get('routeAction') != 'forward':
+            return set()
+        return {(ipaddress.ip_address(via['nexthopAddr'].split('%')[0]), via.get('interface'))
+                for via in route.get('vias', [])}
+
+    def monitor_bgp_peer(self, ssh, address, queue):
+        """Sample routes through this DUT, not an alternate path, without assuming a LAG."""
+        self.fails[address] = set()
+        samples = []
+        self.report.setdefault('bgp_peers', {})[address] = samples
+        try:
+            ssh.connect()
+            peers = self.service_data['bgp']['peer_addresses'][address]
+            mapping = next(peer for peer in self.vm_dut_map.values() if peer['mgmt_addr'] == address)
+            interfaces = ({mapping['neigh_portchannel']} if 'neigh_portchannel' in mapping
+                          else set(mapping['neigh_ports']))
+            while not self.stop_bgp_peer_monitors.is_set():
+                sample = {'time': time.time()}
+                for family, prefix in (('ipv4', self.lo_prefix), ('ipv6', self.test_params['lo_v6_prefix'])):
+                    if family not in peers:
+                        raise ValueError("Missing {} DUT-facing session on {}".format(family, address))
+                    expected = ipaddress.ip_address(peers[family])
+                    retained = any(nexthop == expected or (nexthop.is_link_local and interface in interfaces)
+                                   for nexthop, interface in self.peer_route_next_hops(ssh, prefix))
+                    sample[family + '_route_via_dut'] = retained
+                    if not retained:
+                        self.fails[address].add("{} route {} lost its next hop through the DUT".format(family, prefix))
+                samples.append(sample)
+                self.bgp_peer_ready[address].set()
+                try:
+                    if queue.get(timeout=1) == 'quit':
+                        break
+                except Queue.Empty:
+                    continue
+        except Exception:
+            message = traceback.format_exc()
+            self.log("BGP peer monitor {} failed: {}".format(address, message))
+            self.fails[address].add(message)
+        finally:
+            self.bgp_peer_ready[address].set()
+            ssh.disconnect()
+
     def wait_until_cpu_port_down(self, signal):
         while not signal.is_set():
             for _, q in self.ssh_jobs:
@@ -1914,7 +2187,9 @@ class ReloadTest(BaseTest):
         """
         if not packets_list:
             packets_list = self.packets_list
-        self.sniffer_started.wait(timeout=self.start_sender_delay)
+        if not self.sniffer_started.wait(timeout=self.start_sender_delay):
+            if self.reboot_type == 'service-warm-restart':
+                raise RuntimeError("Packet capture did not become ready")
         with self.dataplane_io_lock:
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load
@@ -1934,7 +2209,10 @@ class ReloadTest(BaseTest):
 
             while True:
                 time.sleep(self.send_interval)
-                if self.reboot_start and self.finalizer_state == "inactive":
+                if self.reboot_type == 'service-warm-restart' and self.stop_service_traffic.is_set():
+                    break
+                if self.reboot_type != 'service-warm-restart' and self.reboot_start and \
+                        self.finalizer_state == "inactive":
                     # keep sending packets until device reboots and finalizer enters inactive state
                     break
                 payload = '0' * 60 + str(self.sent_packet_count)
@@ -1951,6 +2229,8 @@ class ReloadTest(BaseTest):
                     sent_count_t1_to_vlan += 1
                 testutils.send_packet(self, from_port, bytes(packet))
                 self.sent_packet_count = self.sent_packet_count + 1
+                if self.reboot_type == 'service-warm-restart' and self.sent_packet_count >= 10:
+                    self.service_traffic_started.set()
 
             self.log("Sent count vlan to t1: {}".format(sent_count_vlan_to_t1))
             self.log("Sent count t1 to vlan: {}".format(sent_count_t1_to_vlan))
@@ -1977,6 +2257,9 @@ class ReloadTest(BaseTest):
         """
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
+        if self.reboot_type == 'service-warm-restart':
+            wait = max(wait, self.task_timeout * len(self.test_params['service_list']) +
+                       self.test_params['warm_up_timeout_secs'] + self.reboot_delay + self.start_sender_delay + 60)
         sniffer_start = datetime.datetime.now()
         self.log("Starting sniffer thread at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
@@ -2012,6 +2295,10 @@ class ReloadTest(BaseTest):
         except Exception:
             traceback_msg = traceback.format_exc()
             self.log("Error in tcpdump_sniff: {}".format(traceback_msg))
+            if self.reboot_type == 'service-warm-restart':
+                self.service_traffic_error = traceback_msg
+                self.fails['infrastructure'].add(traceback_msg)
+                self.stop_service_traffic.set()
 
     def start_sniffer_on_vmhost(self, pcap_path, tcpdump_filter, timeout):
         """
@@ -2066,14 +2353,17 @@ class ReloadTest(BaseTest):
 
         pcap_existence_check_limit = 10
         pcap_existence_check_count = 0
-        while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
+        while (not os.path.exists(pcap_path) or os.path.getsize(pcap_path) == 0) and \
+                pcap_existence_check_count < pcap_existence_check_limit and process.poll() is None:
             time.sleep(1)
             pcap_existence_check_count += 1
 
-        if not os.path.exists(pcap_path):
+        if not os.path.exists(pcap_path) or os.path.getsize(pcap_path) == 0 or process.poll() is not None:
             self.log("Dumpcap did not create pcap file!")
             process.terminate()
             process.kill()
+            if self.reboot_type == 'service-warm-restart':
+                raise RuntimeError("Dumpcap failed before capture became ready")
             return
 
         # Unblock waiter for the send_in_background.
@@ -2114,10 +2404,8 @@ class ReloadTest(BaseTest):
         It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload
         """
         try:
-            int(bytes(packet[scapyall.TCP].payload)
-                ) in range(self.sent_packet_count)
-            return True
-        except Exception:
+            return 0 <= int(bytes(packet[scapyall.TCP].payload)) < self.sent_packet_count
+        except (ValueError, TypeError, IndexError):
             return False
 
     def no_flood(self, packet):
@@ -2192,7 +2480,7 @@ class ReloadTest(BaseTest):
         missing_sent_and_received_packet_id_sequences = []
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
-        self.fails['dut'].clear()
+        self.fails['dut'].discard("Sniffer failed to capture any traffic")
         prev_payload = None
         if packets:
             prev_payload, prev_time = -1, 0
@@ -2310,7 +2598,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].add("Sniffer failed to filter any traffic from DUT")
         self.assertTrue(received_counter,
                         "Sniffer failed to filter any traffic from DUT")
-        self.fails['dut'].clear()
+        self.fails['dut'].discard("Sniffer failed to filter any traffic from DUT")
         self.disrupts_count = len(self.lost_packets)  # Total disrupt counter.
         if self.lost_packets:
             # Find the longest loss with the longest time:
@@ -2638,6 +2926,9 @@ class ReloadTest(BaseTest):
             partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
             flooding = reachable and total_rcv_pkt_cnt > self.ping_dut_pkts
             self.log_cpu_state_change(reachable, partial, flooding)
+            if self.routed_traffic:
+                self.watcher_is_running.set()
+                continue
             total_rcv_pkt_cnt = self.arpPing()
             reachable = total_rcv_pkt_cnt >= self.arp_ping_pkts
             self.log_vlan_state_change(reachable)

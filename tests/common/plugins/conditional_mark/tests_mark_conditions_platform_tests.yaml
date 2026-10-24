@@ -1745,7 +1745,7 @@ platform_tests/test_service_warm_restart.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
-      - "topo_type not in ['t0']"
+      - "topo_type not in ['t0', 't1', 'm0', 'mx']"
 
 ##########################################
 #####  test_sfp_thermal_state_db.py  #####
