@@ -13,7 +13,8 @@ def _port_alias_to_name_map_50G(all_ports, s100G_ports,):
     return new_map
 
 
-def get_port_alias_to_name_map(hwsku, asic_name=None):
+def get_port_alias_to_name_map(hwsku, asic_name=None, strict=False):
+    """Return port mappings, optionally rejecting unknown off-box HWSKUs."""
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {}
@@ -827,6 +828,8 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         else:
             if "Arista-7800" in hwsku:
                 assert False, "Please add port_alias_to_name_map for new modular SKU %s." % hwsku
+            if strict:
+                raise ValueError("No predefined port mapping for HWSKU '{}'".format(hwsku))
             for i in range(0, 128, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
