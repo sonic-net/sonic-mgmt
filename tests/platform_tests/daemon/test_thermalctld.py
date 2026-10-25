@@ -66,7 +66,7 @@ LEAK_SEVERITY_AGGREGATION_PARAMS = [
 ]
 # the time window to observe the escalation from MINOR to MAJOR
 MIN_ESCALATION_TIMEOUT_SEC = 5  # 5 seconds is the minimum time window to observe the MINOR state
-MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the CRITICAL state
+MAX_ESCALATION_TIMEOUT_SEC = 120  # 120 seconds is the maximum time window to observe the MAJOR state
 
 
 # https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-thermalctld/scripts/thermalctld#L1438
