@@ -215,6 +215,7 @@ class TestBmcctldDaemon:
         else:
             la.marker_prefix = "bmcctld_event_trigger_minor_leak"
             marker = la.init(log_target='syslog')
+            ev_marker = la.init()
             la.match_regex = []
             # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
             with pause_pmon_daemon(self.duthost, 'thermalctld'):
@@ -230,13 +231,13 @@ class TestBmcctldDaemon:
             la.match_regex = [r".*[Ll]eak.*"]
             r2 = la.analyze(marker, fail=False, log_target='syslog')
             trigger_results['SYSTEM_LEAK_STATUS'] = r2.get("total", {}).get("match", 0) > 0
-            # MINOR is syslog-only: must NOT appear in event.log.
-            minor_in_eventlog = []
-            for path, lines in (r2.get("match_messages") or {}).items():
-                if BMC_EVENT_LOG.split('/')[-1] in path:
-                    minor_in_eventlog.extend(
-                        ln for ln in lines if 'minor' in ln.lower() and 'leak' in ln.lower()
-                    )
+            # MINOR is syslog-only: must NOT appear in event.log (scanned separately).
+            la.match_regex = [r".*[Ll]eak.*"]
+            r2_ev = la.analyze(ev_marker)
+            minor_in_eventlog = [
+                ln for ln in r2_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+                if 'minor' in ln.lower()
+            ]
             pytest_assert(
                 not minor_in_eventlog,
                 f"MINOR leak event must NOT be written to {BMC_EVENT_LOG} (syslog-only). "
@@ -254,6 +255,7 @@ class TestBmcctldDaemon:
             major_pre_boot = get_host_uptime(major_host)
             la.marker_prefix = "bmcctld_event_trigger_major_leak"
             marker = la.init(log_target='syslog')
+            ev_marker = la.init()
             la.match_regex = []
             # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
             with pause_pmon_daemon(self.duthost, 'thermalctld'):
@@ -275,12 +277,12 @@ class TestBmcctldDaemon:
                 "Switch-Host must NOT reboot on a MAJOR leak (default action is syslog_only)"
             )
             # MAJOR detection is written to event.log (as for CRITICAL).
-            major_in_eventlog = []
-            for path, lines in (r2a.get("match_messages") or {}).items():
-                if BMC_EVENT_LOG.split('/')[-1] in path:
-                    major_in_eventlog.extend(
-                        ln for ln in lines if 'major' in ln.lower() and 'leak' in ln.lower()
-                    )
+            la.match_regex = [r".*[Ll]eak.*"]
+            r2a_ev = la.analyze(ev_marker)
+            major_in_eventlog = [
+                ln for ln in r2a_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+                if 'major' in ln.lower()
+            ]
             pytest_assert(
                 major_in_eventlog,
                 f"MAJOR leak event must be written to {BMC_EVENT_LOG}, but no matching line was found"
