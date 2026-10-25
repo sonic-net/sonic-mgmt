@@ -307,7 +307,7 @@ def get_major_leak_min_sensors(duthost, default=2):
     which thermalctld classifies the system as MAJOR_SYSTEM_LEAK.
 
     Resolution order (mirrors thermalctld):
-      1. User override LEAK_CONTROL_POLICY|policy system_major_leak_num_min_sensors in CONFIG_DB
+      1. User override LEAK_CONTROL_POLICY|policy system_major_leak_num_min_sensors in CONFIG_DB (>= 2)
       2. Platform API LiquidCoolingBase.get_major_leak_num_min_sensors()
       3. `default` if neither is available
 
@@ -315,17 +315,16 @@ def get_major_leak_min_sensors(duthost, default=2):
     independent of MIN-N.
     """
     # LEAK_CONTROL_POLICY is a single-row table; the CLI writes key "policy".
-    # Try the same key variants thermalctld/bmcctld resolve, in the same order.
-    val = None
-    for key in ('policy', 'LEAK_CONTROL_POLICY', ''):
-        val = redis_hget(duthost, CONFIG_DB, f'LEAK_CONTROL_POLICY|{key}',
-                         'system_major_leak_num_min_sensors')
-        if val is not None:
-            break
+    # redis_hget returns '' for a missing field, which int() rejects below.
+    val = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
+                     'system_major_leak_num_min_sensors')
     try:
-        return int(val)
+        override = int(val)
     except (TypeError, ValueError):
-        pass
+        override = None
+    # thermalctld ignores an override below 2 and falls back to the platform value.
+    if override is not None and override >= 2:
+        return override
     platform_val = get_platform_major_leak_num_min_sensors(duthost, default=None)
     return platform_val if platform_val is not None else default
 
