@@ -662,15 +662,18 @@ Precedence is CRITICAL > MAJOR > MINOR.
 MIN-N is the number of concurrent Minor leaks at or above which the system is classified as
 `MAJOR_SYSTEM_LEAK`. Its default comes from the platform API `get_major_leak_num_min_sensors()`
 (LiquidCoolingBase); a user can override it via `system_major_leak_num_min_sensors` in
-`LEAK_CONTROL_POLICY`. If the effective MIN-N is 0, only the count-based rule is off (the count-based MAJOR case is
+`LEAK_CONTROL_POLICY`. If the effective MIN-N is 0, only the count-based rule is off (the count-based MAJOR cases are
 skipped); the MAX-T escalation rule is independent of MIN-N and still applies. Note:
 `CRITICAL_SYSTEM_LEAK` now results only from an actual CRITICAL sensor — a lingering single Minor
 leak escalates to MAJOR, not CRITICAL.
 
 **Planned Test Steps (for reference, not executed)**:
-1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`. For the count-based MAJOR case, resolve MIN-N (from `LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors`, else the platform default); skip that case if MIN-N < 2 (count rule off). The escalation case does not depend on MIN-N.
+1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`. For the count-based MAJOR case, resolve MIN-N (from `LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors`, else the platform default); skip the count cases if MIN-N < 2 (MIN-N < 3 for the below-MIN-N cases, which need at least 2 sensors; count rule off). The escalation case does not depend on MIN-N.
 2. **Rule 1** — inject a leak on 1 sensor with leak_severity `CRITICAL`; wait ≤2 poll cycles; assert `LIQUID_COOLING_INFO|<s0>.leaking=Yes, leak_sensor_status=Good, leak_severity=CRITICAL` and `SYSTEM_LEAK_STATUS|system.device_leak_status=CRITICAL`. Clear the leak; wait for `device_leak_status` to recover.
 3. **Rule 3 (MAJOR)** — inject a leak on MIN-N sensors, each with leak_severity `MINOR`; wait ≤2 poll cycles; assert every per-sensor row has `leaking=Yes, leak_severity=MINOR` and `SYSTEM_LEAK_STATUS=MAJOR` (aggregation of concurrent Minor leaks, no CRITICAL present). Recover.
+3a. **Count above MIN-N** — inject MIN-N + 1 MINOR sensors; assert `SYSTEM_LEAK_STATUS=MAJOR`. Recover.
+3b. **Multiple Minor, below MIN-N, no escalation** (MIN-N >= 3) — inject MIN-N - 1 (>= 2) MINOR sensors whose `max_minor_duration_sec` is longer than the test window; assert `SYSTEM_LEAK_STATUS` stays `MINOR`. Recover.
+3c. **Multiple Minor, below MIN-N, escalation** (MIN-N >= 3) — inject MIN-N - 1 MINOR sensors with a short `max_minor_duration_sec`; assert `MINOR` first, then `MAJOR` after MAX-T (the timer rule is independent of the count rule). Recover.
 4. **Rule 4 (precedence)** — inject 1 MINOR + 1 CRITICAL sensor; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=CRITICAL` (a single CRITICAL wins over concurrent Minor leaks). Recover.
 5. **Rule 2 (escalation)** — temporarily set `LEAK_PROFILE|<type>.max_minor_duration_sec=5`; inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles → assert `SYSTEM_LEAK_STATUS=MINOR`; wait >5s → assert escalates to `SYSTEM_LEAK_STATUS=MAJOR`. Recover; restore profile.
 6. **Rule 5** — with the default `max_minor_duration_sec`, inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=MINOR` and per-sensor `leak_severity=MINOR`. Recover.
@@ -678,7 +681,8 @@ leak escalates to MAJOR, not CRITICAL.
 
 **Expected Result**:
 - Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS=CRITICAL`
-- Rule 3: MIN-N MINOR sensors → `SYSTEM_LEAK_STATUS=MAJOR`
+- Rule 3: MIN-N MINOR sensors → `SYSTEM_LEAK_STATUS=MAJOR`; MIN-N + 1 MINOR sensors → `MAJOR`
+- MIN-N - 1 (>= 2) MINOR sensors, no escalation → `MINOR`; same sensors lingering beyond MAX-T → `MINOR` → `MAJOR`
 - Rule 4: MINOR + CRITICAL sensors → `SYSTEM_LEAK_STATUS=CRITICAL` (precedence)
 - Rule 2: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `MAJOR` after `max_minor_duration_sec`
 - Rule 5: 1 MINOR sensor (default threshold, < MIN-N) → `SYSTEM_LEAK_STATUS=MINOR`

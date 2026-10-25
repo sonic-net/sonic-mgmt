@@ -50,19 +50,30 @@ SYSTEM_LEAK_STATUS_TABLE = 'SYSTEM_LEAK_STATUS'
 LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
 LEAK_PROFILE_TABLE = 'LEAK_PROFILE'
 
+# Params: (leak_severities, expected_system_leak_status, escalation, count_mode)
+#   escalation: None = any sensors; True = sensors that escalate within the test window;
+#               False = sensors that do not escalate within the test window.
+#   count_mode: None = use leak_severities as given. Otherwise the number of MINOR sensors is
+#               resolved from the effective MIN-N inside the test: 'below' = MIN-N - 1,
+#               'eq' = MIN-N, 'above' = MIN-N + 1.
 LEAK_SEVERITY_AGGREGATION_PARAMS = [
     # Severity precedence (evaluated top-down): CRITICAL > MAJOR > MINOR.
-    pytest.param(['CRITICAL'], 'CRITICAL', None, id='rule1_one_critical'),
-    # MIN-N or more concurrent Minor leaks aggregate to MAJOR (the actual number of
-    # Minor sensors injected is resolved from the platform MIN-N inside the test).
-    pytest.param(['MINOR', 'MINOR'], 'MAJOR', None, id='rule_major_multiple_minor'),
+    pytest.param(['CRITICAL'], 'CRITICAL', None, None, id='rule1_one_critical'),
+    # Count rule: MIN-N or more concurrent Minor leaks aggregate to MAJOR.
+    pytest.param([], 'MAJOR', None, 'eq', id='rule_major_minor_eq_min_n'),
+    pytest.param([], 'MAJOR', None, 'above', id='rule_major_minor_above_min_n'),
+    # Fewer than MIN-N concurrent Minor leaks (>= 2 sensors) that do not linger stay MINOR.
+    pytest.param([], 'MINOR', False, 'below', id='rule_minor_multiple_below_min_n'),
+    # Fewer than MIN-N concurrent Minor leaks, each lingering for MAX-T secs: MINOR first,
+    # then escalates to MAJOR (timer rule is independent of the count rule).
+    pytest.param([], 'MINOR', True, 'below', id='rule_minor_multiple_below_min_n_escalation'),
     # Any single CRITICAL present wins over concurrent Minor leaks (precedence).
-    pytest.param(['MINOR', 'CRITICAL'], 'CRITICAL', None, id='rule_minor_and_critical'),
-    pytest.param(['CRITICAL', 'CRITICAL'], 'CRITICAL', None, id='rule_two_critical'),
+    pytest.param(['MINOR', 'CRITICAL'], 'CRITICAL', None, None, id='rule_minor_and_critical'),
+    pytest.param(['CRITICAL', 'CRITICAL'], 'CRITICAL', None, None, id='rule_two_critical'),
     # 1 Minor leak staying for MAX-T secs escalates the system to MAJOR.
-    pytest.param(['MINOR'], 'MINOR', True, id='rule_minor_escalation'),
+    pytest.param(['MINOR'], 'MINOR', True, None, id='rule_minor_escalation'),
     # 1 Minor leak below both MIN-N and MAX-T stays MINOR.
-    pytest.param(['MINOR'], 'MINOR', False, id='rule_minor_no_escalation')
+    pytest.param(['MINOR'], 'MINOR', False, None, id='rule_minor_no_escalation')
 ]
 # the time window to observe the escalation from MINOR to MAJOR
 MIN_ESCALATION_TIMEOUT_SEC = 5  # 5 seconds is the minimum time window to observe the MINOR state
@@ -381,11 +392,12 @@ class TestThermalctldDaemon:
             logger.info("SYSTEM_LEAK_STATUS not populated - liquid cooling not active on this platform")
 
     @pytest.mark.parametrize(
-        'leak_severities,expected_system_leak_status,escalation',
+        'leak_severities,expected_system_leak_status,escalation,count_mode',
         LEAK_SEVERITY_AGGREGATION_PARAMS,
     )
     def test_thermalctld_leak_severity_aggregation(
-            self, mocker_factory, leak_severities, expected_system_leak_status, escalation):  # noqa: F811
+            self, mocker_factory, leak_severities, expected_system_leak_status,  # noqa: F811
+            escalation, count_mode):
         """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation."""
         if get_system_leak_status(self.duthost) == 'CRITICAL':
             pytest.skip("System leak status is already CRITICAL")
@@ -395,11 +407,15 @@ class TestThermalctldDaemon:
         # MIN-N is platform-defined (get_major_leak_num_min_sensors), user-overridable via
         # LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors. MIN-N 0 turns off only the
         # count rule; the escalation rule is independent of MIN-N.
-        min_n = get_major_leak_min_sensors(self.duthost)
-        if expected_system_leak_status == 'MAJOR' and escalation is not True:
-            if not min_n or min_n < 2:
-                pytest.skip("Count-based MAJOR_SYSTEM_LEAK is off on this platform (MIN-N < 2)")
-            leak_severities = ['MINOR'] * min_n
+        if count_mode:
+            min_n = get_major_leak_min_sensors(self.duthost)
+            # 'below' needs at least 2 sensors, so MIN-N must be 3 or more.
+            required_min_n = 3 if count_mode == 'below' else 2
+            if not min_n or min_n < required_min_n:
+                pytest.skip("MIN-N {} is too small for count case '{}' (need >= {})".format(
+                    min_n, count_mode, required_min_n))
+            num_minor = {'below': min_n - 1, 'eq': min_n, 'above': min_n + 1}[count_mode]
+            leak_severities = ['MINOR'] * num_minor
 
         leak_mocker = mocker_factory(self.duthost, 'LiquidLeakageMockerBMC')
         if leak_mocker is None:
