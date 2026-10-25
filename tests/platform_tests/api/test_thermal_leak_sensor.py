@@ -158,6 +158,9 @@ class TestLeakSensorApi(PlatformApiTestBase):
             min_n = liquid_cooling.get_major_leak_num_min_sensors(platform_api_conn)
         except Exception as e:
             pytest.skip(f"Platform API get_major_leak_num_min_sensors not available: {e}")
+        # The platform API server returns {"res": null} for an unimplemented method.
+        if min_n is None:
+            pytest.skip("Platform API get_major_leak_num_min_sensors not implemented")
 
         self.expect(isinstance(min_n, int) and not isinstance(min_n, bool),
                     f"get_major_leak_num_min_sensors() should return int, got {min_n!r}")
