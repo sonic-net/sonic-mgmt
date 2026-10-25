@@ -256,7 +256,8 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     # Convert the bgp_neighbors dict into json format after adding the table name.
     bgp_neigh_dict = {"BGP_NEIGHBOR": bgp_neighbors}
     bgp_neigh_json = json.dumps(bgp_neigh_dict)
-    duthost.shell("sudo sonic-cfggen {} -a '{}' --write-to-db".format(namespace_prefix, bgp_neigh_json))
+    # Pass the table on stdin to avoid the per-argument limit on scale topologies.
+    duthost.shell("sudo sonic-cfggen {} -j /dev/stdin --write-to-db".format(namespace_prefix), stdin=bgp_neigh_json)
 
     # Restart BGP instance on that asic
     duthost.asic_instance(asic_index).reset_service("bgp")
