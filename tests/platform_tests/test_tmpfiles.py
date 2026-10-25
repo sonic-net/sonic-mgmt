@@ -29,7 +29,7 @@ def test_tmpfiles_age_disabled(duthosts, enum_dut_hostname):
     for path in ("/tmp", "/var/tmp"):
         matching_rule = None
         for rule in rules:
-            if rule[0] == "q" and rule[1] == path:
+            if rule[0] in ("q", "d", "D") and rule[1] == path:
                 matching_rule = rule
                 break
 
