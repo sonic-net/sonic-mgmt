@@ -228,15 +228,18 @@ class TestBmcctldDaemon:
                     redis_hset(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status=orig_leak)
-            la.match_regex = [r".*[Ll]eak.*"]
+            la.match_regex = [r".*MINOR_SYSTEM_LEAK.*"]
             r2 = la.analyze(marker, fail=False, log_target='syslog')
             trigger_results['SYSTEM_LEAK_STATUS'] = r2.get("total", {}).get("match", 0) > 0
+            pytest_assert(trigger_results['SYSTEM_LEAK_STATUS'],
+                          "bmcctld did not log the MINOR_SYSTEM_LEAK event in syslog")
             # MINOR is syslog-only: must NOT appear in event.log (scanned separately).
-            la.match_regex = [r".*[Ll]eak.*"]
+            la.match_regex = [r"(?i).*leak.*"]
             r2_ev = la.analyze(ev_marker)
+            # Skip LogAnalyzer marker lines: their names contain the words leak/minor/major.
             minor_in_eventlog = [
                 ln for ln in r2_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
-                if 'minor' in ln.lower()
+                if 'loganalyzer' not in ln.lower() and 'minor' in ln.lower()
             ]
             pytest_assert(
                 not minor_in_eventlog,
@@ -268,20 +271,22 @@ class TestBmcctldDaemon:
                     redis_hset(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status=orig_leak)
-            la.match_regex = [r".*[Ll]eak.*"]
+            la.match_regex = [r".*MAJOR_SYSTEM_LEAK.*"]
             r2a = la.analyze(marker, fail=False, log_target='syslog')
             trigger_results['SYSTEM_LEAK_STATUS_MAJOR'] = r2a.get("total", {}).get("match", 0) > 0
+            pytest_assert(trigger_results['SYSTEM_LEAK_STATUS_MAJOR'],
+                          "bmcctld did not log the MAJOR_SYSTEM_LEAK event in syslog")
             # MAJOR is syslog-only (default): must NOT power off the Switch-Host.
             pytest_assert(
                 get_host_uptime(major_host) == major_pre_boot,
                 "Switch-Host must NOT reboot on a MAJOR leak (default action is syslog_only)"
             )
             # MAJOR detection is written to event.log (as for CRITICAL).
-            la.match_regex = [r".*[Ll]eak.*"]
+            la.match_regex = [r"(?i).*leak.*"]
             r2a_ev = la.analyze(ev_marker)
             major_in_eventlog = [
                 ln for ln in r2a_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
-                if 'major' in ln.lower()
+                if 'loganalyzer' not in ln.lower() and 'major' in ln.lower()
             ]
             pytest_assert(
                 major_in_eventlog,
@@ -338,19 +343,24 @@ class TestBmcctldDaemon:
                 time.sleep(15)
             finally:
                 redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}')
-            la.match_regex = [r".*(rack.*alert|rack_mgr|RACK_MGR).*"]
+            la.match_regex = [rf".*RACK_MGR_{alert_severity}_EVENT.*"]
             r3 = la.analyze(marker, fail=False, log_target='syslog')
             trigger_results[f'RACK_MANAGER_ALERT_{alert_severity}'] = \
                 r3.get("total", {}).get("match", 0) > 0
+            pytest_assert(trigger_results[f'RACK_MANAGER_ALERT_{alert_severity}'],
+                          f"bmcctld did not log RACK_MGR_{alert_severity}_EVENT in syslog")
             pytest_assert(
                 get_host_uptime(rack_alert_host) == rack_alert_pre_boot,
                 f"Switch-Host must NOT reboot on a {alert_severity} rack-manager alert "
                 f"(default action is syslog_only)"
             )
             # Rack MAJOR (like CRITICAL) is written to event.log; MINOR is syslog-only.
-            la.match_regex = [r".*RACK MGR ALERT.*"]
+            la.match_regex = [r"(?i).*rack mgr alert.*"]
             r3_ev = la.analyze(ev_marker)
-            rack_in_eventlog = r3_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+            rack_in_eventlog = [
+                ln for ln in r3_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+                if 'loganalyzer' not in ln.lower()
+            ]
             if alert_severity == 'MAJOR':
                 pytest_assert(
                     rack_in_eventlog,
