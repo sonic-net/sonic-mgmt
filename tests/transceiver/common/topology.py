@@ -13,7 +13,7 @@ PeerInfo = namedtuple("PeerInfo", ("host", "device", "port", "primary_port"))
 _LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST = {}
 
 
-def _get_lport_to_first_subport_mapping(duthost):
+def get_cached_lport_to_first_subport_mapping(duthost):
     """Return the cached logical-to-primary-subport mapping for one DUT."""
     hostname = duthost.hostname
     if hostname not in _LPORT_TO_FIRST_SUBPORT_MAPPING_BY_HOST:
@@ -77,7 +77,7 @@ def resolve_remote_peer(
             )
 
     try:
-        peer_mapping = _get_lport_to_first_subport_mapping(peer_host)
+        peer_mapping = get_cached_lport_to_first_subport_mapping(peer_host)
     except Exception as error:
         return None, "{} peer device {} mapping failed: {}".format(
             local_port,
