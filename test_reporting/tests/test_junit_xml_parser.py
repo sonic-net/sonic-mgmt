@@ -252,7 +252,11 @@ def test_xunit2_testcases_without_file_or_line_are_parsed():
 
     cases = [case for feature_cases in result["test_cases"].values() for case in feature_cases]
     assert len(cases) == 4
-    assert all(case["file"] == "" and case["line"] == "0" for case in cases)
+    # Without a file attribute the parser falls back to "classname::name".
+    assert all(
+        case["file"] == "{}::{}".format(case["classname"], case["name"]) and case["line"] == "0"
+        for case in cases
+    )
     assert result["test_summary"]["xfails"] == "0"
 
 

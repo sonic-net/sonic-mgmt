@@ -9,6 +9,7 @@ import time
 import os
 import traceback
 import six
+from enum import Enum
 
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys as prepareTestbedSshKeys
@@ -23,8 +24,69 @@ from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
+from tests.common.helpers.custom_msg_utils import add_custom_msg
+from tests.common.helpers.constants import CUSTOM_MSG_PREFIX
 
 logger = logging.getLogger(__name__)
+
+
+class ErrorType(str, Enum):
+    """Canonical error types for upgrade-path CustomMsg.error_type."""
+
+    UNKNOWN = "UNKNOWN"
+    TESTBED_SCRIPT_FAILED = "TESTBED_SCRIPT_FAILED"
+    POST_RELOADTEST_VERIFICATION = "POST_RELOADTEST_VERIFICATION"
+    RELOADTEST_VERIFICATION = "RELOADTEST_VERIFICATION"
+    MULTIHOP_RELOADTEST_EXCEPTION = "MULTIHOP_RELOADTEST_EXCEPTION"
+    BOOT_INTO_BASE_IMAGE_FAILED = "BOOT_INTO_BASE_IMAGE_FAILED"
+    INSTALL_TARGET_IMAGE_FAILED = "INSTALL_TARGET_IMAGE_FAILED"
+    POSTUPGRADE_ACTIONS_FAILED = "POSTUPGRADE_ACTIONS_FAILED"
+    PTFHOST_SETUP_FAILED = "PTFHOST_SETUP_FAILED"
+
+
+def get_upgrade_path_result_key(node_name):
+    """Build the per-test cache key for the upgrade-path error classification.
+
+    Keying by test name ensures one test's classification can neither overwrite
+    nor clear another's before the session-level CustomMsg emission (which only
+    happens on the last collected test's teardown). Dots and path separators are
+    replaced because '.' is the CustomMsg nesting delimiter and the key is used
+    as a cache file name.
+    """
+    safe_name = re.sub(r"[./\\]", "_", node_name)
+    return "upgrade_path_result.{}".format(safe_name)
+
+
+def set_upgrade_path_error_result_custom_msg(request, error_type: ErrorType) -> None:
+    """Write upgrade-path error classification under CustomMsg.upgrade_path_result.
+
+    The classification is keyed per test, and the first specific (non-UNKNOWN)
+    classification recorded for the current test wins: outer, coarser handlers
+    (e.g. RELOADTEST_VERIFICATION, MULTIHOP_RELOADTEST_EXCEPTION, post-reboot
+    verification in finally blocks) act as fallbacks and do not replace a more
+    specific label such as BOOT_INTO_BASE_IMAGE_FAILED or
+    INSTALL_TARGET_IMAGE_FAILED.
+
+    NOTE: Gating on upgrade-path options from here is not ideal as it is a form of
+    bidirectional coupling. Ideally advanced-reboot would not know anything about
+    upgrade_path tests and the dependency would be from upgrade-path to
+    advanced-reboot. That requires more plumbing and mapping logic to decouple,
+    so we don't worry about that for now; this comment serves as a reminder.
+    """
+    # Only emit when upgrade-path options are actually in use, so advanced-reboot
+    # failures in non-upgrade suites (e.g. platform_tests) don't write a spurious
+    # upgrade_path_result classification.
+    if not (request.config.getoption("base_image_list", default=None)
+            or request.config.getoption("multi_hop_upgrade_path", default=None)):
+        return
+    key = get_upgrade_path_result_key(request.node.name)
+    existing = request.config.cache.get("{}.{}".format(CUSTOM_MSG_PREFIX, key), None)
+    if (isinstance(existing, dict)
+            and existing.get("error_type") not in (None, ErrorType.UNKNOWN.value)):
+        # Preserve the first specific classification for the current test.
+        return
+    add_custom_msg(request, key, {"error_type": error_type.value})
+
 
 # Globals
 HOST_MAX_COUNT = 126
@@ -316,7 +378,11 @@ class AdvancedReboot:
         # this could be done using script API from ansible modules
         for script in scripts:
             logger.info('Running script {0} on {1}'.format(script, ansibleHost.hostname))
-            ansibleHost.script('scripts/' + script)
+            try:
+                ansibleHost.script('scripts/' + script)
+            except Exception:
+                set_upgrade_path_error_result_custom_msg(self.request, ErrorType.TESTBED_SCRIPT_FAILED)
+                raise
 
     def __prepareTestbedSshKeys(self):
         """
@@ -662,9 +728,15 @@ class AdvancedReboot:
 
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
-                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
-                                                        self.duthost.hostname)
-            except Exception:
+                    msg = "Failed to verify BGP router identifier is Loopback0 on %s" % self.duthost.hostname
+                    test_results[test_case_name].append(msg)
+                    set_upgrade_path_error_result_custom_msg(
+                        self.request,
+                        ErrorType.POST_RELOADTEST_VERIFICATION,
+                    )
+            # pytest.fail.Exception derives from BaseException, so the health
+            # checks via pytest_assert would bypass a bare `except Exception`.
+            except (Exception, pytest.fail.Exception):
                 # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
                 # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
                 # Therefore, clear the facts cached here as well to avoid any issues with running commands
@@ -674,6 +746,7 @@ class AdvancedReboot:
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
                 test_results[test_case_name].append(err_msg)
+                set_upgrade_path_error_result_custom_msg(self.request, ErrorType.RELOADTEST_VERIFICATION)
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
@@ -689,6 +762,10 @@ class AdvancedReboot:
                         logger.error("Post reboot verification failed. List of failures: {}"
                                      .format('\n'.join(verification_errors)))
                         test_results[test_case_name].extend(verification_errors)
+                        set_upgrade_path_error_result_custom_msg(
+                            self.request,
+                            ErrorType.POST_RELOADTEST_VERIFICATION,
+                        )
                 self.acl_manager_checker(test_results[test_case_name])
                 self.__clearArpAndFdbTables()
                 self.__revertRebootOper(rebootOper)
@@ -723,6 +800,7 @@ class AdvancedReboot:
         test_results = []
 
         for hop_index, _ in enumerate(upgrade_path_urls[1:], start=1):
+            post_reboot_analysis = None
             upgrade_path_str = "{from_image} -> {to_image} (hop {hop_index})".format(
                 hop_index=hop_index, from_image=upgrade_path_urls[hop_index-1], to_image=upgrade_path_urls[hop_index])
             try:
@@ -768,7 +846,10 @@ class AdvancedReboot:
 
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
-            except Exception:
+            # pytest.fail.Exception derives from BaseException, so pytest_assert
+            # failures (e.g. in post_hop_teardown's post-upgrade/reboot-cause
+            # checks) would bypass a bare `except Exception`.
+            except (Exception, pytest.fail.Exception):
                 # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
                 # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
                 # Therefore, clear the facts cached here as well to avoid any issues with running commands
@@ -778,6 +859,10 @@ class AdvancedReboot:
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
                     upgrade_path_str, traceback_msg)
                 logger.error(err_msg)
+                set_upgrade_path_error_result_custom_msg(
+                    self.request,
+                    ErrorType.MULTIHOP_RELOADTEST_EXCEPTION,
+                )
                 test_results.append(err_msg)
                 break  # Don't perfrom any further upgrade hops
             finally:
@@ -792,6 +877,10 @@ class AdvancedReboot:
                         logger.error("Post reboot verification failed during upgrade {}. List of failures: {}"
                                      .format(upgrade_path_str, '\n'.join(verification_errors)))
                         test_results.extend(verification_errors)
+                        set_upgrade_path_error_result_custom_msg(
+                            self.request,
+                            ErrorType.POST_RELOADTEST_VERIFICATION,
+                        )
                     # Set the post_reboot_analysis to None to avoid using it again after post_hop_teardown
                     # on the subsequent iteration in the event that we land in the finally block before
                     # the new one is initialised
