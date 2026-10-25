@@ -419,12 +419,12 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
 2. **MINOR leak (`syslog_only`)** — STATE_DB `SYSTEM_LEAK_STATUS:system device_leak_status = MINOR`
    - **Pause `thermalctld`** while the value is injected so it does not overwrite `device_leak_status` back to clear; restart it in `finally`
    - Syslog contains a `leak` entry; **no** power action (Switch-Host SSH stays up, `uptime -s` unchanged)
-   - **Check**: `/host/bmc/event.log` must NOT contain a MINOR leak entry (MINOR is syslog-only; `event.log` is reserved for CRITICAL)
+   - **Check**: `/host/bmc/event.log` must NOT contain a MINOR leak entry (MINOR is syslog-only; `event.log` is used for CRITICAL and MAJOR)
 2a. **MAJOR leak (`syslog_only`)** — STATE_DB `SYSTEM_LEAK_STATUS:system device_leak_status = MAJOR`
    - MAJOR aggregates MIN-N or more concurrent Minor leaks; default `system_major_leak_action` is `syslog_only`
    - **Pause `thermalctld`** while injected; restore in `finally`
    - Syslog contains a `leak` entry; **no** power action (Switch-Host `uptime -s` unchanged)
-   - **Check**: `/host/bmc/event.log` must NOT contain a MAJOR leak entry (MAJOR is syslog-only; `event.log` is reserved for CRITICAL)
+   - **Check**: `/host/bmc/event.log` MUST contain a `MAJOR SYSTEM LEAK detected` entry (bmcctld logs MAJOR to `event.log` like CRITICAL; only MINOR is syslog-only)
 3. **CRITICAL leak → Switch-Host power off** (disruptive):
    - Snapshot Switch-Host `uptime -s`
    - Ensure `system_critical_leak_action = power_off`
@@ -439,7 +439,7 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
 **Expected Result**:
 - Each trigger produces the expected log entry
 - MINOR leak: syslog only, paired Switch-Host stays up
-- MAJOR leak: syslog only (default `system_major_leak_action`), paired Switch-Host stays up; not written to `event.log`
+- MAJOR leak: default `system_major_leak_action` is syslog_only (no power action), paired Switch-Host stays up; the detection is also written to `event.log`
 - CRITICAL leak: paired Switch-Host is powered off and reboots; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
 - Duplicate HSET with the same value is ignored (dedup)
 - All injected keys are cleaned up regardless of test outcome

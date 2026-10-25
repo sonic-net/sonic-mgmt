@@ -206,7 +206,7 @@ class TestBmcctldDaemon:
         trigger_results['CHASSIS_MODULE'] = r1.get("total", {}).get("match", 0) > 0
 
         # --- Trigger 2: STATE_DB SYSTEM_LEAK_STATUS device_leak_status ---
-        # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is CRITICAL-only).
+        # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is for CRITICAL and MAJOR).
         orig_leak = redis_hget(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                'device_leak_status') or 'None'
@@ -245,8 +245,8 @@ class TestBmcctldDaemon:
 
         # --- Trigger 2a: MAJOR leak (syslog_only, no power action) ---
         # MAJOR aggregates MIN-N or more concurrent Minor leaks; default action is
-        # syslog_only, so the paired Switch-Host must stay up and event.log (CRITICAL-only)
-        # must not receive it.
+        # syslog_only, so the paired Switch-Host must stay up. bmcctld records the MAJOR
+        # detection in event.log (like CRITICAL), unlike MINOR which is syslog-only.
         if orig_leak in ('CRITICAL', 'MAJOR'):
             logger.info("Trigger 2a [STATE_DB SYSTEM_LEAK_STATUS]: already %s - skipping", orig_leak)
         else:
@@ -274,7 +274,7 @@ class TestBmcctldDaemon:
                 get_host_uptime(major_host) == major_pre_boot,
                 "Switch-Host must NOT reboot on a MAJOR leak (default action is syslog_only)"
             )
-            # MAJOR is syslog-only: must NOT appear in event.log.
+            # MAJOR detection is written to event.log (as for CRITICAL).
             major_in_eventlog = []
             for path, lines in (r2a.get("match_messages") or {}).items():
                 if BMC_EVENT_LOG.split('/')[-1] in path:
@@ -282,9 +282,8 @@ class TestBmcctldDaemon:
                         ln for ln in lines if 'major' in ln.lower() and 'leak' in ln.lower()
                     )
             pytest_assert(
-                not major_in_eventlog,
-                f"MAJOR leak event must NOT be written to {BMC_EVENT_LOG} (syslog-only). "
-                f"Found {len(major_in_eventlog)} line(s): {major_in_eventlog[:3]}"
+                major_in_eventlog,
+                f"MAJOR leak event must be written to {BMC_EVENT_LOG}, but no matching line was found"
             )
 
         # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
