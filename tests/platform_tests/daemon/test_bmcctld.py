@@ -242,6 +242,50 @@ class TestBmcctldDaemon:
                 f"Found {len(minor_in_eventlog)} line(s): {minor_in_eventlog[:3]}"
             )
 
+        # --- Trigger 2a: MAJOR leak (syslog_only, no power action) ---
+        # MAJOR aggregates MIN-N or more concurrent Minor leaks; default action is
+        # syslog_only, so the paired Switch-Host must stay up and event.log (CRITICAL-only)
+        # must not receive it.
+        if orig_leak in ('CRITICAL', 'MAJOR'):
+            logger.info("Trigger 2a [STATE_DB SYSTEM_LEAK_STATUS]: already %s - skipping", orig_leak)
+        else:
+            major_host = get_switch_host_or_skip_test(self.duthost)
+            major_pre_boot = get_host_uptime(major_host)
+            la.marker_prefix = "bmcctld_event_trigger_major_leak"
+            marker = la.init(log_target='syslog')
+            la.match_regex = []
+            # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
+            with pause_pmon_daemon(self.duthost, 'thermalctld'):
+                try:
+                    redis_hset(self.duthost, STATE_DB,
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                               device_leak_status='MAJOR')
+                    time.sleep(15)
+                finally:
+                    redis_hset(self.duthost, STATE_DB,
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                               device_leak_status=orig_leak)
+            la.match_regex = [r".*[Ll]eak.*"]
+            r2a = la.analyze(marker, fail=False, log_target='syslog')
+            trigger_results['SYSTEM_LEAK_STATUS_MAJOR'] = r2a.get("total", {}).get("match", 0) > 0
+            # MAJOR is syslog-only (default): must NOT power off the Switch-Host.
+            pytest_assert(
+                get_host_uptime(major_host) == major_pre_boot,
+                "Switch-Host must NOT reboot on a MAJOR leak (default action is syslog_only)"
+            )
+            # MAJOR is syslog-only: must NOT appear in event.log.
+            major_in_eventlog = []
+            for path, lines in (r2a.get("match_messages") or {}).items():
+                if BMC_EVENT_LOG.split('/')[-1] in path:
+                    major_in_eventlog.extend(
+                        ln for ln in lines if 'major' in ln.lower() and 'leak' in ln.lower()
+                    )
+            pytest_assert(
+                not major_in_eventlog,
+                f"MAJOR leak event must NOT be written to {BMC_EVENT_LOG} (syslog-only). "
+                f"Found {len(major_in_eventlog)} line(s): {major_in_eventlog[:3]}"
+            )
+
         # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
         # CRITICAL dispatches system_critical_leak_action (default: power_off); verify paired
         # Switch-Host powered OFF and stays off (it does NOT reboot / come back on its own).
@@ -274,21 +318,31 @@ class TestBmcctldDaemon:
         recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
         verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
 
-        # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
-        # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
-        alert_key = 'test_trigger_alert'
-        la.marker_prefix = "bmcctld_event_trigger_rack_mgr_alert"
-        marker = la.init(log_target='syslog')
-        la.match_regex = []
-        try:
-            redis_hset(self.duthost, STATE_DB,
-                       f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}', severity='MINOR')
-            time.sleep(15)
-        finally:
-            redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}')
-        la.match_regex = [r".*(rack.*alert|rack_mgr|RACK_MGR).*"]
-        r3 = la.analyze(marker, fail=False, log_target='syslog')
-        trigger_results['RACK_MANAGER_ALERT'] = r3.get("total", {}).get("match", 0) > 0
+        # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR / MAJOR severity ---
+        # Handler logs "RACK_MGR_MINOR_EVENT" / "RACK_MGR_MAJOR_EVENT"; default action for
+        # both is syslog_only (no power action). Neither must power off the Switch-Host.
+        rack_alert_host = get_switch_host_or_skip_test(self.duthost)
+        for alert_severity in ['MINOR', 'MAJOR']:
+            alert_key = 'test_trigger_alert'
+            rack_alert_pre_boot = get_host_uptime(rack_alert_host)
+            la.marker_prefix = f"bmcctld_event_trigger_rack_mgr_{alert_severity.lower()}_alert"
+            marker = la.init(log_target='syslog')
+            la.match_regex = []
+            try:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}', severity=alert_severity)
+                time.sleep(15)
+            finally:
+                redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}')
+            la.match_regex = [r".*(rack.*alert|rack_mgr|RACK_MGR).*"]
+            r3 = la.analyze(marker, fail=False, log_target='syslog')
+            trigger_results[f'RACK_MANAGER_ALERT_{alert_severity}'] = \
+                r3.get("total", {}).get("match", 0) > 0
+            pytest_assert(
+                get_host_uptime(rack_alert_host) == rack_alert_pre_boot,
+                f"Switch-Host must NOT reboot on a {alert_severity} rack-manager alert "
+                f"(default action is syslog_only)"
+            )
 
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
