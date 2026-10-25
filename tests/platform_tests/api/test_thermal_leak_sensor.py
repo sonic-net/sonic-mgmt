@@ -153,17 +153,18 @@ class TestLeakSensorApi(PlatformApiTestBase):
         the count-based MAJOR rule is off (the MAX-T escalation rule still applies). Any
         non-zero threshold must be an integer >= 2.
         """
+        min_n = None
         try:
-            max_n = liquid_cooling.get_major_leak_num_min_sensors(platform_api_conn)
+            min_n = liquid_cooling.get_major_leak_num_min_sensors(platform_api_conn)
         except Exception as e:
             pytest.skip(f"Platform API get_major_leak_num_min_sensors not available: {e}")
 
-        self.expect(isinstance(max_n, int) and not isinstance(max_n, bool),
-                    f"get_major_leak_num_min_sensors() should return int, got {max_n!r}")
-        if isinstance(max_n, int):
-            if max_n == 0:
+        self.expect(isinstance(min_n, int) and not isinstance(min_n, bool),
+                    f"get_major_leak_num_min_sensors() should return int, got {min_n!r}")
+        if isinstance(min_n, int):
+            if min_n == 0:
                 logger.info("Platform returns MIN-N=0 - count-based MAJOR rule is disabled by default")
             else:
-                self.expect(max_n >= 2,
-                            f"get_major_leak_num_min_sensors()={max_n} must be 0 (rule off) "
+                self.expect(min_n >= 2,
+                            f"get_major_leak_num_min_sensors()={min_n} must be 0 (rule off) "
                             f"or an integer >= 2")
