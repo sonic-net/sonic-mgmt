@@ -432,7 +432,7 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
    - Wait for Switch-Host SSH drop, then for `critical_services_fully_started`
    - Assert `uptime -s` advanced and `show reboot-cause` reports a BMC-initiated cause
    - `finally`: restart `thermalctld`, restore policy, and if needed `config chassis modules startup SWITCH-HOST` to recover
-4. **Rack-manager alert** — inject STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert severity = MINOR`, then `= MAJOR`; default action for both is syslog-only; no power action (Switch-Host `uptime -s` unchanged for each)
+4. **Rack-manager alert** — inject STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert severity = MINOR`, then `= MAJOR`; default action for both is syslog-only; no power action (Switch-Host `uptime -s` unchanged for each); the MAJOR alert is also written to `event.log` ("MAJOR RACK MGR ALERT"), MINOR is syslog-only
 5. **Pre-flight checks** — `thermalctld` is RUNNING and `config chassis modules --help` exposes the `startup`/`shutdown` commands
 6. **Post-check** — if `/host/bmc/event.log` exists, it has fresh entries; otherwise log info
 

@@ -323,12 +323,14 @@ class TestBmcctldDaemon:
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR / MAJOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT" / "RACK_MGR_MAJOR_EVENT"; default action for
         # both is syslog_only (no power action). Neither must power off the Switch-Host.
+        # MAJOR is also recorded in event.log; MINOR is syslog-only.
         rack_alert_host = get_switch_host_or_skip_test(self.duthost)
         for alert_severity in ['MINOR', 'MAJOR']:
             alert_key = 'test_trigger_alert'
             rack_alert_pre_boot = get_host_uptime(rack_alert_host)
             la.marker_prefix = f"bmcctld_event_trigger_rack_mgr_{alert_severity.lower()}_alert"
             marker = la.init(log_target='syslog')
+            ev_marker = la.init()
             la.match_regex = []
             try:
                 redis_hset(self.duthost, STATE_DB,
@@ -345,6 +347,20 @@ class TestBmcctldDaemon:
                 f"Switch-Host must NOT reboot on a {alert_severity} rack-manager alert "
                 f"(default action is syslog_only)"
             )
+            # Rack MAJOR (like CRITICAL) is written to event.log; MINOR is syslog-only.
+            la.match_regex = [r".*RACK MGR ALERT.*"]
+            r3_ev = la.analyze(ev_marker)
+            rack_in_eventlog = r3_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+            if alert_severity == 'MAJOR':
+                pytest_assert(
+                    rack_in_eventlog,
+                    f"MAJOR rack-manager alert must be written to {BMC_EVENT_LOG}"
+                )
+            else:
+                pytest_assert(
+                    not rack_in_eventlog,
+                    f"MINOR rack-manager alert must NOT be written to {BMC_EVENT_LOG}: {rack_in_eventlog[:3]}"
+                )
 
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
