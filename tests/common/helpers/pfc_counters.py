@@ -27,6 +27,12 @@ PFC_GEN_FILE_ABSOLUTE_PATH = r'/root/pfc_gen_cpu.py'
 PKT_COUNT = 10
 """ Number of switch priorities """
 PRIO_COUNT = 8
+PFC_COUNTER_POLL_TIMEOUT = 20
+PFC_COUNTER_POLL_INTERVAL = 1
+""" After clearing counters, require the port to read zero across this window -- longer
+than the ~1s FlexCounter poll """
+PFC_CLEAR_VERIFY_WINDOW = 1.5
+PFC_CLEAR_SETTLE_TIMEOUT = 15
 """ Name of the PFC storm container on MLNX-OS (Onyx) fanout switches """
 ONYX_PFC_CONTAINER_NAME = 'storm'
 """ Number of PFC frames sent per priority per port in the RX_OK isolation test """
@@ -94,6 +100,37 @@ def _resolve_peer_port_name(peerdev_ans, enum_fanout_graph_facts, peer_port):   
     return peer_port_name, fanout_hwsku
 
 
+def clear_pfc_counters_until_stable(duthost, intf, priority, settle_s: float):            # noqa: F811
+    """
+    @summary: Clear PFC counters and re-clear until the port reads a stable zero.
+
+              pfcstat reports the current COUNTERS_DB contents **minus** a baseline
+              snapshot of same taken at clear time ("pfcstat -c"). But, COUNTERS_DB
+              updates asynchronously. A clear issued right after PFC frames are rx'ed
+              can capture an unsettled baseline (race condition!), and the offsets will
+              persist bogusly for each subsequent read.
+              Re-clear until the port stably reads zeroes instead.
+    @param duthost: dut host information
+    @param intf: Interface being validated
+    @param priority: PFC priority index being validated (for diagnostics)
+    @param settle_s: Time in seconds to wait for the port to stabilize after clearing PFC counters
+    """
+    deadline = time.monotonic() + PFC_CLEAR_SETTLE_TIMEOUT
+    while True:
+        duthost.sonic_pfc_counters(method="clear")
+        time.sleep(settle_s)
+        baseline_rx = duthost.sonic_pfc_counters(method="get")['ansible_facts'][intf]['Rx']
+        if all(v == '0' for v in baseline_rx):
+            break
+        if time.monotonic() >= deadline:
+            # Never measure against a known-dirty baseline: a stale value
+            # could satisfy the later assertion with no real traffic.
+            pytest.fail(
+                "[PFC clear] {} prio {} baseline did not clear within {:.1f}s "
+                "(last Rx={})".format(
+                    intf, priority, PFC_CLEAR_SETTLE_TIMEOUT, baseline_rx))
+
+
 def send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku, priority,
                    pause_time, pkt_count):
     """
@@ -142,7 +179,11 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         int_status[intf]['oper_state'] == 'up' and
                         intf in conn_facts]
     only_lossless_rx_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
-    only_lossless_rx_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in only_lossless_rx_counters_hwskus)
+    hwsku = asic.sonichost.facts["hwsku"]
+    only_lossless_rx_counters = (
+        any(sku in hwsku for sku in only_lossless_rx_counters_hwskus)
+        and not hwsku.startswith("Cisco-8122X")
+    )
     no_xon_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
     no_xon_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in no_xon_counters_hwskus)
     if only_lossless_rx_counters and asic_type != 'vs':
@@ -175,31 +216,46 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                             PFC_GEN_FILE_DEST, peer_port_name, pause_time, PKT_COUNT)
                         peerdev_ans.host.command(cmd)
 
-        """ SONiC takes some time to update counters in database """
-        time.sleep(5)
-
-        """ Check results """
-        counter_facts = duthost.sonic_pfc_counters(method="get")[
-            'ansible_facts']
-        if only_lossless_rx_counters and asic_type != 'vs':
-            pfc_enabled_prios = [int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
-        failures = []
+        expected_prios_by_intf = {}
         for intf in active_phy_intfs:
             if is_pfc and (not no_xon_counters or pause_time != 0):
                 if only_lossless_rx_counters:
-                    expected_prios = [str(PKT_COUNT if prio in pfc_enabled_prios else 0) for prio in range(PRIO_COUNT)]
+                    pfc_enabled_prios = [
+                        int(prio) for prio in
+                        config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')
+                    ]
+                    expected_prios = [
+                        str(PKT_COUNT if prio in pfc_enabled_prios else 0)
+                        for prio in range(PRIO_COUNT)
+                    ]
                 else:
                     expected_prios = [str(PKT_COUNT)] * PRIO_COUNT
             else:
                 # Expect 0 counters when "no_xon_counters and pause_time == 0", i.e. when
                 # device does not support XON counters and the frame is XON.
                 expected_prios = ['0'] * PRIO_COUNT
+            expected_prios_by_intf[intf] = expected_prios
+
+        """ SONiC updates counters asynchronously; poll until they settle """
+        time.sleep(5)
+        poll_deadline = time.monotonic() + PFC_COUNTER_POLL_TIMEOUT
+        while True:
+            counter_facts = duthost.sonic_pfc_counters(method="get")[
+                'ansible_facts']
+            failures = [
+                (intf, counter_facts[intf]['Rx'], expected_prios)
+                for intf, expected_prios in expected_prios_by_intf.items()
+                if counter_facts[intf]['Rx'] != expected_prios
+            ]
+            if not failures or time.monotonic() >= poll_deadline:
+                break
+            time.sleep(PFC_COUNTER_POLL_INTERVAL)
+
+        for intf, expected_prios in expected_prios_by_intf.items():
             logger.info("Verifying PFC RX count matches {}".format(expected_prios))
-            if counter_facts[intf]['Rx'] != expected_prios:
-                failures.append((counter_facts[intf]['Rx'], expected_prios))
         if asic_type != 'vs':
-            for failure in failures:
-                logger.error("Got {}, expected {}".format(*failure))
+            for intf, actual, expected in failures:
+                logger.error("{}: got {}, expected {}".format(intf, actual, expected))
             assert len(failures) == 0, (
                 "PFC RX counter increment not matching expected for above logged cases. "
                 "Number of failures: {}"
@@ -212,13 +268,15 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         """ Retry sending frames once if the counter does not update in time """
         MAX_RETRIES = 2
 
+        # compute needed milliseconds for port stats capture
+        port_poll_ms = duthost.get_counter_poll_status().get('PORT_STAT', {}).get('interval', 1000)
+        settle_s = max(PFC_CLEAR_VERIFY_WINDOW, 1.5 * port_poll_ms / 1000.0)
+
         for intf in active_phy_intfs:
             """only check priority 3 and 4: lossless priorities"""
             for priority in range(3, 5):
-                """ Clear PFC counters """
-                duthost.sonic_pfc_counters(method="clear")
-
                 if asic_type != 'vs':
+                    # Now resolve the peer device for the specified priority
                     peer_device = conn_facts[intf]['peerdevice']
                     peer_port = conn_facts[intf]['peerport']
 
@@ -229,6 +287,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     peer_port_name, fanout_hwsku = _resolve_peer_port_name(
                         peerdev_ans, enum_fanout_graph_facts, peer_port)
 
+                    clear_pfc_counters_until_stable(duthost, intf, priority, settle_s)
                     send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                    priority, pause_time, PKT_COUNT)
 
@@ -249,7 +308,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                                 "Attempt %d: PFC counter not updated for interface %s priority %d "
                                 "(got %s), retrying send", attempt, intf, priority,
                                 pfc_rx[intf]['Rx'][priority])
-                            duthost.sonic_pfc_counters(method="clear")
+                            clear_pfc_counters_until_stable(duthost, intf, priority, settle_s)
                             send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                                            priority, pause_time, PKT_COUNT)
 
