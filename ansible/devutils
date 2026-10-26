@@ -2,12 +2,12 @@
 
 # Supress warning
 import sys
+import time
 from devutil import conn_graph_helper
 from devutil.task_runner import TaskRunner
 from devutil.ssh_utils import SSHClient
 from devutil.inv_helpers import HostManager
 from tabulate import tabulate
-import time
 import subprocess
 import json
 import argparse
@@ -18,7 +18,7 @@ sys.path.append("..")
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa: E402
 from tests.common.connections.console_host import ConsoleHost   # noqa: E402
-from tests.common.utilities import update_console_creds  # noqa: E402
+from tests.common.utilities import update_console_creds, wait_until  # noqa: E402
 
 g_inv_mgr = None
 g_task_runner = None
@@ -285,6 +285,23 @@ def action_console(parameters):
         console_host.posix_shell()
 
 
+def set_pdu_outlets(pduman, power_on):
+    """Attempt every setup outlet; callers check the resulting status."""
+    command = pduman.turn_on_outlet if power_on else pduman.turn_off_outlet
+    action = 'on' if power_on else 'off'
+    outlets = (outlet for psu in pduman.PSUs.values()
+               for feed in psu.feeds.values() for outlet in feed.outlets)
+    for outlet in outlets:
+        try:
+            if command(outlet):
+                continue
+            error = 'command was not acknowledged'
+        except Exception as exc:
+            error = str(exc)
+        print('devutils: warning: {} {} outlet {} power-{}: {}'.format(
+            pduman.dut_hostname, outlet['pdu_name'], outlet['outlet_id'], action, error), file=sys.stderr)
+
+
 def pdu_action_on_dut(host, attrs, action):
     ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
     succeed, result = get_pdu_info(host, attrs)
@@ -300,15 +317,44 @@ def pdu_action_on_dut(host, attrs, action):
             'Failed to communicate with PDU controller {}'.format(pdu_links.keys()))
         return ret
 
+    unreachable_psus = pduman.get_unreachable_psus()
+    if unreachable_psus:
+        ret['Summary'].append('PDU setup is incomplete: {}'.format(unreachable_psus))
+        if action != 'on':
+            return ret
+        # Power restoration must still attempt the outlets that were initialized.
+        print('devutils: warning: {}: {}; attempting power-on for known outlets.'.format(
+            host, ret['Summary'][0]), file=sys.stderr)
+
+    outlet_status = []
+    if not pdu_outlets_in_state(pduman, None, outlet_status):
+        if action != 'on':
+            ret = pdu_status_result(host, action, outlet_status)
+            ret['Summary'].append('Failed to read status for all setup PDU outlets')
+            return ret
+        print('devutils: warning: {}: incomplete PDU status; attempting power-on for known outlets.'.format(host),
+              file=sys.stderr)
+
     if action == 'off':
-        pduman.turn_off_outlet()
+        set_pdu_outlets(pduman, False)
     elif action == 'on':
-        pduman.turn_on_outlet()
+        set_pdu_outlets(pduman, True)
     elif action != 'status':
         ret['Summary'].append('Unsupported action {}.'.format(action))
         return ret
+    else:
+        return pdu_status_result(host, action, outlet_status)
 
-    outlet_status = pduman.get_outlet_status()
+    complete = pdu_outlets_in_state(pduman, None, outlet_status)
+    result = pdu_status_result(host, action, outlet_status)
+    result['Summary'].extend(ret['Summary'])
+    if not complete:
+        result['Summary'].append('Failed to read status for all setup PDU outlets')
+    return result
+
+
+def pdu_status_result(host, action, outlet_status):
+    ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
     psu_status = {}
     for outlet in outlet_status:
         ret['PDU status'].append(outlet)
@@ -329,7 +375,8 @@ def pdu_action_on_dut(host, attrs, action):
                     outlet_watts = int(outlet['output_watts'])
                 except ValueError:
                     outlet_watts = 0
-            status['output_watts'] = status['output_watts'] + outlet_watts
+            if status['output_watts'] != 'N/A':
+                status['output_watts'] = status['output_watts'] + outlet_watts
         psu_status[psu_name] = status
     ret['PSU status'] = psu_status
 
@@ -382,14 +429,77 @@ def action_pdu_on(parameters):
     show_data_output(header, data, parameters['json'], parameters['out'])
 
 
-def action_pdu_reboot(parameters):
-    header, data = action_pdu(parameters, 'off')
-    # sleep 1 second to ensure there is gap between power off and on
-    time.sleep(1)
-    _, data_on = action_pdu(parameters, 'on')
+def pdu_outlets_in_state(pduman, state, status):
+    keys = ('pdu_name', 'psu_name', 'feed_name', 'outlet_id')
+    expected = {tuple(outlet[key] for key in keys)
+                for psu in pduman.PSUs.values() for feed in psu.feeds.values() for outlet in feed.outlets}
+    status.clear()
+    status.extend(pduman.get_outlet_status(power_state=state))
+    observed = {tuple(outlet[key] for key in keys) for outlet in status}
+    return (bool(expected) and observed == expected
+            and (state is None or all(outlet.get(state) is True for outlet in status)))
 
-    data = data + data_on
+
+def pdu_reboot_on_dut(host, attrs, hold_seconds):
+    success, info = get_pdu_info(host, attrs)
+    if not success:
+        raise RuntimeError(info)
+    pduman = pdu_manager_factory(host, *info)
+    if not pduman:
+        raise RuntimeError('Failed to communicate with PDU controllers for {}'.format(host))
+    unreachable_psus = pduman.get_unreachable_psus()
+    if unreachable_psus:
+        raise RuntimeError('PDU setup is incomplete for {}: {}; no power changes made'.format(
+            host, unreachable_psus))
+    if not pdu_outlets_in_state(pduman, None, []):
+        raise RuntimeError('Failed to read status for all setup PDU outlets for {}; no power changes made'.format(host))
+
+    off_status, on_status = [], []
+    try:
+        set_pdu_outlets(pduman, False)
+        shutdown_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_off', off_status)
+        if shutdown_complete:
+            time.sleep(hold_seconds)
+        else:
+            print('devutils: error: {}: failed to confirm all PDU outlets OFF within 60 seconds.'.format(host),
+                  file=sys.stderr)
+    finally:
+        # The manager retains its setup targets even when a later status read fails.
+        set_pdu_outlets(pduman, True)
+        power_on_complete = wait_until(60, 1, 0, pdu_outlets_in_state, pduman, 'outlet_on', on_status)
+        if not power_on_complete:
+            print('devutils: error: {}: failed to confirm all PDU outlets ON within 60 seconds; '
+                  'power-on was attempted for every outlet.'.format(host), file=sys.stderr)
+    return {'success': shutdown_complete and power_on_complete,
+            'data': [pdu_status_result(host, 'off', off_status), pdu_status_result(host, 'on', on_status)]}
+
+
+def pdu_reboot_task(host, attrs, hold_seconds):
+    try:
+        return pdu_reboot_on_dut(host, attrs, hold_seconds)
+    except Exception as exc:
+        return repr(exc)
+
+
+def action_pdu_reboot(parameters):
+    header = ['Host', 'Action', 'PSU status', 'PDU status', 'Summary']
+    data = []
+    success = bool(parameters['hosts'])
+    for host, attrs in parameters['hosts'].items():
+        g_task_runner.submit_task(host, pdu_reboot_task, host=host, attrs=attrs,
+                                  hold_seconds=parameters['hold_seconds'])
+    for host, ret in g_task_runner.task_results():
+        result = ret['result']
+        if not isinstance(result, dict):
+            print('devutils: error: {}: {}'.format(host, result), file=sys.stderr)
+            status = pdu_status_result(host, 'reboot', [])
+            status['Summary'].append(result)
+            result = {'success': False, 'data': [status]}
+        success = success and result['success']
+        for status in result['data']:
+            data.append(status if parameters['json'] else [status[key] for key in header])
     show_data_output(header, data, parameters['json'], parameters['out'])
+    return success
 
 
 def action_dispatcher(parameters):
@@ -399,7 +509,7 @@ def action_dispatcher(parameters):
     if action in parallel_actions:
         parallel_run(parameters)
     else:
-        parameters['action'](parameters)
+        return parameters['action'](parameters)
 
 
 def parallel_run(parameters):
@@ -432,18 +542,18 @@ def validate_args(args):
     return True
 
 
-def setup_logging(level):
+def setup_logging(level, stream=sys.stdout):
     if level == 'close':
         return
     import logging
     if level == 'debug':
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+        logging.basicConfig(stream=stream, level=logging.DEBUG)
     elif level == 'info':
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+        logging.basicConfig(stream=stream, level=logging.INFO)
     elif level == 'warn':
-        logging.basicConfig(stream=sys.stdout, level=logging.WARN)
+        logging.basicConfig(stream=stream, level=logging.WARN)
     elif level == 'error':
-        logging.basicConfig(stream=sys.stdout, level=logging.ERROR)
+        logging.basicConfig(stream=stream, level=logging.ERROR)
 
 
 def main():
@@ -458,13 +568,15 @@ def main():
                                  'pdu_on', 'pdu_off', 'pdu_reboot', 'pdu_failures'])
     parser.add_argument('--cmd', help="Command to run on all hosts",
                         type=str, required=False)
+    parser.add_argument('--hold-seconds', help='Minimum confirmed power-off time for pdu_reboot, default 1 second',
+                        type=int, default=1)
     parser.add_argument('-g', '--group', help='Groups: all, sonic, ptf, pdu, default all',
                         type=str, required=False, default='all')
     parser.add_argument('-i', '--inventory', help='Categories: lab, etc, default lab',
                         type=str, required=False, default='lab')
     parser.add_argument('-l', '--limit', help='Host: limit to a single dut host name, default all',
                         type=str, required=False)
-    parser.add_argument('--log-level', help='Log level: print logs to STDOUT (if not set to close)',
+    parser.add_argument('--log-level', help='Log level: STDOUT, except STDERR for pdu_reboot JSON output',
                         type=str, required=False, default='warn',
                         choices=['debug', 'info', 'warn', 'error', 'close'])
     parser.add_argument('-u', '--user', help='User: user account to login to host with, default admin',
@@ -478,9 +590,11 @@ def main():
                         required=False, default=None)
 
     args = parser.parse_args()
+    if args.hold_seconds < 1:
+        parser.error('--hold-seconds must be at least 1')
     if not validate_args(args):
         return
-    setup_logging(args.log_level)
+    setup_logging(args.log_level, sys.stderr if args.action == 'pdu_reboot' and args.json else sys.stdout)
     build_global_vars(args.concurrency, args.inventory)
     # Add limit argument check for pdu_reboot, pdu_on, pdu_off actions
     # If no limit argument for these actions, will not execute the process for all devices
@@ -490,11 +604,11 @@ def main():
                   "pdu_off actions to avoid impacting all devices accidentally.")
             print(
                 "If you are sure to do pdu action to all devices, please use -l/--limit all.")
-            return
+            return 1 if args.action == 'pdu_reboot' else None
     hosts = retrieve_hosts(args.group, args.limit)
     if not hosts:
         print('No matching hosts')
-        return
+        return 1 if args.action == 'pdu_reboot' else None
     get_conn_graph_facts(hosts)
     actions = {'list': action_list,
                'ping': action_ping,
@@ -515,9 +629,10 @@ def main():
                   'cmd': args.cmd,
                   'json': args.json,
                   'out': args.out,
+                  'hold_seconds': args.hold_seconds,
                   }
-    action_dispatcher(parameters)
+    return 1 if action_dispatcher(parameters) is False else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
