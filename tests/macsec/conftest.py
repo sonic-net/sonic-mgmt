@@ -10,7 +10,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "macsec_profiles(*names): supported MACsec profiles for a test")
     config.addinivalue_line(
-        "markers", "macsec_rekey(enabled): require periodic MACsec rekey enabled or disabled")
+        "markers", "macsec_rekey(enabled, reason=None): require periodic MACsec rekey enabled or disabled")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -30,7 +30,7 @@ def pytest_collection_modifyitems(config, items):
                 rekey_enabled = int(profile.get("rekey_period", 0)) != 0
                 if rekey_enabled != rekey_marker.kwargs["enabled"]:
                     item.add_marker(pytest.mark.skip(
-                        reason="Requires periodic rekey {}".format(
+                        reason=rekey_marker.kwargs.get("reason") or "Requires periodic rekey {}".format(
                             "enabled" if rekey_marker.kwargs["enabled"] else "disabled")))
 
     if not config.getoption("enable_macsec"):
