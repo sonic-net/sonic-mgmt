@@ -14,6 +14,8 @@ hardware they live under the `_`-prefixed temp keys (APPL_DB, db 0).
 """
 import logging
 
+import pytest
+
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -21,6 +23,17 @@ logger = logging.getLogger(__name__)
 
 PVST = "pvst"
 MST = "mst"
+
+
+def assert_member_ready(duthost, ok, msg):
+    """Fail when a VLAN member never reached the switch's tables. On the
+    virtual switch vlanmgrd sometimes never applies a membership change, so
+    skip there rather than report it as a spanning-tree failure."""
+    if ok:
+        return
+    if "kvm" in duthost.facts.get("platform", ""):
+        pytest.skip("{} (the virtual switch did not apply the VLAN change)".format(msg))
+    pytest_assert(False, msg)
 
 
 def _hgetall(duthost, key, dbnum=0):

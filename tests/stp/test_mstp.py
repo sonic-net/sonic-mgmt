@@ -343,20 +343,23 @@ class TestMstp(StpTestBase):
         dut_port_1, dut_port_2 = d["dut_ports"]["dut_port_1"], d["dut_ports"]["dut_port_2"]
         ptf_port_1, ptf_port_2 = d["dut_ports"]["ptf_port_1"], d["dut_ports"]["ptf_port_2"]
 
-        # Establish the superior neighbor on both ports; port_1 becomes root port.
-        # (Convergence is confirmed by the wait_until below, so no fixed sleep.)
-        for _ in range(2):
-            self.run_bpdu(ptfhost, duthost, "config",
-                          self._superior_params(d, [ptf_port_1, ptf_port_2]),
-                          "/tmp/mstp_port_priority_setup.log")
-
-        pytest_assert(
-            wait_until(60, 2, 0, lambda: not self.is_self_root(duthost, CIST)),
-            "DUT did not accept the superior CIST neighbor as root")
-        pytest_assert(self.wait_root_port(duthost, CIST, dut_port_1),
-                      "root port is not {}".format(dut_port_1))
-        self.verify_stp_state(duthost, CIST, [dut_port_1], "FORWARDING")
-        self.verify_stp_state(duthost, CIST, [dut_port_2], self.BLOCK_STATE)
+        # Establish the superior neighbour on both ports; port_1 becomes root
+        # port. The neighbour keeps talking while the checks run: the daemon
+        # drops a neighbour it has not heard from for three hellos, and because
+        # the injected BPDU carries the Agreement flag the alternate port goes
+        # straight back to FORWARDING when that happens, with no forward delay.
+        # A one-shot send therefore leaves about five seconds to observe port_2
+        # DISCARDING, less than the polls before it can take.
+        with self.bpdu_streams(ptfhost, duthost, [
+                (self._superior_params(d, [ptf_port_1, ptf_port_2]),
+                 "/tmp/mstp_port_priority_setup.log")]):
+            pytest_assert(
+                wait_until(60, 2, 0, lambda: not self.is_self_root(duthost, CIST)),
+                "DUT did not accept the superior CIST neighbor as root")
+            pytest_assert(self.wait_root_port(duthost, CIST, dut_port_1),
+                          "root port is not {}".format(dut_port_1))
+            self.verify_stp_state(duthost, CIST, [dut_port_1], "FORWARDING")
+            self.verify_stp_state(duthost, CIST, [dut_port_2], self.BLOCK_STATE)
 
         # Better (lower) CIST port priority on port_2 -> root port moves to
         # port_2. Both neighbours keep talking at hello cadence while the DUT

@@ -1181,7 +1181,10 @@ class PvstBpduTest(BaseTest):
 
     def test_validate_l2_packet(self):
         send_port = int(self.test_params["send_port"])
-        recv_port = int(self.test_params["receive_port"])
+        # One port, or the member ports of a PortChannel: the DUT hashes the
+        # flow onto one of them, so the count runs over all of them.
+        recv = self.test_params["receive_port"]
+        recv_ports = [int(p) for p in recv] if isinstance(recv, (list, tuple)) else [int(recv)]
         vlan_id = int(self.test_params.get("vlan_id", 1))
         verify_packet = self.test_params.get("verify_packet", True)
         self.logger.info(f"verify_packet {verify_packet}")
@@ -1196,6 +1199,9 @@ class PvstBpduTest(BaseTest):
 
         count_to_send = 100
 
+        # PTF keeps at most 100 packets per port and drops the oldest when full,
+        # so the DUT's own BPDUs and LLDP on the receive port would push probes out.
+        self.dataplane.set_qlen(count_to_send * 10)
         # Flush dataplane before test
         self.dataplane.flush()
         for i in range(count_to_send):
@@ -1207,7 +1213,7 @@ class PvstBpduTest(BaseTest):
             matched_count = testutils.count_matched_packets_all_ports(
                 self,
                 masked_pkt,
-                [recv_port],
+                recv_ports,
                 timeout=5
             )
             self.logger.info(f"Matched packet count: {matched_count}")
@@ -1218,7 +1224,7 @@ class PvstBpduTest(BaseTest):
             matched_count = testutils.count_matched_packets_all_ports(
                 self,
                 masked_pkt,
-                [recv_port],
+                recv_ports,
                 timeout=5
             )
             self.logger.info(f"Matched packet count (expecting 0): {matched_count}")

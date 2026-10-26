@@ -22,6 +22,8 @@ BPDU/packet tests in `test_mstp.py`:
   * ``test_mstp_after_runtime_switch_from_pvst`` (testlet 5) -- PVST then MST
     at runtime, with no daemon restart: the CIST comes up with every member
     and nothing of the PVST tree is left behind.
+  * ``test_mstp_instance_priority_must_be_a_multiple_of_4096`` -- the YANG
+    model refuses an instance bridge priority that is not a multiple of 4096.
 
 The shared machinery (container-up guard, feature enable/disable, per-scope
 enrolment helpers, and the `stp_config_env` topology fixture) lives in
@@ -325,3 +327,38 @@ class TestMstpConfig(StpTestBase):
             # region has to be put back for the tests after this one.
             mst = setup_stp_test_data["mst"]
             self.setup_region(duthost, mst["region_name"], mst["revision"], mst["instance_vlan_map"])
+
+    def test_mstp_instance_priority_must_be_a_multiple_of_4096(self, duthosts, rand_one_dut_hostname,
+                                                               stp_config_env):
+        """The MST counterpart of the PVST priority rule: an instance's bridge
+        priority is a 4-bit field, and the YANG model must refuse a value that
+        is not a multiple of 4096 so CONFIG_DB and the advertised priority
+        agree. Through the generic config updater, the validation
+        `config apply` relies on."""
+        duthost = duthosts[rand_one_dut_hostname]
+        inst = TEST_INSTANCE
+        if not stp_base.bridge_priority_rule_present(duthost):
+            pytest.skip("the image's spanning-tree YANG model accepts any bridge priority in 0..61440")
+        key = "STP_MST_INST|{}".format(inst)
+        path = "/STP_MST_INST/{}/bridge_priority".format(inst)
+
+        try:
+            duthost.shell("config spanning-tree mst instance {} priority 4096".format(inst))
+            pytest_assert(wait_until(10, 1, 0, lambda: _config_db_row(duthost, key).get("bridge_priority") == "4096"),
+                          "instance {} priority did not reach CONFIG_DB".format(inst))
+
+            ok, out = stp_base.apply_config_patch(duthost, path, 4097, "mst_priority")
+            pytest_assert(not ok, "instance {} priority 4097 was accepted; it is not a multiple of 4096".format(inst))
+            pytest_assert("multiple of 4096" in out,
+                          "instance {} priority 4097 was refused for another reason: {}".format(inst, out[-400:]))
+            pytest_assert(_config_db_row(duthost, key).get("bridge_priority") == "4096",
+                          "instance {} priority changed in CONFIG_DB although the patch was refused".format(inst))
+
+            ok, out = stp_base.apply_config_patch(duthost, path, 61440, "mst_priority_max")
+            pytest_assert(ok, "instance {} priority 61440, the largest multiple of 4096, was refused: {}".format(
+                inst, out[-400:]))
+            pytest_assert(_config_db_row(duthost, key).get("bridge_priority") == "61440",
+                          "instance {} priority is {} after the patch, not 61440".format(
+                              inst, _config_db_row(duthost, key).get("bridge_priority")))
+        finally:
+            stp_base.delete_mst_instance(duthost, inst)

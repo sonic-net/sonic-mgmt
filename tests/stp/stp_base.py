@@ -9,6 +9,7 @@ fixtures reuse them. `StpTestBase` is a thin convenience wrapper that binds
 `mode = self.STP_MODE`; `test_pvst.py` / `test_mstp.py` subclass it.
 """
 import contextlib
+import json
 import logging
 import shlex
 import threading
@@ -54,6 +55,55 @@ def wait_featured_ready(duthost, timeout=90):
         module_ignore_errors=True).get("stdout", "").strip() == "active")
 
 
+def stpd_missing_ports(duthost):
+    """VLAN member ports that stpd's own port table does not hold yet.
+
+    Returns None when stpd cannot be asked yet, and [] when the image has no
+    usable stpctl."""
+    out = duthost.shell(
+        "for p in $(redis-cli -n 4 --raw keys 'VLAN_MEMBER|*' | awk -F'|' '{print $3}' | sort -u); do "
+        "r=$(timeout 5 docker exec stp stpctl nlintf $p 2>&1); "
+        "case \"$r\" in *'not Found'*) echo \"missing $p\";; *Name*) echo \"known $p\";; "
+        "*'ermission denied'*|*'executable file not found'*) echo nostpctl;; esac; done",
+        module_ignore_errors=True).get("stdout_lines", [])
+    if "nostpctl" in out:
+        return []
+    known = [line.split()[1] for line in out if line.startswith("known ")]
+    missing = [line.split()[1] for line in out if line.startswith("missing ")]
+    if not known:
+        return None
+    return missing
+
+
+def restart_stp_if_ports_missed(duthost, attempts=2):
+    """Make sure stpd holds every VLAN member port before a test checks
+    enrolment: if one is missing, restart the stp service and check again.
+
+    Only a port missing from stpd's table triggers a restart, so an enrolment
+    failure for any other reason still fails the test. Returns the ports still
+    missing."""
+    missing = []
+    for attempt in range(attempts + 1):
+        state = {}
+
+        def _asked():
+            state["missing"] = stpd_missing_ports(duthost)
+            return state["missing"] is not None
+
+        wait_until(30, 3, 0, _asked)
+        missing = state.get("missing") or []
+        if not missing or attempt == attempts:
+            break
+        logger.warning("stpd has no %s in its port table; restarting stp (%d of %d)",
+                       ", ".join(missing), attempt + 1, attempts)
+        duthost.shell("sudo systemctl reset-failed stp.service; sudo systemctl restart stp.service",
+                      module_ignore_errors=True)
+        wait_until(60, 3, 0, lambda: stp_container_up(duthost))
+    if missing:
+        logger.warning("stpd still has no %s in its port table", ", ".join(missing))
+    return missing
+
+
 def ensure_stp_feature_up(duthost, timeout=120):
     """Enable the STP feature and make sure its container is running, resilient to
     the post-`config reload` window. A reload restores FEATURE|stp to the image
@@ -63,12 +113,14 @@ def ensure_stp_feature_up(duthost, timeout=120):
     unmask + start. Returns True once the container is up."""
     wait_featured_ready(duthost)
     duthost.shell("sudo config feature state stp enabled", module_ignore_errors=True)
-    if wait_until(timeout, 3, 0, lambda: stp_container_up(duthost)):
-        return True
-    # featured did not bring it up (masked / still bouncing): drive it directly.
-    duthost.shell("sudo systemctl unmask stp.service", module_ignore_errors=True)
-    duthost.shell("sudo systemctl start stp.service", module_ignore_errors=True)
-    return wait_until(timeout, 3, 0, lambda: stp_container_up(duthost))
+    if not wait_until(timeout, 3, 0, lambda: stp_container_up(duthost)):
+        # featured did not bring it up (masked / still bouncing): drive it directly.
+        duthost.shell("sudo systemctl unmask stp.service", module_ignore_errors=True)
+        duthost.shell("sudo systemctl start stp.service", module_ignore_errors=True)
+        if not wait_until(timeout, 3, 0, lambda: stp_container_up(duthost)):
+            return False
+    restart_stp_if_ports_missed(duthost)
+    return True
 
 
 # ---- leave CONFIG_DB as the module found it ----
@@ -156,6 +208,26 @@ def config_validates(duthost):
     res = duthost.shell("config apply-patch {}".format(patch), module_ignore_errors=True)
     out = (res.get("stdout", "") + res.get("stderr", "")).strip()
     return res.get("rc", 1) == 0, out
+
+
+def apply_config_patch(duthost, path, value, name):
+    """Add `value` at the JSON-patch `path` of the running config through the
+    generic config updater, the route `config apply` takes, so the
+    YANG model is what accepts or refuses it. Returns (ok, output)."""
+    patch = "/tmp/stp_patch_{}.json".format(name)
+    duthost.copy(content=json.dumps([{"op": "add", "path": path, "value": str(value)}]), dest=patch)
+    res = duthost.shell("config apply-patch {}".format(patch), module_ignore_errors=True)
+    out = (res.get("stdout", "") + res.get("stderr", "")).strip()
+    return res.get("rc", 1) == 0, out
+
+
+def bridge_priority_rule_present(duthost):
+    """True when the image's spanning-tree YANG model lists the sixteen
+    multiples of 4096 as the bridge priority range. An older model takes any
+    value in 0..61440, so the tests of that rule skip rather than fail."""
+    out = duthost.shell("grep -c '4096 | 8192 | 12288' /usr/local/yang-models/sonic-spanning-tree.yang",
+                        module_ignore_errors=True).get("stdout", "").strip()
+    return out.isdigit() and int(out) > 0
 
 
 # ---- MST region / instance mapping (no-op for PVST) ----
@@ -366,7 +438,8 @@ class StpTestBase:
         if not stp_container_up(duthost):
             duthost.shell("sudo systemctl unmask stp.service", module_ignore_errors=True)
             duthost.shell("sudo systemctl start stp.service", module_ignore_errors=True)
-            wait_until(60, 3, 0, lambda: stp_container_up(duthost))
+            if wait_until(60, 3, 0, lambda: stp_container_up(duthost)):
+                restart_stp_if_ports_missed(duthost)
 
     def is_enrolled(self, duthost, scope, intf):
         """True once `intf` has an STP port row for `scope` (STP is running on it)."""

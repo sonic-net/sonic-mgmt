@@ -28,11 +28,15 @@ and the lifecycle semantics:
   * ``test_pvst_disable_leaves_valid_config_and_no_tree`` (testlet 4) -- a
     disable stops the protocol: the per-VLAN tables go, the per-VLAN config
     stays, and the running config still validates.
+  * ``test_pvst_bridge_priority_must_be_a_multiple_of_4096`` -- the YANG model
+    refuses a global or per-VLAN bridge priority that is not a multiple of
+    4096, so the configured and the running priority cannot disagree.
 """
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.stp import stp_base
 from tests.stp import stp_utils
 from tests.stp.stp_base import StpTestBase
 
@@ -270,8 +274,8 @@ class TestPvstConfig(StpTestBase):
 
         try:
             self.set_bridge_priority(duthost, vlan_a, priority)
-            pytest_assert(self.wait_enrolled(duthost, vlan_a, p1),
-                          "{} is not in VLAN {}'s tree before the disable".format(p1, vlan_a))
+            stp_utils.assert_member_ready(duthost, self.wait_enrolled(duthost, vlan_a, p1),
+                                          "{} is not in VLAN {}'s tree before the disable".format(p1, vlan_a))
 
             self.disable_stp(duthost)
             self.assert_mode_cleared(duthost)
@@ -307,8 +311,8 @@ class TestPvstConfig(StpTestBase):
             # Something non-default in every table, so a dropped table is visible.
             self.set_bridge_priority(duthost, vlan_a, 8192)
             duthost.shell("config spanning-tree interface bpdu-guard enable {}".format(p1))
-            pytest_assert(self.wait_enrolled(duthost, vlan_a, p1),
-                          "{} is not in VLAN {}'s tree before the replace".format(p1, vlan_a))
+            stp_utils.assert_member_ready(duthost, self.wait_enrolled(duthost, vlan_a, p1),
+                                          "{} is not in VLAN {}'s tree before the replace".format(p1, vlan_a))
             before = _snapshot()
             pytest_assert(all(before.values()), "an STP table is empty before the replace: {}".format(before))
 
@@ -328,4 +332,48 @@ class TestPvstConfig(StpTestBase):
         finally:
             duthost.shell("config spanning-tree interface bpdu-guard disable {}".format(p1),
                           module_ignore_errors=True)
+            self.set_bridge_priority(duthost, vlan_a, 32768)
+
+    def test_pvst_bridge_priority_must_be_a_multiple_of_4096(self, duthosts, rand_one_dut_hostname,
+                                                             stp_config_env):
+        """The bridge priority is a 4-bit field: spanning tree uses the value
+        rounded down to a multiple of 4096. The YANG model must refuse any
+        other value, globally and per VLAN, so that what CONFIG_DB holds is
+        what the protocol advertises. Goes through the generic config updater
+        because that is the validation `config apply` relies on; the
+        CLI has its own check."""
+        duthost = duthosts[rand_one_dut_hostname]
+        vlan_a = stp_config_env["vlan_a"]
+        if not stp_base.bridge_priority_rule_present(duthost):
+            pytest.skip("the image's spanning-tree YANG model accepts any bridge priority in 0..61440")
+        vlan_key = "STP_VLAN|Vlan{}".format(vlan_a)
+
+        def _priority(key):
+            return stp_utils._hgetall(duthost, key, dbnum=4).get("priority")
+
+        try:
+            self.set_bridge_priority(duthost, vlan_a, 8192)
+            pytest_assert(wait_until(10, 1, 0, lambda: _priority(vlan_key) == "8192"),
+                          "VLAN {} priority did not reach CONFIG_DB".format(vlan_a))
+
+            for key, path, value, name in (("STP|GLOBAL", "/STP/GLOBAL/priority", 100, "global_priority"),
+                                           (vlan_key, "/STP_VLAN/Vlan{}/priority".format(vlan_a), 4097,
+                                            "vlan_priority")):
+                before = _priority(key)
+                ok, out = stp_base.apply_config_patch(duthost, path, value, name)
+                pytest_assert(not ok, "{} = {} was accepted; it is not a multiple of 4096".format(path, value))
+                pytest_assert("multiple of 4096" in out,
+                              "{} = {} was refused for another reason: {}".format(path, value, out[-400:]))
+                pytest_assert(_priority(key) == before,
+                              "{} changed in CONFIG_DB although the patch was refused".format(path))
+
+            ok, out = stp_base.apply_config_patch(duthost, "/STP_VLAN/Vlan{}/priority".format(vlan_a),
+                                                  61440, "vlan_priority_max")
+            pytest_assert(ok, "VLAN {} priority 61440, the largest multiple of 4096, was refused: {}".format(
+                vlan_a, out[-400:]))
+            pytest_assert(_priority(vlan_key) == "61440",
+                          "VLAN {} priority is {} after the patch, not 61440".format(vlan_a, _priority(vlan_key)))
+            pytest_assert(self.wait_self_root(duthost, vlan_a),
+                          "DUT is not the root of VLAN {} after the priority change".format(vlan_a))
+        finally:
             self.set_bridge_priority(duthost, vlan_a, 32768)

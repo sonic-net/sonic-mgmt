@@ -133,7 +133,10 @@ class StpBpduBase(BaseTest):
 
     def scenario_validate_l2_packet(self):
         send_port = int(self.param("send_port"))
-        recv_port = int(self.param("receive_port"))
+        # One port, or the member ports of a PortChannel: the DUT hashes the
+        # flow onto one of them, so the count runs over all of them.
+        recv = self.param("receive_port")
+        recv_ports = [int(p) for p in recv] if isinstance(recv, (list, tuple)) else [int(recv)]
         vlan_id = int(self.param("vlan_id", 1))
         verify_packet = self.param("verify_packet", True)
 
@@ -144,15 +147,18 @@ class StpBpduBase(BaseTest):
         masked.set_do_not_care(12 * 8, (len(expected_pkt) - 12) * 8)
 
         count_to_send = 100
+        # PTF keeps at most 100 packets per port and drops the oldest when full,
+        # so the DUT's own BPDUs and LLDP on the receive port would push probes out.
+        self.dataplane.set_qlen(count_to_send * 10)
         self.dataplane.flush()
         for _ in range(count_to_send):
             testutils.send_packet(self, port_id=send_port, pkt=l2_packet)
 
-        matched = testutils.count_matched_packets_all_ports(self, masked, [recv_port], timeout=5)
+        matched = testutils.count_matched_packets_all_ports(self, masked, recv_ports, timeout=5)
         self.logger.info("validate_l2_packet: matched %d (verify_packet=%s)", matched, verify_packet)
         expected = count_to_send if verify_packet else 0
-        assert matched == expected, "expected {} packets on port {}, got {}".format(
-            expected, recv_port, matched)
+        assert matched == expected, "expected {} packets on ports {}, got {}".format(
+            expected, recv_ports, matched)
 
     # -------------------------------------------------------------------- hooks
     def parse_bpdu_packet(self, packet):

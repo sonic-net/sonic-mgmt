@@ -158,7 +158,8 @@ def enable_stp_and_verify(request, duthosts, rand_one_dut_hostname, setup_stp_te
     # no longer considers a member: frames forward but `show mac` never learns,
     # which reads as a MAC-learning defect.
     for port in test_ports:
-        py_assert(
+        stp_utils.assert_member_ready(
+            duthost,
             wait_until(30, 2, 0, lambda p=port: duthost.shell(
                 "redis-cli -n 0 exists 'VLAN_MEMBER_TABLE:Vlan{}:{}'".format(vlan_id, p),
                 module_ignore_errors=True).get("stdout", "").strip() == "1"),
