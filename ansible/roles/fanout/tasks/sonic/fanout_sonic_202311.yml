@@ -142,6 +142,25 @@
 
 - name: Setup broadcom based fanouts
   block:
+    - name: Wait for SWSS CoppOrch default trap initialization
+      # syncd publishes VIDTORID after SAI create succeeds; cold SWSS startup clears ASIC_DB.
+      shell: |
+        set -e
+        trap_keys=$(sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:*')
+        for key in $trap_keys; do
+          trap_type=$(sonic-db-cli ASIC_DB HGET "$key" SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE)
+          [ "$trap_type" = "SAI_HOSTIF_TRAP_TYPE_TTL_ERROR" ] || continue
+          rid=$(sonic-db-cli ASIC_DB HGET VIDTORID "${key#ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:}")
+          [ -n "$rid" ] && [ "$rid" != "oid:0x0" ] && exit 0
+        done
+        exit 1
+      become: yes
+      changed_when: false
+      register: copp_init_result
+      until: copp_init_result.rc == 0
+      retries: 12
+      delay: 5
+
     - name: reinit fp entries
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
