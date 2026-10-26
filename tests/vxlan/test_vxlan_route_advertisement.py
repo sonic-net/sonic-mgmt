@@ -131,7 +131,8 @@ def fixture_setUp(duthosts,
         tunnel_names[outer_layer_version] = ecmp_utils.create_vxlan_tunnel(
             data['duthost'],
             minigraph_data=minigraph_facts,
-            af=outer_layer_version)
+            af=outer_layer_version,
+            ttl_mode="pipe" if data['duthost'].facts.get("asic_type") == "cisco-8000" else None)
 
     payload_version = ecmp_utils.get_payload_version(encap_type)
     encap_type = "{}_in_{}".format(payload_version, outer_layer_version)
@@ -215,7 +216,7 @@ class Test_VxLAN_route_Advertisement():
         else:
             for i in range(1, 250):
                 for j in range(2, 250):
-                    key = f"dc4a:{i}:{j}::"
+                    key = "dc4a:{}:{}::".format(i, j)
                     routes[vnet][key] = nexthops.copy()
                     count = count + 1
                     if count >= num_routes:

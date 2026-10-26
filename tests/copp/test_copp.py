@@ -112,8 +112,9 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
-                    pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
+                if (fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts["platform"]
+                        in ['arista_7060x6_64pe', 'x86_64-nokia_ixr7220_h5_64o-r0', 'x86_64-nokia_ixr7220_h6_64-r0']):
+                    pytest.skip("Skip UDLD test for Arista-7060x6 and Nokia-H5/H6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         namespace = DEFAULT_NAMESPACE
@@ -179,6 +180,14 @@ class TestCOPP(object):
 
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if packet_type == "VlanSubnetIPinIP":
+            ip_decap_status = duthost.shell(
+                "sonic-cfggen -d -v 'SYSTEM_DEFAULTS.ip_decap.status'",
+                module_ignore_errors=True
+            )["stdout"].strip()
+            if ip_decap_status == "disabled":
+                pytest.skip("IP-in-IP decapsulation is disabled on this DUT")
 
         # Access test_params from the class-level variable
         test_params = self.test_params

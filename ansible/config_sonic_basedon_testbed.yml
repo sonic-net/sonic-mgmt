@@ -154,6 +154,14 @@
         is_bmc_topo: "{{ 'bmc' in topo }}"
       tags: always
 
+    - name: set prober_type
+      set_fact:
+        prober_type: "{{ testbed_facts['prober_type'] | default(None) }}"
+
+    - name: set neighbor_mode
+      set_fact:
+        neighbor_mode: "{{ testbed_facts['neighbor_mode'] | default(None) }}"
+
     - name: set lit mode
       set_fact:
         is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
@@ -871,10 +879,12 @@
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo"
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
@@ -916,7 +926,10 @@
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
+          prober_type: "{{ prober_type | default(omit) }}"
+          neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
@@ -977,6 +990,20 @@
           pause:
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
+
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
@@ -1154,6 +1181,15 @@
             retries: 12
             delay: 10
             until: chrony_start_result is succeeded
+
+          - name: Wait for chronyd to accept commands
+            become: true
+            command: chronyc tracking
+            register: chrony_ready_result
+            until: chrony_ready_result.rc == 0
+            retries: 12
+            delay: 5
+            changed_when: false
 
           - name: Force rapid NTP polling with chrony
             become: true

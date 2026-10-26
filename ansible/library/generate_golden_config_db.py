@@ -44,7 +44,8 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
-                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
+                         'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
+                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2", "Mellanox-SN4280-O4X96"})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -182,6 +183,8 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
+                                    prober_type=dict(required=False, type='str', default=None),
+                                    neighbor_mode=dict(required=False, type='str', default=None),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
@@ -205,6 +208,8 @@ class GenerateGoldenConfigDBModule(object):
             self.hwsku = dut_hwsku
 
         self.vm_configuration = self.module.params['vm_configuration']
+        self.prober_type = self.module.params['prober_type']
+        self.neighbor_mode = self.module.params['neighbor_mode']
         self.is_lit_mode = self.module.params['is_lit_mode']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
@@ -335,16 +340,23 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
-        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
-            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
-            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
-
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        # disable bmp feature table first
-        return False
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
+                return False
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
+                return False
+        else:
+            return True
+        return True
 
     def is_bmc_device(self):
         return device_info.get_bmc_data() is not None
@@ -737,6 +749,7 @@ class GenerateGoldenConfigDBModule(object):
             "VLAN_MEMBER": copy.deepcopy(ori_config_db["VLAN_MEMBER"]),
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
+            "DPU": self._generate_dpu_config(dpu_num, enabled_dpu_set),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
@@ -746,7 +759,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "t1-smartswitch-ha":
             gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
             gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
-            ha_config = self._generate_ha_config(dpu_num, enabled_dpu_set)
+            ha_config = self._generate_ha_config(dpu_num)
             # Merge FEATURE dict so we don't overwrite existing features
             if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
                 gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
@@ -759,20 +772,47 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
-    def _generate_ha_config(self, dpu_num, enabled_dpu_set):
+    def _generate_dpu_config(self, dpu_num, enabled_dpu_set):
+        switch_id = self.npu_index
+        hostname = self.duts_list[switch_id] if self.duts_list and switch_id < len(self.duts_list) else "dpu"
+
+        pa_prefix = "20.0.20{}.".format(switch_id)
+        vip_prefix = "3.2.1."
+        midplane_prefix = "169.254.200."
+        swbus_start = 23606
+
+        dpu_table = {}
+        for idx in range(dpu_num):
+            dpu_key = self._format_dpu_key(hostname, idx)
+            dpu_table[dpu_key] = {
+                "dpu_id": str(idx),
+                "gnmi_port": "50052",
+                "local_port": "8080",
+                "orchagent_zmq_port": "8100",
+                "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
+                "state": "up" if idx in enabled_dpu_set else "down",
+                "swbus_port": str(swbus_start + idx),
+                "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
+                "vip_ipv4": "{}{}".format(vip_prefix, idx),
+                "midplane_ipv4": "{}{}".format(midplane_prefix, idx + 1),
+            }
+
+        return dpu_table
+
+    def _format_dpu_key(self, hostname, dpu_index):
+        return "{}-dpu{}".format(hostname, dpu_index)
+
+    def _generate_ha_config(self, dpu_num):
         """
-        Generate DASH-HA configuration tables (DPU, REMOTE_DPU, VDPU,
+        Generate DASH-HA configuration tables (REMOTE_DPU, VDPU,
         DASH_HA_GLOBAL_CONFIG, FEATURE, VNET, VXLAN_TUNNEL) for the
         t1-smartswitch-ha topology.
 
         Entries are emitted for every DPU supported by the hwsku
-        (0..dpu_num-1). Only the DPU table's `state` field reflects whether
-        the DPU is enabled for this testbed; disabled DPUs are recorded with
-        state="down" so the config schema stays consistent across NPUs.
+        (0..dpu_num-1) so the config schema stays consistent across NPUs.
 
         Args:
             dpu_num: Total number of DPUs supported by the hwsku.
-            enabled_dpu_set: Set of DPU indices that should be admin-up.
 
         Requires self.duts_list (ordered list of DUT hostnames) and
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
@@ -803,33 +843,13 @@ class GenerateGoldenConfigDBModule(object):
         vxlan_src_ip = loopback_ip.split("/")[0]
         peer_npu_ip = peer_loopback_ip.split("/")[0]
 
-        # --- Local DPU table ---
-        pa_prefix = "20.0.20{}.".format(switch_id)
-        vip_prefix = "3.2.1."
-        midplane_prefix = "169.254.200."
         swbus_start = 23606
-
-        dpu_table = {}
-        for idx in range(dpu_num):
-            dpu_key = "{}-dpu-{}".format(hostname, idx)
-            dpu_table[dpu_key] = {
-                "dpu_id": str(idx),
-                "gnmi_port": "50052",
-                "local_port": "8080",
-                "orchagent_zmq_port": "8100",
-                "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
-                "state": "up" if idx in enabled_dpu_set else "down",
-                "swbus_port": str(swbus_start + idx),
-                "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
-                "vip_ipv4": "{}{}".format(vip_prefix, idx),
-                "midplane_ipv4": "{}{}".format(midplane_prefix, idx + 1),
-            }
 
         # --- Remote DPU table ---
         remote_pa_prefix = "20.0.20{}.".format(peer_switch_id)
         remote_dpu_table = {}
         for idx in range(dpu_num):
-            dpu_key = "{}-dpu-{}".format(peer_hostname, idx)
+            dpu_key = self._format_dpu_key(peer_hostname, idx)
             remote_dpu_table[dpu_key] = {
                 "dpu_id": str(idx),
                 "npu_ipv4": peer_npu_ip,
@@ -850,15 +870,14 @@ class GenerateGoldenConfigDBModule(object):
         '''
         for idx in range(dpu_num):
             vdpu_table["vdpu0_{}".format(idx)] = {
-                "main_dpu_ids": "{}-dpu-{}".format(hostname_0, idx)
+                "main_dpu_ids": self._format_dpu_key(hostname_0, idx)
             }
         for idx in range(dpu_num):
             vdpu_table["vdpu1_{}".format(idx)] = {
-                "main_dpu_ids": "{}-dpu-{}".format(hostname_1, idx)
+                "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
         ha_config = {
-            "DPU": dpu_table,
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
             "DASH_HA_GLOBAL_CONFIG": {
@@ -908,6 +927,25 @@ class GenerateGoldenConfigDBModule(object):
 
         return ha_config
 
+    def _set_bgp_confed_config(self, config):
+        """Write BGP confederation config for both FRR config daemons.
+
+        bgpcfgd reads BGP_DEVICE_GLOBAL.CONFED; frrcfgd only reads
+        BGP_GLOBALS.<vrf>.confed_id / confed_peers. Emit both so the DUT gets
+        confederation regardless of which daemon the image runs.
+        """
+        peers = str(self.bgp_confd_peers).split()
+
+        bgp_device_global = config.setdefault("BGP_DEVICE_GLOBAL", {})
+        bgp_device_global["CONFED"] = {
+            "asn": str(self.bgp_confd_asn),
+            "peers": ";".join(peers)
+        }
+
+        bgp_globals_default = config.setdefault("BGP_GLOBALS", {}).setdefault("default", {})
+        bgp_globals_default["confed_id"] = str(self.bgp_confd_asn)
+        bgp_globals_default["confed_peers"] = peers
+
     def generate_ut2_golden_config_db(self):
         full_config = {}
         if self.num_asics > 1:
@@ -924,19 +962,11 @@ class GenerateGoldenConfigDBModule(object):
                     full_config[asic_name].update(macsec_config[asic_name])
 
                 if self.bgp_confd_asn and self.bgp_confd_peers:
-                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
-                    bgp_device_global["CONFED"] = {
-                        "asn": str(self.bgp_confd_asn),
-                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                    }
+                    self._set_bgp_confed_config(full_config[asic_name])
         else:
             full_config.update(macsec_config)
             if self.bgp_confd_asn and self.bgp_confd_peers:
-                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
-                bgp_device_global["CONFED"] = {
-                    "asn": str(self.bgp_confd_asn),
-                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
-                }
+                self._set_bgp_confed_config(full_config)
 
         return json.dumps(full_config, indent=4)
 
@@ -999,29 +1029,6 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config_db, indent=4)
 
-    def update_zmq_config(self, config):
-        # for multi asic platform this config is per asic.
-
-        ori_config_db = json.loads(config)
-        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_route_zmq_enabled" in out:
-            if self.num_asics > 1:
-                ori_config_db = self._update_config_db_in_ns(
-                    ori_config_db, "DEVICE_METADATA/localhost",
-                    {"orch_northbond_route_zmq_enabled": "true"}
-                )
-            else:
-                if "DEVICE_METADATA" not in ori_config_db:
-                    ori_config_db["DEVICE_METADATA"] = {}
-                if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-                    ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-                if self.topo_name == "t1-smartswitch-ha":
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
-                else:
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-
-        return json.dumps(ori_config_db, indent=4)
-
     def _parse_zebra_nexthop_from_minigraph(self):
         """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
         try:
@@ -1057,7 +1064,7 @@ class GenerateGoldenConfigDBModule(object):
         """
         # Check if the installed YANG schema supports zebra_nexthop before injecting.
         # Older images may lack this leaf, causing load_minigraph --override_config to
-        # fail YANG validation. This mirrors the pattern used in update_zmq_config().
+        # fail YANG validation.
         rc, yang_content, _ = self.module.run_command(
             "sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
         if rc != 0 or "zebra_nexthop" not in yang_content:
@@ -1084,6 +1091,66 @@ class GenerateGoldenConfigDBModule(object):
                 # zebra_nexthop is restored separately by config_reload.py via hset.
                 return config
             ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
+        return json.dumps(ori_config_db, indent=4)
+
+    def update_ip_decap_config(self, config):
+        """Set SYSTEM_DEFAULTS|ip_decap to mirror the IP-in-IP decap default that
+        sonic-buildimage PR #28693 generates in minigraph.py.
+
+        IP-in-IP decap is disabled for DPU switches, the lossy
+        Arista-7060X6-64PE-B-C512S2 / -C448O16 hwskus, and NVIDIA/Mellanox
+        non-storage backend devices; it is enabled everywhere else. The knob is
+        consumed by ipinip.json.j2 in swss, which runs per ASIC, so on multi-ASIC
+        platforms the entry is injected into each ASIC namespace's CONFIG_DB.
+
+        config load_minigraph --override_config replaces each golden table as a
+        whole (delete-then-write), so the minigraph SYSTEM_DEFAULTS entries are
+        seeded into the golden table to avoid dropping existing entries such as
+        tunnel_qos_remap and mux_tunnel_egress_acl.
+        """
+        minigraph_config = json.loads(self.get_config_from_minigraph())
+        metadata = minigraph_config.get("DEVICE_METADATA", {}).get("localhost", {})
+        switch_type = metadata.get("switch_type")
+        device_type = metadata.get("type")
+        is_storage_device = metadata.get("storage_device") == "true"
+        hwsku = self.hwsku or metadata.get("hwsku")
+        platform = self.platform or metadata.get("platform")
+
+        enable_ip_decap = True
+        if switch_type == "dpu":
+            enable_ip_decap = False
+        elif hwsku in ("Arista-7060X6-64PE-B-C512S2", "Arista-7060X6-64PE-B-C448O16"):
+            enable_ip_decap = False
+        elif (platform and platform.startswith(("x86_64-nvidia", "x86_64-mlnx"))
+                and device_type in ("BackEndToRRouter", "BackEndLeafRouter", "BackEndSpineRouter")
+                and not is_storage_device):
+            enable_ip_decap = False
+
+        ip_decap_value = {"ip_decap": {"status": "enabled" if enable_ip_decap else "disabled"}}
+
+        def _seed_and_set(system_defaults, seed):
+            # Carry minigraph entries that aren't already in the golden table, then
+            # apply the computed ip_decap policy (which overrides any existing one).
+            for key, value in seed.items():
+                system_defaults.setdefault(key, copy.deepcopy(value))
+            system_defaults.update(ip_decap_value)
+
+        ori_config_db = json.loads(config)
+        if multi_asic.is_multi_asic():
+            for asic in range(multi_asic.get_num_asics()):
+                ns = "asic{}".format(asic)
+                # Same command load_minigraph uses (no -p): works for fabric ASICs
+                # on chassis supervisors, which have no per-ASIC port_config.ini.
+                rc, out, err = self.module.run_command(
+                    "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json -n {} --print-data".format(ns))
+                if rc != 0:
+                    self.module.fail_json(
+                        msg="Failed to get config from minigraph for namespace {}: {}".format(ns, err))
+                seed = json.loads(out).get("SYSTEM_DEFAULTS", {})
+                _seed_and_set(ori_config_db.setdefault(ns, {}).setdefault("SYSTEM_DEFAULTS", {}), seed)
+        else:
+            _seed_and_set(ori_config_db.setdefault("SYSTEM_DEFAULTS", {}),
+                          minigraph_config.get("SYSTEM_DEFAULTS", {}))
         return json.dumps(ori_config_db, indent=4)
 
     def generate_drh_golden_config_db(self):
@@ -1127,6 +1194,42 @@ class GenerateGoldenConfigDBModule(object):
                 {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
 
         return json.dumps(golden_config, indent=4)
+
+    def generate_dualtor_golden_config_db(self):
+        """
+        Generate golden config for dualtor topology with prober_type and
+        neighbor_mode support.
+
+        This adds prober_type to existing MUX_CABLE entries from minigraph.
+        """
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        # Get existing config from minigraph
+        ori_config_db = json.loads(out)
+        golden_config_db = {}
+
+        # Preserve DEVICE_METADATA
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        if "MUX_CABLE" in ori_config_db and "PORT" in ori_config_db:
+            mux_cable_config = copy.deepcopy(ori_config_db["MUX_CABLE"])
+            port_config = copy.deepcopy(ori_config_db["PORT"])
+
+            for intf_name, intf_config in mux_cable_config.items():
+                # Set prober_type only when explicitly provided
+                if self.prober_type and self.prober_type != "":
+                    intf_config["prober_type"] = self.prober_type
+                # Set neighbor_mode only when explicitly provided
+                if self.neighbor_mode and self.neighbor_mode != "":
+                    intf_config["neighbor_mode"] = self.neighbor_mode
+
+            golden_config_db["MUX_CABLE"] = mux_cable_config
+            golden_config_db["PORT"] = port_config
+
+        return json.dumps(golden_config_db, indent=4)
 
     def override_port_table_from_platform(self, config):
         """
@@ -1237,20 +1340,21 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_full_lossy_golden_config_db()
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
+        elif "dualtor" in self.topo_name:
+            config = self.generate_dualtor_golden_config_db()
+            module_msg = module_msg + " for dualtor"
         elif "c0" in self.topo_name:
             config = self.generate_c0_golden_config_db()
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
 
-        # update ZMQ config
-        config = self.update_zmq_config(config)
-
         # update dns config
         config = self.update_dns_config(config)
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+        config = self.update_ip_decap_config(config)
 
         # Rebuild PORT table from port_speeds + platform.json when port override is active
         if self.port_override_from_links:

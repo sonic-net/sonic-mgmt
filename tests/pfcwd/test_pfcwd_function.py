@@ -4,7 +4,6 @@ import os
 import pytest
 import time
 import six
-import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -57,13 +56,37 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd stop")
 
 
-def is_longlink(dut, profile):
-    if dut.sonichost._facts['platform'] in \
-            ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
-        match = re.search("_([0-9]*)m_", profile)
-        if match:
-            return int(match.group(1)) > 2000
-    return False
+@pytest.fixture(scope='function', autouse=True)
+def restore_ptf_arp_ignore(ptfhost):
+    """Reset global ARP settings modified by resolve_arp"""
+    yield
+    ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                    module_ignore_errors=True)
+
+
+def is_static_profile(asic, profile):
+    """
+    Determine whether a buffer profile uses a static threshold.
+
+    Args:
+        asic : asic instance used to run redis commands
+        profile(string) : buffer profile name
+
+    Returns:
+        bool : True if the profile uses a static threshold, False otherwise
+    """
+    if PfcCmd.isBufferInApplDb(asic):
+        db = "0"
+        table_template = BF_PROFILE_TABLE
+    else:
+        db = "4"
+        table_template = BF_PROFILE
+    result = asic.run_redis_cmd(
+        argv=[
+            "redis-cli", "-n", db, "HGET", table_template.format(profile), "static_th"
+        ]
+    )
+    return bool(result) and result[0] not in (None, "")
 
 
 class PfcCmd(object):
@@ -151,7 +174,7 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        if is_longlink(dut, profile):
+        if is_static_profile(asic, profile):
             asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
@@ -205,7 +228,7 @@ class PfcCmd(object):
 
         alpha = 0
         static_th = 0
-        if is_longlink(dut, pg_profile):
+        if is_static_profile(asic, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
@@ -413,7 +436,8 @@ class SetupPfcwdFunc(object):
         """
         new_alpha = self.alpha
         new_static_th = self.static_th
-        if is_longlink(dut, self.pg_profile):
+        asic = dut.get_port_asic_instance(port)
+        if is_static_profile(asic, self.pg_profile):
             if int(self.static_th) > 0:
                 new_static_th = int(int(self.static_th) / 2)
         else:
@@ -447,6 +471,12 @@ class SetupPfcwdFunc(object):
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
             if ip_version == "IPv4":
+                # Prevent ARP replies from PTF interfaces that don't own the target IP.
+                # All vlan member ports share the same neighbor IP (e.g. 192.168.0.2).
+                # Without arp_ignore=1, the PTF kernel responds to ARP on every interface
+                # (default arp_ignore=0), causing the DUT to associate the IP with whichever
+                # port's reply arrives last -- typically the wrong port.
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
                 self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
                 self.ptf.command("ping {} -c 10".format(vlan['addr']))
                 self.dut.command("docker exec -i swss arping {} -c 5".format(self.pfc_wd['test_neighbor_addr']),
@@ -1298,6 +1328,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -1325,7 +1356,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing non-Trafific Pfcwd actions on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+            self.setup_test_params(port, setup_info['vlan'], init=not idx, ip_version=ip_version)
 
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.

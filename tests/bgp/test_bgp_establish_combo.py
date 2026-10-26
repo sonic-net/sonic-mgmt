@@ -27,12 +27,22 @@ def setup_teardown(duthost):
     # Restore the config via config_reload may cost too much time.
     # So we leverage GCU for the config update. Setup checkpoint before the test
     # and rollback to it after the test.
+    # Capture the original BGP neighbor set so we can verify the post-rollback state.
+    original_neighbors = set(duthost.get_bgp_neighbors().keys())
     create_checkpoint(duthost)
 
     yield
 
     try:
         rollback_or_reload(duthost, fail_on_rollback_error=False)
+        # GCU rollback restores CONFIG_DB, but bgpcfgd may not push the reverse
+        # of the "move + rename" patches cleanly down to FRR. Force a BGP restart
+        # so FRR re-reads CONFIG_DB, and wait until all original neighbors are
+        # visible again before letting the next test run.
+        duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
+        duthost.shell("sudo systemctl restart bgp", module_ignore_errors=True)
+        wait_until(180, 10, 30,
+                   lambda: original_neighbors.issubset(set(duthost.get_bgp_neighbors().keys())))
     finally:
         delete_checkpoint(duthost)
 
@@ -81,8 +91,10 @@ def verify_bgp_session_established(duthost, neighbors):
     # entry: [DUT type, [BGP neighbor types]]
     ["MgmtSpineRouter", ['MgmtAggregator', 'CoreTs', 'MgmtToRRouter', 'SpineTs']],
     ["MgmtAccessRouter", ['MgmtAggregator', 'CoreTs', 'MgmtToRRouter', 'SpineTs']],
-    ["LowerMgmtAggregator", ["CoreTs", "MgmtToRRouter", "UpperMgmtAggregator", "CoreRouter"]],
-    ["UpperMgmtAggregator", ["CoreTs", "MgmtToRRouter", "LowerMgmtAggregator", "CoreRouter"]],
+    ["LowerMgmtAggregator", ["MgmtSpineRouter", "MgmtAccessRouter", "UpperMgmtAggregator",
+                             "CoreTs", "CoreMgmtRouter"]],
+    ["UpperMgmtAggregator", ["MgmtLeafRouter", "LowerMgmtAggregator", "CoreTs", "CoreRouter", "CoreMgmtRouter",
+                             "ConsoleServer"]],
 ])
 def test_bgp_establish_combo(duthost, ip_version, combo):
     target_dut_type, target_neigh_types = combo

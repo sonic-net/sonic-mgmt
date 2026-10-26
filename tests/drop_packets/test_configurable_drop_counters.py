@@ -51,7 +51,8 @@ LINK_LOCAL_IP = "169.254.0.1"
 
 # For dualtor
 @pytest.fixture(scope='module')
-def vlan_mac(duthost):
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
     for vlan in list(config_facts.get('VLAN', {}).values()):
@@ -379,6 +380,11 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
     counter_type = request.param
     supported_reasons = device_capabilities["reasons"][counter_type]
 
+    callspec = getattr(request.node, "callspec", None)
+    test_drop_reason = callspec.params.get("drop_reason") if callspec else None
+    if test_drop_reason and test_drop_reason not in supported_reasons:
+        pytest.skip("Drop reason {} not supported for {} on target DUT".format(test_drop_reason, counter_type))
+
     def _setup_counters(drop_reasons):
         if any(reason not in supported_reasons for reason in drop_reasons):
             pytest.skip("Drop reasons not supported on target DUT")
@@ -445,8 +451,12 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
 
 
 @pytest.fixture
-def arp_responder(ptfhost, testbed_params, tbinfo):
-    """Set up the ARP responder utility in the PTF container."""
+def arp_responder(ptfhost, testbed_params, tbinfo, setup_counters):
+    """Set up the ARP responder utility in the PTF container.
+
+    setup_counters is requested only to make it run first, so an unsupported drop
+    reason is skipped before the ARP responder is set up. Its value is not used.
+    """
     vlan_network = testbed_params["vlan_interface"]["subnet"]
     is_storage_backend = "backend" in tbinfo["topo"]["name"]
 
@@ -515,8 +525,10 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
     def _check_arp_populated():
         if is_ipv4_address(server_dst_addr):
+            duthost.command("ping {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
         else:
+            duthost.command("ping6 {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
         return server_dst_addr in result.get('stdout', '')
 

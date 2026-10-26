@@ -305,12 +305,8 @@ def ntp_server_set_intf(duthost, ntp_service, src_intf):
     json_patch = [
         {
             "op": "add",
-            "path": "/NTP",
-            "value": {
-                "global": {
-                    "src_intf": src_intf
-                }
-            }
+            "path": "/NTP/global/src_intf",
+            "value": src_intf
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)

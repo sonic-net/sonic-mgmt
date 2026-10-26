@@ -30,8 +30,9 @@ MARK_CONDITIONS_CONSTANTS = {
                      't1-backend', 't1-isolated-d128', 't1-isolated-d32',
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
                      'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
-                     't2-single-node-min', 't2_single_node_max', 't2_single_node_max_64p', 't2-single-node-max-64p',
-                     'topo_t2_single_node_max_64p_v2', 'urh_min', 'lrh_min']
+                     't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
+                     't2_single_node_max_64p', 't2-single-node-max-64p',
+                     't2_single_node_max_64p_v2', 'urh_min', 'lrh_min']
 }
 
 
@@ -710,12 +711,16 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
-    # Normalize nodeids: strip root directory prefix if present (pytest 9.0+ includes it)
+    # Normalize nodeids to match the tests/-relative condition keys. rootdir may
+    # float above tests/ (e.g. --inventory ../ansible/veos_vtb), so strip both
+    # basename(rootpath) and a leading "tests/" or all conditional skips no-op.
     root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
     for item in items:
         nodeid = item.nodeid
         if nodeid.startswith(root_prefix):
             nodeid = nodeid[len(root_prefix):]
+        if nodeid.startswith("tests/"):
+            nodeid = nodeid[len("tests/"):]
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:

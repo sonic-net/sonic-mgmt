@@ -30,6 +30,13 @@ INITIAL_ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 CHANGED_ENDPOINTS = ["100.0.3.10", "100.0.4.10"]
 PACKET_MULTIPLIER = 10
 
+# Platform-specific ECMP limits
+PLATFORM_ECMP_LIMITS = {
+    "8101": 510,
+    "8102": 510,
+    "8223": 4094
+}
+
 
 # ---------- Utility ----------
 def get_loopback_ip(cfg_facts):
@@ -100,7 +107,8 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 # ---------- Single-VNET setup ----------
 def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                         config_facts, dut_indx, vxlan_port):
+                         config_facts, dut_indx, vxlan_port,
+                         vxlan_sport=None, vxlan_mask=None):
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -120,7 +128,12 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
     logger.info(f"Creating VXLAN tunnel {TUNNEL_NAME} with source {dut_vtep}")
-    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
+    apply_chunk(duthost, {"VXLAN_TUNNEL": {TUNNEL_NAME: vxlan_tunnel_entry}}, "vxlan_tunnel")
     apply_chunk(duthost, {"VNET": {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}}, "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
@@ -147,7 +160,8 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
     )
     time.sleep(5)
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port,
+                                      vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
 
     return {
         "dut_vtep": dut_vtep,
@@ -181,11 +195,25 @@ def one_vnet_setup_teardown(
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
         vxlan_port = request.config.option.vxlan_port
+        vxlan_sport = request.config.option.vxlan_sport
+        vxlan_mask = request.config.option.vxlan_mask
 
-        num_endpoints = scaled_vnet_params.get("num_endpoints", 511) or 511
+        # Determine platform-specific ECMP limit
+        platform = duthost.facts.get("platform", "").lower()
+        max_ecmp_limit = None
+        for platform_key, limit in PLATFORM_ECMP_LIMITS.items():
+            if platform_key in platform:
+                max_ecmp_limit = limit
+                break
+
+        num_endpoints = int(scaled_vnet_params.get("num_endpoints"))
+        if max_ecmp_limit:
+            num_endpoints = min(num_endpoints, max_ecmp_limit)
+
         setup_params = vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                                            config_facts, dut_indx, vxlan_port)
-        setup_params["num_endpoints"] = int(num_endpoints)
+                                            config_facts, dut_indx, vxlan_port,
+                                            vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
+        setup_params["num_endpoints"] = num_endpoints
     except Exception as e:
         logger.error("Exception raised in setup: {}".format(repr(e)))
         logger.error(json.dumps(
@@ -198,7 +226,25 @@ def one_vnet_setup_teardown(
     config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def clean_vnet_route(one_vnet_setup_teardown):
+    """Clean VNET route state before each test"""
+    setup, duthost, _ = one_vnet_setup_teardown
+
+    # Delete the entire route entry to ensure clean state
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
+    )
+    time.sleep(2)
+
+    # Reprogram the route with initial endpoints and VNI
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, INITIAL_ENDPOINTS, VNI)
+
+    yield
+
 # ---------- PTF runner helper ----------
+
+
 def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets, mac_list=None):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
 
@@ -288,7 +334,7 @@ def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     updated_vni = 5001
 
@@ -442,7 +488,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
     time.sleep(5)
 
     # Step 2 — Initial MAC list
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num)]
+    mac_list = ["52:54:00:{:02x}:{:02x}:aa".format(i // 256, i % 256) for i in range(num)]
     mac_string = ",".join(mac_list)
 
     # Push initial MAC list
@@ -451,7 +497,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
 
     # Step 3 — Random index to modify
     mod_idx = random.randint(0, num - 1)
-    new_mac = f"52:54:99:{mod_idx//256:02x}:{mod_idx%256:02x}:cc"
+    new_mac = "52:54:99:{:02x}:{:02x}:cc".format(mod_idx // 256, mod_idx % 256)
     logger.info(f"Modifying MAC for endpoint index {mod_idx}: new MAC = {new_mac}")
 
     # Update the list

@@ -19,21 +19,19 @@ pytestmark = [
 ]
 
 
-def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
+def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name, route_counts):
     logger.info("announce ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
+    wait_for_route_counts(duthost, namespace, route_counts["announced"], "outq", "announced")
 
     logger.info("ipv4 route used {}".format(get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
     logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
-    sleep_to_wait(CRM_POLLING_INTERVAL * 5)
 
     logger.info("withdraw ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
-    sleep_to_wait(CRM_POLLING_INTERVAL * 5)
+    wait_for_route_counts(duthost, namespace, route_counts["withdrawn"], "inq", "withdrawn")
     logger.info("ipv4 route used {}".format(get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
     logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
 
@@ -71,7 +69,7 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     if normalized_level is None:
         normalized_level = "debug"
 
-    ipv4_route_used_before, ipv6_route_used_before = withdraw_and_announce_existing_routes
+    ipv4_route_used_before, ipv6_route_used_before = withdraw_and_announce_existing_routes["withdrawn"]
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
@@ -80,7 +78,8 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     logging.info(f"memory usage at start: {start_time_frr_daemon_memory}")
 
     while loop_times > 0:
-        announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name)
+        announce_withdraw_routes(
+            duthost, namespace, localhost, ptf_ip, topo_name, withdraw_and_announce_existing_routes)
         loop_times -= 1
 
     sleep_to_wait(CRM_POLLING_INTERVAL * 120)
@@ -138,3 +137,31 @@ def get_frr_daemon_memory_usage(duthost, daemon_list, namespace):
             frr_daemon_memory = int(frr_daemon_memory) * 1000
         frr_daemon_memory_dict[daemon] = frr_daemon_memory
     return frr_daemon_memory_dict
+
+
+def wait_for_route_counts(duthost, namespace, expected, queue, action):
+    full_wait_time = MAX_WAIT_TIME
+    current = None
+    previous_match = False
+
+    def route_counts_match():
+        nonlocal current, previous_match
+        prior_match = previous_match
+        previous_match = False
+        current = (
+            get_crm_resource_status(duthost, "ipv4_route", "used", namespace),
+            get_crm_resource_status(duthost, "ipv6_route", "used", namespace),
+        )
+        matched = check_queue_status(duthost, queue) and all(
+            abs(value - target) < ALLOW_ROUTES_CHANGE_NUMS
+            for value, target in zip(current, expected)
+        )
+        converged = matched and prior_match
+        previous_match = matched
+        return converged
+
+    pytest_assert(
+        wait_until(full_wait_time, CRM_POLLING_INTERVAL, CRM_POLLING_INTERVAL, route_counts_match),
+        "Routes failed to reach the {} CRM counts in {} seconds: expected={}, current={}".format(
+            action, full_wait_time, expected, current),
+    )

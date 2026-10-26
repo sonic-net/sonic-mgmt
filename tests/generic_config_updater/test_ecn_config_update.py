@@ -67,6 +67,12 @@ def get_asic_db_values(duthost, fields, cli_namespace_prefix):
             continue
         wred_data = ast.literal_eval(wred_data)
         values = {}
+        ecn_data = {k.replace('SAI_WRED_ATTR_', '').lower(): v for k, v in wred_data.items()
+                    if k.startswith('SAI_WRED_ATTR')}
+        delta = determine_delta_values(ecn_data, fields, True)
+        if all(delta[f] == 0 for f in fields):
+            logger.info(f"Skipping WRED object {wred_object}: all deltas are 0, no real value change possible.")
+            continue
         for field in fields:
             values[field] = int(wred_data[WRED_MAPPING[field]])
         if values:

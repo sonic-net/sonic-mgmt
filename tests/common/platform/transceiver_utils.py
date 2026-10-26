@@ -93,7 +93,8 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
     docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
 
-    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    docker_cmd = 'for key in $({}); do echo "$key : $({})" ; done'.format(
+        docker_cmd_keys, docker_cmd_hgetall)
     port_xcvr_info = dut.command(docker_cmd, _uses_shell=True)
     port_xcvr_info_dict = {}
     for line in port_xcvr_info["stdout_lines"]:
@@ -146,7 +147,8 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
     docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
 
-    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    docker_cmd = 'for key in $({}); do echo "$key : $({})" ; done'.format(
+        docker_cmd_keys, docker_cmd_hgetall)
     port_xcvr_dom_sensor = dut.command(docker_cmd, _uses_shell=True)
 
     port_xcvr_dom_dict = {}
@@ -190,7 +192,7 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
         if res_port_name:
             port_name = res_port_name.groupdict()["key"].strip()
             line_start_num_list_per_port.append([port_name, index])
-    logging.info(f"line_start_num_list_per_port :{line_start_num_list_per_port}")
+    logging.info("line_start_num_list_per_port: %s", line_start_num_list_per_port)
 
     for index in range(len(line_start_num_list_per_port)):
         if index == len(line_start_num_list_per_port) - 1:
@@ -202,7 +204,7 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
         sfp_eeprom_map_per_port[line_start_num_list_per_port[index][0]] = deepcopy(
             sfp_eeprom_list[line_start_num_for_current_port:line_end_num_for_current_port+1])
 
-    logging.info(f"sfp_eeprom_map_per_port :{sfp_eeprom_map_per_port}")
+    logging.info("sfp_eeprom_map_per_port: %s", sfp_eeprom_map_per_port)
 
     return sfp_eeprom_map_per_port
 
@@ -344,7 +346,7 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     """
     pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
     pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
-    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/]+):(?P<value>.*)"
+    pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\+]+):(?P<value>.*)"
 
     one_sfp_eeprom_info_dict = {}
     second_layer_dict = {}
@@ -447,7 +449,7 @@ def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
             expected_state = 'ModuleLowPwr' if cmis_cable_ports_and_ver[intf] == '3.0' else 'OK'
         else:
             expected_state = 'Not supported'
-    logging.info(f"port {intf}, expected error state:{expected_state}")
+    logging.info("port %s, expected error state: %s", intf, expected_state)
     return expected_state
 
 

@@ -29,6 +29,7 @@ DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
+POST_CHECK_THRESHOLD_SECS_TH6_128 = 600
 PROGRAM_STATUS = "RUNNING"
 
 
@@ -461,8 +462,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
-        else POST_CHECK_THRESHOLD_SECS
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS
+    if duthost.get_facts().get("modular_chassis"):
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2
+    if duthost.sonichost.facts['platform'] == 'x86_64-nokia_ixr7220_h6_128-r0':
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_TH6_128
 
     critical_proceses = wait_until(
         post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
@@ -491,6 +495,11 @@ def is_process_running(duthost, container_name, program_name):
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    # Reset systemd's restart counter for all services so that cascade restarts
+    # from previous test cases don't cause start-limit-hit
+    # when testing dependent services like teamd.
+    duthost.shell("sudo systemctl reset-failed", module_ignore_errors=True)
+
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -587,10 +596,12 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ] is False and len(v["exited_critical_process"]) > 0
         ]
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        # after config reload, the feature autorestart config is reset,
-        # so, before next test, enable again
-        enable_autorestart(duthost)
+        try:
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        finally:
+            # After config reload, the feature autorestart config is reset.
+            # Re-enable it even if reload raises, so the next parameter is not affected.
+            enable_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and

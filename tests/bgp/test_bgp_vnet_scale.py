@@ -243,14 +243,18 @@ echo "==== PTF cleanup end ===="
     ptfhost.shell("bash {}".format(script_path), module_ignore_errors=True)
 
 
-def generate_dut_config_ptf(vnet_count, subifs_per_vnet, peer_asn, port_bindings, cfg_facts):
+def generate_dut_config_ptf(vnet_count, subifs_per_vnet, peer_asn, port_bindings, cfg_facts, asic_type=None):
     dut_vtep = get_loopback_ip(cfg_facts)
+
+    vxlan_tunnel_entry = {"src_ip": dut_vtep}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if asic_type == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
 
     config_db = {
         "VXLAN_TUNNEL": {
-            VXLAN_TUNNEL_NAME: {
-                "src_ip": dut_vtep,
-            }
+            VXLAN_TUNNEL_NAME: vxlan_tunnel_entry,
         },
         "VNET": {},
         "PORTCHANNEL": {},
@@ -467,6 +471,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
             peer_asn,
             wl_bindings,
             cfg_facts,
+            duthost.facts.get("asic_type"),
         )
 
         apply_config_to_dut(duthost, vnet_config, "vnet")

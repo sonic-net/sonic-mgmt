@@ -78,3 +78,6 @@ class SnappiTestParams():
         self.num_tx_links: Optional[int] = 1
         self.num_rx_links: Optional[int] = 1
         self.tx_dscp_values: Optional[list[int]] = []
+        # Stop the data flows (only) after in-flight stats, so a flow held under a
+        # continuous pause storm reaches 'stopped' instead of timing out the wait loop.
+        self.stop_data_flows_before_final_stats: bool = False

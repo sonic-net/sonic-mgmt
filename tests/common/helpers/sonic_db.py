@@ -2,6 +2,7 @@ import logging
 import json
 import six
 import ast
+import shlex
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -205,6 +206,114 @@ class SonicDbCli(object):
 
         parsed = json.loads(output["stdout"])
         return parsed
+
+
+# ---------------------------------------------------------------------------
+# Functional sonic-db-cli helpers
+# ---------------------------------------------------------------------------
+# Lightweight `sonic-db-cli` wrappers for callers that need miss-tolerant
+# semantics (return '' / {} / [] instead of raising) and direct HSET / DEL /
+# KEYS access without instantiating a SonicDbCli object.
+# ---------------------------------------------------------------------------
+
+# sonic-db-cli database name constants
+APPL_DB = 'APPL_DB'
+CONFIG_DB = 'CONFIG_DB'
+STATE_DB = 'STATE_DB'
+
+
+def redis_hget(duthost, db, key, field):
+    """Return HGET value (stripped str) or '' if absent."""
+    r = duthost.shell(
+        "sonic-db-cli {db} HGET '{key}' {field}".format(db=db, key=key, field=field),
+        module_ignore_errors=True
+    )
+    return (r.get('stdout', '') or '').strip()
+
+
+def redis_hgetall(duthost, db, key):
+    """Return HGETALL as dict; empty dict on miss."""
+    r = duthost.shell(
+        "sonic-db-cli {db} HGETALL '{key}'".format(db=db, key=key),
+        module_ignore_errors=True
+    )
+    out = (r.get('stdout', '') or '').strip()
+    if not out:
+        return {}
+    # sonic-db-cli HGETALL returns Python-dict repr; fall back to line pairs
+    # for back-compat with raw redis-cli style output.
+    if out.startswith('{') and out.endswith('}'):
+        try:
+            parsed = ast.literal_eval(out)
+            if isinstance(parsed, dict):
+                return {str(k): str(v) for k, v in parsed.items()}
+        except (ValueError, SyntaxError):
+            # Not a Python literal — fall through to the line-pair parser below
+            # for raw redis-cli style output.
+            pass
+    lines = out.split('\n')
+    return {lines[i]: lines[i + 1] for i in range(0, len(lines), 2) if i + 1 < len(lines)}
+
+
+def redis_hset(duthost, db, key, **fields):
+    """HSET one or more field=value pairs."""
+    if not fields:
+        return None
+    parts = ' '.join(
+        "{key} {value}".format(
+            key=shlex.quote(str(field_name)),
+            value=shlex.quote(str(field_value)),
+        )
+        for field_name, field_value in fields.items()
+    )
+    return duthost.shell(
+        "sonic-db-cli {db} -- HSET {key} {parts}".format(
+            db=db,
+            key=shlex.quote(str(key)),
+            parts=parts,
+        ),
+        module_ignore_errors=True
+    )
+
+
+def redis_hdel(duthost, db, key, *fields):
+    """HDEL one or more fields from a hash."""
+    if not fields:
+        return None
+    return duthost.shell(
+        "sonic-db-cli {db} -- HDEL {key} {fields}".format(
+            db=db,
+            key=shlex.quote(str(key)),
+            fields=' '.join(shlex.quote(str(field)) for field in fields),
+        ),
+        module_ignore_errors=True
+    )
+
+
+def redis_del(duthost, db, *keys):
+    """DEL one or more keys."""
+    results = []
+    for k in keys:
+        results.append(
+            duthost.shell(
+                "sonic-db-cli {db} -- DEL {key}".format(
+                    db=db,
+                    key=shlex.quote(str(k)),
+                ),
+                module_ignore_errors=True,
+            )
+        )
+    return results
+
+
+def redis_keys(duthost, db, pattern):
+    """KEYS pattern → list of key names."""
+    r = duthost.shell(
+        "sonic-db-cli {db} KEYS '{pattern}'".format(db=db, pattern=pattern),
+        module_ignore_errors=True
+    )
+    out = (r.get('stdout', '') or '').strip()
+    return out.split('\n') if out else []
 
 
 class AsicDbCli(SonicDbCli):

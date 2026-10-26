@@ -222,22 +222,22 @@ def cleanup(duthost, ptfhost, localhost, wl_portchannel_info, subintfs_info):
         logger.error(f"Error occurred while cleaning up bond interfaces: {e}")
 
     # Stop exabgp process
-    kill_exabgp = f"""
-MAIN_PID=$(pgrep -f "exabgp {EXABGP_CONFIG_PATH}")
+    kill_exabgp = """
+MAIN_PID=$(pgrep -f "exabgp {}")
 if [ -n "$MAIN_PID" ]; then
     echo "Killing test ExaBGP instance PID=$MAIN_PID"
     kill -9 $MAIN_PID 2>/dev/null
 fi
-"""
+""".format(EXABGP_CONFIG_PATH)
     ptfhost.shell(kill_exabgp, module_ignore_errors=True)
 
-    kill_http_api = f"""
-API_PID=$(pgrep -f "/usr/share/exabgp/http_api.py {EXABGP_PORT}")
+    kill_http_api = """
+API_PID=$(pgrep -f "/usr/share/exabgp/http_api.py {}")
 if [ -n "$API_PID" ]; then
     echo "Killing test http_api.py PID=$API_PID"
     kill -9 $API_PID 2>/dev/null
 fi
-"""
+""".format(EXABGP_PORT)
     ptfhost.shell(kill_http_api, module_ignore_errors=True)
 
     # Remove tmp files
@@ -349,10 +349,10 @@ def gnmi_set_update_config_db_json(duthost, ptfhost, path, value, filename="test
     ip = duthost.mgmt_ip
     port = env.gnmi_port
 
-    cmd = f"/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py \
-        --timeout 10 -t {ip} -p {port} -xo sonic-db -rcert /root/gnmiCA.pem \
+    cmd = "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py \
+        --timeout 10 -t {} -p {} -xo sonic-db -rcert /root/gnmiCA.pem \
         -pkey /root/gnmiclient.key -cchain /root/gnmiclient.crt -m set-update \
-        --xpath \"{path}\" --value \"@/tmp/{filename}\""
+        --xpath \"{}\" --value \"@/tmp/{}\"".format(ip, port, path, filename)
     ptfhost.shell(cmd)
 
     temp_files.append(filename)
@@ -452,21 +452,23 @@ def setup_bgp(duthost, ptfhost, vnet_vnis, dut_ips, ptf_ips, subnet_ip, loopback
             },
             f"bgp_peer_{vni}")
 
-    exabgp_config = f"""
+    exabgp_config = """
 process api-vnets {{
-    run /usr/bin/python /usr/share/exabgp/http_api.py {bgp_port};
+    run /usr/bin/python /usr/share/exabgp/http_api.py {};
     encoder json;
 }}
-"""
+""".format(bgp_port)
 
     for dut_ips_per_portchannel, ptf_ips_per_portchannel in zip(dut_ips, ptf_ips):
         for dut_ip, ptf_ip in zip(dut_ips_per_portchannel, ptf_ips_per_portchannel):
-            exabgp_config += f"""
-neighbor {dut_ip.split('/')[0]} {{
-    router-id {ptf_ip.split('/')[0]};
-    local-address {ptf_ip.split('/')[0]};
-    local-as {peer_asn};
-    peer-as {dut_asn};
+            dut_ip_addr = dut_ip.split('/')[0]
+            ptf_ip_addr = ptf_ip.split('/')[0]
+            exabgp_config += """
+neighbor {} {{
+    router-id {};
+    local-address {};
+    local-as {};
+    peer-as {};
     api {{
         processes [api-vnets];
     }}
@@ -474,10 +476,10 @@ neighbor {dut_ip.split('/')[0]} {{
         ipv4 unicast;
     }}
     static {{
-        route {vnet_route_ip} next-hop {ptf_ip.split('/')[0]};
+        route {} next-hop {};
     }}
 }}
-"""
+""".format(dut_ip_addr, ptf_ip_addr, ptf_ip_addr, peer_asn, dut_asn, vnet_route_ip, ptf_ip_addr)
 
     with open('/tmp/exabgp_update.conf', "w") as f:
         f.write(exabgp_config)
@@ -532,7 +534,7 @@ def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info, vnet_vnis, ba
                 gnmi_set_update_config_db_json(
                     duthost,
                     ptfhost,
-                    f"{GNMI_PATH_PREFIX}/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j][i].replace('/','~1')}",
+                    f"{GNMI_PATH_PREFIX}/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j][i].replace('/', '~1')}",
                     {},
                     f"{subintf_name}_ip")
 
@@ -619,10 +621,13 @@ def setup_vnets(duthost, ptfhost, num_vnets, tunnel, base_vni):
 
 
 def setup_vxlan_tunnel(duthost, ptfhost, name, src_ip):
+    tunnel_entry = {"src_ip": src_ip}
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        tunnel_entry["ttl_mode"] = "pipe"
     gnmi_set_update_config_db_json(duthost, ptfhost, f"{GNMI_PATH_PREFIX}/VXLAN_TUNNEL", {
-        name: {
-            "src_ip": src_ip
-        }
+        name: tunnel_entry
     }, "vxlan")
 
 

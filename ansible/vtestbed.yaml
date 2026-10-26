@@ -153,6 +153,21 @@
   auto_recover: 'False'
   comment: T2 Virtual chassis with Multi-ASIC LCs
 
+- conf-name: vms-kvm-t2-single-node-min
+  group-name: vms6-1
+  topo: t2_single_node_min
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-ut2
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Small t2 single asic topology with 5 peers
+
 - conf-name: vms-kvm-t0-3
   group-name: vms6-6
   topo: t0

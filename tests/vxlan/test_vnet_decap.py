@@ -106,7 +106,8 @@ def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, ou
     topo = tbinfo["topo"]["type"].upper()
     vnet_interface = ecmp_utils.select_required_interfaces(duthost, 1, minigraph_facts, outer_ip_version_str,
                                                            topo=topo)[0]
-    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version_str)
+    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version_str,
+                                                  ttl_mode="pipe" if asic_type == "cisco-8000" else None)
     inner_ip_version_str = f"v{inner_ip_version}"
     encap_type = f"{inner_ip_version_str}_in_{outer_ip_version_str}"
     vnet = next(iter(ecmp_utils.create_vnets(duthost, vxlan_tunnel,

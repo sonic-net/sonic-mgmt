@@ -108,6 +108,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from inventory file".format(key))
 
+        expected_value = str(expected_value).strip()
         if case_sensitive:
             pytest_assert(value == expected_value,
                           "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))

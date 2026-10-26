@@ -175,7 +175,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         acl_entry = {}
 
         # Alternate between IPv4 and IPv6 addresses (should be 2 IPv4 for every IPv6)
-        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"
+        src_ip = "20.0.0.{}/32".format(1 + index) if index % 3 else "2001::{}/128".format(1 + index)
 
         # Alternate between accept and drop for each rule
         action = "ACCEPT" if index % 2 else "DROP"
@@ -252,7 +252,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     # It has to wait cacl rules to be effective.
     wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
-    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+    insert_ssh_accept_rule(duthost)
 
     yield file_path
 
@@ -260,7 +260,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.file(path=file_path, state='absent')
 
     logger.info("Reloading config to recover original ACL configuration...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def is_acl_rule_empty(duthost):
@@ -298,6 +298,31 @@ def check_iptable_rules(duthost):
     duthost.command("ip6tables -S")
 
     return False
+
+
+def insert_ssh_accept_rule(duthost):
+    """
+    Insert the SSH ACCEPT rule into the INPUT chain after acl-loader has reprogrammed it.
+
+    "iptables -I INPUT 3" assumes the chain already holds at least two rules. That is not
+    always true right after "acl-loader update full". An IPv6-only scale config, for
+    example, programs every rule into ip6tables and leaves the IPv4 INPUT chain nearly
+    empty, so the fixed position is out of range and iptables fails the whole test with
+    "Index of insertion too big".
+
+    Clamp the position to the current chain length so the rule always lands at a valid
+    index. Ordering does not matter here because the tests compare rule sets rather than
+    sequence.
+
+    Args:
+        duthost: DUT to insert the rule on.
+
+    Returns:
+        None.
+    """
+    rules = duthost.command("iptables -S INPUT")["stdout_lines"]
+    position = min(3, len([rule for rule in rules if rule.startswith("-A ")]) + 1)
+    duthost.command("iptables -I INPUT {} -p tcp -m tcp --dport 22 -j ACCEPT".format(position))
 
 
 # To specify a port range instead of a single port, use iptables format:
@@ -534,11 +559,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server uses bridge networking; its startup script adds an iptables
-        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
-        if "dhcp_server" in docker_network['container']:
+        # dhcp_server forwards rsyslog to the host over docker0 (tcp/2514); caclmgrd adds this ACCEPT when enabled
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
-                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                 " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
@@ -955,7 +980,7 @@ def generate_scale_rules(duthost, ip_type):
     # It has to wait cacl rules to be effective.
     wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
-    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+    insert_ssh_accept_rule(duthost)
 
 
 def verify_cacl_show_acl_rule(duthost, acl_file):
@@ -1047,17 +1072,17 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
             if rule_conf_actual[ip_key] != rule_conf_expected["ip"]["config"]["source-ip-address"]:
                 actual = rule_conf_actual[ip_key]
                 expected = rule_conf_expected["ip"]["config"]["source-ip-address"]
-                rule_issues.append(f"  - {rule_name}: Expected IP {expected} does not match {actual}")
+                rule_issues.append("  - {}: Expected IP {} does not match {}".format(rule_name, expected, actual))
 
             if rule_conf_actual["action"] != rule_conf_expected["actions"]["config"]["forwarding-action"]:
                 actual = rule_conf_actual["action"]
                 expected = rule_conf_expected["actions"]["config"]["forwarding-action"]
-                rule_issues.append(f"  - {rule_name}: Expected action {expected} does not match {actual}")
+                rule_issues.append("  - {}: Expected action {} does not match {}".format(rule_name, expected, actual))
 
             if int(rule_conf_actual["priority"]) != (10000 - int(rule_conf_expected["config"]["sequence-id"])):
                 actual = int(rule_conf_actual["priority"])
                 expected = (10000 - int(rule_conf_expected["config"]["sequence-id"]))
-                rule_issues.append(f"  - {rule_name}: Expected priority {expected} does not match {actual}")
+                rule_issues.append("  - {}: Expected priority {} does not match {}".format(rule_name, expected, actual))
 
             if rule_issues:
                 rule_issues_str = '\n'.join(rule_issues)

@@ -65,7 +65,7 @@ WAIT_TIMEOUT = 120
 
 def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespace=DEFAULT_NAMESPACE):
     """Apply an outbound route-map to ExaBGP neighbors so the DUT only
-    advertises the test prefixes (10.10.100.0/24 or fc00:10::/44) instead
+    advertises the test prefixes (10.10.100.0/24 or fc00:10::/28) instead
     of the full routing table.  Without this, ExaBGP sessions flap on
     topologies where the test neighbors share routed interfaces with real
     BGP peers (e.g. M0 L3 scenario).
@@ -73,8 +73,8 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     See: https://github.com/sonic-net/sonic-mgmt/issues/22391
     """
     if is_v6:
-        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/44 block)
-        prefix_match = "fc00:10::/44 le 64"
+        # Cover fc00:10::/64 through fc00:14::/64 (and the whole fc00:10::/28 block)
+        prefix_match = "fc00:10::/28 le 64"
     else:
         prefix_match = "10.10.100.0/24 le 32"
 
@@ -170,6 +170,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
 
@@ -220,6 +221,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
@@ -236,6 +238,7 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),

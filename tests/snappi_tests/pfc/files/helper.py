@@ -3,12 +3,12 @@ import time
 import sys
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    disable_packet_aging, enable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
+    disable_packet_aging, enable_packet_aging, sec_to_nanosec, \
+    get_pfc_frame_count, packet_capture, config_capture_pkt, \
     traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id, wait_for_arp  # noqa: F401
@@ -205,11 +205,11 @@ def run_pfc_test(api,
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
 
-    if valid_pfc_frame_test and not is_cisco_device(egress_duthost):
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
-            data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
-        snappi_extra_params.traffic_flow_config.pause_flow_config["flow_traffic_type"] = \
-            traffic_flow_mode.FIXED_DURATION
+    # A paused test flow is backpressured by the continuous pause storm and never reaches
+    # 'stopped' on its own, so run_traffic must stop the data flows explicitly. Cisco's
+    # valid-PFC-frame path is excluded to keep its existing behavior unchanged.
+    if test_traffic_pause and not (valid_pfc_frame_test and is_cisco_device(egress_duthost)):
+        snappi_extra_params.stop_data_flows_before_final_stats = True
 
     no_of_streams = 1
     if egress_duthost.facts['asic_type'] == "cisco-8000":
