@@ -417,15 +417,22 @@ class TestSfpApi(PlatformApiTestBase):
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type and "CPO Bailly" not in xcvr_type):
             return False
 
-        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
+        return True
+
+    def is_xcvr_in_lpmode_skip_list(self, xcvr_info_dict):
+        """Returns True if the lpmode test must skip the transceiver due to a known set_lpmode issue.
+
+        Only test_lpmode uses this list. These transceivers still support low power mode, e.g. they
+        come back in low power mode after a reset, so is_xcvr_support_lpmode() does not check it.
+        """
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
                     xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
                 logger.info("Temporarily skipping {} - {} due to known issue".format(
                     xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
-                return False
+                return True
 
-        return True
+        return False
 
     def is_xcvr_support_power_override(self, xcvr_info_dict):
         """Returns True if transceiver supports power override, False if not supported"""
@@ -970,7 +977,7 @@ class TestSfpApi(PlatformApiTestBase):
     def _check_lpmode_status(self, sfp, platform_api_conn, i, state):   # noqa: F811
         return state == sfp.get_lpmode(platform_api_conn, i)
 
-    def _check_cpo_group_lpmode_status(self, sfp, platform_api_conn, port_list, expect_state):
+    def _check_cpo_group_lpmode_status(self, sfp, platform_api_conn, port_list, expect_state):   # noqa: F811
         """
         Check that all ports in port_list have lpmode == expect_state
         Return True only when all ports match; else False for wait_until retry
@@ -1014,6 +1021,10 @@ class TestSfpApi(PlatformApiTestBase):
                     "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))
                 continue
+            # Temporarily skip transceivers with a known set_lpmode issue
+            if self.is_xcvr_in_lpmode_skip_list(info_dict):
+                continue
+
             logger.info("Run general single-port lpmode test on port {}".format(i))
             lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, i)
             if lpmode_state_pretest is None:
@@ -1042,7 +1053,10 @@ class TestSfpApi(PlatformApiTestBase):
         # CPO Bailly OE group lpmode test
         # --------------------------
         for oe_gid, member_ports in cpo_oe_groups.items():
-            logger.info("Run CPO Bailly OE group lpmode test, group_id: {}, test ports: {}".format(oe_gid, member_ports))
+            logger.info("Run CPO Bailly OE group lpmode test, group_id: {}, test ports: {}".format(
+                oe_gid, member_ports
+                )
+            )
             control_port = random.choice(member_ports)
             info_dict_ctrl = port_xcvr_info[control_port]
             if not self.is_xcvr_support_lpmode(info_dict_ctrl):
@@ -1072,11 +1086,15 @@ class TestSfpApi(PlatformApiTestBase):
                             .format("enable" if state is True else "disable", oe_gid, control_port))
 
                 # wait until ALL member ports in this test subset reach target state
-                self.expect(wait_until(5, 1, delay,
-                                    self._check_cpo_group_lpmode_status,
-                                    sfp, platform_api_conn, member_ports, state),
-                            "CPO group {}: Not all test ports reached expected lpmode state {}"
-                            .format(oe_gid, "enable" if state is True else "disable"))
+                self.expect(
+                    wait_until(
+                        5, 1, delay,
+                        self._check_cpo_group_lpmode_status,
+                        sfp, platform_api_conn, member_ports, state
+                    ),
+                    "CPO group {}: Not all test ports reached expected lpmode state {}"
+                    .format(oe_gid, "enable" if state is True else "disable")
+                )
 
         if cpo_oe_groups:
             logger.info("All CPO OE group lpmode test finished, wait 10s for CPO ports to recover and come up")

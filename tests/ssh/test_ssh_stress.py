@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import socket
 import threading
 import paramiko
@@ -114,6 +115,7 @@ def _setup_stress(duthost, request):
         "bgp_neighbors": bgp_neighbors,
         "command_pairs": command_pairs,
         "command_settle_time": command_settle_time,
+        "concurrent_baselines": is_vpp,
         "portchannels": portchannels,
         "settle_polls": settle_polls,
         "username": harness_creds["sonicadmin_user"],
@@ -234,6 +236,23 @@ def _get_baseline_times(ssh, command_pairs, command_settle_time):
     return baseline_times
 
 
+def _get_concurrent_baseline_times(
+    dut_mgmt_ip, command_pairs, username, password, command_settle_time,
+):
+    """Measure VPP baselines with concurrent command pairs."""
+    def measure(commands):
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        try:
+            return _get_baseline_times(ssh, [commands], command_settle_time)[0]
+        finally:
+            ssh.close()
+
+    with ThreadPoolExecutor(
+        max_workers=len(command_pairs), thread_name_prefix="ssh-baseline",
+    ) as executor:
+        return list(executor.map(measure, command_pairs))
+
+
 def work(
     dut_mgmt_ip,
     commands,
@@ -342,11 +361,17 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     worker_failures = queue.Queue()
 
     logging.info("Collecting baseline times for commands")
-    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
-    baseline_times = _get_baseline_times(
-        ssh, command_pairs, setup_teardown["command_settle_time"]
-    )
-    ssh.close()
+    if setup_teardown["concurrent_baselines"]:
+        baseline_times = _get_concurrent_baseline_times(
+            dut_mgmt_ip, command_pairs, username, password,
+            setup_teardown["command_settle_time"],
+        )
+    else:
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        baseline_times = _get_baseline_times(
+            ssh, command_pairs, setup_teardown["command_settle_time"]
+        )
+        ssh.close()
 
     logging.info("Starting system monitoring thread.")
     # Starts thread that will be monitoring cpu and memory usage
