@@ -80,6 +80,98 @@ def test_owned_retirement_preserves_protected_state(layout):
     assert config["PORT"]["Ethernet1"]["mtu"] == "9100"
 
 
+@pytest.mark.parametrize("legacy_only", [False, True])
+def test_fixed_breakout_dut_cleanup_retires_forwarding_not_port_policy(layout, legacy_only):
+    """Retire old DUT forwarding on a shared connection without changing its PORT, QoS, or neighbor."""
+    base, platform, layouts, canonical = layout
+    platform["interfaces"]["Ethernet8"] = {"lanes": "3,4"}
+    base["PORT"]["Ethernet8"].update(fec="rs", autoneg="off", admin_status="up")
+    base["VLAN"] = {"Vlan1000": {"vlanid": "1000", "members": ["Ethernet0", "Ethernet8"]}}
+    if not legacy_only:
+        base["VLAN_MEMBER"] = {name: {"tagging_mode": "untagged"}
+                               for name in ("Vlan1000|Ethernet0", "Vlan1000|Ethernet8")}
+    base["VLAN_INTERFACE"] = {"Vlan1000": {}, "Vlan1000|198.51.100.1/24": {}}
+    base["DHCP_RELAY"] = {"Vlan1000": {"dhcpv6_servers": ["2001:db8::1"]}}
+    base["INTERFACE"] = {"Ethernet8": {}, "Ethernet8|203.0.113.0/31": {}}
+    base["BGP_NEIGHBOR"].update({
+        "198.51.100.2": {"local_addr": "198.51.100.1"},
+        "203.0.113.1": {"local_addr": "203.0.113.0"},
+    })
+    base["STATIC_ROUTE"] = {"2001:db8::/64": {"ifname": "Ethernet8", "nexthop": "203.0.113.1"}}
+    base["DEVICE_NEIGHBOR"] = {"Ethernet8": {"name": "shared-leaf", "port": "Ethernet36"}}
+    base["PORT_QOS_MAP"] = {"Ethernet8": {"pfc_enable": ""}}
+    base["CABLE_LENGTH"] = {"AZURE": {"Ethernet8": "5m"}}
+    before = deepcopy(base)
+    cleanup = renderer.forwarding_cleanup_ports(base, platform, layouts, {"Ethernet8": [3, 4]})
+    config, owned, selected = renderer.build_ports(*layout, forwarding_cleanup=cleanup)
+    assert cleanup == {"Ethernet8"} and owned == {"Ethernet0"} and selected == {"Ethernet0", "Ethernet1"}
+    for table in ("VLAN", "VLAN_INTERFACE", "DHCP_RELAY", "INTERFACE", "STATIC_ROUTE", "PORTCHANNEL"):
+        assert not config[table]
+    assert not config.get("VLAN_MEMBER")
+    assert config["BGP_NEIGHBOR"] == {"192.0.2.2": {"local_addr": "192.0.2.1"}}
+    assert config["PORT"]["Ethernet8"] == before["PORT"]["Ethernet8"]
+    for table in ("MGMT_INTERFACE", "DEVICE_NEIGHBOR", "PORT_QOS_MAP", "CABLE_LENGTH"):
+        assert config[table] == before[table]
+    assert config["QUEUE"] == {"Ethernet8|0-7": {"scheduler": "protected"}}
+    assert config["ACL_TABLE"]["acl"]["ports"] == ["Ethernet8"]
+    assert base == before
+
+
+@pytest.mark.parametrize("legacy_only", [False, True])
+def test_fixed_breakout_cleanup_preserves_vlan_with_other_consumers(layout, legacy_only):
+    """Detach the cleaned port but retain a VLAN/SVI still serving another protected DUT port."""
+    base = layout[0]
+    base["PORT"]["Ethernet16"] = {"lanes": "5", "speed": "100000"}
+    base["VLAN"] = {"Vlan1000": {"vlanid": "1000", "members": ["Ethernet8", "Ethernet16"]}}
+    base["VLAN_INTERFACE"] = {"Vlan1000": {}, "Vlan1000|198.51.100.1/24": {}}
+    base["DHCP_RELAY"] = {"Vlan1000": {"dhcpv6_servers": ["2001:db8::1"]}}
+    if not legacy_only:
+        base["VLAN_MEMBER"] = {name: {"tagging_mode": "untagged"}
+                               for name in ("Vlan1000|Ethernet8", "Vlan1000|Ethernet16")}
+    config, _, _ = renderer.build_ports(*layout, forwarding_cleanup={"Ethernet8"})
+    assert config["VLAN"]["Vlan1000"]["members"] == ["Ethernet16"]
+    assert config["VLAN_INTERFACE"] == base["VLAN_INTERFACE"]
+    assert config["DHCP_RELAY"] == base["DHCP_RELAY"]
+    assert "Vlan1000|Ethernet8" not in config.get("VLAN_MEMBER", {})
+    if not legacy_only:
+        assert config["VLAN_MEMBER"] == {"Vlan1000|Ethernet16": {"tagging_mode": "untagged"}}
+
+
+def test_dut_cleanup_can_retire_lag_shared_with_replaced_ports(layout):
+    """A DUT LAG can be retired when every member is replaced or explicitly forwarding-cleaned."""
+    layout[0]["PORTCHANNEL_MEMBER"]["PortChannel1|Ethernet8"] = {}
+    config, _, _ = renderer.build_ports(*layout, forwarding_cleanup={"Ethernet8"})
+    assert not config["PORTCHANNEL"] and not config["PORTCHANNEL_MEMBER"]
+    assert config["PORT"]["Ethernet8"] == layout[0]["PORT"]["Ethernet8"]
+
+
+def test_dut_cleanup_rejects_route_shared_with_retained_interfaces(layout):
+    """Cleaning a fixed port does not authorize deleting a multipath route with retained consumers."""
+    layout[0]["STATIC_ROUTE"] = {"203.0.113.0/24": {"ifname": "Ethernet8,Ethernet16"}}
+    with pytest.raises(ValueError, match="static route shared with protected"):
+        renderer.build_ports(*layout, forwarding_cleanup={"Ethernet8"})
+
+
+@pytest.mark.parametrize("failure", ["selected", "drift", "crossing", "duplicate_lanes", "absent"])
+def test_fixed_breakout_cleanup_rejects_ambiguous_or_changed_scope(layout, failure):
+    """Forwarding cleanup cannot target a replanned cage, drifted lanes, or another running port."""
+    base, platform, layouts, canonical = layout
+    platform["interfaces"]["Ethernet8"] = {"lanes": "3,4"}
+    frozen = {"Ethernet8": [3, 4]}
+    if failure == "selected":
+        layouts["Ethernet8"] = {}
+    elif failure == "drift":
+        frozen["Ethernet8"] = [3, 5]
+    elif failure == "crossing":
+        base["PORT"]["Ethernet8"]["lanes"] = "3,4,5"
+    elif failure == "duplicate_lanes":
+        frozen["Ethernet8"] = [3, 3]
+    else:
+        del base["PORT"]["Ethernet8"]
+    with pytest.raises(ValueError, match="cleanup"):
+        renderer.forwarding_cleanup_ports(base, platform, layouts, frozen)
+
+
 def test_pfc_watchdog_global_and_protected_port_settings_survive(layout):
     """GLOBAL is watchdog policy, not a port; preserve it while retiring only owned port entries."""
     settings = {"POLL_INTERVAL": "200", "BIG_RED_SWITCH": "disable"}
@@ -435,7 +527,7 @@ def test_render_lookup_priority_and_missing_file_fallback(
     platform_dir = tmp_path / "device/test-platform"
     sku_dir = platform_dir / "test-sku"
     sku_dir.mkdir(parents=True)
-    (platform_dir / "platform.json").write_text("{}")
+    (platform_dir / "platform.json").write_text(json.dumps({"interfaces": {"Ethernet8": {"lanes": "8"}}}))
     (sku_dir / "qos.json.j2").write_text("synthetic template")
     lookup_text = "# speed cable size xon xoff threshold\n100000 5m 100 20 30 -3\n"
     monkeypatch.setattr(renderer, "read_buffer_daemon", lambda: {
@@ -455,6 +547,7 @@ def test_render_lookup_priority_and_missing_file_fallback(
     monkeypatch.setattr(renderer, "Path", lambda path: paths.get(str(path), Path(path)))
     base = deepcopy(qos[0])
     base["PORT"]["Ethernet0"]["lanes"] = "0,1"
+    base["PORT"]["Ethernet8"]["lanes"] = "8"
     base["PORT_QOS_MAP"] = deepcopy(qos[1]["PORT_QOS_MAP"])
     base["CABLE_LENGTH"] = {"AZURE": {"Ethernet0": "300m", "Ethernet8": "0m"}}
     base["DEVICE_METADATA"] = {"localhost": {
@@ -468,8 +561,9 @@ def test_render_lookup_priority_and_missing_file_fallback(
     }
     monkeypatch.setattr(renderer, "read_running", lambda: deepcopy(base))
 
-    def build(*args):
+    def build(*args, **kwargs):
         assert args[-1] is exclude_managed_acls
+        assert kwargs == ({"forwarding_cleanup": {"Ethernet8"}} if role == "dut" else {})
         config = deepcopy(base)
         if exclude_managed_acls:
             config["ACL_TABLE"]["DATAACL"]["ports"] = ["Ethernet8"]
@@ -505,6 +599,7 @@ def test_render_lookup_priority_and_missing_file_fallback(
     monkeypatch.setitem(sys.modules, "sonic_yang", SimpleNamespace(SonicYang=lambda *args: validator))
     facts = deepcopy(qos[2])
     facts.update(hostname="dut", peer_hostname="leaf")
+    facts["dut_forwarding_cleanup"] = {"Ethernet8": [8]}
     facts["connections"][0].update(role="uplink", peer={"port": "Ethernet0", "speed": 100000})
     facts["connections"][0]["buffer_case"]["speed"] = "100000"
     for side in ("dut", "peer"):
@@ -518,6 +613,7 @@ def test_render_lookup_priority_and_missing_file_fallback(
     if not has_platform_lookup:
         lookup_path = sku_lookup
     result = renderer.render_device(request)
+    assert result["report"]["forwarding_cleanup_ports"] == (["Ethernet8"] if role == "dut" else [])
     assert result["report"]["exclude_managed_acls"] is exclude_managed_acls
     assert result["report"]["excluded_acl_bindings"] == (
         {"DATAACL": ["Ethernet0"], "EVERFLOW": ["Ethernet0"]} if exclude_managed_acls else {})
@@ -538,7 +634,7 @@ def test_render_lookup_priority_and_missing_file_fallback(
         assert result["report"]["qos_policy"] == "installed_lossy"
         assert "lossless_buffers" not in result["report"] and "buffer_daemon" not in result["report"]
         assert result["config"]["PORT_QOS_MAP"]["Ethernet0"]["pfc_enable"] == ""
-        assert result["config"]["CABLE_LENGTH"] == {"AZURE": {"Ethernet8": "0m"}}
+        assert result["config"]["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m", "Ethernet8": "0m"}}
         assert result["report"]["buffer_policy"]["lossy_cable_cases"] == {
             "Ethernet0": {"speed": "100000", "cable": "5m"}}
         assert request["facts"]["connections"][0]["buffer_case"] == {"speed": "100000", "cable": "5m"}
@@ -616,9 +712,12 @@ def lossy_qos(qos):
     return qos
 
 
-def test_installed_lossy_policy_preserves_protected_state_without_enabling_pfc(lossy_qos):
-    """Use installed lossy profiles and classification without inventing lossless policy."""
+@pytest.mark.parametrize("cable", ["5m", "30m"])
+def test_installed_lossy_policy_preserves_protected_state_without_enabling_pfc(lossy_qos, cable):
+    """Keep assigned runtime cables and installed lossy policy without changing protected state."""
     config, generated = lossy_qos[:2]
+    lossy_qos[2]["connections"][0]["buffer_case"]["cable"] = cable
+    lossy_qos[4][0]["cable"] = cable
     config["CABLE_LENGTH"] = {
         "AZURE": {"Ethernet0": "300m", "Ethernet8": "0m"},
         "CUSTOM": {"Ethernet0": "1000m", "Ethernet8": "40m"},
@@ -647,7 +746,11 @@ def test_installed_lossy_policy_preserves_protected_state_without_enabling_pfc(l
     assert config["BUFFER_QUEUE"]["Ethernet0|0-7"] == {"profile": "egress_lossy_profile"}
     assert config["TC_TO_PRIORITY_GROUP_MAP"] == classification
     assert config["PORT_QOS_MAP"]["Ethernet0"] == qos_policy["Ethernet0"]
-    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet8": "0m"}, "CUSTOM": {"Ethernet8": "40m"}}
+    assert config["CABLE_LENGTH"] == {
+        "AZURE": {"Ethernet0": cable, "Ethernet8": "0m"},
+        "CUSTOM": {"Ethernet0": cable, "Ethernet8": "40m"},
+        "SELECTED_ONLY": {"Ethernet0": cable},
+    }
     assert lossy_qos[2] == planned_cases
     assert expected == {"profiles": {}, "pgs": {}, "omitted_profiles": {}}
     assert not any(name.startswith(("pg_lossless_", "generic_egress_")) for name in config["BUFFER_PROFILE"])
@@ -738,7 +841,7 @@ def test_lossy_policy_needs_no_lossless_objects_or_pfc_maps(lossy_qos, inherit_d
     assert expected["profiles"] == expected["pgs"] == {}
     assert config["PORT_QOS_MAP"]["Ethernet0"]["pfc_enable"] == ""
     assert "pfc_to_pg_map" not in config["PORT_QOS_MAP"]["Ethernet0"]
-    assert config["CABLE_LENGTH"] == {}
+    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m"}, "CUSTOM": {"Ethernet0": "5m"}}
 
 
 def test_rendered_direction_tables_supply_complete_policy(qos):
@@ -845,7 +948,7 @@ def test_disabled_pfc_port_does_not_inherit_another_ports_lossless_policy(qos):
     assert config["PORT_QOS_MAP"]["Ethernet8"]["pfc_enable"] == ""
     assert config["PORT_QOS_MAP"]["Ethernet8"]["tc_to_pg_map"] == "policy"
     assert config["BUFFER_PG"]["Ethernet8|0-7"] == {"profile": "lossy"}
-    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m"}}
+    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m", "Ethernet8": "5m"}}
 
 
 def test_grouped_port_macros_are_expanded(qos):
@@ -1272,6 +1375,53 @@ def test_transport_rejects_non_string_csv_vlan_attributes():
         renderer.transport_plan(facts, {}, set(), {})
 
 
+@pytest.fixture
+def csv_transport():
+    """Connections deliberately order VLANs differently from sorted-ID allocation."""
+    scope = {"source": "csv", "granularity": "realized_port_name",
+             "dut_ports": {"Ethernet0": 102, "Ethernet8": 100},
+             "peer_ports": {"Ethernet0": 102, "Ethernet8": 100}}
+    facts = {"vlan_scope": scope, "connections": [
+        {"dut": {"port": port}, "peer": {"port": port}, "ptf_index": index,
+         "transport_vlan_id": vlan, "source_links": [{"VlanID": str(vlan)}, {"VlanID": ""}]}
+        for index, (port, vlan) in enumerate((("Ethernet0", 102), ("Ethernet8", 100)))
+    ]}
+    leaf = {"VLAN": {"Vlan102": {"vlanid": "102"}, "Vlan100": {"vlanid": "100"}},
+            "VLAN_MEMBER": {
+                "Vlan102|Ethernet0": {"tagging_mode": "untagged"},
+                "Vlan100|Ethernet8": {"tagging_mode": "untagged"},
+                "Vlan102|Ethernet16": {"tagging_mode": "tagged"},
+                "Vlan100|Ethernet16": {"tagging_mode": "tagged"},
+            }}
+    return facts, leaf, {"Ethernet0", "Ethernet8"}, {"transport": {"vlan_ids": None}}
+
+
+def test_csv_transport_keeps_each_endpoints_existing_vlan(csv_transport):
+    """Do not pool/sort the existing tags and silently attach a different VLAN to each endpoint."""
+    result = renderer.transport_plan(*csv_transport)
+    assert [(row["dut_port"], row["vlan_id"]) for row in result] == [
+        ("Ethernet0", 102), ("Ethernet8", 100)]
+
+
+@pytest.mark.parametrize("failure", ["new_endpoint", "wrong_vlan", "no_access", "unowned_access", "missing_trunk"])
+def test_csv_transport_preserves_scope_and_live_ownership_checks(csv_transport, failure):
+    """CSV eligibility never replaces validation of isolated live access/trunk membership."""
+    facts, leaf, owned, settings = csv_transport
+    if failure == "new_endpoint":
+        facts["connections"][0]["peer"]["port"] = "Ethernet1"
+    elif failure == "wrong_vlan":
+        facts["connections"][0]["transport_vlan_id"] = 101
+    elif failure == "no_access":
+        del leaf["VLAN_MEMBER"]["Vlan102|Ethernet0"]
+        settings["transport"]["vlan_ids"] = [100, 102]
+    elif failure == "unowned_access":
+        leaf["VLAN_MEMBER"]["Vlan102|Ethernet999"] = {"tagging_mode": "untagged"}
+    else:
+        del leaf["VLAN_MEMBER"]["Vlan102|Ethernet16"]
+    with pytest.raises(ValueError):
+        renderer.transport_plan(facts, leaf, owned, settings)
+
+
 @pytest.mark.parametrize("sources,expected", [
     ([{}, {"AutoNeg": None, "LinkTraining": None, "FEC": None},
       {"AutoNeg": " ", "LinkTraining": "", "FEC": ""}],
@@ -1389,7 +1539,7 @@ def test_peer_forwarding_uses_vlan_member_without_inventing_legacy_fields(legacy
 @pytest.fixture
 def rendered():
     """Minimal complete-artifact controller fixture, with no actual device data."""
-    testbed = {"conf-name": "tb", "topo": "generic", "server": "server", "inv_name": "inventory",
+    testbed = {"conf-name": "tb", "topo": "generic", "server": "server", "inv_name": "example_inventory",
                "group-name": "vms1", "ptf_ip": "192.0.2.1/24", "ptf_image_name": "ptf"}
     report = {role: {"transport": [{"vlan_id": 100}], "owned_ports": ["Ethernet0"]}
               for role in ("dut", "peer")}
@@ -1408,7 +1558,7 @@ def test_dry_run_never_contacts_ansible(rendered, monkeypatch, capsys, action):
     """Every deployment/recovery dry-run is local-only."""
     monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Ansible was invoked"))
     controller.deploy(Namespace(action=action, apply=False), *rendered, "dut")
-    assert "No devices or host infrastructure contacted" in capsys.readouterr().out
+    assert "No host provisioning or device configuration applied" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("failed_phase", [None, "stage", "apply", "verify", "save"])
@@ -1555,8 +1705,8 @@ def test_render_publishes_complete_private_configs_and_actual_port_order(
         controller.render(args, artifacts, testbed, "dut")
 
 
-@pytest.mark.parametrize("action", ["finalize", "deploy-mg"])
-def test_render_policies_cannot_be_changed_outside_render(monkeypatch, capsys, action):
+@pytest.mark.parametrize("action", ["remove-topo", "deploy-mg", "recover"])
+def test_render_policies_cannot_be_changed_outside_preparation(monkeypatch, capsys, action):
     """Deployment must consume sealed render policies rather than silently changing their scope."""
     monkeypatch.setattr(controller, "resolve_testbed", lambda *args: pytest.fail("Unexpected inventory access"))
     monkeypatch.setattr(sys, "argv", [
@@ -1564,14 +1714,30 @@ def test_render_policies_cannot_be_changed_outside_render(monkeypatch, capsys, a
         "--exclude-managed-acls"])
     with pytest.raises(SystemExit):
         controller.main()
-    assert "render-only option" in capsys.readouterr().err
+    assert "add-topo preparation option" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("failure", ["changed_facts", "not_protected"])
+def test_deploy_rejects_changed_dut_forwarding_cleanup_before_remote_access(rendered, monkeypatch, failure):
+    """DUT-only forwarding cleanup cannot be broadened after its plan scope is sealed."""
+    artifacts, testbed = rendered
+    artifacts["manifest.json"].setdefault("policy", {})["dut_forwarding_cleanup"] = {"Ethernet8": [8]}
+    artifacts["manifest.json"]["protected_dut_cages"] = ["Ethernet8"]
+    artifacts["resolved_facts.json"]["dut_forwarding_cleanup"] = {"Ethernet8": [8]}
+    if failure == "changed_facts":
+        artifacts["resolved_facts.json"]["dut_forwarding_cleanup"]["Ethernet16"] = [16]
+    else:
+        artifacts["manifest.json"]["protected_dut_cages"] = []
+    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote action"))
+    with pytest.raises(ValueError, match="frozen fixed-breakout scope"):
+        controller.deploy(Namespace(action="deploy-mg", apply=True), artifacts, testbed, "dut")
 
 
 def test_removed_lossless_override_is_rejected_before_inventory_access(monkeypatch, capsys):
     """The old flag cannot silently enable a policy no longer supported by preparation."""
     monkeypatch.setattr(controller, "resolve_testbed", lambda *args: pytest.fail("Unexpected inventory access"))
     monkeypatch.setattr(sys, "argv", [
-        "generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused",
+        "generic_topology_cli.py", "add-topo", "--testbed", "tb", "--testbed-file", "unused",
         "--enable-lossless-adapter"])
     with pytest.raises(SystemExit):
         controller.main()
@@ -1702,7 +1868,7 @@ def test_host_lifecycle_detects_generic_recipe(rendered, tmp_path, lifecycle_cli
         capture_output=True, text=True, cwd=tmp_path)
     assert completed.returncode == 0, completed.stderr
     assert "DRY RUN: " + action in completed.stdout
-    assert "No devices or host infrastructure contacted" in completed.stdout
+    assert "No host provisioning or device configuration applied" in completed.stdout
 
 
 def test_host_lifecycle_preparation_uses_named_recipe(tmp_path, lifecycle_cli):
@@ -2106,7 +2272,11 @@ def test_explicit_acl_exclusion_preserves_protected_bindings_and_rules(
     else:
         config, _, _ = renderer.build_ports(base, platform, choice, canonical, exclude_managed_acls=True)
         for name in ("DATAACL", "EVERFLOW"):
-            expected = dict(original["ACL_TABLE"][name], ports=["Ethernet8"] if protected_member else [])
+            expected = deepcopy(original["ACL_TABLE"][name])
+            if protected_member:
+                expected["ports"] = ["Ethernet8"]
+            else:
+                del expected["ports"]
             assert config["ACL_TABLE"][name] == expected
         assert config["ACL_TABLE"]["SSH_ONLY"] == original["ACL_TABLE"]["SSH_ONLY"]
         assert config["ACL_RULE"] == original["ACL_RULE"]

@@ -1,0 +1,13 @@
+# Optional IPv4 allocation overrides for the shared topo_generic.yml recipe.
+# Use: --overrides vars/generic_ipv4.yml
+# Documentation pools are for isolated testing, not lab resource reservations.
+# Roles, VLAN ID, and CSV transport policy are inherited from the shared recipe.
+generic_topology:
+  routed_interfaces:
+    address_pool: 192.0.2.0/24
+    prefix_length: 31
+  access_vlan:
+    subnet: 198.51.100.0/24
+  external_destinations:
+    address_pool: 203.0.113.0/24
+    prefix_length: 32

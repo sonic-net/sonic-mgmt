@@ -1,23 +1,33 @@
-# Editable generic recipe, not a deployable legacy topology.
-# Replace synthetic selectors and null allocations with approved testbed inputs.
-# Planning rejects unset allocations; this file reserves no lab resources.
+# Editable generic scenario input, not a deployable legacy topology.
+# Shared across testbeds: use topo: generic, with optional allocation-only --overrides.
+# Default IPv6 documentation pools are for isolated testing, not lab resource reservations.
+# For IPv4 use --overrides vars/generic_ipv4.yml; one address family per scenario.
+# Plan only realized endpoints with existing CSV VLAN IDs; use a fresh workspace.
+# Whole-cage layouts may combine blank-VLAN sibling wiring channels, but cannot expose new endpoints.
+# Maximize supported coverage within this scope; missing combinations remain explicitly unqualified.
+# Review/edit scenario inputs before add-topo seals and renders them.
+# Low-speed cages participate when their wiring and CSV VLAN endpoints are eligible.
+# PTF endpoint addressing/ARP/NDP and live allocation conflicts still need verification.
 topology: {}
 
 generic_topology:
   physical_links:
-    uplinks: [Ethernet0, Ethernet1, Ethernet8, Ethernet9]
+    # Empty selects the first eight realized VLAN-backed DUT ports in numeric order.
+    # Planning/finalization write resolved roles into generated topology.yml, not this source.
+    uplinks: []
+    # Every other selected child defaults to downlink; no explicit list is needed.
     downlinks: []
   routed_interfaces:
-    address_pool: null
+    address_pool: 2001:db8:1::/64
     prefix_length: 127
   access_vlan:
-    vlan_id: null
-    subnet: null
+    # Override when this VLAN/subnet conflicts with retained state on the selected DUT.
+    vlan_id: 3000
+    subnet: 2001:db8:2::/64
   external_destinations:
-    address_pool: null
+    address_pool: 2001:db8:3::/64
     prefix_length: 128
-  constraints:
-    reserved_networks: []
-    reserved_vlan_ids: []
   transport:
+    # Derive each selected DUT endpoint's existing isolated VLAN from its CSV row.
+    # Render still validates live leaf ownership and pre-provisioned tagged trunks.
     vlan_ids: null

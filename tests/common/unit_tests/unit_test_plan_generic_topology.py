@@ -75,10 +75,10 @@ def fixture(tmp_path):
             "recipe": recipe, "settings": settings, "uplink_minimum": 1}
 
 
-def inputs(fixture):
+def inputs(fixture, excluded=()):
     dut, peer = planner.load_device(fixture["platform"]), planner.load_device(fixture["peer"])
     lookup = planner.load_lookup(fixture["lookup"])
-    inventory = planner.build_mapping(fixture["links"], "dut", "leaf", dut, peer, lookup)
+    inventory = planner.build_mapping(fixture["links"], "dut", "leaf", dut, peer, lookup, excluded)
     return inventory, dut, peer, lookup
 
 
@@ -104,26 +104,241 @@ def low_speed_fixture(fixture):
     return fixture
 
 
-def generate(fixture, max_states=100000):
+def generate(fixture, max_states=100000, vlan_backed_only=False, excluded=()):
     artifacts = planner.build_scenario(
-        *inputs(fixture), fixture["settings"], max_states, min_same_breakout_uplinks=fixture["uplink_minimum"])
+        *inputs(fixture, excluded), fixture["settings"], max_states,
+        min_same_breakout_uplinks=fixture["uplink_minimum"] if fixture["uplink_minimum"] is not None else 0,
+        vlan_backed_only=vlan_backed_only)
     artifacts["manifest.json"]["recipe_paths"] = [str(fixture["recipe"])]
     return artifacts
 
 
+@pytest.fixture
+def vlan_fixture(fixture):
+    """One named VLAN endpoint per fully wired cage permits only single-child layouts."""
+    with fixture["links"].open() as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        row["EndPort"] = row["StartPort"]
+        if int(row["StartPort"][8:]) % 8:
+            row["VlanID"] = ""
+    with fixture["links"].open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    return fixture
+
+
+@pytest.fixture
+def automatic_uplink_fixture(fixture):
+    """Ten VLAN-backed ports allow eight automatic uplinks and two downlinks."""
+    modes = ("1x100G", "1x200G[100G]", "1x400G[100G]", "1x800G[100G]")
+    interfaces = {
+        "Ethernet{}".format(index * 8): {
+            "lanes": str(1000 + index),
+            "breakout_modes": {modes[index % len(modes)]: ["etp{}".format(index + 1)]},
+        }
+        for index in range(10)
+    }
+    for side in ("platform", "peer"):
+        fixture[side].write_text(json.dumps({"interfaces": interfaces}))
+    with fixture["links"].open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["StartDevice", "StartPort", "EndDevice", "EndPort", "BandWidth", "VlanID"])
+        for index in range(10):
+            port = "Ethernet{}".format(index * 8)
+            writer.writerow(["dut", port, "leaf", port, 100000, 100 + index])
+    fixture["settings"]["physical_links"] = {"uplinks": [], "downlinks": []}
+    fixture["uplink_minimum"] = None
+    fixture["recipe"].write_text(yaml.safe_dump({"generic_topology": fixture["settings"]}))
+    return fixture
+
+
+def test_empty_source_resolves_first_eight_and_seals_generated_yaml(automatic_uplink_fixture, tmp_path, monkeypatch):
+    """Auto roles use numeric selected-port order and never rewrite the editable empty source."""
+    fixture = automatic_uplink_fixture
+    source = fixture["recipe"].read_bytes()
+    artifacts = generate(fixture, vlan_backed_only=True)
+    expected = ["Ethernet{}".format(index * 8) for index in range(8)]
+    roles = artifacts["topology.yml"]["generic_topology"]["physical_links"]
+    assert roles == {"uplinks": expected, "downlinks": ["Ethernet64", "Ethernet72"]}
+    assert artifacts["manifest.json"]["policy"]["role_assignment"] == "first_eight_selected"
+    assert artifacts["manifest.json"]["policy"]["uplink_repetition_scope"] == "none"
+    assert artifacts["manifest.json"]["policy"]["min_same_breakout_uplinks"] == 0
+    links = artifacts["resolved_facts.json"]["connections"]
+    assert len({link["dut"]["speed"] for link in links if link["role"] == "uplink"}) == 2
+    assert all(row["uplink_count"] < 4 for row in artifacts["coverage.json"]["uplink_repetition"]["groups"])
+    assert artifacts["coverage.json"]["deployment_eligible"]
+    planner.seal_artifacts(artifacts)
+    finalized = controller.finalize(
+        Namespace(output_dir=str(tmp_path / "finalized")), artifacts, {}, "dut")
+    assert finalized["topology.yml"]["generic_topology"]["physical_links"] == roles
+    assert fixture["recipe"].read_bytes() == source
+    assert controller.coverage_ready(controller.load_scenario(tmp_path / "finalized"))
+
+    def remote(*args, **kwargs):
+        raise RuntimeError("mixed-speed automatic uplinks passed render preflight")
+
+    monkeypatch.setattr(controller, "run_playbook", remote)
+    with pytest.raises(RuntimeError, match="passed render preflight"):
+        controller.render(Namespace(output_dir=str(tmp_path / "rendered")), finalized, {}, "dut")
+
+
+def test_cli_disables_matching_uplinks_by_default(automatic_uplink_fixture, tmp_path):
+    """An empty recipe automatically plans eight uplinks without requiring four equal mode/speed links."""
+    output = tmp_path / "auto-plan"
+    result = cli(automatic_uplink_fixture, output)
+    assert result.returncode == 0, result.stderr
+    artifacts = controller.load_scenario(output)
+    policy = artifacts["manifest.json"]["policy"]
+    assert policy["uplink_repetition_scope"] == "none"
+    assert policy["min_same_breakout_uplinks"] == 0
+    assert artifacts["coverage.json"]["uplink_repetition"]["selected_target"] is None
+    assert artifacts["topology.yml"]["generic_topology"]["physical_links"]["uplinks"] == [
+        "Ethernet{}".format(index * 8) for index in range(8)]
+
+
+def test_automatic_uplinks_cannot_be_swapped_after_freeze(automatic_uplink_fixture, tmp_path):
+    """Consistent edits of generated role lists still cannot change the frozen first-eight policy."""
+    artifacts = generate(automatic_uplink_fixture, vlan_backed_only=True)
+    planner.seal_artifacts(artifacts)
+    finalized = controller.finalize(
+        Namespace(output_dir=str(tmp_path / "finalized")), artifacts, {}, "dut")
+    roles = finalized["topology.yml"]["generic_topology"]["physical_links"]
+    roles["uplinks"].remove("Ethernet0")
+    roles["uplinks"].append("Ethernet64")
+    roles["downlinks"].remove("Ethernet64")
+    roles["downlinks"].append("Ethernet0")
+    assignments = planner.port_assignments(
+        {"physical_links": roles}, finalized["manifest.json"]["policy"]["port_assignments"])
+    finalized["manifest.json"]["policy"]["port_assignments"] = assignments
+    for link in finalized["resolved_facts.json"]["connections"]:
+        link["role"] = assignments[link["dut"]["port"]]
+    with pytest.raises(ValueError, match="first eight"):
+        controller.coverage_ready(finalized)
+
+
+def test_automatic_uplinks_still_require_a_downlink(automatic_uplink_fixture):
+    """Selecting all eight available links as uplinks cannot bypass the current T0 forwarding model."""
+    fixture = automatic_uplink_fixture
+    fixture["links"].write_text("\n".join(fixture["links"].read_text().splitlines()[:-2]) + "\n")
+    artifacts = generate(fixture, vlan_backed_only=True)
+    assert len(artifacts["resolved_facts.json"]["connections"]) == 8
+    assert not artifacts["coverage.json"]["deployment_eligible"]
+    assert artifacts["resolved_facts.json"]["forwarding"] is None
+    assert "downlink" in artifacts["coverage.json"]["allocation_error"]
+
+
+def test_vlan_named_children_reuse_full_wiring_without_adding_endpoints(vlan_fixture):
+    """Blank-tag sibling atoms may aggregate, but cannot become independently exposed children."""
+    artifacts = generate(vlan_fixture, vlan_backed_only=True)
+    facts, manifest, coverage = (artifacts[name] for name in (
+        "resolved_facts.json", "manifest.json", "coverage.json"))
+    assert {link["dut"]["port"] for link in facts["connections"]} == {"Ethernet0", "Ethernet8", "Ethernet16"}
+    assert all(len(link["dut"]["atoms"]) == 2 for link in facts["connections"])
+    assert [link["transport_vlan_id"] for link in facts["connections"]] == [100, 102, 104]
+    assert manifest["policy"]["vlan_scope"] == facts["vlan_scope"]
+    assert coverage["vlan_scope"] == {"available_endpoints": 3, "selected_endpoints": 3}
+    assert coverage["status"] == "incomplete" and coverage["deployment_eligible"]
+    assert coverage["uncovered_mode_speeds"] == [{"mode": "2x100G", "speed": 100000}]
+    assert any(row["reason"] == "realized child has no CSV-backed transport VLAN"
+               for row in coverage["rejected_candidates"])
+
+
+def test_cages_without_vlan_endpoints_are_preserved(vlan_fixture):
+    """A fully wired cage with no named VLAN endpoint remains outside generic ownership."""
+    text = vlan_fixture["links"].read_text().replace(",104,", ",,")
+    vlan_fixture["links"].write_text(text)
+    result = generate(vlan_fixture, vlan_backed_only=True)
+    manifest = result["manifest.json"]
+    assert manifest["protected_dut_cages"] == manifest["protected_peer_cages"] == ["Ethernet16"]
+    assert "Ethernet16" not in manifest["selected_layouts"]["dut"]
+    assert {link["dut"]["port"] for link in result["resolved_facts.json"]["connections"]} == {
+        "Ethernet0", "Ethernet8"}
+
+
+@pytest.mark.parametrize("value", ["100", "100-101", "4095"])
+def test_csv_vlan_scope_rejects_duplicate_or_invalid_transport(vlan_fixture, value):
+    """An existing name cannot authorize shared or malformed transport VLANs."""
+    vlan_fixture["links"].write_text(vlan_fixture["links"].read_text().replace(",102,", "," + value + ","))
+    with pytest.raises(ValueError, match="CSV transport VLAN"):
+        generate(vlan_fixture, vlan_backed_only=True)
+
+
+def test_partial_mode_and_buffer_coverage_can_render_and_deploy(vlan_fixture, tmp_path, monkeypatch, capsys):
+    """Unqualified cases stay visible while a valid finalized scenario reaches all deployment phases."""
+    with vlan_fixture["lookup"].open("a") as handle:
+        handle.write("100000 80m 400 20 60 4\n")
+    artifacts = generate(vlan_fixture, vlan_backed_only=True)
+    assert artifacts["coverage.json"]["uncovered_buffer_cases"]
+    planner.seal_artifacts(artifacts)
+    testbed = {"conf-name": "tb", "topo": "generic", "server": "server"}
+    finalized = controller.finalize(
+        Namespace(output_dir=str(tmp_path / "finalized")), artifacts, testbed, "dut")
+    assert finalized["manifest.json"]["status"] == "finalized_partial_coverage"
+    assert controller.coverage_ready(finalized)
+    phases = []
+
+    def remote(args, name, variables, local, **kwargs):
+        phase = variables.get("generic_action", "host-verify")
+        phases.append(phase)
+        if phase == "render":
+            for role in ("dut", "peer"):
+                request = json.loads((local / (role + "-request.json")).read_text())
+                assert request["facts"]["vlan_scope"] == artifacts["manifest.json"]["policy"]["vlan_scope"]
+                ports = [link[role]["port"] for link in request["facts"]["connections"]]
+                controller.write_private(local / (role + "-response.json"), {
+                    "config": {"PORT": dict.fromkeys(ports, {})},
+                    "report": {"transport": [], "owned_ports": ports},
+                })
+
+    monkeypatch.setattr(controller, "run_playbook", remote)
+    controller.render(Namespace(output_dir=str(tmp_path / "rendered")), finalized, testbed, "dut")
+    rendered = controller.load_scenario(tmp_path / "rendered")
+    assert rendered["manifest.json"]["deployable"]
+    assert rendered["coverage.json"]["status"] == "incomplete"
+    controller.deploy(Namespace(action="deploy-mg", apply=False), rendered, testbed, "dut")
+    assert phases == ["render"]
+    assert "PARTIAL COVERAGE" in capsys.readouterr().out
+    controller.deploy(Namespace(action="deploy-mg", apply=True), rendered, testbed, "dut")
+    assert phases == ["render", "host-verify", "stage", "apply", "verify", "save"]
+
+
+@pytest.mark.parametrize("failure", ["uplinks", "allocation", "endpoint", "frozen_scope"])
+def test_partial_coverage_never_waives_deployment_safety(vlan_fixture, tmp_path, monkeypatch, failure):
+    """Best-effort plans still reject missing uplinks/forwarding and endpoints outside the frozen scope."""
+    artifacts = generate(vlan_fixture, vlan_backed_only=True)
+    planner.seal_artifacts(artifacts)
+    finalized = controller.finalize(
+        Namespace(output_dir=str(tmp_path / "finalized")), artifacts, {}, "dut")
+    policy = finalized["manifest.json"]["policy"]
+    if failure == "uplinks":
+        policy["min_same_breakout_uplinks"] = 4
+    elif failure == "allocation":
+        finalized["coverage.json"]["allocation_error"] = "insufficient addresses"
+    elif failure == "endpoint":
+        finalized["resolved_facts.json"]["connections"][0]["dut"]["port"] = "Ethernet1"
+    else:
+        finalized["resolved_facts.json"]["vlan_scope"]["dut_ports"]["Ethernet1"] = 101
+    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected device access"))
+    with pytest.raises(ValueError):
+        controller.render(Namespace(output_dir=str(tmp_path / "rendered")), finalized, {}, "dut")
+    finalized["manifest.json"].update(deployable=True, requires_explicit_apply=True)
+    with pytest.raises(ValueError):
+        controller.deploy(Namespace(action="deploy-mg", apply=True), finalized, {}, "dut")
+
+
 @pytest.mark.parametrize("overflow", [False, True])
-def test_protected_low_speed_cases_are_out_of_scope_not_covered(low_speed_fixture, tmp_path, overflow):
-    """Protect both endpoints, retain overflow gaps, and finalize only complete in-scope coverage."""
+def test_explicitly_protected_low_speed_cases_remain_out_of_scope(low_speed_fixture, tmp_path, overflow):
+    """Explicit cage exclusions still scope coverage and survive immutable finalization."""
     fixture = low_speed_fixture
     if overflow:
         with fixture["lookup"].open("a") as handle:
             handle.write("100000 3m 100 20 30 1\n100000 4m 100 20 30 1\n")
-    artifacts = generate(fixture)
-    manifest, coverage = artifacts["manifest.json"], artifacts["coverage.json"]
     protected = ["Ethernet512", "Ethernet520"]
+    artifacts = generate(fixture, excluded=protected)
+    manifest, coverage = artifacts["manifest.json"], artifacts["coverage.json"]
     assert manifest["protected_dut_cages"] == manifest["protected_peer_cages"] == protected
-    assert manifest["policy"]["low_speed_cage_protection"]["dut_cages"] == protected
-    assert manifest["policy"]["low_speed_cage_protection"]["peer_cages"] == protected
     for side in ("dut", "peer"):
         assert not set(protected) & set(manifest["selected_layouts"][side])
         assert not any(link[side]["port"] in protected for link in artifacts["resolved_facts.json"]["connections"])
@@ -145,38 +360,81 @@ def test_protected_low_speed_cases_are_out_of_scope_not_covered(low_speed_fixtur
     assert finalized["manifest.json"]["protected_dut_cages"] == protected
 
 
-def test_low_speed_cli_scope_is_explicitly_reversible(low_speed_fixture, tmp_path):
-    """Opting back in restores low-speed diversity and buffer requirements instead of waiving them."""
-    default = tmp_path / "default-plan"
-    completed = cli(low_speed_fixture, default)
-    assert completed.returncode == 0, completed.stderr
-    assert "Protected dedicated low-speed cages (out of scope)" in completed.stdout
-    assert "not counted as covered" in completed.stdout
-    assert json.loads((default / "coverage.json").read_text())["status"] == "complete"
+def test_cli_includes_low_speed_layouts_and_coverage_by_default(low_speed_fixture, tmp_path):
+    """New VLAN-scoped plans include low-speed combinations and honestly report missing lookup cases."""
     included = tmp_path / "included-plan"
-    completed = cli(low_speed_fixture, included, ["--include-low-speed-cages"])
+    completed = cli(low_speed_fixture, included)
     assert completed.returncode == 0, completed.stderr
     manifest = json.loads((included / "manifest.json").read_text())
     coverage = json.loads((included / "coverage.json").read_text())
-    assert not manifest["policy"]["low_speed_cage_protection"]["enabled"]
     assert not manifest["protected_dut_cages"] and not manifest["protected_peer_cages"]
     assert {"Ethernet512", "Ethernet520"}.issubset(manifest["selected_layouts"]["dut"])
     assert not coverage["excluded_buffer_cases"]
     assert {row["speed"] for row in coverage["required_buffer_cases"]}.issuperset({"10000", "25000"})
+    facts = json.loads((included / "resolved_facts.json").read_text())
+    low_speeds = {link["dut"]["speed"] for link in facts["connections"]
+                  if link["dut"]["port"] in {"Ethernet512", "Ethernet520"}}
+    assert low_speeds == {10000, 25000}
     assert coverage["status"] == "incomplete"
+    assert coverage["deployment_eligible"]
 
 
 def test_low_speed_rows_remain_required_when_managed_cages_support_them(low_speed_fixture):
-    """Protected dedicated cages do not waive speeds that a higher-bandwidth cage can still exercise."""
+    """Explicit exclusions do not waive speeds that another eligible cage can still exercise."""
     for side in ("platform", "peer"):
         path = low_speed_fixture[side]
         document = json.loads(path.read_text())
         modes = document["interfaces"]["Ethernet0"]["breakout_modes"]
         modes["2x100G[25G]"] = modes["2x100G"]
         path.write_text(json.dumps(document))
-    coverage = generate(low_speed_fixture)["coverage.json"]
+    coverage = generate(low_speed_fixture, excluded=["Ethernet512", "Ethernet520"])["coverage.json"]
     assert {row["speed"] for row in coverage["excluded_buffer_cases"]} == {"10000"}
     assert "25000" in {row["speed"] for row in coverage["required_buffer_cases"]}
+
+
+def test_low_speed_cages_still_require_csv_vlan_endpoints(low_speed_fixture):
+    """Including low speeds cannot expand the scenario onto a child without an existing CSV VLAN."""
+    links = low_speed_fixture["links"]
+    with links.open() as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        if row["StartPort"] == "Ethernet512":
+            row["VlanID"] = ""
+    with links.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    artifacts = generate(low_speed_fixture, vlan_backed_only=True)
+    for side in ("dut", "peer"):
+        assert artifacts["manifest.json"]["protected_{}_cages".format(side)] == ["Ethernet512"]
+        layout = artifacts["manifest.json"]["selected_layouts"][side]
+        assert "Ethernet512" not in layout and "Ethernet520" in layout
+
+
+def test_shared_dut_forwarding_cleanup_is_frozen_without_replanning_breakout(fixture, tmp_path):
+    """Outside-peer DUT cages remain fixed while their forwarding-only cleanup scope is sealed."""
+    links = fixture["links"]
+    with links.open() as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        if row["StartPort"] in {"Ethernet16", "Ethernet17"}:
+            row["EndDevice"] = "shared-leaf"
+    with links.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    artifacts = generate(fixture, vlan_backed_only=True)
+    expected = {"Ethernet16": inputs(fixture)[1]["cages"]["Ethernet16"]["lanes"]}
+    assert artifacts["manifest.json"]["policy"]["dut_forwarding_cleanup"] == expected
+    assert artifacts["resolved_facts.json"]["dut_forwarding_cleanup"] == expected
+    for side in ("dut", "peer"):
+        assert "Ethernet16" in artifacts["manifest.json"]["protected_{}_cages".format(side)]
+        assert "Ethernet16" not in artifacts["manifest.json"]["selected_layouts"][side]
+    planner.seal_artifacts(artifacts)
+    controller.finalize(Namespace(output_dir=str(tmp_path / "finalized")), artifacts, {}, "dut")
+    sealed = controller.load_scenario(tmp_path / "finalized")
+    assert sealed["resolved_facts.json"]["dut_forwarding_cleanup"] == expected
+    controller.validate_forwarding_cleanup(sealed)
 
 
 def test_planning_matches_mixed_children_and_counts_full_combinations(fixture, tmp_path):
@@ -317,7 +575,7 @@ def planner_options(fixture, output):
                "--platform-json", str(fixture["platform"]), "--peer-platform-json", str(fixture["peer"]),
                "--links-csv", str(fixture["links"]), "--pg-profile-lookup", str(fixture["lookup"]),
                "--recipe", str(fixture["recipe"]), "--output-dir", str(output)]
-    if fixture["uplink_minimum"] != 4:
+    if fixture["uplink_minimum"] is not None:
         options.extend(["--min-same-breakout-uplinks", str(fixture["uplink_minimum"])])
     return options
 
@@ -326,6 +584,46 @@ def cli(fixture, output, extra=()):
     command = [sys.executable, str(SCRIPTS / "plan_generic_topology.py"),
                "--hostname", "dut"] + planner_options(fixture, output) + list(extra)
     return subprocess.run(command, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("ipv6", [False, True])
+def test_shared_generic_recipe_supports_both_families_and_testbed_overrides(
+        automatic_uplink_fixture, tmp_path, ipv6):
+    """Reuse one topology recipe across testbeds without changing it or mixing address families."""
+    recipe = SCRIPTS.parent / "vars/topo_generic.yml"
+    ipv4 = SCRIPTS.parent / "vars/generic_ipv4.yml"
+    before = {path: path.read_bytes() for path in (recipe, ipv4)}
+    testbeds = tmp_path / "testbeds.yml"
+    testbeds.write_text(yaml.safe_dump([
+        {"conf-name": name, "dut": ["dut"], "topo": "generic", "inv_name": "unused-" + name}
+        for name in ("tb-first", "tb-second")
+    ]))
+    override = tmp_path / "allocations.yml"
+    override.write_text(yaml.safe_dump({"generic_topology": {"access_vlan": {"vlan_id": 3100}}}))
+    for index, name in enumerate(("tb-first", "tb-second")):
+        output = tmp_path / name
+        options = planner_options(automatic_uplink_fixture, output)
+        options[options.index("--recipe") + 1] = str(recipe)
+        if not ipv6:
+            options += ["--overrides", str(ipv4)]
+        if index:
+            options += ["--overrides", str(override)]
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPTS / "plan_generic_topology.py"),
+             "--testbed", name, "--testbed-file", str(testbeds)] + options, capture_output=True, text=True)
+        assert completed.returncode == 0, completed.stderr
+        artifacts = controller.load_scenario(output)
+        facts = artifacts["resolved_facts.json"]
+        assert artifacts["manifest.json"]["testbed"]["conf-name"] == name
+        assert facts["forwarding"]["vlan_id"] == (3100 if index else 3000)
+        assert set(facts["forwarding"]["static_routes"]).issuperset({"::/0" if ipv6 else "0.0.0.0/0"})
+        uplinks = [link for link in facts["connections"] if link["role"] == "uplink"]
+        assert len(uplinks) == 8
+        assert all(link["dut_address"].endswith("/127" if ipv6 else "/31") for link in uplinks)
+        assert all(link["destination_prefix"].endswith("/128" if ipv6 else "/32") for link in uplinks)
+        assert artifacts["manifest.json"]["recipe_paths"] == [
+            str(path) for path in [recipe] + ([] if ipv6 else [ipv4]) + ([override] if index else [])]
+    assert {path: path.read_bytes() for path in before} == before
 
 
 def test_unconfigured_recipe_requires_explicit_lab_allocations(fixture, tmp_path):
@@ -612,7 +910,7 @@ def test_one_cage_can_supply_both_explicit_roles(fixture):
     assert set(result["manifest.json"]["selected_layouts"]["dut"]) == {"Ethernet8"}
 
 
-@pytest.mark.parametrize("ports", [None, [], "Ethernet8", [8], ["etp2a"], ["PortChannel1"],
+@pytest.mark.parametrize("ports", [None, "Ethernet8", [8], ["etp2a"], ["PortChannel1"],
                                    ["Ethernet08"], ["Ethernet8", "Ethernet8"]])
 def test_invalid_role_declarations_fail_before_collection(fixture, tmp_path, monkeypatch, ports):
     """Unset uplinks, malformed selectors, and duplicate declarations cannot trigger collection."""
@@ -717,8 +1015,8 @@ def test_role_feasibility_keeps_a_compatible_split_child_candidate(fixture):
     assert any(role == "downlink" for role in roles.values())
 
 
-def test_diversity_does_not_relax_the_required_uplink_group(fixture, tmp_path):
-    """A diverse review layout still needs N matching uplinks in one combination."""
+def test_csv_planning_prioritizes_required_uplinks_over_diversity(fixture, tmp_path):
+    """Best-effort CSV planning preserves the hard repeated-uplink requirement before maximizing coverage."""
     fixture["uplink_minimum"] = 4
     fixture["settings"]["physical_links"]["uplinks"] = [
         "Ethernet0", "Ethernet1", "Ethernet8", "Ethernet9", "Ethernet999"]
@@ -741,7 +1039,11 @@ def test_diversity_does_not_relax_the_required_uplink_group(fixture, tmp_path):
     output = tmp_path / "four-uplinks"
     completed = cli(fixture, output)
     assert completed.returncode == 0, completed.stderr
-    assert json.loads((output / "coverage.json").read_text()) == result["coverage.json"]
+    coverage = json.loads((output / "coverage.json").read_text())
+    assert coverage["status"] == "incomplete"
+    assert coverage["deployment_eligible"]
+    assert coverage["uplink_repetition"]["complete"]
+    assert not coverage["breakout_diversity"]["complete"]
 
 
 def test_initial_planning_option_is_frozen_without_entering_yaml(fixture, tmp_path):
@@ -1070,8 +1372,8 @@ def test_cli_failure_publishes_only_coverage(fixture, tmp_path):
     assert json.loads((output / "coverage.json").read_text())["status"] == "infeasible"
 
 
-def test_testbed_cli_generates_offline_scenario(fixture, tmp_path):
-    """Resolve testbed identity through the real shell entry without legacy topology mutation."""
+def test_internal_planner_generates_offline_scenario(fixture, tmp_path):
+    """Resolve testbed identity through the internal planner without legacy topology mutation."""
     testbeds = tmp_path / "testbed definitions.yml"
     testbeds.write_text(yaml.safe_dump([{
         "conf-name": "tb-generic", "dut": ["dut"], "topo": "t0",
@@ -1079,8 +1381,8 @@ def test_testbed_cli_generates_offline_scenario(fixture, tmp_path):
     }]))
     original = testbeds.read_bytes()
     output = tmp_path / "scenario output"
-    command = ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbeds),
-               "plan-generic", "tb-generic"] + planner_options(fixture, output)
+    command = [sys.executable, str(SCRIPTS / "plan_generic_topology.py"),
+               "--testbed-file", str(testbeds), "--testbed", "tb-generic"] + planner_options(fixture, output)
     completed = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
     assert completed.returncode == 0, completed.stderr
     manifest = json.loads((output / "manifest.json").read_text())
@@ -1101,8 +1403,8 @@ def test_testbed_cli_generates_offline_scenario(fixture, tmp_path):
     assert json.loads((tmp_path / "failed/coverage.json").read_text())["status"] == "search_limit_reached"
 
 
-def test_testbed_cli_collects_missing_snapshots(fixture, tmp_path, monkeypatch):
-    """Exercise shell-to-planner collection, inventory inference, and persisted provenance without SSH."""
+def test_internal_planner_collects_missing_snapshots(fixture, tmp_path, monkeypatch):
+    """Exercise internal collection, inventory inference, and persisted provenance without SSH."""
     inventory = tmp_path / "lab-inventory"
     inventory.write_text("dut\nleaf\n")
     testbeds = tmp_path / "testbeds.yml"
@@ -1130,7 +1432,8 @@ def test_testbed_cli_collects_missing_snapshots(fixture, tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", str(binaries) + ":" + os.environ["PATH"])
     output = tmp_path / "scenario"
     completed = subprocess.run([
-        "bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbeds), "plan-generic", "tb",
+        sys.executable, str(SCRIPTS / "plan_generic_topology.py"),
+        "--testbed-file", str(testbeds), "--testbed", "tb",
         "--peer-hostname", "leaf", "--links-csv", str(fixture["links"]),
         "--platform-json", str(fixture["platform"]), "--recipe", str(fixture["recipe"]),
         "--output-dir", str(output), "--min-same-breakout-uplinks", str(fixture["uplink_minimum"]),
@@ -1169,16 +1472,15 @@ def test_testbed_csv_resolution(tmp_path):
     assert testbed["ptf"] == "ptf-test"
 
 
-def test_testbed_cli_help_and_missing_name(tmp_path):
-    """Help and argument errors must not require inventory, credentials, or testbed reads."""
-    command = ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "plan-generic"]
-    completed = subprocess.run(command + ["--help"], cwd=tmp_path, capture_output=True, text=True)
-    assert completed.returncode == 0
-    assert "--peer-hostname" in completed.stdout
-    assert "--min-same-breakout-uplinks" in completed.stdout
-    completed = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True)
+@pytest.mark.parametrize("removed", ["plan-generic", "finalize-generic", "render-generic"])
+def test_testbed_cli_rejects_removed_preparation_commands(tmp_path, removed):
+    """Removed public preparation commands fail before inventory, credentials, or testbed access."""
+    completed = subprocess.run(
+        ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), removed, "--help"],
+        cwd=tmp_path, capture_output=True, text=True)
     assert completed.returncode == 1
-    assert "requires a testbed name" in completed.stderr
+    assert "was removed" in completed.stderr
+    assert "add-topo" in completed.stderr and "deploy-mg --generic" in completed.stderr
 
 
 @pytest.fixture
@@ -1187,6 +1489,33 @@ def complete_fixture(fixture):
     fixture["settings"]["physical_links"] = {"uplinks": ["Ethernet0", "Ethernet8", "Ethernet16"], "downlinks": []}
     fixture["recipe"].write_text(yaml.safe_dump({"generic_topology": fixture["settings"]}))
     return fixture
+
+
+@pytest.fixture
+def preparation_playbooks(monkeypatch):
+    """Emulate rendering and lifecycle playbooks without contacting any inventory target."""
+    calls = []
+
+    def run(args, name, variables, local, **kwargs):
+        phase = variables.get("generic_action", variables.get("generic_host_action"))
+        calls.append((name, phase))
+        if phase != "render":
+            return
+        for role in ("dut", "peer"):
+            request = json.loads((local / (role + "-request.json")).read_text())
+            links = request["facts"]["connections"]
+            ports = [link[role]["port"] for link in links]
+            transport = [{"vlan_id": link["transport_vlan_id"], "ptf_index": link["ptf_index"],
+                          "dut_port": link["dut"]["port"], "peer_port": link["peer"]["port"],
+                          "trunk_ports": ["Ethernet999"]} for link in links]
+            controller.write_private(local / (role + "-response.json"), {
+                "config": {"PORT": {port: {} for port in ports}},
+                "report": {"transport": transport, "owned_ports": ports, "qos_policy": "installed_lossy",
+                           "exclude_managed_acls": request["exclude_managed_acls"]},
+            })
+
+    monkeypatch.setattr(controller, "run_playbook", run)
+    return calls
 
 
 def test_every_combination_is_represented_but_only_one_needs_four_uplinks(fixture):
@@ -1335,38 +1664,99 @@ def test_finalization_validates_the_complete_edited_yaml(complete_fixture, tmp_p
     assert not output.exists()
 
 
-def test_automatic_add_topo_freezes_first_and_loads_conventional_recipe(complete_fixture, tmp_path):
-    """Even --apply cannot skip the first breakout/role review; offline snapshots need no inventory access."""
-    overrides = yaml.safe_load(complete_fixture["recipe"].read_text())
+@pytest.mark.parametrize("apply", [False, True])
+def test_add_topo_prepares_all_stages_and_honors_apply(
+        automatic_uplink_fixture, tmp_path, monkeypatch, preparation_playbooks, apply):
+    """One call prepares automatic roles despite coverage gaps; only --apply mutates host/root."""
+    fixture = automatic_uplink_fixture
+    with fixture["lookup"].open("a") as handle:
+        for cable in range(100, 112):
+            handle.write("100000 {}m 100 20 30 1\n".format(cable))
+    overrides = yaml.safe_load(fixture["recipe"].read_text())
     overrides["generic_topology"]["constraints"] = {"reserved_vlan_ids": [], "reserved_networks": []}
-    complete_fixture["recipe"].write_text(yaml.safe_dump(overrides))
+    fixture["recipe"].write_text(yaml.safe_dump(overrides))
+    source = fixture["recipe"].read_bytes()
     testbed = tmp_path / "testbed.yml"
     testbed.write_text(yaml.safe_dump([{
         "conf-name": "tb", "dut": ["dut"], "topo": "generic", "inv_name": "not-a-real-inventory",
     }]))
     root = tmp_path / "automatic"
-    options = planner_options(complete_fixture, root)
+    options = planner_options(fixture, root)
     options[options.index("--recipe")] = "--overrides"
-    command = ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed),
-               "add-topo", "tb", "not-a-real-vault", "--generic"] + options + ["--apply"]
-    result = subprocess.run(command, capture_output=True, text=True, cwd=SCRIPTS.parent)
-    assert result.returncode == 0, result.stderr
-    assert "No topology/configuration applied" in result.stdout
-    assert not (root / "rendered").exists()
+    command = ["generic_topology_cli.py", "add-topo", "--testbed-file", str(testbed), "--testbed", "tb",
+               "--exclude-managed-acls"] + options
+    if apply:
+        command.append("--apply")
+    monkeypatch.setattr(sys, "argv", command)
+    controller.main()
+    assert (root / "rendered").exists()
     manifest = json.loads((root / "plan/manifest.json").read_text())
     assert manifest["status"] == "breakout_frozen" and not manifest["roles_finalized"]
     assert str(SCRIPTS.parent / "vars/topo_generic.yml") in manifest["source_sha256"]
     assert manifest["recipe_paths"] == [
-        str(SCRIPTS.parent / "vars/topo_generic.yml"), str(complete_fixture["recipe"])]
+        str(SCRIPTS.parent / "vars/topo_generic.yml"), str(fixture["recipe"])]
+    rendered = controller.load_scenario(root / "rendered")
+    assert rendered["manifest.json"]["policy"]["exclude_managed_acls"]
+    assert rendered["coverage.json"]["status"] == "incomplete"
+    assert rendered["coverage.json"]["deployment_eligible"]
+    assert rendered["topology.yml"]["generic_topology"]["physical_links"]["uplinks"] == [
+        "Ethernet{}".format(index * 8) for index in range(8)]
+    assert fixture["recipe"].read_bytes() == source
+    expected = [("generic_devices.yml", "render")]
+    if apply:
+        expected += [("generic_host.yml", "add-topo"), ("fanout_connect.yml", "add-topo")]
+    assert preparation_playbooks == expected
     original = (root / "plan/manifest.json").read_bytes()
-    result = subprocess.run(command, capture_output=True, text=True, cwd=SCRIPTS.parent)
-    assert result.returncode == 0, result.stderr
-    assert "no replanning or device changes" in result.stdout
+    controller.main()
     assert (root / "plan/manifest.json").read_bytes() == original
+    assert preparation_playbooks.count(("generic_devices.yml", "render")) == 1
 
 
-@pytest.mark.parametrize("explicit_output", [False, True])
-def test_cli_finalization_rereads_original_recipe_from_another_directory(complete_fixture, tmp_path, explicit_output):
+@pytest.mark.parametrize("stage", ["plan", "finalized", "rendered"])
+@pytest.mark.parametrize("failure", ["hostname", "testbed"])
+def test_add_topo_rejects_mismatched_cached_identity(
+        complete_fixture, tmp_path, monkeypatch, preparation_playbooks, stage, failure):
+    """Reused stages must belong to this exact DUT and testbed before any remote operation."""
+    root = planner.resolve_workspace("tb", str(tmp_path / "workspace"))
+    artifacts = generate(complete_fixture, vlan_backed_only=True)
+    testbed = {"conf-name": "tb", "topo": "generic"}
+    artifacts["manifest.json"]["testbed"] = deepcopy(testbed)
+    planner.seal_artifacts(artifacts)
+    planner.write_artifacts(root / "plan", artifacts)
+    if stage != "plan":
+        artifacts = controller.finalize(
+            Namespace(output_dir=str(root / "finalized")), artifacts, testbed, "dut")
+    if stage == "rendered":
+        controller.render(Namespace(output_dir=str(root / "rendered")), artifacts, testbed, "dut")
+    artifacts = controller.load_scenario(root / stage)
+    if failure == "hostname":
+        artifacts["manifest.json"]["hostname"] = "other-dut"
+    else:
+        artifacts["manifest.json"]["testbed"]["server"] = "other-host"
+    planner.seal_artifacts(artifacts)
+    (root / stage / "manifest.json").write_text(json.dumps(artifacts["manifest.json"]))
+    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote action"))
+    with pytest.raises(ValueError, match="different testbed|does not match|settings changed"):
+        controller.automatic_prepare(
+            Namespace(output_dir=str(root), apply=True, action="add-topo"), testbed, "dut")
+
+
+def test_add_topo_cannot_change_cached_acl_policy(
+        complete_fixture, tmp_path, monkeypatch, preparation_playbooks):
+    """A requested ACL exclusion cannot silently replace an already rendered policy."""
+    root = planner.resolve_workspace("tb", str(tmp_path / "workspace"))
+    artifacts = generate(complete_fixture, vlan_backed_only=True)
+    artifacts["manifest.json"]["roles_finalized"] = True
+    planner.seal_artifacts(artifacts)
+    testbed = {"conf-name": "tb", "topo": "generic"}
+    controller.render(Namespace(output_dir=str(root / "rendered")), artifacts, testbed, "dut")
+    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote action"))
+    with pytest.raises(ValueError, match="different ACL policy"):
+        controller.automatic_prepare(
+            Namespace(output_dir=str(root), apply=True, action="add-topo", exclude_managed_acls=True), testbed, "dut")
+
+
+def test_internal_finalization_rereads_recorded_recipe(complete_fixture, tmp_path, monkeypatch):
     """The recorded source is editable until finalization; finalized settings survive source removal."""
     testbed = tmp_path / "testbed.yml"
     testbed.write_text(yaml.safe_dump([{"conf-name": "tb", "dut": ["dut"], "topo": "generic"}]))
@@ -1379,17 +1769,8 @@ def test_cli_finalization_rereads_original_recipe_from_another_directory(complet
     document = yaml.safe_load(complete_fixture["recipe"].read_text())
     document["generic_topology"]["access_vlan"]["vlan_id"] = 2000
     complete_fixture["recipe"].write_text(yaml.safe_dump(document))
-    command = [
-        "bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed), "finalize-generic", "tb",
-        "--scenario-dir", str(plan),
-    ]
-    if explicit_output:
-        command.extend(["--output-dir", str(output)])
-    completed = subprocess.run(command, capture_output=True, text=True, cwd=tmp_path,
-                               env=dict(os.environ, TMPDIR=str(tmp_path)))
-    assert completed.returncode == 0, completed.stderr
-    if not explicit_output:
-        assert str(output) in completed.stdout
+    monkeypatch.chdir(tmp_path)
+    controller.finalize(Namespace(output_dir=str(output)), controller.load_scenario(plan), {}, "dut")
     finalized = controller.load_scenario(output)
     assert finalized["topology.yml"]["generic_topology"]["access_vlan"]["vlan_id"] == 2000
     assert finalized["manifest.json"]["selected_layouts"] == original["manifest.json"]["selected_layouts"]
@@ -1420,10 +1801,9 @@ def test_finalization_rejects_concurrent_recipe_edits(complete_fixture, tmp_path
     assert not output.exists()
 
 
-@pytest.mark.parametrize("automatic", [False, True])
 @pytest.mark.parametrize("explicit_workspace", [False, True])
 def test_workspace_is_private_and_reused_without_overwrite(
-        complete_fixture, tmp_path, automatic, explicit_workspace):
+        complete_fixture, tmp_path, monkeypatch, preparation_playbooks, explicit_workspace):
     """All phases share one retained workspace; repeated preparation never replaces a frozen plan."""
     testbed = tmp_path / "testbed.yml"
     testbed.write_text(yaml.safe_dump([{
@@ -1432,53 +1812,39 @@ def test_workspace_is_private_and_reused_without_overwrite(
     options = planner_options(complete_fixture, tmp_path / "unused")
     index = options.index("--output-dir")
     del options[index:index + 2]
-    command = ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed)]
-    if automatic:
-        command += ["add-topo", "tb", "not-a-real-vault", "--generic"]
-    else:
-        command += ["plan-generic", "tb"]
-    command += options
+    command = ["generic_topology_cli.py", "add-topo", "--testbed-file", str(testbed), "--testbed", "tb"] + options
     root = tmp_path / "custom" if explicit_workspace else tmp_path / "sonic-generic-{}".format(os.getuid()) / "tb"
     if explicit_workspace:
         command += ["--workspace", str(root)]
+    monkeypatch.setattr(controller.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", command)
     original = None
     for attempt in range(2):
-        completed = subprocess.run(command, capture_output=True, text=True, cwd=tmp_path,
-                                   env=dict(os.environ, TMPDIR=str(tmp_path)))
-        assert completed.returncode == (1 if attempt and not automatic else 0), completed.stderr
+        controller.main()
         assert root.stat().st_mode & 0o777 == 0o700
         assert (root / "plan").stat().st_mode & 0o777 == 0o700
         assert (root / "plan/manifest.json").stat().st_mode & 0o777 == 0o600
         if original is None:
             original = (root / "plan/manifest.json").read_bytes()
-            assert str(root) in completed.stdout
-            if automatic:
-                assert "--workspace" in completed.stdout and "--finalize-roles" in completed.stdout
         else:
             assert (root / "plan/manifest.json").read_bytes() == original
-        assert not (root / "rendered").exists()
+        assert (root / "rendered").exists()
+    assert preparation_playbooks == [("generic_devices.yml", "render")]
 
 
-def test_render_legacy_scenario_defaults_to_sibling_output(complete_fixture, tmp_path, monkeypatch):
-    """An explicit old-style input stage defaults its output to the same parent workspace."""
-    testbed = {"conf-name": "tb", "topo": "generic-1"}
-    artifacts = generate(complete_fixture)
-    artifacts["manifest.json"]["roles_finalized"] = True
-    planner.write_artifacts(tmp_path / "finalized", artifacts)
-    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", testbed))
-    monkeypatch.setattr(controller, "load_scenario", lambda *args: artifacts)
-    outputs = []
-    monkeypatch.setattr(controller, "render", lambda args, *unused: outputs.append(args.output_dir))
+@pytest.mark.parametrize("removed", ["render", "finalize"])
+def test_controller_preparation_actions_are_internal_only(monkeypatch, capsys, removed):
+    """Preparation functions remain internal stages, not independently exposed CLI actions."""
+    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: pytest.fail("Unexpected device access"))
     monkeypatch.setattr(sys, "argv", [
-        "generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused",
-        "--scenario-dir", str(tmp_path / "finalized"),
-    ])
-    controller.main()
-    assert outputs == [str(tmp_path / "rendered")]
+        "generic_topology_cli.py", removed, "--testbed", "tb", "--testbed-file", "unused"])
+    with pytest.raises(SystemExit):
+        controller.main()
+    assert "invalid choice" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("path_mode", ["default", "workspace", "legacy"])
-def test_render_finalizes_reviewed_plan_and_reuses_sealed_stage(
+def test_add_topo_resumes_preparation_and_reuses_sealed_stage(
         complete_fixture, tmp_path, monkeypatch, capsys, path_mode):
     """A failed remote render can be retried without rereading or replacing the reviewed recipe."""
     monkeypatch.setattr(controller.tempfile, "tempdir", str(tmp_path))
@@ -1493,11 +1859,11 @@ def test_render_finalizes_reviewed_plan_and_reuses_sealed_stage(
     document["generic_topology"]["access_vlan"]["vlan_id"] = 2000
     complete_fixture["recipe"].write_text(yaml.safe_dump(document))
     monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", testbed))
-    command = ["generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused"]
+    command = ["generic_topology_cli.py", "add-topo", "--testbed", "tb", "--testbed-file", "unused", "--apply"]
     if path_mode == "workspace":
         command += ["--workspace", str(root)]
     elif path_mode == "legacy":
-        command += ["--scenario-dir", str(root / "plan")]
+        command += ["--output-dir", str(root)]
     monkeypatch.setattr(sys, "argv", command)
 
     def fail_render(*args):
@@ -1527,36 +1893,38 @@ def test_render_finalizes_reviewed_plan_and_reuses_sealed_stage(
             })
 
     monkeypatch.setattr(controller, "run_playbook", finish_render)
+    command.remove("--apply")
     controller.main()
     rendered = controller.load_scenario(root / "rendered")
     assert rendered["manifest.json"]["deployable"]
     assert calls == ["generic_devices.yml"]
     assert (root / "plan/manifest.json").read_bytes() == original
     assert {path.name: path.read_bytes() for path in (root / "finalized").iterdir()} == frozen
-    with pytest.raises(SystemExit):
-        controller.main()
-    assert "already exists" in capsys.readouterr().err
+    controller.main()
+    assert "DRY RUN: add-topo" in capsys.readouterr().out
     assert calls == ["generic_devices.yml"]
 
 
 @pytest.mark.parametrize("apply", [False, True])
-def test_unified_render_rejects_incomplete_coverage_and_apply_locally(
+def test_add_topo_rejects_invalid_roles_before_render_or_apply(
         complete_fixture, tmp_path, monkeypatch, capsys, apply):
-    """Neither incomplete reviewed roles nor --apply can cause a remote render or deployment."""
+    """Invalid roles cannot cause remote rendering or deployment even when --apply is supplied."""
     root = planner.resolve_workspace("tb", str(tmp_path / "workspace"))
     complete_fixture["uplink_minimum"] = 2
     complete_fixture["settings"]["physical_links"]["uplinks"] = ["Ethernet0", "Ethernet1"]
     complete_fixture["recipe"].write_text(yaml.safe_dump({"generic_topology": complete_fixture["settings"]}))
     artifacts = generate(complete_fixture)
+    testbed = {"conf-name": "tb", "topo": "generic"}
+    artifacts["manifest.json"]["testbed"] = testbed
     assert artifacts["coverage.json"]["status"] == "complete"
     planner.seal_artifacts(artifacts)
     planner.write_artifacts(root / "plan", artifacts)
     document = yaml.safe_load(complete_fixture["recipe"].read_text())
     document["generic_topology"]["physical_links"]["uplinks"] = ["Ethernet0"]
     complete_fixture["recipe"].write_text(yaml.safe_dump(document))
-    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", {"conf-name": "tb"}))
+    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", testbed))
     monkeypatch.setattr(controller, "run_playbook", lambda *args: pytest.fail("Unexpected remote access"))
-    command = ["generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused",
+    command = ["generic_topology_cli.py", "add-topo", "--testbed", "tb", "--testbed-file", "unused",
                "--workspace", str(root)]
     if apply:
         command.append("--apply")
@@ -1564,28 +1932,26 @@ def test_unified_render_rejects_incomplete_coverage_and_apply_locally(
     with pytest.raises(SystemExit):
         controller.main()
     error = capsys.readouterr().err
-    if apply:
-        assert "omit --apply" in error
-        assert not (root / "finalized").exists()
-    else:
-        assert "incomplete plans are review-only" in error
-        assert controller.load_scenario(root / "finalized")["coverage.json"]["status"] == "incomplete"
+    assert "incomplete plans are review-only" in error
+    assert controller.load_scenario(root / "finalized")["coverage.json"]["status"] == "incomplete"
     assert not (root / "rendered").exists()
 
 
-def test_render_explicit_plan_rejects_unrelated_finalized_stage(complete_fixture, tmp_path, monkeypatch, capsys):
+def test_add_topo_rejects_unrelated_finalized_stage(complete_fixture, tmp_path, monkeypatch, capsys):
     """Explicit plan inputs cannot accidentally reuse another plan's sealed sibling stage."""
     artifacts = generate(complete_fixture)
+    testbed = {"conf-name": "tb", "topo": "generic"}
+    artifacts["manifest.json"]["testbed"] = testbed
     planner.seal_artifacts(artifacts)
     planner.write_artifacts(tmp_path / "plan", artifacts)
     artifacts["manifest.json"].update(roles_finalized=True, breakout_plan_id="different-plan")
     planner.seal_artifacts(artifacts)
     planner.write_artifacts(tmp_path / "finalized", artifacts)
-    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", {"conf-name": "tb"}))
+    monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", testbed))
     monkeypatch.setattr(controller, "run_playbook", lambda *args: pytest.fail("Unexpected remote access"))
     monkeypatch.setattr(sys, "argv", [
-        "generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused",
-        "--scenario-dir", str(tmp_path / "plan"),
+        "generic_topology_cli.py", "add-topo", "--testbed", "tb", "--testbed-file", "unused",
+        "--output-dir", str(tmp_path),
     ])
     with pytest.raises(SystemExit):
         controller.main()
@@ -1620,7 +1986,7 @@ def test_workspace_resolves_all_stages_and_deployment(
 
     monkeypatch.setattr(controller, "render", render)
     monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote access"))
-    for action in ("finalize", "render", "add-topo", "deploy-mg", "remove-topo", "recover"):
+    for action in ("add-topo", "deploy-mg", "remove-topo", "recover"):
         command = ["generic_topology_cli.py", action, "--testbed", "tb", "--testbed-file", "unused"]
         if explicit_workspace:
             command.extend(["--workspace", str(root)])
@@ -1654,7 +2020,7 @@ def test_workspace_rejects_missing_stages_and_mixed_path_options(tmp_path, monke
     """Missing stages fail locally; conflicting old/new path options cannot select a different run."""
     monkeypatch.setattr(controller, "resolve_testbed", lambda *args: ("dut", {"topo": "generic"}))
     monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote access"))
-    for action in ("finalize", "render", "deploy-mg", "recover", "remove-topo"):
+    for action in ("deploy-mg", "recover", "remove-topo"):
         command = [
             "generic_topology_cli.py", action, "--testbed", "tb", "--testbed-file", "unused",
             "--workspace", str(tmp_path / "empty"),
@@ -1666,7 +2032,7 @@ def test_workspace_rejects_missing_stages_and_mixed_path_options(tmp_path, monke
             controller.main()
         assert "Required scenario stage is missing" in capsys.readouterr().err
     monkeypatch.setattr(sys, "argv", [
-        "generic_topology_cli.py", "render", "--testbed", "tb", "--testbed-file", "unused",
+        "generic_topology_cli.py", "add-topo", "--testbed", "tb", "--testbed-file", "unused",
         "--workspace", str(tmp_path / "empty"), "--scenario-dir", "somewhere-else",
     ])
     with pytest.raises(SystemExit):
@@ -1675,7 +2041,7 @@ def test_workspace_rejects_missing_stages_and_mixed_path_options(tmp_path, monke
 
 
 def test_automatic_preparation_finalizes_before_render_and_dry_run(complete_fixture, tmp_path, monkeypatch):
-    """The confirmed second stage reuses the frozen layout, renders, then retains the dry-run boundary."""
+    """A single add-topo call reuses a frozen layout and retains the dry-run boundary after rendering."""
     artifacts = generate(complete_fixture)
     testbed = {"topo": "generic", "conf-name": "tb"}
     artifacts["manifest.json"]["testbed"] = testbed
@@ -1697,5 +2063,5 @@ def test_automatic_preparation_finalizes_before_render_and_dry_run(complete_fixt
     monkeypatch.setattr(controller, "render", render)
     monkeypatch.setattr(controller, "deploy", deploy)
     controller.automatic_prepare(
-        Namespace(output_dir=str(tmp_path), finalize_roles=True, apply=False), testbed, "dut")
+        Namespace(output_dir=str(tmp_path), apply=False), testbed, "dut")
     assert phases == ["render", "dry-run"]

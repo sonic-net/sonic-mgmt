@@ -87,12 +87,12 @@ def port_declarations(settings):
         ports = settings.get("physical_links", {}).get(field)
         if role == "downlink" and ports is None:
             ports = []
-        if (not isinstance(ports, list) or (role == "uplink" and not ports) or any(
+        if (not isinstance(ports, list) or any(
                 not isinstance(port, str) or re.fullmatch(r"Ethernet(?:0|[1-9]\d*)", port) is None
                 for port in ports)):
-            raise ValueError("generic_topology.physical_links.{} must be a {}list of canonical DUT child "
+            raise ValueError("generic_topology.physical_links.{} must be a list of canonical DUT child "
                              "ports (Ethernet<number>); cage selectors and PortChannels are not supported".format(
-                                 field, "nonempty " if role == "uplink" else ""))
+                                 field))
         if len(ports) != len(set(ports)):
             raise ValueError("Duplicate {} interface selectors".format(role))
         declarations[role] = set(ports)
@@ -103,11 +103,12 @@ def port_assignments(settings, ports):
     """Match roles per realized link; unmatched names are ignored and other children are downlinks."""
     declarations = port_declarations(settings)
     actual = set(ports)
-    conflicts = actual & declarations["uplink"] & declarations["downlink"]
+    uplinks = declarations["uplink"] or set(sorted(actual, key=port_key)[:8])
+    conflicts = actual & uplinks & declarations["downlink"]
     if conflicts:
         raise ValueError("Selected interfaces have conflicting uplink/downlink roles: {}".format(
             sorted(conflicts, key=port_key)))
-    return {port: "uplink" if port in declarations["uplink"] else "downlink"
+    return {port: "uplink" if port in uplinks else "downlink"
             for port in sorted(actual, key=port_key)}
 
 
@@ -138,14 +139,22 @@ def validate_breakout_diversity(layout, targets=None):
 
 
 def validate_uplink_repetition(layout, assignments, minimum=4, targets=None, scope="all"):
-    validate_uplink_minimum(minimum)
-    if scope not in ("all", "one"):
+    if scope == "none":
+        if type(minimum) is not int or minimum != 0:
+            raise ValueError("Disabled matching-uplink policy requires minimum zero")
+    else:
+        validate_uplink_minimum(minimum)
+    if scope not in ("all", "one", "none"):
         raise ValueError("Unsupported uplink repetition scope: {}".format(scope))
     ports = {port for port, role in assignments.items() if role == "uplink"}
     counts = uplink_counts(layout.values(), ports)
     targets = (set(counts) if targets is None else {(row["mode"], speed_key(row["speed"])) for row in targets})
     groups = [dict(target_fields(mode, speed), uplink_count=counts[(mode, speed)],
                    shortfall=max(0, minimum - counts[(mode, speed)])) for mode, speed in sorted(targets)]
+    if scope == "none":
+        for row in groups:
+            row["required"] = False
+        return {"minimum": 0, "scope": "none", "groups": groups, "selected_target": None, "complete": True}
     if scope == "one":
         matching = [target for target in targets if counts[target] > 0]
         selected = min(matching, key=lambda target: (-counts[target], target)) if matching else None
@@ -286,7 +295,7 @@ def child_atoms(child, links, side):
     return tuple(sorted(atoms, key=port_key)) if covered == lanes else None
 
 
-def candidates(device, links, side, lookup_speeds):
+def candidates(device, links, side, lookup_speeds, permitted_ports=None):
     domains = {}
     rejected = []
     opposite = "peer" if side == "dut" else "dut"
@@ -305,6 +314,9 @@ def candidates(device, links, side, lookup_speeds):
                 signatures = {}
                 reason = None
                 for child in children:
+                    if permitted_ports is not None and child["port"] not in permitted_ports:
+                        reason = "realized child has no CSV-backed transport VLAN"
+                        break
                     atoms = child_atoms(child, links, side)
                     if not atoms:
                         reason = "child cannot be formed from complete wired maximum-breakout channels"
@@ -345,13 +357,16 @@ def compatible(first, first_key, second, second_key):
 
 
 def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=None, uplink_ports=None,
-                 min_same_breakout_uplinks=4):
+                 min_same_breakout_uplinks=4, vlan_scope=None):
     """Prefer one cage per operating combination before matching-uplink repetition."""
-    validate_uplink_minimum(min_same_breakout_uplinks)
+    if vlan_scope is None or min_same_breakout_uplinks != 0:
+        validate_uplink_minimum(min_same_breakout_uplinks)
     links = [link for link in inventory["links"] if link["eligible"]]
     speeds = {int(row["speed"]) for row in lookup}
-    dut_domains, rejected_dut = candidates(dut, links, "dut", speeds)
-    peer_domains, rejected_peer = candidates(peer, links, "peer", speeds)
+    dut_domains, rejected_dut = candidates(
+        dut, links, "dut", speeds, None if vlan_scope is None else vlan_scope["dut_ports"])
+    peer_domains, rejected_peer = candidates(
+        peer, links, "peer", speeds, None if vlan_scope is None else vlan_scope["peer_ports"])
     targets = sorted({(mode, variant) for key in dut_domains for mode in dut["cages"][key[1]]["breakout_modes"]
                       for variant in mode_variants(mode) if set(selected_speeds(mode, variant)).issubset(speeds)})
     required_modes = sorted({mode for mode, _ in targets})
@@ -408,11 +423,18 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
 
     def score(groups, children, represented, forwardable=True):
         largest = max((groups[target] for target in targets), default=0)
+        if vlan_scope is not None:
+            return (int(forwardable), int(largest >= min_same_breakout_uplinks),
+                    min(largest, min_same_breakout_uplinks),
+                    sum(represented[target] > 0 for target in targets),
+                    sum(min(children[speed], count) for speed, count in needs.items()))
         return (int(forwardable), sum(represented[target] > 0 for target in targets),
                 int(largest >= min_same_breakout_uplinks), min(largest, min_same_breakout_uplinks),
                 sum(min(children[speed], count) for speed, count in needs.items()))
 
-    perfect = (1, len(targets), 1, min_same_breakout_uplinks, sum(needs.values()))
+    perfect = ((1, 1, min_same_breakout_uplinks, len(targets), sum(needs.values()))
+               if vlan_scope is not None else
+               (1, len(targets), 1, min_same_breakout_uplinks, sum(needs.values())))
 
     def search(assigned):
         nonlocal exhausted, best, best_score, best_allocation_error
@@ -488,7 +510,7 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
     repetition = validate_uplink_repetition(
         {key[1]: choice for key, choice in best.items() if key[0] == "dut"},
         {port: "uplink" for port in uplink_ports}, min_same_breakout_uplinks,
-        coverage["required_mode_speeds"], scope="one")
+        coverage["required_mode_speeds"], scope="none" if min_same_breakout_uplinks == 0 else "one")
     diversity = validate_breakout_diversity(
         {key[1]: choice for key, choice in best.items() if key[0] == "dut"}, coverage["required_mode_speeds"])
     covered_cases = []
@@ -505,6 +527,8 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
                     breakout_diversity=diversity,
                     uncovered_buffer_cases=[row for row in lookup if row not in covered_cases],
                     search_limit_reached=exhausted, optimality_proven=not exhausted)
+    coverage["uncovered_mode_speeds"] = [
+        target_fields(row["mode"], row["speed"]) for row in diversity["groups"] if not row["cage_count"]]
     if best_allocation_error:
         coverage["allocation_error"] = best_allocation_error
     return best, coverage
@@ -597,9 +621,64 @@ def scope_buffer_cases(inventory, dut, lookup):
     return required, excluded
 
 
-def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, min_same_breakout_uplinks=4):
+def scope_vlan_ports(inventory):
+    """Select named VLAN endpoints, while retaining all wiring atoms of their whole cages."""
+    inventory = deepcopy(inventory)
+    backed = {"dut": {}, "peer": {}}
+    for link in inventory["links"]:
+        if not link["eligible"]:
+            continue
+        value = link["csv_attributes"].get("VlanID") or ""
+        if not isinstance(value, str):
+            raise ValueError("CSV transport VLAN must be a string")
+        value = value.strip()
+        if not value:
+            continue
+        if not value.isdigit() or not 1 <= int(value) <= 4094:
+            raise ValueError("CSV transport VLAN must be a single ID from 1 through 4094")
+        for side in backed:
+            backed[side][link[side]["port"]] = int(value)
+    protected = {side: set(inventory["protected_{}_cages".format(side)])
+                 for side in ("dut", "peer")}
+    for side in backed:
+        backed_cages = {link[side]["cage"] for link in inventory["links"]
+                        if link["eligible"] and link[side]["port"] in backed[side]}
+        protected[side].update(set(inventory[side + "_cages"]) - backed_cages)
+    changed = True
+    while changed:
+        changed = False
+        for link in inventory["links"]:
+            if link["peer_hostname"] != inventory["peer_hostname"]:
+                continue
+            if any(link[side]["cage"] in protected[side] for side in backed):
+                for side in backed:
+                    if link[side]["cage"] not in protected[side]:
+                        protected[side].add(link[side]["cage"])
+                        changed = True
+    for link in inventory["links"]:
+        if (link["peer_hostname"] == inventory["peer_hostname"]
+                and any(link[side]["cage"] in protected[side] for side in backed)):
+            link["eligible"] = False
+    for side in backed:
+        inventory["protected_{}_cages".format(side)] = sorted(protected[side], key=port_key)
+        eligible_ports = {link[side]["port"] for link in inventory["links"] if link["eligible"]}
+        backed[side] = {port: vlan for port, vlan in backed[side].items() if port in eligible_ports}
+        if len(set(backed[side].values())) != len(backed[side]):
+            raise ValueError("CSV transport VLANs must be isolated: duplicate VLAN on {} endpoints".format(side))
+    return inventory, dict(source="csv", granularity="realized_port_name",
+                           dut_ports=backed["dut"], peer_ports=backed["peer"])
+
+
+def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, min_same_breakout_uplinks=4,
+                   vlan_backed_only=False):
     declarations = port_declarations(settings)
-    validate_uplink_minimum(min_same_breakout_uplinks)
+    if not vlan_backed_only or min_same_breakout_uplinks != 0:
+        validate_uplink_minimum(min_same_breakout_uplinks)
+    if not declarations["uplink"] and min_same_breakout_uplinks:
+        raise ValueError("Automatic first-eight uplinks require omitting --min-same-breakout-uplinks")
+    vlan_scope = None
+    if vlan_backed_only:
+        inventory, vlan_scope = scope_vlan_ports(inventory)
     lookup, excluded_buffer_cases = scope_buffer_cases(inventory, dut, lookup)
     if any(row["cable"] == "0m" for row in lookup):
         raise ValueError("Traditional daemon-owned buffers cannot assign lookup cable case 0m; "
@@ -618,7 +697,7 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
     try:
         solution, coverage = solve_layout(
             inventory, dut, peer, lookup, max_states, accepts_allocations, uplink_ports=declarations["uplink"],
-            min_same_breakout_uplinks=min_same_breakout_uplinks)
+            min_same_breakout_uplinks=min_same_breakout_uplinks, vlan_scope=vlan_scope)
     except PlanningError as error:
         error.coverage["excluded_buffer_cases"] = excluded_buffer_cases
         raise
@@ -645,6 +724,8 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
                                 "buffer_case": dict(case),
                                 "source_links": [atom_links[atom]["csv_attributes"] for atom in child["atoms"]],
                                 "connectivity_verified": False})
+            if vlan_scope is not None:
+                connections[-1]["transport_vlan_id"] = vlan_scope["dut_ports"][child["port"]]
     selected_atoms = set(atom_links)
     port_order = sorted(({name for name in dut["ports"] if name not in selected_atoms}
                          | {link["dut"]["port"] for link in connections}), key=port_key)
@@ -660,7 +741,8 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         "ignored_ports": {role: sorted(ports - set(assignments), key=port_key)
                           for role, ports in declarations.items()},
         "defaulted_downlinks": sorted(
-            set(assignments) - declarations["uplink"] - declarations["downlink"], key=port_key),
+            {port for port, role in assignments.items() if role == "downlink"} - declarations["downlink"],
+            key=port_key),
     }
     indices = {name: index for index, name in enumerate(port_order)}
     for ptf_index, link in enumerate(connections):
@@ -670,9 +752,20 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
     bindings = ["0.{}@{}".format(link["dut_port_index"], link["ptf_index"]) for link in connections]
     topology = {"topology": {"host_interfaces": bindings},
                 "generic_topology": deepcopy(settings), "dut_port_order": port_order}
+    if not declarations["uplink"]:
+        topology["generic_topology"]["physical_links"].update({
+            field: sorted((port for port, value in assignments.items() if value == role), key=port_key)
+            for field, role in (("uplinks", "uplink"), ("downlinks", "downlink"))
+        })
+        role_resolution["uplink_selection"] = "first_eight_selected"
     facts = {"hostname": inventory["hostname"], "peer_hostname": inventory["peer_hostname"],
              "status": "planned_not_deployed", "connections": connections, "forwarding": forwarding,
              "dut_port_order": port_order, "role_resolution": role_resolution}
+    cleanup = {cage: list(dut["cages"][cage]["lanes"])
+               for cage in inventory.get("dut_forwarding_cleanup_cages", [])}
+    facts["dut_forwarding_cleanup"] = deepcopy(cleanup)
+    if vlan_scope is not None:
+        facts["vlan_scope"] = deepcopy(vlan_scope)
     reconcile_neighbors(facts, selected)
     manifest = {
         "schema_version": 3, "status": "breakout_frozen", "deployable": False, "roles_finalized": False,
@@ -681,12 +774,12 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         "protected_dut_cages": inventory["protected_dut_cages"],
         "protected_peer_cages": inventory["protected_peer_cages"],
         "policy": {"role_assignment": "explicit_uplinks_default_downlinks",
-                   "low_speed_cage_protection": deepcopy(inventory.get("low_speed_cage_protection", {})),
+                   "dut_forwarding_cleanup": cleanup,
                    "coverage_unit": "mode_operating_combination",
                    "coverage_priority": ["physical_cage_diversity", "uplink_repetition", "buffer_cases"],
                    "required_mode_speeds": coverage["required_mode_speeds"],
                    "min_same_breakout_uplinks": min_same_breakout_uplinks,
-                   "uplink_repetition_scope": "one",
+                   "uplink_repetition_scope": "none" if min_same_breakout_uplinks == 0 else "one",
                    "uplink_repetition_target": coverage["uplink_repetition"]["selected_target"],
                    "role_granularity": "child_port", "active_children": "all",
                    "port_assignments": assignments, "portchannels": "not_generated",
@@ -699,6 +792,22 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
             "QoS/buffer backend policy rendering and complete device configuration generation",
         ],
     }
+    if vlan_scope is not None:
+        manifest["policy"].update(coverage_requirement="best_effort", vlan_scope=vlan_scope,
+                                  coverage_priority=["forwarding", "uplink_repetition",
+                                                     "physical_cage_diversity", "buffer_cases"])
+        coverage["deployment_eligible"] = (
+            forwarding is not None and coverage["uplink_repetition"]["complete"]
+            and "allocation_error" not in coverage)
+        coverage["vlan_scope"] = {"available_endpoints": len(vlan_scope["dut_ports"]),
+                                  "selected_endpoints": len(connections)}
+    if not declarations["uplink"]:
+        manifest["policy"]["role_assignment"] = "first_eight_selected"
+        manifest["policy"]["automatic_uplink_count"] = 8
+    if min_same_breakout_uplinks == 0:
+        manifest["policy"]["coverage_priority"] = ["forwarding", "physical_cage_diversity", "buffer_cases"]
+        coverage["uplink_repetition"] = validate_uplink_repetition(
+            selected["dut"], assignments, 0, coverage["required_mode_speeds"], scope="none")
     return {"manifest.json": manifest, "coverage.json": coverage,
             "topology.yml": topology, "resolved_facts.json": facts}
 
@@ -782,18 +891,17 @@ def add_planning_arguments(parser, required=True):
     parser.add_argument("--overrides", action="append", default=[],
                         help="Recipe overrides in explicit low-to-high precedence order; repeat for group then host")
     parser.add_argument("--exclude-port", action="append", default=[])
-    parser.add_argument("--include-low-speed-cages", action="store_true",
-                        help="Include dedicated cages of at most 25G aggregate bandwidth; protected by default")
     parser.add_argument("--max-search-states", type=int, default=100000)
-    parser.add_argument("--min-same-breakout-uplinks", type=int, default=4,
-                        help="Target matching uplink children in one operating combination after cage diversity "
-                             "(default: 4)")
+    parser.add_argument("--min-same-breakout-uplinks", type=int,
+                        help="Optional legacy matching-mode uplink constraint; disabled by default. "
+                             "Requires explicit nonempty uplink selectors.")
 
 
 def plan_from_args(args):
     if args.max_search_states <= 0:
         raise ValueError("--max-search-states must be positive")
-    validate_uplink_minimum(args.min_same_breakout_uplinks)
+    if args.min_same_breakout_uplinks is not None:
+        validate_uplink_minimum(args.min_same_breakout_uplinks)
     workspace = getattr(args, "workspace", None)
     if workspace and args.output_dir:
         raise ValueError("Use --workspace or --output-dir, not both")
@@ -813,6 +921,8 @@ def plan_from_args(args):
     if args.testbed is not None:
         hostname, testbed = resolve_testbed(args.testbed_file, args.testbed)
     settings = load_recipe([args.recipe] + args.overrides)
+    if args.min_same_breakout_uplinks is not None and not port_declarations(settings)["uplink"]:
+        raise ValueError("Automatic first-eight uplinks require omitting --min-same-breakout-uplinks")
     collection = collect_inputs(args, hostname, testbed)
     if source_digests(initial_paths) != initial_digests:
         raise ValueError("An input changed during collection; generate a new scenario")
@@ -826,10 +936,11 @@ def plan_from_args(args):
     dut, peer = load_device(args.platform_json), load_device(args.peer_platform_json)
     lookup = load_lookup(args.pg_profile_lookup)
     inventory = build_mapping(
-        args.links_csv, hostname, args.peer_hostname, dut, peer, lookup, args.exclude_port,
-        exclude_low_speed_cages=not getattr(args, "include_low_speed_cages", False))
+        args.links_csv, hostname, args.peer_hostname, dut, peer, lookup, args.exclude_port)
     artifacts = build_scenario(
-        inventory, dut, peer, lookup, settings, args.max_search_states, args.min_same_breakout_uplinks)
+        inventory, dut, peer, lookup, settings, args.max_search_states,
+        args.min_same_breakout_uplinks if args.min_same_breakout_uplinks is not None else 0,
+        vlan_backed_only=True)
     if source_digests(paths) != digests:
         raise ValueError("An input changed during planning; generate a new scenario")
     manifest = artifacts["manifest.json"]
@@ -841,14 +952,18 @@ def plan_from_args(args):
     manifest["recipe_paths"] = [str(Path(path).resolve()) for path in [args.recipe] + args.overrides]
     seal_artifacts(artifacts)
     write_artifacts(args.output_dir, artifacts)
-    protection = manifest["policy"]["low_speed_cage_protection"]
-    if protection.get("dut_cages") or protection.get("peer_cages"):
-        print("Protected dedicated low-speed cages (out of scope): DUT={}; peer={}".format(
-            ", ".join(protection["dut_cages"]) or "none", ", ".join(protection["peer_cages"]) or "none"))
     excluded = artifacts["coverage.json"]["excluded_buffer_cases"]
     if excluded:
         print("Out-of-scope buffer cases: {} (speeds confined to protected DUT cages; not counted as covered).".format(
             len(excluded)))
+    coverage = artifacts["coverage.json"]
+    print("CSV VLAN-backed endpoints: {} available, {} selected. Deployment requirements: {}.".format(
+        coverage["vlan_scope"]["available_endpoints"], coverage["vlan_scope"]["selected_endpoints"],
+        "satisfied" if coverage["deployment_eligible"] else "NOT satisfied (review-only)"))
+    if coverage["status"] != "complete":
+        print("Best-effort coverage: {} uncovered mode/operating combinations and {} uncovered buffer cases. "
+              "These cases remain unqualified.".format(
+                  len(coverage["uncovered_mode_speeds"]), len(coverage["uncovered_buffer_cases"])))
     return artifacts
 
 
@@ -876,7 +991,7 @@ def main():
         if ports:
             print("Ignored unmatched {} interface selectors: {}".format(role, ", ".join(ports)))
     print("Frozen breakout plan written to {} (coverage: {}). Review/edit the recorded topology recipe, "
-          "then render-generic (which finalizes first); "
+          "then use add-topo to finish scenario preparation; "
           "no deployment performed.".format(args.output_dir, artifacts["coverage.json"]["status"]))
 
 

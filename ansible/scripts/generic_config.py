@@ -198,9 +198,11 @@ def retire_logical_interfaces(config, owned):
     for vlan in list(config.get("VLAN", {})):
         members = {key.split("|")[1] for key in config.get("VLAN_MEMBER", {})
                    if key.split("|")[0] == vlan}
+        members.update(config["VLAN"][vlan].get("members", []))
         if members and members.issubset(affected):
             affected.add(vlan)
             del config["VLAN"][vlan]
+            config.get("DHCP_RELAY", {}).pop(vlan, None)
     addresses = set()
     for table in ("INTERFACE", "PORTCHANNEL_INTERFACE", "VLAN_INTERFACE"):
         for key in list(config.get(table, {})):
@@ -291,7 +293,27 @@ def validate_references(config, retired=()):
                 "Showing at most 8 locations, not field values.".format("; ".join(locations)))
 
 
-def build_ports(base, platform, layouts, canonical, exclude_managed_acls=False):
+def forwarding_cleanup_ports(base, platform, layouts, cages):
+    """Resolve frozen fixed-breakout cages without treating them as replacement PORTs."""
+    if not isinstance(cages, dict):
+        raise ValueError("DUT forwarding cleanup must map cages to frozen lanes")
+    ports = set()
+    for cage, frozen in cages.items():
+        if (cage in layouts or not isinstance(frozen, list) or not frozen
+                or any(type(lane) is not int for lane in frozen) or len(set(frozen)) != len(frozen)):
+            raise ValueError("DUT forwarding cleanup must use unselected cages with valid frozen lanes")
+        installed = platform["interfaces"].get(cage, {}).get("lanes", "")
+        if installed.split(",") != list(map(str, frozen)):
+            raise ValueError("DUT forwarding cleanup cage lanes differ from installed platform")
+        lanes = set(map(str, frozen))
+        current = {name for name, row in base["PORT"].items() if lanes.intersection(row["lanes"].split(","))}
+        if not current or any(not set(base["PORT"][name]["lanes"].split(",")).issubset(lanes) for name in current):
+            raise ValueError("DUT forwarding cleanup cage is absent or shares another running port's lanes")
+        ports.update(current)
+    return ports
+
+
+def build_ports(base, platform, layouts, canonical, exclude_managed_acls=False, forwarding_cleanup=()):
     if not isinstance(exclude_managed_acls, bool):
         raise ValueError("exclude_managed_acls must be a boolean")
     config = deepcopy(base)
@@ -346,8 +368,14 @@ def build_ports(base, platform, layouts, canonical, exclude_managed_acls=False):
                              "Explicit ACL migration is required; bindings were not broadened or dropped.".format(
                                  port, details or "no overlapping old ports"))
         inherited_acls[port] = next(iter(memberships.values()))
-    retired_logical = retire_logical_interfaces(config, owned)
+    cleanup = set(forwarding_cleanup)
+    if not cleanup.issubset(base["PORT"]) or cleanup.intersection(owned):
+        raise ValueError("Forwarding-only cleanup must use existing fixed-breakout ports")
+    retired_logical = retire_logical_interfaces(config, owned | cleanup)
     remove_owned(config, owned | retired_logical)
+    for row in config.get("VLAN", {}).values():
+        if "members" in row:
+            row["members"] = [port for port in row["members"] if port not in cleanup]
     for port in owned:
         del config["PORT"][port]
     validate_references(config, owned | retired_logical)
@@ -357,6 +385,9 @@ def build_ports(base, platform, layouts, canonical, exclude_managed_acls=False):
     for port, names in inherited_acls.items():
         for name in names:
             config["ACL_TABLE"][name]["ports"].append(port)
+    for name, acl in config.get("ACL_TABLE", {}).items():
+        if acl.get("ports") == [] and base["ACL_TABLE"][name].get("ports"):
+            del acl["ports"]
     return config, owned, set(selected)
 
 
@@ -369,9 +400,44 @@ def source_link_attribute(source, field):
     return value.strip()
 
 
+def validate_vlan_scope(facts, scope):
+    """Keep every realized endpoint and transport ID inside the frozen CSV-name scope."""
+    if scope is None:
+        return
+    if scope.get("source") != "csv" or scope.get("granularity") != "realized_port_name":
+        raise ValueError("Unsupported frozen VLAN eligibility policy; replan")
+    connections = facts["connections"]
+    if not connections:
+        raise ValueError("CSV VLAN scope has no selected physical links")
+    for side in ("dut", "peer"):
+        permitted = scope.get(side + "_ports")
+        if (not isinstance(permitted, dict) or not permitted or any(
+                type(vlan) is not int or not 1 <= vlan <= 4094 for vlan in permitted.values())
+                or len(set(permitted.values())) != len(permitted)):
+            raise ValueError("Invalid frozen CSV VLAN endpoints")
+        ports = [link[side]["port"] for link in connections]
+        if len(set(ports)) != len(ports) or not set(ports).issubset(permitted):
+            raise ValueError("Realized {} port has no CSV-backed transport VLAN; replan".format(side))
+    for link in connections:
+        vlan = link.get("transport_vlan_id")
+        if type(vlan) is not int or vlan != scope["dut_ports"][link["dut"]["port"]]:
+            raise ValueError("Selected transport VLAN differs from its frozen CSV endpoint")
+        if str(vlan) not in {source_link_attribute(source, "VlanID") for source in link["source_links"]}:
+            raise ValueError("Selected transport VLAN is absent from the child's physical CSV wiring")
+
+
 def transport_plan(facts, leaf, owned, settings):
     explicit = settings.get("transport", {}).get("vlan_ids")
-    if explicit is None:
+    scoped = facts.get("vlan_scope") is not None
+    if scoped:
+        validate_vlan_scope(facts, facts["vlan_scope"])
+        candidates = [link["transport_vlan_id"] for link in facts["connections"]]
+        if explicit is not None and (
+                not isinstance(explicit, list) or any(
+                    type(vlan) is not int or not 1 <= vlan <= 4094 for vlan in explicit)
+                or len(set(explicit)) != len(explicit) or not set(candidates).issubset(explicit)):
+            raise ValueError("Configured transport VLAN allowlist excludes or invalidates CSV-backed endpoints")
+    elif explicit is None:
         candidates = set()
         for link in facts["connections"]:
             for source in link["source_links"]:
@@ -400,7 +466,8 @@ def transport_plan(facts, leaf, owned, settings):
                    if key.split("|")[0] == vlan}
         access = {port for port, row in members.items() if row.get("tagging_mode") == "untagged"}
         trunks = {port for port, row in members.items() if row.get("tagging_mode") == "tagged"}
-        if (vlan not in leaf.get("VLAN", {}) or (not access and explicit is None) or not access.issubset(owned)
+        if (vlan not in leaf.get("VLAN", {}) or (not access and (scoped or explicit is None))
+                or not access.issubset(owned)
                 or not trunks or trunks.intersection(owned)
                 or str(leaf["VLAN"][vlan].get("vlanid")) != str(vlan_id)
                 or any(scoped_port(key) == vlan for key in leaf.get("VLAN_INTERFACE", {}))):
@@ -597,15 +664,13 @@ def apply_qos(config, generated, facts, role, lookup, base, owned, selected,
             qos.update(inherited_pfc_policy(base, config, port, ["pfc_enable"]))
         priorities = pfc_priorities(qos["pfc_enable"])
         qos["pfc_enable"] = ",".join(map(str, sorted(priorities)))
+        config.setdefault("CABLE_LENGTH", {}).setdefault("AZURE", {})[port] = row["cable"]
+        for values in config["CABLE_LENGTH"].values():
+            if port in values:
+                values[port] = row["cable"]
         if not priorities:
-            # Traditional buffermgrd creates headroom before checking the PFC priorities.
-            for group, values in list(config.get("CABLE_LENGTH", {}).items()):
-                values.pop(port, None)
-                if not values:
-                    del config["CABLE_LENGTH"][group]
             lossy_profiles.add("pg_lossless_{}_{}_profile".format(row["speed"], row["cable"]))
             continue
-        config.setdefault("CABLE_LENGTH", {}).setdefault("AZURE", {})[port] = row["cable"]
         if "ingress_lossless_pool" not in config.get("BUFFER_POOL", {}) or egress_profile not in profiles:
             raise ValueError("Installed templates lack the supported traditional lossless buffer objects")
         pool_mode = config["BUFFER_POOL"]["ingress_lossless_pool"].get("mode")
@@ -840,6 +905,7 @@ def generic_identity(platform_dir, hwsku):
 def render_device(request):
     role, facts, settings = request["role"], request["facts"], request["settings"]
     neighbors = reconcile_neighbors(facts, request["layouts"])
+    validate_vlan_scope(facts, facts.get("vlan_scope"))
     base = read_running()
     metadata = base["DEVICE_METADATA"]["localhost"]
     if metadata.get("buffer_model") != "traditional" or int(metadata.get("num_asic", "1")) != 1:
@@ -855,8 +921,12 @@ def render_device(request):
     exclude_managed_acls = request.get("exclude_managed_acls", False)
     if "enable_lossless_adapter" in request:
         raise ValueError("Lossless overrides are no longer supported; render installed QoS policy without an adapter")
+    cleanup = (forwarding_cleanup_ports(
+        base, platform, request["layouts"]["dut"], facts.get("dut_forwarding_cleanup", {}))
+        if role == "dut" else set())
     config, owned, selected = build_ports(
-        base, platform, request["layouts"][role], canonical_ports, exclude_managed_acls)
+        base, platform, request["layouts"][role], canonical_ports, exclude_managed_acls,
+        **({"forwarding_cleanup": cleanup} if cleanup else {}))
     config.setdefault("DEVICE_NEIGHBOR", {}).update(neighbors[role])
     transport = transport_plan(facts, base, owned, settings) if role == "peer" else None
     apply_forwarding(config, facts, owned, selected, role, transport)
@@ -919,6 +989,7 @@ def render_device(request):
               "buffer_policy": buffer_policy,
               "qos_policy": "installed_lossless" if lossless["profiles"] else "installed_lossy",
               "owned_ports": sorted(selected), "protected_ports": sorted(set(base["PORT"]) - owned),
+              "forwarding_cleanup_ports": sorted(cleanup),
               "retired_ports": sorted(owned - selected), "transport": transport,
               "lookup_path": str(lookup_path.resolve(strict=True)),
               "platform": metadata["platform"], "hwsku": metadata["hwsku"], "yang_validated": True}

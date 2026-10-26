@@ -37,19 +37,16 @@ function usage
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] update-breakout <testbed-name> <links-csv> <target-breakout> [--dry-run]"
-  echo "    $0 [-t <tbfile>] plan-generic <testbed-name> <planner-options>"
-  echo "    $0 [-t <tbfile>] finalize-generic <testbed-name> [--workspace <directory>]"
-  echo "    $0 [-t <tbfile>] render-generic <testbed-name> <inventory> <vault-password-file> [--workspace <directory>]"
   echo "    $0 [-t <tbfile>] recover-generic <testbed-name> <inventory> <vault-password-file> [--workspace <directory>] [--apply]"
   echo "    Generic commands share plan/, finalized/, rendered/ under --workspace (default: system temp/sonic-generic-UID/TESTBED)."
-  echo "    After manual plan review, render-generic finalizes first; retries reuse the sealed finalized/ stage."
-  echo "    render-generic --exclude-managed-acls omits managed DATAACL/EVERFLOW bindings, preserving protected bindings/rules."
-  echo "    finalize-generic remains available for optional offline-only finalization."
+  echo "    add-topo plans, resolves roles, and renders both device configurations in one invocation."
+  echo "    add-topo --exclude-managed-acls omits managed DATAACL/EVERFLOW bindings, preserving protected bindings/rules."
   echo "    add-topo/remove-topo read vars/topo_<topo>.yml; a generic_topology section selects the generic workflow."
   echo "    deploy-mg still requires --generic. Explicit --generic remains available to select this workflow."
   echo "    Generic add-topo/remove-topo/deploy-mg default to DRY RUN. --apply authorizes changes."
   echo "    Automatic generic add-topo prepares its workspace from the named recipe plus optional --overrides."
-  echo "    It freezes breakouts first; review/edit the recorded recipe, then repeat with --finalize-roles."
+  echo "    Without --apply, preparation may read devices but does not mutate host/fanout/device configuration."
+  echo "    deploy-mg --generic consumes that same frozen rendered scenario; it does not replan."
   echo "    Existing stages are never overwritten; legacy --scenario-dir/--output-dir remain available."
   echo
   echo "Options:"
@@ -128,16 +125,17 @@ function usage
   echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
   echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
   echo "        --dry-run             Preview changes without writing"
-  echo "To plan generic breakout/forwarding (read-only collection or offline snapshots; no deployment):"
-  echo "    $0 [-t <tbfile>] plan-generic <testbed-name> --peer-hostname <leaf> \\"
+  echo "To prepare generic breakout/forwarding and PTF transport (mutations require --apply):"
+  echo "    $0 [-t <tbfile>] add-topo <testbed-name> <vault-password-file> --peer-hostname <leaf> \\"
   echo "        --links-csv <path> [--workspace <directory>] [--inventory <path>]"
   echo "    Missing platform/lookup snapshots are collected through Ansible inventory (default: testbed inv_name)."
   echo "    Supply --platform-json, --peer-platform-json, and --pg-profile-lookup for fully offline use."
-  echo "    Dedicated cages with at most 25G aggregate capability are protected by default on both devices."
-  echo "    --include-low-speed-cages opts them back in; lookup cases confined to protected cages are out of scope."
+  echo "    Low-speed cages participate when their wiring and CSV VLAN endpoints are eligible."
   echo "    Initial planning prioritizes one cage per advertised mode/operating combination, regardless of link roles."
-  echo "    --min-same-breakout-uplinks N then targets matching uplink children in ONE full combination (default: 4)."
-  echo "    plan-generic <testbed-name> --help lists all planner options."
+  echo "    Empty recipe uplinks select the first eight realized VLAN-backed DUT ports in numeric order."
+  echo "    Matching mode/speed uplinks are not required by default; generated topology.yml records resolved roles."
+  echo "    --min-same-breakout-uplinks N is an optional legacy constraint for explicit nonempty uplink selectors."
+  echo "    deploy-mg <testbed-name> <inventory> <vault-password-file> --generic [--workspace <directory>] [--apply]"
   echo
   echo "You should define your topology in testbed YAML file"
   echo
@@ -1309,24 +1307,6 @@ function config_vs_chassis
   echo Done
 }
 
-function plan_generic
-{
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ $# -eq 0 ]]; then
-      echo "Error: plan-generic requires a testbed name; use plan-generic --help." >&2
-      return 1
-  fi
-  if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-      python3 "$script_dir/scripts/plan_generic_topology.py" --help
-      return
-  fi
-  local testbed_name="$1"
-  shift
-  python3 "$script_dir/scripts/plan_generic_topology.py" \
-      --testbed "$testbed_name" --testbed-file "$tbfile" "$@"
-}
-
 function generic_scenario_command
 {
   local action="$1"
@@ -1393,24 +1373,15 @@ done
 shift $((OPTIND-1))
 
 case "${1:-}" in
-  finalize-generic)
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    shift
-    generic_testbed="${1:-}"
-    if [[ -z "$generic_testbed" ]]; then
-      echo "Error: finalize-generic requires a testbed name." >&2
-      exit 1
-    fi
-    shift
-    python3 "$script_dir/scripts/generic_topology_cli.py" finalize \
-      --testbed "$generic_testbed" --testbed-file "$tbfile" "$@"
-    exit
+  plan-generic|finalize-generic|render-generic)
+    echo "Error: $1 was removed; use add-topo for generic preparation and deploy-mg --generic for deployment." >&2
+    exit 1
     ;;
-  render-generic|recover-generic)
-    generic_action="${1%-generic}"
+  recover-generic)
+    generic_action="recover"
     shift
     if [[ $# -lt 3 ]]; then
-      echo "Error: render-generic/recover-generic requires testbed, inventory, and vault-password-file." >&2
+      echo "Error: recover-generic requires testbed, inventory, and vault-password-file." >&2
       exit 1
     fi
     generic_scenario_command "$generic_action" "$@"
@@ -1472,7 +1443,7 @@ except (OSError, ValueError, yaml.YAMLError) as error:
     ;;
 esac
 
-if [ $# -lt 3 ] && [[ "${1:-}" != "plan-generic" ]]
+if [ $# -lt 3 ]
 then
   usage
 fi
@@ -1586,8 +1557,6 @@ case "${subcmd}" in
   config-vs-chassis) config_vs_chassis "$@"
                ;;
   update-breakout) update_breakout "$@"
-               ;;
-  plan-generic) plan_generic "$@"
                ;;
   add-vnut-topo)    add_vnut_topo "$@"
                ;;

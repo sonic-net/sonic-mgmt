@@ -75,18 +75,43 @@ def test_exclusion_protects_whole_cage_on_both_ends(inputs):
     assert "Ethernet0" in result["protected_peer_cages"]
 
 
-def test_low_speed_protection_uses_cage_bandwidth_not_child_speed(inputs):
-    """A 2x25G cage remains eligible; only dedicated cages of at most 25G are protected."""
+@pytest.mark.parametrize("excluded", [False, True])
+def test_shared_connection_freezes_dut_only_cleanup_unless_explicitly_excluded(inputs, excluded):
+    """Outside-peer wiring fixes breakout but permits DUT forwarding cleanup unless explicitly excluded."""
+    result = run_mapping(inputs, ["Ethernet8"] if excluded else [])
+    assert result["dut_forwarding_cleanup_cages"] == ([] if excluded else ["Ethernet8"])
+    assert "Ethernet8" in result["protected_dut_cages"]
+    assert "Ethernet8" in result["protected_peer_cages"]
+    assert not result["links"][-1]["eligible"]
+
+
+def test_incomplete_shared_wiring_does_not_authorize_forwarding_cleanup(inputs):
+    """A missing wiring channel keeps the whole shared-connected DUT cage fully protected."""
+    links = inputs[2]
+    lines = links.read_text().splitlines()
+    links.write_text("\n".join(
+        [lines[0], "dut,Ethernet0,shared-leaf,Ethernet36,100000,100"] + lines[-2:]) + "\n")
+    result = run_mapping(inputs)
+    assert "Ethernet0" in result["protected_dut_cages"]
+    assert "Ethernet0" not in result["dut_forwarding_cleanup_cages"]
+
+
+@pytest.mark.parametrize("mode,speed", [("1x10G", 10000), ("1x25G[10G]", 25000)])
+@pytest.mark.parametrize("excluded", [False, True])
+def test_low_speed_cages_are_eligible_unless_explicitly_excluded(inputs, mode, speed, excluded):
+    """Dedicated 10G/25G cages participate normally and still honor explicit whole-cage protection."""
     platform, lookup, links = inputs
     document = json.loads(platform.read_text())
-    document["interfaces"]["Ethernet0"]["breakout_modes"] = {"2x25G[10G]": ["etp1a", "etp1b"]}
+    document["interfaces"]["Ethernet8"]["breakout_modes"] = {mode: ["etp2"]}
     platform.write_text(json.dumps(document))
-    links.write_text(links.read_text().replace("100000", "25000"))
-    device = mapping.load_device(platform)
-    result = mapping.build_mapping(links, "dut", "leaf", device, device, mapping.load_lookup(lookup))
-    assert result["low_speed_cage_protection"]["dut_cages"] == ["Ethernet8"]
+    lines = links.read_text().splitlines()[:3]
+    lines.append("dut,Ethernet8,leaf,Ethernet8,{},102".format(speed))
+    links.write_text("\n".join(lines) + "\n")
+    result = run_mapping(inputs, ["Ethernet8"] if excluded else [])
     assert result["links"][0]["eligible"] and result["links"][1]["eligible"]
-    assert "Ethernet0" not in result["protected_dut_cages"]
+    assert result["links"][2]["eligible"] is (not excluded)
+    expected = ["Ethernet8"] if excluded else []
+    assert result["protected_dut_cages"] == result["protected_peer_cages"] == expected
 
 
 def test_unrepresented_child_protects_cage(inputs):

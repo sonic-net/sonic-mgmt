@@ -205,17 +205,7 @@ def supported_speeds(mode):
     return sorted({speed for group in mode_components(mode) for speed in group["speeds"]})
 
 
-def low_speed_cages(device):
-    """Identify dedicated cages whose maximum aggregate advertised bandwidth is at most 25G."""
-    return {
-        name for name, cage in device["cages"].items()
-        if max(sum(group["count"] * max(group["speeds"]) for group in mode_components(mode))
-               for mode in cage["breakout_modes"]) <= 25000
-    }
-
-
-def build_mapping(links_path, hostname, peer_hostname, dut, peer, lookup, excluded_ports=(),
-                  exclude_low_speed_cages=True):
+def build_mapping(links_path, hostname, peer_hostname, dut, peer, lookup, excluded_ports=()):
     """Annotate physical CSV links, protecting cages touched by excluded wiring."""
     if hostname == peer_hostname:
         raise ValueError("DUT and peer must be different devices")
@@ -223,10 +213,6 @@ def build_mapping(links_path, hostname, peer_hostname, dut, peer, lookup, exclud
     links = []
     protected_dut = set()
     protected_peer = set()
-    low_dut = low_speed_cages(dut) if exclude_low_speed_cages else set()
-    low_peer = low_speed_cages(peer) if exclude_low_speed_cages else set()
-    protected_dut.update(low_dut)
-    protected_peer.update(low_peer)
     seen = set()
     seen_peer = set()
     with open(links_path, newline="") as handle:
@@ -297,9 +283,6 @@ def build_mapping(links_path, hostname, peer_hostname, dut, peer, lookup, exclud
         reasons = []
         if link["peer_hostname"] != peer_hostname:
             reasons.append("peer is outside selected scope")
-        if (link["dut"]["cage"] in low_dut
-                or (link["peer_hostname"] == peer_hostname and link["peer"]["cage"] in low_peer)):
-            reasons.append("dedicated low-speed cage is outside qualification scope")
         if link["dut"]["cage"] in protected_dut:
             reasons.append("DUT cage contains or shares resources with protected connections")
         if link["peer_hostname"] == peer_hostname and link["peer"]["cage"] in protected_peer:
@@ -320,13 +303,15 @@ def build_mapping(links_path, hostname, peer_hostname, dut, peer, lookup, exclud
                 "speeds_without_lookup": [speed for speed in speeds
                                           if not any(int(entry["speed"]) == speed for entry in lookup)],
             }
+    excluded_cages = {resolve_port(dut, name)["cage"] for name in excluded}
+    cleanup_cages = {link["dut"]["cage"] for link in links if link["peer_hostname"] != peer_hostname}
+    cleanup_cages = {cage for cage in cleanup_cages - excluded_cages
+                     if all(name in seen for name, port in dut["ports"].items() if port["cage"] == cage)}
     return {"hostname": hostname, "peer_hostname": peer_hostname, "links": links,
             "dut_cages": dut["cages"], "peer_cages": peer["cages"], "dut_mode_buffer_inputs": modes,
             "excluded_dut_modes": dut.get("excluded_modes", []),
             "excluded_peer_modes": peer.get("excluded_modes", []),
-            "low_speed_cage_protection": {
-                "enabled": exclude_low_speed_cages, "max_aggregate_speed": 25000,
-                "dut_cages": sorted(low_dut), "peer_cages": sorted(low_peer)},
+            "dut_forwarding_cleanup_cages": sorted(cleanup_cages),
             "protected_dut_cages": sorted(protected_dut), "protected_peer_cages": sorted(protected_peer)}
 
 
@@ -337,15 +322,12 @@ def main():
         parser.add_argument("--" + option, required=True)
     parser.add_argument("--exclude-port", action="append", default=[],
                         help="Protect this DUT port's entire cage; repeat for additional ports")
-    parser.add_argument("--include-low-speed-cages", action="store_true",
-                        help="Include dedicated cages of at most 25G aggregate bandwidth; protected by default")
     args = parser.parse_args()
     try:
         dut = load_device(args.platform_json)
         peer = load_device(args.peer_platform_json)
         result = build_mapping(args.links_csv, args.hostname, args.peer_hostname, dut, peer,
-                               load_lookup(args.pg_profile_lookup), args.exclude_port,
-                               exclude_low_speed_cages=not args.include_low_speed_cages)
+                               load_lookup(args.pg_profile_lookup), args.exclude_port)
         paths = ("links_csv", "platform_json", "pg_profile_lookup", "peer_platform_json")
         result["sources"] = {name: str(Path(getattr(args, name)).resolve()) for name in paths}
     except (OSError, ValueError, KeyError, TypeError) as error:
