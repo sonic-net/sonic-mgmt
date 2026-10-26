@@ -292,10 +292,10 @@ def cmp_value(orig_val, clet_val):
     if orig_val == clet_val:
         return True
 
-    if type(orig_val) == str:
+    if isinstance(orig_val, str):
         return cmp_str(orig_val, clet_val)
 
-    if type(orig_val) == dict:
+    if isinstance(orig_val, dict):
         for fld, val in orig_val.items():
             if fld not in clet_val:
                 return False

@@ -8,13 +8,14 @@ import re
 logger = logging.getLogger(__name__)
 ENI_COUNTER_POLL_INTERVAL = 1000  # 1 second
 ENI_COUNTER_READY_MAX_TIME = 10  # 10 seconds
+CT_AGING_TEST_INTERVAL = 1  # 1 second aging interval for ENI counter test
 
 
 def get_eni_counter_status(dpuhost):
     cmd_get_eni_counter_status = "sonic-db-cli FLEX_COUNTER_DB HGETALL FLEX_COUNTER_GROUP_TABLE:ENI_STAT_COUNTER"
 
     eni_counter_status = ast.literal_eval(dpuhost.shell(cmd_get_eni_counter_status)['stdout'])
-    logger.info(f"counter eni name map:{eni_counter_status} ")
+    logger.info(f"counter eni name map: {eni_counter_status} ")
     return eni_counter_status
 
 
@@ -34,22 +35,61 @@ def get_eni_counter_oid(dpuhost, eni):
 
     counter_eni_name_map = dpuhost.shell(cmd_get_counter_eni_name_map)['stdout']
     counter_eni_name_map = ast.literal_eval(counter_eni_name_map)
-    logger.info(f"counter eni name map:{counter_eni_name_map} ")
+    logger.info(f"counter eni name map: {counter_eni_name_map} ")
     return counter_eni_name_map[eni]
 
 
 def get_eni_counters(dpuhost, eni_counter_oid):
-    cmd_get_eni_counter = f"sonic-db-cli COUNTERS_DB hgetall COUNTERS:{eni_counter_oid}"
+    cmd_get_eni_counter = "sonic-db-cli COUNTERS_DB hgetall COUNTERS:{}".format(eni_counter_oid)
     dash_counter_dict = dpuhost.shell(cmd_get_eni_counter)['stdout']
     dash_counter_dict = ast.literal_eval(dash_counter_dict)
     return dash_counter_dict
+
+
+def get_ct_aging_interval(dpuhost, use_udp=False):
+    """Get the current CT aging interval from sai.profile via nasa-cli-helper. Bluefield only.
+
+    Args:
+        dpuhost: DPU host object
+        use_udp: If True, get UDP aging interval; otherwise get TCP aging interval
+
+    Returns:
+        int: Current aging interval in seconds, or None if not supported
+    """
+    if 'bluefield' not in dpuhost.facts['asic_type']:
+        return None
+    cmd = "nasa-cli-helper.py get_aging_interval"
+    if use_udp:
+        cmd += " -u"
+    result = dpuhost.shell(cmd)
+    return int(result['stdout'].strip())
+
+
+def set_ct_aging_interval(dpuhost, seconds, use_udp=False):
+    """Set the CT aging interval in sai.profile via nasa-cli-helper. Bluefield only.
+
+    Note: Requires syncd restart or config reload to take effect.
+
+    Args:
+        dpuhost: DPU host object
+        seconds: Aging interval in seconds
+        use_udp: If True, set UDP aging interval; otherwise set TCP aging interval
+    """
+    if 'bluefield' not in dpuhost.facts['asic_type']:
+        return
+    cmd = f"nasa-cli-helper.py set_aging_interval {seconds}"
+    if use_udp:
+        cmd += " -u"
+    protocol = "UDP" if use_udp else "TCP"
+    logger.info(f"Setting CT {protocol} aging interval to {seconds}s")
+    dpuhost.shell(cmd)
 
 
 def verify_eni_counter(eni_counter_check_point_dict, eni_counter_before_sending_pkt, eni_counter_after_sending_pkt):
     with allure.step("Verify eni counter"):
         eni_counter_mismatch_expected_diff = {}
 
-        logger.info(f"eni_counter_check_point_dict:{eni_counter_check_point_dict}")
+        logger.info(f"eni_counter_check_point_dict: {eni_counter_check_point_dict}")
         for eni_counter_key, expected_diff_value in eni_counter_check_point_dict.items():
             after_value = int(eni_counter_after_sending_pkt.get(eni_counter_key))
             before_value = int(eni_counter_before_sending_pkt.get(eni_counter_key))
@@ -59,6 +99,31 @@ def verify_eni_counter(eni_counter_check_point_dict, eni_counter_before_sending_
             f"The eni counter change does not meet the expected one. " \
             f"eni_counter_mismatch_expected_diff: {eni_counter_mismatch_expected_diff}"
         return True
+
+
+def partition_supported_counters(eni_counter_check_point_dict, eni_counter_baseline):
+    """Split targeted ENI counters into those supported and unsupported by the DPU image.
+
+    When ``counterpoll eni`` is enabled, the SONiC flex counter publishes the full set
+    of ENI stat IDs that the SAI + SONiC build supports (initialized to 0) into the
+    ``COUNTERS:<eni_oid>`` hash. A counter key absent from that hash therefore means the
+    installed image does not implement/poll it (rather than merely being zero). This
+    helper uses a baseline snapshot of that hash to determine which targeted counters can
+    be asserted.
+
+    Args:
+        eni_counter_check_point_dict: mapping of ``SAI_ENI_STAT_*`` name -> expected delta.
+        eni_counter_baseline: a snapshot of the ``COUNTERS:<eni_oid>`` hash (e.g. the
+            "before" reading from :func:`get_eni_counters`).
+
+    Returns:
+        ``(supported, unsupported)`` where ``supported`` is the subset of
+        ``eni_counter_check_point_dict`` whose keys are present in ``eni_counter_baseline``
+        and ``unsupported`` is the sorted list of keys that are absent.
+    """
+    supported = {k: v for k, v in eni_counter_check_point_dict.items() if k in eni_counter_baseline}
+    unsupported = sorted(k for k in eni_counter_check_point_dict if k not in eni_counter_baseline)
+    return supported, unsupported
 
 
 @pytest.fixture(scope="module")

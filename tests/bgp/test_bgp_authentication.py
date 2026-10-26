@@ -20,7 +20,129 @@ pytestmark = [
 
 BGP_PASS = "sonic.123"
 MISMATCH_PASS = "badpassword"
-EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/bgp_auth_eos_backup_config_{}"
+
+
+def get_lldp_neighbors(duthost):
+    neighbors = []
+    for line in duthost.shell("show lldp table")['stdout'].splitlines()[3:]:
+        fields = line.split()
+        if len(fields) >= 3:
+            neighbors.append({
+                'dut_intf': fields[0],
+                'name': fields[1],
+                'neigh_intf': fields[2],
+            })
+    return neighbors
+
+
+def get_peer_addrs(tbinfo, tor1, dut_asn, confed_asn):
+    try:
+        neigh_bgp = tbinfo['topo']['properties']['configuration'][tor1]['bgp']
+    except KeyError:
+        return None
+
+    peers = neigh_bgp.get('peers', {})
+    try:
+        asn = int(confed_asn) if neigh_bgp.get('peer_in_bgp_confed', False) else int(dut_asn)
+    except (TypeError, ValueError):
+        return None
+
+    return peers.get(asn) or peers.get(str(asn))
+
+
+def get_bgp_neighbor_info(duthost, asic_index, tor1, bgp_facts=None):
+    skip_hosts = set([host.lower() for host in duthost.get_asic_namespace_list()])
+    if bgp_facts is None:
+        bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    neighbor_info = {
+        'bgp_facts': bgp_facts,
+        'neigh_ip_v4': None,
+        'neigh_ip_v6': None,
+        'peer_group_v4': None,
+        'peer_group_v6': None,
+        'neigh_asn': None,
+    }
+
+    for neigh_ip, facts in bgp_facts['bgp_neighbors'].items():
+        if facts['description'].lower() in skip_hosts or facts['description'] != tor1:
+            continue
+
+        if facts['ip_version'] == 4:
+            neighbor_info['neigh_ip_v4'] = neigh_ip
+            neighbor_info['peer_group_v4'] = facts['peer group']
+        elif facts['ip_version'] == 6:
+            neighbor_info['neigh_ip_v6'] = neigh_ip
+            neighbor_info['peer_group_v6'] = facts['peer group']
+        neighbor_info['neigh_asn'] = facts['remote AS']
+
+    return neighbor_info
+
+
+def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, confed_asn, is_sonic_neigh):
+    bgp_facts_cache = {}
+    reject_reasons = []
+
+    for lldp_neigh in get_lldp_neighbors(duthost):
+        tor1 = lldp_neigh['name']
+        if tor1 not in nbrhosts:
+            reject_reasons.append("{}: not in nbrhosts".format(tor1))
+            continue
+
+        try:
+            if duthost.is_multi_asic:
+                asic_index = duthost.get_port_asic_instance(lldp_neigh['dut_intf']).asic_index
+            else:
+                asic_index = None
+        except Exception as e:
+            reason = "{}: failed to get DUT ASIC index, error={}".format(tor1, e)
+            logger.debug("Skipping neighbor {}".format(reason))
+            reject_reasons.append(reason)
+            continue
+
+        if asic_index not in bgp_facts_cache:
+            bgp_facts_cache[asic_index] = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+
+        neighbor_info = get_bgp_neighbor_info(duthost, asic_index, tor1, bgp_facts_cache[asic_index])
+        if not all([neighbor_info['neigh_ip_v4'], neighbor_info['neigh_ip_v6'],
+                    neighbor_info['peer_group_v4'], neighbor_info['peer_group_v6'],
+                    neighbor_info['neigh_asn']]):
+            reject_reasons.append("{}: missing IPv4/IPv6 BGP neighbor info".format(tor1))
+            continue
+
+        bgp_facts = neighbor_info['bgp_facts']
+        if (bgp_facts['bgp_neighbors'][neighbor_info['neigh_ip_v4']]['state'] != 'established' or
+                bgp_facts['bgp_neighbors'][neighbor_info['neigh_ip_v6']]['state'] != 'established'):
+            reject_reasons.append("{}: IPv4/IPv6 BGP session is not established".format(tor1))
+            continue
+
+        peer_addrs = get_peer_addrs(tbinfo, tor1, dut_asn, confed_asn)
+        if not peer_addrs or len(peer_addrs) < 2:
+            reject_reasons.append("{}: missing peer addresses for dut_asn/confed_asn".format(tor1))
+            continue
+
+        neigh_asic_index = None
+        if is_sonic_neigh and nbrhosts[tor1]["host"].is_multi_asic:
+            try:
+                neigh_asic_index = nbrhosts[tor1]["host"].get_port_asic_instance(lldp_neigh['neigh_intf']).asic_index
+            except Exception as e:
+                reason = "{}: failed to get neighbor ASIC index, error={}".format(tor1, e)
+                logger.debug("Skipping neighbor {}".format(reason))
+                reject_reasons.append(reason)
+                continue
+
+        neighbor_info.update({
+            'tor1': tor1,
+            'dut_intf': lldp_neigh['dut_intf'],
+            'neigh_intf': lldp_neigh['neigh_intf'],
+            'asic_index': asic_index,
+            'neigh_asic_index': neigh_asic_index,
+            'dut_ip_v4': peer_addrs[0],
+            'dut_ip_v6': peer_addrs[1],
+        })
+        return neighbor_info
+
+    pytest.skip("Failed to find an established IPv4/IPv6 BGP neighbor. Candidates checked: {}. Reasons: {}"
+                .format(len(reject_reasons), "; ".join(reject_reasons)))
 
 
 @pytest.fixture(scope='module')
@@ -37,46 +159,17 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     confed_asn = duthost.get_bgp_confed_asn()
 
-    lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
-    tor1 = lldp_table[1]
-    dut_int = lldp_table[0]
-    neigh_int = lldp_table[2]
-    if duthost.is_multi_asic:
-        asic_index = duthost.get_port_asic_instance(dut_int).asic_index
-    else:
-        asic_index = None
-
-    if is_sonic_neigh:
-        if nbrhosts[tor1]["host"].is_multi_asic:
-            neigh_asic_index = nbrhosts[tor1]["host"].get_port_asic_instance(neigh_int).asic_index
-        else:
-            neigh_asic_index = None
-    else:
-        neigh_asic_index = None
-
+    neighbor_info = get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, confed_asn, is_sonic_neigh)
+    tor1 = neighbor_info['tor1']
+    asic_index = neighbor_info['asic_index']
+    neigh_asic_index = neighbor_info['neigh_asic_index']
     namespace = duthost.get_namespace_from_asic_id(asic_index)
-
-    skip_hosts = duthost.get_asic_namespace_list()
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    neigh_ip_v4 = None
-    neigh_ip_v6 = None
-    peer_group_v4 = None
-    peer_group_v6 = None
-    neigh_asn = None
-    for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
-            if v['description'] == tor1:
-                if v['ip_version'] == 4:
-                    neigh_ip_v4 = k
-                    peer_group_v4 = v['peer group']
-                elif v['ip_version'] == 6:
-                    neigh_ip_v6 = k
-                    peer_group_v6 = v['peer group']
-                neigh_asn = v['remote AS']
-
-    if (neigh_ip_v4 is None or neigh_ip_v6 is None or peer_group_v4 is None or
-            peer_group_v6 is None or neigh_asn is None):
-        pytest.skip("Failed to get neighbor info")
+    neigh_ip_v4 = neighbor_info['neigh_ip_v4']
+    neigh_ip_v6 = neighbor_info['neigh_ip_v6']
+    peer_group_v4 = neighbor_info['peer_group_v4']
+    peer_group_v6 = neighbor_info['peer_group_v6']
+    neigh_asn = neighbor_info['neigh_asn']
+    bgp_facts = neighbor_info['bgp_facts']
 
     # EOS/cEOS: converged (multi-VRF) uses "router bgp <primary_asn> vrf <hostname>", not default vrf.
     if is_sonic_neigh:
@@ -84,13 +177,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     else:
         neigh_eos_bgp_parents = eos_bgp_neighbor_config_parents(tbinfo, nbrhosts, tor1, neigh_asn)
 
-    peer_in_bgp_confed = tbinfo['topo']['properties']['configuration'][tor1]['bgp'].get('peer_in_bgp_confed', False)
-    if peer_in_bgp_confed:
-        asn = int(confed_asn)
-    else:
-        asn = int(dut_asn)
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][asn][1]
+    dut_ip_v4 = neighbor_info['dut_ip_v4']
+    dut_ip_v6 = neighbor_info['dut_ip_v6']
 
     logger.info("default namespace {}".format(DEFAULT_NAMESPACE))
 
@@ -134,10 +222,6 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         logger.debug("Neighbor BGP Config: {}".format(neigh_host.shell("show run bgp", module_ignore_errors=True)))
     else:
         logger.debug("Neighbor BGP Config: {}".format(neigh_host.eos_command(commands=["show run | section bgp"])))
-        logger.debug(neigh_host.eos_config(
-            backup=True,
-            backup_options={'filename': EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname)},
-        ))
 
     logger.debug('Setup_info: {}'.format(setup_info))
 
@@ -147,7 +231,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     if is_sonic_neigh:
         config_reload(neigh_host, is_dut=False)
     else:
-        neigh_host.load_configuration(EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname))
+        remove_password_on_neighbor(setup_info)
 
     time.sleep(10)
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)

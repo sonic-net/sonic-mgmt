@@ -18,10 +18,19 @@ from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_cli_on_vs_t2(duthosts, tbinfo):
+    """Skip VS/KVM t2: storm_setup needs a hardware fanout peer that KVM t2 does not have."""
+    if tbinfo["topo"]["type"] != "t2":
+        return
+    if any(dut.facts.get("asic_type") == "vs" for dut in duthosts):
+        pytest.skip("Skip test_pfcwd_cli on VS/KVM t2: no fanout peer for PFC storm generation")
 
 
 @pytest.fixture(autouse=True)
@@ -267,7 +276,7 @@ class SendVerifyTraffic():
         on the number of ports. Send extra in case of imperfect hashing.
         """
         factor = 1
-        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
+        num_dst_ports = 1 if not isinstance(self.pfc_wd_test_port_ids, list) else len(self.pfc_wd_test_port_ids)
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
@@ -281,7 +290,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
@@ -306,7 +315,8 @@ class SendVerifyTraffic():
 
 
 @pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test,
+                      loganalyzer):
     """Complete LAG config resource manager.
 
     Setup (before test): backs up config_db and shuts down extra LAG members so
@@ -322,7 +332,8 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
     yield
 
-    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports,
+                            loganalyzer=loganalyzer)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):
@@ -548,3 +559,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+                # Reset global ARP settings modified by resolve_arp
+                self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=0",
+                                 module_ignore_errors=True)

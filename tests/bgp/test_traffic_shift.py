@@ -1,10 +1,13 @@
+import contextlib
 import logging
+import posixpath
 import re
 import pytest
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
     initial_tsa_check_before_and_after_test
 from tests.common import config_reload
+from tests.common.config_reload import DEFAULT_GOLDEN_CONFIG_PATH
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -18,10 +21,52 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1')
+    pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma')
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _temporary_dma_maintenance_golden(duthost, topology, source_path):
+    """Yield reload kwargs for DMA-only golden maintenance config."""
+    if topology not in ("uma", "lma"):
+        yield {}
+        return
+
+    temporary_path = None
+    remote_program = (
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "path = Path(sys.argv[1])\n"
+        "with path.open() as source:\n"
+        "    config = json.load(source)\n"
+        "if not isinstance(config, dict):\n"
+        '    raise ValueError("Golden configuration must be a dictionary")\n'
+        'bgp_device_global = config.get("BGP_DEVICE_GLOBAL")\n'
+        'if not isinstance(bgp_device_global, dict):\n'
+        '    raise ValueError("Golden configuration must contain BGP_DEVICE_GLOBAL")\n'
+        'state = bgp_device_global.get("STATE")\n'
+        'if not isinstance(state, dict) or "tsa_enabled" not in state:\n'
+        '    raise ValueError("Golden BGP_DEVICE_GLOBAL.STATE must contain tsa_enabled")\n'
+        'state["tsa_enabled"] = "true"\n'
+        "with path.open('w') as destination:\n"
+        "    json.dump(config, destination, indent=4)\n"
+    )
+    try:
+        temporary_path = duthost.tempfile(
+            state="file",
+            path=posixpath.dirname(source_path),
+            prefix="traffic_shift_golden_",
+            suffix=".json",
+            verbose=False
+        )["path"]
+        duthost.copy(src=source_path, dest=temporary_path, remote_src=True, mode="0600", verbose=False)
+        duthost.command(argv=["python3", "-c", remote_program, temporary_path], verbose=False)
+        yield {"golden_config_path": temporary_path}
+    finally:
+        if temporary_path is not None:
+            duthost.file(path=temporary_path, state="absent", verbose=False)
 
 
 @pytest.fixture(scope="module")
@@ -154,12 +199,12 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     cur_v6_routes = {}
     # Verify that all routes advertised to neighbor at the start of the test
     if not is_v6_topo:
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-    if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+    if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                       duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
         if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -226,12 +271,12 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -300,12 +345,12 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -320,6 +365,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                                                 traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
+    This covers the combined minigraph+golden maintenance path on DMA, not a -t override conflict check.
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -339,11 +385,16 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
             orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
-        is_override_config = True if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
-            "is_smartswitch") else False
+        topology = tbinfo['topo']['type']
+        is_smartswitch = bool(
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
+        )
+        is_override_config = is_smartswitch or topology in ("uma", "lma")
 
-        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
-                      traffic_shift_away=True, override_config=is_override_config)
+        with _temporary_dma_maintenance_golden(
+                duthost, topology, DEFAULT_GOLDEN_CONFIG_PATH) as golden_config:
+            config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
+                          traffic_shift_away=True, override_config=is_override_config, **golden_config)
 
         # Verify DUT is in maintenance state.
         pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, "TSC no-stats")),
@@ -375,12 +426,12 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")

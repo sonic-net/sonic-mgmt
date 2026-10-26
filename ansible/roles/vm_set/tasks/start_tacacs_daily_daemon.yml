@@ -85,7 +85,11 @@
     block:
 
     - name: Encrypt TACACS password from secret_group_vars
-      shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
+      # Python's crypt module was removed in 3.13; fall back to perl crypt().
+      shell: >
+        python3 -c "import crypt,sys; print(crypt.crypt(sys.argv[1], 'ab'))"
+        "{{ secret_group_vars['str']['altpasswords'][0] }}" 2>/dev/null
+        || perl -e 'print crypt($ARGV[0], "ab"), "\n"' "{{ secret_group_vars['str']['altpasswords'][0] }}"
       register: encrypted_sonic_password_secret_group_vars
       no_log: True
       delegate_to: "{{ ptf_host }}"
@@ -105,7 +109,11 @@
       include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
 
     - name: Encrypt TACACS password from sonicadmin_password
-      shell: python3 -c "import crypt; print(crypt.crypt('{{sonicadmin_password}}', 'abc'))"
+      # Python's crypt module was removed in 3.13; fall back to perl crypt().
+      shell: >
+        python3 -c "import crypt,sys; print(crypt.crypt(sys.argv[1], 'ab'))"
+        '{{sonicadmin_password}}' 2>/dev/null
+        || perl -e 'print crypt($ARGV[0], "ab"), "\n"' '{{sonicadmin_password}}'
       register: encrypted_sonic_password_sonicadmin_password
       no_log: True
       delegate_to: "{{ ptf_host }}"

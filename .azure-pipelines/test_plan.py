@@ -35,6 +35,8 @@ PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 MAX_POLL_RETRY_TIMES = 10
 MAX_GET_TOKEN_RETRY_TIMES = 3
+POLL_CONNECT_TIMEOUT_SECONDS = 10
+POLL_READ_TIMEOUT_SECONDS = 60
 TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
 TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
 
@@ -299,11 +301,11 @@ class TestPlanManager(object):
         # Add topo and device type args for PR test
         if test_plan_type == "PR":
             # Add topo arg
-            if topology in ["t0", "t0-64-32"]:
+            if topology in ["t0", "t0-64-32", "t0-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
             elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
-            elif topology == "dualtor":
+            elif topology in ["dualtor", "dualtor-aa-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
             elif topology == "dpu":
                 common_extra_params = common_extra_params + " --topology=dpu,any"
@@ -370,6 +372,7 @@ class TestPlanManager(object):
                 "ptf_modified": ptf_modified,
                 "image": {
                     "url": image_url,
+                    "dpu_url": kwargs.get("dpu_image_url", None),
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
@@ -492,7 +495,13 @@ class TestPlanManager(object):
 
             resp = None
             try:
-                resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                raw_resp = requests.get(
+                    poll_url,
+                    headers=headers,
+                    timeout=(POLL_CONNECT_TIMEOUT_SECONDS, POLL_READ_TIMEOUT_SECONDS)
+                )
+                raw_resp.raise_for_status()
+                resp = raw_resp.json()
 
                 if not resp:
                     raise Exception("Poll test plan status failed with request error, no response!")
@@ -504,18 +513,22 @@ class TestPlanManager(object):
                 if not resp_data:
                     raise Exception("No valid data in response.")
 
+                poll_retry_times = 0
+
             except Exception as exception:
                 print(f"Failed to get valid response, url: {poll_url}, raw_resp: {resp}, exception: {str(exception)}")
 
-                # Refresh headers token to address token expiration issue
-                headers = {
-                    "Authorization": f"Bearer {self.get_token()}",
-                    "Content-Type": "application/json"
-                }
+                if isinstance(exception, requests.exceptions.HTTPError):
+                    error_response = exception.response
+                    if error_response is not None and error_response.status_code == requests.codes.unauthorized:
+                        headers = {
+                            "Authorization": f"Bearer {self.get_token()}",
+                            "Content-Type": "application/json"
+                        }
 
                 poll_retry_times = poll_retry_times + 1
                 if poll_retry_times >= MAX_POLL_RETRY_TIMES:
-                    raise Exception("Poll test plan status failed, exceeded the maximum number of retries.")
+                    raise Exception("Poll test plan status failed, exceeded the maximum number of consecutive retries.")
                 else:
                     time.sleep(interval)
                 continue
@@ -870,6 +883,16 @@ if __name__ == "__main__":
         help="Image url"
     )
     parser_create.add_argument(
+        "--dpu_image_url",
+        type=str,
+        dest="dpu_image_url",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="SONiC image url for DPU upgrade on SmartSwitch testbeds"
+    )
+    parser_create.add_argument(
         "--upgrade-image-param",
         type=str,
         dest="upgrade_image_param",
@@ -1220,6 +1243,7 @@ if __name__ == "__main__":
                     ptf_image_tag=args.ptf_image_tag,
                     ptf_modified=args.ptf_modified,
                     image_url=args.image_url,
+                    dpu_image_url=args.dpu_image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
                     test_plan_type=args.test_plan_type,
