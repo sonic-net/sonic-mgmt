@@ -1,12 +1,15 @@
 import logging
 import secrets
+import shlex
 import time
+from collections.abc import Mapping
 from passlib.hash import cisco_type7
 
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
      submit_async_task
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.config_reload import config_reload
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
 
@@ -28,6 +31,247 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+CSONIC_MACSEC_SUPERVISOR_CONFIG = "/etc/supervisor/conf.d/sonic-mgmt-macsec.conf"
+
+
+def _command_succeeded(result):
+    return isinstance(result, Mapping) and result.get("rc") == 0
+
+
+def _command_diagnostic(result):
+    if not isinstance(result, Mapping):
+        return {"result": repr(result)}
+    return {
+        "rc": result.get("rc"),
+        "stdout": str(result.get("stdout", ""))[-2000:],
+        "stderr": str(result.get("stderr", ""))[-2000:],
+    }
+
+
+def _runtime_port_name(host, port):
+    """Translate only cSONiC logical ports that expose a runtime mapper."""
+    if not isinstance(host, CsonicHost):
+        return port
+    mapper = getattr(host, "_interface_name", None)
+    return mapper(port) if callable(mapper) else port
+
+
+def _run_required_csonic_command(host, command):
+    """Fail closed for CsonicHost's non-raising command API."""
+    result = host.command(command)
+    if not _command_succeeded(result):
+        raise AssertionError(
+            "MACsec command failed on {}: command={!r}, result={}".format(
+                host.hostname, command, _command_diagnostic(result)))
+    return result
+
+
+def _csonic_config_db_hset(host, key, values):
+    command = ["sonic-db-cli", "CONFIG_DB", "HSET", key]
+    for field, value in values.items():
+        command.extend([field, str(value)])
+    return _run_required_csonic_command(
+        host, " ".join(shlex.quote(part) for part in command))
+
+
+def _csonic_config_db_delete(host, key):
+    return _run_required_csonic_command(
+        host, "sonic-db-cli CONFIG_DB DEL {}".format(shlex.quote(key)))
+
+
+def _csonic_config_db_hdel(host, key, field):
+    return _run_required_csonic_command(
+        host, "sonic-db-cli CONFIG_DB HDEL {} {}".format(
+            shlex.quote(key), shlex.quote(field)))
+
+
+def _csonic_macsec_profile_fields(
+        priority, cipher_suite, primary_cak, primary_ckn, policy, send_sci,
+        rekey_period):
+    return {
+        "priority": str(priority),
+        "cipher_suite": cipher_suite,
+        "primary_cak": primary_cak,
+        "primary_ckn": primary_ckn,
+        "policy": policy,
+        "send_sci": send_sci,
+        "rekey_period": str(rekey_period),
+    }
+
+
+def _supervisor_macsec_state(result):
+    if not isinstance(result, Mapping):
+        return "ERROR"
+    output = "{}\n{}".format(result.get("stdout", ""), result.get("stderr", ""))
+    if "no such process" in output.lower():
+        return "MISSING"
+    for state in ("RUNNING", "STARTING", "BACKOFF", "STOPPED", "EXITED", "FATAL"):
+        if state in output:
+            return state
+    return "ERROR"
+
+
+def _csonic_macsec_service_state(host):
+    """Snapshot only cSONiC state temporarily owned by the MACsec fixture."""
+    status = host.shell(
+        "supervisorctl status macsecmgrd", module_ignore_errors=True)
+    config = host.shell(
+        "test -e {}".format(CSONIC_MACSEC_SUPERVISOR_CONFIG),
+        module_ignore_errors=True)
+    post_state = host.shell(
+        'sonic-db-cli STATE_DB HGET "FIPS_MACSEC_POST_TABLE|sai" post_state',
+        module_ignore_errors=True)
+    feature_state = host.shell(
+        'sonic-db-cli CONFIG_DB HGET "FEATURE|macsec" state',
+        module_ignore_errors=True)
+    state = _supervisor_macsec_state(status)
+    if state == "ERROR":
+        raise AssertionError(
+            "Failed to snapshot cSONiC Supervisor state on {}: {}".format(
+                host.hostname, _command_diagnostic(status)))
+    if not isinstance(config, Mapping) or config.get("rc") not in (0, 1):
+        raise AssertionError(
+            "Failed to snapshot cSONiC Supervisor config on {}: {}".format(
+                host.hostname, _command_diagnostic(config)))
+    for label, result in (("POST", post_state), ("feature", feature_state)):
+        if not _command_succeeded(result):
+            raise AssertionError(
+                "Failed to snapshot cSONiC {} state on {}: {}".format(
+                    label, host.hostname, _command_diagnostic(result)))
+    return {
+        "state": state,
+        "config_exists": config.get("rc") == 0,
+        "post_state": str(post_state.get("stdout", "")).strip() or None,
+        "feature_state": str(feature_state.get("stdout", "")).strip() or None,
+    }
+
+
+def _restore_csonic_hash_field(host, database, key, field, value):
+    if value is None:
+        command = "sonic-db-cli {} HDEL {} {}".format(
+            database, shlex.quote(key), shlex.quote(field))
+    else:
+        command = "sonic-db-cli {} HSET {} {} {}".format(
+            database, shlex.quote(key), shlex.quote(field), shlex.quote(value))
+    return _command_succeeded(host.shell(
+        command, module_ignore_errors=True))
+
+
+def _start_csonic_macsec_service(host, initial):
+    """Start the image-provided cSONiC service without altering other hosts."""
+    if not initial["config_exists"] or initial["state"] == "MISSING":
+        logger.error("cSONiC image lacks the macsecmgrd Supervisor entry on %s",
+                     host.hostname)
+        return False
+    provision = """set -e
+test -x /sbin/wpa_supplicant
+test -x /sbin/wpa_cli
+/sbin/wpa_supplicant -h 2>&1 | grep -q \\
+    'macsec_sonic = MACsec Ethernet driver for SONiC'
+printf 'eapol_version=3\\nap_scan=0\\nfast_reauth=1\\n' | \\
+    cmp -s - /etc/wpa_supplicant.conf
+cleanup_macsec_probe() {
+    ip link del sm_macsec_test 2>/dev/null || true
+    ip link del sm_macsec_base 2>/dev/null || true
+}
+trap cleanup_macsec_probe EXIT
+cleanup_macsec_probe
+ip link add sm_macsec_base type dummy
+ip link add link sm_macsec_base name sm_macsec_test type macsec
+ip -d link show sm_macsec_test | grep -q 'macsec'"""
+    result = host.shell(provision, module_ignore_errors=True, timeout=300)
+    if not _command_succeeded(result):
+        logger.error("Failed cSONiC MACsec dependency check on %s: %s",
+                     host.hostname, _command_diagnostic(result))
+        return False
+    if initial["post_state"] not in ("pass", "disabled"):
+        result = host.shell(
+            'sonic-db-cli STATE_DB HSET "FIPS_MACSEC_POST_TABLE|sai" '
+            'post_state disabled', module_ignore_errors=True)
+        if not _command_succeeded(result):
+            return False
+    if initial["state"] in ("RUNNING", "STARTING", "BACKOFF"):
+        success = True
+    else:
+        success = _command_succeeded(host.shell(
+            "supervisorctl start macsecmgrd", module_ignore_errors=True))
+    if success and not hasattr(host, "_sonic_mgmt_macsec_initial"):
+        host._sonic_mgmt_macsec_initial = initial
+    return success
+
+
+def _rollback_csonic_macsec_service(host, initial):
+    """Restore only cSONiC state changed by this MACsec fixture."""
+    failures = []
+    current = _csonic_macsec_service_state(host)
+    if (initial["state"] not in ("RUNNING", "STARTING", "BACKOFF") and
+            current["state"] in ("RUNNING", "STARTING", "BACKOFF")):
+        result = host.shell(
+            "supervisorctl stop macsecmgrd", module_ignore_errors=True)
+        if not _command_succeeded(result):
+            failures.append({"service": _command_diagnostic(result)})
+    if current["post_state"] != initial["post_state"]:
+        if not _restore_csonic_hash_field(
+                host, "STATE_DB", "FIPS_MACSEC_POST_TABLE|sai",
+                "post_state", initial["post_state"]):
+            failures.append({"post_state": "restore failed"})
+    if current["feature_state"] != initial["feature_state"]:
+        if not _restore_csonic_hash_field(
+                host, "CONFIG_DB", "FEATURE|macsec", "state",
+                initial["feature_state"]):
+            failures.append({"feature_state": "restore failed"})
+    if failures:
+        logger.error("Failed to restore cSONiC MACsec state on %s: %s",
+                     host.hostname, failures)
+    return not failures
+
+
+def _stop_csonic_macsec_service(host):
+    initial = getattr(host, "_sonic_mgmt_macsec_initial", None)
+    if initial is None:
+        logger.error("Missing cSONiC MACsec ownership token on %s", host.hostname)
+        return False
+    success = _rollback_csonic_macsec_service(host, initial)
+    if success:
+        delattr(host, "_sonic_mgmt_macsec_initial")
+    return success
+
+
+def _unique_csonic_hosts(nbrhosts):
+    hosts = []
+    seen = set()
+    for neighbor in nbrhosts.values():
+        host = neighbor["host"]
+        if not isinstance(host, CsonicHost):
+            continue
+        key = (host.container_name, host.vm_host_ip, host.vm_host_user)
+        if key not in seen:
+            seen.add(key)
+            hosts.append(host)
+    return hosts
+
+
+def _csonic_service_ready(host):
+    result = host.shell(
+        "supervisorctl status macsecmgrd", module_ignore_errors=True)
+    return _supervisor_macsec_state(result) == "RUNNING"
+
+
+def _csonic_interface_diagnostics(host, interface_name):
+    checks = {}
+    for label, command in (
+        ("profile", 'sonic-db-cli CONFIG_DB HGET "PORT|{}" macsec'.format(interface_name)),
+        ("state", 'sonic-db-cli STATE_DB HGET "MACSEC_PORT_TABLE|{}" state'.format(interface_name)),
+        ("service", "supervisorctl status macsecmgrd"),
+        ("mka", "ip -j macsec show"),
+    ):
+        try:
+            checks[label] = _command_diagnostic(
+                host.shell(command, module_ignore_errors=True))
+        except Exception as error:
+            checks[label] = {"exception": repr(error)}
+    return checks
 
 
 def get_macsec_enable_status(host):
@@ -63,6 +307,19 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         host.eos_config(
             lines=lines,
             parents=['mac security', 'profile {}'.format(profile_name)])
+        return
+
+    if isinstance(host, CsonicHost):
+        _csonic_config_db_hset(
+            host,
+            "MACSEC_PROFILE|{}".format(profile_name),
+            _csonic_macsec_profile_fields(
+                priority, cipher_suite, primary_cak, primary_ckn, policy,
+                send_sci, rekey_period))
+        if send_sci == "false":
+            _run_required_csonic_command(
+                host,
+                "lldpcli configure system bond-slave-src-mac-type real")
         return
 
     macsec_profile = {
@@ -103,6 +360,20 @@ def is_macsec_configured(host, mac_profile, ctrl_links):
     is_port_profile_present = False
     profile_name = mac_profile['name']
 
+    if isinstance(host, CsonicHost):
+        output = host.command(
+            "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(
+                profile_name))['stdout'].strip()
+        profile = output.split('|')[1] if output else None
+        is_profile_present = (profile == profile_name)
+        for port in ctrl_links:
+            port = _runtime_port_name(host, port)
+            output = host.command(
+                "sonic-db-cli CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(
+                    port))['stdout'].strip()
+            is_port_profile_present = (output == profile_name)
+        return is_profile_present and is_port_profile_present
+
     # Check macsec profile is configured in all namespaces
     if host.is_multi_asic:
         for ns in host.get_asic_namespace_list():
@@ -133,6 +404,11 @@ def delete_macsec_profile(host, profile_name):
             parents=['mac security'])
         return
 
+    if isinstance(host, CsonicHost):
+        _csonic_config_db_delete(
+            host, "MACSEC_PROFILE|{}".format(profile_name))
+        return
+
     if host.is_multi_asic:
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
@@ -148,6 +424,20 @@ def enable_macsec_port(host, port, profile_name):
         host.eos_config(
             lines=['mac security profile {}'.format(profile_name)],
             parents=['interface {}'.format(port)])
+        return
+
+    if isinstance(host, CsonicHost):
+        runtime_port = _runtime_port_name(host, port)
+        ovs_switch = getattr(host, "set_ovs_macsec_member", None)
+        _csonic_config_db_hset(
+            host, "PORT|{}".format(runtime_port), {"macsec": profile_name})
+        if callable(ovs_switch):
+            try:
+                ovs_switch(port, True)
+            except Exception:
+                _csonic_config_db_hdel(
+                    host, "PORT|{}".format(runtime_port), "macsec")
+                raise
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
@@ -169,6 +459,20 @@ def disable_macsec_port(host, port):
         host.eos_config(
             lines=['no mac security profile'],
             parents=['interface {}'.format(port)])
+        return
+
+    if isinstance(host, CsonicHost):
+        runtime_port = _runtime_port_name(host, port)
+        ovs_switch = getattr(host, "set_ovs_macsec_member", None)
+        if callable(ovs_switch):
+            ovs_switch(port, False)
+        try:
+            _csonic_config_db_hdel(
+                host, "PORT|{}".format(runtime_port), "macsec")
+        except Exception:
+            if callable(ovs_switch):
+                ovs_switch(port, True)
+            raise
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
@@ -193,31 +497,97 @@ def replace_macsec_port(host, port, profile_name):
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = macsec_nbrhosts
     num_asics = duthost.num_asics()
-    global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+    csonic_hosts = _unique_csonic_hosts(nbrhosts)
 
-    def check_macsec_enabled():
-        if len(duthost.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < num_asics:
-            return False
-        if len(duthost.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < num_asics:
-            return False
-        for nbr in [n["host"] for n in list(nbrhosts.values())]:
-            if isinstance(nbr, EosHost):
-                continue
-            if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < 1:
+    if not csonic_hosts:
+        # This is the pre-change SonicHost/EosHost implementation. Keep this
+        # branch isolated from all cSONiC lifecycle and rollback behavior.
+        global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+
+        def check_macsec_enabled():
+            if len(duthost.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < num_asics:
                 return False
-            if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < 1:
+            if len(duthost.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < num_asics:
                 return False
-        return True
-    assert wait_until(180, 5, 10, check_macsec_enabled)
+            for nbr in [n["host"] for n in list(nbrhosts.values())]:
+                if isinstance(nbr, EosHost):
+                    continue
+                if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < 1:
+                    return False
+                if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < 1:
+                    return False
+            return True
+        assert wait_until(180, 5, 10, check_macsec_enabled)
+        return
+
+    initial_states = []
+    try:
+        # Keep the legacy DUT, SonicHost, and EosHost command path unchanged.
+        # cSONiC needs only an additional local Supervisor start.
+        initial_states = [
+            (host, _csonic_macsec_service_state(host))
+            for host in csonic_hosts
+        ]
+        global_cmd(duthost, nbrhosts, "sudo config feature state macsec enabled")
+        for host, initial in initial_states:
+            assert _start_csonic_macsec_service(host, initial), \
+                "Failed to start macsecmgrd on {}".format(host.hostname)
+
+        def check_macsec_enabled():
+            if len(duthost.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < num_asics:
+                return False
+            if len(duthost.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < num_asics:
+                return False
+            for nbr in [n["host"] for n in list(nbrhosts.values())]:
+                if isinstance(nbr, EosHost):
+                    continue
+                if isinstance(nbr, CsonicHost):
+                    if not _csonic_service_ready(nbr):
+                        return False
+                    continue
+                if len(nbr.shell("docker ps | grep macsec | grep -v grep")["stdout_lines"]) < 1:
+                    return False
+                if len(nbr.shell("ps -ef | grep macsecmgrd | grep -v grep")["stdout_lines"]) < 1:
+                    return False
+            return True
+        assert wait_until(180, 5, 10, check_macsec_enabled)
+    except Exception:
+        for host, initial in reversed(initial_states):
+            try:
+                _rollback_csonic_macsec_service(host, initial)
+            except Exception:
+                logger.exception(
+                    "Failed to roll back cSONiC MACsec state on %s",
+                    host.hostname)
+        raise
 
 
 def disable_macsec_feature(duthost, macsec_nbrhosts):
+    # Preserve the legacy command path, then restore only cSONiC-local state.
     global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
+    csonic_hosts = _unique_csonic_hosts(macsec_nbrhosts)
+    if not csonic_hosts:
+        return
+    failures = [
+        host.hostname for host in csonic_hosts
+        if not _stop_csonic_macsec_service(host)
+    ]
+    assert not failures, "Failed to restore cSONiC MACsec state: {}".format(
+        failures)
 
 
 def _wait_for_macsec_cleanup_with_vs_recovery(host, interfaces, is_dut):
     if wait_for_macsec_cleanup(host, interfaces):
         return False
+
+    if isinstance(host, CsonicHost):
+        diagnostics = {
+            interface: _csonic_interface_diagnostics(host, interface)
+            for interface in interfaces
+        }
+        raise AssertionError(
+            "MACsec cleanup timed out on cSONiC host {}: {}".format(
+                host.hostname, diagnostics))
 
     if host.facts["asic_type"] != "vs":
         return False

@@ -4,6 +4,7 @@ import logging
 import re
 
 from tests.common.utilities import wait_until
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session, \
                            get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
@@ -54,9 +55,13 @@ class TestControlPlane():
                 nbr_macsec_port = get_macsec_ifname(
                     nbr["host"], nbr["port"])
                 dut_macaddress = duthost.get_dut_iface_mac(port_name)
-                nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
                 dut_sci = get_sci(dut_macaddress)
-                nbr_sci = get_sci(nbr_macaddress)
+                if isinstance(nbr["host"], CsonicHost):
+                    nbr_sci = nbr["host"].get_macsec_iface_sci(nbr["port"])
+                else:
+                    # Preserve the existing SonicHost path exactly.
+                    nbr_macaddress = nbr["host"].get_dut_iface_mac(nbr["port"])
+                    nbr_sci = get_sci(nbr_macaddress)
                 check_mka_session(dut_mka_session[dut_macsec_port], dut_sci,
                                   nbr_mka_session[nbr_macsec_port], nbr_sci,
                                   policy, cipher_suite, send_sci)

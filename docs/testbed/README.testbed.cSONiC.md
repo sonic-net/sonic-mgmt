@@ -393,6 +393,13 @@ Standard `topo_t0.yml` uses ARISTA names (ARISTA01T1, ARISTA02T1, etc.) but the 
 The docker-sonic-vs image must include:
 - **bgpcfgd**: For CONFIG_DB → FRR configuration (added via sonic-buildimage PR)
 - **lldpd**: For LLDP neighbor discovery in tests
+- **SONiC wpa_supplicant**: Provides `wpa_supplicant`, `wpa_cli`, the
+  `macsec_sonic` driver, and `/etc/wpa_supplicant.conf` for MACsec/MKA tests.
+  The generic Debian `wpasupplicant` package is insufficient because it does
+  not include `macsec_sonic`. The `userspace_ovs` derivative builds the pinned
+  SONiC source against the cSONiC image's runtime libraries. Host kernel-module
+  provisioning remains off for ordinary cSONiC deployments and is enabled only
+  when `SONIC_MGMT_CSONIC_MACSEC=true` is explicitly set for a MACsec run.
 - **constants.yml and FRR templates**: Baked into the image (not mounted from host)
 - **start.sh**: Must copy `/var/sonic/config_db.json` → `/etc/sonic/` and set `kernel_version` at runtime
 

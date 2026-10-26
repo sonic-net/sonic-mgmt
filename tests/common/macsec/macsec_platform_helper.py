@@ -5,6 +5,7 @@ from multiprocessing.pool import ThreadPool
 
 import pytest
 
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 
 
@@ -58,6 +59,10 @@ def get_all_ifnames(host, asic=None):
 
 
 def get_eth_ifname(host, port_name):
+    if isinstance(host, CsonicHost):
+        interface = host._kernel_interface_name(port_name)
+        assert interface is not None
+        return interface
     asic = None
     if "x86_64-kvm_x86_64" in get_platform(host):
         logging.info("Get the eth ifname on the virtual SONiC switch")
@@ -71,6 +76,8 @@ def get_eth_ifname(host, port_name):
 
 
 def get_macsec_ifname(host, port_name):
+    if isinstance(host, CsonicHost):
+        return host._get_macsec_ifname(port_name)
     asic = None
     if "x86_64-kvm_x86_64" not in get_platform(host):
         logging.info(
