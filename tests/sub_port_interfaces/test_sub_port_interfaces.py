@@ -7,6 +7,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from sub_ports_helpers import generate_and_verify_traffic
+from sub_ports_helpers import generate_and_verify_icmp_traffic_batch
 from sub_ports_helpers import get_port_mtu
 from sub_ports_helpers import shutdown_port
 from sub_ports_helpers import startup_port
@@ -45,14 +46,13 @@ class TestSubPorts(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in list(sub_ports.items()):
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='fwd')
+        generate_and_verify_icmp_traffic_batch(duthost=duthost,
+                                               ptfadapter=ptfadapter,
+                                               flows=[{'src_port': value['neighbor_port'],
+                                                       'ip_src': value['neighbor_ip'],
+                                                       'ip_dst': value['ip'],
+                                                       'pkt_action': 'fwd'}
+                                                      for value in sub_ports.values()])
 
     def test_untagged_packet_not_routed(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
@@ -69,18 +69,16 @@ class TestSubPorts(object):
 
         Pass Criteria: PTF doesn't gets ICMP reply packet from DUT.
         """
-        sub_ports = apply_config_on_the_dut["sub_ports"]
+        sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, config in list(sub_ports.items()):
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=config["neighbor_port"],
-                                        dst_port=sub_port,
-                                        ip_src=config["neighbor_ip"],
-                                        ip_dst=config["ip"],
-                                        pkt_action="drop",
-                                        untagged_icmp_request=True
-                                        )
+        generate_and_verify_icmp_traffic_batch(duthost=duthost,
+                                               ptfadapter=ptfadapter,
+                                               flows=[{'src_port': config['neighbor_port'],
+                                                       'ip_src': config['neighbor_ip'],
+                                                       'ip_dst': config['ip'],
+                                                       'pkt_action': 'drop',
+                                                       'untagged_icmp_request': True}
+                                                      for config in sub_ports.values()])
 
     def test_admin_status_down_disables_forwarding(self, duthost, ptfadapter, apply_config_on_the_dut,
                                                    apply_config_on_the_ptf):
@@ -110,23 +108,20 @@ class TestSubPorts(object):
 
         for sub_port, value in list(sub_ports.items()):
             shutdown_port(duthost, sub_port)
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='drop')
 
-            for next_sub_port, next_value in list(sub_ports.items()):
-                if next_sub_port != sub_port:
-                    generate_and_verify_traffic(duthost=duthost,
-                                                ptfadapter=ptfadapter,
-                                                src_port=next_value['neighbor_port'],
-                                                ip_src=next_value['neighbor_ip'],
-                                                dst_port=next_sub_port,
-                                                ip_dst=next_value['ip'],
-                                                pkt_action='fwd')
+            # While the sub-port is down it must drop, and every other sub-port must keep
+            # forwarding. Both expectations hold against the same DUT configuration, so
+            # verify them as one batch instead of one flow at a time.
+            flows = [{'src_port': value['neighbor_port'],
+                      'ip_src': value['neighbor_ip'],
+                      'ip_dst': value['ip'],
+                      'pkt_action': 'drop'}]
+            flows += [{'src_port': next_value['neighbor_port'],
+                       'ip_src': next_value['neighbor_ip'],
+                       'ip_dst': next_value['ip'],
+                       'pkt_action': 'fwd'}
+                      for next_sub_port, next_value in sub_ports.items() if next_sub_port != sub_port]
+            generate_and_verify_icmp_traffic_batch(duthost=duthost, ptfadapter=ptfadapter, flows=flows)
 
             startup_port(duthost, sub_port)
             generate_and_verify_traffic(duthost=duthost,
@@ -178,6 +173,7 @@ class TestSubPorts(object):
             2.) PTF gets ICMP reply packet from DUT.
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
+        flows = []
 
         for sub_port, value in list(sub_ports.items()):
             # Get VLAN ID from name of sub-port
@@ -189,13 +185,14 @@ class TestSubPorts(object):
 
             pytest_assert(check_sub_port(duthost, sub_port), "Sub-port {} was deleted".format(sub_port))
 
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='fwd')
+            flows.append({'src_port': value['neighbor_port'],
+                          'ip_src': value['neighbor_ip'],
+                          'ip_dst': value['ip'],
+                          'pkt_action': 'fwd'})
+
+        # Every sub-port is still expected to forward once all the VLAN RIFs have been
+        # created and removed, so verify them as a single batch.
+        generate_and_verify_icmp_traffic_batch(duthost=duthost, ptfadapter=ptfadapter, flows=flows)
 
     @pytest.mark.parametrize("type_of_traffic", ['TCP-UDP-ICMP', ])
     def test_routing_between_sub_ports(self, type_of_traffic, duthost, ptfadapter, apply_route_config):
@@ -437,14 +434,13 @@ class TestSubPortsNegative(object):
         """
         sub_ports = apply_config_on_the_dut['sub_ports']
 
-        for sub_port, value in sub_ports.items():
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='drop')
+        generate_and_verify_icmp_traffic_batch(duthost=duthost,
+                                               ptfadapter=ptfadapter,
+                                               flows=[{'src_port': value['neighbor_port'],
+                                                       'ip_src': value['neighbor_ip'],
+                                                       'ip_dst': value['ip'],
+                                                       'pkt_action': 'drop'}
+                                                      for value in sub_ports.values()])
 
 
 class TestSubPortStress(object):
@@ -475,11 +471,10 @@ class TestSubPortStress(object):
         rand_sub_ports = list(sub_ports.keys())[random.randint(1, len(sub_ports)-1)]
         sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
 
-        for sub_port, value in sub_ports_new.items():
-            generate_and_verify_traffic(duthost=duthost,
-                                        ptfadapter=ptfadapter,
-                                        src_port=value['neighbor_port'],
-                                        ip_src=value['neighbor_ip'],
-                                        dst_port=sub_port,
-                                        ip_dst=value['ip'],
-                                        pkt_action='fwd')
+        generate_and_verify_icmp_traffic_batch(duthost=duthost,
+                                               ptfadapter=ptfadapter,
+                                               flows=[{'src_port': value['neighbor_port'],
+                                                       'ip_src': value['neighbor_ip'],
+                                                       'ip_dst': value['ip'],
+                                                       'pkt_action': 'fwd'}
+                                                      for value in sub_ports_new.values()])
