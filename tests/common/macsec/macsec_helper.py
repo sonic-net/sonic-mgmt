@@ -557,12 +557,13 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 break
             else:
                 continue
-        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
-        # Don't need to do MACsec further.
-        if ret.device != 0:
-            return ret
         pkt = scapy.Ether(ret.packet)
-        if pkt.haslayer(scapy.Ether):
+        # MACsec decoding is only configured for device 0, but other devices
+        # must still match the expected packet.
+        if ret.device != 0:
+            if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
+                return ret
+        elif pkt.haslayer(scapy.Ether):
             if pkt[scapy.Ether].type != 0x88e5:
                 if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                     return ret

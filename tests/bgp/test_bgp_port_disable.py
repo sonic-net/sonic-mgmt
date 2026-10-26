@@ -12,11 +12,12 @@ pytestmark = [
 ]
 
 FRR_USER_UID = '300'
-RESTRICTED_ACCESS_PORTS = ['2605', '2616']
-UID_RESTRICTED_PORTS = ['2601', '2620']
+RESTRICTED_ACCESS_PORTS = ['2601', '2605', '2616']
+UID_RESTRICTED_PORTS = ['2620']
 
 
 def generate_iptables_rule():
+    # Keep Zebra's TCP/2601 ACL rules as defense in depth without a listener.
     iptables_rules = []
     iptables_rules.append("-o lo -p tcp -m tcp --dport 2601 -j DROP")
     iptables_rules.append("-o lo -p tcp -m tcp --dport 2620 -j DROP")
