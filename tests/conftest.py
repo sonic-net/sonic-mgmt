@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+import argparse
 import enum
 import os
 import json
@@ -110,6 +111,16 @@ from tests.common.telemetry.fixtures import db_reporter, ts_reporter            
 from tests.common.helpers.yang_utils import run_yang_validation
 
 
+def _csonic_lacp_multiplier(value):
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be an integer from 1 to 255")
+    if not 1 <= multiplier <= 255:
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be from 1 to 255")
+    return multiplier
+
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
@@ -187,9 +198,12 @@ def pytest_addoption(parser):
                      choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
-    # ceos neighbor lacp multiplier
+    # neighbor LACP receive multipliers used during advanced reboot
     parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
                      help="LACP multiplier for ceos neighbors")
+    parser.addoption("--csonic_neighbor_lacp_multiplier", action="store", default=3,
+                     type=_csonic_lacp_multiplier,
+                     help="LACP receive multiplier (1-255) for cSONiC userspace OVS neighbors")
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
