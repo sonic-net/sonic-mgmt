@@ -269,7 +269,7 @@ def test_eeprom_reads(cpo_environment, target):
             # Page 10h is banked: select the local bank, including banks above zero.
             ranges.append((mapping["oe"]["bank"], 0x10, 128))
         elif cpo_environment["topology"].get("platform_data", {}).get("cpo_eeprom_mode") == "joint":
-            # Bailly RLM identity lives at B0/B4, rather than in OE lower memory.
+            # Joint-memory ELS identity lives at B0/B4, separate from OE lower memory.
             extension = cpo_environment["topology"]["platform_data"]["devices"][name]
             ranges.append((0, 0xB0 + int(extension["base_page"]), 128))
         for bank, page, offset in ranges:

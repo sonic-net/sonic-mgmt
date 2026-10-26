@@ -9,8 +9,8 @@ test uses real platform APIs and EEPROM access, without mocking the DUT.
 - [cpoutil HLD, revision supplied for this test](https://github.com/KroosMicas/SONiC/blob/1d3c61dbe91ebc70cc40919905cc4b2afccd8101/doc/cpo/cpoutil/CPO-cpoutil-CLI-HLD.md)
 - [sfputil reference tests](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/sfp/test_sfputil.py)
 - [sonic-utilities #4864](https://github.com/sonic-net/sonic-utilities/pull/4864): common CLI
-- [sonic-platform-common #763](https://github.com/sonic-net/sonic-platform-common/pull/763): platform hooks and Bailly APIs
-- [sonic-buildimage #29676](https://github.com/sonic-net/sonic-buildimage/pull/29676): Micas topology and endpoint integration
+- [sonic-platform-common #763](https://github.com/sonic-net/sonic-platform-common/pull/763): platform hooks and endpoint APIs
+- [sonic-buildimage #29676](https://github.com/sonic-net/sonic-buildimage/pull/29676): topology and endpoint integration
 
 The implementation contract was checked on 2026-10-26 against utilities
 `b4eb783e33fc352246b1496fb3f50bed80c1aaca`, common
@@ -50,7 +50,7 @@ checked. Interface low-power and reset commands are also covered.
 | --- | --- | --- |
 | Interface queries | map, presence, DOM, low power, Tx-disable, Application, lane status; bulk and every single port; table and JSON | Exact CPO inventory and mapping, typed values, lane counts, complete DOM sections; presence and low-power agree with independent platform-object reads |
 | Endpoint queries | OE/ELS status, temperature, low power; bulk and every unique endpoint; table and JSON | No duplicate endpoints; valid fields; low-power agrees with platform hooks |
-| EEPROM ranges | Direct endpoint vs mapped interface; lower memory, every mapped OE bank on page 10h; Bailly joint-mode ELS identity on B0/B4 | Exactly four bytes per range; the two addressing paths agree |
+| EEPROM ranges | Direct endpoint vs mapped interface; lower memory, every mapped OE bank on page 10h; joint-mode ELS identity on B0/B4 | Exactly four bytes per range; the two addressing paths agree |
 | Full EEPROM dumps | All OE/ELS dumps | Every unique endpoint has a hexdump heading |
 | Invalid arguments | Bad port/index/mode, zero length, page overflow, cross-page range, wrong bank, incomplete range, malformed hex, removed commands | Return code 3, diagnostic on stderr, no traceback |
 | Coexistence | Ordinary SFP ports in a mixed platform | Excluded from bulk CPO output; explicit query directs the user to sfputil |
@@ -78,7 +78,7 @@ new speed/traffic validation.
 Only an explicit CLI `not implemented` error with return code 3 is eligible
 for an optional-feature skip. Missing CLI, traceback, I2C/read error, empty
 JSON or invalid records fail. If the original low-power state cannot be
-read, its control/reset test skips before changing hardware. Bailly ELS
+read, its control/reset test skips before changing hardware. ELS
 low-power/reset support must not be inferred from generic ELSFP software
 helpers or from successful OE controls.
 
