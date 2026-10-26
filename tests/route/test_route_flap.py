@@ -302,12 +302,20 @@ def get_filtered_iproute_info(duthost, route_prefix_len):
     return dev
 
 
-def get_exabgp_port(duthost, tbinfo, dev_port):
+def get_exabgp_endpoint(duthost, tbinfo, dev_port):
+    """Return the selected neighbor's ExaBGP port and optional next hop."""
     tor1 = duthost.shell(
-        "show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
-    tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
-    tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
-    return tor1_exabgp_port
+        "show ip int | grep -w {} | awk '{{print $4}}'".format(
+            dev_port))['stdout'].strip()
+    props = tbinfo['topo']['properties']
+    nexthop = None
+    if tbinfo.get('vm_type') == 'csonic' and props.get('topo_is_multi_vrf', False):
+        convergence = props['convergence_data']
+        tor1_offset = convergence['vm_offset_mapping'][tor1]
+        nexthop = convergence['ptf_backplane_addrs'][tor1]['ipv4'].split('/')[0]
+    else:
+        tor1_offset = props['topology']['VMs'][tor1]['vm_offset']
+    return EXABGP_BASE_PORT + tor1_offset, nexthop
 
 
 def is_dualtor(tbinfo):
@@ -465,8 +473,11 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
         ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
     logger.info("Receiving ptf ports list : {}".format(ptf_recv_ports))
 
-    exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
-    logger.info("exabgp_port = %d" % exabgp_port)
+    exabgp_port, selected_nexthop = get_exabgp_endpoint(
+        duthost, tbinfo, dev_port)
+    if selected_nexthop:
+        nexthop = selected_nexthop
+    logger.info("exabgp_port = %d, nexthop = %s", exabgp_port, nexthop)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
     normalized_level = get_function_completeness_level
