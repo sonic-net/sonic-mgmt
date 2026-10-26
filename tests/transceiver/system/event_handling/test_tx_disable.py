@@ -187,7 +187,7 @@ def test_system_tx_disable(
         len(ports),
     )
     result = standard_port_recovery_and_verification(
-        duthost, ports, port_attributes_dict,
+        duthost, ports, {port: port_attributes_dict[port] for port in ports},
         link_up_timeout_sec=startup_wait,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,

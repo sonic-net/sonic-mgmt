@@ -148,7 +148,7 @@ def _apply_and_verify_round(
         _log_state_db_field(duthost, port, config_field, value)
 
     result = standard_port_recovery_and_verification(
-        duthost, list(applied), port_attributes_dict,
+        duthost, list(applied), {port: port_attributes_dict[port] for port in applied},
         link_up_timeout_sec=scenario_ops.scale_bulk_wait(startup_wait, len(applied)),
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,

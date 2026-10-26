@@ -27,7 +27,10 @@ Execution order::
     `- test_system_cmis_bootup_low_power_mode
          |- <body>: skip unless cmis_bootup_low_power_test_supported is
                     True for at least one port
-         `-         disable xcvrd at boot -> cold reboot -> verify LPMode
+         `-         disable xcvrd at boot -> fail early if pmon would
+                    still define critical xcvrd -> cold reboot (safe_reboot:
+                    waits for critical services/processes) -> wait for
+                    port creation -> verify LPMode
                     On -> revert + restart pmon -> Standard Port Recovery
   session end
     `- _system_post_session_checks (system/conftest.py)
@@ -138,7 +141,7 @@ def test_system_low_power_mode(
         len(ports),
     )
     result = standard_port_recovery_and_verification(
-        duthost, ports, port_attributes_dict,
+        duthost, ports, {port: port_attributes_dict[port] for port in ports},
         link_up_timeout_sec=settle_wait,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
@@ -189,14 +192,22 @@ def test_system_cmis_bootup_low_power_mode(
     # told all of them are expected to change PID, not just xcvrd.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
 
-    setup_err = state_management.enable_pmon_skip_xcvrd(duthost)
+    original_daemon_control, setup_err = state_management.enable_pmon_skip_xcvrd(duthost)
     if setup_err:
+        restore_err = state_management.restore_pmon_daemon_control(duthost, original_daemon_control)
+        if restore_err:
+            pytest.exit(f"Could not disable xcvrd at boot ({setup_err}) nor revert it ({restore_err})")
         pytest.fail(f"Could not disable xcvrd at boot: {setup_err}")
 
     try:
+        # Fail before the reboot rather than waiting out a boot that can never be healthy.
+        mismatch_err = state_management.check_skip_xcvrd_critical_mismatch(duthost)
+        if mismatch_err:
+            pytest.fail(f"Cannot run CMIS boot-up low power mode test: {mismatch_err}")
+
         logger.info("Cold rebooting DUT with xcvrd disabled at boot")
-        scenario_ops.perform_cold_reboot(duthost, localhost)
-        time.sleep(cold_reboot_settle_sec)
+        scenario_ops.perform_cold_reboot(duthost, localhost, safe_reboot=True)
+        scenario_ops.wait_ports_created(duthost, ports, cold_reboot_settle_sec)
 
         logger.info("Verifying CMIS transceivers are in low power mode after boot-up")
         lpmode_by_port, lpmode_err = cli_helpers.sfputil_show_lpmode(duthost)
@@ -212,11 +223,17 @@ def test_system_cmis_bootup_low_power_mode(
                     )
     finally:
         logger.info("Reverting pmon_daemon_control.json and restarting pmon")
-        restore_err = state_management.restore_pmon_daemon_control(duthost)
-        if restore_err:
-            failures.append(restore_err)
+        restore_err = state_management.restore_pmon_daemon_control(duthost, original_daemon_control)
         duthost.restart_service("pmon")
         time.sleep(pmon_restart_settle_sec)
+        restore_err = restore_err or state_management.verify_pmon_daemon_control_restored(
+            duthost, original_daemon_control,
+        )
+        if restore_err:
+            pytest.exit(
+                "Could not restore pmon_daemon_control.json after CMIS boot-up "
+                f"low power mode test: {restore_err}"
+            )
 
     health_baseline = capture_baseline(duthost)
     logger.info(
@@ -224,7 +241,7 @@ def test_system_cmis_bootup_low_power_mode(
         len(ports),
     )
     result = standard_port_recovery_and_verification(
-        duthost, ports, port_attributes_dict,
+        duthost, ports, {port: port_attributes_dict[port] for port in ports},
         link_up_timeout_sec=pmon_restart_settle_sec,
         health_baseline=health_baseline,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,

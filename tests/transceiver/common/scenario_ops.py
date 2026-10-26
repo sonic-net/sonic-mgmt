@@ -51,6 +51,7 @@ DAEMON_RESTART_CONTAINERS = {
     "syncd": ("syncd",),
 }
 DAEMON_RESTART_POLL_INTERVAL_SEC = 5
+PORTS_CREATED_POLL_INTERVAL_SEC = 5
 
 
 def _parse_supervisor_uptime_seconds(uptime):
@@ -159,25 +160,34 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
     return []
 
 
-def _perform_reboot(duthost, localhost, reboot_type):
-    """Reboot the DUT via the repo helper, returning once SSH reconnects.
+def _perform_reboot(duthost, localhost, reboot_type, safe_reboot=False):
+    """Reboot the DUT via the repo helper.
 
     Args:
         localhost: controller fixture used to observe SSH loss/recovery.
         reboot_type: one of ``cold`` / ``warm`` / ``fast``.
+        safe_reboot: ``False`` (default) returns as soon as SSH reconnects.
+            ``True`` uses the repo helper's ``safe_reboot`` instead, which also
+            waits for docker, the database, every critical service and critical
+            process, and confirms the DUT actually rebooted.
     """
-    logger.info("Performing %s reboot for transceiver scenario", reboot_type)
-    reboot(
-        duthost,
-        localhost,
-        reboot_type=reboot_type,
-        return_after_reconnect=True,
-    )
+    logger.info("Performing %s reboot for transceiver scenario (safe_reboot=%s)", reboot_type, safe_reboot)
+    if safe_reboot:
+        reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
+    else:
+        reboot(duthost, localhost, reboot_type=reboot_type, return_after_reconnect=True)
 
 
-def perform_cold_reboot(duthost, localhost):
-    """Perform a cold reboot and return when DUT SSH connectivity is restored."""
-    _perform_reboot(duthost, localhost, "cold")
+def perform_cold_reboot(duthost, localhost, safe_reboot=False):
+    """Perform a cold reboot.
+
+    Args:
+        localhost: controller fixture used to observe SSH loss/recovery.
+        safe_reboot: ``False`` (default) returns when DUT SSH connectivity is
+            restored; ``True`` also waits for critical services/processes (see
+            :func:`_perform_reboot`).
+    """
+    _perform_reboot(duthost, localhost, "cold", safe_reboot=safe_reboot)
 
 
 def perform_warm_reboot(duthost, localhost):
@@ -188,6 +198,51 @@ def perform_warm_reboot(duthost, localhost):
 def perform_fast_reboot(duthost, localhost):
     """Perform a fast reboot and return when DUT SSH connectivity is restored."""
     _perform_reboot(duthost, localhost, "fast")
+
+
+def wait_ports_created(duthost, ports, wait_sec):
+    """Wait until every port in ``ports`` has been created after a reboot.
+
+    A port counts as created once STATE_DB ``PORT_TABLE|<port>`` has
+    ``state == ok``. Link state is not checked, so this also holds for ports
+    expected to stay down (e.g. in LPMode with xcvrd disabled), unlike the
+    oper-up checks in ``tests/common``. One STATE_DB dump per ASIC namespace
+    per poll.
+
+    Args:
+        duthost: DUT host object.
+        ports: logical ports that must be created.
+        wait_sec: max seconds to wait.
+
+    Returns:
+        None. Fails the test (``pytest_assert``) if any port is not created
+        within ``wait_sec``.
+    """
+    deadline = time.monotonic() + wait_sec
+    ports_by_ns = {}
+    for port in ports:
+        ports_by_ns.setdefault(db_helpers.resolve_port_namespace(duthost, port), []).append(port)
+    state = {"not_created": sorted(ports)}
+
+    def _created():
+        not_created = []
+        for namespace, ns_ports in ports_by_ns.items():
+            port_table, err = db_helpers.get_state_db_table(duthost, "PORT_TABLE", namespace=namespace)
+            if err:
+                logger.info("STATE_DB PORT_TABLE not readable yet: %s", err)
+                not_created.extend(ns_ports)
+                continue
+            not_created.extend(
+                port for port in ns_ports if port_table.get(port, {}).get("state") != "ok"
+            )
+        state["not_created"] = sorted(not_created)
+        return not not_created
+
+    logger.info("Waiting up to %ss for %d port(s) to be created", wait_sec, len(ports))
+    pytest_assert(
+        _wait_until_deadline(deadline, PORTS_CREATED_POLL_INTERVAL_SEC, _created),
+        "Ports not created within {}s: {}".format(wait_sec, state["not_created"]),
+    )
 
 
 def perform_config_reload(duthost):
