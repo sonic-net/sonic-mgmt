@@ -282,15 +282,6 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["mellanox"]:
             exp_pkt['GRE'].proto = 0x8949   # Mellanox specific
-        elif self.asic_type in ["barefoot"]:
-            exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
-                                                ip_src=self.session_src_ip,
-                                                ip_dst=self.session_dst_ip,
-                                                ip_dscp=self.session_dscp,
-                                                ip_ttl=self.session_ttl,
-                                                inner_frame=bytes(payload),
-                                                ip_id=0,
-                                                sgt_other=0x4)
         elif self.asic_type in ["cisco-8000"]:
             exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
                                                 ip_src=self.session_src_ip,
@@ -340,8 +331,6 @@ class EverflowPolicerTest(BaseTest):
                     self.hwsku.startswith("Nokia-7215-A1"):
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
                 pkt = scapy.Ether(bytes(pkt)[8:])
-            elif self.asic_type == "barefoot":
-                pkt = scapy.Ether(pkt).load
             elif self.asic_type == "cisco-8000":
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
                 pkt = bytes(pkt)
