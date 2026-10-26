@@ -67,8 +67,8 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
 
 
 def regenerate_and_apply_golden_config_db(dut, tbinfo):
-    """Regenerate T2 or UT2 golden config before reloading minigraph."""
-    if tbinfo['topo']['type'] == 't2':
+    """Regenerate UT2 golden config before reloading minigraph."""
+    if tbinfo['topo']['type'] == 't2' and 't2_single_node' in tbinfo['topo']['name']:
         hostvars = dut.host.options['variable_manager'].get_vars(
             host=dut.host.options['inventory_manager'].get_host(dut.hostname))
         common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
