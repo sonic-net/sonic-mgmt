@@ -4,6 +4,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import time
 
+from functools import partial
 from netaddr import IPNetwork, NOHOST
 from tests.common.helpers.assertions import pytest_assert
 from scapy.all import IP, Ether
@@ -16,7 +17,7 @@ pytestmark = [
 
 
 @pytest.fixture(scope='module')
-def vlan_ports_setup(duthosts, rand_one_dut_hostname):
+def vlan_ports_setup(duthosts, rand_one_dut_hostname, request):
     """
     Setup:      Brings down all member ports of a VLAN.
     Teardown:   Restores the admin state of all member ports of the VLAN selected in the Setup phase.
@@ -32,12 +33,11 @@ def vlan_ports_setup(duthosts, rand_one_dut_hostname):
     vlan_up_members = [port for port in vlan_members if ifs_status[port]["admin"] == "up"]
     logger.info(f"Bringing down all member ports of {vlan_name}...")
     for vlan_up_port in vlan_up_members:
+        # A shutdown command may change state before reporting a failure.
+        request.addfinalizer(partial(duthost.shell, f"sudo config interface startup {vlan_up_port}"))
         duthost.shell(f"sudo config interface shutdown {vlan_up_port}")
     time.sleep(5)  # Sleep for 5 seconds to ensure T1 switches update their routing table
-    yield vlan_name
-    logger.info(f"Restoring the previous admin state of all member ports of {vlan_name}...")
-    for vlan_port in vlan_up_members:
-        duthost.shell(f"sudo config interface startup {vlan_port}")
+    return vlan_name
 
 
 def is_route_advertised(route_info):
