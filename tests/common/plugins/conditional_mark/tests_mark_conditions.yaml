@@ -5085,11 +5085,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 
 route/test_static_route.py::test_static_route_ecmp_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
@@ -5099,19 +5100,21 @@ route/test_static_route.py::test_static_route_ipv6:
 
 route/test_static_route.py::test_static_route_ipv6_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies, or on Broadcom TH5/TH6 platforms"
     conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b', 'x86_64-arista_7060x6_16pe_384c_b', 'x86_64-arista_7060xe7_64prs_mv3_l']"
 
 #######################################
 #####           sai_qualify       #####
