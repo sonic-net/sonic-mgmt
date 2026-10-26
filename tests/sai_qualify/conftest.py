@@ -12,7 +12,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.barefoot_data import is_barefoot_device
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
 from tests.common.reboot import REBOOT_TYPE_SAI_WARM
@@ -810,8 +809,6 @@ def get_sai_running_vendor_id(duthost):
         vendor_id = "brcm"
     elif is_mellanox_device(duthost):
         vendor_id = "mlnx"
-    elif is_barefoot_device(duthost):
-        vendor_id = "bfn"
     elif vendor_id.facts["asic_type"] in ["marvell-prestera", "marvell"]:
         vendor_id = "mrvl"
     else:
