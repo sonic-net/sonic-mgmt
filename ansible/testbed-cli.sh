@@ -37,6 +37,20 @@ function usage
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] update-breakout <testbed-name> <links-csv> <target-breakout> [--dry-run]"
+  echo "    $0 [-t <tbfile>] plan-generic <testbed-name> <planner-options>"
+  echo "    $0 [-t <tbfile>] finalize-generic <testbed-name> [--workspace <directory>]"
+  echo "    $0 [-t <tbfile>] render-generic <testbed-name> <inventory> <vault-password-file> [--workspace <directory>]"
+  echo "    $0 [-t <tbfile>] recover-generic <testbed-name> <inventory> <vault-password-file> [--workspace <directory>] [--apply]"
+  echo "    Generic commands share plan/, finalized/, rendered/ under --workspace (default: system temp/sonic-generic-UID/TESTBED)."
+  echo "    After manual plan review, render-generic finalizes first; retries reuse the sealed finalized/ stage."
+  echo "    render-generic --exclude-managed-acls omits managed DATAACL/EVERFLOW bindings, preserving protected bindings/rules."
+  echo "    finalize-generic remains available for optional offline-only finalization."
+  echo "    add-topo/remove-topo read vars/topo_<topo>.yml; a generic_topology section selects the generic workflow."
+  echo "    deploy-mg still requires --generic. Explicit --generic remains available to select this workflow."
+  echo "    Generic add-topo/remove-topo/deploy-mg default to DRY RUN. --apply authorizes changes."
+  echo "    Automatic generic add-topo prepares its workspace from the named recipe plus optional --overrides."
+  echo "    It freezes breakouts first; review/edit the recorded recipe, then repeat with --finalize-roles."
+  echo "    Existing stages are never overwritten; legacy --scenario-dir/--output-dir remain available."
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
@@ -114,6 +128,16 @@ function usage
   echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
   echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
   echo "        --dry-run             Preview changes without writing"
+  echo "To plan generic breakout/forwarding (read-only collection or offline snapshots; no deployment):"
+  echo "    $0 [-t <tbfile>] plan-generic <testbed-name> --peer-hostname <leaf> \\"
+  echo "        --links-csv <path> [--workspace <directory>] [--inventory <path>]"
+  echo "    Missing platform/lookup snapshots are collected through Ansible inventory (default: testbed inv_name)."
+  echo "    Supply --platform-json, --peer-platform-json, and --pg-profile-lookup for fully offline use."
+  echo "    Dedicated cages with at most 25G aggregate capability are protected by default on both devices."
+  echo "    --include-low-speed-cages opts them back in; lookup cases confined to protected cages are out of scope."
+  echo "    Initial planning prioritizes one cage per advertised mode/operating combination, regardless of link roles."
+  echo "    --min-same-breakout-uplinks N then targets matching uplink children in ONE full combination (default: 4)."
+  echo "    plan-generic <testbed-name> --help lists all planner options."
   echo
   echo "You should define your topology in testbed YAML file"
   echo
@@ -1285,6 +1309,55 @@ function config_vs_chassis
   echo Done
 }
 
+function plan_generic
+{
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ $# -eq 0 ]]; then
+      echo "Error: plan-generic requires a testbed name; use plan-generic --help." >&2
+      return 1
+  fi
+  if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+      python3 "$script_dir/scripts/plan_generic_topology.py" --help
+      return
+  fi
+  local testbed_name="$1"
+  shift
+  python3 "$script_dir/scripts/plan_generic_topology.py" \
+      --testbed "$testbed_name" --testbed-file "$tbfile" "$@"
+}
+
+function generic_scenario_command
+{
+  local action="$1"
+  shift
+  local testbed_name="$1"
+  shift
+  local inventory
+  local passfile
+  if [[ "$action" == "add-topo" || "$action" == "remove-topo" ]]; then
+      passfile="$1"
+      shift
+      inventory="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from plan_generic_topology import resolve_testbed; print(resolve_testbed(sys.argv[2], sys.argv[3])[1]["inv_name"])' \
+          "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts" "$tbfile" "$testbed_name")" || return 1
+      if [[ "$inventory" != /* ]]; then
+        inventory="$(dirname "$tbfile")/$inventory"
+      fi
+  else
+      inventory="$1"
+      passfile="$2"
+      shift 2
+  fi
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -n "${generic_recipe:-}" ]]; then
+      set -- --recipe "$generic_recipe" "$@"
+  fi
+  python3 "$script_dir/scripts/generic_topology_cli.py" "$action" \
+      --testbed "$testbed_name" --testbed-file "$tbfile" --inventory "$inventory" \
+      --vm-inventory "$vmfile" --vault-password-file "$passfile" "$@"
+}
+
 vmfile=veos
 tbfile=testbed.yaml
 vm_type=ceos
@@ -1319,7 +1392,87 @@ done
 
 shift $((OPTIND-1))
 
-if [ $# -lt 3 ]
+case "${1:-}" in
+  finalize-generic)
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    shift
+    generic_testbed="${1:-}"
+    if [[ -z "$generic_testbed" ]]; then
+      echo "Error: finalize-generic requires a testbed name." >&2
+      exit 1
+    fi
+    shift
+    python3 "$script_dir/scripts/generic_topology_cli.py" finalize \
+      --testbed "$generic_testbed" --testbed-file "$tbfile" "$@"
+    exit
+    ;;
+  render-generic|recover-generic)
+    generic_action="${1%-generic}"
+    shift
+    if [[ $# -lt 3 ]]; then
+      echo "Error: render-generic/recover-generic requires testbed, inventory, and vault-password-file." >&2
+      exit 1
+    fi
+    generic_scenario_command "$generic_action" "$@"
+    exit
+    ;;
+  add-topo|remove-topo|deploy-mg)
+    generic_action="$1"
+    generic_selected=false
+    generic_arguments=()
+    generic_options=false
+    generic_recipe=""
+    shift
+    for generic_argument in "$@"; do
+      if [[ "$generic_argument" == "--generic" ]]; then
+        generic_selected=true
+      else
+        generic_arguments+=("$generic_argument")
+      fi
+      if [[ "$generic_argument" == "--scenario-dir" || "$generic_argument" == --scenario-dir=* ||
+            "$generic_argument" == "--workspace" || "$generic_argument" == --workspace=* ||
+            "$generic_argument" == "--apply" || "$generic_argument" == "--finalize-roles" ||
+            "$generic_argument" == "--exclude-managed-acls" ]]; then
+        generic_options=true
+      fi
+    done
+    set -- "${generic_arguments[@]}"
+    if [[ "$generic_selected" == false && "$generic_action" != "deploy-mg" ]]; then
+      if [[ $# -lt 2 ]]; then
+        echo "Error: missing standard testbed/vault arguments." >&2
+        exit 1
+      fi
+      script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      generic_recipe="$(python3 -c '
+import sys
+import yaml
+sys.path.insert(0, sys.argv[1])
+from plan_generic_topology import generic_topology_recipe
+try:
+    print(generic_topology_recipe(sys.argv[2], sys.argv[3], sys.argv[4]) or "")
+except (OSError, ValueError, yaml.YAMLError) as error:
+    sys.exit("Cannot resolve topology lifecycle: {}".format(error))
+' "$script_dir/scripts" "$tbfile" "$1" "$script_dir/vars")" || exit 1
+      if [[ -n "$generic_recipe" ]]; then
+        generic_selected=true
+      fi
+    fi
+    if [[ "$generic_selected" == true ]]; then
+      if [[ $# -lt 2 || ( "$generic_action" == "deploy-mg" && $# -lt 3 ) ]]; then
+        echo "Error: missing standard testbed/inventory/vault arguments." >&2
+        exit 1
+      fi
+      generic_scenario_command "$generic_action" "$@"
+      exit
+    elif [[ "$generic_options" == true ]]; then
+      echo "Error: --generic is required with generic workspace/scenario/apply options." >&2
+      exit 1
+    fi
+    set -- "$generic_action" "$@"
+    ;;
+esac
+
+if [ $# -lt 3 ] && [[ "${1:-}" != "plan-generic" ]]
 then
   usage
 fi
@@ -1433,6 +1586,8 @@ case "${subcmd}" in
   config-vs-chassis) config_vs_chassis "$@"
                ;;
   update-breakout) update_breakout "$@"
+               ;;
+  plan-generic) plan_generic "$@"
                ;;
   add-vnut-topo)    add_vnut_topo "$@"
                ;;

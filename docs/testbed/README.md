@@ -11,6 +11,8 @@
   - [Routing](README.testbed.Routing.md)
   - [Keysight](README.testbed.Keysight.md)
 - [Configuration](README.new.testbed.Configuration.md)
+- [Generic HwSKU and Topology HLD](README.testbed.GenericHwSKU.HLD.md)
+- [Generic HwSKU Operator/Developer Guide](generic_hwsku_port_config.md)
 - [Minigraph](README.testbed.Minigraph.md)
 - [Command Line](README.testbed.Cli.md)
 - [Example](README.testbed.Example.md)

@@ -1,0 +1,23 @@
+# Editable generic recipe, not a deployable legacy topology.
+# Replace synthetic selectors and null allocations with approved testbed inputs.
+# Planning rejects unset allocations; this file reserves no lab resources.
+topology: {}
+
+generic_topology:
+  physical_links:
+    uplinks: [Ethernet0, Ethernet1, Ethernet8, Ethernet9]
+    downlinks: []
+  routed_interfaces:
+    address_pool: null
+    prefix_length: 127
+  access_vlan:
+    vlan_id: null
+    subnet: null
+  external_destinations:
+    address_pool: null
+    prefix_length: 128
+  constraints:
+    reserved_networks: []
+    reserved_vlan_ids: []
+  transport:
+    vlan_ids: null
