@@ -5,6 +5,7 @@ Helper functions for ERSPAN sampled port mirroring with truncation tests.
 import json
 import time
 import logging
+from socket import IPPROTO_GRE, IPPROTO_TCP
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -15,17 +16,22 @@ logger = logging.getLogger(__name__)
 # We send NUM_SAMPLES * sample_rate packets so that the expected mirrored
 # packets are within the expected range.
 NUM_SAMPLES = 10000
-MIN_EXPECTED_SAMPLES = int(0.95 * NUM_SAMPLES)
-MAX_EXPECTED_SAMPLES = int(1.05 * NUM_SAMPLES)
+SAMPLE_COUNT_TOLERANCE = 0.05
+MIN_EXPECTED_SAMPLES = int((1 - SAMPLE_COUNT_TOLERANCE) * NUM_SAMPLES)
+MAX_EXPECTED_SAMPLES = int((1 + SAMPLE_COUNT_TOLERANCE) * NUM_SAMPLES)
 
-# ERSPAN encapsulation overhead, measured on hardware (see the test plan section
-# "ERSPAN Packet Structure"). A mirrored frame prepends:
-#   Outer Ethernet (14B) + Outer IP (20B) + GRE + vendor/ERSPAN shim (28B) = 62B.
-# So a mirrored frame length = ENCAP_OVERHEAD + min(original_len, truncate_size)
+# Estimated encapsulation overhead for length checks, not an inner-frame offset.
 ENCAP_OVERHEAD = 62
 
 # Allowance (bytes) for trailing padding / alignment some platforms add.
 MIRROR_LEN_TOLERANCE = 8
+
+# Destination MAC (6B), source MAC (6B), and EtherType (2B).
+ETHERNET_HEADER_LEN = 14
+
+# Supported GRE layout: 22 bytes of metadata before the inner Ethernet frame.
+MIRROR_GRE_PROTOCOL = 0x8949
+MIRROR_GRE_METADATA_LEN = 22
 
 
 def expected_mirror_len(original_len, truncate_size=0):
@@ -39,7 +45,28 @@ def expected_mirror_len(original_len, truncate_size=0):
     return ENCAP_OVERHEAD + inner
 
 
-def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, timeout=15):
+def _matches_probe(raw, expected_probe):
+    '''Match inner IP addresses and TCP ports against the sent test packet.'''
+    from scapy.layers.inet import IP, TCP, GRE
+    from scapy.layers.l2 import Ether
+
+    outer = Ether(raw)
+    gre = outer[IP].payload
+    pytest_assert(isinstance(gre, GRE) and gre.proto == MIRROR_GRE_PROTOCOL,
+                  'Unsupported GRE encapsulation for inner probe matching')
+    frame = bytes(gre.payload)[MIRROR_GRE_METADATA_LEN:]
+    pytest_assert(len(frame) >= ETHERNET_HEADER_LEN, 'Incomplete mirrored Ethernet header')
+    inner = Ether(frame)
+    if IP not in inner:
+        return False
+    ip = inner[IP]
+    if (ip.src, ip.dst, ip.proto) != (expected_probe[IP].src, expected_probe[IP].dst, IPPROTO_TCP):
+        return False
+    pytest_assert(isinstance(ip.payload, TCP), 'Matching probe has an incomplete TCP header')
+    return (ip[TCP].sport, ip[TCP].dport) == (expected_probe[TCP].sport, expected_probe[TCP].dport)
+
+
+def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, timeout=15, expected_probe=None):
     '''
     Drain packets on gre_egress_ports and return only those that look like
     ERSPAN frames for THIS mirror session.
@@ -50,13 +77,15 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
         - outer IP.src == session src_ip
         - outer IP.dst == session dst_ip
         - GRE.proto    == session gre_type
-        - IP.proto     == 47 (GRE)
+        - IP.proto     == IPPROTO_GRE (when inner probe filtering is enabled)
 
     Args:
         ptfadapter:           ptfadapter fixture
         gre_egress_ports:     list of PTF port indices to drain
         mirror_session_info:  dict with src_ip, dst_ip, gre_type (hex string like "0x8949")
         timeout:              seconds to keep polling
+        expected_probe:       Sent test packet used to match inner IPs/TCP ports.
+                              If None, only filter by the outer mirror-session headers.
 
     Returns:
         list of raw packet bytes for each matching ERSPAN frame.
@@ -71,6 +100,8 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
     matched = []
     total_seen = 0
     skipped_reasons = {'parse_fail': 0, 'no_ip_gre': 0, 'wrong_ip': 0, 'wrong_gre_proto': 0}
+    if expected_probe is not None:
+        skipped_reasons['not_test_traffic'] = 0
 
     end_time = time.time() + timeout
     while time.time() < end_time:
@@ -95,11 +126,17 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
                 continue
             ip = pkt[IP]
             gre = pkt[GRE]
+            if expected_probe is not None and (ip.proto != IPPROTO_GRE or not isinstance(ip.payload, GRE)):
+                skipped_reasons['no_ip_gre'] += 1
+                continue
             if ip.src != src_ip or ip.dst != dst_ip:
                 skipped_reasons['wrong_ip'] += 1
                 continue
             if int(gre.proto) != gre_proto:
                 skipped_reasons['wrong_gre_proto'] += 1
+                continue
+            if expected_probe is not None and not _matches_probe(raw, expected_probe):
+                skipped_reasons['not_test_traffic'] += 1
                 continue
             matched.append(bytes(raw))
 

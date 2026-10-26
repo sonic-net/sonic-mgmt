@@ -4,6 +4,9 @@ Conftest file for span tests
 
 import pytest
 import logging
+import ipaddress
+import json
+from contextlib import ExitStack
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release, wait_until
@@ -88,7 +91,7 @@ def skip_unsupported_release(duthost):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
+def setup_monitor_port(duthosts, rand_one_dut_hostname, request, tbinfo):
     '''
     Used to prepare monitor port for test
 
@@ -97,6 +100,11 @@ def setup_monitor_port(duthosts, rand_one_dut_hostname, ports_for_test):
         rand_one_dut_hostname: hostname of a random chosen dut to run test.
         ports_for_test: pytest fixture containing info on selected ports
     '''
+    # T1 ERSPAN does not need VLAN monitor setup.
+    if tbinfo['topo']['type'] == 't1' and request.module.__name__.endswith('test_erspan_sampling_truncation'):
+        yield
+        return
+    ports_for_test = request.getfixturevalue('ports_for_test')
     duthost = duthosts[rand_one_dut_hostname]
 
     port = ports_for_test['monitor']['name']
@@ -188,6 +196,213 @@ def setup_session(duthosts, rand_one_dut_hostname, session_info):
 # ---------------------------------------------------------------------------
 
 # ERSPAN_* endpoint constants are imported from erspan_helpers (see imports above).
+
+RX_PROBE_IP = '198.18.254.1'
+TX_PROBE_IP = '198.18.254.2'
+
+
+def select_t1_ports(duthost, tbinfo):
+    '''Select three up, PTF-mapped IPv4 interfaces.
+
+    Exclude multi-member LAGs to keep physical TX egress deterministic.
+    '''
+    if duthost.is_multi_asic:
+        pytest.skip('T1 ERSPAN routing setup currently requires a single-ASIC DUT')
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    minigraph = duthost.get_extended_minigraph_facts(tbinfo)
+    status = duthost.show_interface(command='status')['ansible_facts']['int_status']
+    ptf_map = minigraph['minigraph_ptf_indices']
+
+    def usable(name):
+        return (name in ptf_map and name.startswith('Ethernet')
+                and config.get('PORT', {}).get(name, {}).get('admin_status') == 'up'
+                and status.get(name, {}).get('oper_state') == 'up')
+
+    def port(name, **kwargs):
+        return dict(name=name, index=int(ptf_map[name]), **kwargs)
+
+    candidates = []
+    seen = set()
+    portchannels = minigraph.get('minigraph_portchannels', {})
+    interfaces = (minigraph.get('minigraph_interfaces', [])
+                  + minigraph.get('minigraph_portchannel_interfaces', []))
+    lag_members = {member for pc in config.get('PORTCHANNEL_MEMBER', {}).values() for member in pc}
+    vlan_members = {member for vlan in config.get('VLAN_MEMBER', {}).values() for member in vlan}
+    for intf in interfaces:
+        name = intf['attachto']
+        if name in seen or ipaddress.ip_address(str(intf['addr'])).version != 4:
+            continue
+        if name.startswith('PortChannel'):
+            members = sorted(config.get('PORTCHANNEL_MEMBER', {}).get(name, {}))
+            if len(members) != 1 or members != sorted(portchannels.get(name, {}).get('members', [])):
+                continue
+            physical = members[0]
+            table = 'PORTCHANNEL_INTERFACE'
+        else:
+            physical = name
+            table = 'INTERFACE'
+            if physical in lag_members:
+                continue
+        if (not usable(physical) or physical in vlan_members
+                or name not in config.get(table, {})):
+            continue
+        candidates.append(port(physical, l3_interface=name))
+        seen.add(name)
+
+    candidates.sort(key=lambda p: (p['l3_interface'].startswith('PortChannel'), p['index']))
+    if len(candidates) < 3:
+        pytest.skip('ERSPAN T1 needs three up, PTF-mapped IPv4 interfaces '
+                    '(standalone ports or single-member PortChannels)')
+    ports = {'topology': 't1', 'source': candidates[0],
+             'gre_egress': candidates[1], 'tx_ingress': candidates[2]}
+    logger.info('ERSPAN T1 ports: %s', ports)
+    return ports
+
+
+def _add_route(duthost, cleanup, prefix, nexthop, interface):
+    '''Reuse matching FRR/kernel routes; clean up only new routes.
+
+    FRR may retain routes absent from the kernel while next hops are unresolved.
+    '''
+    existing = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    command = 'ip route {} {} {}'.format(prefix, nexthop, interface)
+    running = duthost.shell('vtysh -c "show running-config"')['stdout']
+    configured = [line.strip() for line in running.splitlines()
+                  if line.strip().split()[:3] == ['ip', 'route', prefix]]
+    accepted = {command, 'ip route {} {}'.format(prefix, nexthop)}
+    _pytest_assert(not configured or (len(configured) == 1 and configured[0] in accepted),
+                   'Conflicting FRR static route for {}: {}'.format(prefix, configured))
+
+    def matches(routes):
+        # Normalize host prefixes and require a single unicast next hop.
+        return (len(routes) == 1
+                and ipaddress.ip_network(routes[0].get('dst', '0.0.0.0/0'), strict=False)
+                == ipaddress.ip_network(prefix)
+                and routes[0].get('dev') == interface
+                and routes[0].get('gateway') == nexthop
+                and routes[0].get('type', 'unicast') == 'unicast'
+                and not routes[0].get('nexthops'))
+
+    if existing:
+        _pytest_assert(matches(existing),
+                       'Conflicting ERSPAN route for {}: expected via {} dev {}, found {}'.format(
+                           prefix, nexthop, interface, existing))
+        logger.info('Reusing existing ERSPAN route: %s', existing)
+    elif configured:
+        logger.info('Reusing configured FRR route, waiting for kernel convergence: %s', configured)
+    else:
+        cleanup.callback(duthost.command, 'vtysh -c "configure terminal" -c "no {}"'.format(command))
+        duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
+
+    def installed():
+        routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        return matches(routes)
+
+    _pytest_assert(wait_until(30, 1, 0, installed),
+                   'ERSPAN route {} via {} dev {} did not converge'.format(prefix, nexthop, interface))
+
+
+def _setup_t1_rx_discard(duthost, cleanup):
+    '''Create or reuse an RX probe blackhole; clean up only our additions.'''
+    prefix = RX_PROBE_IP + '/32'
+    command = 'ip route {} blackhole'.format(prefix)
+    running = duthost.shell('vtysh -c "show running-config"')['stdout']
+    configured = [line.strip() for line in running.splitlines()
+                  if line.strip().split()[:3] == ['ip', 'route', prefix]]
+    _pytest_assert(not configured or configured == [command],
+                   'Conflicting FRR RX probe route: {}'.format(configured))
+    routes = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+    if routes:
+        route = routes[0]
+        blackhole = route.get('type') == 'blackhole'
+        _pytest_assert(len(routes) == 1 and not route.get('nexthops')
+                       and ipaddress.ip_network(route.get('dst', '0.0.0.0/0'), strict=False)
+                       == ipaddress.ip_network(prefix)
+                       and blackhole,
+                       'Conflicting kernel RX probe route: {}'.format(routes))
+        if blackhole and not configured:
+            logger.info('Reusing existing RX probe blackhole: %s', routes)
+            return
+
+    if configured != [command]:
+        cleanup.callback(duthost.command, 'vtysh -c "configure terminal" -c "no {}"'.format(command))
+        duthost.command('vtysh -c "configure terminal" -c "{}"'.format(command))
+
+    def installed():
+        entries = json.loads(duthost.shell('ip -j -4 route show exact {}'.format(prefix))['stdout'])
+        return (len(entries) == 1 and entries[0].get('type') == 'blackhole'
+                and not entries[0].get('nexthops'))
+
+    _pytest_assert(wait_until(30, 1, 0, installed), 'RX probe blackhole did not converge: {}'.format(prefix))
+    logger.info('T1 RX original probes to %s are discarded; ERSPAN collector route is separate', prefix)
+
+
+def _check_t1_subnets(duthost, paths):
+    '''Allow exact test addresses on their intended interfaces, reject overlaps.'''
+    addresses = json.loads(duthost.shell('ip -j -4 addr show')['stdout'])
+    expected = {ipaddress.ip_network(subnet): port['l3_interface'] for _, port, subnet in paths}
+    for link in addresses:
+        for addr in link.get('addr_info', []):
+            existing = ipaddress.ip_interface('{}/{}'.format(addr['local'], addr['prefixlen'])).network
+            for network, interface in expected.items():
+                exact = (link['ifname'] == interface and existing == network
+                         and addr['local'] == str(network[1]))
+                _pytest_assert(not network.overlaps(existing) or exact,
+                               'ERSPAN temporary subnet {} overlaps {}'.format(network, existing))
+    routes = json.loads(duthost.shell('ip -j -4 route show')['stdout'])
+    for route in routes:
+        destination = route.get('dst', 'default')
+        if destination == 'default':
+            continue
+        existing = ipaddress.ip_network(destination, strict=False)
+        for network, interface in expected.items():
+            connected = (existing == network and route.get('dev') == interface
+                         and route.get('protocol') == 'kernel' and not route.get('gateway'))
+            _pytest_assert(not network.overlaps(existing) or connected,
+                           'ERSPAN temporary subnet {} overlaps route {}'.format(network, existing))
+
+
+def _setup_t1_path(duthost, ptfhost, cleanup, port, subnet, prefix):
+    '''Prepare a T1 path, preserving matching pre-existing configuration.'''
+    network = ipaddress.ip_network(subnet)
+    dut_ip = '{}/{}'.format(network[1], network.prefixlen)
+    nexthop = str(network[2])
+    interface = port.get('l3_interface', port['name'])
+    existing = json.loads(duthost.shell('ip -j neigh show to {} dev {}'.format(nexthop, interface))['stdout'])
+    mac = ptfhost.shell('cat /sys/class/net/eth{}/address'.format(port['index']))['stdout'].strip()
+    if existing:
+        _pytest_assert(
+            len(existing) == 1 and existing[0].get('dst') == nexthop
+            and existing[0].get('lladdr', '').lower() == mac.lower()
+            and existing[0].get('state') == ['PERMANENT'],
+            'Conflicting next-hop {} on {}: expected permanent PTF MAC {}, found {}'.format(
+                nexthop, interface, mac, existing))
+        logger.info('Reusing existing permanent PTF neighbor %s on %s: %s', nexthop, interface, mac)
+        # Restore existing neighbors after address removal (LIFO cleanup).
+        cleanup.callback(duthost.command, 'ip neigh replace {} lladdr {} nud permanent dev {}'.format(
+            nexthop, mac, interface))
+    addresses = json.loads(duthost.shell('ip -j -4 addr show dev {}'.format(interface))['stdout'])
+    address_exists = any(addr.get('local') == str(network[1]) and addr.get('prefixlen') == network.prefixlen
+                         for link in addresses for addr in link.get('addr_info', []))
+    if not address_exists:
+        cleanup.callback(duthost.command, 'config interface ip remove {} {}'.format(interface, dut_ip))
+        duthost.command('config interface ip add {} {}'.format(interface, dut_ip))
+    if not existing:
+        cleanup.callback(duthost.command, 'ip neigh del {} dev {}'.format(nexthop, interface),
+                         module_ignore_errors=True)
+    # Replace handles neighbors created during address setup.
+    duthost.command('ip neigh replace {} lladdr {} nud permanent dev {}'.format(nexthop, mac, interface))
+
+    def neighbor_ready():
+        entries = json.loads(duthost.shell('ip -j neigh show to {} dev {}'.format(nexthop, interface))['stdout'])
+        return any(entry.get('dst') == nexthop and entry.get('lladdr', '').lower() == mac.lower()
+                   and entry.get('state') == ['PERMANENT'] for entry in entries)
+
+    _pytest_assert(wait_until(10, 1, 0, neighbor_ready),
+                   'PTF neighbor {} on {} did not converge to permanent MAC {}'.format(nexthop, interface, mac))
+    _add_route(duthost, cleanup, prefix, nexthop, interface)
+    logger.info('ERSPAN route setup: %s via %s dev %s (PTF port %s, MAC %s)',
+                prefix, nexthop, interface, port['index'], mac)
 
 
 @pytest.fixture(scope="module")
@@ -314,16 +529,16 @@ def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
+def erspan_ports(duthosts, rand_one_dut_hostname, request, tbinfo):
     '''
-    Select ports for ERSPAN tests:
-      - source: VLAN member port where test traffic is injected
-      - gre_egress: different VLAN member port used as next-hop for ERSPAN dst IP
-      - tx_ingress: peer VLAN member used to inject unicast traffic that the DUT
-        forwards out the source port (egress) for direction=tx/both tests; None unless
-        the VLAN has >=4 non-PortChannel members (see note below).
+    Select source, GRE collector and TX injection ports.
+
+    T0 uses VLAN members; T1 uses distinct routed interfaces.
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    if tbinfo['topo']['type'] == 't1':
+        return select_t1_ports(duthost, tbinfo)
+    cfg_facts = request.getfixturevalue('cfg_facts')
     vlans = cfg_facts['VLAN']
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
 
@@ -335,12 +550,7 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
 
     assert len(port_names) >= 3, "Need at least 3 non-PortChannel VLAN member ports"
 
-    # TX (egress) dataplane tests need a peer VLAN-member injection port, distinct from
-    # the mirror source and from the gre_egress/monitor ports. gre_egress (port_names[1])
-    # is moved to L3 by setup_erspan_route, and the monitor port (port_names[-1]) is
-    # removed from the VLAN by setup_monitor_port, so at least 4 members are required for
-    # port_names[2] to remain a usable VLAN member. When unavailable, tx_ingress is None
-    # and direction=tx/both tests skip (see skip_if_no_tx_ingress).
+    # Collector and monitor leave the VLAN; TX needs a fourth member as its peer.
     tx_ingress = None
     if len(port_names) >= 4:
         tx_ingress = {
@@ -348,7 +558,6 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
             'index': cfg_facts['port_index_map'][port_names[2]],
         }
 
-    router_mac = duthost.facts['router_mac']
     return {
         'source': {
             'name': port_names[0],
@@ -361,17 +570,33 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
         },
         'tx_ingress': tx_ingress,
         'vlan': vlan,
-        'router_mac': router_mac,
     }
 
 
 @pytest.fixture(scope="module")
 def setup_erspan_route(duthosts, rand_one_dut_hostname, ptfhost, erspan_ports):
-    '''
-    Set up routing so ERSPAN GRE packets reach the PTF port.
-    Follows the everflow pattern: static route + neighbor resolution.
-    '''
+    '''Prepare collector routing and topology-specific probe forwarding.'''
     duthost = duthosts[rand_one_dut_hostname]
+    if erspan_ports.get('topology') == 't1':
+        paths = [
+            (ERSPAN_DST_PREFIX, erspan_ports['gre_egress'], '198.18.250.0/30'),
+            (TX_PROBE_IP + '/32', erspan_ports['source'], '198.18.250.8/30'),
+        ]
+        _check_t1_subnets(duthost, paths)
+        with ExitStack() as cleanup:
+            for prefix, port, subnet in paths:
+                _setup_t1_path(duthost, ptfhost, cleanup, port, subnet, prefix)
+            _setup_t1_rx_discard(duthost, cleanup)
+            erspan_ports['t1_probes'] = {}
+            for role, ip_dst in (('source', RX_PROBE_IP), ('tx_ingress', TX_PROBE_IP)):
+                port = erspan_ports[role]
+                links = json.loads(duthost.shell('ip -j link show dev {}'.format(
+                    port['l3_interface']))['stdout'])
+                erspan_ports['t1_probes'][port['index']] = {'eth_dst': links[0]['address'], 'ip_dst': ip_dst}
+            yield
+        return
+
+    # T0 collector setup.
     egress = erspan_ports['gre_egress']
     egress_port = egress['name']
     egress_ptf_index = egress['index']
@@ -407,10 +632,7 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, ptfhost, erspan_ports):
     logger.info("ERSPAN route setup: %s -> %s (nexthop %s, PTF port %d, mac %s)",
                 ERSPAN_DST_PREFIX, egress_port, nexthop_ip, egress_ptf_index, ptf_mac)
 
-    yield {
-        'nexthop_ip': nexthop_ip,
-        'ptf_mac': ptf_mac,
-    }
+    yield
 
     duthost.command('vtysh -c "configure terminal" -c "no ip route {} {}"'.format(
         ERSPAN_DST_PREFIX, nexthop_ip
@@ -438,6 +660,9 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
     truncate_size = params.get('truncate_size')
     src_port = erspan_ports['source']['name']
     direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
+    is_t1 = erspan_ports.get('topology') == 't1'
+    if is_t1:
+        request.addfinalizer(lambda: remove_mirror_session(duthost, ERSPAN_SESSION_NAME))
 
     # create_erspan_session_config pre-cleans any leftover same-named session, then
     # creates it with the requested direction / sampling / truncation parameters.
@@ -489,10 +714,11 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
             ERSPAN_SESSION_NAME, expected_monitor, state_dump))
 
     probe_dst_mac = PROBE_UNICAST_DST_MAC
-    # Pre-clean any entry leaked by a previously interrupted run, then pin the MAC.
-    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
-                     op="DEL", ignore_errors=True)
-    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac, op="SET")
+    # T0 uses FDB forwarding; T1 uses routing.
+    if not is_t1:
+        apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
+                         op="DEL", ignore_errors=True)
+        apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac, op="SET")
 
     yield {
         'session_name': ERSPAN_SESSION_NAME,
@@ -500,13 +726,10 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         'gre_egress_index': erspan_ports['gre_egress']['index'],
         'tx_ingress_index': (erspan_ports['tx_ingress']['index']
                              if erspan_ports['tx_ingress'] else None),
-        'source_port': src_port,
-        'gre_egress_port': erspan_ports['gre_egress']['name'],
-        'router_mac': erspan_ports['router_mac'],
         'sample_rate': sample_rate,
         'truncate_size': truncate_size,
-        'direction': direction,
         'probe_dst_mac': probe_dst_mac,
+        't1_probes': erspan_ports.get('t1_probes'),
         'mirror_session_info': {
             'src_ip': ERSPAN_SRC_IP,
             'dst_ip': ERSPAN_DST_IP,
@@ -516,6 +739,7 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         },
     }
 
-    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
-                     op="DEL", ignore_errors=True)
-    remove_mirror_session(duthost, ERSPAN_SESSION_NAME)
+    if not is_t1:
+        apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
+                         op="DEL", ignore_errors=True)
+        remove_mirror_session(duthost, ERSPAN_SESSION_NAME)

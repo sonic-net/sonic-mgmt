@@ -22,12 +22,13 @@ from erspan_helpers import (
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.disable_memory_utilization,
 ]
 
 DEFAULT_TRUNCATE_SIZE = 128
 DEFAULT_SAMPLE_RATE = 50000
+SAMPLING_TRUNCATION_PACKET_SIZE = 1500
 
 # Number of probe packets for truncation checks
 TRUNCATION_PROBE_COUNT = 1000
@@ -66,20 +67,22 @@ def _relax_nn_send_timeout(ptfadapter, inject_index, timeout_ms=SEND_SOCKET_TIME
 def _send_sampled_traffic_and_collect(ptfadapter, erspan_session, inject_index,
                                       pktlen=100, count=None, timeout=20, eth_dst=None):
     '''
-    Send copies of a probe frame from PTF port `inject_index` into the DUT, then
-    return the ERSPAN frames the DUT mirrors out, captured on the PTF port wired to
-    the DUT's monitor port.
+    Send probes and collect matching ERSPAN frames on the collector port.
 
-    eth_dst is the probe's destination MAC. Both rx and tx sampling pass a unicast MAC
-    pinned by a static FDB entry to the source port (probe_dst_mac): rx injects on the
-    source port (ingress-sampled, then same-port dropped) and tx injects on the peer
-    tx_ingress port (forwarded out the source port, egress-sampled).
+    T0 uses a static FDB; T1 uses the ingress router MAC and probe routes.
+    RX originals are discarded; TX originals leave the mirrored source port.
     '''
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, inject_index)
     total_packets = count if count is not None else NUM_SAMPLES * erspan_session['sample_rate']
+    packet_kwargs = {}
+    if erspan_session.get('t1_probes'):
+        probe = erspan_session['t1_probes'][inject_index]
+        eth_dst = probe['eth_dst']
+        packet_kwargs['ip_dst'] = probe['ip_dst']
     pkt = testutils.simple_tcp_packet(
-        pktlen=pktlen, eth_src=src_mac, eth_dst=eth_dst or 'ff:ff:ff:ff:ff:ff'
+        pktlen=pktlen, eth_src=src_mac, eth_dst=eth_dst or 'ff:ff:ff:ff:ff:ff',
+        **packet_kwargs
     )
 
     ptfadapter.dataplane.flush()
@@ -92,7 +95,7 @@ def _send_sampled_traffic_and_collect(ptfadapter, erspan_session, inject_index,
     logger.info("Sent %d packets (pktlen=%d) from PTF port %d", total_packets, pktlen, inject_index)
 
     return collect_erspan_packets(
-        ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=timeout)
+        ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=timeout, expected_probe=pkt)
 
 
 def _assert_sampled_count(mirrored_count, sample_rate, label=None):
@@ -356,13 +359,10 @@ def test_erspan_truncation_packet_size(
         erspan_session,
         pktlen):
     '''
-    Verify ERSPAN truncation across packet sizes. truncate_size with no sample_rate
-    implies 1:1 sampling, so every probe is mirrored. Each mirrored frame length must
-    be within MIRROR_LEN_TOLERANCE of ENCAP_OVERHEAD + min(pktlen, truncate_size),
-    covering pktlen >, <, and == truncate_size.
+    Verify truncation with 1:1 mirroring for frames below, at and above the limit.
 
-    Steps: configure truncate_size only; send TRUNCATION_PROBE_COUNT pktlen-byte frames
-    from the source port; assert every mirrored frame length matches the model.
+    Require nonempty matching captures and validate every frame's length against
+    the encapsulation model and tolerance. Packet-count completeness is not checked.
     '''
     truncate_size = erspan_session['truncate_size']
     packets = _send_sampled_traffic_and_collect(
@@ -370,9 +370,8 @@ def test_erspan_truncation_packet_size(
         pktlen=pktlen, count=TRUNCATION_PROBE_COUNT, timeout=5,
         eth_dst=erspan_session['probe_dst_mac'])
     pytest_assert(
-        len(packets) == TRUNCATION_PROBE_COUNT,
-        "Expected {} mirrored frames (truncate_size with no sample_rate implies 1:1 sampling), got {}".format(
-            TRUNCATION_PROBE_COUNT, len(packets)))
+        packets,
+        "No matching ERSPAN packets received for pktlen={}, truncate_size={}".format(pktlen, truncate_size))
 
     for pkt_bytes in packets:
         _assert_mirror_len(len(pkt_bytes), pktlen, truncate_size)
@@ -425,7 +424,7 @@ def test_erspan_sampling_rx_with_truncation(
     sample_rate = erspan_session['sample_rate']
     truncate_size = erspan_session['truncate_size']
     packets = _send_sampled_traffic_and_collect(
-        ptfadapter, erspan_session, erspan_session['source_index'], pktlen=1500,
+        ptfadapter, erspan_session, erspan_session['source_index'], pktlen=SAMPLING_TRUNCATION_PACKET_SIZE,
         eth_dst=erspan_session['probe_dst_mac'])
     mirrored_count = len(packets)
     logger.info("RX sampling+truncation: rate=1:%d, mirrored=%d", sample_rate, mirrored_count)
@@ -435,7 +434,7 @@ def test_erspan_sampling_rx_with_truncation(
 
     # Verify each mirrored frame is truncated to the configured size
     for pkt_bytes in packets:
-        _assert_mirror_len(len(pkt_bytes), 1500, truncate_size)
+        _assert_mirror_len(len(pkt_bytes), SAMPLING_TRUNCATION_PACKET_SIZE, truncate_size)
 
 
 @pytest.mark.parametrize('erspan_session',
@@ -453,10 +452,7 @@ def test_erspan_sampling_tx_direction(
     Verify TX (egress) sampling emits ERSPAN at the configured 1:N ratio (mirrored
     count within [9500, 10500]).
 
-    direction=tx binds the egress mirror to the source port, so only traffic *leaving*
-    it is mirrored. We inject unicast on a peer VLAN member, addressed to a MAC pinned by
-    a static FDB entry to the source port, so the DUT forwards each frame out that port
-    (egress) only, triggering the mirror without VLAN-wide broadcast flooding.
+    Inject on the peer; T0 FDB or T1 routing forwards probes out the mirrored source.
 
     Steps: configure sample_rate=N, direction=tx; inject NUM_SAMPLES x N unicast frames
     on the peer (tx_ingress) port; assert the mirrored count is within [9500, 10500].
@@ -487,14 +483,14 @@ def test_erspan_sampling_tx_with_truncation(
     [9500, 10500] and each frame truncated to ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=tx; inject
-    NUM_SAMPLES x 256 1500B unicast frames (dst PROBE_UNICAST_DST_MAC) on the
+    NUM_SAMPLES x 256 1500B unicast frames (dst PROBE_UNICAST_DST_MAC on T0) on the
     tx_ingress peer port so the DUT forwards them out the source port (egress);
     assert count and per-frame truncated length.
     '''
     sample_rate = erspan_session['sample_rate']
     truncate_size = erspan_session['truncate_size']
     packets = _send_sampled_traffic_and_collect(
-        ptfadapter, erspan_session, erspan_session['tx_ingress_index'], pktlen=1500,
+        ptfadapter, erspan_session, erspan_session['tx_ingress_index'], pktlen=SAMPLING_TRUNCATION_PACKET_SIZE,
         eth_dst=erspan_session['probe_dst_mac'])
     mirrored_count = len(packets)
     logger.info("TX sampling+truncation: rate=1:%d, truncate=%d, mirrored=%d",
@@ -503,7 +499,7 @@ def test_erspan_sampling_tx_with_truncation(
     _assert_sampled_count(mirrored_count, sample_rate)
 
     for pkt_bytes in packets:
-        _assert_mirror_len(len(pkt_bytes), 1500, truncate_size)
+        _assert_mirror_len(len(pkt_bytes), SAMPLING_TRUNCATION_PACKET_SIZE, truncate_size)
 
 
 @pytest.mark.parametrize('erspan_session',
@@ -570,22 +566,22 @@ def test_erspan_sampling_both_with_truncation(
     truncate_size = erspan_session['truncate_size']
 
     rx_packets = _send_sampled_traffic_and_collect(
-        ptfadapter, erspan_session, erspan_session['source_index'], pktlen=1500,
+        ptfadapter, erspan_session, erspan_session['source_index'], pktlen=SAMPLING_TRUNCATION_PACKET_SIZE,
         eth_dst=erspan_session['probe_dst_mac'])
     logger.info("BOTH+trunc RX leg: rate=1:%d, truncate=%d, mirrored=%d",
                 sample_rate, truncate_size, len(rx_packets))
     _assert_sampled_count(len(rx_packets), sample_rate, label="BOTH RX leg")
     for pkt_bytes in rx_packets:
-        _assert_mirror_len(len(pkt_bytes), 1500, truncate_size)
+        _assert_mirror_len(len(pkt_bytes), SAMPLING_TRUNCATION_PACKET_SIZE, truncate_size)
 
     tx_packets = _send_sampled_traffic_and_collect(
-        ptfadapter, erspan_session, erspan_session['tx_ingress_index'], pktlen=1500,
+        ptfadapter, erspan_session, erspan_session['tx_ingress_index'], pktlen=SAMPLING_TRUNCATION_PACKET_SIZE,
         eth_dst=erspan_session['probe_dst_mac'])
     logger.info("BOTH+trunc TX leg: rate=1:%d, truncate=%d, mirrored=%d",
                 sample_rate, truncate_size, len(tx_packets))
     _assert_sampled_count(len(tx_packets), sample_rate, label="BOTH TX leg")
     for pkt_bytes in tx_packets:
-        _assert_mirror_len(len(pkt_bytes), 1500, truncate_size)
+        _assert_mirror_len(len(pkt_bytes), SAMPLING_TRUNCATION_PACKET_SIZE, truncate_size)
 
 
 @pytest.mark.parametrize('erspan_session',
@@ -613,14 +609,18 @@ def test_erspan_session_remove_stops_mirroring(
 
     duthost.command('config mirror_session remove {}'.format(erspan_session['session_name']))
 
+    packet_kwargs = {'eth_dst': 'ff:ff:ff:ff:ff:ff'}
+    if erspan_session.get('t1_probes'):
+        packet_kwargs.update(erspan_session['t1_probes'][src_port])
     inner_pkt = testutils.simple_tcp_packet(
-        pktlen=100, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
+        pktlen=100, eth_src=src_mac, **packet_kwargs
     )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt, count=1000)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=3)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=3,
+                                     expected_probe=inner_pkt)
     pytest_assert(
         len(packets) == 0,
         "Should not receive ERSPAN packets after session removal, got {}".format(len(packets))

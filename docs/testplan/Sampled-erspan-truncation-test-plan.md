@@ -1,6 +1,6 @@
 # Sampled ERSPAN with truncation test plan
 
-## Rev 0.1
+## Rev 0.2
 
 **Table of Contents**
 
@@ -27,6 +27,7 @@
 | Rev |     Date    |       Author            |     Change Description                                   |
 |:---:|:-----------:|:------------------------|:--------------------------------------------------------|
 | 0.1 |  05/21/2026 | Janet Cui               | Initial version                                         |
+| 0.2 |  10/24/2026 | Janet Cui               | T1 support                    |
 
 ## 2 Definition/Abbreviation
 
@@ -37,10 +38,8 @@
 ## 3 Overview
 
 The purpose is to test the new sampled ERSPAN with truncation feature on a SONiC switch DUT.
-Two new optional parameters were added to the ERSPAN mirror session: **sample_rate** (1:N sampling)
-and **truncate_size** (per-packet byte truncation). Sampling is supported in the **rx**, **tx**, and
-**both** mirror directions. This test plan validates capability discovery, CLI/CONFIG_DB plumbing,
-and end-to-end dataplane behavior.
+This plan validates ERSPAN **sample_rate** (1:N sampling) and **truncate_size**
+(per-packet truncation) in RX, TX and BOTH directions on T0 and T1.
 
 ## 4 Scope
 
@@ -49,12 +48,16 @@ The test targets a running SONiC with a fully functioning configuration. It veri
 - Accepts valid sample_rate / truncate_size values via CLI and writes them to CONFIG_DB.
 - Rejects out-of-range and invalid values.
 - Treats sample_rate=0 / truncate_size=0 as "feature disabled" (field omitted from CONFIG_DB).
-- Mirrors only 1 of every N packets when sampling is configured, in the rx, tx, and both directions.
+- Mirrors approximately 1 of every N packets when sampling is configured, in the rx, tx, and both directions.
 - Truncates each mirrored packet to the configured byte budget, including combined with sampling.
 
 ## 5 Testbed
 
-Supported topologies: `t0`.
+Supported topologies: `t0`, `t1`. Both use the same test cases and pass criteria.
+
+- **T0:** requires at least three physical members of one VLAN; TX/BOTH requires four.
+- **T1:** currently supports DUTs with at least three up, PTF-mapped IPv4
+  interfaces.
 
 The DUT must have at least one routable path to the configured ERSPAN destination IP so that the
 GRE-encapsulated mirror packet egresses on a port connected to PTF (the collector).
@@ -64,26 +67,22 @@ Capability gating (skips are implemented as fixtures in `conftest.py`):
   `PORT_INGRESS_SAMPLE_MIRROR_CAPABLE = true`.
 - `skip_if_egress_sampling_unsupported` - skips if STATE_DB does not report
   `PORT_EGRESS_SAMPLE_MIRROR_CAPABLE = true`.
-- `skip_if_any_sampling_unsupported` - skips only if neither ingress nor egress sampling is
-  supported (used by CLI/config-only sampling tests).
+- `sampling_direction` - skips CLI/config cases when the requested direction is unsupported;
+  `both` requires ingress and egress sampling capabilities.
 - `skip_if_truncation_unsupported` - skips if STATE_DB does not report
   `SAMPLEPACKET_TRUNCATION_CAPABLE = true`.
-- `skip_if_no_tx_ingress` - skips TX/BOTH dataplane tests when the testbed VLAN does not have a
+- `skip_if_no_tx_ingress` - skips T0 TX/BOTH dataplane tests when the testbed VLAN does not have a
   spare peer member port to inject the TX probe traffic.
 
 ## 6 Setup configuration
-Each test (or fixture) creates an ERSPAN session with the specific parameters under test and cleans it up on teardown.
 
 ### 6.1 Port roles (erspan_ports fixture)
 
-The dataplane tests pick three VLAN member ports:
+The dataplane tests select these roles from VLAN members on T0 or routed interfaces on T1:
 - **source** - the mirror source port; the session is bound to it and its traffic is mirrored.
-- **gre_egress** - the monitor/collector port; the GRE-encapsulated ERSPAN copy egresses here and
-  is captured by PTF. It also serves as the next-hop for the ERSPAN destination route.
-- **tx_ingress** - a spare peer VLAN member used only by TX/BOTH tests to inject unicast frames
-  addressed to `PROBE_UNICAST_DST_MAC`; the DUT forwards them out the source port only (egress),
-  triggering the egress mirror without flooding the VLAN.
-  `None` when no spare member exists, in which case TX/BOTH tests skip.
+- **gre_egress** - the collector-facing egress port for ERSPAN copies captured by PTF.
+- **tx_ingress** - the peer port used by TX/BOTH tests to inject traffic that leaves the
+  mirrored source port.
 
 ### 6.2 Setup of DUT switch
 
@@ -93,9 +92,10 @@ Each test uses fixtures (defined in `conftest.py`):
   PTF-connected port.
 - `erspan_session` - creates the mirror session with parameters (sample_rate, truncate_size,
   direction) supplied indirectly by the test, waits for STATE_DB status=active, yields, then
-  removes the session. Leftover same-named sessions are pre-cleaned via `remove_mirror_session`.
-  For every session it also programs a static FDB entry pinning `PROBE_UNICAST_DST_MAC` to the
-  source port and removes that entry on teardown.
+  removes the session. It also manages the T0 static FDB entry described below.
+
+T1 uses temporary interface addresses and static PTF neighbors to resolve the collector and
+TX next hops. Teardown removes additions made by the test and preserves matching existing state.
 
 On setup, sessions are created via:
 ```
@@ -111,19 +111,20 @@ sudo config mirror_session remove <name>
 
 ### 6.3 Unicast probe delivery
 
-To keep the amount of probe traffic on the fabric bounded and deterministic, probe frames are sent
-as unicast to a synthetic destination MAC (`PROBE_UNICAST_DST_MAC`) that the `erspan_session`
-fixture pins to the source port with a static FDB entry.
+**T0:** probes use `PROBE_UNICAST_DST_MAC`, pinned to the source port by a static FDB
+entry installed at session setup and removed at teardown.
 
 The single static FDB entry serves both directions:
-- **RX (ingress):** frames are injected on the source port with dst = `PROBE_UNICAST_DST_MAC`. They
-  are ingress-sampled first, then dropped by same-port forwarding.
-- **TX (egress):** frames are injected on the `tx_ingress` peer port with dst =
-  `PROBE_UNICAST_DST_MAC`. The FDB entry forwards them out the source port only, where they are
-  egress-sampled.
+- **RX:** inject on the source port; originals are discarded by same-port filtering.
+- **TX:** inject on the peer port; FDB forwarding sends originals out the mirrored source port.
 
-The entry is programmed via `swssconfig` (a static `FDB_TABLE` entry in Vlan`<id>`) at session
-setup and removed at teardown.
+**T1:** probes use the ingress router MAC and a dedicated destination IP:
+- **RX:** inject on the source port. A blackhole route discards the original probe while
+  ingress mirror copies use the separate collector route.
+- **TX:** inject on the peer port. A test route forwards the original probe out the mirrored
+  source port toward PTF.
+
+On both topologies, **BOTH** exercises the RX and TX paths separately.
 
 ### 6.4 Dataplane collection methodology
 
@@ -136,7 +137,9 @@ ERSPAN II/III header bytes between GRE and the inner frame).
 Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 10000` and `N = sample_rate`) so
 the expected mirrored count is `~NUM_SAMPLES = 10000` regardless of `N` (e.g. 1,000,000 packets at
 `1:100` and 2,560,000 packets at `1:256`), and assert the observed count is within `[9500, 10500]`
-(`NUM_SAMPLES ± 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
+(`NUM_SAMPLES * (1 ± SAMPLE_COUNT_TOLERANCE)`, currently ±5%).
+Sampling-with-truncation tests use `SAMPLING_TRUNCATION_PACKET_SIZE` (1500B) for both
+packet generation and length validation.
 
 ## 7 Test cases
 
@@ -173,24 +176,14 @@ All cases create a session, run `show mirror_session`, and inspect the session's
 
 ### 7.4 Dataplane validation
 
-These tests validate sampled and/or truncated mirroring end-to-end on the dataplane; each subsection
-maps to exactly one test function. Traffic is generated per mirror direction:
-- **RX (ingress):** inject on the source port.
-- **TX (egress):** inject unicast frames addressed to `PROBE_UNICAST_DST_MAC` on the `tx_ingress`
-  peer port so the DUT forwards them out the source port (egress), triggering the egress mirror.
-- **BOTH:** run the RX leg and the TX leg separately, asserting each leg independently.
-
-ERSPAN GRE packets are collected on the collector port using the 3-tuple match. Unless noted, the
-observed mirror count must fall within `[9500, 10500]` (`NUM_SAMPLES ± 5%`), and any truncated frame
-length is checked within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
+The following cases use the traffic paths in section 6.3 and collection rules in section 6.4.
+Length checks apply to each matching mirror frame, using `MIRROR_LEN_TOLERANCE` around
+`ENCAP_OVERHEAD + min(pktlen, truncate_size)` (currently estimated 62B overhead, ±8B tolerance).
 
 #### 7.4.1 Validate ERSPAN truncation across packet sizes
 **Test:** `test_erspan_truncation_packet_size`
 
-**Objective:** By sweeping multiple `truncate_size` x packet-length combinations with no `sample_rate`
-(so mirroring is 1:1 and every probe packet is mirrored), verify that each mirrored frame is truncated
-to the configured budget while frames smaller than the budget pass through untouched. The 1:1 ratio
-makes the per-packet length check deterministic.
+**Objective:** Verify truncation below, at and above the configured size limit, with 1:1 mirroring.
 
 **Parametrized (truncate_size, pktlen) combinations:**
 
@@ -208,8 +201,10 @@ makes the per-packet length check deterministic.
 - Send `TRUNCATION_PROBE_COUNT` packets of length `pktlen` from the source port.
 - Capture ERSPAN GRE packets on the collector port.
 
-**Pass criteria:** Exactly `TRUNCATION_PROBE_COUNT` frames are mirrored (1:1), and each mirrored
+**Pass criteria:** At least one matching test mirror is received, and each mirrored
 frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
+The sent and collected counts are logged for diagnosis; this case validates truncation,
+not lossless 1:1 mirror delivery. Sampling-rate cases retain their count-range assertions.
 
 #### 7.4.2 Validate RX sampled mirroring rates
 **Test:** `test_erspan_sampling_rx_direction`
@@ -221,7 +216,7 @@ landing the observed count in `[9500, 10500]`.
 **Steps:**
 - Configure `sample_rate=N` (direction defaults to rx).
 - Send `NUM_SAMPLES * N` packets on the source port.
-- Collect GRE-encapsulated packets on the collector port using the 3-tuple match.
+- Collect matching test mirrors on the collector port.
 
 **Pass criteria:** Observed mirror count is within `[9500, 10500]` (`NUM_SAMPLES ± 5%`).
 
@@ -235,20 +230,17 @@ mirrored copy is truncated to the configured size.
 **Steps:** Configure `sample_rate=256` + `truncate_size=128`; send `NUM_SAMPLES * 256` large
 (1500B) packets on the source port.
 
-**Pass criteria:** Observed mirror count within `[9500, 10500]` AND each captured mirror is truncated
-to `~62B encap overhead + 128`.
+**Pass criteria:** Mirror count within `[9500, 10500]` and every frame passes the length check
+in section 7.4 with `truncate_size=128`.
 
 #### 7.4.4 Validate TX sampled mirroring rates
 **Test:** `test_erspan_sampling_tx_direction`
 
-**Objective:** By injecting unicast on the `tx_ingress` peer port so the DUT forwards frames out the
-source port (egress), verify that TX (egress) sampling mirrors approximately 1 of every N packets at
-rates `1:100` and `1:256`.
+**Objective:** Verify TX sampling at rates `1:100` and `1:256`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=tx`.
-- Inject `NUM_SAMPLES * N` unicast frames (dst = `PROBE_UNICAST_DST_MAC`) on the `tx_ingress` peer
-  port; the DUT forwards them out the source port (egress), triggering the egress mirror.
+- Inject `NUM_SAMPLES * N` probes on the `tx_ingress` peer port.
 - Collect ERSPAN GRE packets on the collector port.
 
 **Pass criteria:** Observed mirror count within `[9500, 10500]` (`NUM_SAMPLES ± 5%`).
@@ -268,35 +260,26 @@ large (1500B) unicast frames on the `tx_ingress` peer port.
 #### 7.4.6 Validate BOTH-direction sampled mirroring rates
 **Test:** `test_erspan_sampling_both_direction`
 
-**Objective:** By injecting on the source port (RX leg) and injecting unicast on the `tx_ingress`
-peer port so the DUT forwards frames out the source port (TX leg), verify that `direction=both`
-samples both ingress- and egress-triggered traffic, each leg mirroring approximately 1 of every N
-packets at rates `1:100` and `1:256`.
+**Objective:** Verify both mirror directions independently at rates `1:100` and `1:256`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=both`.
-- RX leg: inject `NUM_SAMPLES * N` unicast frames on the source port;
-  they are ingress-sampled then same-port dropped (ingress mirror).
-- TX leg: inject `NUM_SAMPLES * N` unicast frames on the `tx_ingress` peer port;
-  the DUT forwards them out the source port (egress mirror).
+- RX leg: inject `NUM_SAMPLES * N` probes on the source port.
+- TX leg: inject `NUM_SAMPLES * N` probes on the `tx_ingress` peer port.
 - Collect ERSPAN GRE packets on the collector port for each leg.
 
-**Pass criteria:** Each leg's observed mirror count is within `[9500, 10500]` (`NUM_SAMPLES ± 5%`),
-proving both the ingress and egress bindings are active.
+**Pass criteria:** Each leg's mirror count is within `[9500, 10500]`.
 
 #### 7.4.7 Validate BOTH-direction sampled mirroring with truncation
 **Test:** `test_erspan_sampling_both_with_truncation`
 
-**Objective:** By running both legs under `direction=both` with truncation enabled, verify that the
-ingress- and egress-mirrored copies are each sampled approximately 1 of every N packets and truncated
-to the configured size.
+**Objective:** Verify sampling and truncation independently in both directions.
 
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=both`; run the RX leg
-(inject on the source port) and TX leg (inject on the `tx_ingress` peer port) with large (1500B)
-unicast frames addressed to `PROBE_UNICAST_DST_MAC`.
+(source port) and TX leg (peer port), each sending `NUM_SAMPLES * 256` 1500B probes.
 
-**Pass criteria:** Each leg's observed mirror count is within `[9500, 10500]` AND every mirrored frame
-on each leg is truncated to `~62B encap overhead + 128`.
+**Pass criteria:** Each leg's mirror count is within `[9500, 10500]` and every frame passes
+the length check in section 7.4 with `truncate_size=128`.
 
 ### 7.5 Session lifecycle
 
@@ -309,9 +292,10 @@ port, verify that mirroring stops immediately and no further ERSPAN copies reach
 **Steps:**
 - Create a session with `sample_rate=256` and wait for it to become active.
 - Remove the session.
-- Send 1000 100B broadcast packets on the source port and verify no mirror copies arrive.
+- Send 1000 100B probes on the source port (broadcast on T0, RX probe destination on T1)
+  and verify no matching mirror copies arrive.
 
-**Pass criteria:** After removal, the collector receives zero GRE-encapsulated packets within the
+**Pass criteria:** After removal, the collector receives zero matching test mirrors within the
 timeout window.
 
 ### 7.6 Backward compatibility
