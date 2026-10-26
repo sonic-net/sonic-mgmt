@@ -111,7 +111,8 @@ class ParseTestbedTopoinfo():
         for vm in self.get_vm_list(topo_definition, neigh_type):
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
-            if 'properties' in vmconfig[vm]:
+            if ('configuration' in topo_definition
+                    and 'properties' in topo_definition['configuration'][vm]):
                 # expand properties list into properties dictinary
                 property_lst = topo_definition['configuration'][vm]['properties']
                 vmconfig[vm]['properties'] = {}
@@ -322,8 +323,13 @@ class ParseTestbedTopoinfo():
                 topo_definition, po_map, dut_num, 'VMs')
 
         if 'DPUs' in topo_definition['topology']:
-            vm_topo_config['vm'].update(self.parse_topo_defintion(
+            vm_topo_config.setdefault('vm', {}).update(self.parse_topo_defintion(
                 topo_definition, po_map, dut_num, 'DPUs'))
+
+        # VM-less topos (e.g. ptf8 with no VMs key) still need an empty map so
+        # deploy-mg can iterate vm_topo_config['vm'].
+        if 'vm' not in vm_topo_config:
+            vm_topo_config['vm'] = {}
 
         if 'cable' in topo_name:
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']

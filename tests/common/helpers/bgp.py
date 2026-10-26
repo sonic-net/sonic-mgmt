@@ -3,11 +3,93 @@ import logging
 import requests
 import ipaddress
 
-from tests.common.utilities import wait_tcp_connection
+from tests.common.utilities import wait_tcp_connection, wait_until
 
 
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
 BGP_SAVE_DEST_TMPL = "/tmp/bgp_%s.j2"
+
+
+# ---------------------------------------------------------------------------
+# Shared multi-ASIC helpers
+#
+# These helpers consolidate plumbing that was previously open-coded across
+# tests/bgp/* and tests/common/helpers/bgp.py: resolving an ASIC index to a
+# namespace, building namespace-scoped sonic-db-cli / sonic-cfggen / vtysh
+# command strings, and fetching namespace-scoped config_facts.
+#
+# They accept an ``asic_index`` that may be ``None`` (default / single-ASIC),
+# and degrade to non-namespaced commands in that case.
+# ---------------------------------------------------------------------------
+
+
+def get_asic_namespace(duthost, asic_index):
+    """Return the Linux namespace name for the given ASIC index.
+
+    Returns ``None`` (the default namespace) for single-ASIC DUTs or when
+    ``asic_index`` is ``DEFAULT_ASIC_ID``.
+    """
+    return duthost.get_namespace_from_asic_id(asic_index)
+
+
+def namespace_cli_arg(namespace):
+    """Return the ``-n <namespace>`` argument shared by sonic-db-cli and sonic-cfggen.
+
+    Returns an empty string for the default namespace so the resulting command
+    works unchanged on single-ASIC DUTs.
+    """
+    return "-n {}".format(namespace) if namespace else ""
+
+
+def get_db_cli_prefix(duthost, asic_index):
+    """Return a fully-formed ``sonic-db-cli`` prefix for an ASIC.
+
+    Example::
+
+        sonic-db-cli                  # single-ASIC / default namespace
+        sonic-db-cli -n asic1         # multi-ASIC, namespace asic1
+    """
+    return get_db_cli_prefix_for_namespace(get_asic_namespace(duthost, asic_index))
+
+
+def get_db_cli_prefix_for_namespace(namespace):
+    """Like :func:`get_db_cli_prefix`, but for callers that already hold a
+    resolved ``namespace`` (e.g. helpers that take a ``namespace`` parameter
+    rather than an ``asic_index``).
+    """
+    return "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
+
+
+def get_asic_config_facts(duthost, asic_index):
+    """Return ``ansible_facts`` from a namespace-scoped ``config_facts`` call."""
+    namespace = get_asic_namespace(duthost, asic_index)
+    return duthost.config_facts(
+        host=duthost.hostname, source="running", namespace=namespace
+    )["ansible_facts"]
+
+
+def map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
+    """Map a BGP neighbor device name to local DUT member interfaces.
+
+    ``dev_nbrs`` is the ASIC-scoped ``DEVICE_NEIGHBOR`` table from
+    :func:`get_asic_config_facts`. Keys are physical ports (Ethernet*).
+    LAG members appear as their own entries, so no PortChannel lookup is needed.
+    """
+    interfaces = {}
+    for ifname, nbr_info in dev_nbrs.items():
+        if nbr_info.get('name') == neighbor_name:
+            interfaces[ifname] = nbr_info
+    return interfaces
+
+
+def get_vtysh_cmd_for_asic(duthost, asic_index, cmd):
+    """Rewrite a ``vtysh ...`` command to target the given ASIC's namespace.
+
+    On single-ASIC DUTs (``asic_index`` is the default), the command is
+    returned unchanged.
+    """
+    namespace = get_asic_namespace(duthost, asic_index)
+    return duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
 
 
 def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
@@ -21,7 +103,7 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
         duthost.file(path=save_dest_path, state="absent")
 
 
-def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_asn):
+def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_asn, namespace=None):
     """Configure BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -30,13 +112,11 @@ def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_
         "-c 'neighbor {peer_addr} remote-as {peer_asn}' "
         "-c 'neighbor {peer_addr} activate' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             peer_asn=peer_asn,
-                             dut_addr=dut_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, peer_asn=peer_asn, dut_addr=dut_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
-def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn, namespace=None):
     """Remove BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -44,11 +124,11 @@ def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
         "-c 'router bgp {dut_asn}' "
         "-c 'no neighbor {peer_addr}' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
-def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn, namespace=None):
     """Shutdown BGP neighbor using vtysh command"""
     cmd = (
         "vtysh "
@@ -56,17 +136,16 @@ def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
         "-c 'router bgp {dut_asn}' "
         "-c 'neighbor {peer_addr} shutdown' "
     )
-    duthost.shell(cmd.format(peer_addr=peer_addr,
-                             dut_asn=dut_asn))
+    cmd = cmd.format(peer_addr=peer_addr, dut_asn=dut_asn)
+    duthost.shell(duthost.get_vtysh_cmd_for_namespace(cmd, namespace))
 
 
 def run_bgp_facts(duthost, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
-    sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+    config_facts = get_asic_config_facts(duthost, enum_asic_index)
+    sonic_db_cmd = get_db_cli_prefix(duthost, enum_asic_index)
     bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
     bgp_asn = int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].encode().decode("utf-8"))
     for k, v in list(bgp_facts['bgp_neighbors'].items()):
@@ -83,25 +162,28 @@ def run_bgp_facts(duthost, enum_asic_index):
                 assert v['local AS'] == int(bgp_confed_asn)
         else:
             assert v['local AS'] == bgp_asn
-        # Check bgpmon functionality by validate STATE DB contains this neighbor as well
-        state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
-                                   .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']
-        peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
-                                  .format(sonic_db_cmd, k),
-                                  module_ignore_errors=False)['stdout_lines']
-        assert state_fact[0] == "Established", (
-            "BGP neighbor state in STATE_DB is not 'Established' for neighbor. "
-            "Expected: 'Established', got: '{}'."
-        ).format(
-            state_fact[0] if state_fact else "No state found"
-        )
-        assert peer_type[0] == ("i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"), (
-            "BGP peer type mismatch for neighbor. "
-            "Expected '{}', got '{}'."
-        ).format(
-            "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP",
-            peer_type[0] if peer_type else "No peer type found"
-        )
+        # bgpmon's main loop updates NEIGH_STATE_TABLE from FRR periodically
+        # (every ~15s) and so lags the FRR peer state, meaning STATE_DB can hold
+        # a stale state or no state at all. Poll STATE_DB for up to 30s (~2 bgpmon
+        # cycles) until it catches up.
+        expected_peer_type = "i-BGP" if v['remote AS'] == v['local AS'] else "e-BGP"
+        last_seen = {"state": None, "peer_type": None}
+
+        def _neigh_get_state_db(k=k, expected_peer_type=expected_peer_type, last_seen=last_seen):
+            state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
+                                       .format(sonic_db_cmd, k),
+                                       module_ignore_errors=True)['stdout_lines']
+            peer_type = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "peerType"'
+                                      .format(sonic_db_cmd, k),
+                                      module_ignore_errors=True)['stdout_lines']
+            last_seen["state"] = state_fact[0] if state_fact else None
+            last_seen["peer_type"] = peer_type[0] if peer_type else None
+            return last_seen["state"] == "Established" and last_seen["peer_type"] == expected_peer_type
+
+        assert wait_until(30, 5, 0, _neigh_get_state_db), (
+            "BGP neighbor {} not correctly reflected in STATE_DB NEIGH_STATE_TABLE. "
+            "Expected state 'Established' and peerType '{}', last observed state '{}' and peerType '{}'."
+        ).format(k, expected_peer_type, last_seen["state"], last_seen["peer_type"])
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
@@ -171,7 +253,8 @@ class BGPNeighbor(object):
                 peer_addr=self.ip,
                 peer_asn=self.asn,
                 dut_addr=self.peer_ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
             _write_variable_from_j2_to_configdb(
@@ -230,12 +313,13 @@ class BGPNeighbor(object):
             _remove_bgp_neighbor_with_vtysh(
                 self.duthost,
                 peer_addr=self.ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
-            for asichost in self.duthost.asics:
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
+            asichost = self.duthost.asic_instance_from_namespace(self.namespace)
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
 
         self.ptfhost.exabgp(name=self.name, state="absent")
 
@@ -259,7 +343,8 @@ class BGPNeighbor(object):
             _shutdown_bgp_neighbor_with_vtysh(
                 self.duthost,
                 peer_addr=self.ip,
-                dut_asn=self.peer_asn
+                dut_asn=self.peer_asn,
+                namespace=self.namespace,
             )
         elif not self.is_passive:
             for asichost in self.duthost.asics:

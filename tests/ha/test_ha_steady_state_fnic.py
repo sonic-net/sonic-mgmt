@@ -1,6 +1,5 @@
 import logging
 import random
-import concurrent.futures
 
 import configs.privatelink_config as pl
 import ptf.packet as scapy
@@ -8,11 +7,11 @@ import ptf.testutils as testutils
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
-from packets import inbound_pl_packets, outbound_pl_packets
-from tests.common.config_reload import config_reload
+from ha_packets import inbound_pl_packets, outbound_pl_packets
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.dash_utils import verify_tunnel_packets
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
+from ha_utils import parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -25,20 +24,18 @@ pytestmark = [
 NUM_PACKETS = 5
 
 
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
-
-
 def _build_fnic_pkt_set(config, encap_proto, ptfadapter):
     """Build a list of NUM_PACKETS bidirectional fnic packet tuples for a given DPU config."""
     pkt_sets = []
     for _ in range(NUM_PACKETS):
         sport = random.randint(49152, 65535)
         dport = random.randint(49152, 65535)
+        # Each iteration is a unique 5-tuple; outbound SYN creates a new TCP flow on the DPU,
+        # then the inbound packet matches the established flow's reverse direction as an ACK.
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
             config, encap_proto, floating_nic=True,
-            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+            tcp_flag_syn=True,
         )
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
             config, floating_nic=True, inner_sport=dport, inner_dport=sport
@@ -69,8 +66,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost, floating_nic=True)
 
     yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
@@ -103,7 +99,7 @@ def test_fnic_basic_transform(
 
     pytest_assert(sum(tunnel_endpoint_counts.values()) == NUM_PACKETS, "Expected active return-path packets")
 
-    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
     # traffic to standby DPU (forwarded through active for processing)
@@ -123,5 +119,5 @@ def test_fnic_basic_transform(
 
     pytest_assert(sum(tunnel_endpoint_counts.values()) == NUM_PACKETS, "Expected standby return-path packets")
 
-    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")

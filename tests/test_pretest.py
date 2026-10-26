@@ -14,6 +14,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
+from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -31,6 +32,88 @@ pytestmark = [
 
 FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
+DPU_RECOVERY_STATE_TIMEOUT = 600
+DPU_RECOVERY_STATE_INTERVAL = 30
+DPU_RECOVERY_STARTUP_RETRY_TIMEOUT = 720
+DPU_RECOVERY_STARTUP_RETRY_INTERVAL = 60
+
+
+def _parse_chassis_module_status(rows):
+    """Normalize parsed 'show chassis modules status' rows into DPU module status entries."""
+    entries = []
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
+            continue
+        if "oper-status" not in row or "admin-status" not in row:
+            logger.warning("Skipping unexpected chassis module status row: %s", row)
+            continue
+        entries.append({
+            "name": name,
+            "oper_status": row["oper-status"],
+            "admin_status": row["admin-status"],
+        })
+    return entries
+
+
+def _show_chassis_module_status(duthost):
+    return duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
+
+
+def _is_dpu_online_up(duthost, dpu_name):
+    for entry in _parse_chassis_module_status(_show_chassis_module_status(duthost)):
+        if entry["name"] == dpu_name:
+            return (entry["oper_status"].lower() == "online" and
+                    entry["admin_status"].lower() == "up")
+    return False
+
+
+def _startup_dpu_when_transition_settled(duthost, dpu_name):
+    result = duthost.shell(
+        "sudo config chassis modules startup {}".format(dpu_name),
+        module_ignore_errors=True
+    )
+    output = "{}\n{}".format(result.get("stdout", ""), result.get("stderr", ""))
+    if "state transition is already in progress" in output.lower():
+        logger.info("%s: startup of %s is still blocked by state transition",
+                    duthost.hostname, dpu_name)
+        return False
+    return True
+
+
+def _recover_admin_up_offline_dpu(duthost, dpu_name):
+    logger.warning("%s: recovering %s because admin is up but oper is not Online",
+                   duthost.hostname, dpu_name)
+    duthost.shell("sudo config chassis modules shutdown {}".format(dpu_name))
+
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STARTUP_RETRY_TIMEOUT, DPU_RECOVERY_STARTUP_RETRY_INTERVAL, 0,
+                   _startup_dpu_when_transition_settled, duthost, dpu_name),
+        "{}: {} startup was still blocked by a state transition".format(duthost.hostname, dpu_name)
+    )
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STATE_TIMEOUT, DPU_RECOVERY_STATE_INTERVAL, 0,
+                   _is_dpu_online_up, duthost, dpu_name),
+        "{}: {} did not recover to Online/up".format(duthost.hostname, dpu_name)
+    )
+
+
+def test_recover_admin_up_offline_dpu_modules(duthosts, tbinfo):
+    """Recover SmartSwitch DPU modules that are admin-up but not operationally Online."""
+    topo_name = tbinfo.get("topo", {}).get("name", "")
+    if "smartswitch" not in topo_name:
+        pytest.skip("DPU module recovery is only applicable to SmartSwitch testbeds")
+
+    def recover_dpus(duthost):
+        entries = _parse_chassis_module_status(_show_chassis_module_status(duthost))
+        for entry in entries:
+            if (entry["admin_status"].lower() == "up" and
+                    entry["oper_status"].lower() != "online"):
+                _recover_admin_up_offline_dpu(duthost, entry["name"])
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(recover_dpus, duthost)
 
 
 def test_features_state(duthosts, localhost):
@@ -619,6 +702,16 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts.frontend_nodes:
             executor.submit(disable_startup_tsa_tsb, duthost)
+
+
+@pytest.mark.topology('bmc')
+def test_bmc_clock_in_sync(duthosts):
+    """Verify BMC clocks are synchronized with the sonic-mgmt container."""
+    bmc_duts = [duthost for duthost in duthosts if duthost.is_bmc()]
+    pytest_require(bmc_duts, "BMC clock synchronization check only applies to BMC testbeds")
+
+    for duthost in bmc_duts:
+        assert_bmc_clock_in_sync(duthost)
 
 
 """

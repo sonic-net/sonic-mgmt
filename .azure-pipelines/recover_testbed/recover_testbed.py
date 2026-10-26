@@ -67,7 +67,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
         for i in range(3):
             dut_ssh = duthost_ssh(sonichost)
 
-            if type(dut_ssh) == tuple:
+            if isinstance(dut_ssh, tuple):
                 logger.info("SSH success.")
 
                 # May recover from boot loader, need to delete image file

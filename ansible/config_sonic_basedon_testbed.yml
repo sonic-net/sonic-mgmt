@@ -35,36 +35,39 @@
   gather_facts: no
   tasks:
 
-  # Auto-detect if DUT is IPv6-only by trying to connect
-  # This must run BEFORE any task that connects to the DUT
-  # Save original IPv4 address before potentially switching
-  - name: Save original IPv4 address from inventory
-    set_fact:
-      original_ipv4_address: "{{ ansible_host }}"
-    when:
-      - ansible_host is defined
-      - "':' not in ansible_host"
+  - name: Validate the IPv6 address when supplied
+    assert:
+      that:
+        - ansible_hostv6 is ansible.utils.ipv6_address
+      fail_msg: "ansible_hostv6 must be a valid IPv6 address."
+    when: ansible_hostv6 is defined
+    tags: always
 
-  - name: Try to connect using IPv4 address (pre-task check)
-    wait_for:
-      host: "{{ ansible_host }}"
-      port: 22
-      timeout: 10
-    delegate_to: localhost
-    ignore_errors: true
-    register: ipv4_reachable_precheck
-    when:
-      - "':' not in ansible_host"
+  - name: Repair a primary that is not an IP address
+    when: (ansible_host | default('')) is not ansible.utils.ip_address
+    tags: always
+    block:
+      - name: Require an IPv6 address to replace the invalid primary
+        assert:
+          that:
+            - ansible_hostv6 is defined
+          fail_msg: "ansible_host is not an IP address and ansible_hostv6 is missing."
 
-  - name: Switch to IPv6 if IPv4 is not reachable and IPv6 is available (pre-task)
-    set_fact:
-      ansible_host: "{{ ansible_hostv6 }}"
-      dut_was_ipv6_only: true
+      - name: Use the supplied IPv6 address as the primary
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 }}"
+
+  - name: Reject conflicting IPv6 management addresses
+    assert:
+      that:
+        - >-
+          (ansible_host | ansible.utils.ipaddr('address')) ==
+          (ansible_hostv6 | ansible.utils.ipaddr('address'))
+      fail_msg: "ansible_host and ansible_hostv6 specify different IPv6 addresses."
     when:
-      - ipv4_reachable_precheck is defined
-      - ipv4_reachable_precheck.failed|default(false)
       - ansible_hostv6 is defined
-      - ansible_hostv6 != ''
+      - ansible_host is ansible.utils.ipv6_address
+    tags: always
 
   - block:
     - name: set default testbed file
@@ -82,17 +85,20 @@
       when: inventory_hostname not in testbed_facts['duts']
       tags: always
 
-    - name: Debug connection mode
-      debug:
-        msg: "Connecting to {{ inventory_hostname }} via {{ ansible_host }} (was IPv6-only: {{ dut_was_ipv6_only|default(false) }}, original IPv4: {{ original_ipv4_address|default('N/A') }})"
+    - name: Require a supplied IPv6 address for IPv6-only deployment
+      assert:
+        that:
+          - ansible_hostv6 is defined or ansible_host is ansible.utils.ipv6_address
+        fail_msg: "IPv6-only deployment requested but no IPv6 management address is supplied for {{ inventory_hostname }}"
+      when: use_ipv6_mgmt|default(false)|bool
 
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
-      include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
+      include_vars: "group_vars/{{ ipv6_mgmt_config_group | default(group_names[1]) }}/ipv6.yml"
       when:
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
-        - group_names|length > 1
+        - ipv6_mgmt_config_group is defined or (group_names | length > 1)
       ignore_errors: true
 
     - name: Override management service configurations for IPv6-only mode
@@ -111,22 +117,11 @@
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
 
-    # DO NOT override ansible_host here - we need to use IPv4 to connect initially
-    # The DUT will be configured with IPv6 management through the minigraph
-    - name: Set management IP configuration for IPv6-only mode
-      set_fact:
-        target_mgmt_ip: "{{ ansible_hostv6 }}"
-        mgmt_subnet_mask_length: 64
-      when:
-        - use_ipv6_mgmt is defined
-        - use_ipv6_mgmt|bool == true
-        - ansible_hostv6 is defined
-
     - name: Debug IPv6-only management configuration
       debug:
         msg: |
-          IPv6-only management mode enabled for {{ inventory_hostname }}
-          Management IP: {{ ansible_host }}
+          IPv6-only management mode requested for {{ inventory_hostname }}
+          Target management IP: {{ ansible_hostv6 | default(ansible_host, true) }}
           NTP servers: {{ ntp_servers | join(', ') }}
           DNS servers: {{ dns_servers | join(', ') }}
           TACACS servers: {{ tacacs_servers | join(', ') }}
@@ -157,6 +152,10 @@
     - name: set prober_type
       set_fact:
         prober_type: "{{ testbed_facts['prober_type'] | default(None) }}"
+
+    - name: set neighbor_mode
+      set_fact:
+        neighbor_mode: "{{ testbed_facts['neighbor_mode'] | default(None) }}"
 
     - name: set lit mode
       set_fact:
@@ -332,6 +331,10 @@
     when: hostvars[item]['slot_num'] is defined
     loop: "{{ ansible_play_batch }}"
 
+  - name: set is_tor_dut fact (aggregator dut_types contain the 'tor' substring but are NOT ToRs)
+    set_fact:
+      is_tor_dut: "{{ ('tor' in vm_topo_config['dut_type'] | lower) and ('aggregator' not in vm_topo_config['dut_type'] | lower) }}"
+
   - name: find all enabled host_interfaces
     set_fact:
       host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
@@ -340,7 +343,7 @@
     set_fact:
       vlan_intfs: "{{ vlan_intfs|default([]) + [port_alias[item]] }}"
     with_items: "{{ host_if_indexes }}"
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and (is_tor_dut | bool)"
 
   - name: set default dualtor facts
     set_fact:
@@ -411,13 +414,13 @@
       port_alias: "{{ port_alias }}"
       vlan_config: "{{ vlan_config | default(None) }}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and  (is_tor_dut | bool)"
 
   - name: find downlink portchannel configuration for T0 topology
     set_fact:
       portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
     delegate_to: localhost
-    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and  (is_tor_dut | bool)"
 
   - name: find any tunnel configurations
     tunnel_config:
@@ -585,6 +588,13 @@
         cert_subject: "{{ subject_t }}"
     when: deploy is defined and deploy|bool == true
 
+  - name: Select IPv6 proxy for IPv6-only management
+    set_fact:
+      proxy_env: "{{ proxy_env_ipv6 }}"
+    when:
+      - use_ipv6_mgmt | default(false) | bool
+      - proxy_env_ipv6 is defined
+
   - name: Set docker proxy
     block:
       - name: Ensures /etc/systemd/system/docker.service.d dir exists
@@ -610,6 +620,30 @@
           seconds: 60
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
+
+  - name: Remove docker proxy when no proxy is configured
+    block:
+      - name: Remove docker proxy config
+        file:
+          path: /etc/systemd/system/docker.service.d/http-proxy.conf
+          state: absent
+        register: docker_proxy_removed
+
+      - name: Restart docker service after removing proxy
+        systemd:
+          state: restarted
+          daemon_reload: yes
+          name: docker
+        when: docker_proxy_removed.changed
+
+      - name: Wait 60s for docker containers to restart
+        pause:
+          seconds: 60
+        when: docker_proxy_removed.changed
+    become: true
+    when:
+      - proxy_env is not defined
+      - deploy is defined and deploy|bool == true
 
   - name: Enable PTF tacacs server by default
     set_fact:
@@ -832,16 +866,9 @@
 
       - name: Adjust BCM DNX soc properties to set STAN_ALN mode correctly
         block:
-          - name: Get active fabric links
-            block:
-            - name: Get online fabric cards
-              shell: show chassis module status | grep "FABRIC-CARD" | grep "Online" | wc -l
-              register: active_fabric_cards
-
-            - name: Set fabric links based on active fabric cards
-              set_fact:
-                fabric_links: "{{ active_fabric_cards.stdout | int * 24 }}"
-
+          - name: Set fabric links based on statically configured num_fabric_cards
+            set_fact:
+              fabric_links: "{{ (hostvars[sup_dut]['num_fabric_cards'] | int) * 24 }}"
             when: inventory_hostname == sup_dut
 
           - name: Adjust SOC properties if appl_param_active_links_thr_high is greater than fabric links
@@ -868,17 +895,19 @@
                 # Needs to be followed by config reload to take affect
 
             when: inventory_hostname != sup_dut
-        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku)
+        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku) and (sup_dut is defined) and (hostvars[sup_dut]['num_fabric_cards'] is defined)
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
       # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
       # which have some interfaces disabled, apply the minigraph config first so that
       # golden config inherits the same admin_status settings
+      # t2_single_node golden_config needs port_config from generated minigraph so
+      # that golden config does not inherit stale admin_status from old minigraph
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo"
+        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
 
       - name: Extract port speeds and hwsku from lab CSV files for PORT override
         delegate_to: localhost
@@ -921,7 +950,9 @@
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           prober_type: "{{ prober_type | default(omit) }}"
+          neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
@@ -929,8 +960,10 @@
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
+          lacp_fast_rate: "{{ lacp_fast_rate | default(false) }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
-        when: enable_macsec is not defined
+        when: enable_macsec is not defined and init_cfg_profile is not defined
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -951,6 +984,7 @@
           num_asics: "{{ num_asics }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
@@ -983,6 +1017,20 @@
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
 
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
+
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
           shell: config load_minigraph -y
@@ -1008,23 +1056,15 @@
         become: false
         local_action: wait_for
         args:
-          # When use_ipv6_mgmt is true, wait on IPv6 address
-          # When use_ipv6_mgmt is false/undefined, wait on IPv4 (original_ipv4_address if we auto-switched to IPv6, otherwise ansible_host)
-          host: "{{ ansible_hostv6 if (use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 != '') else (original_ipv4_address if original_ipv4_address is defined else ansible_host) }}"
+          host: >-
+            {{ (ansible_hostv6 | default(ansible_host, true))
+               if use_ipv6_mgmt|default(false)|bool else ansible_host }}
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
           delay: 10
           timeout: 600
         changed_when: false
-
-      - name: Switch ansible_host to IPv6 after minigraph load (for subsequent tasks)
-        set_fact:
-          ansible_host: "{{ ansible_hostv6 }}"
-        when:
-          - use_ipv6_mgmt|default(false)|bool
-          - ansible_hostv6 is defined
-          - ansible_hostv6 != ''
 
       - name: Validate breakout config params
         assert:
@@ -1160,6 +1200,15 @@
             delay: 10
             until: chrony_start_result is succeeded
 
+          - name: Wait for chronyd to accept commands
+            become: true
+            command: chronyc tracking
+            register: chrony_ready_result
+            until: chrony_ready_result.rc == 0
+            retries: 12
+            delay: 5
+            changed_when: false
+
           - name: Force rapid NTP polling with chrony
             become: true
             command: chronyc burst 4/4
@@ -1178,7 +1227,7 @@
             become: true
             command: chronyc makestep
 
-        when: chrony_service.status.LoadState != "not-found"
+        when: chrony_service.status.LoadState != "not-found" and init_cfg_profile is not defined
 
       - name: Check if "config bmp" is supported
         shell: "config -h | grep 'BMP-related configuration'"

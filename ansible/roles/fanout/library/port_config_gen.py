@@ -71,6 +71,7 @@ return:
 
 class PortConfigGenerator(object):
 
+    C508O1X2_HWSKU = "Mellanox-SN5640-C508O1X2"
     MACHINE_CONF = "/host/machine.conf"
     SONIC_VERSION_FILE = "/etc/sonic/sonic_version.yml"
     HWSKU_DIR_PREFIX = "/usr/share/sonic/device/"
@@ -323,6 +324,7 @@ class PortConfigGenerator(object):
                 self.fanout_port_config[port_name] = port_config
 
         self._derive_subports()
+        self._apply_c508o1x2_port64()
 
     def _derive_subports(self):
         """Derive subport attribute for ports sharing the same physical index.
@@ -351,6 +353,26 @@ class PortConfigGenerator(object):
                 alias = port_config.get('alias', '')
                 if alias and alias[-1].isalpha():
                     port_config['subport'] = str(ord(alias[-1]) - ord('a') + 1)
+
+    def _apply_c508o1x2_port64(self):
+        """Port 64 breakout on C508O1X2; Ethernet508 uses CONFIG_DB subport 2."""
+        if self.fanout_hwsku != self.C508O1X2_HWSKU:
+            return
+
+        port64_cfg = {
+            "Ethernet508": {
+                "name": "Ethernet508", "lanes": "508,509,510,511", "speed": "400000",
+                "index": "64", "alias": "etp64e", "subport": "2",
+            }
+        }
+        for port_name, fields in port64_cfg.items():
+            if port_name in self.fanout_port_config:
+                self.fanout_port_config[port_name].update(fields)
+            else:
+                self.fanout_port_config[port_name] = fields.copy()
+
+        for stale_port in ("Ethernet509", "Ethernet510", "Ethernet511"):
+            self.fanout_port_config.pop(stale_port, None)
 
 
 def main():
