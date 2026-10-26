@@ -295,14 +295,19 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
 
 def generate_and_verify_icmp_traffic_batch(duthost, ptfadapter, flows):
     """
-    Send a batch of ICMP requests from PTF to DUT and verify the replies.
+    Send a group of ICMP requests from PTF to DUT and verify the replies.
 
-    Every request is built and sent before any verification happens, so the batch pays
-    the dataplane settle delay once instead of once per flow. PTF removes only the
-    matching packet from a port's receive queue, so replies belonging to flows that
-    share a PTF port stay available for the remaining verifications.
+    The requests are addressed to the DUT itself, so they are punted to the control
+    plane and answered by the CPU. That path is policed and gives no delivery guarantee
+    under burst, so each request is still sent and verified on its own rather than
+    firing the whole group at once. What the group does save is the per-flow dataplane
+    settle delay, which only needs to be paid once after the preceding configuration
+    change.
 
-    All flows in a batch are verified against the same DUT configuration, so only group
+    Each flow uses a distinct IP pair, so a reply left in a receive queue cannot be
+    mistaken for another flow's reply and the queue does not need flushing in between.
+
+    All flows in a group are verified against the same DUT configuration, so only group
     flows that are expected to behave consistently at the same point in the test.
 
     Args:
@@ -322,18 +327,12 @@ def generate_and_verify_icmp_traffic_batch(duthost, ptfadapter, flows):
     ptfadapter.dataplane.flush()
     time.sleep(1)
 
-    for pkt, _, src_port_number, _ in built_flows:
+    for pkt, masked_exp_pkt, src_port_number, pkt_action in built_flows:
         testutils.send_packet(ptfadapter, src_port_number, pkt)
 
-    # Verify the forwarded flows first. Waiting for the replies that are expected also
-    # gives the DUT time to answer the flows that are expected to be dropped, so a reply
-    # that should not have been sent is already buffered by the time it is checked for.
-    for _, masked_exp_pkt, src_port_number, pkt_action in built_flows:
         if pkt_action == ACTION_FWD:
             testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, [src_port_number])
-
-    for _, masked_exp_pkt, src_port_number, pkt_action in built_flows:
-        if pkt_action == ACTION_DROP:
+        elif pkt_action == ACTION_DROP:
             testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, [src_port_number])
 
 
