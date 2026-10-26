@@ -4,6 +4,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from telemetry_utils import generate_client_cli
 from telemetry_utils import archive_telemetry_certs, unarchive_telemetry_certs, rotate_telemetry_certs
 from telemetry_utils import execute_ptf_gnmi_cli
@@ -30,16 +31,8 @@ Testing cert rotation by telemetry
 """
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_streaming_telemetry, localhost):
-    """ Test that telemetry server will not exit when certs are missing. We will shutdown telemetry,
-    remove certs and verify that telemetry is up and running.
-    """
-    logger.info("Testing telemetry server will startup without certs")
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-
+@support_ignore_loganalyzer
+def _restart_telemetry_without_certs(duthost, env):
     # Shutting down telemetry
     duthost.service(name=env.gnmi_container, state="stopped")
 
@@ -53,6 +46,20 @@ def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_st
     # Wait until telemetry is active and running
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
                   "%s not started." % (env.gnmi_container))
+
+
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_streaming_telemetry, localhost,
+                            loganalyzer):
+    """ Test that telemetry server will not exit when certs are missing. We will shutdown telemetry,
+    remove certs and verify that telemetry is up and running.
+    """
+    logger.info("Testing telemetry server will startup without certs")
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    dut_loganalyzer = {duthost.hostname: loganalyzer[duthost.hostname]} if loganalyzer else None
+    _restart_telemetry_without_certs(duthost, env, ignore_loganalyzer=dut_loganalyzer)
 
     # Restore certs
     unarchive_telemetry_certs(duthost)
