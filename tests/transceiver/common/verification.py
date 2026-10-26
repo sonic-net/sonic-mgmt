@@ -12,6 +12,10 @@ import re
 import time
 
 from tests.transceiver.common import db_helpers
+from tests.transceiver.attribute_parser.attribute_keys import (
+    BASE_ATTRIBUTES_KEY, DOM_ATTRIBUTES_KEY, EEPROM_ATTRIBUTES_KEY,
+    SYSTEM_ATTRIBUTES_KEY,
+)
 from tests.transceiver.common.prerequisites import (
     wait_until_health_ok, wait_until_links_up,
 )
