@@ -691,9 +691,6 @@ t1-lag-vpp:
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - drop_packets/test_drop_counters.py
-  - everflow/test_everflow_ipv6.py
-  - everflow/test_everflow_per_interface.py
-  - everflow/test_everflow_testbed.py
   # ecmp: only test_ecmp_balance.py can run on sonic-vpp today. The others are
   # listed so they are reported as expected skips instead of silently not running:
   # inner_hashing/* and test_fgnhg.py are t0-only (topology marker), and
@@ -707,6 +704,9 @@ t1-lag-vpp:
   - ecmp/test_ecmp_group_members_increment.py
   - ecmp/test_ecmp_sai_value.py
   - ecmp/test_fgnhg.py
+  - everflow/test_everflow_ipv6.py
+  - everflow/test_everflow_per_interface.py
+  - everflow/test_everflow_testbed.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
