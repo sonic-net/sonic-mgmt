@@ -12,7 +12,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
 
 pytestmark = [
-    pytest.mark.topology("t2"),
+    pytest.mark.topology("t2", "lrh", "urh"),
     pytest.mark.device_type('physical'),
     pytest.mark.disable_loganalyzer
 ]

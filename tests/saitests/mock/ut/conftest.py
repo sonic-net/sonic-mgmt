@@ -45,7 +45,11 @@ def reset_executor_registry():
         'lower_bound_probing_algorithm',
         'threshold_range_probing_algorithm',
         'threshold_point_probing_algorithm',
-        'iteration_outcome'
+        'iteration_outcome',
+        'pfc_xon_probing_executor',
+        'sim_pfc_xon_probing_executor',
+        'xon_drain_step_algorithm',
+        'xon_drain_binary_algorithm'
     ]
     for mod in probe_modules:
         if mod in sys.modules:

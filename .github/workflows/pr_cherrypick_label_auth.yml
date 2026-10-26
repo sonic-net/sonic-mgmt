@@ -1,0 +1,60 @@
+name: CherryPickLabelAuthCheck
+on:
+  pull_request_target:
+    types:
+    - labeled
+    branches:
+    - master
+
+jobs:
+  check_label_auth:
+    if: github.repository_owner == 'sonic-net' && github.event.pull_request.state == 'open' && startsWith(github.event.label.name, 'Approved for 20')
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check Authorization
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+        TOKEN: ${{ secrets.TOKEN }}
+      run: |
+        set -e
+
+        label=$(echo $GITHUB_CONTEXT | jq -r ".event.label.name")
+        sender=$(echo $GITHUB_CONTEXT | jq -r ".event.sender.login")
+        pr_url=$(echo $GITHUB_CONTEXT | jq -r ".event.pull_request._links.html.href")
+        repository=$(echo $GITHUB_CONTEXT | jq -r ".repository")
+        org=$(echo $repository | cut -d/ -f1)
+        branch=$(echo "$label" | grep -oE '202[0-9]{3}')
+        release_team="release-manager-${branch}"
+
+        echo =============================
+        echo Label:         $label
+        echo Sender:        $sender
+        echo Branch:        $branch
+        echo Org:           $org
+        echo Release team:  $release_team
+        echo =============================
+
+        echo ${TOKEN} | gh auth login --with-token
+
+        if [[ -z "$branch" ]]; then
+          echo "Could not extract branch from label '$label'. Skipping."
+          exit 0
+        fi
+
+        authorized=0
+        if [[ "$sender" == "StormLiangMS" ]]; then
+          authorized=1
+          echo "Sender $sender is an authorized maintainer."
+        elif gh api "orgs/${org}/teams/${release_team}/memberships/${sender}" --silent 2>/dev/null; then
+          authorized=1
+          echo "Sender $sender is a member of $release_team."
+        fi
+
+        if [[ "$authorized" != "1" ]]; then
+          echo "Sender $sender is not authorized. Removing label and posting comment."
+          gh pr edit "$pr_url" --remove-label "$label"
+          members=$(gh api "orgs/${org}/teams/${release_team}/members" --jq '.[].login' 2>/dev/null | sed 's/^/@/' | tr '\n' ' ')
+          gh pr comment "$pr_url" --body "The label \`$label\` can only be added by a member of the @${org}/${release_team} team or @StormLiangMS. Removing the label. Please contact @StormLiangMS or one of the release managers: ${members} to approve the cherry pick."
+        else
+          echo "Sender $sender is authorized. Label retained."
+        fi

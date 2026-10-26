@@ -24,6 +24,8 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
     if loganalyzer:
         ignoreRegex = [
             r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
+            r".*omrelp\[.*\]: error 'server closed relp session, session broken', object .* - action may not work as intended.*",  # noqa: E501
+            r".*omrelp\[.*\]: error 'error waiting on required session state, session broken', object .* - action may not work as intended.*",  # noqa: E501
         ]
         loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(ignoreRegex)
 

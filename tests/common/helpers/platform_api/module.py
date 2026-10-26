@@ -150,6 +150,10 @@ def get_midplane_ip(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_midplane_ip')
 
 
+def get_pci_bus_info(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_pci_bus_info')
+
+
 def is_midplane_reachable(conn, mod_idx):
     return module_api(conn, mod_idx, 'is_midplane_reachable')
 
@@ -160,3 +164,11 @@ def get_maximum_consumed_power(conn, mod_idx):
 
 def reboot(conn, mod_idx, reboot_type):
     return module_api(conn, mod_idx, 'reboot', [reboot_type])
+
+
+def do_power_cycle(conn, mod_idx):
+    return module_api(conn, mod_idx, 'do_power_cycle')
+
+
+def set_admin_state(conn, mod_idx, up):
+    return module_api(conn, mod_idx, 'set_admin_state', [up])

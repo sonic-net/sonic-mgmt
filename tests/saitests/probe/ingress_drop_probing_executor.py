@@ -87,8 +87,10 @@ class IngressDropProbingExecutor:
     - Uses INGRESS_DROP and INGRESS_PORT_BUFFER_DROP
     """
 
+    VALID_COUNTER_MODES = ('pg_drop', 'port_buffer_drop', 'port_drop')
+
     def __init__(self, ptftest, observer=None, verbose: bool = False,
-                 name: str = "", use_pg_drop_counter: bool = False):
+                 name: str = "", counter_mode: str = "port_drop"):
         """
         Initialize unified Ingress Drop executor
 
@@ -97,21 +99,24 @@ class IngressDropProbingExecutor:
             observer: Observer instance for logging (optional, for log output)
             verbose: Enable debug output for executor operations
             name: Optional name to identify this executor instance (e.g., "upper_bound", "lower_bound")
-            use_pg_drop_counter: Use PG drop counter (True) or Port ingress drop counter (False)
-                                 Default: False (Solution 2 - Port counter with margin, compatible with Broadcom)
-                                 Can be overridden by environment variable INGRESS_DROP_USE_PG_COUNTER
+            counter_mode: Counter detection mode - "pg_drop", "port_buffer_drop", or "port_drop"
+                         Set by test_qos_probe.py via testParams based on platform_asic
         """
+        if counter_mode not in self.VALID_COUNTER_MODES:
+            raise ValueError(
+                f"Invalid counter_mode='{counter_mode}'. "
+                f"Must be one of: {self.VALID_COUNTER_MODES}"
+            )
         self.ptftest = ptftest
         self.observer = observer
         self.verbose = verbose
         self.name = name
 
-        # Use counter strategy from parameter (set by ProbingBase.setUp() from env var)
-        self.use_pg_drop_counter = use_pg_drop_counter
+        # Counter mode: "pg_drop" > "port_buffer_drop" > "port_drop"
+        self.counter_mode = counter_mode
 
         if self.verbose and self.observer:
-            strategy = "PG drop counter" if self.use_pg_drop_counter else "Port ingress drop counter"
-            self.observer.trace(f"[Ingress Drop Executor] Using {strategy}")
+            self.observer.trace(f"[Ingress Drop Executor] Using counter_mode={self.counter_mode}")
 
     def prepare(self, src_port: int, dst_port: int) -> None:
         """
@@ -174,22 +179,22 @@ class IngressDropProbingExecutor:
                     time.sleep(PORT_TX_CTRL_DELAY)
 
                 # ===== Step 2: Baseline measurement =====
-                if self.use_pg_drop_counter:
-                    # Solution 1: Use PG drop counter (supports multi-PG per port)
+                if self.counter_mode == 'pg_drop':
+                    # Level 1: Per-PG drop counter via sai_thrift_read_pg_drop_counters
+                    # Reads PG-specific drop count; noise-immune, most precise
                     pg_drop_base = sai_thrift_read_pg_drop_counters(
                         self.ptftest.src_client,
                         port_list["src"][src_port]
                     )
                     if self.verbose and self.observer:
-                        # Get actual PG number: from traffic_keys or reverse-calculate from cnt_pg_idx
-                        # cnt_pg_idx = pg + 2 (for PFC counter offset), so pg = cnt_pg_idx - 2
                         pg_num = traffic_keys.get('pg') if traffic_keys else (self.ptftest.cnt_pg_idx - 2)
                         self.observer.trace(
                             f"[Ingress Drop] Step2-Baseline: Using PG drop counter, "
                             f"PG{pg_num} baseline={pg_drop_base[pg_num]}, all_pgs={pg_drop_base}"
                         )
                 else:
-                    # Solution 2: Use Port ingress drop counter (requires margin in persist)
+                    # Level 2 & 3 both use sai_thrift_read_port_counters;
+                    # detection branch below selects which counter index to check
                     sport_cnt_base, _ = sai_thrift_read_port_counters(
                         self.ptftest.src_client,
                         self.ptftest.asic_type,
@@ -197,13 +202,13 @@ class IngressDropProbingExecutor:
                     )
                     if self.verbose and self.observer:
                         self.observer.trace(
-                            f"[Ingress Drop] Step2-Baseline: Using Port counter, "
+                            f"[Ingress Drop] Step2-Baseline: Using {self.counter_mode}, "
                             f"INGRESS_DROP={sport_cnt_base[INGRESS_DROP]}, "
                             f"INGRESS_PORT_BUFFER_DROP={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}"
                         )
 
                 # ===== Step 3: Traffic injection =====
-                # Convert algorithm value to traffic amount (64-byte packets, 1 packet = 1 cell)
+                # Send 'value' packets (currently 64-byte = 1 cell each)
                 if value > 0:
                     self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, value, **traffic_keys)
 
@@ -211,14 +216,12 @@ class IngressDropProbingExecutor:
                 time.sleep(PFC_TRIGGER_DELAY)
 
                 # ===== Step 5: Ingress Drop detection =====
-                if self.use_pg_drop_counter:
-                    # Solution 1: PG-level drop counter (multi-PG safe)
+                if self.counter_mode == 'pg_drop':
+                    # Level 1: sai_thrift_read_pg_drop_counters (per-PG, noise-immune)
                     pg_drop_curr = sai_thrift_read_pg_drop_counters(
                         self.ptftest.src_client,
                         port_list["src"][src_port]
                     )
-                    # Get actual PG number: from traffic_keys or reverse-calculate from cnt_pg_idx
-                    # cnt_pg_idx = pg + 2 (for PFC counter offset), so pg = cnt_pg_idx - 2
                     pg_num = traffic_keys.get('pg') if traffic_keys else (self.ptftest.cnt_pg_idx - 2)
                     ingress_drop_triggered = pg_drop_curr[pg_num] > pg_drop_base[pg_num]
 
@@ -229,14 +232,37 @@ class IngressDropProbingExecutor:
                             f"base={pg_drop_base[pg_num]}, curr={pg_drop_curr[pg_num]}, "
                             f"diff={drop_diff}, triggered={ingress_drop_triggered}"
                         )
-                        # Log all PGs for multi-PG debugging
                         all_diffs = [pg_drop_curr[i] - pg_drop_base[i] for i in range(len(pg_drop_curr))]
                         if any(d != 0 for d in all_diffs):
                             self.observer.trace(
                                 f"[Ingress Drop] All PG drop changes: {all_diffs}"
                             )
+                elif self.counter_mode == 'port_buffer_drop':
+                    # Level 2: INGRESS_PORT_BUFFER_DROP (SAI_PORT_STAT_IN_DROPPED_PKTS)
+                    # Checks only buffer drop counter; noise-immune like pg_drop
+                    sport_cnt_curr, _ = sai_thrift_read_port_counters(
+                        self.ptftest.src_client,
+                        self.ptftest.asic_type,
+                        port_list["src"][src_port]
+                    )
+                    ingress_drop_triggered = (
+                        sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] > sport_cnt_base[INGRESS_PORT_BUFFER_DROP]
+                    )
+
+                    if self.verbose and self.observer:
+                        ing_buf_drop_diff = (sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] -
+                                             sport_cnt_base[INGRESS_PORT_BUFFER_DROP])
+                        ing_drop_diff = sport_cnt_curr[INGRESS_DROP] - sport_cnt_base[INGRESS_DROP]
+                        self.observer.trace(
+                            f"[Ingress Drop] Step5-Detection: port_buffer_drop: "
+                            f"INGRESS_PORT_BUFFER_DROP: base={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}, "
+                            f"curr={sport_cnt_curr[INGRESS_PORT_BUFFER_DROP]}, "
+                            f"diff={ing_buf_drop_diff}, triggered={ingress_drop_triggered}, "
+                            f"(INGRESS_DROP diff={ing_drop_diff} for reference)"
+                        )
                 else:
-                    # Solution 2: Port-level ingress drop counter (affected by all PGs)
+                    # Level 3: INGRESS_DROP (SAI_PORT_STAT_IF_IN_DISCARDS) OR INGRESS_PORT_BUFFER_DROP
+                    # Checks both counters; includes non-unicast noise (LACP, IPv6 RS) — legacy default
                     sport_cnt_curr, _ = sai_thrift_read_port_counters(
                         self.ptftest.src_client,
                         self.ptftest.asic_type,
@@ -252,7 +278,7 @@ class IngressDropProbingExecutor:
                         ing_buf_drop_diff = (sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] -
                                              sport_cnt_base[INGRESS_PORT_BUFFER_DROP])
                         self.observer.trace(
-                            f"[Ingress Drop] Step5-Detection: Port counter: "
+                            f"[Ingress Drop] Step5-Detection: port_drop: "
                             f"INGRESS_DROP: base={sport_cnt_base[INGRESS_DROP]}, "
                             f"curr={sport_cnt_curr[INGRESS_DROP]}, diff={ing_drop_diff}, "
                             f"INGRESS_PORT_BUFFER_DROP: base={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}, "
@@ -263,7 +289,7 @@ class IngressDropProbingExecutor:
                 results.append(ingress_drop_triggered)
 
                 if self.verbose and self.observer:
-                    strategy = "PG drop counter" if self.use_pg_drop_counter else "Port counter"
+                    strategy = self.counter_mode
                     self.observer.trace(
                         f"[Ingress Drop] Verification {attempt + 1}/{attempts}: "
                         f"strategy={strategy}, src={src_port}, dst={dst_port}, value={value}, "

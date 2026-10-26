@@ -1,4 +1,6 @@
 import pytest
+import time
+import logging
 
 from tests.common.config_reload import config_reload
 from tests.common.dualtor.control_plane_utils import verify_tor_states
@@ -417,3 +419,62 @@ def test_normal_op_downstream_lower_tor_soc(upper_tor_host, lower_tor_host,     
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type)
+
+
+def test_upstream_standby_rx_drop_check(upper_tor_host, lower_tor_host,            # noqa: F811
+                                        send_server_to_t1_with_action,             # noqa: F811
+                                        toggle_all_simulator_ports_to_upper_tor,   # noqa: F811
+                                        cable_type, select_test_mux_ports):        # noqa: F811
+    """
+    Send upstream traffic to the lower (standby) ToR on an active-standby setup
+    through a specific mux port.
+    Verify that on the lower ToR, shows no increment in RX_DRP.
+    Only runs for active-standby cable type.
+    """
+    if cable_type != CableType.active_standby:
+        pytest.skip("Test only applies to active-standby cable type")
+
+    # Pick a single active-standby mux port to send traffic through
+    test_port = select_test_mux_ports(cable_type, 1)[0]
+    logging.info("Selected mux port for traffic: %s", test_port)
+
+    # Clear counters on the lower (standby) ToR before sending traffic
+    lower_tor_host.shell("sonic-clear counters")
+    # Allow counters to settle after clearing
+    time.sleep(2)
+
+    # Snapshot counters for the specific port before traffic
+    counters_before = lower_tor_host.show_interface(command="counter")["ansible_facts"]["int_counter"]
+    pytest_assert(test_port in counters_before,
+                  "Port {} not found in interface counters on {}".format(test_port, lower_tor_host.hostname))
+
+    # Send upstream traffic targeting the lower (standby) ToR on the specific port
+    send_server_to_t1_with_action(lower_tor_host, tor_vlan_port=test_port,
+                                  verify=True, stop_after=60)
+
+    # Allow time for counters to update on the DUT
+    time.sleep(5)
+    counters_after = lower_tor_host.show_interface(command="counter")["ansible_facts"]["int_counter"]
+
+    # Check RX_DRP on the test port (server-facing port that was the traffic source)
+    rx_drp_before = int(counters_before[test_port].get("RX_DRP", "0").replace(",", ""))
+    rx_drp_after = int(counters_after[test_port].get("RX_DRP", "0").replace(",", ""))
+    rx_drp_diff = rx_drp_after - rx_drp_before
+
+    # Small number of RX_DRP is acceptable due to ARP/LLDP/control plane packets
+    RX_DRP_THRESHOLD = 10
+
+    logging.info("Port %s on standby ToR %s: RX_DRP diff=%d (before=%d, after=%d), threshold=%d",
+                 test_port, lower_tor_host.hostname,
+                 rx_drp_diff, rx_drp_before, rx_drp_after, RX_DRP_THRESHOLD)
+
+    # Verify RX_DRP increment does not exceed threshold on the server-facing port
+    pytest_assert(rx_drp_diff <= RX_DRP_THRESHOLD,
+                  "Port {} on standby ToR {} has RX_DRP increment of {} which exceeds "
+                  "threshold of {} (before={}, after={})".format(
+                      test_port, lower_tor_host.hostname, rx_drp_diff,
+                      RX_DRP_THRESHOLD, rx_drp_before, rx_drp_after))
+
+    verify_tor_states(expected_active_host=upper_tor_host,
+                      expected_standby_host=lower_tor_host,
+                      skip_tunnel_route=False)

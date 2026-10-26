@@ -9,6 +9,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers import bgp
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 copy_arp_responder_py   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import *                        # noqa: F401, F403
@@ -70,7 +71,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="module", autouse=True)
 def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
     # Skip dualtor test cases on unsupported platform
-    if rand_selected_dut.facts['asic_type'] != 'vs':
+    if rand_selected_dut.facts['asic_type'] not in ('vs', 'vpp'):
         supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus', 'mellanox_dualtor_hwskus']
         hostvars = get_host_visible_vars(rand_selected_dut.host.options['inventory'], rand_selected_dut.hostname)
         hwsku = rand_selected_dut.facts['hwsku']
@@ -98,7 +99,7 @@ def _setup_arp_responder(rand_selected_dut, ptfhost, tbinfo, ip_type):
     else:
         arp_responder_conf = {"eth%s" % minigraph_ptf_indices[port]: [config["server_ipv6"].split("/")[0]]
                               for port, config in list(mux_config.items())}
-    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
@@ -116,7 +117,7 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
     # Drop the rendered config so the next test that uses arp_responder cannot
     # accidentally pick up our IP/MAC mapping (and so /tmp doesn't collect stale
     # state that misleads diagnostics).
-    ptfhost.file(path='/tmp/from_t1.json', state='absent')
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state='absent')
 
 
 @pytest.fixture(scope="module")
@@ -125,7 +126,7 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
-    ptfhost.file(path='/tmp/from_t1.json', state='absent')
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state='absent')
 
 
 @pytest.fixture(scope="module")

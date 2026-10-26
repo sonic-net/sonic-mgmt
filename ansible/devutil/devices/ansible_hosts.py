@@ -72,6 +72,66 @@ except ImportError:
     pass
 
 
+# ansible-core 2.19 removed the ``stdout_callback`` kwarg from
+# ``TaskQueueManager.__init__`` and replaced it with ``stdout_callback_name``
+# (a plugin-loader name string). Passing a ``CallbackBase`` instance through
+# the constructor is no longer supported. Detect the available API once so we
+# can branch on it at TQM construction time.
+_TQM_INIT_PARAMS = inspect.signature(TaskQueueManager.__init__).parameters
+_TQM_ACCEPTS_STDOUT_CALLBACK = "stdout_callback" in _TQM_INIT_PARAMS
+
+
+def _build_tqm(inventory_manager, variable_manager, loader, passwords, callback, forks):
+    """Construct a ``TaskQueueManager`` wired up to ``callback`` on any
+    supported ansible-core version.
+
+    On ansible-core < 2.19 we use the legacy ``stdout_callback`` kwarg.
+
+    On ansible-core >= 2.19 the kwarg has been removed, so we construct the
+    TQM without it and then pre-populate ``_callback_plugins`` with our
+    ``CallbackBase`` instance. ``TaskQueueManager.load_callbacks()``
+    short-circuits when that list is already non-empty, and
+    ``send_callback()`` dispatches over the same list, so events still flow
+    into our collector.
+    """
+    if _TQM_ACCEPTS_STDOUT_CALLBACK:
+        return TaskQueueManager(
+            inventory=inventory_manager,
+            variable_manager=variable_manager,
+            loader=loader,
+            passwords=passwords,
+            stdout_callback=callback,
+            forks=forks,
+        )
+
+    tqm = TaskQueueManager(
+        inventory=inventory_manager,
+        variable_manager=variable_manager,
+        loader=loader,
+        passwords=passwords,
+        forks=forks,
+    )
+
+    # ansible-core 2.19's ``send_callback()`` reads
+    # ``callback._implemented_callback_methods``, populated by this helper on
+    # ``CallbackBase``. The plugin loader normally calls it for us; do it by
+    # hand for our hand-instantiated collector.
+    init_methods = getattr(callback, "_init_callback_methods", None)
+    if callable(init_methods):
+        init_methods()
+
+    # ``set_options()`` on a hand-instantiated callback can fail because the
+    # plugin loader normally sets ``_load_name`` / ``plugin_type``. Our
+    # collectors do not read plugin options, so a failure here is non-fatal.
+    try:
+        callback.set_options()
+    except Exception:  # noqa: E722 - non-fatal; plugin loader normally configures this
+        pass
+
+    tqm._callback_plugins = [callback]
+    return tqm
+
+
 class UnsupportedAnsibleModule(Exception):
     pass
 
@@ -375,13 +435,13 @@ class AnsibleHostsBase(object):
             else:
                 callback = ResultCollector()
 
-            tqm = TaskQueueManager(
-                inventory=inventory_manager,
-                variable_manager=variable_manager,
-                loader=loader,
-                passwords=passwords,
-                stdout_callback=callback,
-                forks=options.get("forks")
+            tqm = _build_tqm(
+                inventory_manager,
+                variable_manager,
+                loader,
+                passwords,
+                callback,
+                options.get("forks"),
             )
             tqm.run(play)
             return callback.results

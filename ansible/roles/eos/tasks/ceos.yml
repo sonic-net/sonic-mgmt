@@ -6,7 +6,8 @@
   become: yes
 
 - name: set force_restart=yes for ceos container
-  set_fact: force_restart=yes
+  set_fact:
+    force_restart: yes
 
 - name: Check if ceos container responses to snmp
   when: ctninfo.exists
@@ -17,8 +18,17 @@
     ignore_errors: true
 
   - name: set force_restart=no for ceos container
-    set_fact: force_restart=no
+    set_fact:
+      force_restart: no
     when: snmp_data.ansible_facts.ansible_sysname is defined
+
+- name: Stop existing cEOS container before refreshing its flash directory
+  become: yes
+  docker_container:
+    name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+    state: stopped
+  delegate_to: "{{ VM_host[0] }}"
+  when: ctninfo.exists
 
 - include_vars: group_vars/vm_host/ceos.yml
 - include_tasks: ceos_config.yml
@@ -98,7 +108,8 @@
   delegate_to: "{{ VM_host[0] }}"
 
 - name: set container_reachable=False for ceos container
-  set_fact: container_reachable=False
+  set_fact:
+    container_reachable: false
 
 # loop four times, if all containers are reachable in any iteration, the rest loop will be skipped
 - name: make sure container's mgmt-ip is reachable

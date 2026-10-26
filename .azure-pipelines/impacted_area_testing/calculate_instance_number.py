@@ -2,7 +2,12 @@ import os
 import argparse
 import math
 import logging
-from constant import PR_CHECKER_TOPOLOGY_NAME, MAX_INSTANCE_NUMBER, MAX_GET_TOKEN_RETRY_TIMES
+from constant import (
+    MAX_GET_TOKEN_RETRY_TIMES,
+    MAX_INSTANCE_NUMBER,
+    PR_CHECKER_TOPOLOGY_NAME,
+    WORKER_COUNT_DIVISOR_BY_TOPOLOGY,
+)
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 
 logging.basicConfig(level=logging.INFO)
@@ -125,7 +130,12 @@ def main(scripts, topology, branch, prepare_time, target_pr_test_time):
     # As we need some time to prepare testbeds, the prepare time should be subtracted.
     # Obtain the number of instances by rounding up the calculation.
     # To prevent unexpected situations, we set the maximum number of instance
-    print(min(math.ceil(total_running_time / 60 / (target_pr_test_time - prepare_time)), MAX_INSTANCE_NUMBER))
+    worker_count = min(
+        math.ceil(total_running_time / 60 / (target_pr_test_time - prepare_time)),
+        MAX_INSTANCE_NUMBER
+    )
+    worker_count_divisor = WORKER_COUNT_DIVISOR_BY_TOPOLOGY.get(topology, 1)
+    print(math.ceil(worker_count / worker_count_divisor))
 
 
 if __name__ == '__main__':

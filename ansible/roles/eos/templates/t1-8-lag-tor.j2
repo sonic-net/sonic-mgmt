@@ -1,3 +1,8 @@
+{# Converged (multi-VRF) topologies render the shared converged config; the
+   stock body below is used unchanged on non-converged topologies. #}
+{% if topo_is_multi_vrf | default(false) | bool %}
+{% include 'ceos_converged.j2' %}
+{% else %}
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% set tornum = host['tornum'] %}
@@ -20,8 +25,7 @@ agent Bfd shutdown
 !
 hostname {{ hostname }}
 !
-vrf definition MGMT
- rd 1:1
+vrf instance MGMT
 !
 spanning-tree mode mstp
 !
@@ -100,6 +104,9 @@ interface {{ bp_ifname }}
  no shutdown
 !
 router bgp {{ host['bgp']['asn'] }}
+ vrf MGMT
+  rd 1:1
+ exit
  router-id {{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
  graceful-restart restart-time {{ bgp_gr_timer }}
@@ -140,3 +147,4 @@ management api http-commands
  no shutdown
 !
 end
+{% endif %}

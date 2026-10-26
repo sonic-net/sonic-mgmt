@@ -38,7 +38,8 @@ def ConsoleHost(console_type,
                 supervisor_ip=None,
                 linecard_number=None,
                 slot_num=None,
-                hwsku=None):
+                hwsku=None,
+                cancel_event=None):
     if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
     params = {
@@ -52,6 +53,14 @@ def ConsoleHost(console_type,
         "console_device": console_device,
         "timeout": timeout_s
     }
+
+    # Only SSHConsoleConn consumes cancel_event (it pops it before delegating to
+    # netmiko). The other console classes forward **kwargs straight to netmiko,
+    # which would raise "unexpected keyword argument 'cancel_event'" and break
+    # console-log collection on those console servers. Gate the injection on the
+    # resolved class so non-SSH console types are unaffected.
+    if cancel_event is not None and issubclass(ConsoleTypeMapper[console_type], SSHConsoleConn):
+        params["cancel_event"] = cancel_event
 
     # Add linecard-specific parameters if provided
     if supervisor_ip is not None:

@@ -128,7 +128,13 @@ scan_dbs = {
                 "post1",
                 "post2",
                 "post3",
-                "main"
+                "main",
+                # idriver/ipredriver are SerDes driver-strength fields that portmgrd
+                # re-applies asynchronously from media-settings after a port is
+                # re-added via `config apply-patch`. Like pre1..pre3/post1..post3/main,
+                # they are transient and not part of the configuration under test.
+                "idriver",
+                "ipredriver"
             }
         },
         "state-db": {
@@ -286,10 +292,10 @@ def cmp_value(orig_val, clet_val):
     if orig_val == clet_val:
         return True
 
-    if type(orig_val) == str:
+    if isinstance(orig_val, str):
         return cmp_str(orig_val, clet_val)
 
-    if type(orig_val) == dict:
+    if isinstance(orig_val, dict):
         for fld, val in orig_val.items():
             if fld not in clet_val:
                 return False

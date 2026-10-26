@@ -8,16 +8,16 @@ import time
 from multiprocessing.pool import ThreadPool
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.reboot import wait_for_startup,\
-                                wait_for_shutdown,\
-                                sync_reboot_history_queue_with_dut,\
+from tests.common.reboot import wait_for_startup, \
+                                wait_for_shutdown, \
+                                sync_reboot_history_queue_with_dut, \
                                 REBOOT_TYPE_HISTOYR_QUEUE
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 

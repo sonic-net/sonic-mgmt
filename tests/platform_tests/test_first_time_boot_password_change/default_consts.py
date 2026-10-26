@@ -1,6 +1,6 @@
 '''
 This file contains the default consts used by the scripts on the same folder:
-manufactue.py and test_first_time_boot_password_change.py
+manufacture.py and test_password_change.py
 '''
 
 

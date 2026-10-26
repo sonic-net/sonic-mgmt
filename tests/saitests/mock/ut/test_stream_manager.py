@@ -529,6 +529,86 @@ class TestStreamManagerGetPacket(unittest.TestCase):
         assert mgr.get_packet(11, 24, pg=3) == b"pkt_pg3"
         assert mgr.get_packet(11, 24, pg=4) == b"pkt_pg4"
 
+    @pytest.mark.order(3745)
+    def test_get_packet_with_lag_resolved_port(self):
+        """Test get_packet works with both original and LAG-resolved dst port.
+
+        Regression test for LAG dual-key bug (commit 921dfb7f09):
+        - add_flow() freezes key with original dst port (e.g., 16)
+        - generate_packets() resolves actual dst port via rx_port_resolver (e.g., 17)
+        - get_packet(src, actual_dst=17) must find the flow via dual-key alias
+        - get_packet(src, original_dst=16) must also still work
+        """
+        pkt_constructor = MagicMock(return_value=b"lag_packet")
+        # LAG hashing selects different member: original=24, actual=26
+        rx_resolver = MagicMock(return_value=26)
+
+        mgr = self.StreamManager(
+            packet_constructor=pkt_constructor,
+            rx_port_resolver=rx_resolver
+        )
+
+        src = self.PortInfo(port_id=11, mac="00:11:22:33:44:55", ip="10.0.0.1")
+        dst = self.PortInfo(port_id=24, mac="aa:bb:cc:dd:ee:ff", ip="10.0.0.2")
+        flow = self.FlowConfig(src, dst, dmac="aa:bb:cc:dd:ee:ff")
+
+        mgr.add_flow(flow)
+        mgr.generate_packets()
+
+        # Both original and resolved port must work
+        assert mgr.get_packet(11, 26) == b"lag_packet", \
+            "get_packet must find flow via actual (LAG-resolved) dst port"
+        assert mgr.get_packet(11, 24) == b"lag_packet", \
+            "get_packet must still find flow via original dst port"
+
+    @pytest.mark.order(3746)
+    def test_get_packet_with_lag_resolved_port_and_traffic_keys(self):
+        """Test LAG dual-key lookup works with PG-based traffic keys."""
+        pkt_constructor = MagicMock(return_value=b"lag_pg3_pkt")
+        rx_resolver = MagicMock(return_value=17)  # original=16, actual=17
+
+        mgr = self.StreamManager(
+            packet_constructor=pkt_constructor,
+            rx_port_resolver=rx_resolver
+        )
+
+        src = self.PortInfo(port_id=11, mac="00:11:22:33:44:55", ip="10.0.0.1")
+        dst = self.PortInfo(port_id=16, mac="aa:bb:cc:dd:ee:ff", ip="10.0.0.2")
+        flow = self.FlowConfig(src, dst, dmac="aa:bb:cc:dd:ee:ff")
+
+        mgr.add_flow(flow, pg=3)
+        mgr.generate_packets()
+
+        # Dual-key works with traffic keys too
+        assert mgr.get_packet(11, 17, pg=3) == b"lag_pg3_pkt", \
+            "get_packet must find flow via actual port + traffic key"
+        assert mgr.get_packet(11, 16, pg=3) == b"lag_pg3_pkt", \
+            "get_packet must still find flow via original port + traffic key"
+        # Wrong traffic key should still miss
+        assert mgr.get_packet(11, 17, pg=4) is None
+
+    @pytest.mark.order(3747)
+    def test_get_packet_no_alias_when_ports_match(self):
+        """Test no extra alias created when resolved port == original port."""
+        pkt_constructor = MagicMock(return_value=b"same_port_pkt")
+        rx_resolver = MagicMock(return_value=24)  # same as original
+
+        mgr = self.StreamManager(
+            packet_constructor=pkt_constructor,
+            rx_port_resolver=rx_resolver
+        )
+
+        src = self.PortInfo(port_id=11, mac="00:11:22:33:44:55", ip="10.0.0.1")
+        dst = self.PortInfo(port_id=24, mac="aa:bb:cc:dd:ee:ff", ip="10.0.0.2")
+        flow = self.FlowConfig(src, dst, dmac="aa:bb:cc:dd:ee:ff")
+
+        mgr.add_flow(flow)
+        mgr.generate_packets()
+
+        # Only 1 entry in flows dict (no duplicate alias needed)
+        assert len(mgr.flows) == 1
+        assert mgr.get_packet(11, 24) == b"same_port_pkt"
+
 
 @pytest.mark.order(3750)
 class TestDetermineTrafficDmac(unittest.TestCase):
@@ -594,12 +674,12 @@ class TestDetermineTrafficDmac(unittest.TestCase):
 @pytest.mark.order(3790)
 class TestStreamManagerUniformPackets(unittest.TestCase):
     """
-    Test StreamManager enforces uniform 64-byte probe packets.
+    Test StreamManager enforces uniform probe packet length.
 
     Design Doc Reference: §3.2, §3.6
-    Key Design Point: Platform independence through uniform probe packets
-    - Fixed 64-byte length across all platforms
-    - 64 bytes = 1 cell on all platforms (eliminates cell_occupancy variance)
+    Key Design Point: Uniform probe packet length set by ProbeParamsResolver
+    - Default 64-byte length for platforms with 1 cell per packet
+    - Platform-specific packet length (e.g. 1350B for Cisco) when cells_per_packet > 1
     """
 
     def setUp(self):
@@ -645,7 +725,7 @@ class TestStreamManagerUniformPackets(unittest.TestCase):
         # Verify all packets are 64 bytes (uniform)
         assert len(captured_lengths) == 2, "Should generate 2 packets"
         assert all(length == 64 for length in captured_lengths), \
-            f"All packets must be 64 bytes for platform independence, got {captured_lengths}"
+            f"All packets must use uniform length, got {captured_lengths}"
 
     def test_uniform_packet_protocol_consistency(self):
         """Test that packets use consistent protocol (IP) across flows."""

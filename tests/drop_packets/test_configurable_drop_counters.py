@@ -23,6 +23,7 @@ from netaddr import EUI
 
 from . import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -50,7 +51,8 @@ LINK_LOCAL_IP = "169.254.0.1"
 
 # For dualtor
 @pytest.fixture(scope='module')
-def vlan_mac(duthost):
+def vlan_mac(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
     dut_vlan_mac = None
     for vlan in list(config_facts.get('VLAN', {}).values()):
@@ -77,7 +79,9 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
             "*No debug_counter at index.*found.*",
             ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
-            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*"
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*",
+            ".*ERR syncd[0-9]*#syncd.*removeCounter: Object type for removal not supported, " +
+            "SAI_OBJECT_TYPE_NULL.*"
 
         ]
         duthost = duthosts[rand_one_dut_hostname]
@@ -128,7 +132,7 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
 
     def _check_fdb_applied():
         fdb_count = int(duthost.shell(
-            "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
+            "show mac | grep -i {} | wc -l".format(mac_address.replace("-", ":")))["stdout"])
         if op == "SET":
             return fdb_count >= 1
         else:
@@ -378,6 +382,11 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
     counter_type = request.param
     supported_reasons = device_capabilities["reasons"][counter_type]
 
+    callspec = getattr(request.node, "callspec", None)
+    test_drop_reason = callspec.params.get("drop_reason") if callspec else None
+    if test_drop_reason and test_drop_reason not in supported_reasons:
+        pytest.skip("Drop reason {} not supported for {} on target DUT".format(test_drop_reason, counter_type))
+
     def _setup_counters(drop_reasons):
         if any(reason not in supported_reasons for reason in drop_reasons):
             pytest.skip("Drop reasons not supported on target DUT")
@@ -422,11 +431,11 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    def _runner(counter_type, pkt, rx_port):
+    def _runner(counter_type, pkt, rx_port, count=PACKET_COUNT):
         duthost.command("sonic-clear dropcounters")
 
         logging.info("Sending traffic from ptf on port %s", rx_port)
-        _send_packets(duthost, ptfadapter, pkt, rx_port)
+        send_packets(duthost, ptfadapter, pkt, rx_port, count)
 
         def _check_drops():
             dst_port = testbed_params["physical_port_map"][rx_port]
@@ -435,8 +444,8 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
                                              "TEST",
                                              dst_port)
             logging.info("Received %s drops on port %s, expected %s",
-                         recv_count, dst_port, PACKET_COUNT)
-            return recv_count == PACKET_COUNT
+                         recv_count, dst_port, count)
+            return recv_count == count
 
         pytest_assert(wait_until(10, 2, 0, _check_drops), "Expected {} drops".format(PACKET_COUNT))
 
@@ -444,8 +453,12 @@ def send_dropped_traffic(duthosts, rand_one_dut_hostname, ptfadapter, testbed_pa
 
 
 @pytest.fixture
-def arp_responder(ptfhost, testbed_params, tbinfo):
-    """Set up the ARP responder utility in the PTF container."""
+def arp_responder(ptfhost, testbed_params, tbinfo, setup_counters):
+    """Set up the ARP responder utility in the PTF container.
+
+    setup_counters is requested only to make it run first, so an unsupported drop
+    reason is skipped before the ARP responder is set up. Its value is not used.
+    """
     vlan_network = testbed_params["vlan_interface"]["subnet"]
     is_storage_backend = "backend" in tbinfo["topo"]["name"]
 
@@ -461,9 +474,9 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
         arp_responder_conf = {"eth%s" % k: v for k, v in list(vlan_host_map.items())}
 
     logging.info("Copying ARP responder topology to PTF")
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
     logging.info("Copying ARP responder to PTF container")
 
@@ -482,7 +495,7 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
     # Drop the rendered config we wrote earlier in this fixture so the next
     # arp_responder invocation cannot inherit our IP/MAC mapping by default.
-    ptfhost.file(path="/tmp/from_t1.json", state="absent")
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 @pytest.fixture
@@ -514,8 +527,10 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
     def _check_arp_populated():
         if is_ipv4_address(server_dst_addr):
+            duthost.command("ping {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
         else:
+            duthost.command("ping6 {} -c 1 -W 1".format(server_dst_addr), module_ignore_errors=True)
             result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
         return server_dst_addr in result.get('stdout', '')
 
@@ -593,8 +608,8 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     return vlan_host_map
 
 
-def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
-                  count=PACKET_COUNT):
+def send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
+                 count):
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()

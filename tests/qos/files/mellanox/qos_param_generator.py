@@ -34,6 +34,11 @@ class QosParamMellanox(object):
                 'cell_size': 192,
                 'headroom_overhead': 47,
                 'private_headroom': 30
+            },
+            'spc6': {
+                'cell_size': 256,
+                'headroom_overhead': 47,
+                'private_headroom': 30
             }
         }
         self.asic_type = asic_type
@@ -65,6 +70,7 @@ class QosParamMellanox(object):
         self.src_asic_index = src_asic_index
         self.dst_dut_index = dst_dut_index
         self.dst_asic_index = dst_asic_index
+        self.qos_params_mlnx['descriptor_size'] = 32 if self.asic_type == "spc6" else 0
         return
 
     def run(self):
@@ -300,7 +306,7 @@ class QosParamMellanox(object):
             margin_ratio = 0.02
             self.qos_params_mlnx['lossy_queue_1']['pkts_num_margin'] = int(
                 self.qos_params_mlnx['lossy_queue_1']['pkts_num_trig_egr_drp'] * margin_ratio)
-            wm_margin_ratio = 0.001
+            wm_margin_ratio = 0.002
             self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'] = max(
                 self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'],
                 int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))

@@ -250,6 +250,7 @@ def test_dhcpv4_relay_disabled_validation(ptfhost, dut_dhcp_relay_data, validate
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "dhcpv4_disable_flag": True,
@@ -335,10 +336,12 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "relay_agent": relay_agent,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
@@ -375,9 +378,8 @@ def test_dhcp_relay_agent_mode(
 
     Relay Modes Tested:
         - "discard": Drops packets containing Option 82.
-        - "forward_untouched": Forwards packets with Option 82 unmodified.
-        - "forward_and_replace": Replaces existing Option 82 with new data before forwarding.
-        - "forward_and_append": Appends a new Option 82 to packets that already have it.
+        - "replace": Replaces existing Option 82 with new data before forwarding.
+        - "append": Appends a new Option 82 to packets that already have it.
 
     Key Actions:
         - Configures the device under test (DUT) with the selected relay mode.
@@ -419,6 +421,7 @@ def test_dhcp_relay_agent_mode(
                     "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                     "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                     "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "host_mac": str(duthost.facts["router_mac"]),
                     "testing_mode": testing_mode,
                     "kvm_support": True,
                     "relay_agent": relay_agent,
@@ -432,6 +435,12 @@ def test_dhcp_relay_agent_mode(
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+    finally:
+        # Restore the baseline DHCPV4_RELAY row shape that
+        # enable_sonic_dhcpv4_relay_agent set up (dhcpv4_servers only,
+        # no agent_relay_mode), by reusing the same helpers.
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
 
 
 @pytest.mark.parametrize("testcase", ["vrf_selection", "source_intf", "server_id_override"])
@@ -592,10 +601,12 @@ def test_dhcp_relay_with_non_default_vrf(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "vrf_selection": True,
                                "relay_agent": relay_agent,
@@ -788,6 +799,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -803,6 +815,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                # the OFFER never matches any IP2ME entry on platforms that
                                # enforce strict per-VRF IP2ME (e.g. Broadcom Helix4).
                                "source_interface": True,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'],
                                "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
@@ -891,6 +904,7 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                     "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                     "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "host_mac": str(duthost.facts["router_mac"]),
                     "testing_mode": testing_mode,
                     "kvm_support": True,
                     "relay_agent": relay_agent,
@@ -905,3 +919,9 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+    finally:
+        # Restore the baseline DHCPV4_RELAY row shape that
+        # enable_sonic_dhcpv4_relay_agent set up (dhcpv4_servers only,
+        # no agent_relay_mode / max_hop_count), by reusing the same helpers.
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)

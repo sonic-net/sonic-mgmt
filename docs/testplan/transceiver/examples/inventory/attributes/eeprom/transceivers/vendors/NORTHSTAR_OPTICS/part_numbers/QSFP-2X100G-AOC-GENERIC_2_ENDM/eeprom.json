@@ -1,0 +1,7 @@
+{
+    "platform_hwsku_overrides": {
+        "x86_64-mlnx_msn4700-r0+ACS-MSN4700": {
+            "eeprom_dump_timeout_sec": 4
+        }
+    }
+}

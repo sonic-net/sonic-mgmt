@@ -1,3 +1,8 @@
+{# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
+   Patterns in this list are matched as SUBSTRINGS against the DUT hwsku.
+   See ansible/templates/minigraph_dpg.j2 for the full rationale. #}
+{% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
+{% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <PngDec>
     <DeviceInterfaceLinks>
 {% if card_type is not defined or card_type != 'supervisor' %}
@@ -10,7 +15,7 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
-        {% if num_asics > 1 %}
+        {% if num_asics > 1 or hwsku_has_alias_name_collision %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
         {% else %}
         <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
@@ -111,7 +116,7 @@
         <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
-        {% if num_asics > 1 %}
+        {% if num_asics > 1 or hwsku_has_alias_name_collision %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
         {% else %}
         <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
@@ -144,9 +149,20 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][inventory_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
+{% if not (use_ipv6_mgmt|default(false)|bool) and not (ansible_host | ansible.utils.ipv6) %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
+{% if ansible_hostv6 | default('') %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ ansible_hostv6 }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% elif ansible_host | ansible.utils.ipv6 %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ ansible_host }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% endif %}
 {% if vm_topo_config['dut_type'] in ['BackEndToRRouter', 'BackEndLeafRouter'] and 'dut_cluster' in vm_topo_config %}
 	      <ClusterName>{{ vm_topo_config['dut_cluster'] }}</ClusterName>
 {% endif %}
@@ -164,9 +180,16 @@
           <a:IPPrefix>{{ dual_tor_facts['loopback'][neighbor_hostname]['ipv6'] }}</a:IPPrefix>
         </AddressV6>
 {% endif %}
+{% if not (use_ipv6_mgmt|default(false)|bool) and 'ip' in dual_tor_facts['neighbor'] %}
         <ManagementAddress xmlns:a="Microsoft.Search.Autopilot.NetMux">
-           <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
+          <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip'] }}</a:IPPrefix>
         </ManagementAddress>
+{% endif %}
+{% if 'ip_v6' in dual_tor_facts['neighbor'] %}
+        <ManagementAddressV6 xmlns:a="Microsoft.Search.Autopilot.NetMux">
+          <a:IPPrefix>{{ dual_tor_facts['neighbor']['ip_v6'] }}</a:IPPrefix>
+        </ManagementAddressV6>
+{% endif %}
       </Device>
 {% endif %}
 {% if 'cables' in dual_tor_facts %}

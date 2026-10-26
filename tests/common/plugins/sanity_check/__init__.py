@@ -88,6 +88,11 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 
         cmds = list(constants.PRINT_LOGS.values())
 
+        # Skip commands that trigger rexec on supervisor (e.g. show interface status, show ip bgp summary)
+        if dut.is_supervisor_node():
+            cmds = [cmd for cmd in cmds
+                    if not any(p.search(cmd) for p in constants.SUPERVISOR_REXEC_COMMAND_PATTERNS)]
+
         if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
@@ -117,6 +122,12 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 
 def filter_check_items(tbinfo, duthosts, check_items):
     filtered_check_items = copy.deepcopy(check_items)
+
+    # ignore interface, BGP, and orchagent checks for BMC topology
+    if tbinfo["topo"]["type"] == "bmc":
+        for item in ["check_interfaces", "check_bgp", "check_orchagent_usage"]:
+            if item in filtered_check_items:
+                filtered_check_items.remove(item)
 
     # ignore BGP check for particular topology type
     if tbinfo['topo']['type'] == 'ptf' and 'check_bgp' in filtered_check_items:

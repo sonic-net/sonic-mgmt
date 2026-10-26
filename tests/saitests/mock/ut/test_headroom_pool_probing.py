@@ -79,7 +79,9 @@ class TestHeadroomPoolProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
-        self.use_pg_drop_counter = False
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
+        self.ingress_drop_counter_mode = 'port_drop'
 
         # Probing configuration
         self.PROBE_TARGET = "headroom_pool"
@@ -728,9 +730,9 @@ class TestHeadroomPoolProbingProbeMethod(unittest.TestCase):
     @pytest.mark.order(4220)
     @patch('headroom_pool_probing.ProbingObserver')
     def test_probe_uses_pg_drop_counter_flag(self, mock_observer_class):
-        """Test probe passes use_pg_drop_counter to ingress drop executors."""
+        """Test probe passes counter_mode to ingress drop executors."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = True
+        instance.ingress_drop_counter_mode = 'pg_drop'
 
         # Mock stream_mgr with 1 flow
         mock_stream_mgr = MagicMock()
@@ -785,13 +787,13 @@ class TestHeadroomPoolProbingProbeMethod(unittest.TestCase):
 
             HeadroomPoolProbing.probe(instance)
 
-        # Verify that ingress_drop executors received use_pg_drop_counter=True
+        # Verify that ingress_drop executors received counter_mode='pg_drop'
         ingress_drop_calls = [c for c in create_executor_calls
                               if c['probe_target'] == 'ingress_drop']
         assert len(ingress_drop_calls) > 0
         for call_item in ingress_drop_calls:
-            assert 'use_pg_drop_counter' in call_item['kwargs']
-            assert call_item['kwargs']['use_pg_drop_counter'] is True
+            assert 'counter_mode' in call_item['kwargs']
+            assert call_item['kwargs']['counter_mode'] == 'pg_drop'
 
 
 @pytest.mark.order(4230)
@@ -803,7 +805,7 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
     def test_persist_buffer_with_port_counter_margin(self, mock_observer_class):
         """Test buffer persistence uses margin when using port counter."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = False  # Port counter mode
+        instance.ingress_drop_counter_mode = 'port_drop'  # Port counter mode
         instance.POINT_PROBING_STEP_SIZE = 2
 
         # Mock stream_mgr with 1 flow
@@ -878,7 +880,7 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
     def test_persist_buffer_with_pg_counter_no_margin(self, mock_observer_class):
         """Test buffer persistence uses no margin when using PG drop counter."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = True  # PG counter mode
+        instance.ingress_drop_counter_mode = 'pg_drop'  # PG counter mode
         instance.POINT_PROBING_STEP_SIZE = 2
 
         # Mock stream_mgr with 1 flow
@@ -940,6 +942,184 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
         instance.buffer_ctrl.persist_buffer_occupancy.assert_called_once()
         call_args = instance.buffer_ctrl.persist_buffer_occupancy.call_args
         assert call_args[1]['count'] == 1100  # No margin
+
+    @pytest.mark.order(4241)
+    @patch('headroom_pool_probing.ProbingObserver')
+    def test_persist_buffer_with_port_buffer_drop_no_margin(self, mock_observer_class):
+        """Test buffer persistence uses no margin when using port_buffer_drop counter mode."""
+        instance = TestHeadroomPoolProbingInstance()
+        instance.ingress_drop_counter_mode = 'port_buffer_drop'
+        instance.POINT_PROBING_STEP_SIZE = 2
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3)
+        }
+        instance.stream_mgr = mock_stream_mgr
+
+        instance.get_pool_size = MagicMock(return_value=10000)
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+
+        call_count_ul = [0]
+        call_count_rp = [0]
+
+        def side_effect_ul(*args, **kwargs):
+            call_count_ul[0] += 1
+            if call_count_ul[0] in [1, 3]:
+                return (2000, 1.0) if call_count_ul[0] == 1 else (2100, 1.0)
+            else:
+                return (1000, 1.0) if call_count_ul[0] == 2 else (1090, 1.0)
+
+        def side_effect_rp(*args, **kwargs):
+            call_count_rp[0] += 1
+            if call_count_rp[0] == 1:
+                return (1000, 1005, 1.0)
+            elif call_count_rp[0] == 2:
+                return (1000, 1001, 1.0)
+            elif call_count_rp[0] == 3:
+                return (1096, 1100, 1.0)
+            else:
+                return (1100, 1101, 1.0)
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point:
+
+            for mock_algo_class in [mock_upper, mock_lower]:
+                mock_algo_class.return_value.run.side_effect = side_effect_ul
+            for mock_algo_class in [mock_range, mock_point]:
+                mock_algo_class.return_value.run.side_effect = side_effect_rp
+
+            instance._build_result = MagicMock(return_value={'success': True, 'total_headroom': 100})
+            instance._report_results = MagicMock(return_value=MagicMock())
+
+            HeadroomPoolProbing.probe(instance)
+
+        # port_buffer_drop is noise-immune like pg_drop → no margin
+        instance.buffer_ctrl.persist_buffer_occupancy.assert_called_once()
+        call_args = instance.buffer_ctrl.persist_buffer_occupancy.call_args
+        assert call_args[1]['count'] == 1100  # No margin
+
+    @pytest.mark.order(4245)
+    @patch('headroom_pool_probing.ProbingObserver')
+    def test_probe_pool_size_conversion_multi_cell(self, mock_observer_class):
+        """Test probe converts pool_size from cells to packets when cells_per_packet > 1."""
+        instance = TestHeadroomPoolProbingInstance()
+        instance.probe_cells_per_packet = 4  # Cisco: 1350B / 384B
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3)
+        }
+        instance.stream_mgr = mock_stream_mgr
+
+        # Pool size in cells = 10000, should become 2500 pkts
+        instance.get_pool_size = MagicMock(return_value=10000)
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point:
+
+            # First PG upper bound: algorithm receives pool_size=2500 as init value
+            mock_upper_algo = MagicMock()
+            mock_upper_algo.run.return_value = (2000, 1.0)
+            mock_upper.return_value = mock_upper_algo
+
+            mock_lower.return_value.run.return_value = (1000, 1.0)
+            mock_range.return_value.run.return_value = (1000, 1005, 1.0)
+            mock_point.return_value.run.return_value = (1000, 1001, 1.0)
+
+            instance._build_result = MagicMock(return_value={'success': False})
+            instance._report_results = MagicMock(return_value=MagicMock())
+
+            HeadroomPoolProbing.probe(instance)
+
+        # First PFC upper bound call uses pool_size as init value
+        # pool_size = 10000 cells // 4 cells_per_packet = 2500 packets
+        pfc_upper_call = mock_upper_algo.run.call_args_list[0]
+        init_value = pfc_upper_call[0][2]  # 3rd positional arg
+        assert init_value == 2500, f"Expected pool_size=2500 (10000//4), got {init_value}"
+
+    @pytest.mark.order(4650)
+    @patch('headroom_pool_probing.ProbingObserver')
+    def test_probe_forwards_pool_size_kwarg_to_upper_bound(self, mock_observer_class):
+        """Test probe passes pool_size as keyword arg to both PFC and IngressDrop upper bounds.
+
+        PR22 adds pool_size=pool_size kwarg to upper bound calls so the safety cap
+        can abort runaway exponential growth when threshold is not triggerable.
+        """
+        instance = TestHeadroomPoolProbingInstance()
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3)
+        }
+        instance.stream_mgr = mock_stream_mgr
+
+        instance.get_pool_size = MagicMock(return_value=10000)
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point:
+
+            mock_upper_algo = MagicMock()
+            mock_upper_algo.run.return_value = (2000, 1.0)
+            mock_upper.return_value = mock_upper_algo
+
+            mock_lower.return_value.run.return_value = (1000, 1.0)
+            mock_range.return_value.run.return_value = (1000, 1005, 1.0)
+            mock_point.return_value.run.return_value = (1000, 1001, 1.0)
+
+            instance._build_result = MagicMock(return_value={'success': False})
+            instance._report_results = MagicMock(return_value=MagicMock())
+
+            HeadroomPoolProbing.probe(instance)
+
+        # HeadroomPoolProbing creates separate UpperBound instances for PFC and IngressDrop,
+        # but since we mock the class, all instances share mock_upper_algo.
+        # With 1 PG: call 0 = PFC upper, call 1 = IngressDrop upper
+        assert mock_upper_algo.run.call_count == 2, \
+            f"Expected 2 upper bound calls (PFC+Drop), got {mock_upper_algo.run.call_count}"
+
+        # Verify PFC upper bound received pool_size kwarg
+        pfc_call = mock_upper_algo.run.call_args_list[0]
+        assert 'pool_size' in pfc_call.kwargs, \
+            f"PFC upper bound missing pool_size kwarg, got kwargs={pfc_call.kwargs}"
+        assert pfc_call.kwargs['pool_size'] == 10000, \
+            f"PFC pool_size should be 10000, got {pfc_call.kwargs['pool_size']}"
+
+        # Verify IngressDrop upper bound received pool_size kwarg
+        drop_call = mock_upper_algo.run.call_args_list[1]
+        assert 'pool_size' in drop_call.kwargs, \
+            f"Drop upper bound missing pool_size kwarg, got kwargs={drop_call.kwargs}"
+        assert drop_call.kwargs['pool_size'] == 10000, \
+            f"Drop pool_size should be 10000, got {drop_call.kwargs['pool_size']}"
 
 
 if __name__ == "__main__":
@@ -1134,4 +1314,65 @@ class TestBufferCleanupOnPgFailure:
         drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
                        if c[0][0] == [36]]
         assert len(drain_calls) > 0, \
-            "drain_buffer([36]) should be called for PG #1's dst_port on failure"
+            "drain_buffer([36]) should be called for Iter #1's dst_port on failure"
+
+
+@pytest.mark.order(4660)
+class TestHeadroomPoolProbingIterDisplay(unittest.TestCase):
+    """Verify probe() console output uses 'Iter #' prefix (not 'PG #')."""
+
+    @pytest.mark.order(4660)
+    @patch('headroom_pool_probing.ProbingObserver')
+    def test_console_output_uses_iter_prefix(self, mock_observer_class):
+        """Console messages must use 'Iter #N' instead of 'PG #N'."""
+        instance = TestHeadroomPoolProbingInstance()
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3),
+        }
+        instance.stream_mgr = mock_stream_mgr
+
+        instance.get_pool_size = MagicMock(return_value=10000)
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+        instance._build_result = MagicMock(return_value={'success': True, 'total_headroom': 0})
+        instance._report_results = MagicMock(return_value=MagicMock())
+
+        upper_lower_count = [0]
+
+        def mock_upper_lower(*args, **kwargs):
+            upper_lower_count[0] += 1
+            return (2000, 1.0)
+
+        def mock_range_point(*args, **kwargs):
+            return (1000, 1005, 1.0)
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point:
+
+            mock_upper.return_value.run.side_effect = mock_upper_lower
+            mock_lower.return_value.run.side_effect = mock_upper_lower
+            mock_range.return_value.run.side_effect = mock_range_point
+            mock_point.return_value.run.side_effect = mock_range_point
+
+            HeadroomPoolProbing.probe(instance)
+
+        console_calls = [str(c) for c in mock_observer_class.console.call_args_list]
+        iter_calls = [c for c in console_calls if 'Iter #' in c]
+        pg_calls = [c for c in console_calls if 'PG #' in c]
+
+        assert len(iter_calls) >= 1, (
+            f"Expected 'Iter #' in console output, got: {console_calls}"
+        )
+        assert len(pg_calls) == 0, (
+            f"'PG #' should not appear in console output, found: {pg_calls}"
+        )

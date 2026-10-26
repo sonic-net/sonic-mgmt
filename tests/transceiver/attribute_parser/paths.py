@@ -1,0 +1,33 @@
+"""Compatibility imports for the common port-attribute parser."""
+
+from tests.common.port_attributes.paths import (
+    CDB_FIRMWARE_UPGRADE_CATEGORY,
+    CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+    CDB_FIRMWARE_UPGRADE_URL_FILE,
+    REL_ATTR_DIR,
+    REL_DEPLOYMENT_TEMPLATES_FILE,
+    REL_DUT_INFO_DIR,
+    REL_NORMALIZATION_MAPPINGS_FILE,
+    REL_TEMPLATES_DIR,
+    REL_TRANSCEIVER_INV_DIR,
+    SHARD_PART_NUMBERS_SEGMENT,
+    SHARD_VENDORS_DIR,
+    get_repo_root,
+    iter_vendor_pn_dirs,
+)
+
+__all__ = [
+    "CDB_FIRMWARE_UPGRADE_CATEGORY",
+    "CDB_FIRMWARE_UPGRADE_MANIFEST_FILE",
+    "CDB_FIRMWARE_UPGRADE_URL_FILE",
+    "REL_ATTR_DIR",
+    "REL_DEPLOYMENT_TEMPLATES_FILE",
+    "REL_DUT_INFO_DIR",
+    "REL_NORMALIZATION_MAPPINGS_FILE",
+    "REL_TEMPLATES_DIR",
+    "REL_TRANSCEIVER_INV_DIR",
+    "SHARD_PART_NUMBERS_SEGMENT",
+    "SHARD_VENDORS_DIR",
+    "get_repo_root",
+    "iter_vendor_pn_dirs",
+]

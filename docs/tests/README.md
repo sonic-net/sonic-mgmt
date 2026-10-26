@@ -14,6 +14,7 @@ Plugins:
 - [PSU Controller](/tests/common/plugins/pdu_controller/README.md)
 - [Sanity Check](/tests/common/plugins/sanity_check/README.md)
 - [Test Completeness](/tests/common/plugins/test_completeness/README.md)
+- [ERSPAN Mirror](/tests/common/plugins/erspan_mirror/README.md)
 
 Test description
 - [Show Techsupport](/tests/show_techsupport/README.md)
