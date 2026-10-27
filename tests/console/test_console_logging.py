@@ -61,7 +61,9 @@ LOGROTATE_COUNT_TEST = "3"
 # logrotate treats 'k' as 1024; exceed that threshold without a multi-kB pad.
 BYTES_UNDER_SIZE_THRESHOLD = 900
 BYTES_OVER_SIZE_THRESHOLD = 1100
-LOGROTATE_STATUS_FILE = "/var/lib/logrotate/status"
+# Test-owned paths so existing console history and system logrotate state are never touched.
+TEST_LOG_FILE_FMT = "/var/log/console-mgmt-{}.log"
+TEST_LOGROTATE_STATUS_FMT = "/tmp/console-mgmt-{}.logrotate.status"
 SYSLOG_FILE = "/var/log/syslog"
 
 
@@ -73,6 +75,16 @@ def get_db_console_port_field(duthost, line, field):
         "sonic-db-cli CONFIG_DB HGET 'CONSOLE_PORT|{}' {}".format(line, field),
         module_ignore_errors=True)
     return res['stdout'].strip() if res['rc'] == 0 else ''
+
+
+def clear_logging_option_fields(duthost, line):
+    """
+    Remove log_file and logrotate options so 'enable' falls back to the defaults.
+    'enable' only fills fields that are missing; values already in CONFIG_DB are kept as-is.
+    """
+    duthost.shell(
+        "sudo sonic-db-cli CONFIG_DB HDEL 'CONSOLE_PORT|{}' log_file logrotate_size logrotate_count".format(line),
+        module_ignore_errors=True)
 
 
 def state_console_port_key(line):
@@ -158,17 +170,28 @@ def register_rotated_log_cleanup(cleanup_paths, log_file, max_suffix=5):
         cleanup_paths.append("{}.{}.gz".format(log_file, suffix))
 
 
-def remove_rotated_log_artifacts(duthost, log_file):
-    duthost.shell("sudo rm -f {}.[0-9]*".format(log_file), module_ignore_errors=True)
+def new_test_log_paths(cleanup_paths):
+    """
+    Return a unique (log_file, logrotate_status_file) pair owned by the test.
+
+    Both paths are registered for removal during fixture teardown.
+    """
+    suffix = generate_random_string(6)
+    log_file = TEST_LOG_FILE_FMT.format(suffix)
+    status_file = TEST_LOGROTATE_STATUS_FMT.format(suffix)
+    cleanup_paths.extend([log_file, status_file])
+    return log_file, status_file
 
 
-def clear_logrotate_status_for_log(duthost, log_file):
+def enable_logging_to_file(duthost, line, log_file, extra_args=""):
     """
-    Drop status entries for 'log_file' so the next run can rotate on size.
+    Enable logging on 'line' writing to 'log_file' and wait for the proxy to pick it up.
     """
-    duthost.shell(
-        r"sudo sed -i '\|{}|d' {}".format(log_file, LOGROTATE_STATUS_FILE),
-        module_ignore_errors=True)
+    run_logging_cli(duthost, "{} enable".format(line))
+    run_logging_cli(duthost, "{} filename {} {}".format(line, log_file, extra_args).strip())
+    pytest_assert(wait_for_file_path(duthost, log_file),
+                  "Log file {} was not created after enabling logging".format(log_file))
+    wait_for_proxy_active(duthost, line)
 
 
 def append_bytes_to_log(duthost, log_file, num_bytes):
@@ -181,11 +204,13 @@ def append_bytes_to_log(duthost, log_file, num_bytes):
         module_ignore_errors=True)
 
 
-def run_logrotate(duthost, logrotate_conf, force=False):
+def run_logrotate(duthost, logrotate_conf, status_file, force=False):
     """
     Run logrotate for the generated configuration, optionally forcing rotation.
+
+    'status_file' keeps logrotate state separate from the system status file.
     """
-    cmd = "sudo /usr/sbin/logrotate "
+    cmd = "sudo /usr/sbin/logrotate -s {} ".format(status_file)
     if force:
         cmd += "-f "
     cmd += logrotate_conf
@@ -401,6 +426,7 @@ def test_logging_enable_applies_defaults(duthost, target_line, preserve_logging_
     logrotate_conf = LOGROTATE_CONF_FMT.format(LOGROTATE_DIR, target_line)
 
     run_logging_cli(duthost, "{} disable".format(target_line))
+    clear_logging_option_fields(duthost, target_line)
     run_logging_cli(duthost, "{} enable".format(target_line))
 
     expected_fields = {
@@ -442,7 +468,7 @@ def test_logging_state_db_logging_status(duthost, target_line, preserve_logging_
     With a valid log path, logging_status is active and logging_error is absent.
     With a non-existing/un-openable path, logging_status is failed and logging_error describes the fault.
     """
-    default_log = DEFAULT_LOG_FILE_FMT.format(target_line)
+    log_file, _ = new_test_log_paths(preserve_logging_config)
 
     run_logging_cli(duthost, "{} disable".format(target_line))
     pytest_assert(
@@ -455,10 +481,7 @@ def test_logging_state_db_logging_status(duthost, target_line, preserve_logging_
                   "logging_error should be absent while status is disabled, got: {}".format(
                       disabled_fields))
 
-    run_logging_cli(duthost, "{} enable".format(target_line))
-    pytest_assert(wait_for_file_path(duthost, default_log),
-                  "Log file {} was not created after enabling logging".format(default_log))
-    wait_for_proxy_active(duthost, target_line)
+    enable_logging_to_file(duthost, target_line, log_file)
 
     pytest_assert(
         wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_ACTIVE),
@@ -489,12 +512,12 @@ def test_logging_state_db_logging_status(duthost, target_line, preserve_logging_
                   "logging_error should reference the bad path or open failure, got: {}".format(
                       logging_error))
 
-    run_logging_cli(duthost, "{} filename {}".format(target_line, default_log))
+    run_logging_cli(duthost, "{} filename {}".format(target_line, log_file))
     wait_for_proxy_active(duthost, target_line)
     pytest_assert(
         wait_for_state_logging_status(duthost, target_line, STATE_LOGGING_STATUS_ACTIVE),
         "STATE_DB logging_status did not return to '{}' after restoring log path {}".format(
-            STATE_LOGGING_STATUS_ACTIVE, default_log))
+            STATE_LOGGING_STATUS_ACTIVE, log_file))
     recovered_fields = get_state_console_port_fields(duthost, target_line)
     pytest_assert('logging_error' not in recovered_fields or not recovered_fields.get('logging_error'),
                   "logging_error should be cleared after recovery, got: {}".format(recovered_fields))
@@ -504,13 +527,8 @@ def test_logging_captures_console_output(duthost, creds, target_line, preserve_l
     """
     Console output reaches the log file once logging is enabled.
     """
-    log_file = DEFAULT_LOG_FILE_FMT.format(target_line)
-
-    run_logging_cli(duthost, "{} enable".format(target_line))
-    pytest_assert(wait_for_file_path(duthost, log_file),
-                  "Log file {} was not created after enabling logging".format(log_file))
-    wait_for_proxy_active(duthost, target_line)
-    truncate_log_file(duthost, log_file)
+    log_file, _ = new_test_log_paths(preserve_logging_config)
+    enable_logging_to_file(duthost, target_line, log_file)
 
     marker = emit_console_marker(duthost, creds, target_line)
 
@@ -526,14 +544,10 @@ def test_logging_disable_stops_capture(duthost, creds, target_line, preserve_log
     Verifies that logging works before disabling it, then confirms that no new
     console output is captured after logging is disabled.
     """
-    log_file = DEFAULT_LOG_FILE_FMT.format(target_line)
+    log_file, _ = new_test_log_paths(preserve_logging_config)
     logrotate_conf = LOGROTATE_CONF_FMT.format(LOGROTATE_DIR, target_line)
 
-    run_logging_cli(duthost, "{} enable".format(target_line))
-    pytest_assert(wait_for_file_path(duthost, log_file),
-                  "Log file {} was not created after enabling logging".format(log_file))
-    wait_for_proxy_active(duthost, target_line)
-    truncate_log_file(duthost, log_file)
+    enable_logging_to_file(duthost, target_line, log_file)
 
     marker_enabled = emit_console_marker(duthost, creds, target_line)
     pytest_assert(
@@ -549,7 +563,6 @@ def test_logging_disable_stops_capture(duthost, creds, target_line, preserve_log
     pytest_assert(wait_for_file_path(duthost, logrotate_conf, present=False),
                   "Logrotate config {} still present after disabling logging".format(logrotate_conf))
 
-    truncate_log_file(duthost, log_file)
     marker_disabled = emit_console_marker(duthost, creds, target_line)
 
     time.sleep(MARKER_DRAIN_SEC)
@@ -700,25 +713,20 @@ def test_logging_rotates_when_size_exceeded(duthost, creds, target_line, preserv
     The proxy keeps the active log file open for writing, so copytruncate allows
     rotation without changing the file being used by the proxy.
     """
-    log_file = DEFAULT_LOG_FILE_FMT.format(target_line)
+    log_file, status_file = new_test_log_paths(preserve_logging_config)
+    register_rotated_log_cleanup(preserve_logging_config, log_file)
     logrotate_conf = LOGROTATE_CONF_FMT.format(LOGROTATE_DIR, target_line)
 
-    run_logging_cli(duthost, "{} enable".format(target_line))
-    run_logging_cli(duthost, "{} filename {} --logrotate-size {} --logrotate-count {}".format(
-        target_line, log_file, LOGROTATE_SIZE_TEST, LOGROTATE_COUNT_TEST))
-    pytest_assert(wait_for_file_path(duthost, log_file),
-                  "Log file {} was not created after enabling logging".format(log_file))
+    enable_logging_to_file(duthost, target_line, log_file, "--logrotate-size {} --logrotate-count {}".format(
+        LOGROTATE_SIZE_TEST, LOGROTATE_COUNT_TEST))
     pytest_assert(wait_for_file_path(duthost, logrotate_conf),
                   "Logrotate config {} was not generated".format(logrotate_conf))
-    wait_for_proxy_active(duthost, target_line)
 
-    register_rotated_log_cleanup(preserve_logging_config, log_file)
-    remove_rotated_log_artifacts(duthost, log_file)
-    clear_logrotate_status_for_log(duthost, log_file)
+    # The proxy may already have logged console output; start from a known size.
     truncate_log_file(duthost, log_file)
 
     append_bytes_to_log(duthost, log_file, BYTES_UNDER_SIZE_THRESHOLD)
-    res = run_logrotate(duthost, logrotate_conf, force=False)
+    res = run_logrotate(duthost, logrotate_conf, status_file, force=False)
     pytest_assert(res['rc'] == 0,
                   "logrotate failed while log was below size threshold: rc={} stderr={}".format(
                       res['rc'], res['stderr']))
@@ -730,13 +738,13 @@ def test_logging_rotates_when_size_exceeded(duthost, creds, target_line, preserv
                   "Logrotate created {}.1.gz even though the log was below size threshold".format(
                       log_file))
 
-    clear_logrotate_status_for_log(duthost, log_file)
+    duthost.shell("sudo rm -f {}".format(status_file), module_ignore_errors=True)
     truncate_log_file(duthost, log_file)
 
     append_bytes_to_log(duthost, log_file, BYTES_OVER_SIZE_THRESHOLD)
     inode_before = get_inode(duthost, log_file)
 
-    res = run_logrotate(duthost, logrotate_conf, force=False)
+    res = run_logrotate(duthost, logrotate_conf, status_file, force=False)
     pytest_assert(res['rc'] == 0,
                   "logrotate failed on the generated config: rc={} stderr={}".format(
                       res['rc'], res['stderr']))
@@ -753,7 +761,6 @@ def test_logging_rotates_when_size_exceeded(duthost, creds, target_line, preserv
                   "using copytruncate and the proxy is now writing to an unlinked file".format(
                       log_file, inode_before, inode_after))
 
-    truncate_log_file(duthost, log_file)
     marker = emit_console_marker(duthost, creds, target_line)
     pytest_assert(
         wait_until(SETTLE_SEC, 2, 0, lambda: check_msg_in_log(duthost, log_file, marker)),
@@ -764,37 +771,35 @@ def test_logging_rotate_count_retention(duthost, target_line, preserve_logging_c
     """
     Verify that only the configured number of rotated backup files is retained.
     """
-    log_file = DEFAULT_LOG_FILE_FMT.format(target_line)
+    log_file, status_file = new_test_log_paths(preserve_logging_config)
+    register_rotated_log_cleanup(preserve_logging_config, log_file)
     logrotate_conf = LOGROTATE_CONF_FMT.format(LOGROTATE_DIR, target_line)
     rotate_count = int(LOGROTATE_COUNT_TEST)
 
-    run_logging_cli(duthost, "{} enable".format(target_line))
-    run_logging_cli(duthost, "{} filename {} --logrotate-size {} --logrotate-count {}".format(
-        target_line, log_file, LOGROTATE_SIZE_TEST, LOGROTATE_COUNT_TEST))
-    pytest_assert(wait_for_file_path(duthost, log_file),
-                  "Log file {} was not created after enabling logging".format(log_file))
+    enable_logging_to_file(duthost, target_line, log_file, "--logrotate-size {} --logrotate-count {}".format(
+        LOGROTATE_SIZE_TEST, LOGROTATE_COUNT_TEST))
     pytest_assert(wait_for_file_path(duthost, logrotate_conf),
                   "Logrotate config {} was not generated".format(logrotate_conf))
-    wait_for_proxy_active(duthost, target_line)
-
-    register_rotated_log_cleanup(preserve_logging_config, log_file)
-    remove_rotated_log_artifacts(duthost, log_file)
-    clear_logrotate_status_for_log(duthost, log_file)
-    truncate_log_file(duthost, log_file)
 
     num_rotations = rotate_count + 2
     for _ in range(num_rotations):
         append_bytes_to_log(duthost, log_file, BYTES_OVER_SIZE_THRESHOLD)
-        res = run_logrotate(duthost, logrotate_conf, force=True)
+        res = run_logrotate(duthost, logrotate_conf, status_file, force=True)
         pytest_assert(res['rc'] == 0,
                       "logrotate failed during retention exercise: rc={} stderr={}".format(
                           res['rc'], res['stderr']))
 
     backups = count_rotated_backups(duthost, log_file)
     logger.info("Rotated backups after %s cycles: %s", num_rotations, backups)
-    pytest_assert(len(backups) <= rotate_count,
-                  "Expected at most {} backup files, found {}: {}".format(
+    pytest_assert(len(backups) == rotate_count,
+                  "Expected exactly {} backup files, found {}: {}".format(
                       rotate_count, len(backups), backups))
+
+    for suffix in range(1, rotate_count + 1):
+        plain = "{}.{}".format(log_file, suffix)
+        pytest_assert(plain in backups or "{}.gz".format(plain) in backups,
+                      "Backup {} (or {}.gz) missing when rotate is {}: {}".format(
+                          plain, plain, rotate_count, backups))
 
     for suffix in range(rotate_count + 1, num_rotations + 1):
         pytest_assert(not file_path_exists(duthost, "{}.{}".format(log_file, suffix)),

@@ -18,6 +18,7 @@
     - [4.7 Reject symlink log paths](#47-reject-symlink-log-paths)
     - [4.8 Log rotation on size threshold](#48-log-rotation-on-size-threshold)
     - [4.9 Rotated backup retention count](#49-rotated-backup-retention-count)
+    - [4.10 STATE_DB logging runtime status](#410-state_db-logging-runtime-status)
   - [5 Automation mapping](#5-automation-mapping)
   - [6 Cleanup and recovery](#6-cleanup-and-recovery)
 
@@ -40,6 +41,7 @@ This plan verifies end-to-end console logging on a **BMC SONiC** image:
 - Input validation (invalid sizes, counts, paths)
 - Refusal to log through a symlink path (daemon error, no writes to the symlink target)
 - Size-triggered rotation and `rotate` count retention
+- STATE_DB runtime status (`logging_status`, `logging_error`) published by **console-monitor-proxy**
 
 **Out of scope:** non-BMC topologies (tests are marked `topology('bmc')` only).
 
@@ -144,7 +146,7 @@ In the tables below, `{line}` is the target console line id (same value as `targ
 | Item | Detail |
 |------|--------|
 | **Objective** | Verify `enable` applies defaults, creates the log file, and generates a correct logrotate configuration. |
-| **Test steps** | 1. `config console logging {line} disable` (clean slate).<br>2. `config console logging {line} enable`.<br>3. Confirm CONFIG_DB logging fields for that line match section 3.3 (e.g. `HGET` per field or `HGETALL` on the line’s `CONSOLE_PORT` key).<br>4. Confirm log file exists.<br>5. Read `/etc/logrotate.d/console-monitor-logging-{line}`. |
+| **Test steps** | 1. `config console logging {line} disable`; delete `log_file`, `logrotate_size`, and `logrotate_count` from `CONSOLE_PORT\|{line}` (clean slate; `enable` only fills missing fields).<br>2. `config console logging {line} enable`.<br>3. Confirm CONFIG_DB logging fields for that line match section 3.3 (e.g. `HGET` per field or `HGETALL` on the line’s `CONSOLE_PORT` key).<br>4. Confirm log file exists.<br>5. Read `/etc/logrotate.d/console-monitor-logging-{line}`. |
 | **Expected result** | `logging_enabled=yes`, `log_file=/var/log/console-{line}.log`, `logrotate_size=10M`, `logrotate_count=10`. Log file present. Logrotate config references the log path, includes `copytruncate`, `size 10M`, and `rotate 10`. |
 
 Example CONFIG_DB check (substitute line id for `0`):
@@ -158,15 +160,15 @@ sudo sonic-db-cli CONFIG_DB HGETALL 'CONSOLE_PORT|0'
 | Item | Detail |
 |------|--------|
 | **Objective** | Verify enabled logging writes live console traffic to the log file. |
-| **Test steps** | 1. Enable logging; wait for log file and active proxy.<br>2. Truncate the log file.<br>3. Emit a unique console marker via reverse SSH on line `{line}`.<br>4. `grep` the marker in the log file (poll up to ~20 s). |
-| **Expected result** | Marker string appears at least once in `/var/log/console-{line}.log`. |
+| **Test steps** | 1. Enable logging with `filename /var/log/console-mgmt-{unique}.log`; wait for log file and active proxy.<br>2. Emit a unique console marker via reverse SSH on line `{line}`.<br>3. `grep` the marker in the log file (poll up to ~20 s). |
+| **Expected result** | Marker string appears at least once in the test-owned log file. |
 
 ### 4.3 Disable logging
 
 | Item | Detail |
 |------|--------|
 | **Objective** | Verify `disable` stops capture and removes the logrotate snippet. |
-| **Test steps** | 1. Enable logging; truncate log; emit marker **A**; confirm **A** in log.<br>2. `config console logging {line} disable`.<br>3. Confirm `logging_enabled` is `no` or absent.<br>4. Confirm logrotate config file is removed.<br>5. Truncate log; emit marker **B**; wait briefly.<br>6. Confirm **B** is **not** in the log. |
+| **Test steps** | 1. Enable logging with `filename /var/log/console-mgmt-{unique}.log`; emit marker **A**; confirm **A** in log.<br>2. `config console logging {line} disable`.<br>3. Confirm `logging_enabled` is `no` or absent.<br>4. Confirm logrotate config file is removed.<br>5. Emit marker **B**; wait briefly.<br>6. Confirm **B** is **not** in the log. |
 | **Expected result** | Capture works before disable; after disable, no new markers in the log and no `/etc/logrotate.d/console-monitor-logging-{line}`. |
 
 ### 4.4 Custom log path and logrotate options
@@ -208,24 +210,24 @@ sudo sonic-db-cli CONFIG_DB HGETALL 'CONSOLE_PORT|0'
 | Item | Detail |
 |------|--------|
 | **Objective** | Logrotate rotates only when size exceeds the configured threshold; **copytruncate** keeps the proxy writing to the same inode after rotation; logging continues after rotation. |
-| **Test steps** | 1. Enable logging with `filename /var/log/console-{line}.log`, `--logrotate-size 1k`, `--logrotate-count 3`.<br>2. Clear logrotate status for the log path; truncate log; remove old `log.N` artifacts.<br>3. Append ~900 bytes; run `logrotate` on the generated config (no `-f`).<br>4. Confirm no `log.1` created.<br>5. Truncate; append ~1100 bytes; record inode of active log; run `logrotate`.<br>6. Confirm `log.1` or `log.1.gz` exists; inode of active log unchanged.<br>7. Truncate active log; emit marker; confirm marker in active log. |
+| **Test steps** | 1. Enable logging with `filename /var/log/console-mgmt-{unique}.log`, `--logrotate-size 1k`, `--logrotate-count 3`.<br>2. Truncate the test log to start from a known size.<br>3. Append ~900 bytes; run `logrotate -s {test_status_file}` on the generated config (no `-f`).<br>4. Confirm no `log.1` created.<br>5. Remove the test status file; truncate; append ~1100 bytes; record inode of active log; run `logrotate -s {test_status_file}`.<br>6. Confirm `log.1` or `log.1.gz` exists; inode of active log unchanged.<br>7. Emit marker; confirm marker in active log. |
 | **Expected result** | No rotation below 1k; rotation at/above threshold; inode stable (copytruncate); post-rotation capture still works. |
 
 ### 4.9 Rotated backup retention count
 
 | Item | Detail |
 |------|--------|
-| **Objective** | Only `rotate` numbered backups are kept when rotation is forced repeatedly. |
-| **Test steps** | 1. Same logging setup as section 4.8 (`1k` / count `3`).<br>2. Clear status and rotated artifacts; truncate log.<br>3. Loop `rotate_count + 2` times: append ~1100 bytes; `logrotate -f` on generated config.<br>4. List `log.[0-9]*` backups. |
-| **Expected result** | At most **3** backup files exist; no `log.4` / `log.5` (or `.gz` equivalents) when `rotate` is 3. |
+| **Objective** | Exactly `rotate` numbered backups are kept when rotation is forced repeatedly. |
+| **Test steps** | 1. Same logging setup as section 4.8 (unique test log, `1k` / count `3`).<br>2. Loop `rotate_count + 2` times: append ~1100 bytes; `logrotate -s {test_status_file} -f` on generated config.<br>3. List `log.[0-9]*` backups. |
+| **Expected result** | Exactly **3** backup files exist: `log.1`, `log.2`, `log.3` (each may be `.gz`-compressed); no `log.4` / `log.5` (or `.gz` equivalents) when `rotate` is 3. |
 
 ### 4.10 STATE_DB logging runtime status
 
-| Item | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Objective** | Verify **console-monitor-proxy** publishes `logging_status` (and `logging_error` on failure) to **STATE_DB** `CONSOLE_PORT                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |{line}`. |
-| **Test steps** | 1. `config console logging {line} disable`; `HGETALL` ~expect `logging_status=disabled`, no `logging_error`.<br>2. `enable` logging with default `/var/log/console-{line}.log`; wait for log file and active proxy.<br>3. `HGETALL` ~expect `logging_status=active`, no `logging_error`.<br>4. `config console logging {line} filename /etc/console/test-{line}.log` (path that cannot be opened).<br>5. `HGETALL` again ~expect `logging_status=failed` and `logging_error` mentioning the path or 'No such file'.<br>6. Restore default log path; expect `logging_status=active` and cleared `logging_error`. |
-| **Expected result** | Runtime status tracks open success/failure independently of CONFIG_DB; failed state surfaces operator-visible error text in STATE_DB.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Item | Detail |
+|------|--------|
+| **Objective** | Verify **console-monitor-proxy** publishes `logging_status` (and `logging_error` on failure) to **STATE_DB** `CONSOLE_PORT\|{line}`. |
+| **Test steps** | 1. `config console logging {line} disable`; `HGETALL` ~expect `logging_status=disabled`, no `logging_error`.<br>2. `enable` logging with `filename /var/log/console-mgmt-{unique}.log`; wait for log file and active proxy.<br>3. `HGETALL` ~expect `logging_status=active`, no `logging_error`.<br>4. `config console logging {line} filename /etc/console/test-{line}.log` (path that cannot be opened).<br>5. `HGETALL` again ~expect `logging_status=failed` and `logging_error` mentioning the path or 'No such file'.<br>6. Restore the test log path; expect `logging_status=active` and cleared `logging_error`. |
+| **Expected result** | Runtime status tracks open success/failure independently of CONFIG_DB; failed state surfaces operator-visible error text in STATE_DB. |
 
 Example:
 
@@ -258,7 +260,9 @@ pytest tests/console/test_console_logging.py --topology bmc -v
 
 ## 6 Cleanup and recovery
 
-The `preserve_logging_config` fixture restores original CONFIG_DB logging fields, removes test-created log files, and deletes the logrotate snippet if the test created it. Tests that create rotated backups register `log.N` / `log.N.gz` paths for teardown removal.
+Tests that capture or rotate logs write to a unique test-owned path (`/var/log/console-mgmt-{unique}.log`) and run logrotate with a test-owned status file (`/tmp/console-mgmt-{unique}.logrotate.status`), so existing console history under `/var/log/console-{line}.log` and the system logrotate status file are never modified.
+
+The `preserve_logging_config` fixture restores original CONFIG_DB logging fields, removes test-created log and status files, and deletes the logrotate snippet if the test created it. Tests that create rotated backups register `log.N` / `log.N.gz` paths for teardown removal.
 
 If a test aborts mid-run, manually restore logging on the BMC:
 
