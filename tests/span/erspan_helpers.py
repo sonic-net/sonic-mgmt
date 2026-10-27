@@ -2,13 +2,11 @@
 Helper functions for ERSPAN sampled port mirroring with truncation tests.
 '''
 
-import json
 import time
 import logging
 from socket import IPPROTO_GRE, IPPROTO_TCP
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +105,9 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
     while time.time() < end_time:
         any_pkt_this_round = False
         for port in gre_egress_ports:
-            r = ptfadapter.dataplane.poll(device_number=0, port_number=port, timeout=0.1)
+            # Drain active collector members without waiting on idle LAG members.
+            poll_timeout = 0 if len(gre_egress_ports) > 1 else 0.1
+            r = ptfadapter.dataplane.poll(device_number=0, port_number=port, timeout=poll_timeout)
             if r is None:
                 continue
             # poll returns (port, pkt, ts) or (dev, port, pkt, ts) depending on PTF version
@@ -158,53 +158,11 @@ ERSPAN_SRC_IP = "10.1.0.32"
 ERSPAN_DST_IP = "10.20.0.33"
 ERSPAN_DST_PREFIX = "10.20.0.33/32"
 ERSPAN_DSCP = "8"
-ERSPAN_TTL = "64"
+# The collector captures before its peer routes the packet; prevent a return hop.
+ERSPAN_TTL = "1"
 ERSPAN_GRE_TYPE = "0x8949"
 ERSPAN_QUEUE = "0"
 ERSPAN_DEFAULT_DIRECTION = "rx"
-
-# Synthetic unicast destination MAC for ERSPAN sampling probe traffic. A static FDB
-# entry pins this MAC to the mirror source port so probes are unicast to a single port
-# RX probes injected on the source port are ingress-sampled then same-port dropped;
-# TX probes injected on the tx_ingress peer are forwarded out the source port (egress-sampled).
-PROBE_UNICAST_DST_MAC = "02:11:22:33:44:55"
-
-
-def apply_static_fdb(duthost, vlan_id, port, mac, op="SET", ignore_errors=False):
-    '''
-    Program (op="SET") or remove (op="DEL") a static FDB entry mapping `mac` to
-    `port` in Vlan<vlan_id> via swssconfig, so unicast frames destined to `mac`
-    are forwarded only out `port` instead of being flooded to the whole VLAN.
-    '''
-    fdb_mac = mac.replace(":", "-")
-    entry = [{
-        "FDB_TABLE:Vlan{}:{}".format(vlan_id, fdb_mac): {
-            "port": port,
-            "type": "static",
-        },
-        "OP": op,
-    }]
-    dut_json = "/tmp/erspan_fdb_{}.json".format(fdb_mac)
-    ctr_json = "/erspan_fdb_{}.json".format(fdb_mac)
-    duthost.copy(content=json.dumps(entry), dest=dut_json)
-    duthost.command("docker cp {} swss:{}".format(dut_json, ctr_json),
-                    module_ignore_errors=ignore_errors)
-    duthost.command("docker exec -i swss swssconfig {}".format(ctr_json),
-                    module_ignore_errors=ignore_errors)
-    duthost.command("docker exec -i swss rm -f {}".format(ctr_json), module_ignore_errors=True)
-    duthost.command("rm -f {}".format(dut_json), module_ignore_errors=True)
-
-    if ignore_errors:
-        return
-
-    def _fdb_applied():
-        count = int(duthost.shell(
-            "show mac | grep -i {} | grep -w {} | wc -l".format(mac, port))["stdout"])
-        return count >= 1 if op == "SET" else count == 0
-
-    pytest_assert(
-        wait_until(10, 1, 0, _fdb_applied),
-        "Static FDB {} for {} was not applied".format(op, mac))
 
 
 def remove_mirror_session(duthost, session_name):

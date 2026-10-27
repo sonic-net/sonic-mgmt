@@ -10,7 +10,7 @@
 - [4 Scope](#4-scope)
 - [5 Testbed](#5-testbed)
 - [6 Setup configuration](#6-setup-configuration)
-  - [6.1 Port roles (erspan_ports fixture)](#61-port-roles-erspan_ports-fixture)
+  - [6.1 Port selection and roles](#61-port-selection-and-roles)
   - [6.2 Setup of DUT switch](#62-setup-of-dut-switch)
   - [6.3 Unicast probe delivery](#63-unicast-probe-delivery)
   - [6.4 Dataplane collection methodology](#64-dataplane-collection-methodology)
@@ -27,7 +27,7 @@
 | Rev |     Date    |       Author            |     Change Description                                   |
 |:---:|:-----------:|:------------------------|:--------------------------------------------------------|
 | 0.1 |  05/21/2026 | Janet Cui               | Initial version                                         |
-| 0.2 |  10/24/2026 | Janet Cui               | T1 support                    |
+| 0.2 |  10/24/2026 | Janet Cui               | Unified routed testing across topologies                 |
 
 ## 2 Definition/Abbreviation
 
@@ -53,12 +53,6 @@ The test targets a running SONiC with a fully functioning configuration. It veri
 
 ## 5 Testbed
 
-Supported topologies: `t0`, `t1`. Both use the same test cases and pass criteria.
-
-- **T0:** requires at least three physical members of one VLAN; TX/BOTH requires four.
-- **T1:** currently supports DUTs with at least three up, PTF-mapped IPv4
-  interfaces.
-
 The DUT must have at least one routable path to the configured ERSPAN destination IP so that the
 GRE-encapsulated mirror packet egresses on a port connected to PTF (the collector).
 
@@ -71,31 +65,32 @@ Capability gating (skips are implemented as fixtures in `conftest.py`):
   `both` requires ingress and egress sampling capabilities.
 - `skip_if_truncation_unsupported` - skips if STATE_DB does not report
   `SAMPLEPACKET_TRUNCATION_CAPABLE = true`.
-- `skip_if_no_tx_ingress` - skips T0 TX/BOTH dataplane tests when the testbed VLAN does not have a
-  spare peer member port to inject the TX probe traffic.
 
 ## 6 Setup configuration
 
-### 6.1 Port roles (erspan_ports fixture)
+### 6.1 Port selection and roles
 
-The dataplane tests select these roles from VLAN members on T0 or routed interfaces on T1:
+Ports are selected from active routed interfaces using their existing peer next hops
+and actual DUT-to-PTF mappings. LAG members are grouped as one logical path.
 - **source** - the mirror source port; the session is bound to it and its traffic is mirrored.
 - **gre_egress** - the collector-facing egress port for ERSPAN copies captured by PTF.
 - **tx_ingress** - the peer port used by TX/BOTH tests to inject traffic that leaves the
   mirrored source port.
+
+For a collector LAG, packets are collected from all mapped member ports.
 
 ### 6.2 Setup of DUT switch
 
 Each test uses fixtures (defined in `conftest.py`):
 - `erspan_capabilities` - reads STATE_DB SWITCH_CAPABILITY once per module.
 - `setup_erspan_route` - installs a static route so the ERSPAN destination IP egresses on a
-  PTF-connected port.
+  PTF-connected path using its existing peer next hop.
 - `erspan_session` - creates the mirror session with parameters (sample_rate, truncate_size,
-  direction) supplied indirectly by the test, waits for STATE_DB status=active, yields, then
-  removes the session. It also manages the T0 static FDB entry described below.
+  direction), waits for STATE_DB status=active and the selected collector path, then
+  removes the session.
 
-T1 uses temporary interface addresses and static PTF neighbors to resolve the collector and
-TX next hops. Teardown removes additions made by the test and preserves matching existing state.
+Existing interface addresses and peer neighbors are reused, and BGP remains enabled.
+Teardown removes test-created routes and sessions while preserving matching pre-existing routes.
 
 On setup, sessions are created via:
 ```
@@ -111,35 +106,28 @@ sudo config mirror_session remove <name>
 
 ### 6.3 Unicast probe delivery
 
-**T0:** probes use `PROBE_UNICAST_DST_MAC`, pinned to the source port by a static FDB
-entry installed at session setup and removed at teardown.
-
-The single static FDB entry serves both directions:
-- **RX:** inject on the source port; originals are discarded by same-port filtering.
-- **TX:** inject on the peer port; FDB forwarding sends originals out the mirrored source port.
-
-**T1:** probes use the ingress router MAC and a dedicated destination IP:
+All topologies use the ingress router MAC and a dedicated probe destination IP:
 - **RX:** inject on the source port. A blackhole route discards the original probe while
   ingress mirror copies use the separate collector route.
 - **TX:** inject on the peer port. A test route forwards the original probe out the mirrored
   source port toward PTF.
 
-On both topologies, **BOTH** exercises the RX and TX paths separately.
+**BOTH** exercises the RX and TX paths separately. Probes use TTL 2 and ERSPAN copies
+use TTL 1 to prevent peer routers from forwarding packets back into the test.
 
 ### 6.4 Dataplane collection methodology
 
 Mirrored GRE packets are captured on the collector (gre_egress) port and identified by a 3-tuple
 match on the outer headers - `outer IP.src == session.src_ip`, `outer IP.dst == session.dst_ip`,
-and `GRE.proto == session.gre_type`. This three-tuple uniquely identifies frames from the session
-under test and is robust against ASIC-specific ERSPAN encapsulation differences (e.g. extra
-ERSPAN II/III header bytes between GRE and the inner frame).
+and `GRE.proto == session.gre_type`. Inner IP addresses and TCP ports must also match
+the sent probe. The current inner parser supports the GRE `0x8949` layout with a
+22-byte metadata prefix; other encapsulation layouts require a compatible decoder.
 
 Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 10000` and `N = sample_rate`) so
 the expected mirrored count is `~NUM_SAMPLES = 10000` regardless of `N` (e.g. 1,000,000 packets at
 `1:100` and 2,560,000 packets at `1:256`), and assert the observed count is within `[9500, 10500]`
 (`NUM_SAMPLES * (1 ± SAMPLE_COUNT_TOLERANCE)`, currently ±5%).
-Sampling-with-truncation tests use `SAMPLING_TRUNCATION_PACKET_SIZE` (1500B) for both
-packet generation and length validation.
+Sampling-with-truncation tests send 1500B probes and validate each matching mirror's length.
 
 ## 7 Test cases
 
@@ -292,8 +280,8 @@ port, verify that mirroring stops immediately and no further ERSPAN copies reach
 **Steps:**
 - Create a session with `sample_rate=256` and wait for it to become active.
 - Remove the session.
-- Send 1000 100B probes on the source port (broadcast on T0, RX probe destination on T1)
-  and verify no matching mirror copies arrive.
+- Send 1,000 100-byte test packets from PTF into the mirror source port.
+  Verify that the collector receives no matching mirror packets.
 
 **Pass criteria:** After removal, the collector receives zero matching test mirrors within the
 timeout window.

@@ -8,7 +8,8 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F
 from span_helpers import send_and_verify_mirrored_packet
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.usefixtures('setup_monitor_port'),
 ]
 
 
