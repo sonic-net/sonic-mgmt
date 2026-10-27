@@ -75,6 +75,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 209040
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 217867
+                    pkts_num_trig_pfc: 209000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -104,6 +112,14 @@ qos_params:
                     pkts_num_margin: 500
                     pkts_num_trig_pfc: 210100
             800000_300m:
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 216583
+                    pkts_num_trig_pfc: 210097
                 hdrm_pool_size:
                     dscps:
                     - 3
@@ -191,6 +207,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 213341
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -247,6 +271,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 209040
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 212272
+                    pkts_num_trig_pfc: 209000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -303,6 +335,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 100
+                    pkts_num_trig_ingr_drp: 213021
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -361,6 +401,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 157943
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -466,6 +514,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 156753
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -571,6 +627,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155205
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -681,6 +745,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155145
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -790,6 +862,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 154996
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -876,6 +956,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 211757
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -913,6 +1001,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 210983
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -1853,6 +1949,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 209040
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 217867
+                    pkts_num_trig_pfc: 209000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -1882,6 +1986,14 @@ qos_params:
                     pkts_num_margin: 500
                     pkts_num_trig_pfc: 210100
             800000_300m:
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 216583
+                    pkts_num_trig_pfc: 210097
                 hdrm_pool_size:
                     dscps:
                     - 3
@@ -1969,6 +2081,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 213341
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -2025,6 +2145,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 209040
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 212272
+                    pkts_num_trig_pfc: 209000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -2081,6 +2209,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 100
+                    pkts_num_trig_ingr_drp: 213021
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -2139,6 +2275,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 157943
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2244,6 +2388,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 156753
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2349,6 +2501,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 155205
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2460,6 +2620,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 151679
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 153311
+                    pkts_num_trig_pfc: 151614
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2564,6 +2732,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 153437
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 300
+                    pkts_num_trig_ingr_drp: 154996
+                    pkts_num_trig_pfc: 153448
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -2650,6 +2826,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 211757
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -2687,6 +2871,14 @@ qos_params:
                     pkts_num_trig_egr_drp: 210190
                 pkts_num_egr_mem: 0
                 pkts_num_leak_out: 0
+                wm_pg_headroom:
+                    cell_size: 420
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 500
+                    pkts_num_trig_ingr_drp: 210983
+                    pkts_num_trig_pfc: 210000
                 xoff_1:
                     dscp: 3
                     ecn: 1
