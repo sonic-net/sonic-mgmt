@@ -36,3 +36,9 @@ Part 2:
 2. After each SSH session is started, "show mac" is run to ensure the DUT is responding
 3. If there is no response the test reports the number of SSH sessions reached
 4. At the end of the test check if memory or cpu spiked from starting values. If they did check they they dropped from their max values. If they did not, the test fails.
+
+Teardown restores the configuration workloads and waits for teamd and BGP
+recovery. On VPP, it also requires a successful `route_check.py` execution and
+a healthy monit `routeCheck` status before returning. Monit's periodic result
+can lag behind route convergence after intentional churn; the bounded recovery
+wait does not disable the checker or accept persistent route mismatches.
