@@ -274,19 +274,30 @@ def _restore_reseat_state(
 
     yield
 
+    # The DOM and port restorations are independent: a failure, or an exception,
+    # in one must not keep the other from running or the session from aborting.
     failures = []
-    if build_dom_polling_failures(duthost, modules):
-        logger.warning("Remote reseat teardown: re-enabling DOM monitoring on %s", modules)
-        failures += oir_helpers.set_dom_monitoring(duthost, modules, enable=True)
-    summary = post_state_restoration(duthost, {port: port_attributes_dict[port] for port in lports})
-    restored = {
-        key: summary[key]
-        for key in ("lpmode_high_restored", "admin_up_restored", "link_bounced")
-        if summary[key]
-    }
-    if restored:
-        logger.warning("Remote reseat teardown restored: %s", restored)
-    failures += summary["still_failing"]
+    try:
+        if build_dom_polling_failures(duthost, modules):
+            logger.warning("Remote reseat teardown: re-enabling DOM monitoring on %s", modules)
+            failures += oir_helpers.set_dom_monitoring(duthost, modules, enable=True)
+    except (Exception, pytest.fail.Exception) as exc:
+        logger.exception("Remote reseat teardown: DOM monitoring restoration raised")
+        failures.append(f"DOM monitoring restoration raised {exc!r}")
+    try:
+        summary = post_state_restoration(duthost, {port: port_attributes_dict[port] for port in lports})
+    except (Exception, pytest.fail.Exception) as exc:
+        logger.exception("Remote reseat teardown: port restoration raised")
+        failures.append(f"port restoration raised {exc!r}")
+    else:
+        restored = {
+            key: summary[key]
+            for key in ("lpmode_high_restored", "admin_up_restored", "link_bounced")
+            if summary[key]
+        }
+        if restored:
+            logger.warning("Remote reseat teardown restored: %s", restored)
+        failures += summary["still_failing"]
     if failures:
         # The session-scoped link gate does not re-run, so continuing would
         # test a switch with ports left down or in low power mode.

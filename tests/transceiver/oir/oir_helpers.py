@@ -388,8 +388,9 @@ def _verify_lldp_present(duthost, lldp_timeouts):
     return [result["details"] for result in results.values() if not result["passed"]]
 
 
-def perform_remote_reseat(duthost, port_attributes_dict, lports, modules, shutdown_wait_sec, startup_wait_sec):
-    """Remotely reseat ``modules``, the first subports of ``lports``.
+def perform_remote_reseat(duthost, port_attributes_dict, lport_to_first_subport_mapping, lports,
+                          shutdown_wait_sec, startup_wait_sec):
+    """Remotely reseat the modules of ``lports``.
 
     Runs the seven steps of the remote reseat procedure, each across every
     module before the next, and checks each step's expected result:
@@ -410,8 +411,13 @@ def perform_remote_reseat(duthost, port_attributes_dict, lports, modules, shutdo
     ``remote_reseat_timeout_min``, scaled to the bulk operation.
 
     Returns:
-        list[str]: the per-step failures, for the caller to aggregate.
+        tuple: ``(failures, dom_baseline)``: the per-step failures, for the
+        caller to aggregate, and the :func:`capture_dom_sensor_baseline` data
+        read just before step 7.  DOM monitoring is still disabled then, so a
+        later ``last_update_time`` can only come from the monitoring step 7
+        re-enabled.
     """
+    modules = parents_of(lports, lport_to_first_subport_mapping)
     system_attrs = {port: port_attributes_dict[port][SYSTEM_ATTRIBUTES_KEY] for port in lports}
     i2c_recover_sec = max(system_attrs[module]["transceiver_reset_i2c_recover_sec"] for module in modules)
     lpm_modules = [module for module in modules if system_attrs[module]["low_power_mode_supported"]]
@@ -430,6 +436,7 @@ def perform_remote_reseat(duthost, port_attributes_dict, lports, modules, shutdo
     logger.info("Remote reseat of %d module(s) across %d port(s)", len(modules), len(lports))
     started_at = time.monotonic()
     failures = []
+    dom_baseline = {}
     try:
         failures += _reseat_step_failures(1, set_dom_monitoring(duthost, modules, enable=False))
         failures += _reseat_step_failures(2, perform_ports_shutdown(duthost, lports, shutdown_wait_sec))
@@ -441,6 +448,9 @@ def perform_remote_reseat(duthost, port_attributes_dict, lports, modules, shutdo
         try:
             startup_failures = perform_ports_startup(duthost, lports, startup_wait_sec)
             failures += _reseat_step_failures(6, startup_failures + _verify_lldp_present(duthost, lldp_timeouts))
+            dom_baseline, errors = capture_dom_sensor_baseline(
+                duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
+            failures += [f"DOM sensor baseline before step 7: {error}" for error in errors]
         finally:
             failures += _reseat_step_failures(7, set_dom_monitoring(duthost, modules, enable=True))
 
@@ -449,7 +459,7 @@ def perform_remote_reseat(duthost, port_attributes_dict, lports, modules, shutdo
     if elapsed > timeout_sec:
         failures.append(
             f"remote reseat took {elapsed:.0f}s, longer than its {timeout_sec}s timeout (remote_reseat_timeout_min)")
-    return failures
+    return failures, dom_baseline
 
 
 # ──────────────────────────────────────────────────────────────────────

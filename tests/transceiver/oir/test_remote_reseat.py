@@ -12,7 +12,8 @@ test, and their link peers on this DUT, are checked against the expected
 results of a physical insertion (:func:`oir_helpers.verify_insertion`):
 
   1. EEPROM content from the show and sfputil CLIs (exit code 0) matches the inventory.
-  2. DOM values are republished and valid; the VDM, PM and flag tables are still published.
+  2. DOM values are valid and republished after the last reseat re-enabled DOM
+     monitoring; the VDM, PM and flag tables are still published.
   3. The ports are oper up within ``port_startup_wait_sec`` and the system is healthy.
   4. No link flap for ``link_flap_monitor_timeout_sec``; each reseat takes every
      port and link peer down and up exactly once.
@@ -48,18 +49,18 @@ def _run_remote_reseats(duthost, port_attributes_dict, lport_to_first_subport_ma
     """Remotely reseat every module under test ``iterations`` times, then verify
     the TC1 expected results after the last reseat.
 
-    The baselines are taken before the first reseat, so the process health, the
-    flap counts and the kernel log cover every reseat.  The iterations stop at
-    the first reseat that fails.
+    The baselines are taken before the first reseat, so the published tables,
+    the process health, the flap counts and the kernel log cover every reseat.
+    The DOM sensor baseline is the one the last reseat reads while DOM
+    monitoring is still disabled, so only the monitoring it re-enabled can
+    republish DOM data.  The iterations stop at the first reseat that fails.
     """
     _, lports = oir_helpers.all_ports(reseat_pport_to_lports)
-    modules = oir_helpers.parents_of(lports, lport_to_first_subport_mapping)
     shutdown_wait, startup_wait = oir_helpers.bulk_waits(port_attributes_dict, lports)
 
-    baseline_tables, baseline_sensor_data, failures = oir_helpers.capture_recovery_baseline(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
-    if failures:
-        return [f"setup: {failure}" for failure in failures]
+    baseline_tables, errors = oir_helpers.capture_state_tables(duthost, lports)
+    if errors:
+        return [f"setup: STATE_DB baseline: {error}" for error in errors]
     other_flap_baseline = oir_helpers.get_other_ports_flap_sentinels(
         duthost, port_attributes_dict, lports, port_peers)
     health_baseline = capture_baseline(duthost)
@@ -67,10 +68,11 @@ def _run_remote_reseats(duthost, port_attributes_dict, lport_to_first_subport_ma
         duthost, port_attributes_dict, lports, attribute_key=REMOTE_RESEAT_ATTRIBUTES_KEY)
     flap_baseline = oir_helpers.get_flap_counts(duthost, oir_helpers.with_link_peers(duthost, lports, port_peers))
 
+    failures, dom_baseline = [], {}
     for iteration in range(1, iterations + 1):
-        logger.info("Remote reseat %d/%d of %d module(s)", iteration, iterations, len(modules))
-        failures = oir_helpers.perform_remote_reseat(
-            duthost, port_attributes_dict, lports, modules, shutdown_wait, startup_wait)
+        logger.info("Remote reseat %d/%d", iteration, iterations)
+        failures, dom_baseline = oir_helpers.perform_remote_reseat(
+            duthost, port_attributes_dict, lport_to_first_subport_mapping, lports, shutdown_wait, startup_wait)
         if failures:
             failures = [f"reseat {iteration}/{iterations}: {failure}" for failure in failures]
             break
@@ -81,7 +83,7 @@ def _run_remote_reseats(duthost, port_attributes_dict, lport_to_first_subport_ma
             lports, health_baseline, watermark, startup_wait,
             port_peers=port_peers,
             baseline_tables=baseline_tables,
-            baseline_sensor_data=baseline_sensor_data,
+            baseline_sensor_data=dom_baseline,
             insert_flap_baseline=flap_baseline,
             expected_flap_increment=FLAPS_PER_RESEAT * iterations,
             attribute_key=REMOTE_RESEAT_ATTRIBUTES_KEY,
