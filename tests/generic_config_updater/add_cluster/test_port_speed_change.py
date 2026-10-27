@@ -2,7 +2,6 @@ import logging
 import random
 import re
 import pytest
-import time
 from tests.generic_config_updater.add_cluster.helpers import get_cfg_info_from_dut
 from tests.generic_config_updater.add_cluster.helpers import acl_asic_shell_wrappper
 from .platform_constants import PLATFORM_SUPPORTED_SPEEDS_MAP, PLATFORM_SPEED_LANES_MAP, SPEED_FEC_MAP
@@ -1013,14 +1012,7 @@ def test_port_speed_change(tbinfo,
 
     with allure.step("Verify telemetry data for port after port speed change"):
         with setup_gnmi_streaming_context(False, duthost, localhost, ptfhost, gnxi_path):
-            GNMI_SERVER_START_WAIT_TIME = 15
             env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-            # Set up telemetry server
-            duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
-                          module_ignore_errors=False)
-            duthost.shell('docker exec %s supervisorctl reload' % (env.gnmi_container),
-                          module_ignore_errors=False)
-            time.sleep(GNMI_SERVER_START_WAIT_TIME)
             logger.info("entering verifying port telemetry info Amol")
             cmd = (
                 f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py '

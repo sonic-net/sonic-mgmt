@@ -48,6 +48,9 @@ def fixture_state():
 
 @pytest.mark.parametrize("original", [
     {"GNMI|gnmi": {}, "GNMI|certs": {}},
+    {"GNMI|gnmi": {"port": "8080", "user_auth": "password,jwt"}, "GNMI|certs": {}},
+    {"GNMI|gnmi": {"port": "8080", "client_auth": "false", "user_auth": "cert"}, "GNMI|certs": {}},
+    {"GNMI|gnmi": {"user_auth": ""}, "GNMI|certs": {}},
     {
         "GNMI|gnmi": {"port": "50052", "client_auth": "true", "user_auth": "password"},
         "GNMI|certs": {"server_crt": "/original.crt", "ca_crt": "/original-ca.crt", "other": "keep"},
@@ -61,6 +64,7 @@ def test_explicit_tls_and_exact_config_restore(fixture_state, original):
     assert state.tables["GNMI|certs"]["server_key"] == TLS_DIR + "/server.key"
     assert state.tables["GNMI|certs"]["ca_crt"] == ""
     assert state.tables["GNMI|gnmi"]["client_auth"] == "false"
+    assert state.tables["GNMI|gnmi"]["user_auth"] == "none"
     argv = state.dut.command.call_args.kwargs["argv"]
     assert argv[:3] == ["openssl", "req", "-x509"]
     assert argv[argv.index("-keyout") + 1] == TLS_DIR + "/server.key"
@@ -86,10 +90,13 @@ def test_setup_failure_restores_config_and_removes_credentials(fixture_state, fa
 
 def test_test_body_failure_restores_config(fixture_state):
     state = fixture_state
+    original = {"port": "8080", "user_auth": "password,jwt"}
+    state.tables["GNMI|gnmi"] = dict(original)
     next(state.generator)
+    assert state.tables["GNMI|gnmi"]["user_auth"] == "none"
     with pytest.raises(RuntimeError, match="test failed"):
         state.generator.throw(RuntimeError("test failed"))
-    assert state.tables == {"GNMI|gnmi": {}, "GNMI|certs": {}}
+    assert state.tables == {"GNMI|gnmi": original, "GNMI|certs": {}}
     state.dut.file.assert_called_once_with(path=TLS_DIR, state="absent")
 
 

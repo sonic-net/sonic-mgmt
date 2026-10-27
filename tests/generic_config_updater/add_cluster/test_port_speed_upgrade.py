@@ -1706,14 +1706,6 @@ def test_port_speed_upgrade(tbinfo, duthosts, ptfadapter, setup_port_speed_upgra
     with allure.step("Verify telemetry data for port after port speed upgrade"):
         with setup_gnmi_streaming_context(False, duthost, localhost, ptfhost, gnxi_path):
             env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-            duthost.shell(
-                'sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
-                module_ignore_errors=False
-            )
-            duthost.shell(
-                'docker exec %s supervisorctl reload' % (env.gnmi_container),
-                module_ignore_errors=False
-            )
             cmd = (
                 f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py '
                 f'&& python py_gnmicli.py -g -t {duthost.mgmt_ip} -p {env.gnmi_port} '
