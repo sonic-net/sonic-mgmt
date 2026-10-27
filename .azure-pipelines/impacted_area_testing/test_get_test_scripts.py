@@ -2,6 +2,8 @@
 """Unit tests for get_test_scripts.py dedup and data-plane detection."""
 
 import os
+import re
+import subprocess
 import sys
 import copy
 import json
@@ -13,6 +15,13 @@ import builtins
 sys.path.insert(0, os.path.dirname(__file__))
 
 import pytest  # noqa: E402
+import yaml  # noqa: E402
+from constant import (  # noqa: E402
+    CONTROL_PLANE_DEDUP_RULES,
+    MULTI_ASIC_T1_CHECKER,
+    PR_CHECKER_JOBS,
+    PR_TOPOLOGY_TYPE,
+)
 from get_test_scripts import (  # noqa: E402
     VPP_TOPOLOGY_CHECKERS,
     build_vpp_impacted_scripts,
@@ -571,18 +580,19 @@ class TestConftestScanning:
         removed = set(scripts["t1_checker"]) - set(result["t1_checker"])
         assert removed, "dedup removed nothing from t1_checker"
         assert removed < overlap, "data-plane overlap must stay in t1"
+        assert result[MULTI_ASIC_T1_CHECKER] == scripts["t1_checker"]
 
 
 # ── main(): dedup is opt-in ───────────────────────────────
 
 class TestMainDedupFlag:
 
-    @pytest.mark.parametrize("dedup, expected_t1", [
-        (False, ["feat/test_cp.py", "feat/test_dp.py"]),
-        (True, ["feat/test_dp.py"]),
+    @pytest.mark.parametrize("dedup, expected_t1, expected_multi_asic", [
+        (False, ["feat/test_cp.py", "feat/test_dp.py"], None),
+        (True, ["feat/test_dp.py"], ["feat/test_cp.py", "feat/test_dp.py"]),
     ])
     def test_dedup_only_when_requested(
-        self, test_dir, capsys, dedup, expected_t1
+        self, test_dir, capsys, dedup, expected_t1, expected_multi_asic
     ):
         marker = "pytestmark = [pytest.mark.topology('t0', 't1')]\n"
         _write_file(test_dir, "feat/test_cp.py", marker)
@@ -597,6 +607,163 @@ class TestMainDedupFlag:
             "feat/test_cp.py", "feat/test_dp.py"
         ]
         assert result["t1_checker"] == expected_t1
+        assert result.get(MULTI_ASIC_T1_CHECKER) == expected_multi_asic
+
+
+# ── Dedup only applies when the kept copy will run ────────
+
+class TestDedupIncludeJobs:
+
+    @pytest.fixture
+    def scripts(self, test_dir):
+        _write_file(test_dir, "a/test_cp.py", "# config test")
+        _write_file(test_dir, "b/test_t1.py", "# t1 only")
+        return {
+            "t0_checker": ["a/test_cp.py"],
+            "t1_checker": ["a/test_cp.py", "b/test_t1.py"],
+        }
+
+    @pytest.mark.parametrize("include_jobs", [
+        "t1_job",
+        "t1_job,t1_multi_asic_job,t2_job",
+        "t0_2vlans_job,t0_sonic_job,t0_vpp_job,t1_job",
+        "",
+    ])
+    def test_t1_kept_when_t0_job_not_included(
+        self, test_dir, scripts, include_jobs
+    ):
+        result = dedup_control_plane_tests(
+            copy.deepcopy(scripts), test_dir, include_jobs
+        )
+        assert result == scripts
+
+    @pytest.mark.parametrize("include_jobs", [
+        "all",
+        "ALL",
+        "t0_job",
+        "t0_job,t1_job,t1_multi_asic_job",
+        "T1_JOB, T0_JOB",
+    ])
+    def test_t1_deduped_when_t0_job_included(
+        self, test_dir, scripts, include_jobs
+    ):
+        result = dedup_control_plane_tests(
+            copy.deepcopy(scripts), test_dir, include_jobs
+        )
+        assert result["t1_checker"] == ["b/test_t1.py"]
+
+    def test_cli_keeps_t1_when_t0_job_not_included(self, test_dir):
+        """Same arguments as get-impacted-area.yml passes in a PR build."""
+        marker = "pytestmark = [pytest.mark.topology('t0', 't1')]\n"
+        _write_file(test_dir, "feat/test_cp.py", marker)
+        script = os.path.join(
+            os.path.dirname(__file__), "get_test_scripts.py"
+        )
+
+        out = subprocess.run(
+            [sys.executable, script, "--features", "feat",
+             "--location", test_dir, "--dedup-control-plane",
+             "--include-jobs", "t1_job,t1_multi_asic_job"],
+            check=True, capture_output=True, text=True,
+        ).stdout
+
+        assert json.loads(out) == {
+            "t0_checker": ["feat/test_cp.py"],
+            "t1_checker": ["feat/test_cp.py"],
+        }
+
+
+# ── multi-asic-t1 keeps the original t1 list ──────────────
+
+class TestDedupKeepsMultiAsicT1:
+
+    def test_original_t1_list_kept(self, test_dir):
+        _write_file(test_dir, "a/test_cp.py", "# config test")
+        _write_file(test_dir, "b/test_t1.py", "# t1 only")
+        scripts = {
+            "t0_checker": ["a/test_cp.py"],
+            "t1_checker": ["a/test_cp.py", "b/test_t1.py"],
+        }
+        result = dedup_control_plane_tests(scripts, test_dir)
+        assert result["t1_checker"] == ["b/test_t1.py"]
+        assert result[MULTI_ASIC_T1_CHECKER] == [
+            "a/test_cp.py", "b/test_t1.py"
+        ]
+
+    def test_kept_when_t1_lag_list_is_emptied(self, test_dir):
+        _write_file(test_dir, "a/test_cp.py", "# config test")
+        scripts = {
+            "t0_checker": ["a/test_cp.py"],
+            "t1_checker": ["a/test_cp.py"],
+        }
+        result = dedup_control_plane_tests(scripts, test_dir)
+        assert "t1_checker" not in result
+        assert result[MULTI_ASIC_T1_CHECKER] == ["a/test_cp.py"]
+
+    def test_not_added_when_t1_unchanged(self, test_dir):
+        _write_file(test_dir, "a/test_dp.py", "import ptfadapter\n")
+        scripts = {
+            "t0_checker": ["a/test_dp.py"],
+            "t1_checker": ["a/test_dp.py"],
+        }
+        result = dedup_control_plane_tests(scripts, test_dir)
+        assert MULTI_ASIC_T1_CHECKER not in result
+
+
+# ── PR_CHECKER_JOBS matches pr_test_template.yml ──────────
+
+class TestPrCheckerJobs:
+
+    @pytest.fixture
+    def template_jobs(self):
+        path = os.path.join(
+            os.path.dirname(__file__), "..", "pr_test_template.yml"
+        )
+        with open(path) as f:
+            return yaml.safe_load(f)["jobs"]
+
+    def test_matches_job_conditions(self, template_jobs):
+        jobs_by_checker = {}
+        for job in template_jobs:
+            run_by = (job.get("variables") or {}).get(
+                "RUN_BY_INCLUDE_JOBS", ""
+            )
+            names = re.findall(
+                r"contains\(parameters\.INCLUDE_JOBS, '([^']+)'\)", run_by
+            )
+            checkers = re.findall(
+                r"PR_CHECKERS'\], '([^']+)'\)", job.get("condition", "")
+            )
+            for checker in checkers:
+                jobs_by_checker.setdefault(checker, []).extend(names)
+
+        assert {k: sorted(v) for k, v in jobs_by_checker.items()} == {
+            k: sorted(v) for k, v in PR_CHECKER_JOBS.items()
+        }
+
+    def test_multi_asic_t1_job_reads_its_own_list(self, template_jobs):
+        job = next(
+            j for j in template_jobs
+            if "'t1_multi_asic_job'" in str(j.get("variables"))
+        )
+        step = next(
+            s for s in job["steps"]
+            if s.get("template", "").endswith(
+                "calculate-instance-numbers.yml"
+            )
+        )
+        assert step["parameters"]["CHECKER"] == MULTI_ASIC_T1_CHECKER
+
+    def test_every_keep_in_checker_has_a_job(self):
+        for keep_in, _ in CONTROL_PLANE_DEDUP_RULES:
+            assert PR_CHECKER_JOBS.get(keep_in), keep_in
+
+    def test_checker_names_are_not_substrings(self):
+        """Job conditions match checkers with contains() on PR_CHECKERS."""
+        names = set(PR_TOPOLOGY_TYPE) | set(PR_CHECKER_JOBS)
+        for name in names:
+            others = [n for n in names if n != name and name in n]
+            assert not others, (name, others)
 
 
 # ── Unreadable files (safe default) ───────────────────────

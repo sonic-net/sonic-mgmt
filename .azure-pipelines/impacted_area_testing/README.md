@@ -106,4 +106,6 @@ As impacted area based PR testing would not cover all test scripts, we need a sa
 Fortunately, we have Baseline testing to do so.
 Baseline testing involves running all test scripts in the test plan daily to ensure the overall stability of the system and identify potential issues.
 For the same reason, the control-plane dedup in `CONTROL_PLANE_DEDUP_RULES` only applies to PR builds, so baseline testing still runs every script on every topology.
+Within a PR build, a dedup rule only applies when `INCLUDE_JOBS` enables a job that runs the checker keeping the script (see `PR_CHECKER_JOBS`).
+The dedup also only affects the t1-lag job: the multi-asic-t1 job keeps the original `t1_checker` list, which is passed as `multi-asic-t1-lag_checker` when the dedup changes `t1_checker`.
 We conduct five rounds of baseline testing each day, and if any issues are detected, an ADO is automatically created, and email alerts are sent to notify the relevant teams.

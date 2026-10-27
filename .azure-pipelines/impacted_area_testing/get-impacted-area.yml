@@ -138,15 +138,17 @@ steps:
 
     # Drop control-plane tests duplicated between checkers only in PR builds,
     # so the scheduled baseline keeps running every script on every topology.
-    DEDUP_ARG=""
+    # INCLUDE_JOBS tells the dedup which jobs will run, so a script is only
+    # dropped when the job that keeps it is enabled.
+    DEDUP_ARGS=()
     if [[ "$(Build.Reason)" == "PullRequest" ]]; then
-      DEDUP_ARG="--dedup-control-plane"
+      DEDUP_ARGS=(--dedup-control-plane --include-jobs '${{ parameters.INCLUDE_JOBS }}')
     fi
 
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
       echo "Attempt $((RETRY_COUNT + 1)): Generating test scripts..."
 
-      TEST_SCRIPTS=$(python3 ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests ${DEDUP_ARG})
+      TEST_SCRIPTS=$(python3 ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests "${DEDUP_ARGS[@]}")
 
       if [[ $? -ne 0 ]]; then
         echo "Get test scripts command failed on attempt $((RETRY_COUNT + 1))"
