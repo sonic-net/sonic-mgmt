@@ -1002,6 +1002,14 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative[false]:
+  skip:
+    conditions_logical_operator: or
+    reason: "on AMD DPU VXLAN Source port check is always enabled. Skipping vxlan source port security check disable test"
+    conditions:
+      - "asic_type in ['pensando']"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
@@ -3976,6 +3984,15 @@ nat:
       - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
+#####             ntp             #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  skip:
+    reason: "Chrony stepping is enabled by default on switch BMCs"
+    conditions:
+      - "topo_type in ['bmc']"
+
+#######################################
 #####             ospf            #####
 #######################################
 ospf:
@@ -5227,6 +5244,14 @@ smartswitch:
     conditions:
       - *lossyTopos
 
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    conditions_logical_operator: or
+    reason: "test_data_control_mid_plane_sync: Skipping: Manual link shut/noshut is not supported for eth0-midplane for Cisco smartswitch platform"
+    conditions:
+      - "hwsku.startswith('Pensando')"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 #######################################
 #####         snappi_tests        #####
 #######################################
@@ -5319,6 +5344,14 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
+
+snappi_tests/gcu/test_gcu_port_speed_upgrade.py:
+  skip:
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
 
 snappi_tests/lacp:
   skip:

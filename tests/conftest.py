@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+import argparse
 import enum
 import os
 import json
@@ -110,6 +111,16 @@ from tests.common.telemetry.fixtures import db_reporter, ts_reporter            
 from tests.common.helpers.yang_utils import run_yang_validation
 
 
+def _csonic_lacp_multiplier(value):
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be an integer from 1 to 255")
+    if not 1 <= multiplier <= 255:
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be from 1 to 255")
+    return multiplier
+
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
@@ -187,9 +198,12 @@ def pytest_addoption(parser):
                      choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
-    # ceos neighbor lacp multiplier
+    # neighbor LACP receive multipliers used during advanced reboot
     parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
                      help="LACP multiplier for ceos neighbors")
+    parser.addoption("--csonic_neighbor_lacp_multiplier", action="store", default=3,
+                     type=_csonic_lacp_multiplier,
+                     help="LACP receive multiplier (1-255) for cSONiC userspace OVS neighbors")
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
@@ -2123,6 +2137,14 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         if 'intf_status' not in val:
             continue
         for intf, status in list(val['intf_status'].items()):
+            # Skip internal ports (recirculation / inband / backplane). They
+            # match the 'Ethernet' scope (e.g. 'Ethernet-Rec0', 'Ethernet-IB0',
+            # 'Ethernet-BP0') and can be oper/admin up, but they are not
+            # front-panel test ports and have no fanout/TGEN mapping, so tests
+            # that pick one (e.g. via rand_one_dut_portname_oper_up) fail to
+            # resolve a port id.
+            if intf.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                continue
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs

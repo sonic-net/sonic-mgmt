@@ -102,7 +102,7 @@ def get_portchannel_member_value(config_facts, portchannel, port):
     portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {})
     if portchannel in portchannel_members:
         return portchannel_members.get(portchannel, {}).get(port, {})
-    return portchannel_members.get(f"{portchannel}|{port}", {})
+    return portchannel_members.get("{}|{}".format(portchannel, port), {})
 
 
 def get_portchannel_config(config_facts, portchannel):
@@ -183,7 +183,7 @@ def get_portchannel_status_map(duthost, asic_namespace=None,
     Return PortChannel operational status from ``show interfaces portchannel``.
     """
     if asic_namespace:
-        cmd = f"show interfaces portchannel -n {asic_namespace}"
+        cmd = "show interfaces portchannel -n {}".format(asic_namespace)
     else:
         cmd = "show interfaces portchannel"
     result = duthost.shell(cmd, module_ignore_errors=True)
@@ -288,8 +288,15 @@ def change_route(operation, ptfip, route, nexthop, port, aspath):
     url = "http://%s:%d" % (ptfip, port)
     data = {
         "command": "%s route %s next-hop %s as-path [ %s ]" % (operation, route, nexthop, aspath)}
-    r = requests.post(url, data=data)
-    assert r.status_code == 200
+    session = requests.Session()
+    session.trust_env = False
+    r = session.post(url, data=data)
+    assert r.status_code == 200, (
+        "Failed to {} route {} through PTF ExaBGP at {}: "
+        "status={} response={}".format(
+            operation, route, url, r.status_code, r.text
+        )
+    )
 
 
 def add_static_route(tbinfo, neigh_ip, exabgp_port, ip, mask='32', aspath=65500, nhipv4='10.10.246.254'):
@@ -655,8 +662,7 @@ def send_and_verify_traffic(
         flags=0x10,
         verify=True,
         expect_error=False,
-        clear_stats=True
-):
+        clear_stats=True):
     """
     Helper function to send and verify data traffic via PTF framework.
     """
