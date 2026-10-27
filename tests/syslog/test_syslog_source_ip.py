@@ -21,7 +21,8 @@ from unittest.mock import patch
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.enable_monit_refresh
 ]
 
 DEFAULT_VRF_IP_ADDRESSES = {"ipv4": {"syslog_server_ip": "100.100.100.1", "syslog_server_mac": "90:90:90:90:90:01",

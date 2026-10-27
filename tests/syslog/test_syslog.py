@@ -5,7 +5,8 @@ from tests.common.helpers.syslog_helpers import run_syslog, check_default_route 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.enable_monit_refresh
 ]
 
 
