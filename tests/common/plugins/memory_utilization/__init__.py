@@ -9,8 +9,8 @@ logger.setLevel(logging.INFO)
 _memory_errors_by_test = {}
 
 
-def is_memory_utilization_enabled(item, duthost=None):
-    if item.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in item.keywords:
+def is_memory_utilization_enabled(config, keywords, duthost):
+    if config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in keywords:
         return False
     if duthost is not None and (duthost.topo_type == "t2" or duthost.is_bmc()):
         return False
@@ -60,7 +60,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function", autouse=True)
 def store_fixture_values(request, duthosts, memory_utilization):
-    if not is_memory_utilization_enabled(request):
+    if not is_memory_utilization_enabled(request.config, request.keywords, None):
         return
 
     logger.debug("store memory_utilization {}".format(request.node.name))
@@ -73,7 +73,7 @@ def pytest_runtest_setup(item):
     if "request" in item.fixturenames:
         request = item.funcargs.get("request", None)
         if request:
-            if not is_memory_utilization_enabled(request):
+            if not is_memory_utilization_enabled(request.config, request.keywords, None):
                 return
 
     logger.debug("collect memory before test {}".format(item.name))
@@ -91,7 +91,7 @@ def pytest_runtest_setup(item):
         "enable_monit_refresh" in item.keywords
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(item, duthost):
+        if not is_memory_utilization_enabled(item.config, item.keywords, duthost):
             continue
 
         if enable_monit_refresh:
@@ -130,7 +130,7 @@ def pytest_runtest_teardown(item, nextitem):
     if "request" in item.fixturenames:
         request = item.funcargs.get("request", None)
         if request:
-            if not is_memory_utilization_enabled(request):
+            if not is_memory_utilization_enabled(request.config, request.keywords, None):
                 return
 
     logger.debug("collect memory after test {}".format(item.name))
@@ -147,7 +147,7 @@ def pytest_runtest_teardown(item, nextitem):
         "enable_monit_refresh" in item.keywords
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(item, duthost):
+        if not is_memory_utilization_enabled(item.config, item.keywords, duthost):
             continue
 
         if enable_monit_refresh:
@@ -200,7 +200,7 @@ def pytest_runtest_teardown(item, nextitem):
 
 @pytest.fixture(autouse=True)
 def memory_utilization(duthosts, request):
-    if not is_memory_utilization_enabled(request):
+    if not is_memory_utilization_enabled(request.config, request.keywords, None):
         logger.info("Memory utilization monitoring is disabled")
         yield None, None
         return
@@ -209,7 +209,7 @@ def memory_utilization(duthosts, request):
     memory_values = {"before_test": {}, "after_test": {}}
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(request, duthost):
+        if not is_memory_utilization_enabled(request.config, request.keywords, duthost):
             continue
         memory_monitor = MemoryMonitor(ansible_host=duthost)
         memory_values["before_test"][duthost.hostname] = {}
