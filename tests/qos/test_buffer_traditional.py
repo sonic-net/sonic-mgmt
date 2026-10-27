@@ -242,6 +242,8 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
        - Check whether there is no lossless buffer PG configured on an admin-down port
          - on all platforms, there is no lossless PG configured on inactive ports which are admin-down
            which is guaranteed by buffer template
+       - Check whether there is no lossless buffer PG configured on a port without PFC-enabled priorities
+         (PORT_QOS_MAP|<port>:pfc_enable absent, e.g. service or DPC ports)
        - Check whether the lossless PG aligns with the port's speed and cable length
        - If name to oid maps exist for port and PG,
             check whether the information in ASIC_DB aligns with that in CONFIG_DB
@@ -301,11 +303,6 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                         "Lossless PGs of port {} ({}) don't match PFC-enabled priorities ({})".format(
                             port, sorted(actual_priorities), sorted(lossless_priorities)), use_assert):
                     return None, False
-            elif not _check_condition(
-                    bool(actual_lossless),
-                    "No lossless BUFFER_PG configured on port {}, expected {}".format(
-                        port, expected_profile), use_assert):
-                return None, False
 
             # Every lossless PG must carry the expected profile
             expected_profile_name = extract_profile_name(expected_profile)
@@ -339,9 +336,14 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                     else:
                         buffer_profile_oid = buffer_profile_oid_in_pg
         else:
-            # Admin-down on a reclaim platform: there must be NO lossless PG
-            if not _check_condition(not actual_lossless,
-                                    "Buffer PG configured on admin down port {}".format(port), use_assert):
+            # There must be NO lossless PG: either the port has no PFC-enabled priority,
+            # or it is admin-down on a reclaim platform
+            if lossless_priorities is None:
+                no_lossless_msg = "Lossless BUFFER_PG {} configured on port {} without PFC-enabled priority".format(
+                    sorted(actual_lossless), port)
+            else:
+                no_lossless_msg = "Buffer PG configured on admin down port {}".format(port)
+            if not _check_condition(not actual_lossless, no_lossless_msg, use_assert):
                 return None, False
             if pg_name_map and lossless_priorities:
                 for pg in sorted(lossless_priorities):
@@ -421,6 +423,10 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             if port not in cable_length_map:
                 logging.info(f"Port {port} not found in cable_length_map, skipping buffer check")
                 should_check_buffer = False
+            elif get_lossless_priorities(dut_asic, port) is None:
+                # No PFC-enabled priority (e.g. service or DPC ports): buffermgrd creates no lossless PG,
+                # so the port must carry lossy PGs only
+                logging.info(f"Port {port} has no pfc_enable, expecting no lossless buffer PG")
             else:
                 cable_length = cable_length_map[port]
                 speed = port_config['speed']
@@ -434,6 +440,8 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                 if port not in cable_length_map:
                     logging.info(f"Port {port} not found in cable_length_map, skipping buffer check")
                     should_check_buffer = False
+                elif get_lossless_priorities(dut_asic, port) is None:
+                    logging.info(f"Port {port} has no pfc_enable, expecting no lossless buffer PG")
                 else:
                     cable_length = cable_length_map[port]
                     speed = port_config['speed']
