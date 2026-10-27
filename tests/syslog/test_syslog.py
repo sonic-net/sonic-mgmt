@@ -5,11 +5,11 @@ from tests.common.helpers.syslog_helpers import run_syslog, check_default_route 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("any"),
-    pytest.mark.enable_monit_refresh
+    pytest.mark.topology("any")
 ]
 
 
+@pytest.mark.enable_monit_refresh
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
                          [("7.0.80.166", None),
                           ("fd82:b34f:cc99::100", None),
