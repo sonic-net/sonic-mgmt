@@ -33,39 +33,43 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
     switch_role = device_metadata["localhost"].get("type", "")
     if switch_role == "BmcMgmtToRRouter":
         pytest.skip("Skipping dhcp_relay events for mx topologies")
-    if is_ipv6_only_topology(tbinfo):
-        pytest.skip("Skipping dhcp_relay events for IPv6-only topologies")
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     logger.info("Beginning to test dhcp-relay events")
-    run_test(
-        duthost,
-        tbinfo,
-        gnxi_path,
-        ptfhost,
-        data_dir,
-        validate_yang,
-        trigger_dhcp_relay_discard,
-        "dhcp_relay_discard.json",
-        "sonic-events-dhcp-relay:dhcp-relay-discard",
-        tag,
-        False,
-        30,
-        ptfadapter,
-    )
-    run_test(
-        duthost,
-        tbinfo,
-        gnxi_path,
-        ptfhost,
-        data_dir,
-        validate_yang,
-        trigger_dhcp_relay_disparity,
-        "dhcp_relay_disparity.json",
-        "sonic-events-dhcp-relay:dhcp-relay-disparity",
-        tag,
-        False,
-        30,
-        ptfadapter,
-    )
+    # DHCPv4 discard/disparity events need an IPv4 VLAN address and dhcpmon.
+    # Keep dhcp6relay bind-failure coverage on IPv6-only topologies.
+    if not is_ipv6_only:
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            trigger_dhcp_relay_discard,
+            "dhcp_relay_discard.json",
+            "sonic-events-dhcp-relay:dhcp-relay-discard",
+            tag,
+            False,
+            30,
+            ptfadapter,
+        )
+        run_test(
+            duthost,
+            tbinfo,
+            gnxi_path,
+            ptfhost,
+            data_dir,
+            validate_yang,
+            trigger_dhcp_relay_disparity,
+            "dhcp_relay_disparity.json",
+            "sonic-events-dhcp-relay:dhcp-relay-disparity",
+            tag,
+            False,
+            30,
+            ptfadapter,
+        )
+    else:
+        logger.info("Skipping IPv4 dhcp-relay discard/disparity events on IPv6-only topology")
     run_test(
         duthost,
         tbinfo,
@@ -101,7 +105,7 @@ def trigger_dhcp_relay_bind_failure(duthost, tbinfo):
     wait_dhcp_relay_ready(duthost, ["v6"])
 
     # Get Vlan with IPv6 address configured
-    dhcp_test_info = find_test_vlan(duthost)
+    dhcp_test_info = find_test_vlan(duthost, tbinfo)
     py_assert(len(dhcp_test_info) != 0, "Unable to find vlan for test")
 
     vlan = dhcp_test_info["vlan"]
