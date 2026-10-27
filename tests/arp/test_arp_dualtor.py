@@ -499,10 +499,10 @@ def get_neighbor_test_duthosts(
     return [rand_selected_dut]
 
 
-@pytest.mark.usefixtures("cable_type")
+@pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
-                                        ptfadapter, packets_for_test, rand_selected_dut,
-                                        toggle_all_simulator_ports_to_rand_selected_tor):   # noqa: F811
+                                        ptfadapter, packets_for_test, duthosts,         # noqa: F811
+                                        enum_rand_one_per_hwsku_frontend_hostname):     # noqa: F811
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
     within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
@@ -537,14 +537,15 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
     else:
         raise ValueError("Unsupported IP version: {}".format(ip_version))
 
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
-    intf_name = rand_selected_dut.shell(intf_name_cmd)['stdout']
-    pytest_assert(intf_name, "Target neighbor {} is not learned on {}".format(target_ip, rand_selected_dut.hostname))
+    intf_name = duthost.shell(intf_name_cmd)['stdout']
+    pytest_assert(intf_name, "Target neighbor {} is not learned on {}".format(target_ip, duthost.hostname))
     mux_mode_cmd = "sudo config mux mode standby {}".format(intf_name)
-    rand_selected_dut.shell(mux_mode_cmd)
+    duthost.shell(mux_mode_cmd)
     pytest_assert(
-        wait_until(5, 1, 0, lambda: show_muxcable_status(rand_selected_dut)[intf_name]['status'] == "standby"),
-        "Interface {} not standby on {}".format(intf_name, rand_selected_dut)
+        wait_until(5, 1, 0, lambda: show_muxcable_status(duthost)[intf_name]['status'] == "standby"),
+        "Interface {} not standby on {}".format(intf_name, duthost)
     )
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
