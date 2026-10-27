@@ -16,15 +16,6 @@ BMP_RESTART_IGNORE_REGEX = (
 )
 
 
-def _restart_bmp_docker(duthost, asichost):
-    asichost.restart_service("bmp")
-    logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
-
-    logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-
-
 def test_restart_bmp_docker(duthosts,
                             enum_rand_one_per_hwsku_frontend_hostname,
                             enum_rand_one_frontend_asic_index,
@@ -35,4 +26,9 @@ def test_restart_bmp_docker(duthosts,
     logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
     if loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.append(BMP_RESTART_IGNORE_REGEX)
-    _restart_bmp_docker(duthost, asichost)
+    asichost.restart_service("bmp")
+    logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
+
+    logger.info("Wait until the system is stable")
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
