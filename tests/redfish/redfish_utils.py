@@ -456,6 +456,9 @@ def reset_to_bootstrap(duthost, snapshot, saved=()):
     for key, value in snapshot.items():
         restore_step(restore_redfish_config, duthost, {key: value})
     restore_step(duthost.shell, "docker rm -f {}".format(BMCWEB_CONTAINER))
+    # Earlier restarts may have exhausted systemd's start limit. Clear it for
+    # this deliberate restoration start, but still report reset/start failures.
+    restore_step(duthost.shell, "systemctl reset-failed redfish.service")
     restore_step(duthost.shell, "systemctl start redfish")
     if not wait_until(BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0, _bmcweb_running, duthost):
         errors.append("bmcweb did not restart after restoring device state")

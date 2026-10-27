@@ -57,6 +57,7 @@ class Device:
         self.files = {}
         self.events = []
         self.running = feature == "enabled"
+        self.start_limit_exhausted = False
         self.fail_command = None
         if provisioned:
             self.config["REDFISH"] = {
@@ -122,7 +123,11 @@ class Device:
             pass
         elif command == "systemctl stop redfish":
             self.running = False
+        elif command == "systemctl reset-failed redfish.service":
+            self.start_limit_exhausted = False
         elif command == "systemctl start redfish":
+            if self.start_limit_exhausted:
+                raise RuntimeError("start of redfish.service was attempted too often")
             self.running = True
         elif command == "docker rm -f redfish":
             assert not self.running, "watcher must stop before state restoration"
@@ -284,7 +289,35 @@ def test_config_snapshot_preserves_absent_empty_and_operator_values():
     assert device.config == original
 
 
-@pytest.mark.parametrize("failure", ["backup", "stale_backup", "stop", "restore", "restart", "readiness"])
+@pytest.mark.parametrize("start_limit_exhausted", [False, True])
+def test_restoration_resets_start_limit_before_start(start_limit_exhausted):
+    ns = utility_namespace()
+    device = Device(provisioned=True)
+    device.start_limit_exhausted = start_limit_exhausted
+    device.files.update({path: "original:" + path for path in ns["DEVICE_STATE_FILES"]})
+    original_files = device.files.copy()
+    snapshot = ns["snapshot_redfish_config"](device)
+    saved = ns["back_up_device_state"](device)
+    device.files.update({path: "test" for path in ns["DEVICE_STATE_FILES"]})
+    ns["db_set"](device, "CONFIG_DB", "REDFISH|certs", client_crt_cname="test")
+
+    ns["reset_to_bootstrap"](device, snapshot, saved)
+
+    assert device.config == device.golden
+    assert device.files == original_files
+    assert device.running
+    assert not device.start_limit_exhausted
+    events = device.events
+    stop = events.index("systemctl stop redfish")
+    remove = events.index("docker rm -f redfish")
+    reset = events.index("systemctl reset-failed redfish.service")
+    start = events.index("systemctl start redfish")
+    ready = events.index("docker exec redfish supervisorctl status bmcweb")
+    assert stop < remove < reset < start < ready
+    assert events.count("systemctl reset-failed redfish.service") == 1
+
+
+@pytest.mark.parametrize("failure", ["backup", "stale_backup", "stop", "restore", "reset", "restart", "readiness"])
 def test_state_failures_are_visible(failure):
     ns = utility_namespace()
     device = Device()
@@ -305,18 +338,55 @@ def test_state_failures_are_visible(failure):
     device.fail_command = {
         "stop": "systemctl stop redfish",
         "restore": "mv -f {}{} {}".format(path, ns["BACKUP_SUFFIX"], path),
+        "reset": "systemctl reset-failed redfish.service",
         "restart": "systemctl start redfish",
     }.get(failure)
     if failure == "readiness":
         ns["wait_until"] = Mock(return_value=False)
-    with pytest.raises((AssertionError, RuntimeError)):
+    with pytest.raises((AssertionError, RuntimeError)) as error:
         ns["reset_to_bootstrap"](device, snapshot, saved)
     if failure == "stop":
         assert device.files[path] == "test"
+        assert "systemctl reset-failed redfish.service" not in device.events
+        assert "systemctl start redfish" not in device.events
     else:
-        assert "systemctl start redfish" in device.events
+        assert "Failed to restore Redfish device state:" in str(error.value)
+        reset = device.events.index("systemctl reset-failed redfish.service")
+        start = device.events.index("systemctl start redfish")
+        assert reset < start
+        if failure == "readiness":
+            ns["wait_until"].assert_called_once_with(
+                ns["BMCWEB_READY_TIMEOUT"], ns["BMCWEB_READY_POLL"], 0, ns["_bmcweb_running"], device)
+        else:
+            assert start < device.events.index("docker exec redfish supervisorctl status bmcweb")
+            assert "injected failure: " + device.fail_command in str(error.value)
+        if failure in ("restart", "readiness"):
+            assert "bmcweb did not restart after restoring device state" in str(error.value)
+        if failure == "reset":
+            assert device.running, "successful startup must not hide a failed reset"
     if failure == "restore":
         assert device.files[path + ns["BACKUP_SUFFIX"]] == "original"
+
+
+def test_failed_reset_with_exhausted_start_limit_aggregates_errors():
+    ns = utility_namespace()
+    device = Device()
+    device.start_limit_exhausted = True
+    device.fail_command = "systemctl reset-failed redfish.service"
+    snapshot = ns["snapshot_redfish_config"](device)
+
+    with pytest.raises(AssertionError, match="Failed to restore Redfish device state:") as error:
+        ns["reset_to_bootstrap"](device, snapshot)
+
+    message = str(error.value)
+    assert "injected failure: systemctl reset-failed redfish.service" in message
+    assert "start of redfish.service was attempted too often" in message
+    assert "bmcweb did not restart after restoring device state" in message
+    assert not device.running
+    assert device.start_limit_exhausted
+    assert device.events[-3:] == [
+        "systemctl reset-failed redfish.service", "systemctl start redfish",
+        "docker exec redfish supervisorctl status bmcweb"]
 
 
 def test_all_redfish_fixture_dependents_have_compatible_scopes():
