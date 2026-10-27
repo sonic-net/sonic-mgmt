@@ -74,8 +74,6 @@ which represents the topology type compatible with the script.
 After determining the valid topology for each script, we can distribute the script to corresponding PR checkers.
 This method eliminates unnecessary processes by executing only the on-demand scripts, resulting in reduced running time.
 
-Each topology job decodes the gzip/base64-encoded `TEST_SCRIPTS` payload with the Python 3 standard library and exports its comma-separated `SCRIPTS` variable. This selection step does not install packages or require `jq`, so agent package-manager locks cannot block it. Invalid payloads or missing checkers fail the step instead of publishing an empty result.
-
 ### Implement dynamic instances
 Since the scope of PR testing is dynamic and determined by the impacted area,
 the number of instances required also needs to be dynamic to ensure cost efficiency.

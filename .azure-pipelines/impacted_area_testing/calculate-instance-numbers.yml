@@ -23,13 +23,9 @@ steps:
     scripts_by_checker: Dict[str, List[str]] = json.loads(
         gzip.decompress(base64.b64decode(os.environ["TEST_SCRIPTS"], validate=True))
     )
-    if not isinstance(scripts_by_checker, dict):
-        raise ValueError("TEST_SCRIPTS must be a JSON object")
-
-    checker = f"{sys.argv[1]}_checker"
-    scripts = scripts_by_checker[checker]
-    if not isinstance(scripts, list) or not all(isinstance(script, str) for script in scripts):
-        raise ValueError(f"Expected a list of test scripts for {checker}")
+    scripts = scripts_by_checker[f"{sys.argv[1]}_checker"]
+    if not isinstance(scripts, list):
+        raise TypeError("Expected a list of test scripts")
 
     print("TEST_SCRIPTS script count per checker:")
     for name, checker_scripts in scripts_by_checker.items():
