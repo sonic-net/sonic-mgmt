@@ -9,6 +9,22 @@ logger.setLevel(logging.INFO)
 _memory_errors_by_test = {}
 
 
+def monit_refresh_setup(duthost):
+    memory_monitor = MemoryMonitor(ansible_host=duthost)
+    memory_monitor.parse_and_register_commands(hwsku=duthost.sonichost._facts["hwsku"])
+    monit_command = next(
+        cmd for name, cmd, _memory_params, _memory_check in memory_monitor.commands if name == "monit"
+    )
+    return memory_monitor, monit_command
+
+
+def monit_refresh_teardown(refresh_state):
+    memory_monitor, command = refresh_state
+    validate_output = memory_monitor.execute_command("sudo monit validate")
+    memory_monitor.record_monit_baseline_from_validate_output(validate_output)
+    return memory_monitor.read_monit_status_with_freshness_retry(command, enable_retry=True)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--disable_memory_utilization",
@@ -76,8 +92,6 @@ def pytest_runtest_setup(item):
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
-            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
                 "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
@@ -87,8 +101,11 @@ def pytest_runtest_setup(item):
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
                 if name == "monit":
-                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
-                        cmd, enable_retry=enable_monit_refresh)
+                    if enable_monit_refresh:
+                        output = monit_refresh_teardown((memory_monitors[duthost.hostname], cmd))
+                    else:
+                        output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                            cmd, enable_retry=False)
                 else:
                     output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
@@ -134,8 +151,6 @@ def pytest_runtest_teardown(item, nextitem):
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
-            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
                 "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
@@ -145,8 +160,11 @@ def pytest_runtest_teardown(item, nextitem):
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
                 if name == "monit":
-                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
-                        cmd, enable_retry=enable_monit_refresh)
+                    if enable_monit_refresh:
+                        output = monit_refresh_teardown((memory_monitors[duthost.hostname], cmd))
+                    else:
+                        output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                            cmd, enable_retry=False)
                 else:
                     output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
