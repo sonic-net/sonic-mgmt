@@ -51,17 +51,19 @@ The option is also exposed by these upgrade entry points (all default to false):
 
 ### Which versions support this option?
 
-**There is currently no validated minimum SONiC image version or supported
-source/destination release matrix for JSON preservation.** Availability of the
-option in **sonic-mgmt** is separate from compatibility of the saved
+**The intended supported version range is SONiC 202605 or newer.** Earlier
+releases are outside this option's documented support scope. This version
+scope is not a validated source/destination compatibility matrix: availability
+of the option in **sonic-mgmt** is separate from compatibility of the saved
 configuration with the **SONiC images** being installed.
 
 | Component / release | Availability and validation status |
 | --- | --- |
 | sonic-mgmt revisions containing [PR #28649](https://github.com/sonic-net/sonic-mgmt/pull/28649) | Provide the CLI/module option. The scripts, helpers, and module used by the runner must all include the change; older scripts reject the flag. |
+| SONiC 202605 or newer | Intended supported version range. Validate the specific source/destination image pair and saved configuration before enabling; a newer release alone does not guarantee compatibility. |
 | SONiC master images | No live image-upgrade compatibility validation is recorded for this change. Local mocked tests of a master-based sonic-mgmt branch do not establish image support. |
 | SONiC / sonic-mgmt 202605 | Backport requested, not release-validated. Neither availability on the release branch nor safe preservation across 202605 image transitions should be assumed. |
-| Other SONiC releases, including older destination images | Not validated by this change; no blanket support claim. Validate the specific source/destination image pair and saved configuration before enabling. |
+| SONiC releases older than 202605 | Outside the documented support scope; do not enable preservation for transitions involving these images. |
 
 This is a management-layer option, not a new `sonic_installer` flag. There is
 no SONiC-version gate or ConfigDB compatibility check in the implementation.
