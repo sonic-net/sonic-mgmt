@@ -11,6 +11,7 @@ from .syslog_utils import create_vrf, remove_vrf, capture_syslog_packets, \
 from tests.common.utilities import wait_until
 from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_server, is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa F401
@@ -24,6 +25,22 @@ pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.enable_monit_refresh
 ]
+
+
+@pytest.fixture(scope="function")
+def refresh_monit_after_syslog_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Refresh Monit after the clear_syslog_config finalizer mutates rsyslog."""
+    yield
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    monitor = MemoryMonitor(ansible_host=duthost)
+    validate_output = monitor.execute_command("sudo monit validate")
+    monitor.record_monit_baseline_from_validate_output(validate_output)
+    status_output = monitor.read_monit_status_with_freshness_retry("sudo monit status", enable_retry=True)
+    pytest_assert(
+        re.search(r"Process 'rsyslog'.*?status\s+OK", status_output, re.DOTALL),
+        "rsyslog is not healthy after post-cleanup Monit refresh"
+    )
+
 
 DEFAULT_VRF_IP_ADDRESSES = {"ipv4": {"syslog_server_ip": "100.100.100.1", "syslog_server_mac": "90:90:90:90:90:01",
                                      "source_ip": "100.100.100.2/24"},
@@ -300,7 +317,8 @@ class TestSSIP:
         self.configure_data_vrf_test_data(routed_interfaces)
 
     @pytest.fixture(scope="function", autouse=True)
-    def clear_syslog_config(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+    def clear_syslog_config(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                            refresh_monit_after_syslog_cleanup):
         """
         clear syslog config for very test
         """
