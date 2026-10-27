@@ -407,11 +407,11 @@ class TestBmcCliCommands:
                 )
                 db_threshold = redis_hget(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
                                           threshold_field)
-                # New value must be >= 2 and differ from the current one.
+                # New value must be a valid (2..4294967295) value that differs from the current one.
+                new_threshold = '3'
                 if shown_threshold is not None and shown_threshold.isdigit():
-                    new_threshold = str(int(shown_threshold) + 1)
-                else:
-                    new_threshold = '3'
+                    new_threshold = str(int(shown_threshold) - 1 if int(shown_threshold) >= 4294967295
+                                        else int(shown_threshold) + 1)
                 cmd = f"config liquid-cool major-leak-threshold {new_threshold}"
                 result = self.duthost.shell(cmd, module_ignore_errors=True)
                 pytest_assert(result['rc'] == 0,

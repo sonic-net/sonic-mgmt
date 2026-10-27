@@ -31,6 +31,7 @@ from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     bmc_log_zgrep,
     get_major_leak_min_sensors,
+    is_major_leak_supported,
     get_switch_host_or_skip_test,
     get_system_leak_status,
     inject_leak_sensor,
@@ -395,9 +396,13 @@ class TestThermalctldDaemon:
         # MIN-N is platform-defined (get_major_leak_num_min_sensors), user-overridable via
         # LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors. MIN-N 0 turns off only the
         # count rule; the escalation rule is independent of MIN-N.
+        if expected_system_leak_status == 'MAJOR' and not is_major_leak_supported(self.duthost):
+            pytest.skip("MAJOR_SYSTEM_LEAK is not supported on this image")
         min_n = get_major_leak_min_sensors(self.duthost)
         if expected_system_leak_status == 'MAJOR' and escalation is not True:
-            if not min_n or min_n < 2:
+            if min_n is None:
+                pytest.skip("MIN-N is not available (platform API not implemented)")
+            if min_n < 2:
                 pytest.skip("Count-based MAJOR_SYSTEM_LEAK is off on this platform (MIN-N < 2)")
             leak_severities = ['MINOR'] * min_n
 

@@ -302,14 +302,29 @@ def get_platform_major_leak_num_min_sensors(duthost, default=0):
         return default
 
 
-def get_major_leak_min_sensors(duthost, default=2):
+def is_major_leak_supported(duthost):
+    """True if the image supports MAJOR system leak (read-only probe of the major-leak-threshold CLI)."""
+    out = duthost.shell("config liquid-cool major-leak-threshold --help 2>&1", module_ignore_errors=True)
+    return out['rc'] == 0
+
+
+def power_down_action_configured(duthost, action_field):
+    """True if the effective policy action in `action_field` (for example system_major_leak_action)
+    is a power-down action (power_off or graceful_shutdown), so an injected event would really
+    shut the Switch-Host down. Read-only; LEAK_CONTROL_POLICY is not modified. Unset means the
+    syslog_only default."""
+    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
+    return action in ('power_off', 'graceful_shutdown')
+
+
+def get_major_leak_min_sensors(duthost, default=None):
     """Return the effective MIN-N: the number of concurrent Minor leaks at or above
     which thermalctld classifies the system as MAJOR_SYSTEM_LEAK.
 
     Resolution order (mirrors thermalctld):
       1. User override LEAK_CONTROL_POLICY|policy system_major_leak_num_min_sensors in CONFIG_DB (>= 2)
       2. Platform API LiquidCoolingBase.get_major_leak_num_min_sensors()
-      3. `default` if neither is available
+      3. `default` (None) if neither is available; a missing value is not a configured threshold
 
     A value of 0 means the count-based MAJOR rule is off; the MAX-T escalation rule is
     independent of MIN-N.

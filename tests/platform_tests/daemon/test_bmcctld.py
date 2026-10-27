@@ -31,7 +31,9 @@ from tests.common.platform.bmc_utils import (
     get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
+    is_major_leak_supported,
     make_bmc_loganalyzer,
+    power_down_action_configured,
     pause_pmon_daemon,
     recover_switch_host_after_power_off,
     verify_bmc_initiated_reboot,
@@ -251,8 +253,13 @@ class TestBmcctldDaemon:
         # MAJOR aggregates MIN-N or more concurrent Minor leaks; default action is
         # syslog_only, so the paired Switch-Host must stay up. bmcctld records the MAJOR
         # detection in event.log (like CRITICAL), unlike MINOR which is syslog-only.
+        major_supported = is_major_leak_supported(self.duthost)
         if orig_leak in ('CRITICAL', 'MAJOR'):
             logger.info("Trigger 2a [STATE_DB SYSTEM_LEAK_STATUS]: already %s - skipping", orig_leak)
+        elif not major_supported:
+            logger.info("Trigger 2a: MAJOR leak not supported on this image - skipping")
+        elif power_down_action_configured(self.duthost, 'system_major_leak_action'):
+            logger.info("Trigger 2a: system_major_leak_action is a power-down action - skipping")
         else:
             major_host = get_switch_host_or_skip_test(self.duthost)
             major_pre_boot = get_host_uptime(major_host)
@@ -331,6 +338,13 @@ class TestBmcctldDaemon:
         # MAJOR is also recorded in event.log; MINOR is syslog-only.
         rack_alert_host = get_switch_host_or_skip_test(self.duthost)
         for alert_severity in ['MINOR', 'MAJOR']:
+            if alert_severity == 'MAJOR' and not major_supported:
+                logger.info("Trigger 3: MAJOR rack alert not supported on this image - skipping")
+                continue
+            if power_down_action_configured(self.duthost, f'rack_mgr_{alert_severity.lower()}_alert_action'):
+                logger.info("Trigger 3: rack_mgr_%s_alert_action is a power-down action - skipping",
+                            alert_severity.lower())
+                continue
             alert_key = 'test_trigger_alert'
             rack_alert_pre_boot = get_host_uptime(rack_alert_host)
             la.marker_prefix = f"bmcctld_event_trigger_rack_mgr_{alert_severity.lower()}_alert"
