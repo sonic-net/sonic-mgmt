@@ -34,6 +34,15 @@ GNMI_PORT = 0
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
+def set_gnoi_client_role(gnmi_tls, role):
+    """Set the fixture certificate's role; gnmi_tls owns CONFIG_DB rollback."""
+    from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget, redis_hset
+
+    key = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
+    redis_hset(gnmi_tls.duthost, CONFIG_DB, key, **{"role@": role})
+    assert redis_hget(gnmi_tls.duthost, CONFIG_DB, key, "role@") == role
+
+
 def is_mgmt_vrf_enabled(duthost):
     res = duthost.shell('sudo sonic-db-cli CONFIG_DB HGET "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')["stdout"]
     return res == "true"

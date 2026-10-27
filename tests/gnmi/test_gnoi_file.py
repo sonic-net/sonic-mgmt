@@ -5,19 +5,67 @@ All tests automatically run with TLS server configuration by default.
 Users don't need to worry about TLS configuration.
 """
 
+import base64
+import hashlib
 import logging
 
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.utilities import wait_until
+from tests.gnmi.helper import set_gnoi_client_role
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("any"),
 ]
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("method", ["Get", "Stat"])
+@pytest.mark.parametrize(
+    "role,allowed",
+    [
+        pytest.param("gnoi_readonly", True, id="readonly"),
+        pytest.param("gnmi_readonly", False, id="no-gnoi-role"),
+    ],
+)
+def test_gnoi_file_read_authorization(gnmi_tls, method, role, allowed):  # noqa: F811
+    """Requires sonic-gnmi #807; keep an authenticated CN in both role cases."""
+    dut = gnmi_tls.duthost
+    gnmi_tls.grpc.configure_max_time(30)
+    path = dut.tempfile(state="file", prefix="gnoi-read-")["path"]
+    content = b"gNOI read authorization fixture\n"
+    try:
+        dut.copy(content=content.decode(), dest=path, mode="0644")
+        set_gnoi_client_role(gnmi_tls, role)
+        if method == "Stat":
+            call = gnmi_tls.grpc.call_unary
+            request = {"path": path}
+        else:
+            call = gnmi_tls.grpc.call_server_streaming
+            request = {"remote_file": path}
+        if not allowed:
+            # The wrapper raises on a final RPC error; this does not prove zero streamed bytes.
+            with pytest.raises(PtfGrpcError, match=r"\bCode: PermissionDenied\b"):
+                call("gnoi.file.File", method, request)
+            return
+        response = call("gnoi.file.File", method, request)
+        if method == "Stat":
+            assert len(response["stats"]) == 1
+            assert response["stats"][0]["path"] == path
+            assert int(response["stats"][0]["size"]) == len(content)
+        else:
+            assert all("contents" in message for message in response[:-1])
+            data = b"".join(base64.b64decode(message["contents"]) for message in response[:-1])
+            assert data == content
+            assert response[-1]["hash"]["method"] == "MD5"
+            assert base64.b64decode(response[-1]["hash"]["hash"]) == hashlib.md5(content).digest()
+    finally:
+        dut.file(path=path, state="absent")
 
 
 def test_file_stat(gnmi_tls):  # noqa: F811
