@@ -1,10 +1,10 @@
 import logging
 import pytest
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from telemetry_utils import generate_client_cli
 from telemetry_utils import archive_telemetry_certs, unarchive_telemetry_certs, rotate_telemetry_certs
 from telemetry_utils import execute_ptf_gnmi_cli
@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 METHOD_GET = "get"
 SUBMODE_POLL = 2
 
+
+def _telemetry_cgroup_memory_error_regex(container_id):
+    escaped_container_id = re.escape(container_id)
+    return (
+        r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file "
+        rf"'/sys/fs/cgroup/system\.slice/docker-{escaped_container_id}\.scope/memory\.current' "
+        rf"of container '{escaped_container_id}' does not exist on device! Exiting \.\.\.\s*$"
+    )
+
+
 """
 
 Testing cert rotation by telemetry
@@ -31,7 +41,6 @@ Testing cert rotation by telemetry
 """
 
 
-@support_ignore_loganalyzer
 def _restart_telemetry_without_certs(duthost, env):
     # Shutting down telemetry
     duthost.service(name=env.gnmi_container, state="stopped")
@@ -58,8 +67,18 @@ def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_st
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    dut_loganalyzer = {duthost.hostname: loganalyzer[duthost.hostname]} if loganalyzer else None
-    _restart_telemetry_without_certs(duthost, env, ignore_loganalyzer=dut_loganalyzer)
+    if loganalyzer:
+        container_id = duthost.shell(
+            "docker inspect --format '{{.Id}}' {}".format(env.gnmi_container)
+        )["stdout"].strip()
+        pytest_assert(
+            container_id,
+            "Failed to get telemetry container ID before restart",
+        )
+        loganalyzer[duthost.hostname].ignore_regex.append(
+            _telemetry_cgroup_memory_error_regex(container_id)
+        )
+    _restart_telemetry_without_certs(duthost, env)
 
     # Restore certs
     unarchive_telemetry_certs(duthost)
