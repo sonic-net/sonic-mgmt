@@ -19,7 +19,7 @@ import yaml
 
 from map_breakout_links import (build_mapping, expand_mode, load_device, load_lookup, mode_variants,
                                 selected_speeds, speed_key, supported_speeds)
-from generic_config import reconcile_neighbors
+from generic_config import reconcile_neighbors, traffic_connections
 
 
 class PlanningError(ValueError):
@@ -72,8 +72,10 @@ def load_recipe(paths):
         value = settings.get(name, {})
         if not isinstance(value, dict) or set(value) - fields:
             raise ValueError("Invalid generic_topology.{} settings".format(name))
-    for name, field in (("routed_interfaces", "address_pool"), ("access_vlan", "subnet"),
-                        ("access_vlan", "vlan_id"), ("external_destinations", "address_pool")):
+    required = [("routed_interfaces", "address_pool"), ("access_vlan", "subnet"), ("access_vlan", "vlan_id")]
+    if "external_destinations" in settings:
+        required.append(("external_destinations", "address_pool"))
+    for name, field in required:
         if field not in settings.get(name, {}):
             raise ValueError("Missing generic_topology.{}.{}".format(name, field))
     port_declarations(settings)
@@ -295,7 +297,7 @@ def child_atoms(child, links, side):
     return tuple(sorted(atoms, key=port_key)) if covered == lanes else None
 
 
-def candidates(device, links, side, lookup_speeds, permitted_ports=None):
+def candidates(device, links, side, lookup_speeds):
     domains = {}
     rejected = []
     opposite = "peer" if side == "dut" else "dut"
@@ -314,9 +316,6 @@ def candidates(device, links, side, lookup_speeds, permitted_ports=None):
                 signatures = {}
                 reason = None
                 for child in children:
-                    if permitted_ports is not None and child["port"] not in permitted_ports:
-                        reason = "realized child has no CSV-backed transport VLAN"
-                        break
                     atoms = child_atoms(child, links, side)
                     if not atoms:
                         reason = "child cannot be formed from complete wired maximum-breakout channels"
@@ -363,10 +362,8 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
         validate_uplink_minimum(min_same_breakout_uplinks)
     links = [link for link in inventory["links"] if link["eligible"]]
     speeds = {int(row["speed"]) for row in lookup}
-    dut_domains, rejected_dut = candidates(
-        dut, links, "dut", speeds, None if vlan_scope is None else vlan_scope["dut_ports"])
-    peer_domains, rejected_peer = candidates(
-        peer, links, "peer", speeds, None if vlan_scope is None else vlan_scope["peer_ports"])
+    dut_domains, rejected_dut = candidates(dut, links, "dut", speeds)
+    peer_domains, rejected_peer = candidates(peer, links, "peer", speeds)
     targets = sorted({(mode, variant) for key in dut_domains for mode in dut["cages"][key[1]]["breakout_modes"]
                       for variant in mode_variants(mode) if set(selected_speeds(mode, variant)).issubset(speeds)})
     required_modes = sorted({mode for mode, _ in targets})
@@ -544,15 +541,21 @@ def allocate_forwarding(settings, connections):
         for field in ("role", "interface_mode", "dut_address", "endpoint_address",
                       "destination_prefix", "vlan_id", "gateway"):
             link.pop(field, None)
-    if not any(role == "uplink" for role in assignments.values()):
+        link["role"] = assignments[link["dut"]["port"]]
+        if link.get("transport_vlan_id", -1) is None:
+            link["interface_mode"] = "physical_only"
+    eligible = traffic_connections(connections)
+    if not any(assignments[link["dut"]["port"]] == "uplink" for link in eligible):
         raise AllocationCapacityError("The routed/access scenario requires at least one matching selected uplink")
-    if not any(role == "downlink" for role in assignments.values()):
+    if not any(assignments[link["dut"]["port"]] == "downlink" for link in eligible):
         raise AllocationCapacityError("The routed/access scenario requires at least one selected downlink")
     routed = settings["routed_interfaces"]
     access = settings["access_vlan"]
-    external = settings["external_destinations"]
+    external = settings.get("external_destinations")
     pools = [ipaddress.ip_network(value, strict=True)
-             for value in (routed["address_pool"], access["subnet"], external["address_pool"])]
+             for value in (routed["address_pool"], access["subnet"])]
+    if external is not None:
+        pools.append(ipaddress.ip_network(external["address_pool"], strict=True))
     if len({pool.version for pool in pools}) != 1:
         raise ValueError("All scenario address pools must use one address family")
     if any(first.overlaps(second) for index, first in enumerate(pools) for second in pools[index + 1:]):
@@ -569,18 +572,19 @@ def allocate_forwarding(settings, connections):
         raise ValueError("DUT VLAN conflicts with a reserved VLAN")
     bits = pools[0].max_prefixlen
     routed_prefix = routed.get("prefix_length", bits - 1)
-    external_prefix = external.get("prefix_length", bits)
-    for name, pool, prefix, maximum in (
-            ("routed", pools[0], routed_prefix, bits - 1),
-            ("external", pools[2], external_prefix, bits)):
+    prefixes = [("routed", pools[0], routed_prefix, bits - 1)]
+    if external is not None:
+        external_prefix = external.get("prefix_length", bits)
+        prefixes.append(("external", pools[2], external_prefix, bits))
+    for name, pool, prefix, maximum in prefixes:
         if isinstance(prefix, bool) or not isinstance(prefix, int) or not pool.prefixlen <= prefix <= maximum:
             raise ValueError("Invalid {} allocation prefix length".format(name))
-    ordered = sorted(connections, key=lambda link: port_key(link["dut"]["port"]))
+    ordered = sorted(eligible, key=lambda link: port_key(link["dut"]["port"]))
     uplinks = [link for link in ordered if assignments[link["dut"]["port"]] == "uplink"]
     downlinks = [link for link in ordered if assignments[link["dut"]["port"]] == "downlink"]
     if len(uplinks) > 2 ** (routed_prefix - pools[0].prefixlen):
         raise AllocationCapacityError("Insufficient routed-interface address capacity")
-    if len(uplinks) > 2 ** (external_prefix - pools[2].prefixlen):
+    if external is not None and len(uplinks) > 2 ** (external_prefix - pools[2].prefixlen):
         raise AllocationCapacityError("Insufficient static-route destination capacity")
     subnet = pools[1]
     usable = subnet.num_addresses - (2 if subnet.version == 4 else 1)
@@ -589,17 +593,19 @@ def allocate_forwarding(settings, connections):
     gateway = subnet.network_address + 1
     routes = {}
     routed_subnets = pools[0].subnets(new_prefix=routed_prefix)
-    destinations = pools[2].subnets(new_prefix=external_prefix)
+    destinations = pools[2].subnets(new_prefix=external_prefix) if external is not None else None
     for link in uplinks:
         interface_subnet = next(routed_subnets)
         hosts = interface_subnet.hosts()
         dut_ip, peer_ip = next(hosts), next(hosts)
-        destination = str(next(destinations))
         link.update(role="uplink", interface_mode="routed",
-                    dut_address="{}/{}".format(dut_ip, routed_prefix), endpoint_address=str(peer_ip),
-                    destination_prefix=destination)
-        routes[destination] = {"nexthop": str(peer_ip), "ifname": link["dut"]["port"], "advertise": "false"}
-    routes["0.0.0.0/0" if subnet.version == 4 else "::/0"] = dict(routes[uplinks[0]["destination_prefix"]])
+                    dut_address="{}/{}".format(dut_ip, routed_prefix), endpoint_address=str(peer_ip))
+        if destinations is not None:
+            destination = str(next(destinations))
+            link["destination_prefix"] = destination
+            routes[destination] = {"nexthop": str(peer_ip), "ifname": link["dut"]["port"], "advertise": "false"}
+    routes["0.0.0.0/0" if subnet.version == 4 else "::/0"] = {
+        "nexthop": uplinks[0]["endpoint_address"], "ifname": uplinks[0]["dut"]["port"], "advertise": "false"}
     for index, link in enumerate(downlinks, 2):
         link.update(role="downlink", interface_mode="access", vlan_id=vlan,
                     endpoint_address=str(subnet.network_address + index), gateway=str(gateway))
@@ -622,7 +628,7 @@ def scope_buffer_cases(inventory, dut, lookup):
 
 
 def scope_vlan_ports(inventory):
-    """Select named VLAN endpoints, while retaining all wiring atoms of their whole cages."""
+    """Freeze available traffic endpoints without excluding physical-only cages or children."""
     inventory = deepcopy(inventory)
     backed = {"dut": {}, "peer": {}}
     for link in inventory["links"]:
@@ -638,35 +644,14 @@ def scope_vlan_ports(inventory):
             raise ValueError("CSV transport VLAN must be a single ID from 1 through 4094")
         for side in backed:
             backed[side][link[side]["port"]] = int(value)
-    protected = {side: set(inventory["protected_{}_cages".format(side)])
-                 for side in ("dut", "peer")}
     for side in backed:
-        backed_cages = {link[side]["cage"] for link in inventory["links"]
-                        if link["eligible"] and link[side]["port"] in backed[side]}
-        protected[side].update(set(inventory[side + "_cages"]) - backed_cages)
-    changed = True
-    while changed:
-        changed = False
-        for link in inventory["links"]:
-            if link["peer_hostname"] != inventory["peer_hostname"]:
-                continue
-            if any(link[side]["cage"] in protected[side] for side in backed):
-                for side in backed:
-                    if link[side]["cage"] not in protected[side]:
-                        protected[side].add(link[side]["cage"])
-                        changed = True
-    for link in inventory["links"]:
-        if (link["peer_hostname"] == inventory["peer_hostname"]
-                and any(link[side]["cage"] in protected[side] for side in backed)):
-            link["eligible"] = False
-    for side in backed:
-        inventory["protected_{}_cages".format(side)] = sorted(protected[side], key=port_key)
         eligible_ports = {link[side]["port"] for link in inventory["links"] if link["eligible"]}
         backed[side] = {port: vlan for port, vlan in backed[side].items() if port in eligible_ports}
         if len(set(backed[side].values())) != len(backed[side]):
             raise ValueError("CSV transport VLANs must be isolated: duplicate VLAN on {} endpoints".format(side))
     return inventory, dict(source="csv", granularity="realized_port_name",
-                           dut_ports=backed["dut"], peer_ports=backed["peer"])
+                           dut_ports=backed["dut"], peer_ports=backed["peer"],
+                           unmapped_children="physical_only")
 
 
 def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, min_same_breakout_uplinks=4,
@@ -684,12 +669,29 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         raise ValueError("Traditional daemon-owned buffers cannot assign lookup cable case 0m; "
                          "supply a planning snapshot containing supported nonzero cable cases")
 
+    atom_links = {link["dut"]["port"]: link for link in inventory["links"] if link["eligible"]}
+
+    def layout_connections(layout):
+        peer_children = {(tuple(child["atoms"]), child["speed"]): child
+                         for key, choice in layout.items() if key[0] == "peer" for child in choice["children"]}
+        result = []
+        for key in sorted(layout, key=lambda item: (item[0], port_key(item[1]))):
+            if key[0] != "dut":
+                continue
+            for child in layout[key]["children"]:
+                matched = peer_children[(tuple(child["atoms"]), child["speed"])]
+                link = {"dut": deepcopy(child), "peer": deepcopy(matched),
+                        "source_links": [atom_links[atom]["csv_attributes"] for atom in child["atoms"]],
+                        "connectivity_verified": False}
+                if vlan_scope is not None:
+                    link["transport_vlan_id"] = (vlan_scope["dut_ports"].get(child["port"])
+                                                 if matched["port"] in vlan_scope["peer_ports"] else None)
+                result.append(link)
+        return result
+
     def accepts_allocations(layout):
-        connections = [{"dut": deepcopy(child)} for key, choice in layout.items() if key[0] == "dut"
-                       for child in choice["children"]]
-        connections.sort(key=lambda link: port_key(link["dut"]["port"]))
         try:
-            allocate_forwarding(settings, connections)
+            allocate_forwarding(settings, layout_connections(layout))
         except AllocationCapacityError as error:
             return str(error)
         return None
@@ -706,26 +708,15 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
     for (side, cage), choice in sorted(solution.items(), key=lambda item: (item[0][0], port_key(item[0][1]))):
         selected[side][cage] = {"mode": choice["mode"], "speed": choice["speed"],
                                 "children": deepcopy(choice["children"])}
-    peer_children = {(tuple(child["atoms"]), child["speed"]): child
-                     for choice in selected["peer"].values() for child in choice["children"]}
-    atom_links = {link["dut"]["port"]: link for link in inventory["links"] if link["eligible"]}
     case_indices = Counter()
     cases = {}
     for row in sorted(lookup, key=lambda row: (int(row["speed"]), row["cable"])):
         cases.setdefault(int(row["speed"]), []).append(row)
-    connections = []
-    for choice in selected["dut"].values():
-        for child in choice["children"]:
-            speed = child["speed"]
-            matched = peer_children[(tuple(child["atoms"]), speed)]
-            case = cases[speed][case_indices[speed] % len(cases[speed])]
-            case_indices[speed] += 1
-            connections.append({"dut": deepcopy(child), "peer": deepcopy(matched),
-                                "buffer_case": dict(case),
-                                "source_links": [atom_links[atom]["csv_attributes"] for atom in child["atoms"]],
-                                "connectivity_verified": False})
-            if vlan_scope is not None:
-                connections[-1]["transport_vlan_id"] = vlan_scope["dut_ports"][child["port"]]
+    connections = layout_connections(solution)
+    for link in connections:
+        speed = link["dut"]["speed"]
+        link["buffer_case"] = dict(cases[speed][case_indices[speed] % len(cases[speed])])
+        case_indices[speed] += 1
     selected_atoms = set(atom_links)
     port_order = sorted(({name for name in dut["ports"] if name not in selected_atoms}
                          | {link["dut"]["port"] for link in connections}), key=port_key)
@@ -745,11 +736,15 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
             key=port_key),
     }
     indices = {name: index for index, name in enumerate(port_order)}
-    for ptf_index, link in enumerate(connections):
+    for link in connections:
         link["dut_port_index"] = indices[link["dut"]["port"]]
+        link["ptf_index"] = None
+        link["transport_status"] = "physical_only_no_csv_vlan"
+    traffic = traffic_connections(connections)
+    for ptf_index, link in enumerate(traffic):
         link["ptf_index"] = ptf_index
         link["transport_status"] = "requires_provisioning_and_independent_verification"
-    bindings = ["0.{}@{}".format(link["dut_port_index"], link["ptf_index"]) for link in connections]
+    bindings = ["0.{}@{}".format(link["dut_port_index"], link["ptf_index"]) for link in traffic]
     topology = {"topology": {"host_interfaces": bindings},
                 "generic_topology": deepcopy(settings), "dut_port_order": port_order}
     if not declarations["uplink"]:
@@ -768,7 +763,7 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         facts["vlan_scope"] = deepcopy(vlan_scope)
     reconcile_neighbors(facts, selected)
     manifest = {
-        "schema_version": 3, "status": "breakout_frozen", "deployable": False, "roles_finalized": False,
+        "schema_version": 3, "status": "planned_not_rendered", "deployable": False,
         "hostname": inventory["hostname"], "peer_hostname": inventory["peer_hostname"],
         "selected_layouts": selected,
         "protected_dut_cages": inventory["protected_dut_cages"],
@@ -797,10 +792,16 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
                                   coverage_priority=["forwarding", "uplink_repetition",
                                                      "physical_cage_diversity", "buffer_cases"])
         coverage["deployment_eligible"] = (
-            forwarding is not None and coverage["uplink_repetition"]["complete"]
-            and "allocation_error" not in coverage)
+            forwarding is not None and "allocation_error" not in coverage)
         coverage["vlan_scope"] = {"available_endpoints": len(vlan_scope["dut_ports"]),
-                                  "selected_endpoints": len(connections)}
+                                  "selected_endpoints": len(traffic),
+                                  "physical_endpoints": len(connections)}
+        coverage["traffic_coverage"] = {
+            "status": "partial" if len(traffic) != len(connections) else "planned_not_verified",
+            "traffic_links": len(traffic),
+            "physical_only_links": [{"dut_port": link["dut"]["port"], "peer_port": link["peer"]["port"],
+                                     "reason": "no CSV-backed transport VLAN"}
+                                    for link in connections if link["transport_vlan_id"] is None]}
     if not declarations["uplink"]:
         manifest["policy"]["role_assignment"] = "first_eight_selected"
         manifest["policy"]["automatic_uplink_count"] = 8
@@ -816,7 +817,7 @@ def source_digests(paths):
     return {str(Path(path).resolve()): hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in paths}
 
 
-def resolve_workspace(testbed, workspace=None):
+def resolve_workspace(testbed):
     """Use one private workspace per user/testbed without following workspace or stage symlinks."""
     def require_private(path, create=False):
         if create:
@@ -826,16 +827,13 @@ def resolve_workspace(testbed, workspace=None):
             raise ValueError("Workspace directory must be owned by this user, private, and not a symlink: {}".format(
                 path))
 
-    if workspace:
-        root = Path(workspace).expanduser().absolute()
-    else:
-        if not isinstance(testbed, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", testbed) is None:
-            raise ValueError("Default workspace requires a safe testbed name")
-        parent = Path(tempfile.gettempdir()) / "sonic-generic-{}".format(os.getuid())
-        require_private(parent, create=True)
-        root = parent / testbed
+    if not isinstance(testbed, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", testbed) is None:
+        raise ValueError("Default workspace requires a safe testbed name")
+    parent = Path(tempfile.gettempdir()) / "sonic-generic-{}".format(os.getuid())
+    require_private(parent, create=True)
+    root = parent / testbed
     require_private(root, create=True)
-    for stage in ("plan", "finalized", "rendered"):
+    for stage in ("plan", "prepared", "rendered"):
         path = root / stage
         if path.exists() or path.is_symlink():
             require_private(path)
@@ -876,17 +874,19 @@ def seal_artifacts(artifacts):
     manifest["scenario_id"] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
 
 
+def add_connection_arguments(parser):
+    parser.add_argument("--inventory", action="append", default=[],
+                        help="Ansible inventory path; repeat to combine sources; defaults to testbed inv_name")
+    parser.add_argument("--vault-password-file", help="Ansible vault password file")
+
+
 def add_planning_arguments(parser, required=True):
-    parser.add_argument("--workspace",
-                        help="Shared plan/finalized/rendered workspace; default: system temp/sonic-generic-UID/TESTBED")
+    add_connection_arguments(parser)
     for option in ("links-csv", "peer-hostname"):
         parser.add_argument("--" + option, required=required)
     parser.add_argument("--recipe", default=str(Path(__file__).resolve().parents[1] / "vars/topo_generic.yml"))
     for option in ("platform-json", "peer-platform-json", "pg-profile-lookup"):
         parser.add_argument("--" + option, help="Local snapshot; collect from inventory when omitted")
-    parser.add_argument("--inventory", action="append", default=[],
-                        help="Ansible inventory path; repeat to combine sources; defaults to testbed inv_name")
-    parser.add_argument("--vault-password-file", help="Optional Ansible vault password file for collection")
     parser.add_argument("--snapshot-dir", help="New collection directory; defaults to OUTPUT_DIR.inputs")
     parser.add_argument("--overrides", action="append", default=[],
                         help="Recipe overrides in explicit low-to-high precedence order; repeat for group then host")
@@ -902,20 +902,11 @@ def plan_from_args(args):
         raise ValueError("--max-search-states must be positive")
     if args.min_same_breakout_uplinks is not None:
         validate_uplink_minimum(args.min_same_breakout_uplinks)
-    workspace = getattr(args, "workspace", None)
-    if workspace and args.output_dir:
-        raise ValueError("Use --workspace or --output-dir, not both")
     if not args.output_dir:
-        root = resolve_workspace(args.testbed or args.hostname, workspace)
+        root = resolve_workspace(args.testbed or args.hostname)
         args.output_dir = str(root / "plan")
     if Path(args.output_dir).exists():
         raise ValueError("Output directory already exists: {}".format(args.output_dir))
-    initial_paths = [args.links_csv, args.recipe] + args.overrides
-    initial_paths.extend(path for path in (
-        args.platform_json, args.peer_platform_json, args.pg_profile_lookup) if path is not None)
-    if args.testbed is not None:
-        initial_paths.append(args.testbed_file)
-    initial_digests = source_digests(initial_paths)
     testbed = None
     hostname = args.hostname
     if args.testbed is not None:
@@ -924,8 +915,6 @@ def plan_from_args(args):
     if args.min_same_breakout_uplinks is not None and not port_declarations(settings)["uplink"]:
         raise ValueError("Automatic first-eight uplinks require omitting --min-same-breakout-uplinks")
     collection = collect_inputs(args, hostname, testbed)
-    if source_digests(initial_paths) != initial_digests:
-        raise ValueError("An input changed during collection; generate a new scenario")
     paths = [args.links_csv, args.platform_json, args.peer_platform_json,
              args.pg_profile_lookup, args.recipe] + args.overrides
     if args.testbed is not None:
@@ -941,8 +930,6 @@ def plan_from_args(args):
         inventory, dut, peer, lookup, settings, args.max_search_states,
         args.min_same_breakout_uplinks if args.min_same_breakout_uplinks is not None else 0,
         vlan_backed_only=True)
-    if source_digests(paths) != digests:
-        raise ValueError("An input changed during planning; generate a new scenario")
     manifest = artifacts["manifest.json"]
     if testbed is not None:
         manifest["testbed"] = testbed
@@ -960,6 +947,10 @@ def plan_from_args(args):
     print("CSV VLAN-backed endpoints: {} available, {} selected. Deployment requirements: {}.".format(
         coverage["vlan_scope"]["available_endpoints"], coverage["vlan_scope"]["selected_endpoints"],
         "satisfied" if coverage["deployment_eligible"] else "NOT satisfied (review-only)"))
+    physical_only = coverage["traffic_coverage"]["physical_only_links"]
+    if physical_only:
+        print("Physical-only links: {} (no CSV transport VLAN, forwarding, or PTF traffic qualification).".format(
+            len(physical_only)))
     if coverage["status"] != "complete":
         print("Best-effort coverage: {} uncovered mode/operating combinations and {} uncovered buffer cases. "
               "These cases remain unqualified.".format(
@@ -973,7 +964,8 @@ def main():
     identity.add_argument("--hostname", help="Explicit DUT hostname for standalone planning")
     identity.add_argument("--testbed", help="Resolve the single DUT from the selected testbed definition")
     parser.add_argument("--testbed-file", default="testbed.yaml")
-    parser.add_argument("--output-dir", help="Legacy explicit plan destination; otherwise use WORKSPACE/plan")
+    parser.add_argument("--output-dir",
+                        help="Developer plan destination; otherwise use the automatic testbed directory")
     add_planning_arguments(parser)
     args = parser.parse_args()
     try:
@@ -990,8 +982,8 @@ def main():
     for role, ports in ignored.items():
         if ports:
             print("Ignored unmatched {} interface selectors: {}".format(role, ", ".join(ports)))
-    print("Frozen breakout plan written to {} (coverage: {}). Review/edit the recorded topology recipe, "
-          "then use add-topo to finish scenario preparation; "
+    print("Sealed scenario plan written to {} (coverage: {}). Use add-topo to render this snapshot; "
+          "changed inputs require a fresh workspace; "
           "no deployment performed.".format(args.output_dir, artifacts["coverage.json"]["status"]))
 
 

@@ -1,13 +1,11 @@
 """Offline rendering/deployment regressions; no lab connections or reloads."""
 
 from argparse import Namespace
-from contextlib import redirect_stdout
 from copy import deepcopy
 import hashlib
-import io
+from itertools import product
 import json
 import os
-import pathlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -339,6 +337,35 @@ def neighbor_scenario():
 
 
 @pytest.mark.parametrize("role", ["dut", "peer"])
+def test_transport_preparation_does_not_render_device_configs(neighbor_scenario, tmp_path, monkeypatch, role):
+    """Resolve canonical indices and leaf transport without touching QoS, YANG, or dependent tables."""
+    facts, layouts = neighbor_scenario
+    parent, choice = next(iter(layouts[role].items()))
+    lanes = ",".join(str(child["lanes"][0]) for child in choice["children"])
+    base = {"PORT": {parent: {"lanes": lanes, "speed": "200000"},
+                     "Ethernet8": {"lanes": "90", "speed": "100000"}},
+            "ACL_TABLE": {"retained": {"ports": [parent]}}, "CABLE_LENGTH": {"AZURE": {parent: "5m"}}}
+    original = deepcopy(base)
+    platform = tmp_path / "platform.json"
+    platform.write_text(json.dumps({"interfaces": {parent: {"lanes": lanes}}}))
+    monkeypatch.setattr(renderer, "read_running", lambda: base)
+    monkeypatch.setattr(renderer, "device_assets", lambda *args: (tmp_path, tmp_path, None))
+    monkeypatch.setattr(renderer, "canonical_ports", lambda cage, selection, properties: {
+        child["port"]: {"lanes": str(child["lanes"][0]), "alias": child["alias"], "speed": "100000"}
+        for child in selection["children"]})
+    for function in ("build_ports", "template_json", "apply_qos"):
+        monkeypatch.setattr(renderer, function, lambda *args: pytest.fail("Full rendering during preparation"))
+    monkeypatch.setitem(sys.modules, "sonic_yang", None)
+    transport = [{"vlan_id": 100, "ptf_index": 0}]
+    monkeypatch.setattr(renderer, "transport_plan", lambda *args: transport)
+    result = renderer.prepare_device({"role": role, "facts": facts, "layouts": layouts, "settings": {}})
+    assert result["port_order"] == sorted([child["port"] for child in choice["children"]] + ["Ethernet8"],
+                                          key=lambda name: int(name[8:]))
+    assert result["transport"] == (transport if role == "peer" else None)
+    assert "config" not in result and base == original
+
+
+@pytest.mark.parametrize("role", ["dut", "peer"])
 def test_child_neighbors_replace_parent_and_preserve_identity(neighbor_scenario, role):
     """Rebuild both ends from final wiring, preserving protected neighbors and all identity metadata."""
     facts, layouts = neighbor_scenario
@@ -382,7 +409,7 @@ def test_child_neighbors_replace_parent_and_preserve_identity(neighbor_scenario,
     "wrong_speed", "wrong_case_speed", "crossed_wiring", "missing_role", "same_host",
 ])
 def test_reconciliation_rejects_inconsistent_frozen_connections(neighbor_scenario, failure):
-    """Never infer replacement wiring, roles, or layout when the finalized inputs disagree."""
+    """Never infer replacement wiring, roles, or layout when resolved inputs disagree."""
     facts, layouts = deepcopy(neighbor_scenario)
     links = facts["connections"]
     if failure == "duplicate_dut":
@@ -412,12 +439,13 @@ def test_reconciliation_rejects_inconsistent_frozen_connections(neighbor_scenari
         renderer.reconcile_neighbors(facts, layouts)
 
 
-@pytest.mark.parametrize("failure", ["identity", "peer_mapping", "layout"])
+@pytest.mark.parametrize("failure", ["identity"])
 def test_render_rejects_inconsistent_connections_before_device_access(
         rendered, neighbor_scenario, tmp_path, monkeypatch, failure):
-    """Final connection reconciliation must run locally before any rendering playbook."""
+    """Device identities must agree before the renderer contacts either device."""
     artifacts, testbed = rendered
     facts, layouts = deepcopy(neighbor_scenario)
+    facts["forwarding"] = {}
     artifacts["resolved_facts.json"] = facts
     artifacts["manifest.json"].update(peer_hostname="leaf", selected_layouts=layouts)
     artifacts["topology.yml"] = {"generic_topology": {
@@ -432,28 +460,6 @@ def test_render_rejects_inconsistent_connections_before_device_access(
     monkeypatch.setattr(controller, "run_playbook", lambda *args: pytest.fail("Unexpected device access"))
     destination = tmp_path / "rendered"
     with pytest.raises(ValueError, match="identities|Duplicate resolved peer|frozen breakout"):
-        controller.render(Namespace(output_dir=str(destination)), artifacts, testbed, "dut")
-    assert not destination.exists()
-
-
-@pytest.mark.parametrize("minimum,message", [
-    (None, "at least 4 physical uplinks"), (3, "at least 3 physical uplinks"), (0, "must be a positive integer"),
-])
-def test_render_rejects_insufficient_matching_uplinks_before_device_access(
-        rendered, neighbor_scenario, tmp_path, monkeypatch, minimum, message):
-    """Check the frozen planning count, or legacy default, before accessing devices."""
-    artifacts, testbed = rendered
-    facts, layouts = deepcopy(neighbor_scenario)
-    artifacts["resolved_facts.json"] = facts
-    artifacts["manifest.json"].update(peer_hostname="leaf", selected_layouts=layouts)
-    if minimum is not None:
-        artifacts["manifest.json"]["policy"] = {"min_same_breakout_uplinks": minimum}
-    artifacts["topology.yml"] = {"generic_topology": {
-        "physical_links": {"uplinks": ["Ethernet0"]},
-    }}
-    monkeypatch.setattr(controller, "run_playbook", lambda *args: pytest.fail("Unexpected device access"))
-    destination = tmp_path / "rendered"
-    with pytest.raises(ValueError, match=message):
         controller.render(Namespace(output_dir=str(destination)), artifacts, testbed, "dut")
     assert not destination.exists()
 
@@ -517,23 +523,22 @@ def qos():
     return config, generated, facts, "dut", lookup, {}, {"Ethernet0"}, {"Ethernet0"}
 
 
-@pytest.mark.parametrize("role", ["dut", "peer"])
-@pytest.mark.parametrize("has_platform_lookup", [False, True])
-@pytest.mark.parametrize("template_has_pfc", [False, True, "lossy"])
-@pytest.mark.parametrize("exclude_managed_acls", [False, True])
+@pytest.mark.parametrize("role,has_platform_lookup,template_has_pfc,exclude_managed_acls,yang_failure", [
+    (*case, None) for case in product(["dut", "peer"], [False, True], [False, True, "lossy"], [False, True])
+] + [
+    ("dut", True, False, False, "missing_model"),
+    ("dut", True, False, False, "invalid_data"),
+])
 def test_render_lookup_priority_and_missing_file_fallback(
-        qos, tmp_path, monkeypatch, role, has_platform_lookup, template_has_pfc, exclude_managed_acls):
-    """Select/hash lookup assets and use template PFC policy with missing-field running fallback."""
+        qos, tmp_path, monkeypatch, role, has_platform_lookup, template_has_pfc,
+        exclude_managed_acls, yang_failure):
+    """Render native policy without querying daemons, but still require installed YANG validation."""
     platform_dir = tmp_path / "device/test-platform"
     sku_dir = platform_dir / "test-sku"
     sku_dir.mkdir(parents=True)
     (platform_dir / "platform.json").write_text(json.dumps({"interfaces": {"Ethernet8": {"lanes": "8"}}}))
     (sku_dir / "qos.json.j2").write_text("synthetic template")
     lookup_text = "# speed cable size xon xoff threshold\n100000 5m 100 20 30 -3\n"
-    monkeypatch.setattr(renderer, "read_buffer_daemon", lambda: {
-        "path": "/daemon/pg_profile_lookup.ini", "sha256": hashlib.sha256(lookup_text.encode()).hexdigest(),
-        "content": lookup_text,
-    })
     lookup_path = platform_dir / "pg_profile_lookup.ini"
     if has_platform_lookup:
         lookup_path.write_text(lookup_text)
@@ -580,7 +585,6 @@ def test_render_lookup_priority_and_missing_file_fallback(
         for field in ("pfc_to_pg_map", "pfc_to_queue_map"):
             del generated["PORT_QOS_MAP"]["Ethernet0"][field]
         del generated["BUFFER_PROFILE"]["egress_lossless_profile"]
-        monkeypatch.setattr(renderer, "read_buffer_daemon", lambda: pytest.fail("Lossy policy needs no daemon lookup"))
     elif not template_has_pfc:
         for field in ("pfc_enable", "pfc_to_pg_map", "pfc_to_queue_map"):
             del generated["PORT_QOS_MAP"]["Ethernet0"][field]
@@ -594,8 +598,16 @@ def test_render_lookup_priority_and_missing_file_fallback(
     monkeypatch.setattr(renderer, "template_json", template_json)
     monkeypatch.setattr(renderer, "prepare_qos_template", lambda directory, *args: (
         sku_dir / "qos.json.j2", sku_dir))
-    validator = SimpleNamespace(tablesWithOutYang=set(), loadYangModel=lambda: None,
-                                loadData=lambda **kwargs: None, validate_data_tree=lambda: None)
+    validations = []
+
+    def validate():
+        validations.append(True)
+        if yang_failure == "invalid_data":
+            raise ValueError("synthetic YANG data rejection")
+
+    validator = SimpleNamespace(
+        tablesWithOutYang={"DEVICE_METADATA"} if yang_failure == "missing_model" else set(),
+        loadYangModel=lambda: None, loadData=lambda **kwargs: None, validate_data_tree=validate)
     monkeypatch.setitem(sys.modules, "sonic_yang", SimpleNamespace(SonicYang=lambda *args: validator))
     facts = deepcopy(qos[2])
     facts.update(hostname="dut", peer_hostname="leaf")
@@ -612,7 +624,13 @@ def test_render_lookup_priority_and_missing_file_fallback(
     original_sku = sku_lookup.read_bytes()
     if not has_platform_lookup:
         lookup_path = sku_lookup
+    if yang_failure:
+        with pytest.raises(ValueError, match="no installed YANG|synthetic YANG"):
+            renderer.render_device(request)
+        assert validations == ([] if yang_failure == "missing_model" else [True])
+        return
     result = renderer.render_device(request)
+    assert validations == [True]
     assert result["report"]["forwarding_cleanup_ports"] == (["Ethernet8"] if role == "dut" else [])
     assert result["report"]["exclude_managed_acls"] is exclude_managed_acls
     assert result["report"]["excluded_acl_bindings"] == (
@@ -632,7 +650,10 @@ def test_render_lookup_priority_and_missing_file_fallback(
                    for name in result["config"]["BUFFER_PROFILE"])
     if template_has_pfc == "lossy":
         assert result["report"]["qos_policy"] == "installed_lossy"
-        assert "lossless_buffers" not in result["report"] and "buffer_daemon" not in result["report"]
+        assert "lossless_buffers" not in result["report"]
+        assert result["report"]["unused_buffer_profiles"] == {
+            "pg_lossless_100000_5m_profile": {
+                "pool": "ingress_lossless_pool", "size": "100", "xon": "20", "xoff": "30", "dynamic_th": "-3"}}
         assert result["config"]["PORT_QOS_MAP"]["Ethernet0"]["pfc_enable"] == ""
         assert result["config"]["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m", "Ethernet8": "0m"}}
         assert result["report"]["buffer_policy"]["lossy_cable_cases"] == {
@@ -640,21 +661,12 @@ def test_render_lookup_priority_and_missing_file_fallback(
         assert request["facts"]["connections"][0]["buffer_case"] == {"speed": "100000", "cable": "5m"}
     else:
         assert result["report"]["lossless_buffers"]["profiles"]["pg_lossless_100000_5m_profile"]["xon"] == "20"
-        assert result["report"]["buffer_daemon"]["path"] == "/daemon/pg_profile_lookup.ini"
         assert result["config"]["CABLE_LENGTH"]["AZURE"]["Ethernet0"] == "5m"
         assert result["report"]["buffer_policy"]["lossy_cable_cases"] == {}
     assets = result["report"]["assets"]
     assert assets[str(lookup_path)] == hashlib.sha256(lookup_text.encode()).hexdigest()
     assert (str(sku_lookup) in assets) is (not has_platform_lookup)
     assert lookup_path.read_text() == lookup_text
-    lookup_path.write_text(lookup_text.replace("100 20 30", "100 21 30"))
-    directory = tmp_path / "stage"
-    directory.mkdir()
-    renderer.write_private(directory / "request.json", result)
-    monkeypatch.setattr(device, "read_running", lambda: deepcopy(base))
-    with pytest.raises(ValueError, match="Installed rendering asset changed"):
-        device.run("stage", directory)
-    assert not (directory / "running-backup.json").exists()
     if has_platform_lookup:
         assert sku_lookup.read_bytes() == original_sku
 
@@ -752,7 +764,10 @@ def test_installed_lossy_policy_preserves_protected_state_without_enabling_pfc(l
         "SELECTED_ONLY": {"Ethernet0": cable},
     }
     assert lossy_qos[2] == planned_cases
-    assert expected == {"profiles": {}, "pgs": {}, "omitted_profiles": {}}
+    assert expected == {"profiles": {}, "pgs": {}, "omitted_profiles": {}, "unused_profiles": {
+        "pg_lossless_100000_{}_profile".format(cable): {
+            "pool": "ingress_lossless_pool", "size": "100", "xon": "020", "xoff": "30",
+            "dynamic_th": "-3", "xon_offset": "7"}}}
     assert not any(name.startswith(("pg_lossless_", "generic_egress_")) for name in config["BUFFER_PROFILE"])
 
 
@@ -819,6 +834,7 @@ def test_lossy_policy_preserves_headroom_needed_by_retained_consumers(lossy_qos,
     assert config["BUFFER_PROFILE"][name] == profile
     assert config[table]["Ethernet8|3-4"] == row
     assert expected["omitted_profiles"] == {}
+    assert expected["unused_profiles"] == {}
 
 
 @pytest.mark.parametrize("inherit_disabled", [False, True])
@@ -839,6 +855,7 @@ def test_lossy_policy_needs_no_lossless_objects_or_pfc_maps(lossy_qos, inherit_d
     renderer.scope_buffer_policy(config, generated)
     expected = renderer.apply_qos(*lossy_qos)
     assert expected["profiles"] == expected["pgs"] == {}
+    assert expected["unused_profiles"] == {}
     assert config["PORT_QOS_MAP"]["Ethernet0"]["pfc_enable"] == ""
     assert "pfc_to_pg_map" not in config["PORT_QOS_MAP"]["Ethernet0"]
     assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m"}, "CUSTOM": {"Ethernet0": "5m"}}
@@ -929,13 +946,17 @@ def test_template_pfc_policy_is_authoritative_and_per_port(qos):
     assert set(expected["pgs"]) == {"Ethernet0|3", "Ethernet1|4"}
 
 
-def test_disabled_pfc_port_does_not_inherit_another_ports_lossless_policy(qos):
-    """Mixed native policy must not enable PFC or expect headroom on explicitly lossy ports."""
+@pytest.mark.parametrize("same_case", [False, True])
+def test_disabled_pfc_port_does_not_inherit_another_ports_lossless_policy(qos, same_case):
+    """Mixed native policy may declare unused profiles but never lossless PGs on disabled ports."""
     config, generated, facts, _, _, base, _, selected = qos
     config["CABLE_LENGTH"] = {"AZURE": {"Ethernet0": "300m", "Ethernet8": "40m"}}
     selected.add("Ethernet8")
     link = deepcopy(facts["connections"][0])
     link["dut"]["port"] = "Ethernet8"
+    if not same_case:
+        link["buffer_case"]["cable"] = "30m"
+        qos[4].append(dict(qos[4][0], cable="30m"))
     facts["connections"].append(link)
     generated["PORT_QOS_MAP"]["Ethernet8"] = dict(generated["PORT_QOS_MAP"]["Ethernet0"], pfc_enable="")
     for field in ("pfc_to_pg_map", "pfc_to_queue_map"):
@@ -948,7 +969,8 @@ def test_disabled_pfc_port_does_not_inherit_another_ports_lossless_policy(qos):
     assert config["PORT_QOS_MAP"]["Ethernet8"]["pfc_enable"] == ""
     assert config["PORT_QOS_MAP"]["Ethernet8"]["tc_to_pg_map"] == "policy"
     assert config["BUFFER_PG"]["Ethernet8|0-7"] == {"profile": "lossy"}
-    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m", "Ethernet8": "5m"}}
+    assert config["CABLE_LENGTH"] == {"AZURE": {"Ethernet0": "5m", "Ethernet8": "5m" if same_case else "30m"}}
+    assert set(expected["unused_profiles"]) == (set() if same_case else {"pg_lossless_100000_30m_profile"})
 
 
 def test_grouped_port_macros_are_expanded(qos):
@@ -988,49 +1010,6 @@ def test_lookup_cannot_overwrite_a_protected_existing_profile(qos):
         renderer.apply_qos(*qos)
 
 
-@pytest.mark.parametrize("stale", [False, True])
-def test_clean_headroom_inputs_omit_only_unreferenced_selected_profiles(qos, stale):
-    """Defer selected profiles to the daemon without purging unrelated unused definitions."""
-    name = "pg_lossless_100000_5m_profile"
-    profile = {"pool": "ingress_lossless_pool", "size": "100", "xon": "020", "xoff": "30",
-               "dynamic_th": "-3", "xon_offset": "7"}
-    existing = dict(profile, xoff="999") if stale else deepcopy(profile)
-    unrelated = "pg_lossless_200000_5m_profile"
-    qos[0]["BUFFER_PROFILE"] = {name: deepcopy(existing), unrelated: deepcopy(existing)}
-    qos[0]["BUFFER_PG"] = {"Ethernet0|3-4": {"profile": name}}
-    result = renderer.apply_qos(*qos, omit_managed_headroom=True)
-    assert name not in qos[0]["BUFFER_PROFILE"]
-    assert qos[0]["BUFFER_PROFILE"][unrelated] == existing
-    assert result["omitted_profiles"] == {name: existing}
-    assert result["profiles"][name] == profile
-    assert not device.verify_config(qos[0], deepcopy(qos[0]), {"lossless_buffers": result})
-    converged = deepcopy(qos[0])
-    converged["BUFFER_PROFILE"][name] = deepcopy(profile)
-    converged["BUFFER_PG"]["Ethernet0|3-4"] = {"profile": name}
-    assert device.verify_config(qos[0], converged, {"lossless_buffers": result})
-    if stale:
-        converged["BUFFER_PROFILE"][name] = existing
-        with pytest.raises(ValueError, match="Daemon-generated BUFFER_PROFILE"):
-            device.verify_config(qos[0], converged, {"lossless_buffers": result})
-
-
-@pytest.mark.parametrize("table,row", [
-    ("BUFFER_PG", {"profile": "pg_lossless_100000_5m_profile"}),
-    ("BUFFER_PORT_INGRESS_PROFILE_LIST", {"profile_list": "lossy,pg_lossless_100000_5m_profile"}),
-    ("BUFFER_PORT_EGRESS_PROFILE_LIST", {"profile_list": ["pg_lossless_100000_5m_profile"]}),
-    ("UNRECOGNIZED_BINDING", {"reference": "[BUFFER_PROFILE|pg_lossless_100000_5m_profile]"}),
-])
-def test_clean_headroom_inputs_reject_stale_profiles_with_retained_consumers(qos, table, row):
-    """Known, grouped-list, and unknown references must prevent removal of shared stale headroom."""
-    name = "pg_lossless_100000_5m_profile"
-    qos[0]["BUFFER_PROFILE"] = {name: {"pool": "ingress_lossless_pool", "size": "999"}}
-    qos[0].setdefault(table, {})["Ethernet8|3"] = deepcopy(row)
-    with pytest.raises(ValueError, match="remains referenced by retained configuration"):
-        renderer.apply_qos(*qos, omit_managed_headroom=True)
-    assert name in qos[0]["BUFFER_PROFILE"]
-    assert qos[0][table]["Ethernet8|3"] == row
-
-
 def test_nonidentity_pfc_pg_map_is_rejected_for_traditional_daemon(qos):
     """The upstream traditional daemon derives PG indices directly from enabled PFC priorities."""
     qos[1]["PFC_PRIORITY_TO_PRIORITY_GROUP_MAP"]["policy"]["3"] = "5"
@@ -1038,21 +1017,18 @@ def test_nonidentity_pfc_pg_map_is_rejected_for_traditional_daemon(qos):
         renderer.apply_qos(*qos)
 
 
-@pytest.mark.parametrize("omit_managed_headroom", [False, True])
-def test_existing_matching_profile_and_protected_pg_are_preserved(qos, omit_managed_headroom):
+def test_existing_matching_profile_and_protected_pg_are_preserved(qos):
     """Reuse compatible shared headroom without clearing protected users of the same profile."""
     name = "pg_lossless_100000_5m_profile"
     profile = {"pool": "ingress_lossless_pool", "size": "100", "xon": "020", "xoff": "30",
                "dynamic_th": "-3", "xon_offset": "7"}
     qos[0]["BUFFER_PROFILE"] = {name: deepcopy(profile)}
     qos[0]["BUFFER_PG"] = {"Ethernet8|3-4": {"profile": name}}
-    expected = renderer.apply_qos(*qos, omit_managed_headroom=omit_managed_headroom)
+    expected = renderer.apply_qos(*qos)
     assert qos[0]["BUFFER_PROFILE"][name] == profile
     assert qos[0]["BUFFER_PG"]["Ethernet8|3-4"] == {"profile": name}
     assert "Ethernet0|3" not in qos[0]["BUFFER_PG"]
     assert expected["profiles"][name] == profile
-    if omit_managed_headroom:
-        assert expected["omitted_profiles"] == {}
 
 
 @pytest.mark.parametrize("pool_mode", ["dynamic", "static"])
@@ -1067,98 +1043,6 @@ def test_daemon_profile_is_expected_not_materialized_from_template(qos, pool_mod
     assert result["profiles"][name][pool_mode + "_th"] == "-3"
     assert "Ethernet0|3" not in qos[0]["BUFFER_PG"]
     assert qos[0]["PORT"]["Ethernet8"] == {}
-
-
-@pytest.mark.parametrize("failure", [None, "missing", "different", "duplicate"])
-def test_active_daemon_lookup_must_support_platform_cases(qos, failure):
-    """The renderer's platform copy does not establish what file the daemon actually reads."""
-    expected = renderer.apply_qos(*qos)
-    lookup = qos[4]
-    columns = list(lookup[0])
-    text = "# " + " ".join(columns) + "\n" + " ".join(lookup[0].values()) + "\n"
-    if failure == "missing":
-        text = text.replace("100000", "200000")
-    elif failure == "different":
-        text = text.replace("020", "999")
-    elif failure == "duplicate":
-        text += " ".join(lookup[0].values()) + "\n"
-    daemon = {"content": text}
-    if failure:
-        with pytest.raises(ValueError, match="Active daemon lookup"):
-            renderer.validate_daemon_lookup(daemon, expected["profiles"], lookup)
-    else:
-        renderer.validate_daemon_lookup(daemon, expected["profiles"], lookup)
-
-
-@pytest.mark.parametrize("arguments", [
-    ["-l", "/active.ini"], ["-l/active.ini"], ["-a", "/asic.json", "-l", "/active.ini"], [],
-])
-def test_daemon_process_query_validates_startup_and_reads_actual_file(monkeypatch, arguments):
-    """Execute the container query against a fake process filesystem, never Docker or the lab."""
-    content = b"# speed cable size xon xoff threshold\n100000 5m 100 20 30 -3\n"
-
-    class ProcessPath:
-        def __init__(self, value):
-            self.value = value
-
-        def __str__(self):
-            return self.value
-
-        @property
-        def name(self):
-            return self.value.rsplit("/", 1)[-1]
-
-        def glob(self, pattern):
-            return [ProcessPath("/proc/123/cmdline")]
-
-        def read_bytes(self):
-            if self.value.endswith("/cmdline"):
-                return ("\0".join(["/usr/bin/buffermgrd"] + arguments) + "\0").encode()
-            assert self.value == "/active.ini"
-            return content
-
-        def is_absolute(self):
-            return self.value.startswith("/")
-
-    def query(command, **kwargs):
-        output = io.StringIO()
-        with monkeypatch.context() as context, redirect_stdout(output):
-            context.setattr(pathlib, "Path", ProcessPath)
-            exec(compile(command[-1], "<buffer-daemon-query>", "exec"), {})
-        return output.getvalue()
-
-    monkeypatch.setattr(renderer.subprocess, "check_output", query)
-    if not arguments or "-a" in arguments:
-        with pytest.raises(ValueError, match="lookup-based traditional"):
-            renderer.read_buffer_daemon()
-    else:
-        assert renderer.read_buffer_daemon() == {
-            "path": "/active.ini", "sha256": hashlib.sha256(content).hexdigest(), "content": content.decode(),
-        }
-
-
-def test_appl_query_reads_swss_tables_and_normalizes_separators(monkeypatch):
-    """Exercise the remote query with a fake swsscommon API and actual APPL_DB key shapes."""
-    tables = {"BUFFER_PROFILE_TABLE": {"pg_lossless_100000_5m_profile": {"size": "100"}},
-              "BUFFER_PG_TABLE": {"Ethernet0:3-4": {"profile": "pg_lossless_100000_5m_profile"}}}
-    api = SimpleNamespace(
-        DBConnector=lambda name, timeout: (name, timeout),
-        Table=lambda db, name: SimpleNamespace(
-            getKeys=lambda: list(tables[name]),
-            get=lambda key: (True, list(tables[name][key].items()))))
-    monkeypatch.setitem(sys.modules, "swsscommon", SimpleNamespace(swsscommon=api))
-
-    def query(command, **kwargs):
-        output = io.StringIO()
-        with redirect_stdout(output):
-            exec(compile(command[-1], "<appl-buffer-query>", "exec"), {})
-        return output.getvalue()
-
-    monkeypatch.setattr(device.subprocess, "check_output", query)
-    assert device.read_appl_buffers() == {
-        "BUFFER_PROFILE": tables["BUFFER_PROFILE_TABLE"],
-        "BUFFER_PG": {"Ethernet0|3-4": tables["BUFFER_PG_TABLE"]["Ethernet0:3-4"]},
-    }
 
 
 @pytest.fixture
@@ -1176,148 +1060,51 @@ def daemon_buffers(qos):
     return config, running, report
 
 
-def test_readback_accepts_only_expected_daemon_additions(daemon_buffers):
-    """Minimal inputs remain valid while grouped daemon outputs satisfy the final contract."""
-    config, running, report = daemon_buffers
-    assert device.verify_config(config, config, report) is False
-    assert device.verify_config(config, running, report) is True
-    renderer.validate_references(running)
-    assert config["BUFFER_PG"].get("Ethernet0|3-4") is None
+@pytest.fixture
+def unused_daemon_buffers(lossy_qos):
+    """Disabled PFC with an optional, lookup-backed daemon profile and protected bindings."""
+    renderer.scope_buffer_policy(*lossy_qos[:2])
+    expected = renderer.apply_qos(*lossy_qos)
+    config = lossy_qos[0]
+    running = deepcopy(config)
+    running["BUFFER_PROFILE"].update(deepcopy(expected["unused_profiles"]))
+    report = {"config_sha256": renderer.digest(config), "unused_buffer_profiles": expected["unused_profiles"]}
+    return config, running, report
 
 
-@pytest.mark.parametrize("with_buffers", [False, True])
-@pytest.mark.parametrize("empty_in_input", [False, True])
-def test_readback_equates_absent_and_empty_tables(daemon_buffers, with_buffers, empty_in_input):
-    """Redis drops empty tables; equivalent readback must not initiate paired recovery."""
-    config, running, report = daemon_buffers if with_buffers else ({}, {}, {})
-    (config if empty_in_input else running)["TC_TO_DSCP_MAP"] = {}
-    assert device.verify_config(config, running, report)
-    (config if empty_in_input else running)["TC_TO_DSCP_MAP"] = {"AZURE": {"3": "24"}}
-    with pytest.raises(ValueError, match="TC_TO_DSCP_MAP"):
-        device.verify_config(config, running, report)
+@pytest.mark.parametrize("mode", ["static", "dynamic"])
+def test_unused_profiles_follow_installed_pool_threshold_mode(lossy_qos, mode):
+    """An unused profile uses the same lookup values and pool mode as a daemon-owned bound profile."""
+    lossy_qos[0]["BUFFER_POOL"]["ingress_lossless_pool"]["mode"] = mode
+    lossy_qos[1]["BUFFER_POOL"]["ingress_lossless_pool"]["mode"] = mode
+    renderer.scope_buffer_policy(*lossy_qos[:2])
+    result = renderer.apply_qos(*lossy_qos)
+    assert result["unused_profiles"]["pg_lossless_100000_5m_profile"] == {
+        "pool": "ingress_lossless_pool", "size": "100", "xon": "020", "xoff": "30",
+        mode + "_th": "-3", "xon_offset": "7"}
 
 
-@pytest.mark.parametrize("failure", [
-    "wrong_profile", "wrong_pg", "protected_pg", "template_profile", "unexpected_profile", "other_table", "overlap",
-])
-def test_daemon_readback_does_not_ignore_other_drift(daemon_buffers, failure):
-    """Allowlist generated objects without relaxing unrelated tables or protected buffer state."""
-    config, running, report = daemon_buffers
-    if failure == "wrong_profile":
-        running["BUFFER_PROFILE"]["pg_lossless_100000_5m_profile"]["xon"] = "999"
-    elif failure == "wrong_pg":
-        running["BUFFER_PG"]["Ethernet0|3-4"]["profile"] = "lossy"
-    elif failure == "protected_pg":
-        del running["BUFFER_PG"]["Ethernet8|3-4"]
-    elif failure == "template_profile":
-        del running["BUFFER_PROFILE"]["lossy"]
-    elif failure == "unexpected_profile":
-        running["BUFFER_PROFILE"]["unexpected"] = {"size": "1"}
-    elif failure == "other_table":
-        running["DEVICE_METADATA"]["localhost"]["hostname"] = "other"
-    else:
-        running["BUFFER_PG"]["Ethernet0|3"] = {"profile": "pg_lossless_100000_5m_profile"}
-    with pytest.raises(ValueError):
-        device.verify_config(config, running, report)
-
-
-@pytest.mark.parametrize("state", ["pending", "complete", "wrong"])
-def test_daemon_outputs_must_reach_appl_db(daemon_buffers, monkeypatch, state):
-    """CONFIG_DB generation alone is not sufficient to mark buffer convergence."""
-    _, running, report = daemon_buffers
-    tables = running if state != "pending" else {}
-    if state == "wrong":
-        tables["BUFFER_PROFILE"]["pg_lossless_100000_5m_profile"]["size"] = "999"
-    monkeypatch.setattr(device, "read_appl_buffers", lambda: tables)
-    if state == "wrong":
-        with pytest.raises(ValueError, match="APPL_DB lossless buffer"):
-            device.verify_appl_buffers(report["lossless_buffers"])
-    else:
-        assert device.verify_appl_buffers(report["lossless_buffers"]) is (state == "complete")
-
-
-def test_verify_waits_for_config_and_appl_convergence(daemon_buffers, tmp_path, monkeypatch):
-    """Wait for declared outputs in both databases, not for arbitrary configuration changes."""
-    config, running, report = daemon_buffers
-    renderer.write_private(tmp_path / "request.json", {"config": config, "report": report})
-    reads = iter([config, running, running])
-    applications = iter([{}, running])
-    sleeps = []
-    monkeypatch.setattr(device, "read_running", lambda: next(reads))
-    monkeypatch.setattr(device, "read_appl_buffers", lambda: next(applications))
-    monkeypatch.setattr(device.time, "sleep", lambda seconds: sleeps.append(seconds))
-    device.run("verify", tmp_path)
-    assert sleeps == [1, 1]
-
-
-def test_daemon_convergence_timeout_is_explicit(daemon_buffers, tmp_path, monkeypatch):
-    """A missing daemon output must fail rather than save an incomplete configuration."""
-    config, _, report = daemon_buffers
-    renderer.write_private(tmp_path / "request.json", {"config": config, "report": report})
-    monkeypatch.setattr(device, "read_running", lambda: config)
-    ticks = iter([0, 121])
-    monkeypatch.setattr(device.time, "monotonic", lambda: next(ticks))
-    with pytest.raises(ValueError, match="Timed out waiting"):
-        device.run("verify", tmp_path)
-
-
-def test_save_persists_validated_daemon_outputs(daemon_buffers, tmp_path, monkeypatch):
-    """Save/read back the converged state, not the input artifact that intentionally lacks lossless PGs."""
-    config, running, report = daemon_buffers
+@pytest.mark.parametrize("policy", ["lossless", "unused"])
+def test_save_persists_current_state_without_daemon_contract_gates(
+        request, tmp_path, monkeypatch, policy):
+    """Daemon additions or incomplete projections no longer block saving the running state."""
+    config, running, report = request.getfixturevalue(
+        "daemon_buffers" if policy == "lossless" else "unused_daemon_buffers")
     renderer.write_private(tmp_path / "request.json", {"config": config, "report": report})
     startup = tmp_path / "startup.json"
     monkeypatch.setattr(device, "read_running", lambda: deepcopy(running))
-    monkeypatch.setattr(device, "read_appl_buffers", lambda: deepcopy(running))
     monkeypatch.setattr(device, "Path", lambda path: (
         startup if str(path) == "/etc/sonic/config_db.json" else Path(path)))
     monkeypatch.setattr(device.subprocess, "run", lambda *args, **kwargs: startup.write_text(json.dumps(running)))
     device.run("save", tmp_path)
     assert json.loads(startup.read_text()) == running
     assert renderer.digest(running) != report["config_sha256"]
-    del running["BUFFER_PG"]["Ethernet0|3-4"]
-    with pytest.raises(ValueError, match="incomplete before save"):
-        device.run("save", tmp_path)
-
-
-def test_lossy_verify_and_save_accept_empty_tables_without_daemon_expectations(tmp_path, monkeypatch):
-    """Lossy save uses the same complete-config validation as verify, including empty-table equivalence."""
-    config = {"PORT": {}, "TC_TO_DSCP_MAP": {}}
-    running = {"PORT": {}}
-    report = {"config_sha256": renderer.digest(config), "qos_policy": "installed_lossy"}
-    renderer.write_private(tmp_path / "request.json", {"config": config, "report": report})
-    startup = tmp_path / "startup.json"
-    monkeypatch.setattr(device, "read_running", lambda: deepcopy(running))
-    monkeypatch.setattr(device, "read_appl_buffers", lambda: pytest.fail("Unexpected lossless convergence query"))
-    monkeypatch.setattr(device, "read_buffer_daemon", lambda: pytest.fail("Unexpected lossless daemon query"))
-    monkeypatch.setattr(device, "Path", lambda path: (
-        startup if str(path) == "/etc/sonic/config_db.json" else Path(path)))
-    saves = []
-
-    def save(*args, **kwargs):
-        saves.append(args)
-        startup.write_text(json.dumps(running))
-
-    monkeypatch.setattr(device.subprocess, "run", save)
-    device.run("verify", tmp_path)
+    if policy == "lossless":
+        del running["BUFFER_PG"]["Ethernet0|3-4"]
+    else:
+        running["BUFFER_PROFILE"] = {"daemon_owned": {"size": "123"}}
     device.run("save", tmp_path)
-    assert len(saves) == 1
-    running["BUFFER_PROFILE"] = {"unexpected": {"size": "1"}}
-    with pytest.raises(ValueError, match="CONFIG_DB read-back differs"):
-        device.run("save", tmp_path)
-    assert len(saves) == 1
-
-
-def test_daemon_lookup_drift_is_refused_before_staging(tmp_path, monkeypatch):
-    """The active container lookup is separate from host platform/template asset hashes."""
-    base = {"PORT": {}}
-    report = {"baseline_sha256": renderer.digest(base), "config_sha256": renderer.digest(base),
-              "assets": {}, "buffer_daemon": {"path": "/lookup", "sha256": "original"}}
-    renderer.write_private(tmp_path / "request.json", {"config": base, "report": report})
-    monkeypatch.setattr(device, "read_running", lambda: base)
-    monkeypatch.setattr(device, "read_buffer_daemon", lambda: {"path": "/lookup", "sha256": "changed"})
-    with pytest.raises(ValueError, match="Active buffer daemon lookup changed"):
-        device.run("stage", tmp_path)
-    assert not (tmp_path / "running-backup.json").exists()
+    assert json.loads(startup.read_text()) == running
 
 
 @pytest.mark.parametrize("failure", [
@@ -1403,6 +1190,67 @@ def test_csv_transport_keeps_each_endpoints_existing_vlan(csv_transport):
         ("Ethernet0", 102), ("Ethernet8", 100)]
 
 
+@pytest.fixture
+def physical_only_transport(csv_transport):
+    """A physical-only sibling sits between two traffic-backed children in DUT port order."""
+    facts, leaf, owned, settings = csv_transport
+    facts["vlan_scope"]["unmapped_children"] = "physical_only"
+    facts["connections"].insert(1, {
+        "dut": {"port": "Ethernet4"}, "peer": {"port": "Ethernet4"},
+        "transport_vlan_id": None, "ptf_index": None, "interface_mode": "physical_only",
+        "source_links": [{"VlanID": ""}],
+    })
+    owned.add("Ethernet4")
+    return facts, leaf, owned, settings
+
+
+def test_physical_only_sibling_gets_no_ptf_transport_or_forwarding(physical_only_transport):
+    """Create physical PORTs while limiting leaf transport and DUT forwarding to backed children."""
+    facts, leaf, owned, settings = physical_only_transport
+    settings["transport"]["vlan_ids"] = [100, 102, 104]
+    transport = renderer.transport_plan(*physical_only_transport)
+    assert [(row["dut_port"], row["ptf_index"], row["vlan_id"]) for row in transport] == [
+        ("Ethernet0", 0, 102), ("Ethernet8", 1, 100)]
+    config = deepcopy(leaf)
+    config["PORT"] = dict.fromkeys(owned, {})
+    renderer.apply_forwarding(config, facts, owned, "peer", transport)
+    assert not any(key.endswith("|Ethernet4") for key in config["VLAN_MEMBER"])
+    assert set(config["VLAN"]) == {"Vlan100", "Vlan102"}
+    facts["connections"][0].update(interface_mode="routed", dut_address="192.0.2.0/31")
+    facts["connections"][2].update(interface_mode="access")
+    facts["forwarding"] = {"vlan_id": 3000, "svi": "198.51.100.1/24", "static_routes": {
+        "203.0.113.1/32": {"ifname": "Ethernet0", "nexthop": "192.0.2.1"}}}
+    config = {"PORT": {port: {"speed": "200000"} for port in owned}}
+    renderer.apply_forwarding(config, facts, owned, "dut")
+    assert "Ethernet0|192.0.2.0/31" in config["INTERFACE"]
+    assert config["VLAN_MEMBER"] == {"Vlan3000|Ethernet8": {"tagging_mode": "untagged"}}
+    assert config["PORT"]["Ethernet4"] == {"speed": "200000"}
+    assert not any(key.split("|")[0] == "Ethernet4" for key in config["INTERFACE"])
+
+
+@pytest.mark.parametrize("failure", ["vlan", "ptf", "address", "mode", "backed_endpoint", "ptf_gap", "legacy_scope"])
+def test_physical_only_transport_rejects_forwarding_or_index_injection(physical_only_transport, failure):
+    """Missing CSV transport never authorizes invented VLANs, endpoints or misleading PTF mappings."""
+    facts, leaf, owned, settings = physical_only_transport
+    physical = facts["connections"][1]
+    if failure == "vlan":
+        physical["transport_vlan_id"] = 104
+    elif failure == "ptf":
+        physical["ptf_index"] = 2
+    elif failure == "address":
+        physical["endpoint_address"] = "192.0.2.1"
+    elif failure == "mode":
+        physical["interface_mode"] = "access"
+    elif failure == "backed_endpoint":
+        facts["connections"][0]["transport_vlan_id"] = None
+    elif failure == "ptf_gap":
+        facts["connections"][2]["ptf_index"] = 2
+    else:
+        del facts["vlan_scope"]["unmapped_children"]
+    with pytest.raises(ValueError):
+        renderer.transport_plan(facts, leaf, owned, settings)
+
+
 @pytest.mark.parametrize("failure", ["new_endpoint", "wrong_vlan", "no_access", "unowned_access", "missing_trunk"])
 def test_csv_transport_preserves_scope_and_live_ownership_checks(csv_transport, failure):
     """CSV eligibility never replaces validation of isolated live access/trunk membership."""
@@ -1440,9 +1288,9 @@ def test_forwarding_handles_unset_source_policies_without_weakening_validation(s
     facts = {"connections": [{"peer": {"port": "Ethernet0"}, "source_links": sources}]}
     if isinstance(expected, str):
         with pytest.raises(ValueError, match=expected):
-            renderer.apply_forwarding(config, facts, {"Ethernet0"}, {"Ethernet0"}, "peer", [])
+            renderer.apply_forwarding(config, facts, {"Ethernet0"}, "peer", [])
     else:
-        renderer.apply_forwarding(config, facts, {"Ethernet0"}, {"Ethernet0"}, "peer", [])
+        renderer.apply_forwarding(config, facts, {"Ethernet0"}, "peer", [])
         assert config["PORT"]["Ethernet0"] == expected
 
 
@@ -1461,7 +1309,7 @@ def test_forwarding_cannot_overlap_preserved_interface_addresses(table, key, rou
                               "role": "uplink", "interface_mode": "routed", "dut_address": routed}],
              "forwarding": {"svi": svi, "vlan_id": 1000}}
     with pytest.raises(ValueError, match="overlap preserved " + table) as error:
-        renderer.apply_forwarding(config, facts, {"Ethernet0"}, {"Ethernet0"}, "dut")
+        renderer.apply_forwarding(config, facts, {"Ethernet0"}, "dut")
     assert "planned " + conflict in str(error.value)
     assert key in str(error.value)
     assert config == original
@@ -1476,12 +1324,13 @@ def test_forwarding_vlan_id_collision_identifies_retained_vlan():
                               "interface_mode": "routed", "dut_address": "192.0.2.0/31"}],
              "forwarding": {"svi": "198.51.100.1/24", "vlan_id": 1000}}
     with pytest.raises(ValueError, match="DUT forwarding VLAN already exists: Vlan1000"):
-        renderer.apply_forwarding(config, facts, {"Ethernet0"}, {"Ethernet0"}, "dut")
+        renderer.apply_forwarding(config, facts, {"Ethernet0"}, "dut")
     assert config["VLAN"] == protected
 
 
 @pytest.mark.parametrize("ipv6", [False, True])
-def test_planner_allocations_feed_complete_dut_forwarding(ipv6):
+@pytest.mark.parametrize("external", [False, True])
+def test_planner_allocations_feed_complete_dut_forwarding(ipv6, external):
     """Render explicit mixed-cage roles in either family without changing management."""
     connections = [
         {"dut": {"port": "Ethernet0", "cage": "Ethernet0"}, "source_links": [
@@ -1497,13 +1346,14 @@ def test_planner_allocations_feed_complete_dut_forwarding(ipv6):
         "physical_links": {"uplinks": ["Ethernet1", "Ethernet8"], "downlinks": ["Ethernet0", "Ethernet9"]},
         "routed_interfaces": {"address_pool": routed_pool},
         "access_vlan": {"vlan_id": 1000, "subnet": access_pool},
-        "external_destinations": {"address_pool": destination_pool},
     }
+    if external:
+        settings["external_destinations"] = {"address_pool": destination_pool}
     forwarding = allocate_forwarding(settings, connections)
     config = {"PORT": {link["dut"]["port"]: {} for link in connections},
               "MGMT_INTERFACE": {"eth0|10.0.0.1/24": {}}}
     renderer.apply_forwarding(config, {"connections": connections, "forwarding": forwarding},
-                              set(config["PORT"]), set(config["PORT"]), "dut")
+                              set(config["PORT"]), "dut")
     expected = ({"Ethernet1": {}, "Ethernet1|2001:db8:1::/127": {},
                  "Ethernet8": {}, "Ethernet8|2001:db8:1::2/127": {}} if ipv6 else
                 {"Ethernet1": {}, "Ethernet1|192.0.2.0/31": {}, "Ethernet8": {}, "Ethernet8|192.0.2.2/31": {}})
@@ -1515,6 +1365,7 @@ def test_planner_allocations_feed_complete_dut_forwarding(ipv6):
                                      for port in ("Vlan1000|Ethernet0", "Vlan1000|Ethernet9")}
     assert config["STATIC_ROUTE"] == forwarding["static_routes"]
     assert config["STATIC_ROUTE"]["::/0" if ipv6 else "0.0.0.0/0"]["ifname"] == "Ethernet1"
+    assert len(config["STATIC_ROUTE"]) == (3 if external else 1)
     assert config["MGMT_INTERFACE"] == {"eth0|10.0.0.1/24": {}}
     assert "BGP_NEIGHBOR" not in config
     assert "PORTCHANNEL" not in config
@@ -1528,7 +1379,7 @@ def test_peer_forwarding_uses_vlan_member_without_inventing_legacy_fields(legacy
         row["members"] = ["Ethernet0"]
     config = {"PORT": {"Ethernet0": {}}, "VLAN": {"Vlan100": row}}
     facts = {"connections": [{"peer": {"port": "Ethernet0"}, "source_links": []}]}
-    renderer.apply_forwarding(config, facts, {"Ethernet0"}, {"Ethernet0"}, "peer",
+    renderer.apply_forwarding(config, facts, {"Ethernet0"}, "peer",
                               [{"vlan_id": 100, "peer_port": "Ethernet0"}])
     assert config["VLAN_MEMBER"] == {"Vlan100|Ethernet0": {"tagging_mode": "untagged"}}
     assert ("members" in row) is legacy_members
@@ -1539,13 +1390,13 @@ def test_peer_forwarding_uses_vlan_member_without_inventing_legacy_fields(legacy
 @pytest.fixture
 def rendered():
     """Minimal complete-artifact controller fixture, with no actual device data."""
-    testbed = {"conf-name": "tb", "topo": "generic", "server": "server", "inv_name": "example_inventory",
+    testbed = {"conf-name": "tb", "topo": "generic", "server": "server", "inv_name": "example-inventory",
                "group-name": "vms1", "ptf_ip": "192.0.2.1/24", "ptf_image_name": "ptf"}
     report = {role: {"transport": [{"vlan_id": 100}], "owned_ports": ["Ethernet0"]}
               for role in ("dut", "peer")}
     artifacts = {
         "manifest.json": {"hostname": "dut", "scenario_id": "test-id", "deployable": True,
-                          "roles_finalized": True, "requires_explicit_apply": True, "testbed": testbed},
+                          "requires_explicit_apply": True, "testbed": testbed},
         "coverage.json": {"status": "complete"},
         "resolved_facts.json": {"peer_hostname": "leaf"}, "render_report.json": report,
         "dut_config.json": {"PORT": {}}, "leaf_config.json": {"PORT": {}},
@@ -1561,9 +1412,9 @@ def test_dry_run_never_contacts_ansible(rendered, monkeypatch, capsys, action):
     assert "No host provisioning or device configuration applied" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("failed_phase", [None, "stage", "apply", "verify", "save"])
+@pytest.mark.parametrize("failed_phase", [None, "stage", "apply", "save"])
 def test_pair_deployment_order_and_recovery(rendered, monkeypatch, failed_phase):
-    """Both devices stage first; only a failure after staging triggers pair rollback."""
+    """Stage both, reload, and save without a link gate; post-stage failures still roll back the pair."""
     phases = []
 
     def run(args, name, variables, local, **kwargs):
@@ -1583,7 +1434,7 @@ def test_pair_deployment_order_and_recovery(rendered, monkeypatch, failed_phase)
     if failed_phase and failed_phase != "stage":
         assert phases[-1] == "rollback"
     elif failed_phase is None:
-        assert phases == ["host-verify", "stage", "apply", "verify", "save"]
+        assert phases == ["host-verify", "stage", "apply", "save"]
     else:
         assert phases == ["host-verify", "stage"]
 
@@ -1627,15 +1478,30 @@ def publish(directory, artifacts):
         renderer.write_private(directory / name, value)
 
 
-def test_manifest_tampering_and_private_artifacts(rendered, tmp_path):
-    """Artifact modification is caught before any remote operation."""
+def test_private_artifacts_load_without_redundant_manifest_hash_gates(rendered, tmp_path):
+    """Artifact hashes are provenance; the device action still checks the rendered config checksum."""
     directory = tmp_path / "scenario"
     publish(directory, rendered[0])
     assert controller.load_scenario(directory)["dut_config.json"] == {"PORT": {}}
     assert directory.stat().st_mode & 0o777 == 0o700
     assert (directory / "dut_config.json").stat().st_mode & 0o777 == 0o600
     (directory / "dut_config.json").write_text("{}")
-    with pytest.raises(ValueError, match="artifact changed"):
+    assert controller.load_scenario(directory)["dut_config.json"] == {}
+
+
+@pytest.mark.parametrize("target", ["scenario_id", "artifact"])
+def test_scenario_paths_remain_guarded_without_hash_replay(rendered, tmp_path, target):
+    """Removing fingerprint comparisons must not allow ownership keys or artifact paths to escape."""
+    directory = tmp_path / "scenario"
+    publish(directory, rendered[0])
+    manifest_path = directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if target == "scenario_id":
+        manifest["scenario_id"] = "../another-owner"
+    else:
+        manifest["artifact_sha256"]["../outside.json"] = "unused"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="ownership key|must not contain paths"):
         controller.load_scenario(directory)
 
 
@@ -1658,6 +1524,7 @@ def test_render_publishes_complete_private_configs_and_actual_port_order(
         {"dut": {"port": "Ethernet8"}, "role": "downlink", "ptf_index": 1}]
     facts = artifacts["resolved_facts.json"]
     facts["hostname"] = "dut"
+    facts["forwarding"] = {}
     layouts = {"dut": {}, "peer": {}}
     for link in facts["connections"]:
         link["dut"].update(speed=100000, atoms=[link["dut"]["port"]])
@@ -1714,23 +1581,7 @@ def test_render_policies_cannot_be_changed_outside_preparation(monkeypatch, caps
         "--exclude-managed-acls"])
     with pytest.raises(SystemExit):
         controller.main()
-    assert "add-topo preparation option" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("failure", ["changed_facts", "not_protected"])
-def test_deploy_rejects_changed_dut_forwarding_cleanup_before_remote_access(rendered, monkeypatch, failure):
-    """DUT-only forwarding cleanup cannot be broadened after its plan scope is sealed."""
-    artifacts, testbed = rendered
-    artifacts["manifest.json"].setdefault("policy", {})["dut_forwarding_cleanup"] = {"Ethernet8": [8]}
-    artifacts["manifest.json"]["protected_dut_cages"] = ["Ethernet8"]
-    artifacts["resolved_facts.json"]["dut_forwarding_cleanup"] = {"Ethernet8": [8]}
-    if failure == "changed_facts":
-        artifacts["resolved_facts.json"]["dut_forwarding_cleanup"]["Ethernet16"] = [16]
-    else:
-        artifacts["manifest.json"]["protected_dut_cages"] = []
-    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected remote action"))
-    with pytest.raises(ValueError, match="frozen fixed-breakout scope"):
-        controller.deploy(Namespace(action="deploy-mg", apply=True), artifacts, testbed, "dut")
+    assert "unrecognized arguments: --exclude-managed-acls" in capsys.readouterr().err
 
 
 def test_removed_lossless_override_is_rejected_before_inventory_access(monkeypatch, capsys):
@@ -1742,44 +1593,6 @@ def test_removed_lossless_override_is_rejected_before_inventory_access(monkeypat
     with pytest.raises(SystemExit):
         controller.main()
     assert "unrecognized arguments: --enable-lossless-adapter" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("apply", [False, True])
-@pytest.mark.parametrize("source", ["manifest", "report"])
-def test_old_override_artifacts_cannot_be_deployed_but_remain_recoverable(rendered, monkeypatch, apply, source):
-    """Do not accidentally deploy old sealed lossless proposals when switching to installed policy."""
-    artifacts, testbed = rendered
-    if source == "manifest":
-        artifacts["manifest.json"]["policy"] = {"enable_lossless_adapter": True}
-    else:
-        artifacts["render_report.json"]["dut"]["enable_lossless_adapter"] = True
-    monkeypatch.setattr(controller, "run_playbook", lambda *args, **kwargs: pytest.fail("Unexpected device access"))
-    with pytest.raises(ValueError, match="removed lossless override"):
-        controller.deploy(Namespace(action="deploy-mg", apply=apply), artifacts, testbed, "dut")
-    controller.deploy(Namespace(action="recover", apply=False), artifacts, testbed, "dut")
-
-
-@pytest.mark.parametrize("failure", ["legacy", "mismatched_role", "duplicate_child"])
-def test_render_rejects_stale_or_conflicting_roles_before_device_access(rendered, tmp_path, monkeypatch, failure):
-    """Rendering cannot consume old implicit roles or inconsistent new role assignments."""
-    artifacts, testbed = rendered
-    artifacts["topology.yml"] = {"generic_topology": {
-        "physical_links": {"uplinks": ["Ethernet1"], "downlinks": ["Ethernet8"]},
-    }}
-    connections = [{"dut": {"port": "Ethernet1"}, "role": "uplink"},
-                   {"dut": {"port": "Ethernet8"}, "role": "downlink"}]
-    artifacts["resolved_facts.json"]["connections"] = connections
-    if failure == "legacy":
-        artifacts["topology.yml"]["generic_topology"] = {}
-    elif failure == "mismatched_role":
-        connections[0]["role"] = "downlink"
-    else:
-        connections.append(deepcopy(connections[0]))
-    monkeypatch.setattr(controller, "run_playbook", lambda *args: pytest.fail("Unexpected device access"))
-    destination = tmp_path / "rendered"
-    with pytest.raises(ValueError, match="uplinks must be|roles do not match"):
-        controller.render(Namespace(output_dir=str(destination)), artifacts, testbed, "dut")
-    assert not destination.exists()
 
 
 @pytest.mark.parametrize("topology", ["generic", "generic-1", "t0"])
@@ -1799,9 +1612,7 @@ def test_real_bash_dispatch_is_local_only(rendered, tmp_path, topology):
     directory.rmdir()
     publish(directory, artifacts)
     for action, positional in [
-        ("add-topo", ["tb", "not-a-real-vault"]),
         ("remove-topo", ["tb", "not-a-real-vault"]),
-        ("deploy-mg", ["tb", "not-a-real-inventory", "not-a-real-vault"]),
         ("recover-generic", ["tb", "not-a-real-inventory", "not-a-real-vault"]),
     ]:
         selector = [] if action == "recover-generic" else ["--generic"]
@@ -1817,15 +1628,18 @@ def test_real_bash_dispatch_is_local_only(rendered, tmp_path, topology):
         capture_output=True, text=True, cwd=SCRIPTS.parent, env=dict(os.environ, TMPDIR=str(tmp_path)))
     assert completed.returncode != 0
     assert "Required scenario stage is missing" in completed.stderr
-    workspace = tmp_path / "workspace"
-    workspace.mkdir(mode=0o700)
+    workspace = tmp_path / "sonic-generic-{}".format(os.getuid()) / "tb"
     publish(workspace / "rendered", artifacts)
-    completed = subprocess.run(
-        ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed_file),
-         "deploy-mg", "tb", "not-a-real-inventory", "not-a-real-vault", "--workspace", str(workspace), "--generic"],
-        capture_output=True, text=True, cwd=SCRIPTS.parent)
-    assert completed.returncode == 0, completed.stderr
-    assert "DRY RUN" in completed.stdout
+    for action, positional in [
+        ("add-topo", ["tb", "not-a-real-vault"]),
+        ("deploy-mg", ["tb", "not-a-real-inventory", "not-a-real-vault"]),
+    ]:
+        completed = subprocess.run(
+            ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed_file), action]
+            + positional + ["--generic"], capture_output=True, text=True, cwd=SCRIPTS.parent,
+            env=dict(os.environ, TMPDIR=str(tmp_path)))
+        assert completed.returncode == 0, completed.stderr
+        assert "DRY RUN" in completed.stdout
 
 
 @pytest.fixture
@@ -1847,7 +1661,8 @@ def lifecycle_cli(tmp_path, monkeypatch):
 @pytest.mark.parametrize("action", ["add-topo", "remove-topo"])
 @pytest.mark.parametrize("topology", ["generic_a", "lab-mix"])
 @pytest.mark.parametrize("extension", ["yaml", "csv"])
-def test_host_lifecycle_detects_generic_recipe(rendered, tmp_path, lifecycle_cli, action, topology, extension):
+def test_host_lifecycle_detects_generic_recipe(
+        rendered, tmp_path, monkeypatch, lifecycle_cli, action, topology, extension):
     """Named generic recipes select the guarded dry-run lifecycle without a flag."""
     artifacts, testbed = rendered
     testbed_file = tmp_path / ("testbed." + extension)
@@ -1860,12 +1675,12 @@ def test_host_lifecycle_detects_generic_recipe(rendered, tmp_path, lifecycle_cli
     recipe = lifecycle_cli.parent / "vars" / ("topo_" + topology + ".yml")
     recipe.write_text((SCRIPTS.parent / "vars/topo_generic.yml").read_text())
     _, artifacts["manifest.json"]["testbed"] = controller.resolve_testbed(testbed_file, "tb")
-    directory = tmp_path / "rendered"
+    monkeypatch.setattr(controller.tempfile, "tempdir", str(tmp_path))
+    directory = controller.resolve_workspace("tb") / "rendered"
     publish(directory, artifacts)
     completed = subprocess.run(
-        ["bash", str(lifecycle_cli), "-t", str(testbed_file), action, "tb", "vault",
-         "--scenario-dir", str(directory)],
-        capture_output=True, text=True, cwd=tmp_path)
+        ["bash", str(lifecycle_cli), "-t", str(testbed_file), action, "tb", "vault"],
+        capture_output=True, text=True, cwd=tmp_path, env=dict(os.environ, TMPDIR=str(tmp_path)))
     assert completed.returncode == 0, completed.stderr
     assert "DRY RUN: " + action in completed.stdout
     assert "No host provisioning or device configuration applied" in completed.stdout
@@ -1935,8 +1750,23 @@ def test_host_lifecycle_rejects_invalid_recipe_before_mutation(tmp_path, lifecyc
     assert "Removing topology" not in completed.stdout
 
 
+@pytest.mark.parametrize("action", ["add-topo", "remove-topo", "deploy-mg", "recover-generic"])
+@pytest.mark.parametrize("option", [
+    ["--workspace", "unused"], ["--workspace=unused"], ["--output-dir", "unused"], ["--output-dir=unused"],
+])
+def test_bash_rejects_removed_storage_selectors_before_dispatch(tmp_path, lifecycle_cli, action, option):
+    """Removed storage selectors must not reach either generic or legacy mutations."""
+    completed = subprocess.run(
+        ["bash", str(lifecycle_cli), "-t", "missing-testbed.yaml",
+         action, "tb", "inventory", "vault"] + option,
+        capture_output=True, text=True, cwd=tmp_path)
+    assert completed.returncode != 0
+    assert option[0].split("=")[0] + " was removed" in completed.stderr
+    assert "Unexpected Ansible" not in completed.stdout + completed.stderr
+
+
 @pytest.mark.parametrize("action", ["add-topo", "remove-topo", "deploy-mg"])
-@pytest.mark.parametrize("option", ["--apply", "--workspace=unused", "--scenario-dir=unused", "--finalize-roles"])
+@pytest.mark.parametrize("option", ["--apply", "--scenario-dir=unused", "--finalize-roles"])
 def test_non_generic_commands_reject_generic_options(tmp_path, lifecycle_cli, action, option):
     """Generic-only options must not leak into the traditional mutation path."""
     testbed_file = tmp_path / "testbed.yaml"
@@ -1950,7 +1780,7 @@ def test_non_generic_commands_reject_generic_options(tmp_path, lifecycle_cli, ac
 
 
 @pytest.mark.parametrize("absolute_inventory", [False, True])
-def test_generic_host_dispatch_resolves_inventory_paths(rendered, tmp_path, absolute_inventory):
+def test_generic_host_dispatch_resolves_inventory_paths(rendered, tmp_path, monkeypatch, absolute_inventory):
     """Host actions preserve absolute inventory paths and resolve relative ones beside the testbed."""
     artifacts, testbed = rendered
     inventory = tmp_path / "inventory"
@@ -1959,7 +1789,8 @@ def test_generic_host_dispatch_resolves_inventory_paths(rendered, tmp_path, abso
     testbed_file = tmp_path / "testbed.yaml"
     testbed_file.write_text(yaml.safe_dump([dict(testbed, dut=["dut"])]))
     _, artifacts["manifest.json"]["testbed"] = controller.resolve_testbed(testbed_file, "tb")
-    directory = tmp_path / "rendered"
+    monkeypatch.setattr(controller.tempfile, "tempdir", str(tmp_path))
+    directory = controller.resolve_workspace("tb") / "rendered"
     publish(directory, artifacts)
     vault = tmp_path / "vault"
     vault.write_text("synthetic-test-value\n")
@@ -1968,9 +1799,9 @@ def test_generic_host_dispatch_resolves_inventory_paths(rendered, tmp_path, abso
     playbook.chmod(0o700)
     completed = subprocess.run(
         ["bash", str(SCRIPTS.parent / "testbed-cli.sh"), "-t", str(testbed_file), "-m", str(inventory),
-         "add-topo", "tb", str(vault), "--generic", "--apply", "--scenario-dir", str(directory)],
+         "add-topo", "tb", str(vault), "--generic", "--apply"],
         capture_output=True, text=True, cwd=tmp_path,
-        env=dict(os.environ, PATH=str(tmp_path) + os.pathsep + os.environ["PATH"]))
+        env=dict(os.environ, PATH=str(tmp_path) + os.pathsep + os.environ["PATH"], TMPDIR=str(tmp_path)))
     assert completed.returncode != 0
     assert completed.stdout.splitlines().count(str(inventory)) == 2
     assert "generic_host.yml failed" in completed.stderr
@@ -2185,7 +2016,8 @@ def test_stage_drift_guards_and_saved_startup_readback(tmp_path, monkeypatch):
     startup = tmp_path / "original-startup.json"
     startup.write_text(json.dumps(base))
     report = {"baseline_sha256": renderer.digest(base), "config_sha256": renderer.digest(config),
-              "assets": {}, "retired_ports": []}
+              "assets": {"/absent/installed-asset": "historical"},
+              "buffer_daemon": {"path": "/absent/daemon-lookup", "sha256": "historical"}}
     renderer.write_private(tmp_path / "request.json", {"config": config, "report": report})
     monkeypatch.setattr(device, "Path", lambda path: (
         startup if str(path) == "/etc/sonic/config_db.json" else Path(path)))
@@ -2201,11 +2033,26 @@ def test_stage_drift_guards_and_saved_startup_readback(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="changed after staging"):
         device.run("apply", tmp_path)
     assert not (tmp_path / "reload-attempted.json").exists()
-    device.run("verify", tmp_path)
     with pytest.raises(ValueError, match="Saved startup configuration differs"):
         device.run("save", tmp_path)
     startup.write_text(json.dumps(config))
     device.run("save", tmp_path)
+
+
+@pytest.mark.parametrize("target", ["request", "staged"])
+def test_changed_rendered_config_is_rejected_before_apply(tmp_path, monkeypatch, target):
+    """Only the exact configuration validated during rendering may reach config reload."""
+    config = {"PORT": {}}
+    report = {"config_sha256": renderer.digest(config), "baseline_sha256": renderer.digest(config)}
+    renderer.write_private(tmp_path / "request.json", {
+        "config": {"PORT": {"Ethernet0": {}}} if target == "request" else config, "report": report})
+    renderer.write_private(tmp_path / "running-backup.json", config)
+    renderer.write_private(tmp_path / "new-config.json", {"PORT": {"Ethernet0": {}}})
+    monkeypatch.setattr(device, "read_running", lambda: config)
+    monkeypatch.setattr(device, "reload_config", lambda *args: pytest.fail("Unexpected reload"))
+    with pytest.raises(ValueError, match="digest does not match|changed after validation"):
+        device.run("apply", tmp_path)
+    assert not (tmp_path / "reload-attempted.json").exists()
 
 
 @pytest.mark.parametrize("acl", ["DATAACL", "EVERFLOW"])
@@ -2381,7 +2228,7 @@ def test_alias_is_apply_owned_and_recovery_removes_only_its_inode(alias_setup, t
     device.create_hwsku_alias(config, report, tmp_path)
     assert alias.is_symlink() and alias.resolve() == target
     assert renderer.generic_identity(alias.parent, alias.name)["hwsku"] == "base_generic"
-    device.check_hwsku_alias(config, report, require_present=True)
+    device.check_hwsku_alias(config, report)
     device.remove_created_alias(tmp_path)
     assert not alias.exists() and target.is_dir()
 
@@ -2409,19 +2256,6 @@ def test_conflicting_or_replaced_alias_is_not_overwritten_or_removed(alias_setup
     with pytest.raises(ValueError, match="another owner's path"):
         device.remove_created_alias(tmp_path)
     assert alias.is_symlink()
-
-
-def test_lookup_priority_change_after_render_is_rejected(alias_setup, tmp_path):
-    """Adding a higher-priority platform lookup invalidates a previously selected SKU fallback."""
-    _, report, _, target = alias_setup
-    lookup = target / "pg_profile_lookup.ini"
-    lookup.write_text("selected fallback")
-    report.update(hwsku="base", lookup_path=str(lookup), assets={
-        str(lookup): hashlib.sha256(lookup.read_bytes()).hexdigest()})
-    device.check_render_assets(report)
-    (target.parent / lookup.name).write_text("new platform lookup")
-    with pytest.raises(ValueError, match="selection changed"):
-        device.check_render_assets(report)
 
 
 @pytest.mark.parametrize("fail_apply", [False, True])
@@ -2463,7 +2297,6 @@ def test_alias_apply_and_config_recovery_restore_original_identity(alias_setup, 
     else:
         device.run("apply", tmp_path)
         assert running["DEVICE_METADATA"]["localhost"]["hwsku"] == "base_generic"
-        device.run("verify", tmp_path)
     assert alias.is_symlink()
     startup.write_text("changed startup")
     device.run("rollback", tmp_path)

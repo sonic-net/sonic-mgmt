@@ -3,7 +3,6 @@
 
 import argparse
 import fcntl
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,94 +11,10 @@ import sys
 import tempfile
 import time
 
-from generic_config import (digest, generic_identity, installed_asset, numbers, read_buffer_daemon, read_running,
-                            validate_references, write_private)
+from generic_config import digest, generic_identity, read_running, write_private
 
 
-def expand_pgs(rows):
-    expanded = {}
-    for key, row in rows.items():
-        ports, indices = key.split("|")
-        for port in ports.split(","):
-            for index in numbers(indices):
-                child = port + "|" + str(index)
-                if child in expanded:
-                    raise ValueError("Overlapping BUFFER_PG bindings: {}".format(child))
-                expanded[child] = row
-    return expanded
-
-
-def verify_config(config, running, report):
-    """Accept only declared daemon outputs in addition to the rendered configuration."""
-    expected = report.get("lossless_buffers")
-    managed = {"BUFFER_PROFILE", "BUFFER_PG"} if expected else set()
-    differences = sorted(table for table in set(config) | set(running)
-                         if table not in managed and config.get(table, {}) != running.get(table, {}))
-    if differences:
-        raise ValueError("CONFIG_DB read-back differs in tables: {}".format(", ".join(differences)))
-    if not expected:
-        return True
-    pending = False
-    for table, required in (
-            ("BUFFER_PROFILE", expected["profiles"]),
-            ("BUFFER_PG", {key: {"profile": name} for key, name in expected["pgs"].items()})):
-        planned, actual = config.get(table, {}), running.get(table, {})
-        if table == "BUFFER_PG":
-            planned, actual = expand_pgs(planned), expand_pgs(actual)
-        if ({key: row for key, row in planned.items() if key not in required}
-                != {key: row for key, row in actual.items() if key not in required}):
-            raise ValueError("CONFIG_DB read-back differs in protected or template-owned {}".format(table))
-        for key, row in required.items():
-            if key not in actual:
-                pending = True
-            elif actual[key] != row:
-                raise ValueError("Daemon-generated {} {} differs from the expected lookup/binding".format(table, key))
-    return not pending
-
-
-def check_daemon_asset(report):
-    if "buffer_daemon" in report:
-        current = read_buffer_daemon()
-        if any(current[key] != value for key, value in report["buffer_daemon"].items()):
-            raise ValueError("Active buffer daemon lookup changed since rendering")
-
-
-def read_appl_buffers():
-    query = """
-import json
-from swsscommon import swsscommon
-
-db = swsscommon.DBConnector('APPL_DB', 0)
-result = {}
-for name in ('BUFFER_PROFILE', 'BUFFER_PG'):
-    table = swsscommon.Table(db, name + '_TABLE')
-    rows = {}
-    for key in table.getKeys():
-        present, values = table.get(key)
-        if present:
-            rows[key.replace(':', '|')] = dict(values)
-    result[name] = rows
-print(json.dumps(result))
-"""
-    return json.loads(subprocess.check_output(["docker", "exec", "swss", "python3", "-c", query], text=True))
-
-
-def verify_appl_buffers(expected):
-    actual = read_appl_buffers()
-    pgs = expand_pgs(actual.get("BUFFER_PG", {}))
-    pending = False
-    for table, rows in (
-            (actual.get("BUFFER_PROFILE", {}), expected["profiles"]),
-            (pgs, {key: {"profile": name} for key, name in expected["pgs"].items()})):
-        for key, row in rows.items():
-            if key not in table:
-                pending = True
-            elif table[key] != row:
-                raise ValueError("APPL_DB lossless buffer {} differs from expected programming".format(key))
-    return not pending
-
-
-def check_hwsku_alias(config, report, require_present=False):
+def check_hwsku_alias(config, report):
     spec = report.get("hwsku_alias")
     if spec is None:
         return None
@@ -109,8 +24,6 @@ def check_hwsku_alias(config, report, require_present=False):
     expected = generic_identity(Path("/usr/share/sonic/device") / platform, spec["original_hwsku"])
     if spec != expected or config["DEVICE_METADATA"]["localhost"]["hwsku"] != expected["hwsku"]:
         raise ValueError("HwSKU alias report does not match the rendered DUT identity")
-    if require_present and not Path(spec["alias"]).is_symlink():
-        raise ValueError("Applied generic HwSKU alias is missing")
     return spec
 
 
@@ -148,18 +61,6 @@ def remove_created_alias(directory):
     alias.unlink()
 
 
-def check_render_assets(report):
-    for path, expected in report["assets"].items():
-        if hashlib.sha256(Path(path).read_bytes()).hexdigest() != expected:
-            raise ValueError("Installed rendering asset changed: {}".format(path))
-    if "lookup_path" in report:
-        platform = Path("/usr/share/sonic/device") / report["platform"]
-        sku = Path(report["hwsku_alias"]["target"]) if "hwsku_alias" in report else platform / report["hwsku"]
-        current = installed_asset(platform, sku, "pg_profile_lookup.ini", platform_first=True)
-        if str(current.resolve(strict=True)) != report["lookup_path"]:
-            raise ValueError("Installed lookup selection changed since rendering")
-
-
 def reload_config(path):
     """Retry only SONiC's pre-mutation readiness rejection, never a failed reload."""
     deadline = time.monotonic() + 300
@@ -188,16 +89,13 @@ def reload_config(path):
 def run(action, directory):
     request = json.loads((directory / "request.json").read_text())
     config, report = request["config"], request["report"]
-    if digest(config) != report["config_sha256"]:
+    if action in ("stage", "apply") and digest(config) != report["config_sha256"]:
         raise ValueError("Rendered configuration digest does not match its report")
     running = None if action == "rollback" else read_running()
     if action == "stage":
         if digest(running) != report["baseline_sha256"]:
             raise ValueError("Running CONFIG_DB changed since rendering; render a fresh scenario")
-        check_render_assets(report)
-        check_daemon_asset(report)
         check_hwsku_alias(config, report)
-        validate_references(config, report["retired_ports"])
         write_private(directory / "running-backup.json", running)
         startup = Path("/etc/sonic/config_db.json")
         metadata = startup.stat()
@@ -213,35 +111,15 @@ def run(action, directory):
             raise ValueError("No staged running configuration backup")
         if digest(running) != report["baseline_sha256"]:
             raise ValueError("Running configuration changed after staging; refusing to overwrite it")
-        check_render_assets(report)
-        check_daemon_asset(report)
+        if digest(json.loads((directory / "new-config.json").read_text())) != report["config_sha256"]:
+            raise ValueError("Staged configuration changed after validation; render a fresh scenario")
         create_hwsku_alias(config, report, directory)
         write_private(directory / "reload-attempted.json", {"config_sha256": report["config_sha256"]})
         reload_config(directory / "new-config.json")
-    elif action == "verify":
-        check_daemon_asset(report)
-        check_hwsku_alias(config, report, require_present=True)
-        deadline = time.monotonic() + 120
-        while True:
-            ready = verify_config(config, running, report)
-            if ready and ("lossless_buffers" not in report or verify_appl_buffers(report["lossless_buffers"])):
-                break
-            if time.monotonic() >= deadline:
-                raise ValueError("Timed out waiting for daemon-generated lossless profiles and PG bindings")
-            time.sleep(1)
-            running = read_running()
     elif action == "save":
-        check_daemon_asset(report)
-        check_hwsku_alias(config, report, require_present=True)
-        if "lossless_buffers" in report:
-            if (not verify_config(config, running, report)
-                    or not verify_appl_buffers(report["lossless_buffers"])):
-                raise ValueError("Daemon-generated buffers are incomplete before save")
-        else:
-            verify_config(config, running, report)
         subprocess.run(["config", "save", "-y"], check=True)
         if digest(json.loads(Path("/etc/sonic/config_db.json").read_text())) != digest(running):
-            raise ValueError("Saved startup configuration differs from the verified artifact")
+            raise ValueError("Saved startup configuration differs from running CONFIG_DB")
     elif action == "rollback":
         if not (directory / "reload-attempted.json").exists():
             remove_created_alias(directory)
@@ -272,7 +150,7 @@ def run(action, directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--action", choices=("stage", "apply", "verify", "save", "rollback"), required=True)
+    parser.add_argument("--action", choices=("stage", "apply", "save", "rollback"), required=True)
     parser.add_argument("--directory", type=Path, required=True)
     args = parser.parse_args()
     try:

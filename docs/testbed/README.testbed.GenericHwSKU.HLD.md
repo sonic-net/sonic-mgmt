@@ -3,7 +3,7 @@
 ## High Level Design
 
 **Status:** Draft for review. This document describes the local sonic-mgmt
-prototype as inspected on October 26, 2026. It is not a claim of upstream
+prototype as inspected on October 27, 2026. It is not a claim of upstream
 acceptance, support on every platform, or complete nightly-test integration.
 
 ### Revision
@@ -15,7 +15,15 @@ acceptance, support on every platform, or complete nightly-test integration.
 | 0.3 | 2026-10-26 | Include low-speed cages by default, subject to the same wiring, VLAN eligibility, and explicit protection checks. |
 | 0.4 | 2026-10-26 | Separate fixed shared-connection breakout from DUT-only obsolete forwarding cleanup. |
 | 0.5 | 2026-10-26 | Shared hardware-neutral IPv6 defaults with an optional IPv4 allocation override and per-testbed overrides. |
-| 0.6 | 2026-10-26 | Retain runtime cable cases with PFC disabled; record failed save/recovery and DHCP/ACL preparation fixes. |
+| 0.6 | 2026-10-26 | Retain assigned cables with PFC disabled; record failed-save recovery and preparation corrections. |
+| 0.7 | 2026-10-27 | Validate optional unused daemon profiles; separate physical/link coverage from CSV-backed traffic provisioning. |
+| 0.8 | 2026-10-27 | Remove redundant finalization and the bundled IPv4 overlay; make external destinations optional with default-only routing; document validator phases and daemon startup handling. |
+| 0.9 | 2026-10-27 | Reduce validation to physical/input correctness, ownership/recovery, installed YANG, and basic reload/link/save checks; remove repeated policy/asset and strict daemon/database gates. |
+| 0.10 | 2026-10-27 | Remove the workspace CLI option; operator commands automatically share per-user/testbed artifact storage. |
+| 0.11 | 2026-10-27 | Remove operator output selection and finalization metadata/scaffolding; restrict older-scenario selection to cleanup/recovery. |
+| 0.12 | 2026-10-27 | Scope preparation flags to add-topo; remove unused forwarding/internal arguments, unreachable ACL checks, duplicate inventory validation, and the inactive headroom-omission override. |
+| 0.13 | 2026-10-27 | Remove automatic DUT/leaf selected-link verification; save directly after successful paired reloads, retaining recovery and host/PTF checks. |
+| 0.14 | 2026-10-27 | Limit add-topo to fixed layout/PTF preparation and attachment on existing transport; move full device rendering/YANG to deploy-mg and remove generic root-fanout mutation. |
 
 ### Table of Contents
 
@@ -93,7 +101,7 @@ provide context, not a claim that their entire implementations are used here.
 | [Testbed V2 HLD](README.testbed.Testbed_v2.hld.md) | Separate physical connection metadata from logical VLAN connectivity and testbed lifecycle. | This prototype consumes connection-graph files and explicit transport allocations. It does not implement Testbed V2's connection database, daemons, or dynamic allocation service. |
 | [OCS integration HLD](README.testbed.OCS.HLD.md) | Separate architecture from setup instructions; validate configuration, operational state, and traffic independently. | No OCS control or optical-circuit orchestration is introduced. |
 | [Dynamic Port Breakout HLD][dpb-hld] | Use platform-advertised modes, ordered lanes, and canonical child-port naming; consider dependent configuration. | This prototype renders complete configurations and reloads two devices. It does not promise DPB's nondisruptive runtime breakout behavior, and intentionally emits no `BREAKOUT_CFG`. |
-| [Run Time Buffers Configuration Update design][buffer-design] | Select headroom from speed/cable lookup inputs and let the buffer manager own runtime profile generation. | Installed policy must actually enable PFC. Disabled PFC is not overridden, and the active daemon/lookup contract is checked rather than assumed. |
+| [Run Time Buffers Configuration Update design][buffer-design] | Select headroom from speed/cable lookup inputs and let the buffer manager own runtime profile generation. | Disabled PFC is not overridden. Rendering uses installed lookups; the active daemon/lookup contract is no longer probed. |
 | [Configuration Database Manual][config-db-manual] | Distinguish traditional and dynamic buffer models and their configuration objects. | Only the inspected single-ASIC traditional backend is supported. A buffer pool's `mode: dynamic` is not the same as `buffer_model: dynamic`. |
 
 Upstream documents describe general contracts. The installed device assets and
@@ -108,14 +116,14 @@ template is identical to current upstream `master`.
 | R1 | Derive ports from advertised platform capabilities rather than maintaining a static file for every layout. | Platform parsing plus independent installed canonical-parser validation. |
 | R2 | Select compatible DUT and SONiC-leaf layouts jointly over actual wiring. | Exact channel-set/speed matching on both endpoints. |
 | R3 | Preserve resources outside the managed scope. | Whole-cage protection, dependent-configuration checks, baseline/asset drift checks. |
-| R4 | Maximize mode/operating and lookup-case coverage within existing CSV VLAN endpoints. | Report uncovered cases; coverage gaps alone do not block new deployment-eligible plans. |
-| R5 | With an empty source uplink list, select the first eight realized VLAN-backed DUT ports numerically. | Generated YAML records roles; no matching-mode/speed requirement by default. |
+| R4 | Maximize mode/operating and lookup-case coverage within valid physical wiring. | CSV VLANs constrain traffic provisioning, not physical child selection; report both coverage scopes. |
+| R5 | With an empty source uplink list, select the first eight realized physical DUT ports numerically. | Generated YAML records roles; no matching-mode/speed requirement by default. |
 | R6 | Assign physical direction per realized child port, independently of logical forwarding. | Explicit selectors, default downlinks, truthful reciprocal neighbors. |
-| R7 | Reuse installed QoS/buffer values and ownership rather than inventing hardware policy. | Reviewed template adapter, installed lookup rows, per-port PFC decisions, daemon verification. |
-| R8 | Prepare in add-topo and deploy the same frozen scenario without silently replanning. | Immutable plan/finalized/rendered stages, cached reuse, and separate deploy-mg. |
+| R7 | Reuse installed QoS/buffer values and ownership rather than inventing hardware policy. | Reviewed template adapter, installed lookup rows, and per-port PFC decisions. Runtime buffer qualification remains external. |
+| R8 | Prepare mappings in add-topo; render and deploy the same frozen layout in deploy-mg. | Immutable plan/prepared/rendered stages, stable ownership ID, and no silent replanning. |
 | R9 | Make physical-port, DUT-index, transport-VLAN, and PTF-index mappings explicit. | Resolved facts, generated topology, and rendered transport report. |
 | R10 | Require explicit authorization for infrastructure and device mutation. | Generic dry-run/apply gates and separate collect/render/host/device phases. |
-| R11 | Validate both devices before persistence and retain recovery information. | Pairwise stage/apply/verify/save orchestration and private backups. |
+| R11 | Check both device reloads before persistence and retain recovery information. | Pairwise stage/apply/save orchestration and private backups. |
 | R12 | Preserve traditional lifecycle behavior without topology-name heuristics. | Content-based add/remove routing; explicit generic deploy selector. |
 | R13 | Keep complete configurations and inherited credentials private. | Private workspaces, restricted files, suppressed configuration-bearing output. |
 
@@ -192,25 +200,21 @@ Controller: sonic-mgmt
                             v
                  Joint DUT/leaf layout solver
                             |
-                     plan/ (frozen layout)
+                 plan/ (sealed layout, roles, settings)
                             |
-                 automatic role/settings finalization
-                            |
-                            v
-                 finalized/ (sealed settings)
-                            |
-             read-only installed rendering on both devices
+             read-only canonical PORT/transport preparation
                             |
                             v
-                 rendered/ (complete private configs)
+                 prepared/ (fixed PTF mapping and ownership ID)
                             |
           +-----------------+-------------------+
           |                                     |
           v                                     v
-  add-topo --apply                    deploy-mg --generic --apply
-  scenario-owned PTF                 verify host -> stage both
-  host VLAN endpoints                -> apply both -> verify both
-  existing root binding              -> save both
+  add-topo --apply                    deploy-mg --generic
+  scenario-owned PTF                 render full configs + YANG
+  host VLAN endpoints                -> rendered/ (same ownership ID)
+  existing transport untouched        --apply: verify host -> stage both
+                                     -> apply both -> save both
                                                 |
                                       failure: paired recovery
 ```
@@ -267,9 +271,6 @@ generic_topology:
   access_vlan:
     vlan_id: 3000
     subnet: 2001:db8:2::/64
-  external_destinations:
-    address_pool: 2001:db8:3::/64
-    prefix_length: 128
   transport:
     vlan_ids: null
 ```
@@ -277,16 +278,20 @@ generic_topology:
 Use one shared `vars/topo_generic.yml`, selected by `topo: generic`, across
 supported testbeds. Its hardware-neutral IPv6 defaults are documentation
 allocations, not lab reservations. Optional per-testbed allocation overrides
-avoid hardware-specific topology copies. `--overrides vars/generic_ipv4.yml`
-switches all three pools and their prefix lengths to IPv4 while inheriting
-the shared role, VLAN ID, and transport policy. One family is supported per
+avoid hardware-specific topology copies. No IPv4 override is bundled; explicit
+IPv4 recipe/override values remain supported. One family is supported per
 scenario, not simultaneous dual-stack. Existing valid custom recipe names
 remain compatible, but are not required for different hardware or address pools.
 
 Explicit `--overrides` files merge in low-to-high order. Their paths and order
 are retained. All required allocations and selectors must be supplied; unknown
 fields and the retired YAML repetition constraint are rejected.
-An empty uplink list selects the first eight realized VLAN-backed DUT ports in
+`external_destinations` is optional and omitted from the shared recipe.
+Without it, routing uses only a default route through the first traffic-backed
+uplink; supplying it additionally allocates one destination route per routed
+uplink and validates the extra pool. Routed addressing and the access SVI remain
+required in both cases.
+An empty uplink list selects the first eight realized physical DUT ports in
 numeric order. Generated `topology.yml` receives explicit resolved role lists;
 the source recipe stays empty. The current forwarding model also needs a
 downlink. Explicit nonempty selectors remain supported.
@@ -310,16 +315,18 @@ reject ambiguous geometry or overlapping resources, and map both channel ends.
 Protect whole cages touched by excluded ports, incomplete wiring, or
 out-of-scope neighbors, then propagate protection across coupled cages.
 Low-speed cages are not automatically protected: there is no minimum bandwidth
-cutoff or required opt-in flag. They participate when their wiring and CSV VLAN
-endpoints are eligible, and their supported combinations and lookup cases
+cutoff or required opt-in flag. They participate when their wiring is eligible,
+and their supported combinations and lookup cases
 contribute to coverage. Existing sealed scenarios retain their original scope;
 use a fresh workspace to include newly eligible cages.
 
-New CLI plans also protect cages with no CSV VLAN-backed endpoint. Every
-realized child name must already have a single VLAN ID on its CSV row.
-Whole-cage children may aggregate blank-VLAN sibling wiring channels, but cannot
-expose those siblings as additional endpoints. This scope is frozen in the
-manifest; the available count is derived rather than assumed to be 64.
+New CLI plans permit children and whole wired cages without CSV VLANs for physical
+coverage. They receive PORT/neighbor/QoS configuration, but no automatic link checks,
+traffic forwarding, transport VLAN or PTF index. Only traffic-backed endpoints
+receive those allocations. The manifest freezes `unmapped_children: physical_only`;
+`coverage.json.traffic_coverage` lists unqualified physical-only links independently
+of mode/buffer coverage. No missing VLAN becomes an invented tag or shared-trunk
+change. Hard protection and complete physical wiring remain mandatory.
 
 ### 8.2 Enumerate legal choices and physical constraints
 
@@ -352,7 +359,7 @@ do not block new best-effort plans satisfying the hard deployment requirements.
 Matching-uplink repetition is disabled by default (`scope: none`, minimum zero).
 The eight automatic uplinks need not share a mode/speed. With explicit selectors
 and a legacy positive CLI minimum, the solver prioritizes a matching group and
-its capped count before coverage. Older sealed plans retain their original
+its capped count before coverage. Older plans record their original
 matching-group constraints.
 
 Lookup speeds confined to protected DUT cages are reported as excluded cases.
@@ -384,8 +391,8 @@ The workspace has fixed, private stages rather than an implicit "latest run":
 
 ```text
 WORKSPACE/
-  plan/       frozen physical layouts; proposed roles/settings
-  finalized/  same layouts; reviewed and sealed roles/settings
+  plan/       sealed physical layouts, roles, forwarding, settings, and input hashes
+  prepared/   canonical PORT/PTF order and existing transport; no complete device configs
   rendered/   complete configs; installed validation and transport report
 ```
 
@@ -395,6 +402,7 @@ WORKSPACE/
 | `coverage.json` | Required/covered combinations and cases, exclusions, repetition counts, candidate rejections, and search status. |
 | `resolved_facts.json` | Exact child pairs, channels, roles, assigned cases, forwarding, DUT indices, and compact PTF indices. |
 | `topology.yml` | Generated host bindings, DUT port order, sealed recipe settings, and rendered transport mapping when available. |
+| `preparation_report.json` | Canonical device port ordering and existing leaf transport needed for PTF attachment; no QoS/configuration rendering or YANG validation. |
 | `dut_config.json`, `leaf_config.json` | Rendered complete reload inputs; present only after rendering. |
 | `render_report.json` | Per-device baseline/asset digests, validation results, ownership, transport, and declared daemon outputs when applicable. |
 
@@ -404,32 +412,40 @@ its own scalar speed.
 
 The editable source remains the recorded topology recipe and optional overrides.
 There is no separate editable `port_roles.yml` in the current implementation.
-Internal finalization rereads those sources in their recorded order, checks for concurrent
-edits, recomputes roles/forwarding/coverage, and seals their hashes **without
-calling the layout solver**. It may update the qualifying repetition target
-after role edits; rendering must then honor that sealed target.
+Planning records resolved roles, allocations, coverage, and provenance in one
+pass. No finalization marker or intermediate finalization stage is needed.
 
-Add-topo plans, finalizes, and renders in one invocation, without a separate
-freeze/review confirmation. Review recipe inputs before running it.
-Once `finalized/` exists,
-rendering uses it without rereading mutable recipe contents. Fixing missing
-physical coverage requires a fresh workspace, not editing generated JSON.
-Retry a rendering failure with add-topo in the same workspace; an existing
-`rendered/` is consumed without repeating preparation.
+Add-topo plans and prepares canonical PORT/PTF mappings, without a finalization
+command or complete device rendering. Review recipe inputs before running it.
+Deploy-mg renders the fixed prepared layout without rereading mutable recipes.
+Fixing physical coverage requires a fresh workspace, not editing generated JSON.
+Retry mapping preparation with add-topo and rendering/YANG failures with deploy-mg.
+Existing stages are reused. The scenario ownership ID is fixed by preparation
+and preserved during rendering; artifact hashes remain stage-specific provenance.
+Remove-topo can clean up prepared PTF resources even before rendering succeeds.
+Recovery requires rendered artifacts and existing device snapshots.
+Older rendered artifacts remain available for cached lifecycle operations.
+Concurrent source edits are unsupported, but no longer detected by hash replay.
 
 An initial plan has `deployable: false`, even when coverage is complete.
 New VLAN-scoped plans may have incomplete mode/buffer coverage while
 `coverage.deployment_eligible` is true. They still require valid forwarding,
-the frozen role policy (and any legacy matching constraint), frozen CSV endpoints, successful
-rendering, and explicit apply. Older sealed plans retain the complete-coverage
-gate; invalid allocations or repetition shortfalls remain review-only.
+consistent physical connections, successful installed rendering/YANG, and
+explicit apply. Invalid forwarding blocks rendering; coverage and repetition
+shortfalls are reported rather than rechecked as deployment gates.
 
 Directories are published atomically and existing stages are not overwritten.
-SHA-256 digests detect accidental changes and bind artifacts to their manifest;
-they are not signatures, a resource reservation, or protection from a privileged
-actor rewriting the entire workspace.
-The default workspace is under the system temporary directory, so a private
-persistent `--workspace` is recommended for long-lived deployment/recovery.
+Manifest/input/artifact hashes are provenance rather than replayed gates.
+Stage/apply retain the validated-config checksum and running-baseline protection,
+including a checksum of the actual staged reload file. These are not signatures
+or protection from an actor rewriting the entire workspace.
+Artifact storage is selected automatically under the system temporary directory;
+there is no workspace CLI option. Run lifecycle commands as the same user with
+the same temporary root, and preserve the directory for cleanup/recovery.
+Older rendered scenarios remain explicitly selectable with `--scenario-dir`
+for remove-topo and recover-generic only. Normal add-topo/deploy-mg use automatic
+storage exclusively; operator `--output-dir` is removed. Explicit output remains
+available in the standalone developer planner.
 
 ## 10. Complete configuration rendering
 
@@ -502,7 +518,7 @@ DUT lists follow resolved physical roles. Selected transport-leaf ports are
 downlinks for this adapter. Physical role does not itself determine whether a
 port is lossless; installed rendered/inherited PFC policy determines that.
 
-QoS is **rendered** during add-topo preparation and **applied** with the complete
+QoS is **rendered** during deploy-mg and **applied** with the complete
 configuration during authorized `deploy-mg`. No new vendor QoS template is
 installed by this workflow.
 
@@ -513,21 +529,23 @@ installed by this workflow.
 | Policy selection | Explicit empty `pfc_enable` is authoritative. | Use template-derived priorities/maps and validated inheritance only for omitted fields. |
 | Static policy | Keep installed lossy profiles, queues, maps, and schedulers. | Keep required static pools, lossy PGs, egress queues/profiles, and protected policy. |
 | Runtime cable input | Supply the assigned cable case; retain it in planning/report metadata too. | Supply the assigned nonzero cable case. |
-| Lossless ingress headroom | Do not synthesize or expect selected lossless headroom/PGs. | Omit selected lossless PG inputs; let the supported traditional daemon generate the declared profiles/PG bindings. |
-| Runtime verification | Verify complete rendered configuration without arbitrary buffer drift. | Additionally wait for declared CONFIG_DB/APPL_DB daemon outputs. |
+| Lossless ingress headroom | Do not synthesize or bind headroom. Declare exact optional unused profiles when the installed pool/lookup supports them. | Omit selected lossless PG inputs; let the supported traditional daemon generate the declared profiles/PG bindings. |
+| Runtime checks | Check reload success and save readback; no selected-link gate. | Same minimum; no daemon/CONFIG_DB/APPL_DB convergence gate. |
 
 These decisions are per-port, so installed policy can produce a mixed scenario.
 The device-level report says `installed_lossless` when lossless expectations
 exist; that does not imply every selected port has PFC enabled.
 There is no lossy/lossless selection flag. The former
-`--enable-lossless-adapter` is removed; old override artifacts are rejected for
-new deployment but retained for recovery.
+`--enable-lossless-adapter` is removed. Historical report-version compatibility
+checks have also been removed; fresh rendering is needed to adopt current policy.
 
 Assigned runtime cable values are retained regardless of PFC policy, including
 in existing cable groups for selected ports. Protected cable settings are unchanged.
 The inspected traditional daemon can create unused headroom from these
-speed/cable events even when PFC is empty. Undeclared buffer drift still fails
-verification; this policy needs fresh installed-image validation before deployment.
+speed/cable events even when PFC is empty. Reports declare optional additions as
+`unused_buffer_profiles`, with lookup-backed values for inspection only.
+These are not a runtime allowlist. Fresh rendering and installed-image
+deployment are still required to qualify the policy.
 Cases remain visible in `buffer_policy.lossy_cable_cases`; this is planning
 coverage, **not hardware exercise of lossless headroom**. Unreferenced selected
 daemon-target profiles inherited from earlier attempts are omitted, but retained
@@ -539,10 +557,9 @@ Buffer numeric values come from each device's installed assets. Both devices
 must support the assigned speed/cable cases; their hardware-specific numeric
 values need not equal each other. No headroom formula is invented by planning.
 
-For PFC-enabled ports, rendering checks the actual running traditional
-`buffermgrd`, its `-l` lookup, and agreement with the selected installed rows.
-Dynamic-calculation startup, divergent lookup data, unsupported PFC-to-PG
-mapping, and missing lossless objects fail. Enabled PFC priorities must map to
+Rendering does not query running `buffermgrd` processes, arguments, or lookup data.
+It still rejects unsupported PFC-to-PG mapping and missing installed lossless
+objects needed to generate configuration. Enabled PFC priorities must map to
 same-numbered PGs; PFC-to-queue maps may differ. A selected-port TC-to-PG map
 can be derived from installed classification to reach the declared lossless
 queues without rewriting protected bindings.
@@ -553,38 +570,42 @@ unchanged installed values. Stale retained daemon-target values are not assumed
 to repair themselves. Projected reservations include expected daemon additions.
 
 The input deliberately differs from the converged configuration when daemon
-outputs are expected. Verification permits only those declared additions and
-save persists the verified converged running state. There is no automatic
+outputs are expected. Verification no longer checks those projections;
+save persists the current running state with startup readback. There is no automatic
 `config qos reload`. Database/YANG success is not proof that an ASIC accepts
 every pool/profile combination.
 
 ## 12. Leaf, root, and PTF transport
 
-Each selected physical link requires one isolated transport VLAN. New plans
+Each traffic-backed physical link requires one isolated transport VLAN. New plans
 freeze the selected DUT endpoint's existing CSV VLAN rather than pooling tags
 across endpoints. `transport.vlan_ids: null` uses those IDs; an explicit list
 can only restrict them. Live leaf access ownership and tagged trunk membership
 are still mandatory, even when an allowlist is supplied. Older scenarios retain
 their original explicit/implicit allocation contract. The renderer does not
 discover free IDs or build arbitrary root-switch configuration.
+Children without CSV-backed endpoints remain physical-only and cannot consume
+spare IDs from an allowlist. They have null transport/PTF fields and no generated
+routed/access forwarding. At least one traffic-backed uplink and downlink remains
+required by the current T0 forwarding model.
 
-For L selected links and V distinct valid candidates, `V < L` is a capacity
+For L traffic-provisioned links and V distinct valid candidates, `V < L` is a capacity
 shortfall, not proof that any existing path works. Expanding shared transport
 requires a separate approved infrastructure operation.
 
-The authoritative rendered mapping is:
+The authoritative prepared mapping, retained during full rendering, is:
 
 ```text
 resolved DUT child
     -> reciprocal leaf child
-    -> render_report.json: peer.transport entry
+    -> preparation_report.json: peer.transport entry
     -> transport VLAN
     -> compact PTF index / eth<index>
 ```
 
 Generated `topology.yml.generic_transport` carries the transport projection.
-Canonical rendering updates the complete DUT port order, including protected
-ports, independently from compact PTF numbering. Do not choose a capture
+Canonical preparation records the complete DUT port order, including protected
+ports, independently from compact PTF numbering; rendering must preserve it. Do not choose a capture
 interface by matching an Ethernet suffix.
 
 The host playbook resolves `testbed.server` as a literal host or group,
@@ -598,9 +619,9 @@ containers/endpoints are rejected, not adopted. Existing no-VM binding helpers
 provide PTF management and data interfaces. Removal checks ownership before
 deleting resources and leaves shared root VLANs intact.
 
-An authorized add-topo also invokes existing root fanout connection logic,
-including its running-to-startup save. It is not merely container creation.
-This does not provision missing arbitrary transport VLANs or reload DUT/leaf.
+An authorized add-topo attaches PTF to that existing transport only. It never
+invokes root-fanout connection/save playbooks, provisions missing shared VLANs,
+or reloads DUT/leaf configurations.
 
 PTF endpoint creation does not create a persistent ARP/NDP responder. Tests must
 initialize and maintain their emulated neighbors; static routes alone do not
@@ -629,62 +650,67 @@ bypasses automatic topology-file detection.
 recipe content**. Omitting it selects legacy minigraph deployment, which is
 not a generic dry run. `recover-generic` needs no selector.
 Separate public planning, finalization, and rendering commands have been removed;
-their internal stages run under add-topo.
+their internal stages run under add-topo (layout/mappings) and deploy-mg (full rendering).
 
 ### 13.2 Operation boundaries
 
 | Operation | Default effect | Mutation boundary |
 | --- | --- | --- |
-| Generic `add-topo` with no rendered stage | Collect missing inputs, plan, resolve roles, finalize, and render in one invocation. | Read-only device access and private local stages; only `--apply` then provisions host/PTF and invokes root binding/save. |
-| Generic `add-topo` with rendered stage | Local-only dry run. | `--apply` provisions owned host/PTF resources and invokes existing root binding/save. |
-| Generic `deploy-mg` | Local-only dry run of rendered scenario. | `--apply` authorizes staged DUT/leaf reload, verify, and save. |
+| Generic `add-topo` with no prepared stage | Collect missing inputs, plan, and prepare canonical PORT/PTF/transport mappings. | Read-only device access and private stages; only `--apply` attaches scenario-owned host/PTF resources to existing transport. |
+| Generic `add-topo` with prepared/cached rendered stage | Local-only dry run. | `--apply` attaches owned host/PTF resources; root-fanout/shared trunks remain untouched. |
+| Generic `deploy-mg` | Render full configs and validate installed YANG if no rendered stage exists; otherwise reuse it locally. | Rendering reads devices and uses temporary files; only `--apply` authorizes staged DUT/leaf reload and save, without selected-link verification. |
 | Generic `remove-topo` | Local-only dry run. | `--apply` removes verified owned host/PTF resources, not device configuration/shared root VLANs. |
 | `recover-generic` | Local-only dry run. | `--apply` restores staged device configurations; it does not reconstruct previous host infrastructure. |
 
 These dry-run guarantees apply to the selected **generic** path, not traditional
-commands. A default add-topo that still needs planning/rendering is not wholly
-offline, even though it does not apply configuration.
+commands. Fresh add-topo preparation and fresh deploy-mg rendering are not wholly
+offline, even though neither applies configuration without `--apply`.
 
 ### 13.3 Two-command example
 
 Run from `ansible/`. Set the variables to the selected testbed, inventory,
-vault-password file, SONiC leaf, links file, and a new private workspace.
+vault-password file, SONiC leaf, and links file.
 The example assumes `topo: generic` and reviewed shared
 `vars/topo_generic.yml` defaults, with optional allocation overrides when needed.
 
 ```bash
 ./testbed-cli.sh -t testbed.yaml add-topo "$TB" "$VAULT" \
-    --peer-hostname "$LEAF" --links-csv "$LINKS" \
-    --workspace "$WORK"
+    --peer-hostname "$LEAF" --links-csv "$LINKS"
 
 ./testbed-cli.sh -t testbed.yaml deploy-mg "$TB" "$INV" "$VAULT" \
-    --generic --workspace "$WORK"
+    --generic
 ```
 
 Both commands default to dry run. Add-topo may contact devices to collect and
-render; deploy-mg only reads the existing rendered stage. Inventory and the named
-recipe default from the testbed. `--workspace` is optional but must identify the
-same scenario on both commands when supplied.
+prepare mappings; deploy-mg may contact them to render full configs and validate YANG.
+Inventory and the named
+recipe default from the testbed. Both commands automatically use the same
+per-user/testbed directory; no operator-supplied workspace is needed.
 After recipe review, lab reservation, and explicit authorization, append
 `--apply` to add-topo and then deploy-mg. A fresh add-topo with `--apply` completes
 preparation and then provisions immediately; there is no intermediate freeze gate.
-Host/root mutation cannot start until rendering succeeds. For inspection first,
-omit `--apply`, review coverage/reports, then repeat add-topo with `--apply`.
-Changed inputs require a fresh workspace; deploy-mg never prepares or replans.
+Host/PTF attachment requires successful mapping preparation, not full rendering.
+Root-fanout configuration is never changed by the generic path. A later render
+failure leaves prepared PTF resources available for retry or remove-topo cleanup.
+For inspection first, omit `--apply`, review coverage/preparation and render
+reports, then repeat the commands with `--apply`.
+Changed inputs require retiring the old topology and archiving its artifact
+directory before new preparation; deploy-mg never prepares or replans.
 
 ## 14. Failure handling and recovery
 
 ### Deployment ordering
 
-The controller verifies scenario integrity/testbed settings and rejects removed
-lossless-override artifacts. Authorized deploy then:
+The controller checks exact scenario/testbed identity, rendered-stage readiness,
+and explicit apply. Deploy-mg first renders/YANG-validates any prepared-only
+scenario, requiring the same canonical PORT order and leaf transport. Authorized deploy then:
 
 1. Verifies scenario-owned host/PTF endpoints.
-2. Stages **both devices**, checking their baseline, installed assets, lookup
-   selection, and alias compatibility; saves private running/startup backups.
+2. Stages **both devices**, checking the validated configuration, running baseline,
+   and alias compatibility; saves private running/startup backups.
 3. Applies both complete configurations.
-4. Verifies both configurations, declared daemon outputs, and selected links.
-5. Saves both only after both have verified, and reads back saved state.
+4. Checks reload success on both devices.
+5. Saves both after both reloads succeed, and reads back saved state.
 
 Each phase must succeed before the next starts. This is phase coordination,
 not a distributed atomic transaction. Backups live under
@@ -696,18 +722,21 @@ repeat staging attempt.
 | Invalid input or unknown template contract | Reject rather than invent capabilities or policy. |
 | Physical infeasibility or bounded search without a solution | Publish diagnostic coverage; distinguish proven failure from search-limit uncertainty. |
 | Mode/buffer coverage shortfall | Report unqualified cases; new best-effort plans may proceed if hard deployment requirements pass. |
-| Forwarding/allocation or matching-uplink shortfall | Publish a review-only plan; block rendering/deployment. |
+| Forwarding/allocation failure | Publish a review-only plan; block rendering. Matching-uplink coverage is informational. |
 | Render/YANG/dependency conflict | Do not publish a complete rendered stage; preserve earlier stages for inspection/retry. |
-| Baseline/installed-asset/lookup drift | Reject stale deployment; collect/render fresh rather than overwrite changed state. |
+| Running-baseline or staged-config change | Reject deployment rather than overwrite intervening changes or bypass installed YANG validation. |
 | Host/container ownership mismatch | Refuse takeover; retire previous topology using its original definition. |
 | Stage failure | Abort before device reload; retain diagnostic/staging state. |
-| Apply/verify/save failure or handled interruption | Request rollback on both devices; restore only devices with a recorded reload attempt. |
+| Apply/save failure or handled interruption | Request rollback on both devices; restore only devices with a recorded reload attempt. |
 | Recovery failure or controller loss | Retain backups/job identifiers; require explicit manual recovery and out-of-band access as needed. |
 
-CONFIG_DB and, where applicable, APPL_DB verification allow only declared daemon
-additions. Equivalent grouped PG keys are normalized, overlapping bindings
-rejected, and missing/empty tables treated equivalently. Unexpected profiles or
-protected-state changes are failures, not tolerated background convergence.
+There is no automatic DUT/leaf selected-interface link verification. Down links
+do not block persistence or trigger rollback. Deployment also does not compare
+whole CONFIG_DB contents, inspect APPL_DB, or probe daemon startup/arguments/
+lookup fingerprints. Save checks command success and startup readback against
+the running snapshot. Down links, runtime policy drift, or missing headroom can
+therefore go undetected; this is the explicitly reduced boundary, not hardware
+or buffer qualification.
 
 Reload retries are limited to the inspected CLI's explicit pre-mutation
 system/SwSS readiness rejection. Failed reloads are not blindly retried or
@@ -719,7 +748,8 @@ its metadata. Only a scenario-created alias with the recorded inode/target can
 be removed, after configuration restoration. Correct pre-existing aliases are
 not removed.
 
-Host/root mutations are outside the device configuration rollback transaction.
+Host/PTF mutations are outside the device configuration rollback transaction.
+The generic path never modifies root-fanout connections or shared trunks.
 Removing the generic PTF topology is separate from restoring DUT/leaf configs.
 An exclusive maintenance window is required; preserved protected definitions
 do not imply uninterrupted protected links during full-device reload.
@@ -730,26 +760,29 @@ do not imply uninterrupted protected links during full-device reload.
 
 | Layer | Required check | Does not establish |
 | --- | --- | --- |
-| Offline inputs/planning | Schema, physical matching, protection, coverage, deterministic allocations, role/finalization integrity. | Electrical compatibility or current lab ownership. |
-| Installed rendering | Canonical parser, installed templates/lookups, dependency checks, YANG validation, baseline/asset hashes. | Successful ASIC programming or link training. |
-| Runtime configuration | CONFIG_DB plus declared APPL_DB outputs; no unrelated drift; saved-state readback. | Packet forwarding, losslessness, or every hardware constraint. |
-| Operational links/transport | Selected ports up, correct endpoint ownership/mappings, functional trunks. | Correct routed next hops or end-to-end packet headers. |
+| Offline inputs/planning | Schema, physical matching, protection, and valid deterministic allocations; coverage is reported. | Electrical compatibility, source immutability, or current lab ownership. |
+| Installed rendering | Canonical parser, safe installed-template/lookup interpretation, dependency checks, and installed YANG. | Successful ASIC programming, active daemon lookup agreement, or link training. |
+| Runtime configuration | Reload success, unchanged pre-apply baseline/config, and saved-state readback. | Exact rendered-table equality, daemon/buffer convergence, packet forwarding, or losslessness. |
+| Host/PTF transport | Endpoint ownership/mappings and host-interface readiness. | DUT/leaf link state, correct routed next hops, or end-to-end forwarding. |
+| Operator-run link checks | Selected ports up at both ends; not a deployment gate. | Packet forwarding or losslessness. |
 | Data plane | Emulated-neighbor readiness, exact routes/next hops, marked packets with expected egress and rewrites. | All-port, congestion, PFC, or line-rate qualification from a short smoke test. |
 
 Focused offline suites cover channel parsing/protection, uniform/composite
 modes, VLAN endpoint scope, best-effort coverage, automatic first-eight uplinks,
 legacy repetition, review-only invalid plans, immutable stages, one-invocation
 preparation, retry/cached-stage validation, lifecycle selection, QoS policy,
-fixed-breakout DUT forwarding cleanup, shared-consumer guards, daemon convergence,
-drift, and owned recovery. They are:
+fixed-breakout DUT forwarding cleanup, shared-consumer guards, minimal runtime
+checks, validated-config protection, and owned recovery. They are:
 
 - `unit_test_map_breakout_links.py`
 - `unit_test_plan_generic_topology.py`
 - `unit_test_generic_deployment.py`
 
-With this workflow revision, all **460** tests in those
-three suites passed, together with applicable pre-commit hooks, Bash syntax,
-and whitespace checks. This is not the full repository's lab test suite.
+The reduced-boundary suites replace obsolete strict-convergence and repeated-policy
+tests with YANG, minimal save, validated-config, and recovery regressions.
+All **457** focused tests and applicable pre-commit hooks passed after the
+validation/cleanup changes and the transport-preparation/device-rendering split.
+This is not the full repository's lab test suite or a hardware deployment.
 
 ### Demonstrated instance
 
@@ -790,17 +823,36 @@ hooks passed after those fixes.
 Both devices reloaded and passed their 65 selected-interface link checks.
 A read-only DUT sample observed all assigned cable values, eight daemon-created
 `pg_lossless_<speed>_<cable>_profile` definitions, no enabled PFC bindings, and
-no lossless PG bindings. These unused profiles are not declared by the current
+no lossless PG bindings. These unused profiles were not declared by that run's
 lossy verification contract. Both devices therefore failed the save precheck
 with `BUFFER_PROFILE` drift, and neither saved the new configuration.
 Automatic rollback completed; independent read-only checks confirmed original
 running configurations and byte-identical original startup files on both devices.
-Scenario-owned host/PTF transport remains provisioned; root bindings were not
-cleaned. No packet-forwarding or lossless hardware qualification was performed.
+At the end of that attempt, scenario-owned host/PTF transport remained provisioned;
+root bindings were not cleaned. No packet-forwarding or lossless hardware
+qualification was performed.
 
 This is a failed deployment with successful recovery, not persistent acceptance
-of cable retention. The lossy verifier still needs an explicit contract for
-unused daemon-created profiles before this policy can pass on the inspected image.
+of cable retention. A subsequent verifier revision allowed exact projected
+unused profiles, but the current minimal boundary removes that database gate
+altogether. Neither change converts this historical rollback into a successful
+saved deployment; fresh hardware validation is still required.
+
+### Current lifecycle deployment report, 2026-10-27
+
+The operator reported successful deployment after retiring the previous
+scenario-owned PTF resources and rerunning the split add-topo/deploy-mg workflow.
+This is an operator report from the private prototype, not an independently
+audited deployment of this public branch; the image version was not captured.
+
+The inspected rendered artifacts contain 95 selected physical connections:
+65 have CSV-backed traffic transport and 30 are physical-only. The first eight
+physical DUT children have uplink roles, but seven of those lack transport,
+leaving one configured routed uplink. Installed PFC policy is disabled on all
+selected ports. The supplied interface-status excerpt includes operationally
+down ports; successful reload/save is not link or packet-forwarding acceptance.
+No new all-port, ASIC, packet, lossless, congestion, or line-rate qualification
+is claimed.
 
 ### Remaining acceptance work
 
@@ -860,15 +912,14 @@ authority for this draft.
 | [map_breakout_links.py](../../ansible/scripts/map_breakout_links.py) | Mode/channel parsing, inventory normalization, and protection propagation. |
 | [plan_generic_topology.py](../../ansible/scripts/plan_generic_topology.py) | Recipe validation, lifecycle detection helper, joint solver, coverage, allocations, workspace, and plan publication. |
 | [collect_generic_device.py](../../ansible/scripts/collect_generic_device.py), [collect_generic_inputs.yml](../../ansible/collect_generic_inputs.yml) | Authenticated read-only input collection and provenance. |
-| [generic_topology_cli.py](../../ansible/scripts/generic_topology_cli.py) | Integrity checks, finalization, automatic preparation, rendering publication, and paired deployment orchestration. |
+| [generic_topology_cli.py](../../ansible/scripts/generic_topology_cli.py) | Fixed layout/PTF preparation, deferred rendering publication, and paired deployment orchestration. |
 | [generic_config.py](../../ansible/scripts/generic_config.py) | Canonical ports, dependency/neighbor reconciliation, forwarding, QoS adaptation, buffer ownership, and YANG validation. |
 | [generic_buffers.j2](../../ansible/templates/generic_buffers.j2) | Render-only installed buffer-template adapter. |
-| [generic_device_action.py](../../ansible/scripts/generic_device_action.py) | Stage/apply/verify/save/rollback, drift checks, daemon convergence, and alias journal. |
-| [generic_devices.yml](../../ansible/generic_devices.yml) | Two-device remote execution, private staging, asynchronous reloads, and operational link checks. |
+| [generic_device_action.py](../../ansible/scripts/generic_device_action.py) | Stage/apply/save/rollback, baseline/config protection, saved-state readback, and alias journal. |
+| [generic_devices.yml](../../ansible/generic_devices.yml) | Two-device remote execution, private staging, asynchronous reloads, and reload/save result checks. |
 | [generic_host.yml](../../ansible/generic_host.yml) | Unique host resolution and scenario-owned PTF/VLAN endpoint lifecycle. |
 | [testbed-cli.sh](../../ansible/testbed-cli.sh) | Shared-command routing and explicit generic stage commands. |
 | [topo_generic.yml](../../ansible/vars/topo_generic.yml) | Shared hardware-neutral IPv6 recipe defaults; not resource reservations. |
-| [generic_ipv4.yml](../../ansible/vars/generic_ipv4.yml) | Optional allocation-only IPv4 override; not a separate topology. |
 | [Generic unit tests](../../tests/common/unit_tests/) | Three focused offline regression suites named in Section 15. |
 
 ## 19. References

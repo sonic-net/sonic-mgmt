@@ -185,9 +185,9 @@ preserved.
 
 Low-speed cages participate on the same basis as higher-speed cages; there is
 no minimum cage-bandwidth cutoff. This includes the lab's `Ethernet512` and
-`Ethernet520`, each advertising `1x25G[10G]`, when their wiring and CSV VLAN
-endpoints are eligible. No opt-in flag is needed. Explicit `--exclude-port`,
-out-of-scope neighbors, incomplete wiring, and CSV VLAN eligibility still apply,
+`Ethernet520`, each advertising `1x25G[10G]`, when their wiring is eligible.
+No opt-in flag is needed. Explicit `--exclude-port`,
+out-of-scope neighbors and incomplete wiring still apply,
 with whole-cage protection propagated across connected devices.
 Create a fresh workspace for this policy; older sealed scenarios retain their
 original protected cages rather than expanding during rendering or deployment.
@@ -200,11 +200,18 @@ parent cages, partial channels, and conflicting explicit CSV FEC/AN/link-trainin
 settings are rejected. This proves compatibility in the supplied channel model,
 **not electrical or operational compatibility**.
 
-New CLI plans restrict every realized DUT and leaf child name to an endpoint with
-a nonempty, single `VlanID` in the wiring CSV. Whole-cage layouts may combine
-blank-VLAN sibling wiring channels, but cannot expose blank-VLAN child names.
-Cages with no VLAN-backed endpoints are protected, with protection propagated
-across their peers. The usable count is derived, never hardcoded to 64.
+New CLI plans allow realized children without a CSV VLAN for physical/link
+coverage. All selected children receive PORT, neighbor, and installed QoS/buffer
+configuration; deployment does not check their link state. Only children with
+named CSV-backed endpoints on both devices get traffic provisioning, using the
+DUT endpoint's existing VLAN.
+Other children have `transport_vlan_id: null`, `ptf_index: null` and
+`interface_mode: physical_only`: no routed/access forwarding or PTF channel.
+They remain in mode/speed/buffer coverage and are explicitly traffic-unqualified
+in `coverage.json.traffic_coverage`. A fully wired cage with no VLANs is not
+automatically protected; the original hard wiring/ownership exclusions remain.
+No VLANs are invented and no shared trunks are expanded. Frozen older scenarios
+retain their original scope; prepare a fresh workspace for this policy.
 
 Coverage targets **one physical cage for every eligible advertised DUT mode
 and lookup-backed operating combination**, regardless of current uplink/downlink
@@ -217,9 +224,8 @@ speed/cable cases use distinct active children where capacity permits; additiona
 children reuse cases deterministically. Physical compatibility and protected
 resources are hard requirements. Coverage is best-effort: mode/buffer shortfalls
 remain `status: incomplete`, with uncovered cases explicitly reported, but do not
-block deployment when `coverage.json.deployment_eligible` is true. Forwarding,
-the frozen role policy, and all render/ownership checks remain
-mandatory. Older sealed plans retain their coverage-complete requirement.
+block rendering or deployment. Valid forwarding, physical consistency,
+installed rendering/YANG, and ownership checks remain mandatory.
 
 Buffer rows whose speed is advertised only by protected DUT cages are recorded
 under `coverage.json.excluded_buffer_cases`, with their original values, supporting
@@ -237,8 +243,8 @@ whole cages. `physical_links.uplinks` selects uplink **DUT child ports**.
 Every other selected child defaults to downlink.
 `physical_links.downlinks` may optionally list explicit downlink selectors; it may be
 empty, `null`, or omitted. `uplinks: []` automatically selects the first eight
-selected VLAN-backed DUT ports in numeric Ethernet order. Planning and
-finalization write explicit uplink/downlink lists into generated `topology.yml`;
+selected physical DUT ports in numeric Ethernet order. Planning
+writes explicit uplink/downlink lists into generated `topology.yml`;
 the editable source recipe remains empty. All other selected ports are downlinks.
 The current T0 scenario still requires at least one downlink, so eight or fewer
 selected ports cannot produce a deployable automatic-role plan.
@@ -255,7 +261,8 @@ uplinks can use different advertised combinations. New default plans freeze
 The optional legacy `--min-same-breakout-uplinks N` remains available only with
 explicit nonempty uplink selectors; it requests N physical uplinks sharing one
 full mode/operating combination. Omit it for automatic first-eight selection.
-Older sealed plans retain their original repetition requirements; replan to
+The requested repetition count remains a planning objective, not a second
+render/deployment gate; replan to
 adopt the new policy.
 
 The solver checks joint DUT/leaf wiring, protected resources, advertised per-cage
@@ -272,11 +279,13 @@ names and records them under `resolved_facts.json.role_resolution.ignored_ports`
 defaulted access links are recorded under `defaulted_downlinks`. Malformed or
 duplicate selectors are still errors, as are conflicting explicit roles on an
 existing selected child. An unmatched name appearing in both lists is ignored.
-The current T0 forwarding scenario routes uplinks individually and puts downlinks
+The current T0 forwarding scenario routes traffic-backed uplinks individually and puts traffic-backed downlinks
 in one access VLAN/SVI. This is an explicit scenario policy, not the definition of
 physical direction; arbitrary routed-downlink forwarding is not implemented.
-It needs at least one actual uplink and downlink and sufficient approved pools.
+It needs at least one traffic-backed uplink and downlink and sufficient approved pools.
 Otherwise the physical plan remains review-only, with an allocation error.
+Physical-only children retain their physical uplink/downlink role but receive no
+forwarding address or membership. Eight physical uplinks need not mean eight PTF paths.
 
 For new VLAN-scoped plans, the bounded solver prefers forwardable layouts,
 then physical-cage combination diversity and covered cable cases. An explicitly
@@ -304,8 +313,8 @@ The manifest records resolved per-link roles, not unmatched selectors.
 These are individual routed interfaces, **not logical neighbors or PortChannel
 members**. No PortChannels, LACP groups, BGP peers, or neighbor VMs are generated.
 Explicit PortChannel membership is not supported by this recipe.
-Allocate one peer-address pair and destination prefix per routed child, a default
-route through the numerically first matched routed child, and unique access
+Allocate one peer-address pair per routed child, a default
+route through the numerically first traffic-backed routed child, and unique access
 endpoints. Allocation is stable regardless of YAML list order. Either IPv4 or IPv6
 is supported per scenario, not both simultaneously. These are dataplane pools:
 they do not come from the testbed's `ptf_ip`/`ptf_ipv6` management settings or its
@@ -321,7 +330,11 @@ than editing the shared source for each testbed. The override contains only the
 `generic_topology` fields that differ. Explicit downlinks default to an empty list.
 The planner rejects unset allocations and mixed address families.
 Without explicit prefix lengths, routed links use /31 (IPv4) or /127 (IPv6), and
-external destinations use /32 or /128.
+optional external destinations use /32 or /128. `external_destinations` is
+omitted by default: only the default static route is generated. Supplying that
+section adds one destination route per traffic-backed uplink; it must include a
+valid `address_pool` and pass the same family, overlap, reservation, and capacity
+checks. No external pool or destination addresses are synthesized when it is absent.
 
 The shared defaults use automatic first-eight uplinks, not hardware-specific
 child names:
@@ -338,42 +351,23 @@ generic_topology:
   access_vlan:
     vlan_id: 3000
     subnet: 2001:db8:2::/64
-  external_destinations:
-    address_pool: 2001:db8:3::/64
-    prefix_length: 128
   transport:
     vlan_ids: null
 ```
 
-For IPv4, add `--overrides vars/generic_ipv4.yml` to the initial add-topo command.
-That allocation-only example uses the following documentation pools, inheriting
-the role, VLAN ID, and transport defaults from the same topology:
-
-```yaml
-generic_topology:
-  routed_interfaces:
-    address_pool: 192.0.2.0/24
-    prefix_length: 31
-  access_vlan:
-    subnet: 198.51.100.0/24
-  external_destinations:
-    address_pool: 203.0.113.0/24
-    prefix_length: 32
-```
-
-This is an override, not a second topology. Changing families must replace all
-three address pools and the family-specific prefix lengths. Optional allocation
-overrides can follow it in low-to-high precedence order, for example
-`--overrides vars/generic_ipv4.yml --overrides /private/path/allocations.yml`.
+No IPv4 override file is bundled. IPv4 remains supported through explicit
+recipe settings or a private allocation override. Changing families must replace
+both required pools, their family-specific prefix lengths, and the optional
+external pool if supplied. Optional allocation overrides merge in low-to-high
+precedence order.
 Each scenario uses one family, not dual-stack. Create a fresh workspace for
 another family or changed allocations; existing rendered stages remain frozen.
 Recipes omitting the uplinks field must be migrated and replanned before
 rendering; do not reuse a plan generated under the old cage-based role policy.
-Rendering checks the resolved roles against matched uplink selectors, the
-automatic first-eight/default-downlink rule, and any legacy matching count frozen in the manifest
-against the selected DUT layout before contacting either device. Rendering
-verifies the planning decision; it does not read a repetition constraint from
-the forwarding YAML or choose a new layout.
+The planner resolves matched selectors and the automatic first-eight/default-
+downlink rule. Rendering consumes those assignments and checks physical
+consistency on each device; it no longer repeats selector/repetition policy
+validation or chooses a new layout.
 
 `reserved_networks` and `reserved_vlan_ids` are exclusion lists; they are not pools
 to allocate from. Pool overlap, excluded allocations, invalid prefixes/VLANs, and
@@ -388,7 +382,7 @@ python3 ansible/scripts/plan_generic_topology.py \
     --platform-json /path/to/dut/platform.json \
     --peer-platform-json /path/to/peer/platform.json \
     --pg-profile-lookup /path/to/dut/pg_profile_lookup.ini \
-    --workspace /private/path/workspace
+    --output-dir /private/path/plan
 ```
 
 Add `--overrides /path/to/group.yml --overrides /path/to/host.yml` for explicit
@@ -397,16 +391,16 @@ Repeat `--exclude-port` to protect additional DUT ports and their connected cage
 `--max-search-states` sets a positive search ceiling (default 100000).
 
 The planner is an internal developer entry point. The operator workflow uses
-`add-topo`, which collects missing inputs, plans, resolves roles, and renders
-both configurations in one invocation:
+`add-topo`, which collects missing inputs, plans, resolves roles, and prepares
+canonical PORT/PTF mappings. Full configuration rendering and YANG validation
+run under `deploy-mg`:
 
 ```bash
 cd ansible
 ./testbed-cli.sh -t testbed.yaml add-topo example-generic \
     /absolute/path/to/password.txt \
     --peer-hostname example-leaf \
-    --links-csv files/sonic_example_links.csv \
-    --workspace /private/path/workspace
+    --links-csv files/sonic_example_links.csv
 ```
 
 This entry resolves exactly one DUT from the selected YAML or legacy CSV testbed
@@ -417,11 +411,17 @@ is a positional argument. Paths remain relative to the caller's working director
 `-t` defaults to `testbed.yaml`. The standalone Python entry also accepts
 `--testbed NAME --testbed-file PATH` instead of `--hostname`; the two identity
 selectors are mutually exclusive.
-`--workspace` is optional; the shared workspace and fixed stage locations are
-described below. These examples write the frozen plan under `WORKSPACE/plan/`.
+Operator commands select one internal directory per user/testbed automatically;
+no `--workspace` option remains. The standalone developer example above uses an
+explicit plan output, not a separately operated deployment stage.
 `vars/topo_generic.yml` is the conventional default recipe. Explicit `--overrides`
 files merge in low-to-high order; inventory remains a connection source, not an
 implicit recipe merge source. Adding this file does not change any testbed's topology.
+
+Recipe, snapshot, link-selection, search, and managed-ACL options belong to
+add-topo preparation only. Deploy-mg, remove-topo, and recovery reject those
+options instead of silently ignoring them. Inventory/vault settings remain
+available to all actions; only cleanup/recovery accept `--scenario-dir`.
 
 #### Read-only device input collection
 
@@ -493,7 +493,8 @@ Electrical compatibility and
 hardware shared-resource constraints still require live validation.
 
 On physical infeasibility, only diagnostic `coverage.json` is published and the
-CLI exits 2. Allocation or matching-uplink shortfalls publish a review-only plan.
+CLI exits 2. Allocation failures publish a review-only plan; matching-uplink
+shortfalls remain reported planning objectives, not a render/deployment gate.
 Mode/buffer coverage shortfalls alone do not block a new VLAN-scoped plan.
 Invalid input/allocation settings
 exit 1 without scenario artifacts. Existing output
@@ -537,28 +538,26 @@ Selected modes remain in the scenario manifest for validation and traceability;
 they are not duplicated into a second CONFIG_DB breakout table.
 
 Connection reconciliation happens after the selected layouts and child roles
-are resolved, before the planner publishes its scenario. The same validation is
-repeated locally before add-topo rendering contacts either device, and on each
+are resolved, before the planner publishes its scenario, and on each
 device before reading its running configuration. Every selected DUT and leaf
 child must have exactly one reciprocal connection, match its frozen layout,
 cover the same physical wiring channels at the same speed, and carry a resolved
 scenario role and a matching-speed buffer case. Missing, duplicate, or
 inconsistent connections fail; rendering never selects a replacement breakout
-or infers roles. Add-topo freezes layouts, resolves roles, finalizes settings,
-and renders in one invocation; no separate freeze/review confirmation is required.
+or infers roles. Add-topo freezes layouts, roles, settings, and canonical PTF
+mappings; deploy-mg renders that same layout without replanning.
 Before invoking it, edit physical roles, address pools, VLANs, exclusions, and transport in this one
 source file; do not edit generated `topology.yml` or resolved facts. No separate
 editable role file is generated.
-Internal finalization validates settings and regenerates role assignments,
-T0 forwarding, and coverage without calling the solver. It rereads the exact
-recipe paths recorded at planning, in their original merge order, checks for
-concurrent edits, and records their final hashes. The resolved settings are
-sealed in the generated `topology.yml`; rendering/deployment use this snapshot
-without rereading the mutable source. The original planning hashes are retained
-separately. Explicit `--recipe`/`--overrides` inputs remain optional; if used,
+There is no finalization pass or intermediate `finalized/` stage.
+Planning validates settings, resolves T0 forwarding and coverage, and publishes
+the generated artifacts and input hashes. Inputs must not be edited concurrently;
+the workflow no longer checks for source changes during collection/planning.
+Rendering consumes this exact snapshot without rereading mutable recipe sources.
+Explicit `--recipe`/`--overrides` inputs remain optional; if used,
 edit those sources before preparation instead. Changed inputs require a fresh
-workspace after finalization. Mode/buffer gaps remain visible;
-only plans meeting the frozen deployment requirements can render or deploy.
+workspace after planning. Mode/buffer gaps remain visible;
+only valid physical/forwarding inputs can render.
 
 Rendering regenerates affected `DEVICE_NEIGHBOR` entries from those resolved
 connections, using the scenario's actual DUT/leaf inventory identities and
@@ -574,10 +573,9 @@ Installed lossy policy is applied as rendered, including explicitly disabled PFC
 Only when the installed policy enables PFC are selected lossless ingress PG
 bindings and missing lossless profiles left to `buffermgrd`.
 `render_report.json` records those required values. Apply loads the rendered
-input; verification waits for declared daemon outputs when present, and save
-persists the verified running configuration.
-Existing baseline/asset drift checks stop deployment rather than silently
-reconciling a different scenario at apply time.
+input; successful reload is followed directly by save of the current running
+configuration. Baseline drift still stops stage/apply to avoid overwriting
+intervening device changes. Installed assets and daemon state are not rechecked.
 
 Initial rendering requires a single-ASIC SONiC device using **traditional
 buffers** and the verified shared `qos_config.j2` role-list contract. Dynamic
@@ -609,20 +607,11 @@ Unrelated profiles, including old unused generic profiles, are not purged.
 Projected daemon allocations are included in offline pool-reservation checks.
 References and installed YANG models are also checked.
 
-When installed policy enables PFC, read-only rendering requires Docker access to
-the single-ASIC `swss` container.
-It checks the running `buffermgrd` arguments and reads its actual `-l` lookup
-inside that container. Every selected case must match the selected installed lookup;
-asset fallback does not change the daemon's startup path.
-Dynamic-calculation (`-a`) startup, absent/ambiguous daemon processes,
-missing/divergent cases, and `0m` cables fail explicitly. The `0m` restriction
-is also enforced before planning freezes any layout: snapshots containing
-`0m` are rejected for this daemon-owned backend. Supply a nonzero-cable planning
-snapshot rather than editing installed assets. The active lookup
-path/content digest is recorded and checked again at stage, apply, verify, and
-save. The operator must arrange the installed daemon's lookup support before
-rendering; the generic workflow does not edit startup commands or restart
-services during preparation.
+Rendering uses installed lookup files without probing `buffermgrd`, its process
+arguments, or its container lookup. Installed case availability and nonzero cable
+inputs remain required to render the supported traditional-buffer configuration.
+The workflow does not establish that the active daemon uses the same lookup,
+edit startup commands, or restart services during preparation.
 
 The supported lookup-based traditional daemon derives lossless PG indices from
 `pfc_enable`, so enabled PFC priorities must map to the same-numbered PGs.
@@ -657,7 +646,7 @@ egress objects. Supplying planned uplink/downlink lists does not override that
 policy. The renderer retains the installed lossy ingress/egress profiles,
 direction-specific queues, classification, and disabled PFC. It does not enable
 shared-template priority defaults, synthesize a lossless egress profile, require
-PFC maps or lossless egress objects, or project daemon headroom for these ports.
+PFC maps or lossless egress objects, or create lossless PG expectations for these ports.
 Planning still validates the advertised speed/cable coverage matrix.
 
 All selected ports receive their assigned runtime `CABLE_LENGTH`, regardless
@@ -667,24 +656,40 @@ cases also remain in the sealed planning artifacts and `render_report.json`
 under `buffer_policy.lossy_cable_cases`.
 
 The traditional daemon can recreate unused lossless profiles from nonzero cable
-entries even with empty PFC priorities. Runtime verification still rejects
-undeclared buffer drift; retaining cable entries does not waive that check or
-enable PFC. This policy needs fresh installed-image validation before deployment.
+entries even with empty PFC priorities. The renderer declares these optional
+definitions under `unused_buffer_profiles`, using the installed lookup and
+ingress lossless pool's threshold mode.
+They are not inserted into the input configuration or assigned to PGs. A case
+shared with a PFC-enabled port remains a required lossless profile instead;
+retained template/protected profiles are not made optional.
+
+These projections are informational, not a runtime allowlist. Deployment no
+longer compares complete CONFIG_DB contents with the rendered input or waits
+for profile/PG convergence in CONFIG_DB/APPL_DB. Selected links must come up
+before saving, but that does not prove correct buffer programming.
 Lossy mode does not exercise the assigned lossless headroom cases in hardware.
 
 Reports identify `qos_policy: installed_lossy` and record shared-pool preservation,
 static-profile aliases, and omitted unused selected headroom under `buffer_policy`.
-Lossy-only reports have no `lossless_buffers` or `buffer_daemon` expectations.
+Lossy-only reports have no `lossless_buffers` projections. There is no
+`buffer_daemon` process/lookup fingerprint in new reports.
 Required static objects, protected state, and unrelated profiles remain.
 
+Historical daemon/report-version compatibility gates have been removed.
+Prepare a fresh `add-topo` workspace to adopt current rendering behavior;
+existing configuration artifacts are not regenerated automatically.
+If a failed deployment left scenario-owned host/PTF resources, remove them using
+`remove-topo` with that failed workspace before applying the new scenario.
+Device configuration rollback does not remove those transport resources.
+
 The former `--enable-lossless-adapter` option is removed. Previously rendered
-override artifacts cannot be deployed with the updated controller; keep them
-and their backups for recovery. Prepare a fresh workspace using installed policy
-instead of editing or overwriting sealed artifacts:
+override artifacts are not regenerated automatically; keep them and their backups
+for recovery. Retire the old topology and archive its internal artifact directory
+before preparing changed inputs, rather than editing or overwriting sealed artifacts:
 
 ```bash
 ./testbed-cli.sh -t testbed.yaml add-topo "$TB" "$VAULT" \
-    --peer-hostname "$LEAF" --links-csv "$LINKS" --workspace "$NEW_WORKSPACE"
+    --peer-hostname "$LEAF" --links-csv "$LINKS"
 ```
 
 Include `--exclude-managed-acls` only when that exclusion remains intended.
@@ -695,24 +700,32 @@ Switching to lossy policy does not resolve independent SDK/SerDes failures.
 For new plans, `transport.vlan_ids: null` uses each selected DUT endpoint's own
 CSV VLAN, not a sorted pool reassigned across endpoints. An explicit list, when
 present, is only an allowlist; it cannot enable endpoints without CSV VLANs.
-**One existing isolated transport VLAN per active child is required.**
+**One existing isolated transport VLAN per traffic-backed child is required.**
+Physical-only children are excluded from transport allocation, even if an explicit
+allowlist contains spare VLAN IDs. PTF indices remain compact across traffic links;
+complete DUT port indices still include physical-only and protected ports.
 Rendering still requires live leaf access ownership and tagged trunks; a CSV
 entry alone is not proof that the root/host transport works.
 
-The usable endpoint count is computed from CSV wiring and protection, without
-an automatic low-speed exclusion. With one allowed name per cage, whole-cage
-single-child modes can participate; modes exposing extra blank-VLAN child names
-cannot. Uncovered combinations remain unqualified rather than forcing a larger
-layout or inventing transport capacity. Existing shared VLANs are not removed.
+The current lab CSV has 65 VLAN-backed DUT/leaf rows; the usable count is
+computed from wiring and protection, without automatically excluding low-speed
+cages. Modes exposing additional blank-VLAN children may participate in physical
+coverage without creating additional traffic paths. Both physical and traffic
+counts are derived and reported independently; uncovered combinations and
+physical-only traffic behavior remain unqualified.
+Earlier 102-link validation used separately approved transport extensions
+`1941-1957,4073-4094`; those are historical infrastructure state, not new planner
+capacity. This change does not remove shared VLANs or change existing deployments.
 Frozen older scenarios retain their original transport contract. Use a fresh
-workspace and approved allocations; do not edit sealed artifacts or reuse
-another testbed's VLAN reservations.
+workspace; do not edit sealed artifacts.
+Use a fresh workspace rather than the previously frozen v4/v5 inputs; do not
+reuse this lab's IDs for another testbed.
 
 Before changing `topo` or `server`, retire any previous host/PTF topology using its original
 definition and the normal lab maintenance procedure. Generic add-topo refuses to
 take over an existing unlabelled/different-scenario PTF container.
 The `server` setting may be a physical-host inventory name or a group such as
-`example_server_group`. The host playbook intersects that selection with both `servers`
+`server_75`. The host playbook intersects that selection with both `servers`
 and `vm_host`, requiring exactly one eligible host before remote tasks.
 Missing or ambiguous selections fail; neighbor VM members do not become host
 targets. Keep the existing testbed group selector rather than replacing it
@@ -724,9 +737,9 @@ To check only inventory resolution, without contacting the VM host:
 ```bash
 ANSIBLE_LIBRARY=library:roles/vm_set/library \
 ansible-playbook -i veos -i "$INV" generic_host.yml \
-    --vault-password-file "$VAULT" --limit example_server_group,localhost \
+    --vault-password-file "$VAULT" --limit server_75,localhost \
     --tags generic_host_resolution \
-    -e '{"generic_testbed": {"server": "example_server_group"}}'
+    -e '{"generic_testbed": {"server": "server_75"}}'
 ```
 
 This tag performs no Docker, interface, or fanout operations. It does not
@@ -735,9 +748,10 @@ It also resolves an omitted `fp_mtu_size` from the existing
 `roles/vm_set/vars/main.yml`, preserving any explicit inventory value. The normal
 host path checks the shared interface against that MTU; it does not change the
 shared interface to satisfy the check.
-An authorized generic add-topo also invokes the existing root-fanout connection
-playbook, including its root running-to-startup save. It is a host/fanout mutation,
-not just container creation, even though it does not reload the DUT or leaf.
+An authorized generic add-topo creates/binds only scenario-owned host/PTF
+resources on existing transport. It never invokes root-fanout connection/save
+playbooks, changes shared trunks, or reloads the DUT/leaf. Existing physical
+transport is assumed; wiring information is still needed for compatible breakouts.
 For `add-topo` and `remove-topo`, the `topo` field selects
 `vars/topo_<topo>.yml`. A valid `generic_topology` section in that file selects
 the generic lifecycle automatically; the name itself has no special meaning.
@@ -752,7 +766,7 @@ recipe contents. Explicit `--generic` also remains available on add/remove-topo
 as a backward-compatible override, independent of topology-file detection.
 `recover-generic` needs no extra selector. Separate public planning, finalization,
 and rendering commands have been removed; preparation belongs to add-topo.
-`--workspace`, `--scenario-dir`, or `--apply` on shared
+`--scenario-dir` or `--apply` on shared
 commands require the generic lifecycle, selected either automatically for
 add/remove-topo or explicitly with `--generic`. Paths alone do not select it.
 
@@ -799,10 +813,10 @@ separately: selecting a different subnet does not authorize overwriting a
 retained VLAN. Inspect only the required running tables, choose approved unused
 VLAN IDs and non-overlapping pools, or explicitly authorize migration of the
 old resources. Update the recipe and create a new plan/workspace for changed
-allocations; do not edit sealed `finalized/` artifacts or simply retry unchanged.
+allocations; do not edit sealed `plan/` artifacts or simply retry unchanged.
 
 This option can be used when retrying a failed render with an existing sealed
-`finalized/` stage; do not edit its JSON or remove earlier artifacts. It is passed
+`plan/` stage; do not edit its JSON or remove earlier artifacts. It is passed
 in the render request, confirmed by both device responses, and recorded in the
 sealed rendered manifest under `policy.exclude_managed_acls`. Each device's
 `render_report.json` entry lists `excluded_acl_bindings`. Deployment consumes
@@ -814,8 +828,8 @@ Run from `ansible/`. Review the shared `vars/topo_generic.yml` defaults before
 add-topo and supply an optional allocation override when needed.
 No hardware-specific topology input is required. Generated scenario directories
 remain private and separate per testbed. Multiple runs may read the same unchanged
-source; do not concurrently edit it for different scenarios. Older plans without
-recorded `recipe_paths` must be regenerated before finalization.
+source; do not concurrently edit it for different scenarios. Existing rendered
+scenarios remain usable for transport removal and device recovery.
 
 All generic commands share one workspace. The default is
 `<system-temp>/sonic-generic-<UID>/<testbed>`, normally under `/tmp` and honoring
@@ -826,37 +840,43 @@ The layout is:
 ```text
 /tmp/sonic-generic-<UID>/example-generic/
 ├── plan/
-├── finalized/
+├── prepared/
 └── rendered/
 ```
 
-Each command prints the workspace. Add-topo writes `plan/`, finalizes into
-`finalized/`, checks deployment eligibility, then renders into `rendered/`.
-All preparation stages run in the same invocation, including with `--apply`.
-If `finalized/` already exists, rendering
-uses that sealed stage without rereading the recipe or rerunning finalization.
-Retry a failed preparation with the same add-topo command and workspace.
-Once `rendered/` exists, add-topo reuses it without planning or rendering again.
-Remove-topo, deploy-mg, and recovery require that same `rendered/`; a missing stage
-fails locally rather than preparing, triggering a legacy deployment, or selecting another run.
+Each command prints the workspace. Add-topo writes `plan/`, requires valid
+forwarding, and prepares canonical PORT ordering and existing leaf transport in
+`prepared/`, without generating complete configurations or running QoS/YANG.
+An existing plan is reused without rereading the recipe or choosing another layout.
+Deploy-mg renders complete configurations into `rendered/`, then deploys only
+with `--apply`. Rendering must retain the prepared PORT/PTF/transport mapping.
+Preparation and rendering share one scenario ownership ID, so PTF attachment,
+device backups, removal, and recovery refer to the same scenario.
+Retry mapping preparation with add-topo; retry rendering with deploy-mg.
+Existing stages are reused, never overwritten. Remove-topo can use `prepared/`
+even if rendering failed; recovery requires `rendered/` and device snapshots.
+Older rendered scenarios remain usable for cached lifecycle operations.
+A missing required stage fails locally rather than falling back to legacy deployment.
 Workspace/stage directories must be private, owned by the current user, and not
 symlinks. Files remain after command exit; there is no automatic cleanup, but
 system temporary-file cleanup may remove them.
 
-Use optional `--workspace /private/persistent/path` on **every command** to select
-the same alternative location, especially for long-lived validation/recovery.
-No input/output path arguments are needed otherwise. Existing stages are never
-overwritten. For another attempt, select a new workspace; old random temporary
-workspaces can be reused by passing their exact root with `--workspace`.
-Explicit `--scenario-dir` selects an already rendered stage, while `--output-dir`
-selects an add-topo preparation workspace. Neither can be combined with
-`--workspace`, and they cannot be combined with each other.
-An existing finalized stage can only be reused if it belongs to that exact plan
-and testbed.
-After finalization, recipe edits do not change rendering: select a fresh workspace
-and plan again for another reviewed version. Invalid finalized stages remain
+There is no `--workspace` option. Add-topo, deploy-mg, remove-topo, and recovery
+automatically use the same directory when run as the same user with the same
+temporary root. Keep that environment consistent across commands.
+Existing stages are never overwritten or regenerated implicitly. Before preparing
+changed inputs, retire the old topology, recover device state if needed, and
+archive its artifact directory away from the automatic path; do not discard
+recovery artifacts. `TMPDIR` remains the standard temporary-root setting.
+`--scenario-dir` is accepted only by remove-topo and recover-generic, including
+`/old/run/rendered` for cleanup/recovery of earlier custom-location runs.
+Normal add-topo/deploy-mg reject it. Operator `--output-dir` is removed;
+only the standalone developer planner retains explicit output selection.
+An existing plan can only be reused if it belongs to that exact DUT and testbed.
+After planning, recipe edits do not change rendering: select a fresh workspace
+and plan again for another reviewed version. Invalid plans remain
 review-only and never trigger device access. Best-effort mode/buffer gaps alone
-do not make a new VLAN-scoped finalized stage invalid.
+do not make a new VLAN-scoped plan invalid.
 
 ```bash
 # Use the shared defaults, with optional allocation overrides when needed.
@@ -866,7 +886,7 @@ do not make a new VLAN-scoped finalized stage invalid.
     --peer-hostname example-leaf \
     --links-csv files/sonic_example_links.csv
 
-./testbed-cli.sh -t testbed.yaml deploy-mg example-generic example_inventory \
+./testbed-cli.sh -t testbed.yaml deploy-mg example-generic example-inventory \
     /absolute/path/to/password.txt --generic
 ```
 
@@ -875,39 +895,43 @@ reload or save configuration. Its output adds `dut_config.json`, `leaf_config.js
 and `render_report.json`; all artifacts are private (`0600`, directory `0700`).
 **Complete configurations can contain credentials inherited from the baseline.
 Keep these directories outside source control; do not attach them to PRs/logs.**
-The finalized manifest hashes all artifacts and records that explicit operator apply is
-required. Modified artifacts or mismatched testbed settings are rejected.
+The rendered manifest records provenance hashes and explicit operator apply.
+Manifest/artifact hashes are not replayed as deployment gates. Device stage/apply
+still check the configuration checksum, including the actual staged reload file,
+so changing the YANG-validated configuration is rejected. Testbed identity and
+settings must also match.
 
 Both commands above default to **dry run**: fresh add-topo may collect/read
-devices and render, but does not provision infrastructure or apply configuration;
-deploy-mg is local-only without `--apply`. Review coverage and rendered reports,
-not full configuration-bearing files in shared logs.
+devices to prepare mappings; fresh deploy-mg contacts both devices to render and
+YANG-validate full configurations. Neither provisions infrastructure or applies
+configuration without `--apply`. Cached stages are reused locally. Review
+coverage, `preparation_report.json`, and rendered reports, not full
+configuration-bearing files in shared logs.
 In an exclusively reserved maintenance window, explicitly append `--apply` to each:
 first add-topo, then deploy-mg. With `--apply`, add-topo provisions the scenario-owned PTF
 container and host VLAN endpoints, uses the existing no-VM management/binding
-helper, and reconnects existing connection-graph root transport without cleaning
-other testbed bindings. It never reloads the DUT/leaf. Compact PTF indices are
+helper, and leaves root-fanout connections and shared transport unchanged.
+It never reloads the DUT/leaf. Compact PTF indices are
 projected independently of DUT hardware indices.
 
 There is no separate role-freeze or finalization command. The first add-topo
-with `--apply` prepares and then provisions in one invocation, but only after
-rendering has successfully published a deployment-eligible scenario. A rendering
-failure cannot reach host/root provisioning. Existing stages are never silently
-regenerated or overwritten; a changed recipe or layout requires a fresh workspace.
+with `--apply` prepares mappings and then attaches PTF in one invocation. Full
+rendering is deferred to deploy-mg; a rendering/YANG failure leaves those PTF
+resources attached but cannot stage or reload devices. Remove-topo can clean them
+up using the prepared scenario. Existing stages are never silently regenerated
+or overwritten; a changed recipe or layout requires a fresh workspace.
 
-Deploy-mg checks the PTF endpoints and stages **both** devices before reloading
-either. It rejects running-state or installed-asset drift, keeps private running
+Deploy-mg first renders/YANG-validates the fixed prepared layout if needed,
+checks the PTF endpoints, and stages **both** devices before reloading
+either. It rejects intervening running-state changes, keeps private running
 and startup backups under `/var/lib/sonic-generic/<scenario-id>/<role>/`, reloads
-the complete artifacts (not minigraph), checks CONFIG_DB read-back and selected
-link state, and saves only after both devices verify. Verification waits up to
-120 seconds per device for the declared lossless profiles/PG bindings to
-converge in CONFIG_DB and APPL_DB. Only those expected additions are permitted;
-wrong values, extra profiles/bindings, or changes to protected/template-owned
-CONFIG_DB state fail. An absent table and an empty table are equivalent because
-Redis does not retain empty tables; nonempty table contents must still match.
-Equivalent grouped PG keys are compared by port/index,
-with overlapping bindings rejected. Save persists and reads back the validated
-converged configuration, not the intentionally incomplete input artifact.
+the complete artifacts (not minigraph), checks reload success, and saves only
+after both devices reload successfully. There is no DUT/leaf link-state gate;
+down selected ports do not block save or trigger rollback. Deployment does not
+probe daemons or inspect CONFIG_DB/APPL_DB buffer convergence.
+Save runs `config save -y` and compares the startup file with the running snapshot,
+not with the rendered input. Runtime additions and other post-reload database
+differences are no longer rejected by a strict artifact comparison.
 No automatic `config qos reload` is appended. ASIC programming and packet/PFC
 behavior still require hardware validation. A later failure attempts
 rollback on every device on which a reload was attempted. Failed rollback is an
@@ -921,7 +945,7 @@ staging attempt never overwrites the original backups; use recovery and a fresh
 collected plan for another attempt.
 
 ```bash
-./testbed-cli.sh recover-generic example-generic example_inventory \
+./testbed-cli.sh recover-generic example-generic example-inventory \
     /absolute/path/to/password.txt --apply
 
 ./testbed-cli.sh remove-topo example-generic \
@@ -945,11 +969,30 @@ asynchronous reload jobs before retrying recovery; do not assume the pair revert
 
 #### Validation boundaries
 
-Focused offline tests exercise compatible layouts, every-mode/speed repetition,
-review-only shortfalls, frozen role finalization, automatic preparation, asset
-fallback/drift, ACL inheritance, temporary QoS adaptation, daemon convergence, and
-alias ownership/recovery. Installed DUT/leaf templates were inspected read-only;
-neither topology nor device configuration was changed. Offline validation does
+The generic path uses the approved minimal safety-plus-YANG boundary:
+
+| Phase | Validators/checks |
+| --- | --- |
+| Planning inputs | `load_recipe`, `port_declarations`, `load_device`, `load_lookup`, and `build_mapping`: schema/required fields, canonical unique selectors, advertised modes/lanes/aliases, unique lookup cases, exact CSV endpoints and protected wiring. |
+| Layout and forwarding | `solve_layout`, `allocate_forwarding`, and `reconcile_neighbors`: matching complete physical channels/speeds, hard exclusions, first-eight roles, traffic-backed uplink/downlink availability, single-family nonoverlapping pools, reservations, prefix/capacity limits, VLAN validity, reciprocal neighbors and matching buffer cases. External-pool checks run only when that optional section is supplied. |
+| Controller preflight | Exact identities/testbed, safe workspace/artifact paths, valid forwarding, prepared/rendered-stage readiness, unchanged PORT/PTF/transport mapping during rendering, explicit apply, and sealed managed-ACL policy. Coverage/repetition and recorded hashes are informational, not repeated policy gates. |
+| Installed rendering | Single-ASIC traditional backend, canonical SONiC breakout-parser agreement, `validate_vlan_scope`, `validate_references`, retained-resource/ACL/forwarding conflict checks, and installed QoS/buffer parsing. `SonicYang.loadData` and `validate_data_tree` validate the complete configuration against installed models; altered tables without models fail. |
+| Host/PTF | Exact VM-host resolution, scenario ownership, isolated VLAN IDs, parent/namespace/interface identity, and existing transport/trunk readiness; never take over unrelated containers/endpoints. |
+| Device stage/apply | Validated-config checksum, unchanged running baseline, valid HwSKU alias, complete private backups, unchanged staged reload file, and guarded reload. No repeated asset, daemon, or dependency scan. |
+| Reload/save | Successful reload, successful save, and startup-file comparison with the running snapshot. No selected-link gate, exact rendered CONFIG_DB comparison, or daemon/APPL_DB checks. |
+| Recovery | Require complete snapshots, restore running/startup state, verify rollback CONFIG_DB, and remove only a journaled owned alias. |
+
+Removed gates include repeated role/coverage/cleanup-policy validation, source-change
+and artifact-hash replay, historical report-version checks, installed-asset
+fingerprint replay, daemon startup/argument/lookup checks, and strict
+CONFIG_DB/APPL_DB convergence and pre-save comparisons. Parsing and template
+checks needed to produce correct configuration remain; not all rows in the
+original validator inventory were separable deployment gates.
+
+Focused offline tests exercise physical/forwarding correctness, installed YANG,
+automatic preparation, native QoS rendering, protected resources, minimal
+verify/save behavior, and ownership/recovery. No deployment was performed for
+this simplification. Offline validation does
 not certify electrical compatibility, installed-image reload behavior, ASIC/PFC
 programming, or packet forwarding. Those require an authorized maintenance window
 and physical testbed validation.
@@ -1063,7 +1106,7 @@ to `Arista-7060X6-64PE-O128S2` (2x400G, 128 ports).
 - Testbed name (e.g., `example-t1-lag`)
 - Links CSV path (e.g., `ansible/files/sonic_example_links.csv`)
 - Devices CSV path (e.g., `ansible/files/sonic_example_devices.csv`)
-- Inventory file (e.g., `example_inventory`)
+- Inventory file (e.g., `example-inventory`)
 - Vault password file (e.g., `~/.password`)
 
 ### Step 1: Pre-checks — verify current state
@@ -1119,7 +1162,7 @@ The leaf fanout needs to be reconfigured for the new breakout and VLANs:
 
 ```bash
 cd ansible
-ansible-playbook -i example_inventory fanout.yml \
+ansible-playbook -i example-inventory fanout.yml \
     -l example-fanout \
     --vault-password-file ~/.password
 ```
@@ -1129,7 +1172,7 @@ ansible-playbook -i example_inventory fanout.yml \
 The root fanout trunk ports need the updated VLAN range:
 
 ```bash
-ansible-playbook -i example_inventory fanout_connect.yml \
+ansible-playbook -i example-inventory fanout_connect.yml \
     --vault-password-file ~/.password \
     -e dut=example-dut
 ```
@@ -1140,8 +1183,8 @@ This generates minigraph with the new port layout, builds the golden config
 (which rebuilds the PORT table from `platform.json`), and applies both:
 
 ```bash
-./testbed-cli.sh deploy-mg example-t1-lag example_inventory ~/.password \
-    -e port_override_from_links=true -e lab_name=example
+./testbed-cli.sh deploy-mg example-t1-lag example-inventory ~/.password \
+    -e port_override_from_links=true -e lab_name=example-inventory
 ```
 
 What happens under the hood:

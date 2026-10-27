@@ -12,7 +12,7 @@
           - generic_hosts == [generic_dut, generic_peer]
         fail_msg: "Both distinct generic device identities must exist in the supplied inventory."
 
-- name: Generic rendering or operator-authorized complete-configuration deployment
+- name: Generic preparation/rendering or operator-authorized complete-configuration deployment
   hosts: "{{ generic_hosts }}"
   connection: ssh
   gather_facts: false
@@ -35,23 +35,16 @@
         - (item + '_password') in vars
       no_log: true
 
-    - name: Verify all requested inventory identities exist
-      assert:
-        that:
-          - generic_dut in groups['all']
-          - generic_peer in groups['all']
-          - inventory_hostname in [generic_dut, generic_peer]
-
-    - name: Render without configuration changes
-      when: generic_action == 'render'
+    - name: Prepare mappings or render without configuration changes
+      when: generic_action in ['prepare', 'render']
       block:
-        - name: Allocate private temporary render directory
+        - name: Allocate private temporary device-stage directory
           tempfile:
             state: directory
-            prefix: sonic-generic-render-
+            prefix: "sonic-generic-{{ generic_action }}-"
           register: generic_render_directory
 
-        - name: Copy renderer and non-secret scenario request
+        - name: Copy device helper and non-secret scenario request
           copy:
             src: "{{ item.src }}"
             dest: "{{ generic_render_directory.path }}/{{ item.dest }}"
@@ -65,11 +58,13 @@
               dest: request.json
           no_log: true
 
-        - name: Render complete configuration using installed assets
+        - name: Prepare mappings or render configuration using installed assets
           command:
             argv:
               - python3
               - "{{ generic_render_directory.path }}/generic_config.py"
+              - --action
+              - "{{ generic_action }}"
               - --request
               - "{{ generic_render_directory.path }}/request.json"
               - --output
@@ -79,27 +74,27 @@
           failed_when: false
           no_log: true
 
-        - name: Report rendering errors explicitly
+        - name: Report preparation or rendering errors explicitly
           assert:
             that:
               - generic_render_result.rc == 0
-            fail_msg: "Generic rendering failed on {{ inventory_hostname }}: {{ generic_render_result.stderr }}"
+            fail_msg: "Generic {{ generic_action }} failed on {{ inventory_hostname }}: {{ generic_render_result.stderr }}"
 
-        - name: Fetch private rendered configuration
+        - name: Fetch private device response
           fetch:
             src: "{{ generic_render_directory.path }}/response.json"
             dest: "{{ generic_local_dir }}/{{ generic_role }}-response.json"
             flat: true
           no_log: true
       always:
-        - name: Remove only this invocation's temporary render directory
+        - name: Remove only this invocation's temporary device-stage directory
           file:
             path: "{{ generic_render_directory.path }}"
             state: absent
           when: generic_render_directory.path is defined
 
     - name: Stage or execute an explicitly requested deployment action
-      when: generic_action != 'render'
+      when: generic_action not in ['prepare', 'render']
       become: true
       vars:
         generic_device_dir: "/var/lib/sonic-generic/{{ generic_scenario_id }}/{{ generic_role }}"
@@ -128,7 +123,7 @@
           when: generic_action == 'stage'
           no_log: true
 
-        - name: Validate, snapshot, verify, or save
+        - name: Snapshot or save device configuration
           command:
             argv:
               - python3
@@ -137,7 +132,7 @@
               - "{{ generic_action }}"
               - --directory
               - "{{ generic_device_dir }}"
-          when: generic_action not in ['apply', 'rollback']
+          when: generic_action in ['stage', 'save']
           changed_when: generic_action in ['stage', 'save']
           register: generic_phase_result
           failed_when: false
@@ -147,7 +142,7 @@
           assert:
             that: generic_phase_result.rc == 0
             fail_msg: "Generic {{ generic_action }} failed on {{ inventory_hostname }}: {{ generic_phase_result.stderr }}"
-          when: generic_action not in ['apply', 'rollback']
+          when: generic_action in ['stage', 'save']
 
         - name: Start authorized reload or rollback independently of SSH lifetime
           command:
@@ -192,12 +187,3 @@
               Retain backups in {{ generic_device_dir }} and inspect private async job
               {{ generic_reload_job.ansible_job_id }} on this device.
           when: generic_action in ['apply', 'rollback']
-
-        - name: Verify selected interfaces are operational
-          interface_facts:
-            up_ports: "{{ generic_owned_ports[generic_role] }}"
-          register: generic_interfaces
-          until: generic_interfaces.ansible_facts.ansible_interface_link_down_ports | length == 0
-          retries: 30
-          delay: 10
-          when: generic_action == 'verify'
