@@ -466,6 +466,7 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 4. **POWER_ON blocked by CRITICAL leak** (negative):
    - Inject `SYSTEM_LEAK_STATUS|system device_leak_status = CRITICAL`
    - Issue `POWER_ON`; assert `status = FAILED` and the error field contains `CRITICAL_LEAK_PRESENT`
+   - Note: with the default policy only CRITICAL blocks `POWER_ON`. If an active MAJOR or MINOR leak (or a lower severity) is configured with a power-down action, `POWER_ON` is also blocked.
 5. **Unknown command rejected** (negative, non-disruptive):
    - Issue `command = TEST_UNKNOWN_COMMAND`; assert `status = FAILED` and Switch-Host `uptime -s` unchanged
 
