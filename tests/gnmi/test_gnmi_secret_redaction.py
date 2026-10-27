@@ -94,7 +94,15 @@ def _assert_redacted(response, entry, public=False):
     wire = response.SerializeToString()
     pytest_assert(entry["secret"].encode() not in wire, "Synthetic credential leaked in gNMI response")
     if public:
-        pytest_assert(entry["public_value"].encode() in wire, "Non-secret field was removed")
+        notifications = response.notification if isinstance(response, gnmi_pb2.GetResponse) else [response.update]
+        pytest_assert(
+            any(
+                entry["public_value"].encode() in update.val.SerializeToString()
+                for notification in notifications
+                for update in notification.update
+            ),
+            "Non-secret field was removed",
+        )
 
 
 @pytest.mark.parametrize("route", ["native", "legacy"])
