@@ -18,6 +18,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.utilities import get_intf_by_sub_intf, wait_until
+from tests.common.vpp_data import set_vpp_bd_uu_flood, vpp_bds_with_uu_flood
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,40 @@ def initClassVars(func):
 
         func(self, *args)
     return wrapper
+
+
+@pytest.fixture(autouse=True, scope="module")
+def disable_vpp_unknown_unicast_flood(duthosts, rand_one_dut_hostname):
+    """
+    Fixture to suppress unknown unicast flooding on VPP for the duration of this module
+
+    The VPP dataplane floods a routed packet whose neighbor MAC is missing from the FDB
+    instead of dropping it, which breaks this test. Unknown unicast flooding cannot be
+    turned off globally because other tests (e.g. ip/link_local/test_link_local_ip.py)
+    depend on it, so it is disabled per bridge domain here and restored afterwards.
+
+    Args:
+        duthosts(AnsibleHost) : multi dut instance
+        rand_one_dut_hostname(string) : one of the dut instances from the multi dut
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] != "vpp":
+        yield
+        return
+
+    bd_ids = vpp_bds_with_uu_flood(duthost)
+    logger.info("Disabling VPP unknown unicast flood on bridge domains {}".format(bd_ids))
+    for bd_id in bd_ids:
+        set_vpp_bd_uu_flood(duthost, bd_id, False)
+
+    pytest_assert(not vpp_bds_with_uu_flood(duthost),
+                  "Failed to disable unknown unicast flooding on VPP bridge domains {}".format(bd_ids))
+
+    yield
+
+    logger.info("Restoring VPP unknown unicast flood on bridge domains {}".format(bd_ids))
+    for bd_id in bd_ids:
+        set_vpp_bd_uu_flood(duthost, bd_id, True)
 
 
 @pytest.fixture(autouse=True, scope="module")
