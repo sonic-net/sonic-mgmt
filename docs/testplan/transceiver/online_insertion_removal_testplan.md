@@ -46,6 +46,8 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 5. A port under test cabled to another port of the same DUT (self loopback topology) takes that peer port down with it, so the physical OIR checks on the other interfaces exclude the peer port, which is checked against the peer port expected results instead. The peer port is identified only when the `verify_lldp_on_link_up` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is enabled; otherwise, it is checked like any other interface.
 
+6. The remote reseat tests also use the following [transceiver system testplan](./system_test_plan.md#attributes) attributes: `transceiver_reset_supported` (must be true for every module under test), `port_shutdown_wait_sec` (wait for the ports to go down in step 2), `low_power_mode_supported` (steps 4 and 5 of the remote reseat run only on modules supporting it), `transceiver_reset_i2c_recover_sec` (replaces the 5s sleep after the reset when longer, and bounds the wait for the low and high power mode to be reported), and `verify_lldp_on_link_up` and `lldp_neighbor_wait_sec` (LLDP check of step 6). DOM monitoring must be enabled on every module under test before the test, as the last step of the remote reseat enables it.
+
 #### 1.1 Online Insertion and Removal Testing
 
 This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal. The tests cover both physical OIR and remote reseat scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
