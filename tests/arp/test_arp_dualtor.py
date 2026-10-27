@@ -534,6 +534,8 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
         target_ip = outgoing_packet[ICMPv6ND_NS].tgt
         intf_name_cmd = "show ndp | awk '$1 == \"{}\" {{ print $3; exit }}'".format(target_ip)
+    else:
+        raise ValueError("Unsupported IP version: {}".format(ip_version))
 
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
     intf_name = rand_selected_dut.shell(intf_name_cmd)['stdout']
