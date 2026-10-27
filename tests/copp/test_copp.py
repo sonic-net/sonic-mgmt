@@ -39,6 +39,12 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
+from tests.common.plugins.memory_utilization import (
+    is_memory_utilization_enabled,
+    monit_refresh_setup,
+    monit_refresh_teardown,
+)
+from tests.common.plugins.memory_utilization.memory_utilization import parse_monit_validate_output
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
@@ -702,13 +708,33 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
 
 
+def _monit_memory_matches_baseline(refresh_state, baseline):
+    values = parse_monit_validate_output(monit_refresh_teardown(refresh_state), {})
+    current = values.get("memory_usage")
+    return current is not None and abs(current - baseline) <= 1
+
+
 @pytest.fixture(scope="function", autouse=False)
-def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def backup_restore_config_db(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    refresh_state = None
+    baseline = None
+    if is_memory_utilization_enabled(request.config, request.node.keywords, duthost):
+        refresh_state = monit_refresh_setup(duthost)
+        values = parse_monit_validate_output(monit_refresh_teardown(refresh_state), {})
+        baseline = values.get("memory_usage")
+        pytest_assert(baseline is not None, "Failed to collect the pre-test Monit memory baseline")
+
     copp_utils.backup_config_db(duthost)
 
     yield
     copp_utils.restore_config_db(duthost)
+    if refresh_state is None:
+        return
+    pytest_assert(
+        wait_until(240, 10, 0, _monit_memory_matches_baseline, refresh_state, baseline),
+        "Monit memory did not return to the pre-test baseline after restoring CONFIG_DB"
+    )
 
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa: F811
