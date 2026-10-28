@@ -31,3 +31,5 @@ vm_host_password: use_own_value
 vm_host_become_password: use_own_value
 
 csonic_image: "{{ lookup('env', 'SONIC_MGMT_CSONIC_DOCKER_IMAGE') | default('docker-sonic-vs', true) }}"
+csonic_lag_backend: "{{ lookup('env', 'SONIC_MGMT_CSONIC_LAG_BACKEND') | default('teamd', true) }}"
+csonic_userspace_ovs_image: "{{ csonic_image }}-userspace-ovs"

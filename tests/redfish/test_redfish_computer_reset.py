@@ -1,19 +1,26 @@
 """
 Tests for Redfish ComputerSystem.Reset action endpoint.
 
-WARNING: GracefulShutdown and PowerCycle tests trigger actual power state changes
-on the BMC DUT. They restore the system to its original power state after each test.
+WARNING: GracefulShutdown, ForceOff and PowerCycle tests trigger actual power state
+changes on the BMC DUT. They restore the system to its original power state after each test.
 """
 import logging
+import time
+
 import pytest
+
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module as module_api
+from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_keys
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
 )
 from tests.common.utilities import wait_until
+from tests.redfish.redfish_utils import assert_no_content, assert_redfish_error
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +34,20 @@ POWER_ON_TIMEOUT = 120    # seconds to wait for x86 CPU to come out of reset
 POWER_OFF_TIMEOUT = 120   # seconds to wait for x86 CPU to be held in reset
 POLL_INTERVAL = 5         # seconds between CPU-state polls
 
-POWER_CYCLE_OFF_TIMEOUT = 30
-POWER_CYCLE_OFF_POLL = 1
+HOST_BOOT_TIMEOUT = 600      # seconds for the switch host to boot back to SSH after PowerCycle
+HOST_RESOLVE_TIMEOUT = 300   # seconds to resolve the switch host before the test issues a reset
+HOST_POLL_INTERVAL = 10      # seconds between boot-id polls
 
 SWITCH_HOST_MODULE_NAME = "SWITCH-HOST"
 MODULE_STATUS_ONLINE = "Online"
 MODULE_STATUS_OFFLINE = "Offline"
+
+# ForceOff is the one ResetType bmcweb routes through the Chassis rather than the
+# Host transition; sonic-dbus-bridge writes it to STATE_DB as this command.
+COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
+CMD_POWER_OFF = "POWER_OFF"
+COMMAND_ROW_TIMEOUT = 30
+COMMAND_POLL = 1
 
 
 @pytest.fixture(scope="function")
@@ -86,6 +101,48 @@ def _cpu_state_matches(cpu_running, want_running):
     running = cpu_running()
     logger.info("CPU running=%s (waiting for running=%s)", running, want_running)
     return running == want_running
+
+
+@pytest.fixture(scope="function")
+def switch_host(bmc_duthost):
+    """Return a callable resolving the host-side switch once it answers over SSH.
+
+    Building the host object gathers facts over SSH, so it cannot run while the
+    host is still booting. A preceding test in this class may have just cycled
+    the host, and the CPU leaving reset does not mean the host is up yet, so
+    resolve it lazily from the test body and retry the connection rather than
+    erroring during fixture setup. Only connection failures are retried; a
+    device that is not a BMC, or a testbed file with no host-side switch, fails
+    immediately.
+    """
+    def _switch_host():
+        deadline = time.time() + HOST_RESOLVE_TIMEOUT
+        while True:
+            try:
+                return bmc_duthost.get_bmc_host()
+            except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as e:
+                if time.time() >= deadline:
+                    pytest.fail(
+                        "Switch host was still unreachable {}s into this test, before any reset "
+                        "was issued, so it did not come back from an earlier power operation: "
+                        "{}".format(HOST_RESOLVE_TIMEOUT, e))
+                logger.info("Switch host not reachable yet, retrying in %ss", HOST_POLL_INTERVAL)
+                time.sleep(HOST_POLL_INTERVAL)
+
+    return _switch_host
+
+
+def _host_boot_id(switch_host):
+    """Return the switch host's boot id, or None while it is unreachable (e.g. mid-reboot)."""
+    try:
+        res = switch_host.command("cat /proc/sys/kernel/random/boot_id", module_ignore_errors=True)
+    except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure):
+        return None
+    if res.get("rc", 1) != 0:
+        return None
+    # An empty read is not an identity: returning "" would compare unequal to the
+    # id captured before the reset and report a reboot that never happened.
+    return res.get("stdout", "").strip() or None
 
 
 def _ensure_system_on(redfish_client, cpu_running):
@@ -147,10 +204,7 @@ class TestRedfishComputerReset:
         response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
         logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
 
-        pytest_assert(
-            response.status_code in (200, 204),
-            "Expected HTTP 200 or 204, got: {}".format(response.status_code)
-        )
+        assert_no_content(response, RESET_PATH)
 
         pytest_assert(
             cpu_running(),
@@ -169,10 +223,7 @@ class TestRedfishComputerReset:
         response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
         logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
 
-        pytest_assert(
-            response.status_code in (200, 204),
-            "Expected HTTP 200 or 204, got: {}".format(response.status_code)
-        )
+        assert_no_content(response, RESET_PATH)
 
         reached = wait_until(POWER_ON_TIMEOUT, POLL_INTERVAL, 0,
                              _cpu_state_matches, cpu_running, True)
@@ -192,10 +243,7 @@ class TestRedfishComputerReset:
         logger.info("POST {} ResetType=GracefulShutdown -> {}".format(
             RESET_PATH, response.status_code))
 
-        pytest_assert(
-            response.status_code in (200, 204),
-            "Expected HTTP 200 or 204, got: {}".format(response.status_code)
-        )
+        assert_no_content(response, RESET_PATH)
 
         reached = wait_until(POWER_OFF_TIMEOUT, POLL_INTERVAL, 0,
                              _cpu_state_matches, cpu_running, False)
@@ -204,72 +252,85 @@ class TestRedfishComputerReset:
 
         _ensure_system_on(redfish_client, cpu_running)
 
-    def test_reset_power_cycle(self, redfish_client, cpu_running):
+    def test_reset_force_off(self, redfish_client, bmc_duthost, cpu_running):
+        """
+        Reset with valid ResetType "ForceOff".
+
+        ForceOff removes power without a graceful shutdown. It must be
+        accepted, become exactly one RACK_MANAGER_COMMAND row with
+        command=POWER_OFF (GracefulShutdown writes GRACEFUL_SHUT), and hold
+        the x86 CPU in reset. Restores the CPU to running afterwards.
+        """
+        _ensure_system_on(redfish_client, cpu_running)
+        keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+        response = redfish_client.post(RESET_PATH, json={"ResetType": "ForceOff"})
+        logger.info("POST {} ResetType=ForceOff -> {}".format(RESET_PATH, response.status_code))
+
+        assert_no_content(response, RESET_PATH)
+
+        def _new_command_keys():
+            return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
+
+        pytest_assert(
+            wait_until(COMMAND_ROW_TIMEOUT, COMMAND_POLL, 0, _new_command_keys),
+            "No RACK_MANAGER_COMMAND row appeared within {}s of ForceOff".format(COMMAND_ROW_TIMEOUT)
+        )
+        new_keys = _new_command_keys()
+        pytest_assert(len(new_keys) == 1, "One ForceOff must create one command row, got: {}".format(sorted(new_keys)))
+        key = new_keys.pop()
+        command = redis_hgetall(bmc_duthost, STATE_DB, key).get("command")
+        pytest_assert(
+            command == CMD_POWER_OFF,
+            "{} command must be {} for ResetType=ForceOff, got: {!r}".format(key, CMD_POWER_OFF, command)
+        )
+        logger.info("ForceOff became {} command={}".format(key, command))
+
+        reached = wait_until(POWER_OFF_TIMEOUT, POLL_INTERVAL, 0,
+                             _cpu_state_matches, cpu_running, False)
+        pytest_assert(reached, "x86 CPU was not held in reset within {}s of ForceOff".format(
+            POWER_OFF_TIMEOUT))
+
+        _ensure_system_on(redfish_client, cpu_running)
+
+    def test_reset_power_cycle(self, redfish_client, cpu_running, switch_host):
         """
         Reset with valid ResetType "PowerCycle".
 
-        Observes BOTH transitions — CPU enters reset, then exits reset — so
-        the test cannot pass trivially if the BMC silently no-ops the API and
-        leaves the CPU running the whole time.
+        Proves the cycle by the switch host's boot id changing, which happens
+        only on an actual restart, so a BMC that no-ops the API still fails.
         """
         _ensure_system_on(redfish_client, cpu_running)
+
+        host = switch_host()
+        boot_id_before = _host_boot_id(host)
+        pytest_assert(boot_id_before is not None,
+                      "Could not read the switch host boot id before PowerCycle")
 
         response = redfish_client.post(RESET_PATH, json={"ResetType": "PowerCycle"})
         logger.info("POST {} ResetType=PowerCycle -> {}".format(RESET_PATH, response.status_code))
 
-        pytest_assert(
-            response.status_code in (200, 204),
-            "Expected HTTP 200 or 204, got: {}".format(response.status_code)
-        )
+        assert_no_content(response, RESET_PATH)
 
-        # First observe the off-transition. The off-window is brief (~1-2s),
-        # so poll faster than POLL_INTERVAL to avoid missing it.
-        entered_reset = wait_until(POWER_CYCLE_OFF_TIMEOUT, POWER_CYCLE_OFF_POLL, 0,
-                                   _cpu_state_matches, cpu_running, False)
-        pytest_assert(
-            entered_reset,
-            "x86 CPU did not enter reset after PowerCycle within {}s — "
-            "BMC may have silently no-op'd the API".format(POWER_CYCLE_OFF_TIMEOUT),
-        )
+        def _host_rebooted():
+            boot_id = _host_boot_id(host)
+            return boot_id is not None and boot_id != boot_id_before
 
-        # Then wait for it to come back out.
-        reached = wait_until(POWER_ON_TIMEOUT, POLL_INTERVAL, 0,
-                             _cpu_state_matches, cpu_running, True)
-        pytest_assert(reached,
-                      "x86 CPU did not return to OUT OF RESET after PowerCycle within {}s".format(
-                          POWER_ON_TIMEOUT))
+        pytest_assert(
+            wait_until(HOST_BOOT_TIMEOUT, HOST_POLL_INTERVAL, 0, _host_rebooted),
+            "Switch host boot id did not change within {}s of PowerCycle: either the BMC "
+            "silently no-op'd the API or the host did not boot back".format(HOST_BOOT_TIMEOUT),
+        )
 
     def test_reset_invalid_type(self, redfish_client):
         """
-        Reset with invalid ResetType is rejected.
+        Reset with a ResetType outside the Redfish enum is rejected.
 
-        POST ResetType=InvalidType must return HTTP 400 with a Redfish error body.
+        POST ResetType=InvalidType must return HTTP 400 with a Redfish error
+        carrying ActionParameterUnknown for the Reset action and the value sent.
         """
         response = redfish_client.post(RESET_PATH, json={"ResetType": "InvalidType"})
-        logger.info("POST {} ResetType=InvalidType -> {}".format(RESET_PATH, response.status_code))
+        logger.info("POST {} ResetType=InvalidType -> {} {!r}".format(
+            RESET_PATH, response.status_code, response.text[:300]))
 
-        pytest_assert(
-            response.status_code == 400,
-            "Expected HTTP 400 for invalid ResetType, got: {}".format(response.status_code)
-        )
-
-        try:
-            error_body = response.json()
-        except ValueError:
-            error_body = None
-        pytest_assert(
-            isinstance(error_body, dict),
-            "Error response is not a valid JSON object: {}".format(response.text)
-        )
-
-        # Redfish error responses carry an "error" object with at least a
-        # "code" and a "message" field (DSP0266 error payload shape).
-        error = (error_body or {}).get("error")
-        pytest_assert(
-            isinstance(error, dict),
-            "Expected a Redfish error object under 'error', got: {}".format(error_body)
-        )
-        pytest_assert(
-            "code" in (error or {}) and "message" in (error or {}),
-            "Redfish error object must contain 'code' and 'message', got: {}".format(error)
-        )
+        assert_redfish_error(response, 400, "ActionParameterUnknown", message_args=["Reset", "InvalidType"])

@@ -21,7 +21,7 @@ from tests.common.snappi_tests.common_helpers import config_capture_settings, ge
     get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
-    fetch_flow_metrics_for_macsec    # noqa: F401
+    fetch_flow_metrics_for_macsec, set_flow_transmit_state, are_flows_stopped    # noqa: F401
 from .variables import pfcQueueValueDict
 from .common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
@@ -740,17 +740,20 @@ def _log_in_flight_stats(api, in_flight_flow_metrics, data_flow_names, ptype, sn
 
 def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params):
     """Log per-flow TX/RX frame counts from in-flight MACsec TGEN flow statistics."""
-    flow_names, tx_frames, rx_frames = [], [], []
+    prio_count = 7
+    flow_names, pgids, tx_frames, rx_frames = [], [], [], []
     for fs in in_flight_flow_metrics:
-        if int(fs['PGID']) in snappi_extra_params.flow_name_prio_map.values() and \
-           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"]:
-            flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
+        if int(fs['PGID']) % prio_count in snappi_extra_params.flow_name_prio_map.values() and \
+           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"] and \
+           int(fs['Tx Frames']) != 0:
+            flow_names.append(fs['Tx Port'] + "->" + fs['Rx Port'])
+            pgids.append(int(fs['PGID']) % prio_count)
             tx_frames.append(fs['Tx Frames'])
             rx_frames.append(fs['Rx Frames'])
-    rows = list(zip(flow_names, tx_frames, rx_frames))
+    rows = list(zip(flow_names, pgids, tx_frames, rx_frames))
     logger.info(
         "In-flight traffic statistics for flows:\n%s",
-        tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
+        tabulate(rows, headers=["Flow", "Prio", "Tx", "Rx"], tablefmt="psql"),
     )
 
 
@@ -783,8 +786,13 @@ def run_traffic(duthost,
     ptype = "--snappi_macsec" in sys.argv
     if ptype:
         ixnet = api._ixnetwork
-        dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
-        dp.Single(False)
+        for topology in ixnet.Topology.find():
+            for device_group in topology.DeviceGroup.find():
+                for ethernet in device_group.Ethernet.find():
+                    for mka in ethernet.Mka.find():
+                        mka.DelayProtect.Single(False)
+                    for static_macsec in ethernet.StaticMacsec.find():
+                        static_macsec.SendGratArp = False
         _configure_macsec_dut_sci_macs(
             ixnet, snappi_extra_params.multi_dut_params.multi_dut_ports)
         for ti in ixnet.Traffic.TrafficItem.find():
@@ -828,7 +836,7 @@ def run_traffic(duthost,
             if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
                 pytest_assert(False, "Not all protocol sessions are up")
         rx_dut_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
-        for i in range(7):
+        for i in range(7 * (len(config.ports) - 1)):
             eth_stack = config.devices[i].ethernets[0]
             mac_address = eth_stack.mac
             ip_address = eth_stack.ipv4_addresses[0].address
@@ -864,9 +872,7 @@ def run_traffic(duthost,
 
     if not ptype:
         logger.info("Starting transmit on all flows ...")
-        cs = api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-        api.set_control_state(cs)
+        set_flow_transmit_state(api, "start")
     else:
         print('Generating Traffic Item')
         trafficItems = ixnet.Traffic.TrafficItem.find()
@@ -923,15 +929,19 @@ def run_traffic(duthost,
             api, in_flight_flow_metrics, data_flow_names, ptype, snappi_extra_params)
         time.sleep(exp_dur_sec*(3/5))
 
+    # A flow held under PFC flow control never transitions to 'stopped' on its own, so stop
+    # transmit here. Only the data flows: the pause storm must keep DUT egress paused.
+    if snappi_extra_params.stop_data_flows_before_final_stats and not ptype:
+        logger.info("Stopping transmit on data flows after in-flight stats collection")
+        set_flow_transmit_state(api, "stop", flow_names=data_flow_names)
+
     attempts = 0
     max_attempts = 20
     while attempts < max_attempts:
         logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
         if not ptype:
-            flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
             # If all the data flows have stopped
-            transmit_states = [metric.transmit for metric in flow_metrics]
-            if len(flow_metrics) == len(data_flow_names) and list(set(transmit_states)) == ['stopped']:
+            if are_flows_stopped(api, data_flow_names):
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
@@ -946,7 +956,7 @@ def run_traffic(duthost,
                 if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
                 and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
             ]
-            if list(set(transmit_states)) == [0]:   # Issue encountered, workaround is != instead of ==
+            if list(set(transmit_states)) != [0]:   # Issue encountered, workaround is != instead of ==
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
@@ -956,6 +966,19 @@ def run_traffic(duthost,
 
     pytest_assert(attempts < max_attempts,
                   "Flows do not stop in {} seconds".format(max_attempts))
+
+    # Capture stop + retrieval is slow enough to outlast the pause storm, which would let the
+    # DUT drain buffered frames and push a paused flow's rx_frames above 0. Read metrics first.
+    read_stats_before_capture_stop = (
+        snappi_extra_params.stop_data_flows_before_final_stats
+        and not ptype
+        and pcap_type != packet_capture.NO_CAPTURE
+    )
+
+    flow_metrics = None
+    if read_stats_before_capture_stop:
+        logger.info("Dumping per-flow statistics")
+        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Stopping packet capture ...")
@@ -969,16 +992,15 @@ def run_traffic(duthost,
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
-    # Dump per-flow statistics
-    logger.info("Dumping per-flow statistics")
-    if not ptype:
-        flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-    else:
-        flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+    # Dump per-flow statistics (unless already collected above before capture teardown)
+    if flow_metrics is None:
+        logger.info("Dumping per-flow statistics")
+        if not ptype:
+            flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+        else:
+            flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
     logger.info("Stopping transmit on all remaining flows")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-    api.set_control_state(cs)
+    set_flow_transmit_state(api, "stop")
     check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
@@ -1688,6 +1710,11 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
         stats[metric_name+'_avg_latency_ns'] = metric.latency.average_ns
         stats[metric_name+'_max_latency_ns'] = metric.latency.maximum_ns
         stats[metric_name+'_min_latency_ns'] = metric.latency.minimum_ns
+        # Populate rate stats for STC/OTG backends where traf_metrics is empty.
+        # traf_metrics (IXIA-only) already sets _rxrate_Gbps; don't override it.
+        if metric_name+'_rxrate_Gbps' not in stats:
+            stats[metric_name+'_rxrate_Gbps'] = round(metric.rx_l1_rate_bps / 1e9, 2)
+            stats[metric_name+'_txrate_Gbps'] = round(metric.tx_l1_rate_bps / 1e9, 2)
     return stats
 
 
@@ -1760,11 +1787,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         cs.port.capture.state = cs.port.capture.START
         api.set_control_state(cs)
 
-    # Returns the rest API object for features not present in Snappi
-    ixnet_rest_api = api._ixnetwork
-
     # If imix flag is set, IMIX packet-profile is enabled.
     if (imix):
+        # Returns the rest API object for features not present in Snappi (IxNetwork only)
+        ixnet_rest_api = api._ixnetwork
         logger.info('Test packet-profile setting to IMIX')
         for traff_item in ixnet_rest_api.Traffic.TrafficItem.find():
             config_ele = traff_item.ConfigElement.find()[0].FrameSize
@@ -1819,7 +1845,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         logger.info('----------- Collecting Stats for Iteration : {} ------------'.format(m+1))
         f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
         flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
-        traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+        traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows if imix else []
         tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
         f_stats[m]['tgen_tx_frames'] = tx_frame
         rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
@@ -1915,7 +1941,7 @@ def run_traffic_and_collect_stats(rx_duthost,
     m = iter_count
     f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
     flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
-    traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+    traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows if imix else []
     tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
     rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
     f_stats[m]['tgen_tx_frames'] = tx_frame

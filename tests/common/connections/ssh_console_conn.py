@@ -324,6 +324,13 @@ class SSHConsoleConn(BaseConsoleConn):
         # > as prompt terminator
         if self.console_type in [CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_RARITAN_CONFIG]:
             self.set_base_prompt(">")
+        elif self.console_type == CONSOLE_SSH_CISCO_CONFIG:
+            # Cisco IOS lands at '>' after login but may already be at '#'
+            # (leftover privileged session). set_base_prompt() only supports
+            # a single fixed terminator, so detect either here; elevation to
+            # '#' happens later in duthost_clear_console_port() if needed.
+            prompt = self.find_prompt(pattern=r"(?:>|\#|\$)")
+            self.base_prompt = prompt[:-1] if len(prompt) > 1 else prompt
         else:
             self.set_base_prompt()
 

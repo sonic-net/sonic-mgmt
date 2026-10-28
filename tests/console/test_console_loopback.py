@@ -39,6 +39,16 @@ def _read_orig_console_port(host, line):
     return orig_baud, ("enable" if orig_fc_int == "1" else "disable")
 
 
+def _get_fanout_line(graph_facts, duthost, console_fanout, dut_line):
+    link = graph_facts['device_serial_link'][duthost.hostname][dut_line]
+    pytest_assert(
+        link['peerdevice'] == console_fanout.hostname,
+        "DUT '{}' line {} is wired to '{}', not selected console fanout '{}'".format(
+            duthost.hostname, dut_line, link['peerdevice'], console_fanout.hostname),
+    )
+    return str(link['peerport'])
+
+
 @pytest.mark.parametrize("baud_rate", ["9600", "115200"])
 @pytest.mark.parametrize("flow_control", ["enable", "disable"])
 def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flow_control,  # noqa: F811
@@ -69,8 +79,9 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
     if same_host:
         delay_factor = 1.6
     else:
-        console_fanout.command("config console flow_control {} {}".format(flow_control, target_line))
-        console_fanout.set_loopback(target_line, baud_rate, flow_control_bool)
+        fanout_line = _get_fanout_line(conn_graph_facts, duthost, console_fanout, target_line)
+        console_fanout.command("config console flow_control {} {}".format(flow_control, fanout_line))
+        console_fanout.set_loopback(fanout_line, baud_rate, flow_control_bool)
         delay_factor = 3.2
 
     dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
@@ -99,7 +110,7 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
             duthost, target_line,
             error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
         if not same_host:
-            console_fanout.unset_loopback(target_line)
+            console_fanout.unset_loopback(fanout_line)
         # Restore pre-test CONFIG_DB state for this line.
         configure_console_line(duthost, target_line, orig_baud, orig_flow_control)
 
@@ -127,6 +138,8 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
         pytest.skip("Not enough console ports to run the ping-pong test on DUT '{}' (need at least 2, got {})".format(
             duthost.hostname, len(lines)))
     src_line, dst_line = lines[0], lines[1]
+    fanout_src_line = _get_fanout_line(conn_graph_facts, duthost, console_fanout, src_line)
+    fanout_dst_line = _get_fanout_line(conn_graph_facts, duthost, console_fanout, dst_line)
     flow_control_bool = (flow_control == "enable")
 
     # Capture pre-test CONFIG_DB state for both lines so we can restore on
@@ -136,7 +149,7 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
 
     configure_console_line(duthost, src_line, baud_rate, flow_control)
     configure_console_line(duthost, dst_line, baud_rate, flow_control)
-    console_fanout.bridge(src_line, dst_line, baud_rate, flow_control_bool)
+    console_fanout.bridge(fanout_src_line, fanout_dst_line, baud_rate, flow_control_bool)
 
     dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
@@ -163,9 +176,9 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
             duthost, src_line,
             error_msg="Target line {} of dut is busy after exited reverse SSH session".format(src_line))
         wait_for_line_idle(
-            console_fanout, dst_line,
-            error_msg="Target line {} of fanout is busy after exited reverse SSH session".format(dst_line))
-        console_fanout.unbridge(src_line, dst_line)
+            duthost, dst_line,
+            error_msg="Target line {} of dut is busy after exited reverse SSH session".format(dst_line))
+        console_fanout.unbridge(fanout_src_line, fanout_dst_line)
         # Restore pre-test CONFIG_DB state for both lines.
         configure_console_line(duthost, src_line, orig_src_baud, orig_src_flow_control)
         configure_console_line(duthost, dst_line, orig_dst_baud, orig_dst_flow_control)

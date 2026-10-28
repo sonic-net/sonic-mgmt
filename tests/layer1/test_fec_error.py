@@ -2,7 +2,16 @@ import logging
 import pytest
 import re
 
-from tests.common.platform.interface_utils import clear_interface_counters_and_wait, get_fec_eligible_interfaces
+from tests.common.platform.fec_utils import (
+    filter_interfaces_by_speed,
+    get_fec_attribute,
+    get_max_wait_for_ports,
+    resolve_capability,
+)
+from tests.common.platform.interface_utils import (
+    clear_interface_counters_and_wait,
+    get_fec_candidate_interfaces,
+)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -20,12 +29,27 @@ SUPPORTED_PLATFORMS = [
     "marvell"
 ]
 
-SUPPORTED_SPEEDS = [
-    "50G", "100G", "200G", "400G", "800G", "1600G"
-]
+
+@pytest.fixture(scope="module")
+def port_attrs_for_dut(
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    port_attributes_dict_factory,
+):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    return port_attributes_dict_factory(
+        duthost,
+        validate_templates=False,
+        categories={"fec"},
+        missing_category_ok=True,
+    )
 
 
-def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_verify_fec_stats_counters(
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    port_attrs_for_dut,
+):
     """
     @Summary: Verify the FEC stats counters are valid
     Also, check for any uncorrectable FEC errors
@@ -33,12 +57,20 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     # Get operationally up and interfaces with supported speeds
-    interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+    candidates = get_fec_candidate_interfaces(duthost)
+    interfaces = filter_interfaces_by_speed(candidates, port_attrs_for_dut)
 
     if not interfaces:
         pytest.skip("Skipping this test as there is no fec eligible interface")
 
-    clear_interface_counters_and_wait(duthost)
+    clear_interface_counters_and_wait(
+        duthost,
+        wait_time=get_max_wait_for_ports(
+            port_attrs_for_dut,
+            interfaces,
+            "clear_counters_wait_sec",
+        ),
+    )
 
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
@@ -99,38 +131,51 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     for intf in intf_status:
         intf_name = intf['iface']
+        if intf_name not in interfaces:
+            continue
         speed = duthost.get_speed(intf_name)
         # Speed is a empty string if the port isn't up
         if speed == '':
             continue
         # Convert the speed to gbps format
         speed_gbps = f"{int(speed) // 1000}G"
-        if speed_gbps not in SUPPORTED_SPEEDS:
+        if speed_gbps not in get_fec_attribute(
+            port_attrs_for_dut,
+            intf_name,
+            "supported_speeds",
+        ):
             continue
+        basic_fec_stats_supported = resolve_capability(
+            port_attrs_for_dut,
+            intf_name,
+            "basic_fec_stats_supported",
+            legacy_supported=True,
+        )
 
-        # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
-        fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
-        fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
-        fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
-        # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
-        try:
-            fec_corr_int = int(fec_corr)
-            fec_uncorr_int = int(fec_uncorr)
-            fec_symbol_err_int = int(fec_symbol_err)
-        except ValueError:
-            pytest.fail("FEC stat counters are not valid integers for interface {}, \
+        if basic_fec_stats_supported:
+            # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
+            fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
+            fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
+            fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
+            # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
+            try:
+                fec_corr_int = int(fec_corr)
+                fec_uncorr_int = int(fec_uncorr)
+                fec_symbol_err_int = int(fec_symbol_err)
+            except ValueError:
+                pytest.fail("FEC stat counters are not valid integers for interface {}, \
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
-                        .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
+                            .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
 
-        # Check for non-zero FEC uncorrectable errors
-        if fec_uncorr_int > 0:
-            pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
-                        .format(intf_name, fec_uncorr_int))
+            # Check for non-zero FEC uncorrectable errors
+            if fec_uncorr_int > 0:
+                pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
+                            .format(intf_name, fec_uncorr_int))
 
-        # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
-        if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
-            pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
-                        .format(fec_symbol_err_int, fec_corr_int, intf_name))
+            # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
+            if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
+                pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
+                            .format(fec_symbol_err_int, fec_corr_int, intf_name))
 
         # Test for observed flr
         if not skip_fec_flr_counters_test(intf):
