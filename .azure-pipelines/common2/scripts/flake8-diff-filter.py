@@ -16,8 +16,8 @@ With --all, the diff filtering is skipped and every tracked Python file in
 the repository is linted, for a full-scale run of the CI flake8 gate.
 
 The rulesets below mirror the flake8 hook definitions in
-.pre-commit-config.yaml (the tests/common2-specific hook is intentionally
-not mirrored here, since those files are filtered out before this runs).
+.pre-commit-config.yaml. tests/common2 files are filtered out before this
+runs, so its hook only takes effect here for tests/gnmi, which shares it.
 """
 import argparse
 import collections
@@ -33,6 +33,9 @@ VIOLATION_RE = re.compile(r'^(?P<path>[^:]+):(?P<line>\d+):\d+: (?P<message>.*)$
 # filtered out of the CI pre-commit job; --all skips them too.
 EXCLUDED_PREFIXES = ('tests/common2/',)
 
+# Paths covered by the "flake8 (tests/common2)" hook rather than the general one.
+COMMON2_STYLE_PREFIXES = ('tests/common2/', 'tests/gnmi/')
+
 # These mirror the per-hook args in .pre-commit-config.yaml. flake8 also
 # auto-discovers the repo's .flake8 file (per-file-ignores, exclude), so those
 # are honored here exactly as they are under pre-commit. The '.py' filter is a
@@ -41,12 +44,17 @@ EXCLUDED_PREFIXES = ('tests/common2/',)
 # reporting rather than over-reporting.
 RULESETS = [
     {
-        'match': lambda f: f.endswith('.py') and not f.startswith('spytest/'),
+        'match': lambda f: (f.endswith('.py') and not f.startswith('spytest/')
+                            and not f.startswith(COMMON2_STYLE_PREFIXES)),
         'args': ['--max-line-length=120'],
     },
     {
         'match': lambda f: f.endswith('.py') and f.startswith('spytest/'),
         'args': ['--max-line-length=120', '--ignore=E1,E2,E3,E5,E7,W5'],
+    },
+    {
+        'match': lambda f: f.endswith('.py') and f.startswith(COMMON2_STYLE_PREFIXES),
+        'args': ['--max-line-length=120', '--ignore=E1,E2,E3,E5,W1,W2,W3,W5'],
     },
 ]
 

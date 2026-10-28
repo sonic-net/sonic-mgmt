@@ -157,6 +157,15 @@ class TestEndToEnd:
         assert "a.py:1:1: F401 'os' imported but unused" in out
         assert 'common2' not in out
 
+    def test_gnmi_uses_common2_ruleset(self, repo, capsys):
+        # E2 is ignored for tests/gnmi (as for tests/common2) but not elsewhere.
+        base = repo({'a.py': 'x = 1\n'})
+        repo({'a.py': 'x = 1\ny=2\n', 'tests/gnmi/g.py': 'y=2\n'})
+        assert fdf.main(['--base', base, 'a.py', 'tests/gnmi/g.py']) == 1
+        out = capsys.readouterr().out
+        assert 'a.py:2:2: E225' in out
+        assert 'gnmi' not in out
+
     def test_base_required_without_all(self):
         with pytest.raises(SystemExit):
             fdf.main(['a.py'])
