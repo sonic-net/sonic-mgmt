@@ -1193,7 +1193,11 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost, request):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    start_platform_api_server(duthosts[enum_rand_one_per_hwsku_hostname], localhost)
+
+
+def start_platform_api_server(duthost, localhost):
+    """Start the platform API test server in pmon unless it is already listening."""
     duthost_mgmt_info = duthost.get_mgmt_ip()
     dut_ip = duthost_mgmt_info['mgmt_ip']
     dut_mgmt_ver = duthost_mgmt_info['version']

@@ -12,10 +12,12 @@ parameters:
 
 steps:
 - script: |
-    set -x
+    set -ex
 
-    sudo apt-get -o DPkg::Lock::Timeout=600 update || true
-    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+    if ! command -v jq >/dev/null 2>&1; then
+      sudo apt-get -o DPkg::Lock::Timeout=600 update || true
+      sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+    fi
 
     # TEST_SCRIPTS is shipped gzip+base64 encoded to stay under the agent's 40 KiB output line cap.
     if ! printf '%s' "$TEST_SCRIPTS" | base64 -d 2>/dev/null | gunzip > /tmp/ts.json 2>/dev/null; then

@@ -404,6 +404,51 @@ def test_service_sender_ends_without_a_warmboot_finalizer():
     assert obj.kill_sniffer
 
 
+@pytest.mark.parametrize("neighbor_type,csonic_neighbor", [("eos", False), ("sonic", True)])
+def test_bgp_service_does_not_require_or_change_neighbor_lacp(neighbor_type, csonic_neighbor):
+    """BGP-only preparation must not require a LAG backend or alter neighbor LACP timers."""
+    obj = make_reload()
+    obj.bgp_service_restart = True
+    obj.reboot_type = "service-warm-restart"
+    obj.test_params = {
+        "neighbor_type": neighbor_type, "ceos_neighbor_lacp_multiplier": 180,
+        "csonic_neighbor": csonic_neighbor, "csonic_lag_backend": "unknown",
+        "csonic_neighbor_lacp_multiplier": 180,
+    }
+    obj._verify_neighbors_reachable = Mock()
+    obj._detect_csonic_lag_backend = Mock(side_effect=AssertionError("BGP does not require LACP"))
+    obj.ceos_set_lacp_all_neighs = Mock()
+    obj.csonic_set_lacp_all_neighs = Mock()
+    obj.pre_reboot_test_setup = Mock(side_effect=RuntimeError("preflight failed"))
+    obj.stop_service_workers = Mock()
+    obj.handle_post_reboot_test_reports = Mock()
+    with pytest.raises(RuntimeError, match="preflight failed"):
+        obj.runTest()
+    obj._detect_csonic_lag_backend.assert_not_called()
+    obj.ceos_set_lacp_all_neighs.assert_not_called()
+    obj.csonic_set_lacp_all_neighs.assert_not_called()
+    obj.stop_service_workers.assert_called_once_with()
+    obj.handle_post_reboot_test_reports.assert_not_called()
+
+
+def test_bgp_peer_monitor_uses_neighbor_handle_without_mutating_shared_parameters():
+    """Use the credential-aware neighbor factory while keeping each peer's port mapping isolated."""
+    obj = make_reload()
+    obj.bgp_service_restart = True
+    obj.test_params = {"neighbor_type": "sonic", "csonic_neighbor": True, "port_channel_intf_idx": [99]}
+    obj.vm_dut_map = {"peer": {"mgmt_addr": "198.18.0.1", "ptf_ports": [7]}}
+    obj._get_neighbor_handle = Mock()
+    obj.monitor_bgp_peer = Mock()
+    peer_queue = queue.Queue()
+    obj.peer_state_check("198.18.0.1", peer_queue)
+    obj._get_neighbor_handle.assert_called_once_with(
+        "198.18.0.1", queue=peer_queue, connect_timeout=15,
+        test_params={"neighbor_type": "sonic", "csonic_neighbor": True, "port_channel_intf_idx": [7]})
+    obj.monitor_bgp_peer.assert_called_once_with(
+        obj._get_neighbor_handle.return_value, "198.18.0.1", peer_queue)
+    assert obj.test_params["port_channel_intf_idx"] == [99]
+
+
 def test_route_reconciliation_checks_prefixes_and_paired_next_hops():
     """Equal counts are insufficient; ECMP ordering is immaterial but pairings are not."""
     obj = make_reload()

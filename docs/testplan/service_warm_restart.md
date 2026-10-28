@@ -40,9 +40,10 @@ included in the result report.
   learned destinations with disjoint physical/LAG egress-port sets; the source
   addresses also have learned return paths. No artificial VLAN is configured.
 - Packet capture and traffic in both directions must be ready before the
-  service operation. BGP-only testing does not wait for teamd shutdown or the
-  full-switch warmboot-finalizer. It uses captured packet sequences on physical
-  devices and VS, not the coarse KVM reachability threshold.
+  service operation. BGP-only testing does not require a neighbor LAG backend,
+  change neighbor LACP timers, or wait for teamd shutdown or the full-switch
+  warmboot-finalizer. It uses captured packet sequences on physical devices and
+  VS, not the coarse KVM reachability threshold.
 
 ## Results and cleanup
 
