@@ -115,8 +115,8 @@ def test_late_positive_is_not_accepted(clock):
     log.host.latency = 11
     with pytest.raises(accounting.MissingAccounting):
         verify([log])
-    assert clock.now == 11
-    assert len(log.host.calls) == 2  # boundary + one slow read, not ten retries
+    assert clock.now == 22
+    assert len(log.host.calls) == 3  # boundary + slow read + expiry reconciliation
 
 
 @pytest.mark.parametrize("arrival", [8.9, 9])
@@ -185,9 +185,9 @@ def test_remote_budget_counts_call_latency(clock):
     log.host.latency = 4
     with pytest.raises(accounting.MissingAccounting):
         verify([log])
-    assert clock.now == 10
+    assert clock.now == 14  # positive budget + bounded final reconciliation
     budgets = [float(shlex.split(cmd)[2][:-1]) for _, cmd in log.host.calls[1:]]
-    assert budgets == [10, 5]
+    assert budgets == [accounting.LOG_READ_TIMEOUT] * 3
 
 
 def test_final_read_failure_cannot_pass_absence(clock):
@@ -404,7 +404,7 @@ def test_absence_sampling_can_cross_boundary_with_enforced_remote_timeout(clock)
     boundary = 1.3 + 8
     assert any(start < boundary < start + 1.3 for start, _ in log.host.calls)
     assert log.host.calls[-1][0] >= boundary
-    assert all(float(shlex.split(cmd)[2][:-1]) == accounting.ABSENCE_READ_TIMEOUT
+    assert all(float(shlex.split(cmd)[2][:-1]) == accounting.LOG_READ_TIMEOUT
                for _, cmd in log.host.calls[2:])
 
 
@@ -427,3 +427,188 @@ def test_failed_stop_still_restarts_and_does_not_run_outage_command(name, raises
     namespace["start_tacacs_server"].assert_called_once_with(namespace["ptfhost"])
     namespace["ssh_run_command"].assert_not_called()
     namespace["check_local_accounting"].assert_not_called()
+
+
+def local_helper(clock, execute, tacacs=True):
+    """Use actual cursors/verifier/helper; mock only readiness, cleanup and SSH."""
+    hosts = [Host(clock), Host(clock)]
+    logs = []
+
+    def make_cursor(host, path, local=False):
+        log = accounting.LogCursor(host, path, local=local)
+        logs.append(log)
+        return log
+
+    def cleanup(*args):
+        for host in hosts:
+            host.data = ""
+            host.events = []
+            host.latency = 0
+
+    namespace = {name: Mock() for name in ["change_and_wait_aaa_config_update", "logger"]}
+    namespace.update(MissingAccounting=accounting.MissingAccounting, LOCAL_TIMEOUT=10,
+                     LogCursor=make_cursor, capture_logs=accounting.capture_logs,
+                     cleanup_tacacs_log=Mock(side_effect=cleanup))
+    namespace["ssh_run_command"] = Mock(side_effect=lambda *args: execute(hosts, namespace))
+    namespace["verify_accounting"] = lambda cursors, username, commands, timeout: accounting.verify_accounting(
+        cursors, username, commands, timeout=timeout, absence_window=1)
+    hosts[0].command = Mock(return_value={})
+    node = functions()["check_local_accounting"]
+    exec(compile(ast.Module(body=[node], type_ignores=[]), "local helper", "exec"), namespace)
+    namespace["run"] = lambda: namespace["check_local_accounting"](
+        hosts[0], {"tacacs_rw_user": "rw"}, "grep", "config", hosts[1], Mock(), tacacs=tacacs)
+    return namespace, hosts, logs
+
+
+def test_positive_expiry_with_enforced_timeout_retries_actual_helper(clock):
+    def execute(hosts, namespace):
+        if namespace["ssh_run_command"].call_count == 1:
+            hosts[0].latency = 3.1
+            hosts[0].enforce_timeout = True
+        else:
+            for i, host in enumerate(hosts):
+                host.events = [(clock.now + 1, "append", record(local=i == 0))]
+
+    namespace, hosts, logs = local_helper(clock, execute)
+    namespace["run"]()
+    assert namespace["ssh_run_command"].call_count == 2
+    assert namespace["cleanup_tacacs_log"].call_count == 2
+    assert len(logs) == 4
+
+
+@pytest.mark.parametrize("source", [0, 1], ids=["local", "remote"])
+@pytest.mark.parametrize("partial", [False, True], ids=["forbidden", "partial"])
+def test_expiry_reconciliation_cannot_discard_unread_evidence(clock, source, partial):
+    def execute(hosts, namespace):
+        hosts[0].latency = 3.1
+        hosts[0].enforce_timeout = True
+        line = record(user="other", local=source == 0)
+        if partial:
+            line = line.rstrip("\n")
+        # Third local read crosses t=10. Even the already-read local source
+        # needs reconciliation: this record arrives after that read at t=11.3.
+        hosts[source].events = [(12, "append", line)]
+
+    namespace, hosts, logs = local_helper(clock, execute)
+    with pytest.raises(AssertionError, match="Incomplete" if partial else "Unexpected") as error:
+        namespace["run"]()
+    assert not isinstance(error.value, accounting.MissingAccounting)
+    assert namespace["cleanup_tacacs_log"].call_count == 1
+    assert len(logs) == 2
+    assert hosts[source].data
+
+
+@pytest.mark.parametrize("failure", [{"rc": 1}, {"rc": 137}, {"rc": 124}, {"rc": 0, "failed": True}])
+@pytest.mark.parametrize("phase", ["positive", "absence", "reconcile"])
+def test_read_errors_never_retry_actual_helper(clock, failure, phase):
+    def execute(hosts, namespace):
+        if phase == "positive":
+            hosts[0].failure = failure
+        elif phase == "absence":
+            hosts[0].events = [(0, "append", record(local=True)), (1, "fail", failure)]
+        else:
+            hosts[0].events = [(10, "fail", failure)]
+
+    namespace, hosts, logs = local_helper(clock, execute, tacacs=False)
+    with pytest.raises(AssertionError, match="read failed") as error:
+        namespace["run"]()
+    assert not isinstance(error.value, accounting.MissingAccounting)
+    assert namespace["cleanup_tacacs_log"].call_count == 1
+
+
+def test_late_positive_from_bounded_read_does_not_pass(clock):
+    log = cursor(clock, events=[(11, "append", record())])
+    log.host.latency = 11
+    log.host.enforce_timeout = True
+    with pytest.raises(accounting.MissingAccounting, match="deadline"):
+        verify([log])
+    assert log.counts("rw", ["grep"]) == {"grep": 1}
+
+
+def test_normal_missing_stops_after_six_attempts_actual_helper(clock):
+    namespace, hosts, logs = local_helper(clock, lambda *args: None)
+    with pytest.raises(accounting.MissingAccounting):
+        namespace["run"]()
+    assert len(logs) == 12
+    for name in ["cleanup_tacacs_log", "change_and_wait_aaa_config_update", "ssh_run_command"]:
+        assert namespace[name].call_count == 6
+    assert clock.now == 60
+
+
+@pytest.mark.parametrize("phase", ["boundary", "positive", "absence", "reconcile"])
+def test_transport_exception_is_not_missing(clock, phase):
+    log = cursor(clock)
+    original = log.host.shell
+
+    def shell(command, **kwargs):
+        failure_at = {"boundary": 0, "positive": 0, "absence": 1, "reconcile": 10}[phase]
+        if clock.now >= failure_at:
+            raise RuntimeError("transport unavailable")
+        return original(command, **kwargs)
+
+    if phase == "absence":
+        log.host.events = [(0, "append", record())]
+    log.host.shell = shell
+    with pytest.raises(RuntimeError, match="transport unavailable"):
+        if phase == "boundary":
+            accounting.capture_logs([log])
+        else:
+            verify([log])
+
+
+@pytest.mark.parametrize("phase", ["boundary", "positive", "absence", "reconcile"])
+def test_read_budget_kill_is_hard_failure_in_every_phase(clock, phase):
+    def execute(hosts, namespace):
+        host = hosts[0]
+        host.enforce_timeout = True
+        if phase == "positive":
+            host.latency = 81
+        elif phase == "absence":
+            host.events = [(0, "append", record(local=True))]
+        elif phase == "reconcile":
+            host.latency = 3.1
+
+    namespace, hosts, logs = local_helper(clock, execute, tacacs=False)
+    original = hosts[0].shell
+
+    def shell(command, **kwargs):
+        if phase == "boundary" or (phase == "absence" and clock.now >= 1) or (
+                phase == "reconcile" and clock.now > 10):
+            hosts[0].latency = 81
+            hosts[0].enforce_timeout = True
+        return original(command, **kwargs)
+
+    hosts[0].shell = shell
+    with pytest.raises(AssertionError, match="read failed") as error:
+        namespace["run"]()
+    assert not isinstance(error.value, accounting.MissingAccounting)
+    assert namespace["cleanup_tacacs_log"].call_count == 1
+    assert namespace["ssh_run_command"].call_count == (0 if phase == "boundary" else 1)
+
+
+def test_expiry_sweep_has_one_shared_budget(clock):
+    logs = [cursor(clock) for _ in range(2)]
+    for log in logs:
+        log.host.latency = 41
+        log.host.enforce_timeout = True
+    with pytest.raises(AssertionError, match="read failed") as error:
+        verify(logs)
+    assert not isinstance(error.value, accounting.MissingAccounting)
+    assert clock.now == 41 + accounting.LOG_READ_TIMEOUT
+    assert float(shlex.split(logs[1].host.calls[-1][1])[2][:-1]) == 39
+
+
+def test_late_reconciliation_transport_fails_hard(clock):
+    log = cursor(clock)
+    log.host.latency = 81  # Transport can exceed even the subprocess budget.
+    with pytest.raises(AssertionError, match="reconciliation exceeded") as error:
+        verify([log])
+    assert not isinstance(error.value, accounting.MissingAccounting)
+    assert len(log.host.calls) == 3
+
+
+def test_expiry_sweep_never_accepts_new_positive(clock):
+    log = cursor(clock, events=[(10, "append", record())])
+    with pytest.raises(accounting.MissingAccounting):
+        verify([log])
+    assert log.counts("rw", ["grep"]) == {"grep": 1}

@@ -12,7 +12,7 @@ POLL_INTERVAL = 1
 POSITIVE_TIMEOUT = 80
 LOCAL_TIMEOUT = 120
 ABSENCE_WINDOW = 80
-ABSENCE_READ_TIMEOUT = 80
+LOG_READ_TIMEOUT = 80
 
 # One open file descriptor provides identity and contents together. Verify the
 # previous prefix, not just its length: copytruncate followed by regrowth must
@@ -116,12 +116,30 @@ def capture_logs(cursors, timeout=POSITIVE_TIMEOUT):
             raise AssertionError("Accounting log boundary capture exceeded elapsed budget")
 
 
+def _positive_deadline_expired(cursors, username, required, missing):
+    # Before a retry can clean the logs, reconcile ALL sources, including ones
+    # not sampled near expiry. This is one bounded sweep, not positive grace:
+    # late positives cannot rescue the expired attempt. Read/integrity errors
+    # and incomplete records must fail hard rather than discard evidence.
+    read_deadline = time.monotonic() + LOG_READ_TIMEOUT
+    for cursor in cursors:
+        cursor.read(read_deadline)
+        cursor.counts(username, required)
+        if time.monotonic() > read_deadline:
+            raise AssertionError("Accounting expiry reconciliation exceeded elapsed budget")
+    if any(cursor.pending for cursor in cursors):
+        raise AssertionError("Incomplete accounting record prevents retry")
+    raise MissingAccounting("Accounting elapsed deadline exceeded; missing: {}".format(missing))
+
+
 def verify_accounting(cursors, username, commands, timeout=POSITIVE_TIMEOUT,
                       absence_window=ABSENCE_WINDOW, interval=POLL_INTERVAL):
     """One positive budget, followed by one shared, full absence window.
 
-    Transport can overrun a deadline. Late positive reads fail; an end-of-window
-    read is required to prove absence, and its transport latency is unavoidable.
+    The positive deadline limits acceptance, not read completion. Each sample
+    has a separate bounded subprocess budget; transport can overrun it. Expiry
+    requires one bounded all-source reconciliation before retry, never accepting
+    late positives. Absence still requires an end-of-window read.
     No config changes or command execution occur inside this observation loop.
     """
     if not cursors or not commands or timeout <= 0 or absence_window < 0 or interval <= 0:
@@ -132,31 +150,32 @@ def verify_accounting(cursors, username, commands, timeout=POSITIVE_TIMEOUT,
     missing = {}
     while True:
         if absence_deadline is None and time.monotonic() >= deadline:
-            raise MissingAccounting("Accounting elapsed deadline exceeded; missing: {}".format(missing))
+            _positive_deadline_expired(cursors, username, required, missing)
         missing = {}
         final_sample = absence_deadline is not None and time.monotonic() >= absence_deadline
         for cursor in cursors:
             if absence_deadline is None and time.monotonic() >= deadline:
-                raise MissingAccounting("Accounting elapsed deadline exceeded; missing: {}".format(missing))
+                _positive_deadline_expired(cursors, username, required, missing)
             if absence_deadline is not None and not final_sample and time.monotonic() >= absence_deadline:
                 break  # Start a complete final sweep; do not omit an earlier source.
-            # Absence is an observation duration, not a read completion deadline.
-            # Give every sample its own bounded budget, even near the boundary;
-            # still require a complete sweep STARTING after the full window.
-            read_deadline = deadline if absence_deadline is None else time.monotonic() + ABSENCE_READ_TIMEOUT
+            # Do not kill a healthy read just because positive acceptance ends:
+            # rc137 cannot distinguish that from an unrelated kill/read failure.
+            # Bound each read separately and check elapsed acceptance below.
+            # Absence still needs a complete sweep STARTING after the window.
+            read_deadline = time.monotonic() + LOG_READ_TIMEOUT
             cursor.read(read_deadline)
             counts = cursor.counts(username, required)
             remaining = required - counts
             if remaining:
                 missing[cursor.path] = dict(remaining)
             if absence_deadline is None and time.monotonic() > deadline:
-                raise MissingAccounting("Accounting elapsed deadline exceeded; missing: {}".format(missing))
+                _positive_deadline_expired(cursors, username, required, missing)
         now = time.monotonic()
         if absence_deadline is None:
             if not missing:
                 absence_deadline = now + absence_window
             elif now >= deadline:
-                raise MissingAccounting("Missing accounting records: {}".format(missing))
+                _positive_deadline_expired(cursors, username, required, missing)
         elif final_sample:
             if any(cursor.pending for cursor in cursors):
                 raise AssertionError("Incomplete accounting record at end of observation")
