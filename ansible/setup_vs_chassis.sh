@@ -10,6 +10,7 @@ remove_macsec_script="/usr/local/bin/remove_macsec.py"
 rc_local_file="/etc/rc.local"
 platform_dir="/usr/share/sonic/device/$platform"
 platform_chassisdb_conf_file="$platform_dir/chassisdb.conf"
+chassis_db_address_file="/etc/sonic/chassisdb_address"
 chassis_db_address=10.6.0.100
 midplane_subnet=10.6.0.0/16
 num_asic=1
@@ -222,14 +223,14 @@ remove_existing_file "$platform_chassisdb_conf_file"
 # Configure chassisdb.conf file
 if [ "$is_supervisor" = true ]; then
     echo "start_chassis_db=1" > "$platform_chassisdb_conf_file"
-    echo "chassis_db_address=$chassis_db_address" >> "$platform_chassisdb_conf_file"
+    echo "chassis_db_address=$chassis_db_address" > "$chassis_db_address_file"
     echo "midplane_subnet=$midplane_subnet" >> "$platform_chassisdb_conf_file"
     echo "lag_id_start=1" >> "$platform_chassisdb_conf_file"
     echo "lag_id_end=1024" >> "$platform_chassisdb_conf_file"
     echo "Created $platform_chassisdb_conf_file for supervisor"
 else
-    echo "chassis_db_address=$chassis_db_address" > "$platform_chassisdb_conf_file"
-    echo "midplane_subnet=$midplane_subnet" >> "$platform_chassisdb_conf_file"
+    echo "chassis_db_address=$chassis_db_address" > "$chassis_db_address_file"
+    echo "midplane_subnet=$midplane_subnet" > "$platform_chassisdb_conf_file"
     echo "Created $platform_chassisdb_conf_file for linecard"
 fi
 
