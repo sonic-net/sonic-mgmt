@@ -521,6 +521,26 @@ class MultiAsicSonicHost(object):
             "ASIC instance not found for port {}".format(port)
         )
 
+    def get_supported_speeds(self, interface_name):
+        """Get supported speeds from the port's owning ASIC."""
+        asic = self.get_port_asic_instance(interface_name)
+        return self.sonichost.get_supported_speeds(interface_name, namespace=asic.namespace)
+
+    def get_speed(self, interface_name):
+        """Get the current speed from the port's owning ASIC."""
+        asic = self.get_port_asic_instance(interface_name)
+        return self.sonichost.get_speed(interface_name, namespace=asic.namespace)
+
+    def count_portlanes(self, portname):
+        """Count the lanes configured in the port's owning ASIC."""
+        asic = self.get_port_asic_instance(portname)
+        return self.sonichost.count_portlanes(portname, namespace=asic.namespace)
+
+    def get_sfp_type(self, portname):
+        """Get the transceiver type from the port's owning ASIC."""
+        asic = self.get_port_asic_instance(portname)
+        return self.sonichost.get_sfp_type(portname, namespace=asic.namespace)
+
     def get_queue_oid_asic_instance(self, queue_oid):
         """
         Returns the ASIC instance which has the queue OID saved.
