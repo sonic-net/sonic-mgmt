@@ -146,6 +146,12 @@ def utility_namespace():
     return namespace
 
 
+def is_pytest_fixture(value):
+    """Recognize both pytest fixture wrappers without accepting dynamic Mock attributes."""
+    return not isinstance(value, Mock) and (
+        hasattr(value, "_pytestfixturefunction") or hasattr(value, "_fixture_function_marker"))
+
+
 def install_fixtures(plugin, feature, provisioned, leak=False, fail_setup=False):
     """Install production fixtures into an isolated subprocess's conftest namespace."""
     namespace = utility_namespace()
@@ -227,8 +233,19 @@ def install_fixtures(plugin, feature, provisioned, leak=False, fail_setup=False)
     namespace.update(duthosts=duthosts, tbinfo=tbinfo, parallel_run_context=parallel_run_context,
                      sanity_check=sanity_check, loganalyzer=loganalyzer, pytest_sessionfinish=pytest_sessionfinish)
     plugin.update({name: value for name, value in namespace.items()
-                   if hasattr(value, "_pytestfixturefunction") and not isinstance(value, Mock)})
+                   if is_pytest_fixture(value)})
     plugin.update(device=device, pytest_sessionfinish=pytest_sessionfinish)
+
+
+@pytest.mark.parametrize("marker", ["_pytestfixturefunction", "_fixture_function_marker"])
+def test_fixture_discovery_accepts_both_pytest_markers(marker):
+    assert is_pytest_fixture(SimpleNamespace(**{marker: object()}))
+    assert not is_pytest_fixture(Mock(**{marker: object()}))
+
+
+def test_fixture_discovery_ignores_non_fixtures_and_dynamic_mocks():
+    assert not is_pytest_fixture(lambda: None)
+    assert not is_pytest_fixture(Mock())
 
 
 @pytest.mark.parametrize("feature,provisioned,leak,fail_setup", [
@@ -273,6 +290,120 @@ def test_grouped_module_lifecycle(tmp_path, feature, provisioned, leak, fail_set
     assert stops[0] < checks[0] < stops[1] < checks[1]
     if leak:
         assert any(key.endswith("config_db_check_failed") and value for key, value in state["messages"])
+
+
+@pytest.mark.parametrize("failure", ["stat", "copy", "partial_copy"])
+def test_later_backup_failure_rolls_back_and_allows_retry(monkeypatch, failure):
+    ns = utility_namespace()
+    device = Device(provisioned=True)
+    paths = ns["DEVICE_STATE_FILES"]
+    suffix = ns["BACKUP_SUFFIX"]
+    device.files.update({path: "original:" + path for path in paths})
+    original_files = device.files.copy()
+    original_config = copy.deepcopy(device.config)
+    stat = device.stat
+    shell = device.shell
+    copy_command = "cp -a {0} {0}{1}".format(paths[1], suffix)
+    failure_error = RuntimeError("later backup " + failure)
+
+    def fail_stat(path):
+        if failure == "stat" and path == paths[1]:
+            raise failure_error
+        return stat(path)
+
+    def fail_copy(command, **kwargs):
+        if failure != "stat" and command == copy_command:
+            device.events.append(command)
+            if failure == "partial_copy":
+                device.files[paths[1] + suffix] = "partial copy"
+            raise failure_error
+        return shell(command, **kwargs)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(device, "stat", fail_stat)
+        patcher.setattr(device, "shell", fail_copy)
+        with pytest.raises(RuntimeError) as error:
+            ns["back_up_device_state"](device)
+    assert error.value is failure_error
+    assert device.files == original_files
+    assert device.config == original_config
+    assert "rm -f {}{}".format(paths[0], suffix) in device.events
+    if failure != "stat":
+        assert "rm -f {}{}".format(paths[1], suffix) in device.events
+
+    # No stale backups from the failed attempt may poison the next module.
+    saved = ns["back_up_device_state"](device)
+    assert saved == list(paths)
+    for path in paths:
+        assert device.files[path + suffix] == original_files[path]
+        device.files[path] = "test replacement"
+    ns["restore_device_state"](device, saved)
+    assert device.files == original_files
+
+
+def test_later_stale_backup_is_preserved_without_creating_earlier_backups():
+    ns = utility_namespace()
+    device = Device()
+    paths = ns["DEVICE_STATE_FILES"]
+    device.files.update({path: "original:" + path for path in paths})
+    device.files[paths[1] + ns["BACKUP_SUFFIX"]] = "pre-existing backup"
+    original_files = device.files.copy()
+
+    with pytest.raises(AssertionError, match="Device state backup already exists"):
+        ns["back_up_device_state"](device)
+
+    assert device.files == original_files
+    assert device.events == []
+
+
+def test_backup_preflight_stat_failure_does_not_create_backups(monkeypatch):
+    ns = utility_namespace()
+    device = Device()
+    paths = ns["DEVICE_STATE_FILES"]
+    device.files.update({path: "original:" + path for path in paths})
+    original_files = device.files.copy()
+    stat = device.stat
+
+    def fail_later_preflight(path):
+        if path == paths[1] + ns["BACKUP_SUFFIX"]:
+            raise RuntimeError("preflight stat failed")
+        return stat(path)
+
+    monkeypatch.setattr(device, "stat", fail_later_preflight)
+    with pytest.raises(RuntimeError, match="preflight stat failed"):
+        ns["back_up_device_state"](device)
+
+    assert device.files == original_files
+    assert device.events == []
+
+
+def test_backup_rollback_logs_failure_and_continues(monkeypatch):
+    ns = utility_namespace()
+    device = Device()
+    paths = ns["DEVICE_STATE_FILES"]
+    suffix = ns["BACKUP_SUFFIX"]
+    device.files.update({path: "original:" + path for path in paths})
+    shell = device.shell
+    failure_error = RuntimeError("copy failed")
+
+    def fail_copy_and_first_cleanup(command, **kwargs):
+        if command == "cp -a {0} {0}{1}".format(paths[1], suffix):
+            device.files[paths[1] + suffix] = "partial copy"
+            raise failure_error
+        if command == "rm -f {}{}".format(paths[0], suffix):
+            raise RuntimeError("cleanup failed")
+        return shell(command, **kwargs)
+
+    monkeypatch.setattr(device, "shell", fail_copy_and_first_cleanup)
+    with pytest.raises(RuntimeError) as error:
+        ns["back_up_device_state"](device)
+
+    assert error.value is failure_error
+    assert device.files[paths[0] + suffix] == "original:" + paths[0]
+    assert paths[1] + suffix not in device.files
+    assert all(device.files[path] == "original:" + path for path in paths)
+    ns["logger"].exception.assert_called_once_with(
+        "Failed to remove partial backup: %s", paths[0] + suffix)
 
 
 def test_config_snapshot_preserves_absent_empty_and_operator_values():

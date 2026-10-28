@@ -406,16 +406,32 @@ BACKUP_SUFFIX = ".sonic-mgmt.bak"
 
 
 def back_up_device_state(duthost):
-    """Set aside any device state the suite would overwrite; return what was saved."""
-    saved = []
+    """Back up device state, rolling back only this attempt's partial backups."""
+    # Preflight every destination before creating any backup. A stale backup on
+    # a later path must not leave new backups behind on earlier paths.
     for path in DEVICE_STATE_FILES:
-        # Refuse stale backups rather than overwriting the only original copy.
         backup = path + BACKUP_SUFFIX
         pytest_assert(not duthost.stat(path=backup)["stat"]["exists"],
                       "Device state backup already exists: {}".format(backup))
-        if duthost.stat(path=path)["stat"]["exists"]:
-            duthost.shell("cp -a {} {}".format(path, backup))
-            saved.append(path)
+
+    saved = []
+    created = []
+    try:
+        for path in DEVICE_STATE_FILES:
+            if duthost.stat(path=path)["stat"]["exists"]:
+                backup = path + BACKUP_SUFFIX
+                # A failed copy can leave a partial destination, so track it
+                # before copying, not only after a successful return.
+                created.append(backup)
+                duthost.shell("cp -a {} {}".format(path, backup))
+                saved.append(path)
+    except Exception:
+        for backup in created:
+            try:
+                duthost.shell("rm -f {}".format(backup))
+            except Exception:
+                logger.exception("Failed to remove partial backup: %s", backup)
+        raise
     if saved:
         logger.info("Set aside existing device state: {}".format(", ".join(saved)))
     return saved
