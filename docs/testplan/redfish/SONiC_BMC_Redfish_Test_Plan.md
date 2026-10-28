@@ -209,7 +209,7 @@ Performed by session fixtures before the first test:
 - Generate CA, server and client certificates, deliver them through `REDFISH|certs` and wait for STATE_DB to report them staged (`bmc_tls_certs`, see Section 12)
 - Build the mTLS `redfish_client` used by every test
 
-Priorities are assigned in this plan; the test code carries no priority markers. Parametrized tests list their case count in brackets.
+Priorities are assigned in this plan; the test code carries no priority markers. Parametrized tests list their case count in brackets. Each table is followed by the steps of its tests, taken from the test code.
 
 ---
 
@@ -221,6 +221,20 @@ Module: `test_redfish_service_root.py` — `GET /redfish/v1`
 | :- | :--------------------------- | :------- | :-------------------------------------------------------------------------- |
 | 1  | `test_service_root_accessible` | P0     | HTTP 200 with `Content-Type: application/json`                              |
 | 2  | `test_service_root_fields`   | P0       | DMTF-required fields (`@odata.id`, `RedfishVersion`, `UUID`, `Product`) and the Chassis/Systems navigation links |
+
+**Steps**
+
+**#1 `test_service_root_accessible`**
+
+1. Send `GET /redfish/v1` with the mTLS client.
+2. Validate the status is `200` and `Content-Type` contains `application/json`.
+
+**#2 `test_service_root_fields`**
+
+1. Send `GET /redfish/v1` with the mTLS client and validate the status is `200`.
+2. Validate the body has `@odata.type`, `@odata.id`, `RedfishVersion`, `UUID` and `Links`, with `@odata.id` equal to `/redfish/v1`, `@odata.type` containing `ServiceRoot`, and `RedfishVersion` and `UUID` non-empty strings.
+3. Read `mac` from CONFIG_DB `DEVICE_METADATA|localhost` on the BMC and validate `Product` equals `SONiCBMC-<mac>` (lowercased), or `SONiCBMC` when no MAC is set.
+4. Validate `UpdateService.@odata.id` is `/redfish/v1/UpdateService`, `Systems.@odata.id` is `/redfish/v1/Systems`, and `Links` contains `Sessions`.
 
 ---
 
@@ -239,6 +253,48 @@ The single Chassis is the switch, built from the chassis object sonic-dbus-bridg
 | 7  | `test_leak_detector_collections_serve_same_detectors` | P1     | Canonical and deprecated collections list the same detectors, each under its own URI form |
 | 8  | `test_leak_detection_unknown_ids_rejected` [5]      | P1       | Unknown chassis or detector id answers 404 `ResourceNotFound` naming the segment and id, on both URI forms |
 
+**Steps**
+
+**#3 `test_chassis_collection_lists_chassis`**
+
+1. Send `GET /redfish/v1/Chassis` and validate the status is `200`.
+2. Validate `@odata.id` is `/redfish/v1/Chassis`, `@odata.type` contains `ChassisCollection`, and `Members@odata.count` is at least 1.
+3. Validate `Members` includes `/redfish/v1/Chassis/chassis`.
+
+**#4 `test_chassis_identity_matches_config_db`**
+
+1. Send `GET /redfish/v1/Chassis/chassis` and validate the status is `200`.
+2. Validate `@odata.id` is `/redfish/v1/Chassis/chassis`, `Id` is `chassis`, `@odata.type` contains `#Chassis.`, and `ChassisType` is a non-empty string.
+3. Read CONFIG_DB `DEVICE_METADATA|localhost` on the BMC.
+4. Validate `SerialNumber`, `Manufacturer`, `Model` and `PartNumber` are non-empty strings, and each equals its CONFIG_DB source when set (`serial_number`, `manufacturer`, `model` falling back to `platform`, `part_number`); a field with no CONFIG_DB source is only checked for non-empty.
+
+**#5 `test_chassis_links_leak_detection`**
+
+1. Send `GET /redfish/v1/Chassis/chassis` and validate the status is `200`.
+2. Validate `LeakDetectors.@odata.id` is `/redfish/v1/Chassis/chassis/LeakDetectors` and `ThermalSubsystem.@odata.id` is `/redfish/v1/Chassis/chassis/ThermalSubsystem`.
+3. Send `GET /redfish/v1/Chassis/chassis/ThermalSubsystem` and validate the status is `200`.
+4. Validate `LeakDetection.@odata.id` is `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection`.
+
+**#6 `test_leak_detection_resource`**
+
+1. Send `GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection` and validate the status is `200`.
+2. Validate `@odata.id` is the requested path, `@odata.type` contains `#LeakDetection.`, `Id` is `LeakDetection` and `Name` is `Leak Detection`.
+3. Validate `LeakDetectors.@odata.id` is `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors`.
+4. Validate `Status.State` is `Enabled` and `Status.Health` is `OK`.
+
+**#7 `test_leak_detector_collections_serve_same_detectors`**
+
+1. Send `GET /redfish/v1/Chassis/chassis/LeakDetectors` (canonical) and `GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors` (deprecated), validating `200` for each.
+2. For each, validate `@odata.id` is the requested path, `@odata.type` contains `LeakDetectorCollection` and `Name` is `Leak Detector Collection`.
+3. For each, validate `Members@odata.count` equals the number of `Members` and every member `@odata.id` lives under the requested collection path.
+4. Validate both collections list the same sorted set of detector ids (last URI segment).
+
+**#8 `test_leak_detection_unknown_ids_rejected`**
+
+1. Send `GET` on each parametrized path: `/redfish/v1/Chassis/nochassis/LeakDetectors`, `/redfish/v1/Chassis/nochassis/ThermalSubsystem/LeakDetection/LeakDetectors`, `/redfish/v1/Chassis/nochassis/ThermalSubsystem/LeakDetection`, `/redfish/v1/Chassis/chassis/LeakDetectors/DoesNotExist`, `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/DoesNotExist`.
+2. Validate the status is `404` with an `@Message.ExtendedInfo` entry whose `MessageId` ends in `.ResourceNotFound`.
+3. Validate `MessageArgs` is `["Chassis", "nochassis"]` for the three unknown chassis cases and `["LeakDetector", "DoesNotExist"]` for the two unknown detector cases.
+
 ---
 
 ## Section 3: Computer System
@@ -255,6 +311,43 @@ The ComputerSystem is the switch host, built from the `State.Host` object the br
 | 12 | `test_reset_action_info_advertises_supported_reset_types`  | P1       | `AllowableValues` is exactly `On`, `ForceOff`, `GracefulShutdown`, `PowerCycle`               |
 | 13 | `test_reset_rejects_unsupported_reset_types` [4]           | P1       | `ForceOn`, `ForceRestart`, `GracefulRestart`, `Nmi` answer 400 `ActionParameterNotSupported`, create no `RACK_MANAGER_COMMAND` row and leave `HOST_STATE` unchanged |
 
+**Steps**
+
+**#9 `test_systems_collection_lists_system`**
+
+1. Send `GET /redfish/v1/Systems` and validate the status is `200`.
+2. Validate `@odata.id` is `/redfish/v1/Systems`, `@odata.type` contains `ComputerSystemCollection`, and `Members@odata.count` is at least 1.
+3. Validate `Members` includes `/redfish/v1/Systems/system`.
+
+**#10 `test_system_advertises_reset_action`**
+
+1. Send `GET /redfish/v1/Systems/system` and validate the status is `200`.
+2. Validate `@odata.id` is `/redfish/v1/Systems/system`, `Id` is `system` and `@odata.type` contains `#ComputerSystem.`.
+3. Validate `PowerState` is one of `On`, `Off`, `PoweringOn`, `PoweringOff`.
+4. Validate `Actions.#ComputerSystem.Reset.target` is `/redfish/v1/Systems/system/Actions/ComputerSystem.Reset` and its `@Redfish.ActionInfo` is `/redfish/v1/Systems/system/ResetActionInfo`.
+
+**#11 `test_system_power_state_follows_host_state`**
+
+1. Skip unless STATE_DB `HOST_STATE|switch-host` exists (bmcctld running).
+2. Poll for up to 30s (every 2s): read `HOST_STATE|switch-host` and `GET /redfish/v1/Systems/system` until `PowerState` matches the value derived from the row.
+3. Derive the expected value as `PoweringOn` for `POWERING_ON`/`POWER_CYCLING`, `PoweringOff` for `POWERING_OFF`/`GRACEFUL_SHUTTING_DOWN`, otherwise `On`/`Off` from `device_status` `ONLINE`/`OFFLINE` (falling back to the settled `device_power_state`).
+4. Validate the row resolves to a PowerState and the last Redfish `PowerState` equals it.
+
+**#12 `test_reset_action_info_advertises_supported_reset_types`**
+
+1. Send `GET /redfish/v1/Systems/system/ResetActionInfo` and validate the status is `200`.
+2. Validate `Parameters` holds exactly one entry with `Name` `ResetType`.
+3. Validate `@odata.id` is `/redfish/v1/Systems/system/ResetActionInfo` and `Id` is `ResetActionInfo`.
+4. Validate `AllowableValues` is exactly `On`, `ForceOff`, `GracefulShutdown`, `PowerCycle` with no extras or duplicates.
+
+**#13 `test_reset_rejects_unsupported_reset_types`**
+
+1. Run for each of `ForceOn`, `ForceRestart`, `GracefulRestart`, `Nmi`; skip the case if `ResetActionInfo` `AllowableValues` offers it.
+2. Record the STATE_DB `RACK_MANAGER_COMMAND|*` keys and the `HOST_STATE|switch-host` row.
+3. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "<case>"}`.
+4. Validate the status is `400` with `MessageId` ending in `.ActionParameterNotSupported` and `MessageArgs` `["ResetType", "Reset"]`.
+5. Wait 5s, then validate no new `RACK_MANAGER_COMMAND|*` key appeared and `HOST_STATE|switch-host` `device_power_state` is unchanged.
+
 ---
 
 ## Section 4: Firmware Inventory
@@ -267,6 +360,35 @@ Module: `test_redfish_firmware_inventory.py` — `GET /redfish/v1/UpdateService/
 | 15 | `test_firmware_bmc`                  | P1       | `bmc` entry has a real build `Version` and `RelatedItem` to `/redfish/v1/Managers/bmc` |
 | 16 | `test_firmware_bios`                 | P1       | `bios` entry has the SoftwareInventory shape (`Version` is `N/A` in this build)       |
 | 17 | `test_firmware_switch`               | P1       | `switch` entry links to `/redfish/v1/Systems/system/Bios` via `RelatedItem`           |
+
+**Steps**
+
+**#14 `test_firmware_inventory_collection`**
+
+1. Send `GET /redfish/v1/UpdateService/FirmwareInventory` and validate the status is `200`.
+2. Validate `Members@odata.count` is at least 1.
+3. Validate the member ids (last segment of each `@odata.id`) include `bmc`, `bios` and `switch`.
+
+**#15 `test_firmware_bmc`**
+
+1. Send `GET /redfish/v1/UpdateService/FirmwareInventory/bmc` and validate the status is `200`.
+2. Validate `@odata.id` is the requested path, `Id` is `bmc`, `@odata.type` contains `SoftwareInventory`, `Name` is `Software Inventory` and `Description` is `BMC image`.
+3. Validate `Status.State` is `Enabled`, `Status.Health` and `Status.HealthRollup` are `OK`, and `Updateable` is a boolean.
+4. Validate `Version` is a non-empty string other than `N/A`.
+5. Validate `RelatedItem` includes `/redfish/v1/Managers/bmc`.
+
+**#16 `test_firmware_bios`**
+
+1. Send `GET /redfish/v1/UpdateService/FirmwareInventory/bios` and validate the status is `200`.
+2. Validate `@odata.id` is the requested path, `Id` is `bios`, `@odata.type` contains `SoftwareInventory`, `Name` is `Software Inventory` and `Description` is `Other image`.
+3. Validate `Status.State` is `Enabled`, `Status.Health` and `Status.HealthRollup` are `OK`, `Updateable` is a boolean, and `Version` is a non-empty string (`N/A` accepted).
+
+**#17 `test_firmware_switch`**
+
+1. Send `GET /redfish/v1/UpdateService/FirmwareInventory/switch` and validate the status is `200`.
+2. Validate `@odata.id` is the requested path, `Id` is `switch`, `@odata.type` contains `SoftwareInventory`, `Name` is `Software Inventory` and `Description` is `Host image`.
+3. Validate `Status.State` is `Enabled`, `Status.Health` and `Status.HealthRollup` are `OK`, `Updateable` is a boolean, and `Version` is a non-empty string.
+4. Validate `RelatedItem` includes `/redfish/v1/Systems/system/Bios`.
 
 ---
 
@@ -285,6 +407,50 @@ Module: `test_redfish_computer_reset.py` — `POST /redfish/v1/Systems/system/Ac
 | 22 | `test_reset_power_cycle`         | P0       | `PowerCycle` is proven by the switch host's boot id changing                                   |
 | 23 | `test_reset_invalid_type`        | P1       | A `ResetType` outside the Redfish enum answers 400 `ActionParameterUnknown`                    |
 
+**Steps**
+
+**#18 `test_reset_on_when_already_on`**
+
+1. Ensure the switch host CPU is running (read via the platform API `SWITCH-HOST` module oper status `Online`); if not, send `ResetType=On` and wait up to 120s.
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "On"}`.
+3. Validate the status is `204` with an empty body.
+4. Validate the CPU is still running immediately after.
+
+**#19 `test_reset_on_when_in_reset`**
+
+1. Ensure the switch host CPU is held in reset (`SWITCH-HOST` oper status `Offline`); if running, send `ResetType=GracefulShutdown` and wait up to 120s.
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "On"}`.
+3. Validate the status is `204` with an empty body.
+4. Validate the CPU comes out of reset within 120s (polled every 5s).
+
+**#20 `test_reset_graceful_shutdown`**
+
+1. Ensure the switch host CPU is running (send `ResetType=On` and wait up to 120s if not).
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "GracefulShutdown"}`.
+3. Validate the status is `204` with an empty body.
+4. Validate the CPU is held in reset within 120s (polled every 5s).
+5. Restore the CPU to running with `ResetType=On` and validate it comes up within 120s.
+
+**#21 `test_reset_force_off`**
+
+1. Ensure the switch host CPU is running and record the STATE_DB `RACK_MANAGER_COMMAND|*` keys.
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "ForceOff"}` and validate `204` with an empty body.
+3. Validate a new `RACK_MANAGER_COMMAND|*` row appears within 30s, exactly one new row exists, and its `command` field is `POWER_OFF`.
+4. Validate the CPU is held in reset within 120s.
+5. Restore the CPU to running with `ResetType=On` and validate it comes up within 120s.
+
+**#22 `test_reset_power_cycle`**
+
+1. Ensure the switch host CPU is running, resolve the switch host over SSH (retrying up to 300s), and read its `/proc/sys/kernel/random/boot_id`.
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "PowerCycle"}`.
+3. Validate the status is `204` with an empty body.
+4. Validate the switch host becomes reachable again with a different `boot_id` within 600s (polled every 10s).
+
+**#23 `test_reset_invalid_type`**
+
+1. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "InvalidType"}`.
+2. Validate the status is `400` with `MessageId` ending in `.ActionParameterUnknown` and `MessageArgs` `["Reset", "InvalidType"]`.
+
 ---
 
 ## Section 6: Rack Manager Alert
@@ -300,6 +466,45 @@ bmcweb validates auth, manager id, the 64 KiB body cap, JSON and the `redfish*` 
 | 26 | `test_submit_alert_clear_overwrites_critical`    | P0       | A later Normal alert overwrites the Critical on the same keys with `NORMAL` and a later timestamp   |
 | 27 | `test_submit_alert_minor_only`                   | P1       | A single Minor measurement writes only that sensor's record                                         |
 | 28 | `test_submit_alert_rejects_bad_requests` [6]     | P1       | Empty body 400 `MalformedJSON`; missing or wrong-case envelope 400 `PropertyMissing`; unknown manager 404; body over 64 KiB 400 `PayloadTooLarge`; GET 405; nothing written |
+
+**Steps**
+
+**#24 `test_submit_alert_persists_to_state_db`**
+
+1. Resolve the `#SONiC.SubmitAlert` target from `GET /redfish/v1/Managers/bmc` (`Oem.SONiC.RackManager.Actions`), skip if absent; skip unless `LEAK_CONTROL_POLICY` has `rack_mgr_leak_policy=disabled` or `rack_mgr_critical_alert_action=syslog_only` (defaults: enabled, syslog_only); snapshot and clear all `RACK_MANAGER_ALERT|*` keys in STATE_DB.
+2. Send `POST .../SONiC.SubmitAlert` with the flat form `redfish_alert_data`: `Alerts` {`InletTemperature` 18, `FlowRate` 58, `Severity` Minor}, `LiquidPressureDeviation` {`LiquidPressure` 68, `Severity` Major}, `LeakDetected` {`Severity` Critical}.
+3. Validate HTTP 204 with an empty body.
+4. Validate within 20s that STATE_DB has `RACK_MANAGER_ALERT|Inlet_liquid_temperature` and `|Inlet_liquid_flow_rate` with `severity=MINOR`, `|Inlet_liquid_pressure` with `severity=MAJOR`, and `|Rack_level_leak` with `leak=CRITICAL`, each holding exactly those fields plus a `timestamp` in `%Y-%m-%dT%H:%M:%S.%fZ` format.
+5. Validate no other `RACK_MANAGER_ALERT|*` key was written; restore the snapshotted table on teardown.
+
+**#25 `test_submit_alert_wrapped_form_inherits_severity`**
+
+1. Resolve the `SubmitAlert` target, require the CRITICAL-safe policy and start from an empty `RACK_MANAGER_ALERT` table (as in #24).
+2. Send `POST .../SONiC.SubmitAlert` with `redfish_alert_data.ShutdownAlert` {`Severity` Major, `FlowRateDeviation` {`FlowRate` 58}, `TempDeviation` {`InletTemperature` 17}, `LiquidPressureDeviation` {`LiquidPressure` 68}, `LeakDetected` {`Severity` Critical}}.
+3. Validate HTTP 204 with an empty body.
+4. Validate within 20s that temperature, flow rate and pressure records have `severity=MAJOR` (inherited from the wrapper) and `Rack_level_leak` has `leak=CRITICAL`, each with exactly those fields plus a well-formed `timestamp`, and no other `RACK_MANAGER_ALERT|*` key exists.
+
+**#26 `test_submit_alert_clear_overwrites_critical`**
+
+1. Resolve the `SubmitAlert` target, require the CRITICAL-safe policy and start from an empty `RACK_MANAGER_ALERT` table.
+2. Send `POST .../SONiC.SubmitAlert` with the flat payload from #24; validate HTTP 204 and the same four records (MINOR, MINOR, MAJOR, leak CRITICAL).
+3. Send `POST .../SONiC.SubmitAlert` with the cleared payload: `Alerts` {`InletTemperature` 20, `FlowRate` 60, `Severity` Normal}, `LiquidPressureDeviation` {`LiquidPressure` 70, `Severity` Normal}, `LeakDetected` {`Severity` Normal}; validate HTTP 204 with an empty body.
+4. Validate within 20s that every one of the four keys has a `timestamp` lexically later than after the first POST.
+5. Validate the same keys now hold `severity=NORMAL` (three measurements) and `leak=NORMAL`, with exact field sets and no stray keys.
+
+**#27 `test_submit_alert_minor_only`**
+
+1. Resolve the `SubmitAlert` target and start from an empty `RACK_MANAGER_ALERT` table (no policy gate, nothing CRITICAL is sent).
+2. Send `POST .../SONiC.SubmitAlert` with `redfish_alert_data.FlowRateDeviation` {`FlowRate` 40, `Severity` Minor}.
+3. Validate HTTP 204 with an empty body.
+4. Validate within 20s that only `RACK_MANAGER_ALERT|Inlet_liquid_flow_rate` exists, holding exactly `severity=MINOR` and a well-formed `timestamp`.
+
+**#28 `test_submit_alert_rejects_bad_requests`**
+
+1. Resolve the `SubmitAlert` target and start from an empty `RACK_MANAGER_ALERT` table.
+2. Send one request per case: empty body with `Content-Type: application/json` (400 `MalformedJSON`); `{"Alarms": {...}}` with no `redfish*` envelope (400 `PropertyMissing`, args `["redfish"]`, on `redfish@Message.ExtendedInfo`); `Redfish_alert_data` with wrong case (400 `PropertyMissing`, args `["redfish"]`); POST to `/Managers/notbmc/...` (404 `ResourceNotFound`, args `["Manager", "notbmc"]`); body with a 64 KiB padding string (400 `PayloadTooLarge`); `GET` on the target (405).
+3. Validate the status code and, for all but the GET case, a Redfish error whose `@Message.ExtendedInfo` holds a `MessageId` ending in the expected message (and matching `MessageArgs` where given).
+4. Validate after a 3s settle that no `RACK_MANAGER_ALERT|*` key exists.
 
 ---
 
@@ -317,6 +522,55 @@ Telemetry is persisted to `RACK_MANAGER_DATA|<sensor>` and consumed by nothing o
 | 32 | `test_submit_telemetry_payload_shapes` [7]       | P1       | `*Alarms*` envelope matching, severity inheritance, default and case normalisation, unknown fields dropped, multiple envelopes merged |
 | 33 | `test_submit_telemetry_rejects_bad_requests` [5] | P1       | Empty body 400 `MalformedJSON`; missing envelope 400 `PropertyMissing`; unknown manager 404; body over 64 KiB 400 `PayloadTooLarge`; GET 405; table stays empty |
 | 34 | `test_submit_telemetry_bridge_unavailable`       | P1       | With sonic-dbus-bridge stopped the POST gets no 2xx (503, or 500/401) and persists nothing; the next POST after restart succeeds |
+
+**Steps**
+
+**#29 `test_manager_advertises_telemetry_action`**
+
+1. Send `GET /redfish/v1/Managers/bmc` and validate HTTP 200.
+2. Validate `Oem.SONiC.RackManager` is present with `@odata.id` `/redfish/v1/Managers/bmc/Oem/SONiC/RackManager` and `@odata.type` `#SonicManager.v1_0_0.RackManager`.
+3. Validate its `Actions` advertise `#SONiC.SubmitTelemetry` and `#SONiC.SubmitAlert` with targets `.../RackManager/Actions/SONiC.SubmitTelemetry` and `.../RackManager/Actions/SONiC.SubmitAlert`.
+4. Send `GET /redfish/v1/Managers/bmc/Oem/SONiC/RackManager` and validate HTTP 200, the same `@odata.id` and `@odata.type`, `Id` `RackManager`, `Name` `SONiC Rack Manager Interface`, a non-empty `Description`, and `Actions.#SONiC.SubmitTelemetry.target` equal to the telemetry target.
+
+**#30 `test_submit_telemetry_persists_to_state_db`**
+
+1. Resolve the `#SONiC.SubmitTelemetry` target from `GET /redfish/v1/Managers/bmc` (skip if absent); snapshot and clear all `RACK_MANAGER_DATA|*` keys in STATE_DB.
+2. Send `POST .../SONiC.SubmitTelemetry` with `Alarms`: `InletTempDeviation` {`InletTemperature` 16.87, `Severity` Normal}, `FlowRateDeviation` {`FlowRate` 28, `Severity` Normal}, `LiquidPressureDeviation` {`LiquidPressure` 2, `Severity` Critical}, `LeakDetected` {`Severity` Critical}.
+3. Validate HTTP 204 with an empty body.
+4. Validate within 20s: `RACK_MANAGER_DATA|Inlet_liquid_temperature` {`InletTemperature` 16.87, `unit` C, `severity` NORMAL}; `|Inlet_liquid_flow_rate` {`value` 28, `unit` gallons_per_min, `severity` NORMAL}; `|Inlet_liquid_pressure` {`value` 2, `unit` psi, `severity` CRITICAL}; `|Rack_level_leak` {`leak` CRITICAL}; numbers compared as floats, each with exactly those fields plus a `%Y-%m-%dT%H:%M:%S.%fZ` `timestamp`.
+5. Validate no other `RACK_MANAGER_DATA|*` key was written; restore the snapshotted table on teardown.
+
+**#31 `test_submit_telemetry_updates_existing_record`**
+
+1. Resolve the `SubmitTelemetry` target and start from an empty `RACK_MANAGER_DATA` table.
+2. Send `POST .../SONiC.SubmitTelemetry` with the reference payload from #30; validate HTTP 204 and the four records from #30.
+3. Send `POST .../SONiC.SubmitTelemetry` with an all-Normal sample (`InletTemperature` 18.5, `FlowRate` 30, `LiquidPressure` 5.25, `LeakDetected` Normal); validate HTTP 204 with an empty body.
+4. Validate within 20s that all four keys have a `timestamp` lexically later than after the first POST.
+5. Validate the records now hold the new values (18.5 C, 30 gallons_per_min, 5.25 psi) with `severity=NORMAL` and `leak=NORMAL`, exact field sets and no stray keys.
+
+**#32 `test_submit_telemetry_payload_shapes`**
+
+1. Resolve the `SubmitTelemetry` target and start from an empty `RACK_MANAGER_DATA` table.
+2. Send `POST .../SONiC.SubmitTelemetry` per case: `alternate_envelope_name` (`SystemAlarms` envelope, flow 31 Minor); `wrapper_severity_inherited` (`Alarms.ShutdownAlert` Major with temp 40, pressure 90, leak Critical); `missing_severity_defaults_normal` (flow 27, no Severity); `severity_case_normalised` (pressure 1, `critical`); `unknown_fields_dropped` (`EnergyValveActive`, `PumpSpeedDeviation`, `RscmPosition` alongside temp 21 Normal); `multiple_envelopes_merged` (`Alarms` temp 19 Normal plus `RackAlarms` flow 33 Minor); `unrecognised_only_persists_nothing` (only `PumpSpeedDeviation`).
+3. Validate HTTP 204 with an empty body for every case.
+4. Validate within 20s the expected records with exact fields plus `timestamp` and no stray keys: flow MINOR; temp and pressure MAJOR plus leak CRITICAL; flow NORMAL; pressure CRITICAL; temp only, NORMAL; temp NORMAL plus flow MINOR.
+5. For `unrecognised_only_persists_nothing`, validate after a 3s settle that `RACK_MANAGER_DATA` stays empty.
+
+**#33 `test_submit_telemetry_rejects_bad_requests`**
+
+1. Resolve the `SubmitTelemetry` target and start from an empty `RACK_MANAGER_DATA` table.
+2. Send one request per case: empty body with `Content-Type: application/json` (400 `MalformedJSON`); `{"NotPresent": {}}` with no `*Alarms*` envelope (400 `PropertyMissing`, args `["Alarms"]`, on `Alarms@Message.ExtendedInfo`); reference payload to `/Managers/notbmc/...` (404 `ResourceNotFound`, args `["Manager", "notbmc"]`); `Alarms` with a 64 KiB padding string (400 `PayloadTooLarge`); `GET` on the target (405).
+3. Validate the status code and, for all but the GET case, a Redfish error carrying a `MessageId` ending in the expected message (and matching `MessageArgs` where given).
+4. Validate after a 3s settle that no `RACK_MANAGER_DATA|*` key exists.
+
+**#34 `test_submit_telemetry_bridge_unavailable`**
+
+1. Resolve the `SubmitTelemetry` target and start from an empty `RACK_MANAGER_DATA` table.
+2. Stop the bridge with `docker exec redfish supervisorctl stop sonic-dbus-bridge` and validate it reaches `STOPPED` within 30s.
+3. Send `POST .../SONiC.SubmitTelemetry` with the reference payload; validate bmcweb answers (no connection error or client timeout) with HTTP 401, 500 or 503, and after a 3s settle `RACK_MANAGER_DATA` is still empty.
+4. Start `sonic-dbus-bridge` again (also in a `finally`) and validate it reaches `RUNNING` within 30s.
+5. Repeat the reference POST every 2s until it returns 204, within 60s.
+6. Validate the four records from #30 are persisted with exact fields and no stray keys.
 
 ---
 
@@ -341,6 +595,96 @@ The test plays the rack manager: it subscribes with the PTF webhook URL, raises 
 | 45 | `test_host_power_events_delivered`                   | P0       | Real `GracefulShutdown` then `On` deliver `ResourcePoweringOff`, `ResourcePoweredOff`, `ResourcePoweringOn`, `ResourcePoweredOn` in order with increasing Ids **(changes host power)** |
 | 46 | `test_host_power_off_event_drives_power_on_request`  | P0       | After a real `ForceOff` the subscriber receives `ResourcePoweredOff`, answers `ResetType=On`, one `POWER_ON` row completes DONE/SUCCESS, the host settles on and `ResourcePoweredOn` arrives **(changes host power)** |
 
+**Steps**
+
+**#35 `test_event_service_advertised`**
+
+1. Send `GET /redfish/v1/EventService` and validate HTTP 200.
+2. Validate `@odata.id` is `/redfish/v1/EventService`, `ServiceEnabled` is `true` and `Status.State` is `Enabled`.
+3. Validate `Subscriptions.@odata.id` is `/redfish/v1/EventService/Subscriptions`.
+4. Validate `RegistryPrefixes` includes `Base` and `OpenBMC`.
+
+**#36 `test_event_service_advertises_rack_manager_filters`**
+
+1. Send `GET /redfish/v1/EventService` and validate HTTP 200.
+2. Validate `RegistryPrefixes` includes `Environmental` and `ResourceEvent`.
+3. Validate `ResourceTypes` includes `LeakDetector` and `ComputerSystem`.
+
+**#37 `test_subscription_lifecycle`**
+
+1. Start the webhook listener (`redfish_event_listener.py`) on the PTF at port 18081 and confirm a probe POST from inside the `redfish` container gets 204; delete all existing subscriptions.
+2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `http://<ptf>:18081/lifecycle`, `Protocol` `Redfish`, `Context` `ctx-lifecycle`; validate HTTP 201 and a `Location` under `.../Subscriptions/`.
+3. Send `GET <Location>` and validate HTTP 200 with `@odata.id`, `Id`, `Destination` and `Context` echoed, `Protocol` `Redfish`, `SubscriptionType` `RedfishEvent`, `EventFormatType` `Event`, empty `RegistryPrefixes` and `MessageIds`, and the id listed in the collection.
+4. Send `DELETE <Location>` and validate HTTP 200 or 204.
+5. Validate a follow-up `GET <Location>` returns 404 and the id is no longer listed in the collection.
+
+**#38 `test_subscription_rejects_bad_requests`**
+
+1. Start the PTF webhook listener and delete all existing subscriptions.
+2. Send `POST /redfish/v1/EventService/Subscriptions` per case: no `Destination` (`PropertyMissing`); `Protocol` `Kafka` (`PropertyValueNotInList`); `Destination` `not a url` (`PropertyValueFormatError`); `Destination` with userinfo `http://rmc:secret@10.0.0.1/` (`PropertyValueFormatError`); `RegistryPrefixes` `["NoSuchRegistry"]` (`PropertyValueNotInList`); `RegistryPrefixes` `["OpenBMC"]` plus `MessageIds` `["PowerSupplyFailed"]` (`PropertyValueConflict`); `DeliveryRetryPolicy` `Never` (`PropertyValueNotInList`).
+3. Validate HTTP 400 with an `@Message.ExtendedInfo` `MessageId` ending in the expected message.
+4. Validate the Subscriptions collection is still empty.
+
+**#39 `test_leak_event_delivered`**
+
+1. Require `EventService` to list the `Environmental` registry and `LeakDetector` resource type; seed STATE_DB `LIQUID_COOLING_INFO|rmc_test_leak` (`leaking`/`leak_status` No, `leak_severity` None, `leak_sensor_status` Good, `type` leak), restart `sonic-dbus-bridge` and wait for the D-Bus `LeakDetector` `DetectorState` to read OK; start the PTF webhook listener with no subscriptions.
+2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `.../events`, `Protocol` `Redfish`, `Context` `ctx-events`; validate HTTP 201.
+3. Set the sensor row to Critical (`leaking`/`leak_status` Yes, `leak_severity` CRITICAL) and validate within 30s one POST at the listener with `@odata.type` `#Event.v1_4_0.Event`, numeric `Id` and exactly one event: `MessageId` `Environmental.1.1.0.LeakDetectedCritical`, `Severity` Critical, `Message` "Leak detector 'rmc_test_leak' reports a critical level leak.", `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, `OriginOfCondition` `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/rmc_test_leak`, non-empty `EventTimestamp`, numeric `EventId`.
+4. Set the sensor row back to OK and validate exactly two deliveries in total, the second carrying `Environmental.1.1.0.LeakDetectedNormal` with `Severity` OK and "has returned to normal." message, and a payload `Id` greater than the first.
+
+**#40 `test_leak_warning_event_delivered`**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK, the PTF webhook listener and no existing subscriptions (as in #39).
+2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `.../warning`, `Context` `ctx-warning`; validate HTTP 201.
+3. Set the sensor row to Warning (`leaking`/`leak_status` Yes, `leak_severity` MINOR).
+4. Validate within 30s a delivered `#Event.v1_4_0.Event` whose first event has `MessageId` `Environmental.1.1.0.LeakDetectedWarning`, `Severity` Warning, the "reports a warning level leak." message, `MessageArgs` `["rmc_test_leak"]`, `MemberId` 0, the LeakDetector `OriginOfCondition`, and non-empty timestamp and numeric `EventId`.
+
+**#41 `test_resource_type_filter`**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK, the PTF webhook listener and no existing subscriptions.
+2. Create four subscriptions (each 201): `.../all` unfiltered, `.../leak` with `ResourceTypes` `["LeakDetector"]`, `.../task` with `ResourceTypes` `["Task"]`, `.../base` with `RegistryPrefixes` `["Base"]`.
+3. Set the sensor row to Critical.
+4. Validate within 30s that `all` and `leak` each receive a delivery whose first event is the full `LeakDetectedCritical` record (as in #39).
+5. Wait 8s and validate `task` and `base` received no deliveries.
+
+**#42 `test_subscription_persists_across_bmcweb_restart`**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK, the PTF webhook listener and no existing subscriptions.
+2. Send `POST /redfish/v1/EventService/Subscriptions` with `Destination` `.../persist`, `Context` `ctx-persist`; validate HTTP 201.
+3. Restart bmcweb with `docker exec redfish supervisorctl restart bmcweb` and wait up to 90s for `RUNNING` and `GET /redfish/v1` returning 200.
+4. Validate the subscription id is still listed and `GET <Location>` returns the same `Destination` and `Context`.
+5. Set the sensor row to Critical and validate within 30s a delivery at `.../persist` carrying the full `LeakDetectedCritical` event.
+
+**#43 `test_leak_detector_resource_tracks_state`**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK (DetectorState OK on D-Bus).
+2. Send `GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors` and validate HTTP 200 with `.../LeakDetectors/rmc_test_leak` among `Members`.
+3. Set the sensor row to Critical and validate within 30s that `GET .../LeakDetectors/rmc_test_leak` reports `DetectorState` Critical and `Status.Health` Critical, with `@odata.id` the detector URI and `Id` `rmc_test_leak`.
+4. Set the sensor row back to OK and validate within 30s `DetectorState` OK and `Status.Health` OK, with the same `@odata.id` and `Id`.
+
+**#44 `test_leak_detector_resource_shape`**
+
+1. Use the seeded `rmc_test_leak` sensor reset to OK.
+2. For both `/redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/rmc_test_leak` and `/redfish/v1/Chassis/chassis/LeakDetectors/rmc_test_leak`, send `GET` on the parent collection and validate HTTP 200 with the member listed.
+3. Send `GET` on each member and validate HTTP 200 with `@odata.id` equal to that URI, `@odata.type` containing `#LeakDetector.`, `Id` `rmc_test_leak`, `Name` `Leak Detector rmc_test_leak`, non-empty `LeakDetectorType`, `DetectorState` OK, and `Status` `State` Enabled with `Health` OK.
+
+**#45 `test_host_power_events_delivered`**
+
+1. Require STATE_DB `HOST_STATE|switch-host` to show the host settled on (`device_power_state` POWERED_ON or POWER_CYCLE with `device_status` ONLINE); start the PTF webhook listener with no subscriptions.
+2. Create two subscriptions (each 201): `.../power` with `ResourceTypes` `["ComputerSystem"]` and `.../leak-only` with `ResourceTypes` `["LeakDetector"]`.
+3. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `GracefulShutdown`, validate 204, and wait up to 240s for `ResourceEvent.1.3.0.ResourcePoweredOff` at `.../power`.
+4. Send `ComputerSystem.Reset` with `ResetType` `On`, validate 204, wait up to 120s for `ResourcePoweredOn`, and validate `HOST_STATE|switch-host` settles on within 120s.
+5. Validate the delivered MessageIds, with consecutive repeats collapsed, are exactly `ResourcePoweringOff`, `ResourcePoweredOff`, `ResourcePoweringOn`, `ResourcePoweredOn`; each delivery is a `#Event.v1_4_0.Event` with one event having `Severity` OK, the matching "The resource `system` is ..." message, `MessageArgs` `["system"]`, `MemberId` 0, `OriginOfCondition` `/redfish/v1/Systems/system` and a non-empty `EventTimestamp`; payload `Id`s strictly increase.
+6. Wait 8s and validate `.../leak-only` received nothing; teardown powers the host back on with `ResetType` `On` if it is not settled on.
+
+**#46 `test_host_power_off_event_drives_power_on_request`**
+
+1. Require `HOST_STATE|switch-host` settled on; start the PTF webhook listener with no subscriptions; subscribe `.../rm` with `ResourceTypes` `["ComputerSystem"]` (201).
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `ResetType` `ForceOff`, validate 204, and validate within 240s a delivered `ResourceEvent.1.3.0.ResourcePoweredOff` event (Severity OK, `MessageArgs` `["system"]`, `OriginOfCondition` `/redfish/v1/Systems/system`).
+3. Record existing STATE_DB `RACK_MANAGER_COMMAND|*` keys, then send `ComputerSystem.Reset` with `ResetType` `On` and validate 204.
+4. Validate exactly one new `RACK_MANAGER_COMMAND|*` row appears within 30s and bmcctld completes it within 60s with `command=POWER_ON`, `status=DONE`, `result=SUCCESS`.
+5. Validate `HOST_STATE|switch-host` settles on within 120s and the subscriber receives a well-formed `ResourceEvent.1.3.0.ResourcePoweredOn` event within 120s.
+
 ---
 
 ## Section 9: Redfish to pmon (bmcctld) Interaction
@@ -356,6 +700,40 @@ bmcweb never touches the switch host itself: a reset becomes a `RACK_MANAGER_COM
 | 49 | `test_critical_alert_blocks_power_on_command` | P1     | A CRITICAL LeakDetected alert makes bmcctld fail `POWER_ON` with `result=CRITICAL_LEAK_PRESENT`; after a Normal alert the next `On` is DONE/SUCCESS |
 | 50 | `test_bmcctld_restart_resyncs_host_state`   | P1       | `supervisorctl restart bmcctld` yields a new pid, refreshed `HOST_STATE`, no command row of its own, and a later `On` still DONE/SUCCESS |
 
+**Steps**
+
+**#47 `test_reset_command_consumed_by_bmcctld`**
+
+1. Require STATE_DB `HOST_STATE|switch-host` to show the host settled on (`device_power_state` in `POWERED_ON`/`POWER_CYCLE` and `device_status` `ONLINE`) and `bmcctld` RUNNING in the `pmon` container, else skip; snapshot the existing `RACK_MANAGER_COMMAND|*` keys.
+2. Send `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` with `{"ResetType": "On"}` and validate HTTP 204 with an empty body.
+3. Validate exactly one new `RACK_MANAGER_COMMAND` row appears within 30s and carries `command=POWER_ON`.
+4. Validate `bmcctld` moves the row to a terminal status within 60s, ending `command=POWER_ON`, `status=DONE`, `result=SUCCESS` with a non-empty `last_change_timestamp`.
+5. Wait 5s and validate the row is still present and unchanged, and `HOST_STATE|switch-host` `device_power_state` still equals its pre-reset value.
+
+**#48 `test_power_state_consistent_across_layers`**
+
+1. Require `bmcctld` RUNNING in the `pmon` container, else skip.
+2. Read STATE_DB `HOST_STATE|switch-host` and `CHASSIS_MODULE_TABLE|SWITCH-HOST`.
+3. Validate `device_power_state` is a settled value: `POWERED_ON`, `POWER_CYCLE`, `POWERED_OFF` or `GRACEFUL_SHUTDOWN` (a transitional value fails).
+4. Validate `HOST_STATE` `device_status` and `CHASSIS_MODULE_TABLE` `oper_status` both equal the status mapped from it (`ONLINE` for `POWERED_ON`/`POWER_CYCLE`, `OFFLINE` for `POWERED_OFF`/`GRACEFUL_SHUTDOWN`).
+
+**#49 `test_critical_alert_blocks_power_on_command`**
+
+1. Require the host settled on and `bmcctld` RUNNING; resolve the `#SONiC.SubmitAlert` target from `GET /redfish/v1/Managers/bmc` (`Oem.SONiC.RackManager.Actions`); skip unless CONFIG_DB `LEAK_CONTROL_POLICY` (defaults `enabled`/`syslog_only`) has `rack_mgr_leak_policy` not `disabled` and `rack_mgr_critical_alert_action=syslog_only`; snapshot and clear all STATE_DB `RACK_MANAGER_ALERT|*` keys (restored after the test).
+2. Send `POST <SubmitAlert target>` with `{"redfish_alert_data": {"LeakDetected": {"Severity": "Critical"}}}`, validate HTTP 204 with empty body, and validate `RACK_MANAGER_ALERT|Rack_level_leak` `leak=CRITICAL` within 20s.
+3. Send `POST .../ComputerSystem.Reset` `{"ResetType": "On"}` (HTTP 204), validate one new `RACK_MANAGER_COMMAND` row within 30s and that it reaches a terminal status within 60s with `command=POWER_ON`, `status=FAILED`, `result=CRITICAL_LEAK_PRESENT` and a `last_change_timestamp`.
+4. Validate `HOST_STATE|switch-host` `device_power_state` is unchanged while the alert is active.
+5. Send the SubmitAlert POST with `Severity` `Normal` (HTTP 204) and validate `leak=NORMAL` within 20s.
+6. Send another `ResetType=On` and validate its new row ends `command=POWER_ON`, `status=DONE`, `result=SUCCESS` with a `last_change_timestamp`.
+
+**#50 `test_bmcctld_restart_resyncs_host_state`**
+
+1. Require the host settled on and `bmcctld` RUNNING; record the `bmcctld` pid, the `RACK_MANAGER_COMMAND|*` keys and `HOST_STATE|switch-host`.
+2. Run `docker exec pmon supervisorctl restart bmcctld` and validate `bmcctld` is RUNNING with a new pid within 120s.
+3. Validate `HOST_STATE|switch-host` `last_change_timestamp` becomes newer than before within 120s, and then reads `device_power_state=POWERED_ON` and `device_status=ONLINE`.
+4. Validate no new `RACK_MANAGER_COMMAND` row was created by the restart.
+5. Send `POST .../ComputerSystem.Reset` `{"ResetType": "On"}` (HTTP 204) and validate its single new row ends `command=POWER_ON`, `status=DONE`, `result=SUCCESS` with a `last_change_timestamp`.
+
 ---
 
 ## Section 10: Concurrency
@@ -367,6 +745,32 @@ Module: `test_redfish_concurrency.py` — inventory GETs, `ComputerSystem.Reset`
 | 51 | `test_reset_concurrent_with_inventory_poll`     | P1       | `On` requests during parallel inventory polls: every poll 200 with unchanged members, every reset becomes a command row, `HOST_STATE` unchanged, nothing restarts |
 | 52 | `test_duplicate_subscription_create_and_delete` | P1       | The same body POSTed concurrently answers 201 with distinct ids; concurrent DELETEs answer 2xx or 404, never 5xx; collection ends empty |
 | 53 | `test_interleaved_create_delete_churn`          | P1       | Callers repeatedly create, read and delete their own subscription at once; no step fails and the collection ends empty |
+
+**Steps**
+
+**#51 `test_reset_concurrent_with_inventory_poll`**
+
+1. Skip unless STATE_DB `HOST_STATE|switch-host` shows the host settled on; record supervisord pids in the `redfish` container (requiring `bmcweb` and `sonic-dbus-bridge` RUNNING), the existing `RACK_MANAGER_COMMAND|*` keys, and the member lists of `/redfish/v1/Chassis`, `/redfish/v1/Managers` and `/redfish/v1/UpdateService/FirmwareInventory` (each HTTP 200).
+2. Start 4 poller threads looping `GET` over those collections and every member, and one thread sending 5 `POST .../ComputerSystem.Reset` `{"ResetType": "On"}` 1s apart, stopping the pollers 5s after the last reset.
+3. Validate all 5 resets returned HTTP 204, every poll returned HTTP 200, and no collection's member list differed from the baseline.
+4. Validate D-Bus `/xyz/openbmc_project/state/host0` `RequestedHostTransition` reads `xyz.openbmc_project.State.Host.Transition.On`.
+5. Validate exactly 5 new `RACK_MANAGER_COMMAND` rows appear in STATE_DB within 30s.
+6. Validate `HOST_STATE` shows the host settled on again within 30s with `device_power_state` unchanged, and the `redfish` container supervisord pids are unchanged.
+
+**#52 `test_duplicate_subscription_create_and_delete`**
+
+1. Delete all existing subscriptions (and again after the test); record the `redfish` container supervisord pids, requiring `bmcweb` and `sonic-dbus-bridge` RUNNING.
+2. Send 8 concurrent `POST /redfish/v1/EventService/Subscriptions` with the same body (`Destination` `http://192.0.2.1:80/concurrency`, `Protocol` `Redfish`, `Context` `concurrency-duplicate`) and validate every response is HTTP 201 with a distinct id in `Location`.
+3. Validate `GET /redfish/v1/EventService/Subscriptions` lists exactly those 8 ids, and `GET` on each `Location` returns HTTP 200 with the same `Destination`.
+4. Send 3 concurrent `DELETE` requests per id (24 in total) and validate every response is 200, 204 or 404.
+5. Validate the subscription collection is empty and the supervisord pids are unchanged.
+
+**#53 `test_interleaved_create_delete_churn`**
+
+1. Delete all existing subscriptions (and again after the test); record the `redfish` container supervisord pids, requiring `bmcweb` and `sonic-dbus-bridge` RUNNING.
+2. Start 4 worker threads, each running 5 cycles of `POST /redfish/v1/EventService/Subscriptions` with a unique `Context` (`churn-<worker>-<iteration>`), `GET` on the returned `Location`, then `DELETE` of it.
+3. Validate every `POST` returned 201, every `GET` returned 200 with the worker's own `Context`, and every `DELETE` returned 200 or 204.
+4. Validate the subscription collection is empty and the supervisord pids are unchanged.
 
 ---
 
@@ -380,6 +784,24 @@ bmcweb owns no inventory; everything is assembled per request from the bridge's 
 | :- | :------------------------------------------------- | :------- | :--------------------------------------------------------------------------------------------------------- |
 | 54 | `test_bridge_restart_rediscovered_by_running_bmcweb` | P1     | After a bridge restart bmcweb (same supervisord pid) serves the same inventory and ObjectMapper tree        |
 | 55 | `test_redfish_container_restart`                   | P1       | After `systemctl restart redfish` mTLS is still enforced, inventory is identical and a pre-existing subscription persists |
+
+**Steps**
+
+**#54 `test_bridge_restart_rediscovered_by_running_bmcweb`**
+
+1. Snapshot the Redfish inventory (`/redfish/v1/Chassis`, `/redfish/v1/Managers`, `/redfish/v1/UpdateService/FirmwareInventory`, each member's identity and state fields, and any chassis `LeakDetectors` collection) and validate every GET is HTTP 200 and Chassis has members.
+2. Snapshot the ObjectMapper `GetSubTreePaths` per bridge interface and validate it answers and lists objects for `Inventory.Item.Chassis` and `State.Host`; record the `bmcweb` pid.
+3. Run `supervisorctl restart sonic-dbus-bridge` in the `redfish` container and validate it is RUNNING again within 60s.
+4. Validate within 90s the ObjectMapper tree and then the Redfish inventory snapshot match the baselines exactly, with every GET answering 200.
+5. Validate ObjectMapper `GetObject` for `/xyz/openbmc_project/state/host0` names `xyz.openbmc_project.State.Host`, and the `bmcweb` pid is unchanged.
+
+**#55 `test_redfish_container_restart`**
+
+1. Take the Redfish inventory and ObjectMapper baselines as in #54.
+2. Send `POST /redfish/v1/EventService/Subscriptions` (`Destination` `http://192.0.2.1:80/restart-recovery`, `Context` `restart-recovery`) and validate HTTP 201 with a `Location` under the collection.
+3. Run `sudo systemctl restart redfish` and validate the service is fully started within 180s, then that `bmcweb` is RUNNING and `GET /redfish/v1` with the client certificate returns HTTP 200 within 180s.
+4. Validate within 90s the ObjectMapper tree and the Redfish inventory snapshot match the baselines.
+5. Send `GET <Location>` and validate HTTP 200 with the original `Destination` and `Context`; the subscription is deleted afterwards.
 
 ---
 
@@ -403,6 +825,58 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 61 | `test_every_failure_reports_a_reason`                 | P1       | Missing files, an unparseable certificate and a mismatched pair each report `in_sync` `false` with a non-empty `last_error` |
 | 62 | `test_last_update_shows_whether_the_watcher_is_alive` | P1       | `last_update` advances while the watcher runs and stops when it stops                         |
 
+**Steps**
+
+**#56 `test_delivered_certs_are_staged`**
+
+1. Provision through the session `bmc_tls_certs` fixture: set CONFIG_DB `REDFISH|certs` `server_crt`/`server_key`/`ca_crt` to `/etc/sonic/credentials/restapiserver.crt`, `restapiserver.key`, `restapica.crt`, set `client_crt_cname=bmcweb` with a `sonic-dbus-bridge` restart, deliver the generated CA, server certificate and key to those paths, and wait up to 150s for STATE_DB `REDFISH_CERT_STATUS|global` `in_sync=true`.
+2. Validate `/etc/ssl/certs/https/server.pem` inside the `redfish` container holds 2 PEM blocks (certificate and key).
+3. Validate the staged certificate serial equals the delivered server certificate serial and its issuer differs from its subject (not self-signed).
+4. Validate the hash symlink `/etc/ssl/certs/authority/<hash>.0` exists for the staged `CA-cert.pem`.
+5. Validate `supervisorctl status bmcweb` reports RUNNING.
+
+**#57 `test_provisioned_state_is_recorded`**
+
+1. Provision through `bmc_tls_certs` as in #56.
+2. Validate `/var/lib/bmcweb/provisioned` on the host exists and contains `provisioned_at=` and `Do not delete`.
+3. Validate `/var/lib/bmcweb/.staged-credentials.stamp` exists and is non-empty.
+
+**#58 `test_status_is_published`**
+
+1. Provision through `bmc_tls_certs` as in #56.
+2. Validate STATE_DB `REDFISH_CERT_STATUS|global` has `in_sync=true`, `mtls_enforced=true` and an empty `last_error`.
+3. Validate `source_fingerprint` equals `applied_fingerprint` and `served_serial` is non-empty.
+
+**#59 `test_rotation_is_picked_up`**
+
+1. Record the staged server certificate serial and `applied_fingerprint`.
+2. Issue a new server certificate and key from the same CA and deliver the full trio to the configured paths.
+3. Validate within 150s `in_sync=true` with `applied_fingerprint` changed from the recorded value.
+4. Validate the staged serial changed, the certificate bmcweb presents in a live TLS handshake has the new certificate's serial, and STATE_DB `served_serial` equals the staged serial.
+5. Send `GET /redfish/v1` with the existing client certificate and validate HTTP 200.
+
+**#60 `test_mismatched_pair_is_not_staged`**
+
+1. Record the staged server certificate serial and the `bmcweb` pid.
+2. Issue a new server certificate and key from the same CA and deliver only the certificate to `restapiserver.crt`, then wait 90s.
+3. Validate the staged serial and `bmcweb` pid are unchanged and `in_sync=false`.
+4. Send `GET /redfish/v1` with the client certificate and validate HTTP 200.
+5. Deliver the matching key to `restapiserver.key` and validate within 150s `in_sync=true`, the staged serial changed, and the live TLS handshake presents the new certificate's serial.
+
+**#61 `test_every_failure_reports_a_reason`**
+
+1. Remove the three delivered files, wait up to 90s for a reported failure, and validate `in_sync=false` with a non-empty `last_error`.
+2. Re-deliver the good trio and validate `in_sync=true` within 150s; overwrite `restapica.crt` with non-PEM bytes, wait up to 90s, and validate `in_sync=false` with a non-empty `last_error`.
+3. Re-deliver the good trio and validate `in_sync=true` within 150s; issue a new server certificate from the same CA and deliver only it to `restapiserver.crt`, wait up to 90s, and validate `in_sync=false` with a non-empty `last_error`.
+4. After the test, restart `credentials-watcher` if needed, re-deliver the good trio and wait for `in_sync=true`.
+
+**#62 `test_last_update_shows_whether_the_watcher_is_alive`**
+
+1. Validate `in_sync=true` within 150s.
+2. Read STATE_DB `REDFISH_CERT_STATUS|global` `last_update`, wait 90s, and validate it changed.
+3. Stop `credentials-watcher` in the `redfish` container, read `last_update`, wait 90s, and validate it did not change.
+4. After the test, start `credentials-watcher` again, re-deliver the good trio and wait for `in_sync=true`.
+
 ### Client certificate authentication
 
 | \# | Test Case                                            | Priority | Verifies                                                                                      |
@@ -411,7 +885,35 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 64 | `test_cert_auth_on_authenticated_endpoint`           | P0       | `GET /redfish/v1/UpdateService` with only the client certificate answers 200; no user or password is involved |
 | 65 | `test_service_root_readable_without_a_certificate`   | P0       | `GET /redfish/v1` without a client certificate answers 200, as DSP0266 13.3.2 requires        |
 | 66 | `test_privileged_path_refused_without_a_certificate` | P0       | `GET /redfish/v1/Managers` without a client certificate answers 401 or 403                    |
-| 67 | `test_wrong_ca_rejected`                             | P1       | A certificate from an untrusted CA answers 401 or 403 on `FirmwareInventory`, while the trusted certificate is still accepted |
+| 67 | `test_wrong_ca_rejected`                             | P1       | A certificate from an untrusted CA is refused on `FirmwareInventory` (401, 403 or a failed handshake), while the trusted certificate is still accepted |
+
+**Steps**
+
+**#63 `test_valid_cert_accepted`**
+
+1. Send `GET /redfish/v1` with the client certificate issued by the provisioned CA (CN `bmcweb`), verifying the server against that CA.
+2. Validate HTTP 200.
+
+**#64 `test_cert_auth_on_authenticated_endpoint`**
+
+1. Send `GET /redfish/v1/UpdateService` with the provisioned client certificate and no username or password.
+2. Validate HTTP 200 and that the body contains `@odata.id`.
+
+**#65 `test_service_root_readable_without_a_certificate`**
+
+1. Send `GET /redfish/v1` with no client certificate, verifying the server against the provisioned CA.
+2. Validate HTTP 200 and that the body contains `@odata.id`.
+
+**#66 `test_privileged_path_refused_without_a_certificate`**
+
+1. Send `GET /redfish/v1/Managers` with no client certificate, verifying the server against the provisioned CA.
+2. Validate HTTP 401 or 403.
+
+**#67 `test_wrong_ca_rejected`**
+
+1. Generate a separate chain with CA `Untrusted CA` and a client certificate with CN `untrusted-client`.
+2. Send `GET /redfish/v1/UpdateService/FirmwareInventory` with the untrusted client certificate, verifying the server against the provisioned CA.
+3. Validate HTTP 401 or 403; if the TLS handshake is refused instead, validate `GET /redfish/v1/Managers` with the provisioned client certificate returns HTTP 200 so the refusal is not a dead listener.
 
 ### Common name validation
 
@@ -422,6 +924,43 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 70 | `test_wildcard_matches_subdomains_only`          | P1       | `*.example.com` admits names under the domain, not `example.com` itself                       |
 | 71 | `test_list_entries_are_independent`              | P1       | Any entry in a comma separated list admits a client                                           |
 | 72 | `test_service_root_stays_reachable_when_refused` | P1       | A refused client still reads the service root (200), and nothing that needs a privilege (403) |
+
+**Steps**
+
+**#68 `test_unset_list_refuses_every_common_name`**
+
+1. Remove `client_crt_cname` from CONFIG_DB `REDFISH|certs` (`hdel`), restart `sonic-dbus-bridge` via supervisorctl and validate it returns to `RUNNING`.
+2. Issue a new client certificate from the provisioned test CA with CN `anything-at-all`.
+3. Send `GET /redfish/v1/Managers` over mTLS on the session port with that certificate, verifying the server against the test CA.
+4. Validate the response is HTTP 403.
+5. After the class, restore `client_crt_cname` to `bmcweb` and restart `sonic-dbus-bridge`.
+
+**#69 `test_exact_match_is_enforced`**
+
+1. Set `client_crt_cname` = `bmcweb` in CONFIG_DB `REDFISH|certs`, restart `sonic-dbus-bridge` and validate it is `RUNNING`.
+2. Send `GET /redfish/v1/Managers` over mTLS with the session client certificate (CN `bmcweb`) and validate HTTP 200.
+3. Set `client_crt_cname` = `someone-else`, restart `sonic-dbus-bridge` and validate it is `RUNNING`.
+4. Send the same request with the same certificate and validate HTTP 403.
+
+**#70 `test_wildcard_matches_subdomains_only`**
+
+1. Set `client_crt_cname` = `*.example.com` in CONFIG_DB `REDFISH|certs`, restart `sonic-dbus-bridge` and validate it is `RUNNING`.
+2. Issue client certificates from the test CA with CNs `host.example.com`, `deep.host.example.com`, `example.com` and `example.com.evil.net`.
+3. Send `GET /redfish/v1/Managers` over mTLS with each certificate on the session port.
+4. Validate HTTP 200 for `host.example.com` and `deep.host.example.com`, and HTTP 403 for `example.com` and `example.com.evil.net`.
+
+**#71 `test_list_entries_are_independent`**
+
+1. Set `client_crt_cname` = `first,bmcweb,*.example.com` in CONFIG_DB `REDFISH|certs`, restart `sonic-dbus-bridge` and validate it is `RUNNING`.
+2. Issue client certificates from the test CA with CNs `first`, `bmcweb`, `host.example.com` and `someone-else`.
+3. Send `GET /redfish/v1/Managers` over mTLS with each certificate on the session port.
+4. Validate HTTP 200 for `first`, `bmcweb` and `host.example.com`, and HTTP 403 for `someone-else`.
+
+**#72 `test_service_root_stays_reachable_when_refused`**
+
+1. Set `client_crt_cname` = `someone-else` in CONFIG_DB `REDFISH|certs`, restart `sonic-dbus-bridge` and validate it is `RUNNING`.
+2. Send `GET /redfish/v1` over mTLS with the session client certificate (CN `bmcweb`) and validate HTTP 200.
+3. Send `GET /redfish/v1/Managers` with the same certificate and validate HTTP 403.
 
 ### Restart, fail-closed and container recreate
 
@@ -435,6 +974,65 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 78 | `test_recreate_without_certificates_fails_closed`        | P1       | Recreating the container with no delivered certificates fails closed: the marker remembers the device was provisioned |
 | 79 | `test_recreate_with_certificates_comes_back_provisioned` | P1       | Recreating the container with certificates present comes back serving them: not self-signed, marker kept, `in_sync` and `mtls_enforced` `true` |
 
+**Steps**
+
+**#73 `test_bmcweb_restart_keeps_serving`**
+
+1. Read the serial of the staged `/etc/ssl/certs/https/server.pem` inside the `redfish` container with `openssl x509 -serial`.
+2. Restart `bmcweb` with `supervisorctl restart` and validate it returns to `RUNNING` within 60s.
+3. Validate the staged certificate serial is unchanged.
+4. Validate supervisord reports `stage-credentials` as `EXITED` (the oneshot did not re-run).
+5. Send `GET /redfish/v1/Managers` over mTLS with the session client certificate and validate HTTP 200.
+
+**#74 `test_restart_with_source_removed`**
+
+1. Delete the delivered `restapiserver.crt`, `restapiserver.key` and `restapica.crt` from `/etc/sonic/credentials`, leaving the staged copies.
+2. Restart `bmcweb` with `supervisorctl restart`.
+3. Validate `bmcweb` reaches `RUNNING` within 60s.
+4. Send `GET /redfish/v1/Managers` over mTLS with the session client certificate and validate HTTP 200.
+5. After the test (`provisioned_after_test`), redeliver the certificates, recreate the `redfish` container and wait for `bmcweb` `RUNNING` and `in_sync` = `true`.
+
+**#75 `test_guard_self_heals_damaged_staged_cert`**
+
+1. Stop `credentials-watcher` and then `bmcweb` with supervisorctl.
+2. Overwrite the staged `/etc/ssl/certs/https/server.pem` inside the container with the text `not a certificate`, then record the current `/var/log/syslog` line count.
+3. Start `bmcweb` and validate it reaches `RUNNING` within 60s.
+4. Validate the staged certificate serial equals the serial of the delivered server certificate.
+5. Validate syslog logs `guard: staged certificates missing or invalid; re-staging from source` after the recorded line within 30s.
+6. Send `GET /redfish/v1/Managers` over mTLS and validate HTTP 200; `provisioned_after_test` then recreates the container, which brings the watcher back.
+
+**#76 `test_fails_closed_with_nothing_valid`**
+
+1. Delete the delivered certificates from `/etc/sonic/credentials`, stop `bmcweb`, delete the staged `server.pem` inside the container, then start `bmcweb`.
+2. Validate supervisord reports `bmcweb` as `FATAL` within 60s.
+3. Send an unverified `GET /redfish/v1` to the session port and validate the connection fails without any TLS handshake (no self-signed fallback).
+4. Validate the provisioned marker `/var/lib/bmcweb/provisioned` still exists.
+5. After the test (`provisioned_after_test`), redeliver the certificates, recreate the container and wait for `bmcweb` `RUNNING` and `in_sync` = `true`.
+
+**#77 `test_recovers_when_certificates_return`**
+
+1. Delete the delivered certificates, stop `bmcweb`, delete the staged `server.pem`, start `bmcweb`, and validate it reaches `FATAL` within 60s.
+2. Redeliver the original certificate trio to `/etc/sonic/credentials` with no other action.
+3. Validate `bmcweb` returns to `RUNNING` within 180s.
+4. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` becomes `true` within 150s.
+5. Send `GET /redfish/v1/Managers` over mTLS with the session client certificate and validate HTTP 200.
+
+**#78 `test_recreate_without_certificates_fails_closed`**
+
+1. Delete the delivered certificates from `/etc/sonic/credentials`.
+2. Recreate the container (`systemctl reset-failed`, `systemctl stop redfish`, `docker rm -f redfish`, `systemctl start redfish`).
+3. Validate supervisord reports `bmcweb` as `FATAL` within 60s.
+4. Send an unverified `GET /redfish/v1` to the session port and validate the connection fails without any TLS handshake.
+5. After the test (`provisioned_after_test`), redeliver the certificates, recreate the container and wait for `bmcweb` `RUNNING` and `in_sync` = `true`.
+
+**#79 `test_recreate_with_certificates_comes_back_provisioned`**
+
+1. Recreate the `redfish` container with the delivered certificates in place and validate `bmcweb` reaches `RUNNING` within 60s.
+2. Validate the staged `/etc/ssl/certs/https/server.pem` is not self-signed (issuer differs from subject).
+3. Validate the provisioned marker `/var/lib/bmcweb/provisioned` still exists.
+4. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` is `true` within 150s and `mtls_enforced` is `true`.
+5. Send `GET /redfish/v1/Managers` over mTLS with the session client certificate and validate HTTP 200.
+
 ### Bad input and watcher behaviour
 
 | \# | Test Case                                           | Priority | Verifies                                                                                      |
@@ -446,6 +1044,61 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 84 | `test_change_made_while_down_is_reconciled`         | P1       | A rotation delivered while the watcher is stopped is applied when it starts                   |
 | 85 | `test_unchanged_content_does_not_bounce_bmcweb`     | P1       | Re-delivering identical bytes causes no restage and no bmcweb restart                         |
 
+**Steps**
+
+**#80 `test_corrupt_server_certificate_is_not_staged`**
+
+1. Record the staged server certificate serial.
+2. Overwrite the delivered `/etc/sonic/credentials/restapiserver.crt` with the text `not a certificate` and wait 90s.
+3. Validate the staged server certificate serial is unchanged.
+4. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` is `false`.
+5. Send `GET /redfish/v1/Managers` over mTLS and validate HTTP 200.
+6. After the test (`good_certs_after_test`), redeliver the original trio and wait for `in_sync` = `true`.
+
+**#81 `test_corrupt_ca_does_not_cause_flapping`**
+
+1. Record the staged server certificate serial and the `bmcweb` PID from `supervisorctl status`.
+2. Overwrite the delivered `/etc/sonic/credentials/restapica.crt` with the text `not a certificate` and wait 180s (two reconcile windows).
+3. Validate the staged server certificate serial and the `bmcweb` PID are both unchanged.
+4. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` is `false` and `credentials-watcher` is still `RUNNING`.
+5. Send `GET /redfish/v1/Managers` over mTLS and validate HTTP 200.
+6. After the test (`good_certs_after_test`), redeliver the original trio and wait for `in_sync` = `true`.
+
+**#82 `test_deleting_the_source_keeps_the_service_running`**
+
+1. Record the staged server certificate serial.
+2. Delete the three delivered certificate files from `/etc/sonic/credentials` and wait 90s.
+3. Validate `credentials-watcher` is still `RUNNING` and the staged server certificate serial is unchanged.
+4. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` is `false`.
+5. Send `GET /redfish/v1/Managers` over mTLS and validate HTTP 200.
+6. After the test (`good_certs_after_test`), redeliver the original trio and wait for `in_sync` = `true`.
+
+**#83 `test_mismatched_first_install_stays_in_bootstrap`**
+
+1. Unprovision the device (delete delivered files, the marker and the staging stamp, recreate the container) and validate `bmcweb` reaches `RUNNING`.
+2. Issue two new server pairs from the test CA and deliver the certificate of one with the key of the other, plus the valid CA, to the configured paths; wait 90s.
+3. Validate the provisioned marker `/var/lib/bmcweb/provisioned` is absent and STATE_DB `in_sync` is `false`.
+4. Validate the staged `server.pem` is still self-signed.
+5. Redeliver the original matching trio and validate `in_sync` becomes `true` within 150s.
+6. Validate the marker now exists and `GET /redfish/v1/Managers` over mTLS returns HTTP 200.
+
+**#84 `test_change_made_while_down_is_reconciled`**
+
+1. Record the staged server certificate serial and STATE_DB `applied_fingerprint`.
+2. Stop `credentials-watcher` and validate it is not `RUNNING`.
+3. Issue a new server pair from the test CA, deliver its certificate and key to the configured paths, wait 5s and validate the staged serial is unchanged.
+4. Start `credentials-watcher` and validate it reaches `RUNNING`.
+5. Validate `in_sync` is `true` with `applied_fingerprint` changed from the recorded value within 150s, and the staged serial differs from the recorded one.
+6. Validate the certificate bmcweb presents in a live TLS handshake on the session port has the serial of the newly delivered certificate.
+
+**#85 `test_unchanged_content_does_not_bounce_bmcweb`**
+
+1. Validate STATE_DB `in_sync` is `true` within 150s.
+2. Record the staged server certificate serial, the `bmcweb` PID and STATE_DB `applied_fingerprint`.
+3. Redeliver the identical certificate trio to the configured paths and wait 90s.
+4. Validate the `bmcweb` PID, the staged serial and `applied_fingerprint` are all unchanged.
+5. Validate `in_sync` is still `true`.
+
 ### Bootstrap, configuration and CA rotation
 
 | \# | Test Case                                                 | Priority | Verifies                                                                                      |
@@ -456,7 +1109,64 @@ The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFIS
 | 89 | `test_default_port_is_443`                                | P1       | With no port configured, the API listens on 443                                               |
 | 90 | `test_configured_port_is_applied_by_a_service_restart`    | P1       | A `REDFISH|config` `port` takes effect after a service restart, and the same provisioned certificate is served on it |
 | 91 | `test_invalid_port_falls_back_to_the_default`             | P1       | An unusable port value does not stop the container from starting; the API listens on 443      |
-| 92 | `test_ca_rotation_replaces_the_truststore`                | P0       | After the CA is rotated, client certificates from the old CA are refused and those from the new CA are accepted: CA rotation is how access is revoked |
+| 92 | `test_ca_rotation_replaces_the_truststore`                | P0       | After the CA is rotated, client certificates from the new CA are accepted and those from the old CA are refused (401, 403 or a failed handshake): CA rotation is how access is revoked |
+
+**Steps**
+
+**#86 `test_unprovisioned_device_serves_self_signed`**
+
+1. Unprovision the device (delete delivered files, the marker and the staging stamp, recreate the container) and validate `bmcweb` reaches `RUNNING`.
+2. Validate the staged `server.pem` is self-signed and the provisioned marker `/var/lib/bmcweb/provisioned` is absent.
+3. Send `GET /redfish/v1` with no client certificate and no server verification on the session port and validate HTTP 200.
+4. Send `GET /redfish/v1/Managers` the same way and validate HTTP 401.
+5. Validate STATE_DB `REDFISH_CERT_STATUS|global` `in_sync` is `false` and `mtls_enforced` is `false`.
+6. After the test (`provisioned_on_session_port`), restore the session port and `REDFISH|certs` (paths and `client_crt_cname` = `bmcweb`), redeliver the certificates, restart `redfish.service` and wait for `in_sync` = `true`.
+
+**#87 `test_certificates_are_read_from_the_configured_paths`**
+
+1. Generate a separate CA, server and client chain (CA CN `SONiC BMC Test CA alt`, client CN `bmcweb`) and create two temp directories on the BMC under `/etc/sonic` (`redfish-alt.*` and `credentials-alt.*`); record `applied_fingerprint`.
+2. Set CONFIG_DB `REDFISH|certs` `server_crt` and `server_key` to `server.cer`/`server.key` in the first directory and `ca_crt` to `ca.pem` in the second.
+3. Place the alternate server certificate, key and CA at those paths, with no service restart.
+4. Validate `in_sync` is `true` with `applied_fingerprint` changed within 150s, and the live TLS handshake on the session port presents the alternate server certificate serial.
+5. Send `GET /redfish/v1/Managers` over mTLS with the alternate client certificate, verifying against the alternate CA, and validate HTTP 200; then delete both temp directories.
+
+**#88 `test_nothing_is_staged_without_configuration`**
+
+1. Delete CONFIG_DB `REDFISH|certs` and `REDFISH|config`, unprovision the device and validate `bmcweb` reaches `RUNNING` and listens on port 443.
+2. Deliver the certificate trio to `/etc/sonic/credentials` and wait 90s.
+3. Validate the staged `server.pem` is still self-signed, the provisioned marker is absent, and STATE_DB `last_error` equals `REDFISH|certs not configured`.
+4. Set `REDFISH|certs` `server_crt`, `server_key` and `ca_crt` to the delivery paths (no `client_crt_cname`) and validate `in_sync` becomes `true` within 150s.
+5. Send `GET /redfish/v1` over mTLS on port 443 and validate HTTP 200.
+6. Send `GET /redfish/v1/Managers` over mTLS on port 443 and validate HTTP 403, since the trusted name list was removed with `REDFISH|certs`.
+
+**#89 `test_default_port_is_443`**
+
+1. Delete CONFIG_DB `REDFISH|config`.
+2. Restart the service (`systemctl reset-failed redfish.service`, `systemctl restart redfish`) and validate `bmcweb` reaches `RUNNING`.
+3. Validate `bmcweb` listens on port 443 in `ss -Hltnp`.
+
+**#90 `test_configured_port_is_applied_by_a_service_restart`**
+
+1. Set CONFIG_DB `REDFISH|config` `port` to 8443 (or 8444 if the session already uses 8443).
+2. Restart `redfish.service` and validate `bmcweb` reaches `RUNNING`.
+3. Validate `bmcweb` listens on the new port and `GET /redfish/v1/Managers` over mTLS on the new port returns HTTP 200.
+4. Send an unverified `GET /redfish/v1` to the previous session port and validate the request fails (no answer).
+5. Validate STATE_DB `in_sync` is `true` within 150s and `mtls_enforced` is `true`.
+6. After the test (`provisioned_on_session_port`), restore the session port and provisioned state through a service restart.
+
+**#91 `test_invalid_port_falls_back_to_the_default`**
+
+1. Set CONFIG_DB `REDFISH|config` `port` = `notaport`.
+2. Restart `redfish.service` and validate `bmcweb` reaches `RUNNING`.
+3. Validate `bmcweb` listens on port 443.
+
+**#92 `test_ca_rotation_replaces_the_truststore`**
+
+1. Generate a second independent chain (CA CN `SONiC BMC Test CA 2`, its own server and client certificate with CN `bmcweb`), record `applied_fingerprint`, and deliver the new server pair and CA to the configured paths.
+2. Validate `in_sync` is `true` with `applied_fingerprint` changed within 150s.
+3. Send `GET /redfish/v1/Managers` over mTLS with the new client certificate, verifying against the new CA, and validate HTTP 200.
+4. Send the same request with the original client certificate (verifying against the new CA) and validate either HTTP 401/403 or a TLS handshake failure.
+5. Redeliver the original trio, validate `in_sync` is `true` with `applied_fingerprint` changed within 150s, and validate the original client certificate gets HTTP 200 on `/redfish/v1/Managers`.
 
 ---
 
