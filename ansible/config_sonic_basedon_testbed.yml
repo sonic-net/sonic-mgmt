@@ -94,11 +94,11 @@
 
     # IPv6-only management network configuration loading
     - name: Load IPv6 management configuration
-      include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
+      include_vars: "group_vars/{{ ipv6_mgmt_config_group | default(group_names[1]) }}/ipv6.yml"
       when:
         - use_ipv6_mgmt is defined
         - use_ipv6_mgmt|bool == true
-        - group_names|length > 1
+        - ipv6_mgmt_config_group is defined or (group_names | length > 1)
       ignore_errors: true
 
     - name: Override management service configurations for IPv6-only mode
@@ -1289,33 +1289,66 @@
 
       - name: Configure TACACS
         become: true
-        shell: "{{ tacacs_config_cmd }}"
-        loop:
-          - config tacacs passkey {{ tacacs_passkey }}
-          - config tacacs authtype pap
-          - config aaa authentication login tacacs+
-        loop_control:
-          loop_var: tacacs_config_cmd
-        ignore_errors: true
+        shell: |
+          set -Eeo pipefail
+
+          sonic_release=$(sonic-cfggen -y /etc/sonic/sonic_version.yml -v release 2>/dev/null || true)
+          sonic_build_version=$(sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version 2>/dev/null || true)
+
+          if [[ -n "$sonic_release" && "$sonic_release" != none ]]; then
+              resolved_release="$sonic_release"
+          elif [[ "$sonic_build_version" == *master* ]]; then
+              resolved_release=master
+          elif [[ "$sonic_build_version" =~ ^(20[0-9]{4}) ]]; then
+              resolved_release="${BASH_REMATCH[1]}"
+          else
+              resolved_release=unknown
+          fi
+
+          per_command_authorization_supported=true
+          case "$resolved_release" in
+              201811|201911|202012|202106) per_command_authorization_supported=false ;;
+          esac
+
+          per_command_accounting_supported=true
+          case "$resolved_release" in
+              201811|201911|202106) per_command_accounting_supported=false ;;
+          esac
+
+          {% if use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool %}
+          ptf_tacacs=true
+          {% else %}
+          ptf_tacacs=false
+          {% endif %}
+
+          config aaa authentication login local
+          if [[ "$per_command_authorization_supported" == true ]]; then
+              config aaa authorization local
+          fi
+          if [[ "$per_command_accounting_supported" == true ]]; then
+              config aaa accounting disable
+          fi
+
+          config tacacs passkey {{ tacacs_passkey | quote }}
+          if [[ "$ptf_tacacs" == true ]]; then
+              config tacacs authtype login
+              if [[ "$per_command_authorization_supported" == true ]]; then
+          {% if topo == "mx" %}
+                  config aaa authorization "tacacs+ local"
+          {% else %}
+                  config aaa authorization tacacs+
+          {% endif %}
+              fi
+          else
+              config tacacs authtype pap
+          fi
+          if [[ "$per_command_accounting_supported" == true ]]; then
+              config aaa accounting "tacacs+ local"
+          fi
+          config aaa authentication login tacacs+
+        args:
+          executable: /bin/bash
         when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
-
-      - block:
-          - name: Configure TACACS with PTF TACACS server
-            become: true
-            shell: "{{ tacacs_config_cmd }}"
-            loop:
-              - config tacacs authtype login
-              - config aaa authorization tacacs+
-              - config aaa accounting "tacacs+ local"
-            loop_control:
-              loop_var: tacacs_config_cmd
-            ignore_errors: true
-
-          - name: Configure TACACS with PTF TACACS server for MX
-            become: true
-            shell: config aaa authorization "tacacs+ local"
-            when: topo == "mx"
-        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
