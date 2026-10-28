@@ -44,7 +44,7 @@ def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_st
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if loganalyzer:
         container_id = duthost.shell(
-            "docker inspect --format '{{.Id}}' {}".format(env.gnmi_container)
+            "docker inspect --format '{{{{.Id}}}}' {}".format(env.gnmi_container)
         )["stdout"].strip()
         pytest_assert(
             container_id,
