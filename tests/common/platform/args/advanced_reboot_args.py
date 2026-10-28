@@ -81,7 +81,8 @@ def add_advanced_reboot_args(parser):
         "--warm-restart-service",
         choices=["bgp"],
         default=None,
-        help="Explicitly qualify standalone BGP warm restart/upgrade, including built-in BGP",
+        help="Explicitly qualify standalone BGP warm restart/upgrade on single-ASIC T0, M0 or MX, "
+             "including built-in BGP",
     )
 
     parser.addoption(

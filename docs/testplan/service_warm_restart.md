@@ -2,7 +2,7 @@
 
 `platform_tests/test_service_warm_restart.py` uses the existing `AdvancedReboot`
 fixture and PTF `advanced-reboot.ReloadTest`. Explicit BGP selection enables
-single-ASIC T0, T1, M0 and MX testbeds:
+single-ASIC M0 and MX testbeds in addition to the existing T0 topology:
 
 ```bash
 ./run_tests.sh -n <testbed> -d <dut> -c platform_tests/test_service_warm_restart.py \
@@ -68,5 +68,6 @@ rollback is outside the measured service-warm interval.
 Without `--warm-restart-service=bgp`, the original T0 service-selection rules
 remain in effect, and non-T0 runs skip. Existing Mellanox/NVIDIA exclusions are
 unchanged. This extension does not qualify multi-ASIC devices, IPv6 packet loss,
-route-mutation SAD cases, or whole-switch warm reboot. Unit tests do not replace
-VS and hardware qualification or establish zero packet loss on a platform.
+route-mutation SAD cases, or whole-switch warm reboot. T1 DUTs are not supported
+by this standalone BGP extension. Unit tests do not replace VS and hardware
+qualification or establish zero packet loss on a platform.

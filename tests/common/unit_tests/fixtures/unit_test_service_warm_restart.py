@@ -107,6 +107,46 @@ def test_service_opt_in_preserves_default_selection(selected, ignored, enabled, 
     assert namespace["select_services_to_warmrestart"](dut, request) == expected
 
 
+@pytest.mark.parametrize("topology,selected,allowed", [
+    ("t0", None, True),
+    ("t0", "bgp", True),
+    ("m0", "bgp", True),
+    ("mx", "bgp", True),
+    ("t1", "bgp", False),
+    ("m1", "bgp", False),
+    ("m0", None, False),
+    ("mx", None, False),
+])
+def test_service_topology_scope_requires_m0_mx_opt_in(topology, selected, allowed):
+    """Reject unsupported DUT topologies before preparing or restarting any service."""
+    pytest_require = load_definitions(
+        ROOT / "tests/common/helpers/assertions.py", ["pytest_require"])["pytest_require"]
+    namespace = load_definitions(
+        SERVICE_TEST, ["test_service_warm_restart"], pytest_require=pytest_require,
+        select_services_to_warmrestart=Mock(return_value=[selected or "lldp"]))
+    get_advanced_reboot = Mock()
+    request = SimpleNamespace(config=SimpleNamespace(getoption=Mock(return_value=selected)))
+    args = {
+        "request": request,
+        "duthosts": {"dut": SimpleNamespace(is_multi_asic=False)},
+        "enum_rand_one_per_hwsku_frontend_hostname": "dut",
+        "verify_dut_health_enum_frontend": None,
+        "get_advanced_reboot": get_advanced_reboot,
+        "advanceboot_loganalyzer": None,
+        "capture_interface_counters": None,
+        "tbinfo": {"topo": {"type": topology}},
+    }
+    if allowed:
+        namespace["test_service_warm_restart"](**args)
+        get_advanced_reboot.return_value.runRebootTestcase.assert_called_once_with()
+        get_advanced_reboot.return_value.disable_service_warmrestart.assert_called_once_with()
+    else:
+        with pytest.raises(pytest.skip.Exception, match="T0.*M0/MX"):
+            namespace["test_service_warm_restart"](**args)
+        namespace["select_services_to_warmrestart"].assert_not_called()
+        get_advanced_reboot.assert_not_called()
+
+
 def make_archive(path, count=1):
     image = image_info()
     config = json.dumps({"architecture": image["Architecture"], "os": image["Os"], "config": image["Config"],
@@ -517,7 +557,7 @@ def test_capture_read_failure_is_propagated_from_the_sniffer_thread():
 
 
 def test_vlanless_testbed_data_uses_real_routed_endpoints():
-    """T1 setup must work without either a VLAN or a port channel, not merely bypass an index error."""
+    """VLAN-less setup must use routed endpoints without requiring a VLAN or a port channel."""
     vlan_lookup = Mock(side_effect=AssertionError("A routed testbed has no VLAN interface"))
     cls = load_definitions(
         FIXTURE, ["AdvancedReboot"], PHYSICAL_PORT="physical_port",

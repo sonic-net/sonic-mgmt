@@ -10,7 +10,7 @@ from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
 ]
 
@@ -106,8 +106,8 @@ def test_service_warm_restart(request, duthosts, enum_rand_one_per_hwsku_fronten
     """Measure forwarding across a service restart or a distinct Docker image upgrade."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_only = request.config.getoption("--warm-restart-service") == "bgp"
-    pytest_require(tbinfo['topo']['type'] == 't0' or bgp_only,
-                   "Non-T0 service warm restart requires --warm-restart-service=bgp")
+    pytest_require(tbinfo['topo']['type'] == 't0' or (bgp_only and tbinfo['topo']['type'] in ('m0', 'mx')),
+                   "Service warm restart requires T0 or --warm-restart-service=bgp on M0/MX")
     if bgp_only:
         pytest_require(not duthost.is_multi_asic,
                        "Standalone BGP service qualification currently requires a single-ASIC DUT")
