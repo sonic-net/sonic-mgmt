@@ -1,4 +1,9 @@
-"""Offline regressions: pytest --noconftest tests/tacacs/unit_tests/test_accounting.py."""
+"""Offline regressions: pytest --noconftest tests/tacacs/unit_tests/unit_test_accounting.py.
+
+The unit_test_ prefix excludes this fake-host suite from CI impacted-area DUT
+scheduling. Broad pytest discovery still matches it via tests/pytest.ini; run
+it explicitly with --noconftest to avoid inheriting lab autouse fixtures.
+"""
 
 import ast
 import hashlib
@@ -159,7 +164,8 @@ def test_unrelated_command_cannot_satisfy_expected(clock):
         verify([log])
 
 
-@pytest.mark.parametrize("action,value", [("rotate", ""), ("replace", ""), ("replace", "different old data\n" * 9)])
+@pytest.mark.parametrize("action,value", [("rotate", ""), ("replace", ""), ("replace", "different old data\n" * 9)],
+                         ids=["rotate", "truncate", "rewrite-regrow"])
 def test_rotation_truncation_and_regrowth_fail_closed(clock, action, value):
     log = cursor(clock, initial="old\n", events=[(1, action, value)])
     with pytest.raises(AssertionError, match="rotated/truncated/rewritten"):
