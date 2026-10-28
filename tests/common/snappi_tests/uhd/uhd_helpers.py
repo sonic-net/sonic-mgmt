@@ -565,12 +565,14 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, config, cards_dict, 
 
 
 def set_first_stateful_cards(cards_dict):
-
-    if cards_dict['num_cps_cards'] > 0:
-        first_cps_card = 1
-        if cards_dict['num_tcpbg_cards'] > 0:
-            first_tcpbg_card = cards_dict['num_cps_cards'] + 1
-        else:
-            first_tcpbg_card = 0
+    """
+    First card slot used by CPS traffic and by TCP background traffic.
+    Args:
+        cards_dict (dict): card counts, reads num_cps_cards and num_tcpbg_cards
+    Returns:
+        tuple: (first_cps_card, first_tcpbg_card); first_tcpbg_card is 0 when there are no TCP BG cards
+    """
+    first_cps_card = 1
+    first_tcpbg_card = cards_dict['num_cps_cards'] + 1 if cards_dict['num_tcpbg_cards'] > 0 else 0
 
     return first_cps_card, first_tcpbg_card
