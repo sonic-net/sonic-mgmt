@@ -68,8 +68,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 209040
@@ -140,8 +142,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -200,8 +204,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -264,8 +270,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 209040
@@ -328,8 +336,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -394,8 +404,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -507,8 +519,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -620,8 +634,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -738,8 +754,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -855,8 +873,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -949,8 +969,10 @@ qos_params:
                     pkts_num_trig_pfc: 154300
             200000_300m:
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -994,8 +1016,10 @@ qos_params:
                     pkts_num_trig_pfc: 211100
             200000_40m:
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -1130,8 +1154,10 @@ qos_params:
                     - 24
                     - 25
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -1252,8 +1278,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 108469
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 4
                     pkts_num_trig_egr_drp: 108443
@@ -1345,8 +1373,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 227170
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 50
                     pkts_num_trig_egr_drp: 26600
@@ -1465,8 +1495,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 108469
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 4
                     pkts_num_trig_egr_drp: 108443
@@ -1558,8 +1590,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 108469
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 4
                     pkts_num_trig_egr_drp: 108443
@@ -1678,8 +1712,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 226618
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 50
                     pkts_num_trig_egr_drp: 226598
@@ -1771,8 +1807,10 @@ qos_params:
                     pkts_num_hdrm_partial: 3326
                     pkts_num_trig_pfc: 226628
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 50
                     pkts_num_trig_egr_drp: 226585
@@ -1942,8 +1980,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 209040
@@ -2014,8 +2054,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -2074,8 +2116,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -2138,8 +2182,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 209040
@@ -2202,8 +2248,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -2268,8 +2316,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -2381,8 +2431,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -2494,8 +2546,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -2613,8 +2667,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 151679
@@ -2725,8 +2781,10 @@ qos_params:
                     src_port_ids:
                     - 0
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 300
                     pkts_num_trig_egr_drp: 153437
@@ -2819,8 +2877,10 @@ qos_params:
                     pkts_num_trig_pfc: 154300
             200000_300m:
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -2864,8 +2924,10 @@ qos_params:
                     pkts_num_trig_pfc: 211100
             200000_40m:
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
@@ -3000,8 +3062,10 @@ qos_params:
                     - 24
                     - 25
                 lossy_queue_1:
+                    cell_size: 420
                     dscp: 8
                     ecn: 1
+                    packet_size: 64
                     pg: 0
                     pkts_num_margin: 500
                     pkts_num_trig_egr_drp: 210190
