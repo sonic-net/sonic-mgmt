@@ -119,7 +119,7 @@ trap dump_state EXIT
 @pytest.mark.parametrize(
     "use_ptf_tacacs_server,topo,expected_state,expected_commands",
     [
-        (
+        pytest.param(
             True,
             "t0",
             ["tacacs+", "tacacs+", "tacacs+ local", "login", "test-key"],
@@ -133,8 +133,9 @@ trap dump_state EXIT
                 "config aaa accounting tacacs+ local",
                 "config aaa authentication login tacacs+",
             ],
+            id="ptf-t0",
         ),
-        (
+        pytest.param(
             True,
             "mx",
             ["tacacs+", "tacacs+ local", "tacacs+ local", "login", "test-key"],
@@ -148,19 +149,22 @@ trap dump_state EXIT
                 "config aaa accounting tacacs+ local",
                 "config aaa authentication login tacacs+",
             ],
+            id="ptf-mx",
         ),
-        (
+        pytest.param(
             False,
             "t0",
-            ["tacacs+", "local", "disable", "pap", "test-key"],
+            ["tacacs+", "local", "tacacs+ local", "pap", "test-key"],
             [
                 "config aaa authentication login local",
                 "config aaa authorization local",
                 "config aaa accounting disable",
                 "config tacacs passkey test-key",
                 "config tacacs authtype pap",
+                "config aaa accounting tacacs+ local",
                 "config aaa authentication login tacacs+",
             ],
+            id="lab-pap-local-authorization-common-accounting",
         ),
     ],
 )
@@ -171,6 +175,7 @@ def test_deploy_tacacs_success_order(
     assert result.returncode == 0
     assert output["state"] == expected_state
     assert output["commands"] == expected_commands
+    assert output["PTF_TACACS"] == str(use_ptf_tacacs_server).lower()
     assert task["args"]["executable"] == "/bin/bash"
     assert "ignore_errors" not in task
     assert "trap " not in task["shell"]
@@ -183,6 +188,8 @@ def test_deploy_tacacs_success_order(
         ("master", "master.1-202012", "master", True, True),
         ("202605", "202106.42", "202605", True, True),
         ("none", "internal-master.1", "master", True, True),
+        ("none", "201811.30", "201811", False, False),
+        ("none", "201911.42", "201911", False, False),
         ("", "20201231.99", "202012", False, True),
         ("none", "202106.42", "202106", False, False),
         ("none", "internal-202012.1", "unknown", True, True),
@@ -225,6 +232,8 @@ def test_deploy_tacacs_quotes_passkey_as_one_literal_argument():
         (True, "mx", "config aaa accounting tacacs+ local"),
         (True, "t0", "config aaa authentication login tacacs+"),
         (False, "t0", "config tacacs authtype pap"),
+        (False, "t0", "config aaa accounting tacacs+ local"),
+        (False, "t0", "config aaa authentication login tacacs+"),
     ],
 )
 def test_deploy_tacacs_failure_stops_with_local_authentication(

@@ -1339,11 +1339,11 @@
                   config aaa authorization tacacs+
           {% endif %}
               fi
-              if [[ "$per_command_accounting_supported" == true ]]; then
-                  config aaa accounting "tacacs+ local"
-              fi
           else
               config tacacs authtype pap
+          fi
+          if [[ "$per_command_accounting_supported" == true ]]; then
+              config aaa accounting "tacacs+ local"
           fi
           config aaa authentication login tacacs+
         args:
