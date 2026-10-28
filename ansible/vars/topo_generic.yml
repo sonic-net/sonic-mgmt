@@ -4,6 +4,7 @@
 # One address family per scenario; use a fresh workspace after changing inputs.
 # Children without CSV VLAN endpoints are physical-only, with no forwarding or PTF transport.
 # Maximize supported coverage within this scope; missing combinations remain explicitly unqualified.
+# Select the fewest DUT cages needed for attainable coverage and forwarding; preserve unused cages.
 # Review/edit inputs before add-topo freezes mappings; deploy-mg renders device configs.
 # Low-speed cages participate when their physical wiring is eligible.
 # PTF endpoint addressing/ARP/NDP and live allocation conflicts still need verification.

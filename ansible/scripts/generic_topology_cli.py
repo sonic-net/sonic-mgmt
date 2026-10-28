@@ -220,6 +220,9 @@ def cleanup_scenario(directory, artifacts):
             continue
         if path.is_symlink() or not path.is_dir():
             raise ValueError("Refusing cleanup of an invalid scenario stage")
+        if not any(path.iterdir()):
+            directories.append(path)
+            continue
         previous = json.loads((path / "manifest.json").read_text())
         expected = manifest.get("plan_id") if stage == "plan" else manifest["scenario_id"]
         if previous.get("scenario_id") != expected:

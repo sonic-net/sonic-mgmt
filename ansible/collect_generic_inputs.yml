@@ -2,6 +2,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  any_errors_fatal: true
   tasks:
     - name: Require every requested DUT and leaf to exist in inventory
       assert:

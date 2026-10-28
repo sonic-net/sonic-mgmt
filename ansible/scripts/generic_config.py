@@ -348,6 +348,7 @@ def realize_ports(base, platform, layouts, canonical):
                     or int(row["speed"]) != child.get("speed", choice["speed"])):
                 raise ValueError("Installed canonical breakout parser disagrees with planned lanes/alias/speed")
             selected[child["port"]] = dict(common, **row, admin_status="up")
+            selected[child["port"]]["adv_speeds"] = [str(child.get("speed", choice["speed"]))]
     if set(selected).intersection(set(base["PORT"]) - owned):
         raise ValueError("Selected child name conflicts with a protected port")
     return owned, selected
@@ -852,13 +853,14 @@ def template_json(directory, context, template, template_dir=None):
     return json.loads(subprocess.check_output(command, text=True))
 
 
-def direction_template(source):
-    """Adapt only the inspected shared-template role-list contract, never its QoS policy."""
+def direction_template(source, buffer_policy=False):
+    """Adapt inspected role-list contracts without changing installed policy values."""
     from jinja2 import Environment, nodes
 
     # AST inspection only; configuration rendering remains owned by sonic-cfggen.
     # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
     tree = Environment(autoescape=True).parse(source)
+    template_name = "buffers_defaults_objects.j2" if buffer_policy else "qos_config.j2"
     roles = {"PORT_UPLINK": "GENERIC_UPLINK_PORTS", "PORT_DOWNLINK": "GENERIC_DOWNLINK_PORTS"}
     initializers = {name: [node for node in tree.body if isinstance(node, nodes.Assign)
                            and isinstance(node.target, nodes.Name) and node.target.name == name
@@ -878,20 +880,34 @@ def direction_template(source):
                        for child in tree.body[following].nodes):
                     break
                 following += 1
-            if following < len(tree.body) and isinstance(tree.body[following], nodes.Assign):
+            boundary = nodes.Macro if buffer_policy else nodes.Assign
+            if following < len(tree.body) and isinstance(tree.body[following], boundary):
                 classifiers.append((node.lineno - 1, tree.body[following].lineno - 1))
     if any(len(values) != 1 for values in initializers.values()) or len(classifiers) != 1:
-        raise ValueError("Installed qos_config.j2 has an unrecognized direction contract; "
+        raise ValueError("Installed {} has an unrecognized direction contract; ".format(template_name) +
                          "provide a reviewed adapter rather than guessing port policy")
     lines = source.splitlines(keepends=True)
     start, end = classifiers[0]
     if any(values[0].lineno - 1 >= start for values in initializers.values()):
-        raise ValueError("QoS role-list initializers must precede neighbor classification")
+        raise ValueError("Template role-list initializers must precede neighbor classification")
     for name, values in initializers.items():
         index = values[0].lineno - 1
         if re.fullmatch(r"{%-?\s*set\s+" + name + r"\s*=\s*\[\s*\]\s*-?%}", lines[index].strip()) is None:
-            raise ValueError("QoS role-list initializers must be standalone empty-list assignments")
-        lines[index] = "{%- set " + name + " = " + roles[name] + " %}\n"
+            raise ValueError("Template role-list initializers must be standalone empty-list assignments")
+        if not buffer_policy:
+            lines[index] = "{%- set " + name + " = " + roles[name] + " %}\n"
+    if buffer_policy:
+        if not re.match(r"^\s*{%-?\s*macro\b", lines[end]):
+            raise ValueError("Unrecognized buffer classification boundaries")
+        lines[end:end] = [
+            "{%- set " + name + " = (" + name +
+            " | reject('in', GENERIC_UPLINK_PORTS + GENERIC_DOWNLINK_PORTS) | list) + " + explicit + " %}\n"
+            for name, explicit in roles.items()]
+        result = "".join(lines)
+        # Syntax validation only; this environment never renders output.
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        Environment(autoescape=True).parse(result)
+        return result
     if (not re.match(r"^\s*{%-?\s*if\b", lines[start])
             or not re.match(r"^\s*{%-?\s*set\b", lines[end])):
         raise ValueError("Unrecognized QoS classification boundaries")
@@ -937,6 +953,48 @@ def prepare_qos_template(directory, platform_dir, sku_dir):
     template = directory / "generic_qos.json.j2"
     template.write_text("".join(lines))
     return template, assets
+
+
+def prepare_buffer_template(directory, template_dir, wrapper_source):
+    """Redirect the inspected buffer include chain to private direction-aware copies."""
+    from jinja2 import Environment, nodes
+
+    def redirect(source, name, target):
+        # AST inspection only; configuration rendering remains owned by sonic-cfggen.
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        tree = Environment(autoescape=True).parse(source)
+        references = []
+        for node in tree.find_all((nodes.Import, nodes.Include)):
+            expression = node.template.left if isinstance(node.template, nodes.Mod) else node.template
+            if isinstance(expression, nodes.Const) and expression.value == name:
+                references.append(node)
+        pattern = r"(['\"])" + re.escape(name) + r"\1"
+        result, count = re.subn(pattern, lambda match: repr(str(target)), source)
+        if len(references) != 1 or count != 1:
+            raise ValueError("Installed buffer template has an unrecognized include contract for " + name)
+        return result
+
+    objects = template_dir / "buffers_defaults_objects.j2"
+    if not objects.is_file():
+        raise ValueError("Installed buffers_defaults_objects.j2 is required for the reviewed direction adapter")
+    adapted_objects = directory / "generic_buffers_defaults_objects.j2"
+    adapted_objects.write_text(direction_template(objects.read_text(), buffer_policy=True))
+    defaults = directory / "buffer_templates"
+    defaults.mkdir(mode=0o700)
+    for path in template_dir.glob("buffers_defaults_*.j2"):
+        if path.name != objects.name:
+            (defaults / path.name).write_text(redirect(
+                path.read_text(), objects.name, adapted_objects))
+    shared = directory / "generic_buffers_config.j2"
+    shared.write_text(redirect(
+        Path("/usr/share/sonic/templates/buffers_config.j2").read_text(),
+        "buffers_defaults_%s.j2", defaults / "buffers_defaults_%s.j2"))
+    template = directory / "generic_buffers.json.j2"
+    template.write_text(redirect(
+        (template_dir / "buffers.json.j2").read_text(), "buffers_config.j2", shared))
+    wrapper = directory / "buffers.j2"
+    wrapper.write_text(redirect(wrapper_source, "buffers.json.j2", template))
+    return wrapper
 
 
 def generic_identity(platform_dir, hwsku):
@@ -1026,8 +1084,7 @@ def render_device(request):
         directory = Path(temporary)
         template, template_dir = prepare_qos_template(directory, platform_dir, sku_dir)
         generated = template_json(directory, context, template, template_dir)
-        wrapper = directory / "buffers.j2"
-        wrapper.write_text(request["buffer_wrapper"])
+        wrapper = prepare_buffer_template(directory, template_dir, request["buffer_wrapper"])
         context["GENERIC_CABLES"] = {link[role]["port"]: link["buffer_case"]["cable"]
                                      for link in facts["connections"]}
         for values in base.get("CABLE_LENGTH", {}).values():

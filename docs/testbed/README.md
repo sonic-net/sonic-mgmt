@@ -169,8 +169,8 @@ requirements. None is a substitute for the others.
 
 The following invariants are mandatory:
 
-- A cage selects one mode advertised for that cage. All its realized children
-  participate unless the cage was protected before planning.
+- A selected cage uses one advertised mode and all its realized children
+  participate. Protected and unused cages retain their existing layouts.
 - A child consumes complete wiring channels and matches exactly one complete
   peer child at the same speed. Peer mode names need not be identical.
 - Protected cages are not reassigned to make a plan appear complete.
@@ -404,10 +404,39 @@ required inputs, not optional fallbacks.
 
 `ansible/scripts/plan_generic_topology.py` consumes the same read-only snapshots
 (local files or collected through inventory), plus a generic-forwarding recipe.
-It selects one advertised mode and operating-speed combination
-per eligible DUT/SONiC-leaf cage, jointly rather than independently. All children
+It jointly selects a subset of eligible DUT/SONiC-leaf cages and one advertised
+mode and operating-speed combination per selected cage. All children
 of each selected mode participate. Whole-cage protection from the inventory is
 preserved.
+
+After maximizing attainable coverage and satisfying forwarding and any configured
+uplink repetition, the solver minimizes the number of selected DUT cages.
+It does not fill spare cages with repeated modes. Explicit role selectors retain
+their eligible cages; unavailable child names remain ignored. Coupled leaf cages
+must be selected together with their DUT connections, never left half-selected.
+Unused cages are recorded in `manifest.json.unused_cages` and retain their existing
+configuration; full-device reloads may still flap them. Required coverage is not
+reduced merely because a cage is unused. Search exhaustion leaves a best-known
+subset with `optimality_proven: false`, not a claim of a proven minimum.
+This remains a single-layout plan: unavoidable gaps such as insufficient
+simultaneous 10G/25G children remain explicitly incomplete, not scheduled as rounds.
+Existing frozen scenarios keep their original selection; use a fresh workspace
+to adopt the minimum-cage policy.
+
+Newly rendered configurations set each selected DUT and leaf child's `speed`
+and single-entry `adv_speeds` list to its planned operating speed, including
+physical-only children. This replaces inherited advertised speeds such as `all`;
+explicit CSV autonegotiation, FEC, and link-training settings still apply.
+With autonegotiation enabled, only the selected speed is advertised rather than
+all supported speeds. Protected ports remain unchanged. Cached rendered
+configurations are reused unchanged; this policy does not update live devices
+or prove their operational speed.
+
+When moving from a larger deployed layout to a smaller selection, an existing
+access VLAN/SVI can still serve ports on unused cages. Those consumers remain
+preserved, so the renderer rejects reuse of their VLAN or subnet. Use approved
+non-overlapping allocations or explicitly migrate the old members before
+rendering; minimum-cage planning does not silently detach unused ports.
 
 Low-speed cages participate on the same basis as higher-speed cages; there is
 no minimum cage-bandwidth cutoff. This includes the lab's `Ethernet512` and
@@ -531,9 +560,9 @@ Search exhaustion after
 finding a layout preserves that best-known result and discloses unproven optimality;
 exhaustion before finding any layout is not proof of physical infeasibility.
 
-All eligible cages participate; there is no implicit spare/unselected eligible
-cage. To leave a cage unused, explicitly protect it with `--exclude-port` before
-planning (which also protects connected cages under the wiring model).
+Eligible cages may remain unused under the minimum-cage objective. To ensure
+a reserved cage is never selected, explicitly protect it with `--exclude-port`
+before planning; protection propagates to connected cages under the wiring model.
 The manifest records resolved per-link roles, not unmatched selectors.
 
 These are individual routed interfaces, **not logical neighbors or PortChannel
@@ -798,8 +827,13 @@ canonical remote child names. It preserves unaffected neighbor entries,
 inventory identifiers to equal the device's native hostname. Old affected
 neighbor entries are replaced even when a child reuses the parent's name.
 Scenario uplink/downlink assignments remain separate from physical neighbor
-identity: both roles can connect to the same transport leaf. The QoS template
-context preserves truthful neighbor tables and uses the explicit-role adapter.
+identity: both roles can connect to the same transport leaf. QoS and buffer
+templates use the same frozen physical directions for selected ports: DUT roles
+come from the plan, and selected leaf ports are downlinks. Temporary render-only
+adapters preserve truthful neighbor metadata and installed policy values.
+The buffer adapter overrides selected-port classification in the reviewed
+`buffers_defaults_objects.j2` contract, preserving native classification outside
+the selection. Installed templates are not edited.
 Installed lossy policy is applied as rendered, including explicitly disabled PFC.
 Only when the installed policy enables PFC are selected lossless ingress PG
 bindings and missing lossless profiles left to `buffermgrd`.
@@ -809,7 +843,8 @@ configuration. Baseline drift still stops stage/apply to avoid overwriting
 intervening device changes. Installed assets and daemon state are not rechecked.
 
 Initial rendering requires a single-ASIC SONiC device using **traditional
-buffers** and the verified shared `qos_config.j2` role-list contract. Dynamic
+buffers** and the verified shared `qos_config.j2` and
+`buffers_defaults_objects.j2` role-list/include contracts. Dynamic
 buffer backends and other template families fail explicitly rather than receiving
 invented profiles. Both devices must supply a matching installed lookup case.
 Lookup selection follows the platform-first, missing-file-only HwSKU fallback above.
@@ -932,6 +967,9 @@ Switching to lossy policy does not resolve independent SDK/SerDes failures.
 For new plans, `transport.vlan_ids: null` uses each selected DUT endpoint's own
 CSV VLAN, not a sorted pool reassigned across endpoints. An explicit list, when
 present, is only an allowlist; it cannot enable endpoints without CSV VLANs.
+Planning applies that allowlist before selecting layouts and allocating
+forwarding. Excluded endpoints remain physical-only; their wiring channels stay
+available for compatible aggregation.
 **One existing isolated transport VLAN per traffic-backed child is required.**
 Physical-only children are excluded from transport allocation, even if an explicit
 allowlist contains spare VLAN IDs. PTF indices remain compact across traffic links;
@@ -984,6 +1022,12 @@ An authorized generic add-topo creates/binds only scenario-owned host/PTF
 resources on existing transport. It never invokes root-fanout connection/save
 playbooks, changes shared trunks, or reloads the DUT/leaf. Existing physical
 transport is assumed; wiring information is still needed for compatible breakouts.
+Before binding management connectivity, add-topo initializes PTF credentials
+through the existing inventory-managed password task without logging secrets.
+Removal accepts stopped, partially bound, or already-absent scenario containers;
+it still rejects conflicting container labels or endpoint ownership and cleans
+only verified scenario endpoints. Verification continues to require a running
+container and every planned endpoint.
 For `add-topo` and `remove-topo`, the `topo` field selects
 `vars/topo_<topo>.yml`. A valid `generic_topology` section in that file selects
 the generic lifecycle automatically; the name itself has no special meaning.
@@ -1100,6 +1144,9 @@ symlinks. Failed runs and previews retain their artifacts. After a successful
 paired reload/save, cleanup removes the local complete configs and known duplicate
 `plan/`/`prepared/` files, plus recorded default `plan.inputs/` snapshots.
 External snapshots and unknown files are never deleted.
+An empty `plan/` or `prepared/` directory left after interrupted manifest removal
+can be removed on retry, subject to the same directory ownership checks.
+Nonempty stages without a manifest are not adopted or purged.
 The compact `rendered/` stage retains ownership identity, topology, resolved
 mappings, coverage, reports, and table counts for preview/removal/recovery.
 Its manifest records `status: deployed`. On-device backup/helper bundles under

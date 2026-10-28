@@ -328,6 +328,7 @@ def candidates(device, links, side, lookup_speeds):
                     for column in ("AutoNeg", "LinkTraining", "FEC"):
                         values = {atom_links[atom]["csv_attributes"].get(column, "").strip().lower()
                                   for atom in atoms if atom_links[atom]["csv_attributes"].get(column)}
+                        values.discard("")
                         if len(values) > 1:
                             reason = "aggregated channels have conflicting {}".format(column)
                             break
@@ -356,8 +357,8 @@ def compatible(first, first_key, second, second_key):
 
 
 def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=None, uplink_ports=None,
-                 min_same_breakout_uplinks=4, vlan_scope=None):
-    """Prefer one cage per operating combination before matching-uplink repetition."""
+                 min_same_breakout_uplinks=4, vlan_scope=None, required_dut_ports=()):
+    """Maximize attainable coverage, then minimize the number of selected DUT cages."""
     if vlan_scope is None or min_same_breakout_uplinks != 0:
         validate_uplink_minimum(min_same_breakout_uplinks)
     links = [link for link in inventory["links"] if link["eligible"]]
@@ -388,6 +389,10 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
         left, right = ("dut", link["dut"]["cage"]), ("peer", link["peer"]["cage"])
         neighbors[left].add(right)
         neighbors[right].add(left)
+    for key, choices in domains.items():
+        ports = {child["port"] for choice in choices for child in choice["children"]}
+        if key[0] != "dut" or not ports.intersection(required_dut_ports):
+            choices.append({"mode": None, "speed": 0, "children": [], "signatures": {}})
     changed = True
     while changed:
         changed = False
@@ -398,8 +403,8 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
             if len(retained) != len(choices):
                 domains[key] = retained
                 changed = True
-    empty = [key for key in domains if not domains[key]]
-    if empty:
+    empty = [key for key in domains if not any(choice["children"] for choice in domains[key])]
+    if any(not choices for choices in domains.values()) or all(key in empty for key in dut_domains):
         coverage["empty_domains"] = [list(key) for key in sorted(empty)]
         raise PlanningError("No compatible full-cage layouts for {}".format(empty), coverage)
     if uplink_ports is None:
@@ -410,7 +415,7 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
     best, best_score, best_allocation_error = None, None, None
 
     def capacities(assigned):
-        choices = [choice for key, choice in assigned.items() if key[0] == "dut"]
+        choices = [choice for key, choice in assigned.items() if key[0] == "dut" and choice["children"]]
         groups = uplink_counts(choices, uplink_ports)
         children = Counter()
         for choice in choices:
@@ -418,20 +423,17 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
         represented = Counter((choice["mode"], speed_key(choice["speed"])) for choice in choices)
         return groups, children, represented
 
-    def score(groups, children, represented, forwardable=True):
+    def score(groups, children, represented, forwardable=True, cage_count=None):
         largest = max((groups[target] for target in targets), default=0)
+        cost = sum(represented.values()) if cage_count is None else cage_count
         if vlan_scope is not None:
             return (int(forwardable), int(largest >= min_same_breakout_uplinks),
                     min(largest, min_same_breakout_uplinks),
                     sum(represented[target] > 0 for target in targets),
-                    sum(min(children[speed], count) for speed, count in needs.items()))
+                    sum(min(children[speed], count) for speed, count in needs.items()), -cost)
         return (int(forwardable), sum(represented[target] > 0 for target in targets),
                 int(largest >= min_same_breakout_uplinks), min(largest, min_same_breakout_uplinks),
-                sum(min(children[speed], count) for speed, count in needs.items()))
-
-    perfect = ((1, 1, min_same_breakout_uplinks, len(targets), sum(needs.values()))
-               if vlan_scope is not None else
-               (1, len(targets), 1, min_same_breakout_uplinks, sum(needs.values())))
+                sum(min(children[speed], count) for speed, count in needs.items()), -cost)
 
     def search(assigned):
         nonlocal exhausted, best, best_score, best_allocation_error
@@ -450,29 +452,52 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
                     return
         upper_groups, upper_children = groups.copy(), capacity.copy()
         upper_represented = represented.copy()
+        missing_mode_capacity = {}
+        max_children = Counter()
         for key, choices in available.items():
             if key[0] == "dut":
                 cage_groups, cage_children = Counter(), Counter()
                 cage_targets = set()
                 for choice in choices:
+                    if not choice["children"]:
+                        continue
                     cage_groups |= uplink_counts([choice], uplink_ports)
-                    cage_children |= Counter(child["speed"] for child in choice["children"])
-                    cage_targets.add((choice["mode"], speed_key(choice["speed"])))
+                    children = Counter(child["speed"] for child in choice["children"])
+                    cage_children |= children
+                    target = (choice["mode"], speed_key(choice["speed"]))
+                    cage_targets.add(target)
+                    if not represented[target]:
+                        missing_mode_capacity[target] = missing_mode_capacity.get(target, Counter()) | children
                 upper_groups.update(cage_groups)
                 upper_children.update(cage_children)
                 upper_represented.update(cage_targets)
-        if best_score is not None and score(upper_groups, upper_children, upper_represented) <= best_score:
+                max_children |= cage_children
+        # A cage supplies one mode target. Optimistically credit every missing target's
+        # maximum child capacity before bounding any additional cable-case cages.
+        missing_capacity = Counter()
+        for children in missing_mode_capacity.values():
+            missing_capacity.update(children)
+        extra_cages = max((
+            max(0, min(upper_children[speed], count) - capacity[speed] - missing_capacity[speed]
+                + max_children[speed] - 1) // max_children[speed]
+            for speed, count in needs.items() if max_children[speed]), default=0)
+        minimum_cages = sum(represented.values()) + len(missing_mode_capacity) + extra_cages
+        upper_score = score(upper_groups, upper_children, upper_represented, cage_count=minimum_cages)
+        if best_score is not None and upper_score <= best_score:
             return
         if not available:
             reason = accept_layout(assigned) if accept_layout is not None else None
             candidate_score = score(groups, capacity, represented, reason is None)
             if best_score is None or candidate_score > best_score:
-                best, best_score, best_allocation_error = dict(assigned), candidate_score, reason
+                best = {key: choice for key, choice in assigned.items() if choice["children"]}
+                best_score, best_allocation_error = candidate_score, reason
             return
         key = min(available, key=lambda item: (len(available[item]), item[0] != "dut", port_key(item[1])))
         largest = max((groups[target] for target in targets), default=0)
 
         def choice_order(choice):
+            if not choice["children"]:
+                return (0, 0, 0, 0, ("", 0))
             target = (choice["mode"], speed_key(choice["speed"]))
             uplinks = sum(child["port"] in uplink_ports for child in choice["children"])
             children = Counter(child["speed"] for child in choice["children"])
@@ -492,7 +517,7 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
             assigned[key] = choice
             search(assigned)
             del assigned[key]
-            if exhausted or best_score == perfect:
+            if exhausted or best_score == upper_score:
                 break
 
     search({})
@@ -523,7 +548,11 @@ def solve_layout(inventory, dut, peer, lookup, max_states=100000, accept_layout=
                     covered_buffer_cases=covered_cases, uplink_repetition=repetition,
                     breakout_diversity=diversity,
                     uncovered_buffer_cases=[row for row in lookup if row not in covered_cases],
-                    search_limit_reached=exhausted, optimality_proven=not exhausted)
+                    search_limit_reached=exhausted, optimality_proven=not exhausted,
+                    selected_dut_cage_count=sum(key[0] == "dut" for key in best),
+                    unused_cages={
+                        side: sorted((key[1] for key in domains if key[0] == side and key not in best), key=port_key)
+                        for side in ("dut", "peer")})
     coverage["uncovered_mode_speeds"] = [
         target_fields(row["mode"], row["speed"]) for row in diversity["groups"] if not row["cage_count"]]
     if best_allocation_error:
@@ -627,8 +656,12 @@ def scope_buffer_cases(inventory, dut, lookup):
     return required, excluded
 
 
-def scope_vlan_ports(inventory):
-    """Freeze available traffic endpoints without excluding physical-only cages or children."""
+def scope_vlan_ports(inventory, vlan_ids=None):
+    """Freeze allowed traffic endpoints while retaining every physical wiring channel."""
+    if vlan_ids is not None and (
+            not isinstance(vlan_ids, list) or any(type(vlan) is not int or not 1 <= vlan <= 4094 for vlan in vlan_ids)
+            or len(set(vlan_ids)) != len(vlan_ids)):
+        raise ValueError("transport.vlan_ids must be a unique list of VLAN IDs")
     inventory = deepcopy(inventory)
     backed = {"dut": {}, "peer": {}}
     for link in inventory["links"]:
@@ -642,6 +675,8 @@ def scope_vlan_ports(inventory):
             continue
         if not value.isdigit() or not 1 <= int(value) <= 4094:
             raise ValueError("CSV transport VLAN must be a single ID from 1 through 4094")
+        if vlan_ids is not None and int(value) not in vlan_ids:
+            continue
         for side in backed:
             backed[side][link[side]["port"]] = int(value)
     for side in backed:
@@ -663,7 +698,7 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         raise ValueError("Automatic first-eight uplinks require omitting --min-same-breakout-uplinks")
     vlan_scope = None
     if vlan_backed_only:
-        inventory, vlan_scope = scope_vlan_ports(inventory)
+        inventory, vlan_scope = scope_vlan_ports(inventory, settings.get("transport", {}).get("vlan_ids"))
     lookup, excluded_buffer_cases = scope_buffer_cases(inventory, dut, lookup)
     if any(row["cable"] == "0m" for row in lookup):
         raise ValueError("Traditional daemon-owned buffers cannot assign lookup cable case 0m; "
@@ -699,7 +734,8 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
     try:
         solution, coverage = solve_layout(
             inventory, dut, peer, lookup, max_states, accepts_allocations, uplink_ports=declarations["uplink"],
-            min_same_breakout_uplinks=min_same_breakout_uplinks, vlan_scope=vlan_scope)
+            min_same_breakout_uplinks=min_same_breakout_uplinks, vlan_scope=vlan_scope,
+            required_dut_ports=declarations["uplink"] | declarations["downlink"])
     except PlanningError as error:
         error.coverage["excluded_buffer_cases"] = excluded_buffer_cases
         raise
@@ -717,7 +753,7 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         speed = link["dut"]["speed"]
         link["buffer_case"] = dict(cases[speed][case_indices[speed] % len(cases[speed])])
         case_indices[speed] += 1
-    selected_atoms = set(atom_links)
+    selected_atoms = {atom for link in connections for atom in link["dut"]["atoms"]}
     port_order = sorted(({name for name in dut["ports"] if name not in selected_atoms}
                          | {link["dut"]["port"] for link in connections}), key=port_key)
     assignments = port_assignments(settings, [link["dut"]["port"] for link in connections])
@@ -768,7 +804,9 @@ def build_scenario(inventory, dut, peer, lookup, settings, max_states=100000, mi
         "selected_layouts": selected,
         "protected_dut_cages": inventory["protected_dut_cages"],
         "protected_peer_cages": inventory["protected_peer_cages"],
+        "unused_cages": deepcopy(coverage["unused_cages"]),
         "policy": {"role_assignment": "explicit_uplinks_default_downlinks",
+                   "cage_selection": "minimum_dut_cages_after_coverage",
                    "dut_forwarding_cleanup": cleanup,
                    "coverage_unit": "mode_operating_combination",
                    "coverage_priority": ["physical_cage_diversity", "uplink_repetition", "buffer_cases"],
