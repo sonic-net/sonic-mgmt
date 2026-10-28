@@ -296,7 +296,6 @@ def client_auth(dut, **kwargs):
     """
     st.log("Configuring gNMI authentication.")
     docker_name = "telemetry"
-    command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
             command = redis.build_sonic_db_cli(
