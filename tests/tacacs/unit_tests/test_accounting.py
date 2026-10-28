@@ -295,6 +295,45 @@ def test_local_forbidden_and_positive_share_realistic_prefix_grammar(clock, pref
         log.counts("rw", ["grep"])
 
 
+@pytest.mark.parametrize("prefix", ["INFO audisp-tacplus: ", "INFO audisp-tacplus: Audisp-tacplus: "])
+@pytest.mark.parametrize("argument", ["sudo sed", "ansible.legacy.command Invoked"])
+def test_local_noise_substrings_cannot_hide_forbidden_user(clock, prefix, argument):
+    forbidden = record("echo " + argument, user="other", local=True).replace(
+        "INFO audisp-tacplus: Audisp-tacplus: ", prefix)
+    log = cursor(clock, events=[(1, "append", record(local=True) + forbidden)])
+    log.local = True
+    # Exercise the complete verifier with a valid positive alongside the
+    # forbidden record: silently dropping the latter would falsely pass.
+    with pytest.raises(AssertionError, match="Unexpected accounting records"):
+        verify([log])
+    with pytest.raises(AssertionError, match="Unexpected accounting records"):
+        log.counts("rw", ["grep"])
+
+
+@pytest.mark.parametrize("prefix", ["INFO audisp-tacplus: ", "INFO audisp-tacplus: Audisp-tacplus: "])
+@pytest.mark.parametrize("argument", ["sudo sed", "ansible.legacy.command Invoked"])
+def test_local_expected_user_noise_substrings_are_still_accounted(clock, prefix, argument):
+    command = "echo " + argument
+    line = record(command, local=True).replace("INFO audisp-tacplus: Audisp-tacplus: ", prefix)
+    log = cursor(clock, events=[(1, "append", line)])
+    log.local = True
+    verify([log], commands=[command])
+    assert log.counts("rw", [command]) == {command: 1}
+    assert not log.counts("rw", ["grep"])
+
+
+@pytest.mark.parametrize("noise", [
+    "INFO ansible.legacy.command Invoked with _raw_params=sudo sed -n 1p /var/log/syslog\n",
+    "INFO sudo: admin : COMMAND=/usr/bin/sed -n 1p /var/log/syslog\n",
+    "INFO audisp-tacplus: unrelated diagnostic mentioning sudo sed\n",
+])
+def test_local_nonaccounting_noise_does_not_affect_verification(clock, noise):
+    log = cursor(clock, events=[(1, "append", noise + record(local=True))])
+    log.local = True
+    verify([log])
+    assert log.counts("rw", ["grep"]) == {"grep": 1}
+
+
 def test_local_comma_in_command_is_not_field_delimiter(clock):
     log = cursor(clock)
     log.local = True

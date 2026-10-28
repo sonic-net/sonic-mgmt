@@ -77,8 +77,9 @@ class LogCursor:
         forbidden = []
         for line in self.lines:
             if self.local:
-                if 'ansible.legacy.command Invoked' in line or 'sudo sed' in line:
-                    continue
+                # Identify accounting records before inspecting their payload.
+                # Command arguments may contain strings also found in reader or
+                # Ansible noise; they must never bypass username validation.
                 if not re.search(r"INFO audisp-tacplus: (?:Audisp-tacplus: )?Accounting:", line):
                     continue
                 match = re.search(
