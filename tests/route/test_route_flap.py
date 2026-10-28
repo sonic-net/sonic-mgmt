@@ -305,7 +305,11 @@ def get_filtered_iproute_info(duthost, route_prefix_len):
 def get_exabgp_port(duthost, tbinfo, dev_port):
     tor1 = duthost.shell(
         "show ip int | grep -w {} | awk '{{print $4}}'".format(dev_port))['stdout']
-    tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
+    props = tbinfo['topo']['properties']
+    if tbinfo.get('vm_type') == 'csonic' and props.get('topo_is_multi_vrf', False):
+        tor1_offset = props['convergence_data']['vm_offset_mapping'][tor1]
+    else:
+        tor1_offset = props['topology']['VMs'][tor1]['vm_offset']
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     return tor1_exabgp_port
 
