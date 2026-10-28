@@ -1,0 +1,13 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|RULE_2": {
+                "SRC_IPV6": "{{ ipv6_subnet }}",
+                "PRIORITY": "899",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]

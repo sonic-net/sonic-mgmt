@@ -12,7 +12,7 @@ from tests.common.helpers.dut_utils import is_virtual_platform
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'uma', 'lma', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -139,7 +139,8 @@ def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interfa
     return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
 
 
-def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_rand_one_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
     asic = enum_rand_one_frontend_asic_index
@@ -221,7 +222,9 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
                     "Neighbor LLDP 'port' dict for DUT iface '{}' exposes no "
                     "local/ifname/descr port identifier: keys={}".format(
                         k, sorted(port.keys())))
-            snmp_community = sonic['snmp_rocommunity']
+            neighbor_name = v['chassis'].get('name')
+            snmp_community = sonic(
+                nbrhosts, neighbor_name)['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
@@ -307,8 +310,10 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             )
 
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                       localhost, nbrhosts, eos, sonic,
+                       collect_techsupport_all_duts, loganalyzer,
+                       enum_frontend_asic_index, tbinfo, request):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if loganalyzer:
@@ -319,16 +324,19 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was \
                 not sent since it contain invalid OIDs, bug.*",
         ])
-    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+    check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
 
 
 @pytest.mark.disable_loganalyzer
-def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                                        sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
-                                        tbinfo, request, restart_swss_container):
+def test_lldp_neighbor_post_swss_reboot(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+        nbrhosts, eos, sonic, collect_techsupport_all_duts,
+        enum_frontend_asic_index, tbinfo, request, restart_swss_container):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+    check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
 
 

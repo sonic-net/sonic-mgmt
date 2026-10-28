@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+import argparse
 import enum
 import os
 import json
@@ -64,10 +65,14 @@ from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 from tests.common.utilities import safe_filename
+from tests.common.utilities import flush_permanent_neighbors
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    select_proxy_env, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
     get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
@@ -77,6 +82,10 @@ from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.helpers.host_failure_utils import (
     is_testbed_unreachable_exception, stop_on_testbed_unreachable,
+)
+from tests.common.helpers.runtime_config import (
+    get_unrestored_runtime_managed_entries_by_context,
+    refresh_core_dump_inventory,
 )
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
@@ -102,6 +111,16 @@ from tests.common.telemetry.fixtures import db_reporter, ts_reporter            
 from tests.common.helpers.yang_utils import run_yang_validation
 
 
+def _csonic_lacp_multiplier(value):
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be an integer from 1 to 255")
+    if not 1 <= multiplier <= 255:
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be from 1 to 255")
+    return multiplier
+
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
@@ -112,6 +131,8 @@ CONNECTION_FAILURE_TYPES = (
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = constants.GOLDEN_CONFIG_DB_PATH
 GOLDEN_CONFIG_DB_PATH_ORI = constants.GOLDEN_CONFIG_DB_PATH_ORI
+RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
+RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -177,9 +198,12 @@ def pytest_addoption(parser):
                      choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
-    # ceos neighbor lacp multiplier
+    # neighbor LACP receive multipliers used during advanced reboot
     parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
                      help="LACP multiplier for ceos neighbors")
+    parser.addoption("--csonic_neighbor_lacp_multiplier", action="store", default=3,
+                     type=_csonic_lacp_multiplier,
+                     help="LACP receive multiplier (1-255) for cSONiC userspace OVS neighbors")
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
@@ -1211,7 +1235,10 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
+        # Keep the real Ansible inventory hostname. CsonicHost.hostname is a
+        # generated Docker container name and cannot be used for variable lookup.
+        register_neighbor_inventory_host(
+            devices, neighbor_name, device, vm_name)
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     servers = []
@@ -1469,11 +1496,18 @@ def eos():
 
 
 @pytest.fixture(scope='session')
-def sonic():
-    """ read and yield sonic configuration """
-    with open('sonic/sonic.yml') as stream:
-        eos = yaml.safe_load(stream)
-        return eos
+def sonic(request):
+    """Return SONiC settings visible to a specific neighbor inventory host."""
+    inv_files = get_inventory_files(request)
+
+    def _neighbor_vars(nbrhosts, neighbor_name):
+        try:
+            return get_sonic_neighbor_vars(
+                inv_files, nbrhosts, neighbor_name, get_host_visible_vars)
+        except ValueError as error:
+            pytest.fail(str(error))
+
+    return _neighbor_vars
 
 
 @pytest.fixture(scope='session')
@@ -1485,8 +1519,8 @@ def pdu(ansible_root):
 
 
 @pytest.fixture(scope="session")
-def creds(duthost):
-    return creds_on_dut(duthost)
+def creds(duthost, ipv6_only_mgmt_enabled):
+    return select_proxy_env(creds_on_dut(duthost), ipv6_only_mgmt_enabled)
 
 
 @pytest.fixture(scope="session")
@@ -1523,10 +1557,13 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
 
 
 @pytest.fixture(scope='module')
-def creds_all_duts(duthosts):
+def creds_all_duts(duthosts, ipv6_only_mgmt_enabled):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = select_proxy_env(
+            creds_on_dut(duthost),
+            ipv6_only_mgmt_enabled
+        )
     return creds_all_duts
 
 
@@ -1731,7 +1768,7 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
-            dut.command("sudo ip neigh flush nud permanent")
+            flush_permanent_neighbors(dut)
 
 
 @pytest.fixture(scope="module")
@@ -2100,6 +2137,14 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         if 'intf_status' not in val:
             continue
         for intf, status in list(val['intf_status'].items()):
+            # Skip internal ports (recirculation / inband / backplane). They
+            # match the 'Ethernet' scope (e.g. 'Ethernet-Rec0', 'Ethernet-IB0',
+            # 'Ethernet-BP0') and can be oper/admin up, but they are not
+            # front-panel test ports and have no fanout/TGEN mapping, so tests
+            # that pick one (e.g. via rand_one_dut_portname_oper_up) fail to
+            # resolve a port id.
+            if intf.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                continue
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs
@@ -3348,6 +3393,37 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         if check_flag:
 
+            def collect_running_config(dut):
+                running_config = {
+                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                }
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        running_config[asic_ns] = json.loads(
+                            dut.shell(
+                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                verbose=False,
+                            )['stdout']
+                        )
+                return running_config
+
+            def collect_core_dumps(dut):
+                if "20191130" in dut.os_version:
+                    return dut.shell(
+                        'ls /var/core/ | grep -v python || true'
+                    )['stdout'].split()
+                return dut.shell('ls /var/core/')['stdout'].split()
+
+            def update_core_dump_inventory(dut):
+                cur_cores, detected_cores = refresh_core_dump_inventory(
+                    duts_data[dut.hostname]["pre_core_dumps"],
+                    lambda: collect_core_dumps(dut),
+                    new_core_dumps.get(dut.hostname),
+                )
+                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
+                new_core_dumps[dut.hostname] = detected_cores
+
             def collect_after_test(dut):
                 inconsistent_config[dut.hostname] = {}
                 pre_only_config[dut.hostname] = {}
@@ -3359,31 +3435,64 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 dut.shell("df -h")
 
                 logger.info("Collecting core dumps after test on {}".format(dut.hostname))
-                if "20191130" in dut.os_version:
-                    cur_cores = dut.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
-                else:
-                    cur_cores = dut.shell('ls /var/core/')['stdout'].split()
-                duts_data[dut.hostname]["cur_core_dumps"] = cur_cores
-
-                cur_core_dumps_set = set(duts_data[dut.hostname]["cur_core_dumps"])
-                pre_core_dumps_set = set(duts_data[dut.hostname]["pre_core_dumps"])
-                new_core_dumps[dut.hostname] = list(cur_core_dumps_set - pre_core_dumps_set)
+                update_core_dump_inventory(dut)
 
                 logger.info("Collecting running config after test on {}".format(dut.hostname))
-                # get running config after running
-                duts_data[dut.hostname]["cur_running_config"] = {}
-                duts_data[dut.hostname]["cur_running_config"][None] = \
-                    json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                if dut.is_multi_asic:
-                    for asic_index in range(0, dut.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        duts_data[dut.hostname]["cur_running_config"][asic_ns] = \
-                            json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                                 verbose=False)['stdout'])
+                duts_data[dut.hostname]["cur_running_config"] = collect_running_config(dut)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts:
                     executor.submit(collect_after_test, duthost)
+
+            def wait_for_runtime_managed_config(dut):
+                pre_running_config = duts_data[dut.hostname]["pre_running_config"]
+                cur_running_config = duts_data[dut.hostname]["cur_running_config"]
+                unrestored = get_unrestored_runtime_managed_entries_by_context(
+                    pre_running_config,
+                    cur_running_config,
+                )
+                if not unrestored:
+                    return
+
+                logger.info(
+                    "Waiting for runtime-managed config entries to be restored on {}: {}".format(
+                        dut.hostname,
+                        json.dumps(unrestored),
+                    )
+                )
+
+                def runtime_managed_config_restored():
+                    current = collect_running_config(dut)
+                    duts_data[dut.hostname]["cur_running_config"] = current
+                    return not get_unrestored_runtime_managed_entries_by_context(
+                        pre_running_config,
+                        current,
+                    )
+
+                if not wait_until(
+                        RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT,
+                        RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL,
+                        0,
+                        runtime_managed_config_restored):
+                    logger.warning(
+                        "Runtime-managed config entries were not restored on {}: {}".format(
+                            dut.hostname,
+                            json.dumps(
+                                get_unrestored_runtime_managed_entries_by_context(
+                                    pre_running_config,
+                                    duts_data[dut.hostname]["cur_running_config"],
+                                )
+                            ),
+                        )
+                    )
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(wait_for_runtime_managed_config, duthost)
+
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost in duthosts:
+                    executor.submit(update_core_dump_inventory, duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
