@@ -96,7 +96,8 @@ def test_addcluster_workflow(duthost):
     local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
     duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
     refactor = MinigraphRefactor(TARGET_LEAF)
-    if not refactor.process_minigraph(local_minigraph, local_minigraph):
+    success, _ = refactor.process_minigraph(local_minigraph, local_minigraph)
+    if not success:
         logger.info(f"Skipping test - testbed topology does not match required conditions for {TARGET_LEAF}")
         pytest.skip(f"Testbed topology does not match required conditions for {TARGET_LEAF}")
     duthost.copy(src=local_minigraph, dest=MINIGRAPH)
@@ -121,7 +122,7 @@ def test_addcluster_workflow(duthost):
 
     # step 6: Generate patch file
     logger.info("Generating patch file")
-    patch_file = generate_config_patch(full_config_path, no_leaf_config_path)
+    patch_file, = generate_config_patch(full_config_path, no_leaf_config_path)
 
     # Step 7 check corresponding tables in CONFIG_DB, if not, create them by mini patch.
     check_tables = ["BGP_NEIGHBOR", "CABLE_LENGTH", "BUFFER_PG", "PORT_QOS_MAP", "DEVICE_NEIGHBOR_METADATA"]
@@ -346,7 +347,14 @@ def test_addcluster_workflow(duthost):
 
     def get_table_data(config, table):
         """Extract table data from config."""
-        return config.get(ASICID, {}).get(table, {})
+        table_data = config.get(ASICID, {}).get(table, {})
+        if table == 'ACL_TABLE':
+            # Appended bindings may change order; sorting preserves duplicate detection.
+            return {
+                name: {**entry, 'ports': sorted(entry['ports'])} if 'ports' in entry else entry
+                for name, entry in table_data.items()
+            }
+        return table_data
 
     # Get list of tables to compare from the patch
     tables_to_compare = set()
