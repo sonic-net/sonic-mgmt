@@ -91,6 +91,8 @@ class TestDataPlane():
         # filter to upstream portchannels
         portchannels = [portchannel for portchannel in portchannels
                         if portchannel["members"][0] in upstream_links]
+        if len(portchannels) <= 1:
+            pytest.skip("Not enough upstream port-channels")
 
         def _configure_route(neigh):
             if isinstance(neigh["host"], EosHost):
