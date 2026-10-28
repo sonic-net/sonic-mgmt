@@ -636,12 +636,12 @@ def __gen_data_flow(testbed_config,
         if ptype:
             ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
         else:
-            ipv4.priority.dscp.phb.values = [flow_prio[0]]
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
         if ptype:
             ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
         else:
-            ipv4.priority.dscp.phb.values = [flow_prio[1]]
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     if ptype and len(ipv4.priority.dscp.phb.values) > 1:
         ipv4.priority.dscp.phb.values = ipv4.priority.dscp.phb.values[:1]
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
