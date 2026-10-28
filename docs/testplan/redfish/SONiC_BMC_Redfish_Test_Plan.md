@@ -7,6 +7,7 @@
 | 1   | 26th March 2026  | Chinmoy Dey    | Initial Version of SONiC BMC Redfish API test plan                                                                                                                 |
 | 2   | 2nd April 2026   | Shreyansh Jain | Add certificate-based authentication test cases                                                                                                                    |
 | 3   | 8th October 2026 | Chinmoy Dey    | Align with the sonic-mgmt test code: ComputerSystem, Chassis leak detection, event subscriptions, Rack Manager alert, pmon interaction, concurrency and restart recovery |
+| 4   | 28th October 2026 | Shreyansh Jain | Align the certificate section with `test_redfish_certificates.py` and the Redfish certificate provisioning HLD |
 
 # Related documents
 
@@ -15,6 +16,7 @@
 | SONiC-BMC-OS HLD             | [https://github.com/sonic-net/SONiC/pull/2043](https://github.com/sonic-net/SONiC/pull/2043)           |
 | sonic-redfish HLD            | [https://github.com/sonic-net/sonic-redfish/pull/2](https://github.com/sonic-net/sonic-redfish/pull/2) |
 | sonic-redfish Implementation | [https://github.com/sonic-net/sonic-redfish/pull/1](https://github.com/sonic-net/sonic-redfish/pull/1) |
+| Redfish Certificate Provisioning HLD | [https://github.com/sonic-net/SONiC/pull/2461](https://github.com/sonic-net/SONiC/pull/2461) |
 
 # Definitions/Abbreviation
 
@@ -31,7 +33,7 @@
 | Rack Manager (RMC)| External controller that polls the BMC, pushes coolant alerts/telemetry and subscribes to events              |
 | Switch host       | The x86 switch the BMC manages, exposed as `/redfish/v1/Systems/system`                                       |
 | STATE_DB          | SONiC Redis database on the BMC; the observable contract between bmcweb, sonic-dbus-bridge and bmcctld       |
-| mTLS              | Mutual TLS; client-certificate authentication enforced by bmcweb `TLSStrict`                                  |
+| mTLS              | Mutual TLS; bmcweb asks every client for a certificate, and every resource except the service root requires one |
 | PTF host          | Packet Test Framework host of the testbed; runs the rack manager webhook receiver                             |
 | DUT               | Device Under Test — the SONiC BMC system being tested                                                         |
 
@@ -67,7 +69,7 @@ This test plan validates the Redfish API exposed by sonic-redfish on SONiC BMC p
 
 This test plan covers:
 
-- Authentication (certificate-based mTLS; every test runs with `TLSStrict` enabled)
+- Authentication (certificate-based mTLS with common name validation; the service root answers without a certificate, every other resource requires one)
 - Redfish service root discovery (`/redfish/v1`)
 - Chassis inventory and the leak detection tree (`/redfish/v1/Chassis/chassis`, `LeakDetectors`, `ThermalSubsystem/LeakDetection`)
 - Computer system inventory, power state and `ResetActionInfo` (`/redfish/v1/Systems/system`)
@@ -110,7 +112,7 @@ Tests use the `requests` Python library for REST API validation (no PTF/scapy ne
 
 - `redfish_utils.py` — `RedfishClient` (mTLS session), field/status/member assertion helpers, `assert_redfish_error` for registry message checks, and the `HOST_FINAL_POWER_STATES` map used to decide when the switch host is settled.
 - `redfish_event_listener.py` — the webhook receiver described above; runs in-process or as a standalone script.
-- `conftest.py` session fixtures — `bmc_duthost` (requires a BMC DUT), `redfish_feature_enabled`, `bmc_clock_in_sync`, `bmc_tls_certs` (generates CA/server/client certs, installs them, enables `TLSStrict`, restores Basic Auth at session end) and `redfish_client`.
+- `conftest.py` session fixtures — `bmc_duthost` (requires a BMC DUT), `redfish_feature_enabled`, `bmc_clock_in_sync`, `bmc_tls_certs` (provisions certificates through `REDFISH|certs` the way a provisioning agent does and restores the original state at teardown, see Section 12) and `redfish_client`.
 
 Per-module fixtures snapshot and restore the STATE\_DB tables they touch, remove subscriptions before and after each test, and power the switch host back on if a power test leaves it off.
 
@@ -133,7 +135,7 @@ sonic-mgmt/tests/redfish/
 ├── test_redfish_pmon_interaction.py       # Redfish <-> bmcctld over STATE_DB
 ├── test_redfish_concurrency.py            # Concurrent rack manager requests
 ├── test_redfish_restart_recovery.py       # Service and container restart recovery
-└── test_redfish_cert_auth.py              # Certificate-based authentication tests
+└── test_redfish_certificates.py           # Certificate staging, rotation, fail-closed and client authentication
 ```
 
 # Supported Topology
@@ -163,6 +165,8 @@ Tests whose prerequisites are absent skip rather than fail: no OEM Rack Manager 
 | 15 | GET        | `/redfish/v1/EventService`                                                              | P0       | Event service capabilities and filters        |
 | 16 | GET/POST   | `/redfish/v1/EventService/Subscriptions`                                                | P0       | List / create push subscriptions              |
 | 17 | GET/DELETE | `/redfish/v1/EventService/Subscriptions/{id}`                                           | P0       | Read / delete a subscription                  |
+| 18 | GET        | `/redfish/v1/Managers`                                                                  | P0       | Privileged resource for client authorization checks |
+| 19 | GET        | `/redfish/v1/UpdateService`                                                             | P0       | Authenticated resource reached with a client certificate alone |
 
 # BMC Data Paths Under Test
 
@@ -189,6 +193,9 @@ Tests whose prerequisites are absent skip rather than fail: no OEM Rack Manager 
 | STATE_DB  | `RACK_MANAGER_DATA\|<sensor>`      | sonic-dbus-bridge               | Telemetry records                                  |
 | STATE_DB  | `LIQUID_COOLING_INFO\|<sensor>`    | thermalctld (seeded by suite)   | Leak sensor state mirrored to D-Bus                |
 | STATE_DB  | `LEAK_CONTROL_POLICY`              | platform                        | Whether a CRITICAL alert is enforced and what it does |
+| CONFIG_DB | `REDFISH\|certs`                   | suite (`bmc_tls_certs`)         | Delivery paths (`server_crt`, `server_key`, `ca_crt`) and trusted common names (`client_crt_cname`) |
+| CONFIG_DB | `REDFISH\|config`                  | suite (port cases)              | Listening `port` |
+| STATE_DB  | `REDFISH_CERT_STATUS\|global`      | `stage-credentials.sh` watcher  | `in_sync`, `mtls_enforced`, `served_serial`, `last_error`, `last_update` |
 
 # Test Cases
 
@@ -199,7 +206,7 @@ Performed by session fixtures before the first test:
 - Verify the DUT is a BMC (`bmc_duthost`); skip the suite otherwise
 - Enable the `redfish` feature if the image ships it disabled and wait for the container (`redfish_feature_enabled`)
 - Verify the BMC clock is not behind the certificate `NotBefore` time (`bmc_clock_in_sync`)
-- Generate CA, server and client certificates, install them in the `redfish` container and enable `TLSStrict` (`bmc_tls_certs`)
+- Generate CA, server and client certificates, deliver them through `REDFISH|certs` and wait for STATE_DB to report them staged (`bmc_tls_certs`, see Section 12)
 - Build the mTLS `redfish_client` used by every test
 
 Priorities are assigned in this plan; the test code carries no priority markers. Parametrized tests list their case count in brackets.
@@ -376,19 +383,80 @@ bmcweb owns no inventory; everything is assembled per request from the bridge's 
 
 ---
 
-## Section 12: Certificate-Based Authentication (mTLS)
+## Section 12: Certificates and Client Authentication (mTLS)
 
-Module: `test_redfish_cert_auth.py` — `GET /redfish/v1`, `GET /redfish/v1/UpdateService`
+Module: `test_redfish_certificates.py`. It covers certificate staging, rotation, fail-closed behaviour, client certificate authentication and common name validation.
 
-The `bmc_tls_certs` session fixture generates CA, server and client certificates with `openssl` in the sonic-mgmt container, installs them in the `redfish` container, enables `TLSStrict`, and at session end removes the CA from the truststore and restores `TLSStrict=false`.
+The design is in the [Redfish Certificate Provisioning HLD](https://github.com/sonic-net/SONiC/pull/2461). Certificates are not copied into the container: a provisioning agent delivers them on the host at the paths named in CONFIG_DB `REDFISH|certs` (`server_crt`, `server_key`, `ca_crt`), and `stage-credentials.sh` in the `redfish` container stages them into what bmcweb reads (`server.pem` and the CA truststore), bounces bmcweb, and publishes its state to STATE_DB `REDFISH_CERT_STATUS|global`. Once provisioned, the device fails closed rather than fall back to a self-signed certificate. bmcweb runs with `TLS` on and `TLSStrict` off: every client is asked for a certificate, the service root answers without one, and every other resource needs a certificate issued by the staged CA whose common name is in `client_crt_cname`. There are no local users or passwords.
 
-| \# | Test Case                                  | Priority | Verifies                                                                                      |
-| :- | :----------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
-| 56 | `test_cert_installed_on_bmc`               | P0       | Server cert at `/etc/ssl/certs/https/server.pem`, CA in `/etc/ssl/certs/authority/`, bmcweb RUNNING |
-| 57 | `test_valid_cert_accepted`                 | P0       | `GET /redfish/v1` with the generated client certificate answers 200                           |
-| 58 | `test_cert_auth_on_authenticated_endpoint` | P0       | `GET /redfish/v1/UpdateService` with only the client certificate (no Basic Auth) answers 200  |
-| 59 | `test_no_cert_rejected`                    | P0       | Without a client certificate the TLS handshake fails (`TLSV13_ALERT_CERTIFICATE_REQUIRED`)   |
-| 60 | `test_wrong_ca_rejected`                   | P1       | A certificate from an untrusted CA fails with a TLS error or HTTP 401/403                     |
+The `bmc_tls_certs` fixture plays the provisioning agent. It records the `REDFISH|config` and `REDFISH|certs` fields and sets aside the device files it will overwrite (the delivered certificates, the provisioned marker and the staging stamp), generates a CA, server and client chain in the sonic-mgmt container, writes the delivery paths and `client_crt_cname`, delivers the files to `/etc/sonic/credentials`, and waits for `in_sync`. Its teardown restores the recorded fields and files and recreates the container, so the device returns to the state it was in. Cases that unprovision, corrupt or rotate certificates return the device to the provisioned state after themselves.
+
+### Provisioning and status
+
+| \# | Test Case                                             | Priority | Verifies                                                                                      |
+| :- | :---------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 56 | `test_delivered_certs_are_staged`                     | P0       | The delivered certificate, key and CA are staged into `server.pem` and the CA truststore bmcweb reads |
+| 57 | `test_provisioned_state_is_recorded`                  | P0       | The provisioned marker and the staging stamp are written on the host mount `/var/lib/bmcweb`  |
+| 58 | `test_status_is_published`                            | P0       | STATE_DB reports `in_sync` and `mtls_enforced` `true`, and `served_serial` names the served certificate |
+| 59 | `test_rotation_is_picked_up`                          | P0       | A rotated server certificate is staged and served with no operator action                     |
+| 60 | `test_mismatched_pair_is_not_staged`                  | P0       | A certificate delivered without its matching key is not staged: served serial and bmcweb unchanged, `in_sync` `false`; the pair is staged once the key arrives |
+| 61 | `test_every_failure_reports_a_reason`                 | P1       | Missing files, an unparseable certificate and a mismatched pair each report `in_sync` `false` with a non-empty `last_error` |
+| 62 | `test_last_update_shows_whether_the_watcher_is_alive` | P1       | `last_update` advances while the watcher runs and stops when it stops                         |
+
+### Client certificate authentication
+
+| \# | Test Case                                            | Priority | Verifies                                                                                      |
+| :- | :--------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 63 | `test_valid_cert_accepted`                           | P0       | A client certificate issued by the provisioned CA is accepted                                 |
+| 64 | `test_cert_auth_on_authenticated_endpoint`           | P0       | `GET /redfish/v1/UpdateService` with only the client certificate answers 200; no user or password is involved |
+| 65 | `test_service_root_readable_without_a_certificate`   | P0       | `GET /redfish/v1` without a client certificate answers 200, as DSP0266 13.3.2 requires        |
+| 66 | `test_privileged_path_refused_without_a_certificate` | P0       | `GET /redfish/v1/Managers` without a client certificate answers 401 or 403                    |
+| 67 | `test_wrong_ca_rejected`                             | P1       | A certificate from an untrusted CA answers 401 or 403 on `FirmwareInventory`, while the trusted certificate is still accepted |
+
+### Common name validation
+
+| \# | Test Case                                        | Priority | Verifies                                                                                      |
+| :- | :----------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 68 | `test_unset_list_refuses_every_common_name`      | P0       | With `client_crt_cname` unset, a certificate from the staged CA answers 403: an unset list fails closed |
+| 69 | `test_exact_match_is_enforced`                   | P0       | A listed name is admitted and any other name answers 403                                      |
+| 70 | `test_wildcard_matches_subdomains_only`          | P1       | `*.example.com` admits names under the domain, not `example.com` itself                       |
+| 71 | `test_list_entries_are_independent`              | P1       | Any entry in a comma separated list admits a client                                           |
+| 72 | `test_service_root_stays_reachable_when_refused` | P1       | A refused client still reads the service root (200), and nothing that needs a privilege (403) |
+
+### Restart, fail-closed and container recreate
+
+| \# | Test Case                                                | Priority | Verifies                                                                                      |
+| :- | :------------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 73 | `test_bmcweb_restart_keeps_serving`                      | P1       | Restarting bmcweb alone reuses the staged files and serves the same certificate; the oneshot does not re-run |
+| 74 | `test_restart_with_source_removed`                       | P1       | bmcweb restarts on the staged copy with the delivered files removed                           |
+| 75 | `test_guard_self_heals_damaged_staged_cert`              | P1       | With the watcher stopped, a damaged staged certificate is re-staged from the source by the guard at the next bmcweb start |
+| 76 | `test_fails_closed_with_nothing_valid`                   | P0       | A provisioned device with no valid certificate anywhere does not start bmcweb, rather than serve a self-signed certificate |
+| 77 | `test_recovers_when_certificates_return`                 | P0       | Once certificates are delivered again, the watcher stages them and starts bmcweb with no operator action |
+| 78 | `test_recreate_without_certificates_fails_closed`        | P1       | Recreating the container with no delivered certificates fails closed: the marker remembers the device was provisioned |
+| 79 | `test_recreate_with_certificates_comes_back_provisioned` | P1       | Recreating the container with certificates present comes back serving them: not self-signed, marker kept, `in_sync` and `mtls_enforced` `true` |
+
+### Bad input and watcher behaviour
+
+| \# | Test Case                                           | Priority | Verifies                                                                                      |
+| :- | :-------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 80 | `test_corrupt_server_certificate_is_not_staged`     | P1       | A delivered server certificate that does not parse is not staged                              |
+| 81 | `test_corrupt_ca_does_not_cause_flapping`           | P1       | A corrupt CA is refused before staging, so bmcweb is never bounced                            |
+| 82 | `test_deleting_the_source_keeps_the_service_running`| P1       | Deleting the delivered files leaves the service on its staged certificate: deletion is not revocation |
+| 83 | `test_mismatched_first_install_stays_in_bootstrap`  | P1       | On a device never provisioned, a mismatched pair stages nothing and writes no marker; the matching pair then provisions it |
+| 84 | `test_change_made_while_down_is_reconciled`         | P1       | A rotation delivered while the watcher is stopped is applied when it starts                   |
+| 85 | `test_unchanged_content_does_not_bounce_bmcweb`     | P1       | Re-delivering identical bytes causes no restage and no bmcweb restart                         |
+
+### Bootstrap, configuration and CA rotation
+
+| \# | Test Case                                                 | Priority | Verifies                                                                                      |
+| :- | :-------------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
+| 86 | `test_unprovisioned_device_serves_self_signed`            | P0       | Before any delivery the device serves a self-signed certificate with no marker; the service root answers 200, `/redfish/v1/Managers` 401, and `in_sync` and `mtls_enforced` are `false` |
+| 87 | `test_certificates_are_read_from_the_configured_paths`    | P1       | Delivery paths come from `REDFISH|certs`, including a server pair and a CA in different directories |
+| 88 | `test_nothing_is_staged_without_configuration`            | P1       | With no `REDFISH|certs` entry, delivered files are not picked up and the device stays on its self-signed certificate |
+| 89 | `test_default_port_is_443`                                | P1       | With no port configured, the API listens on 443                                               |
+| 90 | `test_configured_port_is_applied_by_a_service_restart`    | P1       | A `REDFISH|config` `port` takes effect after a service restart, and the same provisioned certificate is served on it |
+| 91 | `test_invalid_port_falls_back_to_the_default`             | P1       | An unusable port value does not stop the container from starting; the API listens on 443      |
+| 92 | `test_ca_rotation_replaces_the_truststore`                | P0       | After the CA is rotated, client certificates from the old CA are refused and those from the new CA are accepted: CA rotation is how access is revoked |
 
 ---
 
@@ -409,8 +477,8 @@ Counts are test functions; parametrized cases expand to the collected total in t
 | Redfish to pmon Interaction          | 4        | 4         | P0/P1    | NA     |
 | Concurrency                          | 3        | 3         | P1       | NA     |
 | Restart Recovery                     | 2        | 2         | P1       | NA     |
-| Certificate-Based Authentication     | 5        | 5         | P0/P1    | NA     |
-| **Total**                            | **60**   | **88**    |          |        |
+| Certificates and Client Authentication | 37     | 37        | P0/P1    | NA     |
+| **Total**                            | **92**   | **120**   |          |        |
 
 # Open Items
 
