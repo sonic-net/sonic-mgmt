@@ -20,15 +20,6 @@ METHOD_GET = "get"
 SUBMODE_POLL = 2
 
 
-def _telemetry_cgroup_memory_error_regex(container_id):
-    escaped_container_id = re.escape(container_id)
-    return (
-        r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file "
-        rf"'/sys/fs/cgroup/system\.slice/docker-{escaped_container_id}\.scope/memory\.current' "
-        rf"of container '{escaped_container_id}' does not exist on device! Exiting \.\.\.\s*$"
-    )
-
-
 """
 
 Testing cert rotation by telemetry
@@ -39,22 +30,6 @@ Testing cert rotation by telemetry
 4. Test that when we have certs, request will succeed, rotate certs, second request will also succeed
 
 """
-
-
-def _restart_telemetry_without_certs(duthost, env):
-    # Shutting down telemetry
-    duthost.service(name=env.gnmi_container, state="stopped")
-
-    # Remove certs
-    archive_telemetry_certs(duthost)
-
-    # Bring back telemetry
-    duthost.shell("systemctl reset-failed %s" % (env.gnmi_container), module_ignore_errors=True)
-    duthost.service(name=env.gnmi_container, state="restarted")
-
-    # Wait until telemetry is active and running
-    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -75,10 +50,26 @@ def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_st
             container_id,
             "Failed to get telemetry container ID before restart",
         )
+        escaped_container_id = re.escape(container_id)
         loganalyzer[duthost.hostname].ignore_regex.append(
-            _telemetry_cgroup_memory_error_regex(container_id)
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file "
+            rf"'/sys/fs/cgroup/system\.slice/docker-{escaped_container_id}\.scope/memory\.current' "
+            rf"of container '{escaped_container_id}' does not exist on device! Exiting \.\.\.\s*$"
         )
-    _restart_telemetry_without_certs(duthost, env)
+
+    # Shutting down telemetry
+    duthost.service(name=env.gnmi_container, state="stopped")
+
+    # Remove certs
+    archive_telemetry_certs(duthost)
+
+    # Bring back telemetry
+    duthost.shell("systemctl reset-failed %s" % (env.gnmi_container), module_ignore_errors=True)
+    duthost.service(name=env.gnmi_container, state="restarted")
+
+    # Wait until telemetry is active and running
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started." % (env.gnmi_container))
 
     # Restore certs
     unarchive_telemetry_certs(duthost)
