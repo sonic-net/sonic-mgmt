@@ -1,6 +1,6 @@
-# Minimal Python gNMI client
+# Minimal Python gNMI client derived from pygnmi
 
-`GnmiClient` implements **Get, Set and Subscribe**, using grpcio and protobuf;
+`GnmiClient` trims pygnmi's **Get, Set and Subscribe** building blocks, using grpcio and protobuf;
 it does not import pygnmi. Existing fixture and business tests are not switched
 by this change. Certificate creation, DUT configuration and recovery remain with
 their existing owners. No Capabilities RPC is issued, implicitly or explicitly.
@@ -63,24 +63,62 @@ passthrough options or private pygnmi subscriber hooks are provided. Existing
 AAA code catching `gNMIException`, private `_build_client` users, Capabilities
 tests, and any fixture migration need explicit adaptation in a separate change.
 
-## Protocol provenance and generation
+## Source and dependencies
+
+### Handwritten client source
+
+Derived from the published **pygnmi 0.8.15 wheel**, not the GitHub tag:
+
+- Artifact: `pygnmi-0.8.15-py3-none-any.whl`
+- SHA256: `e72859070c7dc3618b578e48c76521db6d627b64a92b496ab886f3ff93a1a396`
+- Source: https://pypi.org/project/pygnmi/0.8.15/
+- BSD-3-Clause copyright and license: `LICENSE.pygnmi`.
+
+The correspondence is deliberately kept visible in `client.py`:
+
+| Upstream source | Retained/adapted part |
+| --- | --- |
+| `create_gnmi_path.py:11–102` | `gnmi_path_generator` / `gnmi_path_degenerator`: extract selectors before splitting path elements and reconstruct sorted keys |
+| `client.py:1420–1451` | `construct_update_message`: strings are pre-encoded JSON; dicts are serialized; repeated update/replace entries |
+| `client.py:1035–1247` | `_Subscriber`: request queue with POLL/STOP, receiver queue, bounded `get_update`, collection until sync and update/delete merging |
+| `client.py:405–767,1265–1387` | Get/Set request/response field shapes and `telemetryParser`; share value/notification decoding instead of copying repetitive branches |
+
+Unused CLI/debug printing, automatic certificate retrieval, Capabilities/encoding
+negotiation, diff/retry, authentication extensions and alias support are omitted.
+The three upstream subscriber subclasses are folded into mode selection in the
+single `_Subscriber`; the existing bounded public generator remains a thin wrapper.
+
+Necessary adaptations are explicit: local protobuf imports; IPv6 normalization;
+explicit RPC deadlines; receiver errors/EOF queued to the caller; retained RPC
+cancel and worker joins; finite receive queue; no eager Poll before the initial
+snapshot; EVENTS delivery without sync. Path parsing adds escaped-slash handling
+and selector validation. Decoding preserves double/zero/false/bytes and reports
+invalid JSON rather than swallowing parser errors. Incompatible batch metadata
+is rejected rather than overwritten as in upstream. These are intentional limits
+and fixes, not a promise of bug-for-bug or full pygnmi API compatibility.
+
+### Generated protocol modules
 
 Three generated modules under `proto/` come from OpenConfig gNMI **v0.8.0**,
 commit `c1b4525a810ffdaa3f4960d3cd88987a58d8e204` (Apache-2.0; license included).
-`proto/generate.py` verifies SHA256 hashes of both upstream protos and LICENSE.
-It normalizes the gnmi_ext import, generates with **grpcio-tools==1.62.3**, and
-uses relative Python imports and a package-private descriptor pool. That pool
-allows coexistence with old pygnmi/other generated gNMI schemas during migration.
-No schema fields or wire names are changed. Runtime needs grpcio and protobuf;
-grpcio-tools is only needed to regenerate, not to run the client.
+Like pygnmi, this package ships the generated Python files and imports them
+directly. There is no download, generation step or custom version/hash check.
+Runtime needs only grpcio and protobuf; pygnmi, grpcio-tools and protoc are not
+required by this client. Existing environments can use their installed runtime
+packages; this client does not install packages or enforce an exact version.
+
+The checked-in modules use relative imports and a small private descriptor pool
+to coexist with other gNMI clients during migration. No wire fields are changed.
+Source versions above document provenance, not runtime requirements.
+
+## Optional developer tests
 
 ```sh
-python tests/common/gnmi/proto/generate.py
 python -m pytest --noconftest --confcutdir=tests/common/unit_tests -o addopts= \
   tests/common/unit_tests/unit_test_gnmi_client.py -q
 ```
 
-Offline tests require pytest/cryptography and run actual local gRPC servers,
+These tests are not part of client startup. They require pytest/cryptography and run local gRPC servers,
 including mTLS and IPv6. They do not prove SONiC DUT/fixture integration. Use a
 clean virtual environment without pygnmi for the dependency-removal check.
 

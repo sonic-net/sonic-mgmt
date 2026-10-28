@@ -1,4 +1,8 @@
-"""Get, Set and bounded Subscribe without a pygnmi dependency.
+"""Get, Set and bounded Subscribe, trimmed from pygnmi 0.8.15.
+
+Copyright (c) 2020, karneliuk.com. All rights reserved.
+Derived portions are distributed under BSD-3-Clause; see LICENSE.pygnmi and
+README.md for the pinned source and the deliberate changes from upstream.
 
 Each unary call owns its channel. A subscription owns its channel until exhausted
 or explicitly closed (use contextlib.closing when breaking out early).
@@ -40,65 +44,47 @@ def _seconds(value, name, allow_zero=False):
     return value
 
 
-def _split_path(text):
-    """Split unescaped slashes outside selectors, retaining escapes for parsing."""
-    parts, part, depth, escaped = [], [], 0, False
-    for char in text:
-        if escaped:
-            part.extend(("\\", char))
-            escaped = False
-        elif char == "\\":
-            escaped = True
-        elif char == "/" and not depth:
-            if part:
-                parts.append("".join(part))
-                part = []
-        else:
-            if char == "[":
-                depth += 1
-            elif char == "]":
-                depth -= 1
-            if depth not in (0, 1):
-                raise GnmiClientError(f"Invalid path: {text}")
-            part.append(char)
-    if depth or escaped:
-        raise GnmiClientError(f"Invalid path: {text}")
-    if part:
-        parts.append("".join(part))
-    return parts
+def gnmi_path_generator(text, target=None):
+    """pygnmi's selector-extraction/path-element algorithm, with escaped slashes.
 
-
-def _unescape(text):
-    return re.sub(r"\\(.)", r"\1", text)
-
-
-def _path(text, target=None):
+    Extract selectors before splitting, so slashes inside key values are not
+    separators. Unlike upstream, split key/value only once and reject malformed
+    selectors rather than silently producing a different path.
+    """
     if isinstance(text, pb.Path):
         result = pb.Path()
         result.CopyFrom(text)
     else:
         result = pb.Path()
-        text = text.lstrip("/")
-        origin = re.match(r"^([A-Za-z_][\w.-]*):", text)
-        if origin:
-            result.origin = origin[1]
-            text = text[origin.end():]
-        for part in _split_path(text):
-            match = re.fullmatch(r"((?:\\.|[^\[\]])+)((?:\[(?:\\.|[^\[\]])*\])*)", part)
-            if not match:
+        keys = []
+
+        def extract_key(match):
+            pair = match[1].split("=", 1)
+            if len(pair) != 2 or not pair[0]:
+                raise GnmiClientError(f"Invalid path selector: {match[0]}")
+            keys.append(dict([pair]))
+            return f"[{len(keys) - 1}]"
+
+        text = re.sub(r"\[([^\[\]]*)\]", extract_key, text)
+        path_elements = [part for part in re.split(r"(?<!\\)/", text) if part]
+        if path_elements and ":" in path_elements[0]:
+            result.origin, path_elements[0] = path_elements[0].split(":", 1)
+            if not path_elements[0]:
+                del path_elements[0]
+        for part in path_elements:
+            match = re.fullmatch(r"([^\[\]]+)((?:\[\d+\])*)", part)
+            if not match or part.endswith("\\"):
                 raise GnmiClientError(f"Invalid path element: {part}")
-            element = result.elem.add(name=_unescape(match[1]))
-            for selector in re.findall(r"\[((?:\\.|[^\[\]])*)\]", match[2]):
-                pair = re.split(r"(?<!\\)=", selector, maxsplit=1)
-                if len(pair) != 2 or not pair[0]:
-                    raise GnmiClientError(f"Invalid path selector: {selector}")
-                element.key[_unescape(pair[0])] = _unescape(pair[1])
+            element = result.elem.add(name=match[1].replace(r"\/", "/"))
+            for index in re.findall(r"\[(\d+)\]", match[2]):
+                element.key.update(keys[int(index)])
     if target is not None:
         result.target = target
     return result
 
 
-def _path_text(path):
+def gnmi_path_degenerator(path):
+    """pygnmi's canonical element/key rendering (origin and target stay separate)."""
     return "/".join(
         element.name + "".join(f"[{key}={value}]" for key, value in sorted(element.key.items()))
         for element in path.elem
@@ -135,28 +121,158 @@ def _value(value):
 def _notification(notification):
     result = {
         "timestamp": notification.timestamp,
-        "prefix": _path_text(notification.prefix),
+        "prefix": gnmi_path_degenerator(notification.prefix),
         "origin": notification.prefix.origin or None,
         "target": notification.prefix.target or None,
         "atomic": notification.atomic,
-        "update": [{"path": _path_text(update.path), "val": _value(update.val)}
+        "update": [{"path": gnmi_path_degenerator(update.path), "val": _value(update.val)}
                    for update in notification.update],
     }
     if notification.delete:
-        result["delete"] = [{"path": _path_text(path)} for path in notification.delete]
+        result["delete"] = [{"path": gnmi_path_degenerator(path)} for path in notification.delete]
     return result
 
 
-def _merge(batch, notification):
-    """Coalesce only notifications whose metadata can be represented losslessly."""
-    metadata = ("prefix", "origin", "target", "timestamp", "atomic")
-    if batch and any(batch[key] != notification[key] for key in metadata):
-        raise GnmiClientError("Cannot coalesce notifications with different prefix or metadata")
-    for key, value in notification.items():
-        if key in ("update", "delete"):
-            batch.setdefault(key, []).extend(value)
+def construct_update_message(user_list, encoding):
+    """Trimmed pygnmi Set builder: strings are JSON text, not Python scalars."""
+    result = []
+    fields = {pb.JSON: "json_val", pb.JSON_IETF: "json_ietf_val", pb.BYTES: "bytes_val",
+              pb.PROTO: "proto_bytes", pb.ASCII: "ascii_val"}
+    for path, value in user_list or []:
+        entry = pb.Update(path=gnmi_path_generator(path))
+        if isinstance(value, pb.TypedValue):
+            entry.val.CopyFrom(value)
         else:
-            batch[key] = value
+            if encoding in (pb.JSON, pb.JSON_IETF):
+                value = value.encode("utf-8") if isinstance(value, str) else json.dumps(value).encode("utf-8")
+            elif encoding in (pb.BYTES, pb.PROTO) and not isinstance(value, bytes):
+                raise GnmiClientError("Use bytes for bytes/proto, or an explicit TypedValue")
+            elif encoding == pb.ASCII and not isinstance(value, str):
+                raise GnmiClientError("Use str for ascii, or an explicit TypedValue")
+            setattr(entry.val, fields[encoding], value)
+        result.append(entry)
+    return result
+
+
+def telemetryParser(response):
+    """Trimmed pygnmi response shape; fail visibly on errors or invalid values."""
+    kind = response.WhichOneof("response")
+    if kind == "update":
+        return {"update": _notification(response.update)}
+    if kind == "sync_response" and response.sync_response:
+        return {"sync_response": True}
+    if kind == "error":
+        raise GnmiClientError(f"Subscribe error {response.error.code}: {response.error.message}")
+    raise GnmiClientError("Subscribe returned an empty or invalid response")
+
+
+class _Subscriber:
+    """pygnmi queue-driven subscriber, reduced to bounded reads and owned close.
+
+    Keep the upstream request queue and receiver model. Queue terminal failures
+    as well as messages, retain the RPC for cancel(), and join both workers.
+    """
+
+    def __init__(self, stub, request, timeout):
+        self._msgs = queue.Queue()
+        self._updates = queue.Queue(maxsize=256)
+        self._stopped = threading.Event()
+        self._requests_started = threading.Event()
+        self._requests_done = threading.Event()
+        self._first_update_seen = False
+        self._mode = request.subscribe.mode
+        self._events = request.subscribe.prefix.target == "EVENTS"
+        self._call = stub.Subscribe(self._create_client_stream(request), timeout=timeout)
+        self._subscribe_thread = threading.Thread(target=self._enqueue_updates, name="gnmi-subscribe-reader")
+        self._subscribe_thread.start()
+
+    def _create_client_stream(self, request):
+        self._requests_started.set()
+        try:
+            yield request
+            while True:
+                message = self._msgs.get()
+                if message == "POLL":
+                    yield pb.SubscribeRequest(poll=pb.Poll())
+                elif message == "STOP":
+                    return
+        finally:
+            self._requests_done.set()
+
+    def _enqueue(self, message):
+        while not self._stopped.is_set():
+            try:
+                self._updates.put(message, timeout=0.1)
+                return
+            except queue.Full:
+                pass
+
+    def _enqueue_updates(self):
+        try:
+            for update in self._call:
+                self._enqueue(update)
+        except grpc.RpcError as error:
+            self._enqueue(error)
+        finally:
+            self._enqueue(None)
+
+    def _get_one_update(self, deadline):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise queue.Empty
+        response = self._updates.get(timeout=remaining)
+        if isinstance(response, grpc.RpcError):
+            raise response
+        if response is None:
+            raise GnmiClientError("Subscribe ended before the requested collection completed")
+        return telemetryParser(response)
+
+    def _get_updates_till_sync(self, deadline):
+        response = {"update": {}}
+        while "sync_response" not in response:
+            self._merge_updates(response, self._get_one_update(deadline))
+        return response
+
+    @staticmethod
+    def _merge_updates(response, new_response):
+        if "update" in new_response:
+            batch, notification = response["update"], new_response["update"]
+            # Upstream overwrites these metadata fields, potentially associating
+            # old updates with a different prefix. Reject unrepresentable batches.
+            if batch and any(batch[key] != notification[key]
+                             for key in ("prefix", "origin", "target", "timestamp", "atomic")):
+                raise GnmiClientError("Cannot coalesce notifications with different prefix or metadata")
+            for key, value in notification.items():
+                if key in ("update", "delete"):
+                    batch.setdefault(key, []).extend(value)
+                else:
+                    batch[key] = value
+        if "sync_response" in new_response:
+            response["sync_response"] = new_response["sync_response"]
+
+    def get_update(self, timeout):
+        deadline = time.monotonic() + timeout
+        if self._mode == pb.SubscriptionList.POLL:
+            # Consume initial snapshot before requesting another, rather than
+            # pygnmi's eager Poll that can leave one unused snapshot queued.
+            if self._first_update_seen:
+                self._msgs.put("POLL")
+            result = self._get_updates_till_sync(deadline)
+        elif self._mode == pb.SubscriptionList.STREAM and not self._first_update_seen and not self._events:
+            result = self._get_updates_till_sync(deadline)
+        else:
+            result = self._get_one_update(deadline)
+        self._first_update_seen = True
+        return result
+
+    def close(self):
+        self._stopped.set()
+        self._msgs.put("STOP")
+        self._call.cancel()
+        self._subscribe_thread.join(5)
+        if (self._subscribe_thread.is_alive()
+                or (self._requests_started.is_set() and not self._requests_done.wait(5))):
+            raise GnmiClientError("Subscribe workers did not stop after cancellation")
 
 
 class GnmiClient:
@@ -202,7 +318,7 @@ class GnmiClient:
 
     def get(self, paths, datatype="all", encoding="json_ietf", target=None, prefix=""):
         request = pb.GetRequest(
-            prefix=_path(prefix, target), path=[_path(path) for path in _paths(paths)],
+            prefix=gnmi_path_generator(prefix, target), path=[gnmi_path_generator(path) for path in _paths(paths)],
             type=_enum(pb.GetRequest.DataType, datatype), encoding=_enum(pb.Encoding, encoding),
         )
         with self._stub() as stub:
@@ -215,30 +331,19 @@ class GnmiClient:
         if not any((update, replace, delete)):
             raise GnmiClientError("Set requires update, replace or delete")
         encoding = _enum(pb.Encoding, encoding)
-        request = pb.SetRequest(prefix=_path(prefix, target), delete=[_path(path) for path in delete or []])
-        for operation, items in (("update", update), ("replace", replace)):
-            for path, value in items or []:
-                entry = getattr(request, operation).add(path=_path(path))
-                if isinstance(value, pb.TypedValue):
-                    entry.val.CopyFrom(value)
-                elif encoding in (pb.JSON, pb.JSON_IETF):
-                    # Existing callers pass JSON text, including quoted scalar strings.
-                    data = value.encode() if isinstance(value, str) else json.dumps(value).encode()
-                    setattr(entry.val, "json_val" if encoding == pb.JSON else "json_ietf_val", data)
-                elif encoding in (pb.BYTES, pb.PROTO) and isinstance(value, bytes):
-                    setattr(entry.val, "bytes_val" if encoding == pb.BYTES else "proto_bytes", value)
-                elif encoding == pb.ASCII and isinstance(value, str):
-                    entry.val.ascii_val = value
-                else:
-                    raise GnmiClientError("Use bytes for bytes/proto, str for ascii, or an explicit TypedValue")
+        request = pb.SetRequest(
+            prefix=gnmi_path_generator(prefix, target),
+            delete=[gnmi_path_generator(path) for path in delete or []],
+            update=construct_update_message(update, encoding), replace=construct_update_message(replace, encoding),
+        )
         with self._stub() as stub:
             response = stub.Set(request, timeout=self.timeout)
         if response.HasField("message"):
             raise GnmiClientError(f"Set error {response.message.code}: {response.message.message}")
         return {
-            "timestamp": response.timestamp, "prefix": _path_text(response.prefix),
+            "timestamp": response.timestamp, "prefix": gnmi_path_degenerator(response.prefix),
             "target": response.prefix.target or None,
-            "response": [{"path": _path_text(item.path), "op": pb.UpdateResult.Operation.Name(item.op)}
+            "response": [{"path": gnmi_path_degenerator(item.path), "op": pb.UpdateResult.Operation.Name(item.op)}
                          for item in response.response],
         }
 
@@ -265,7 +370,7 @@ class GnmiClient:
         if not isinstance(poll_count, int) or poll_count <= 0:
             raise GnmiClientError("poll_count must be a positive integer")
         request = pb.SubscribeRequest(subscribe=pb.SubscriptionList(
-            prefix=_path(prefix, target), mode=mode, encoding=_enum(pb.Encoding, encoding),
+            prefix=gnmi_path_generator(prefix, target), mode=mode, encoding=_enum(pb.Encoding, encoding),
             updates_only=updates_only, allow_aggregation=allow_aggregation,
         ))
         if qos is not None:
@@ -275,7 +380,7 @@ class GnmiClient:
             request.subscribe.qos.marking = marking
         for item in _paths(paths):
             options = item if isinstance(item, dict) else {"path": item}
-            subscription = request.subscribe.subscription.add(path=_path(options["path"]))
+            subscription = request.subscribe.subscription.add(path=gnmi_path_generator(options["path"]))
             if mode == pb.SubscriptionList.STREAM:
                 subscription.mode = _enum(pb.SubscriptionMode, options.get("mode", stream_mode))
                 subscription.suppress_redundant = options.get("suppress_redundant", False)
@@ -288,86 +393,24 @@ class GnmiClient:
 
     def _subscribe(self, request, collect_seconds, count, poll_count, poll_interval):
         mode = request.subscribe.mode
-        outgoing, incoming = queue.Queue(), queue.Queue(maxsize=256)
-        stopped, requests_done = threading.Event(), threading.Event()
-        requests_started = threading.Event()
-
-        def requests():
-            requests_started.set()
-            try:
-                yield request
-                while True:
-                    message = outgoing.get()
-                    if message is None:
-                        return
-                    yield message
-            finally:
-                requests_done.set()
-
-        def enqueue(message):
-            while not stopped.is_set():
-                try:
-                    incoming.put(message, timeout=0.1)
-                    return
-                except queue.Full:
-                    pass
-
-        # The call deadline is a final guard; per-batch/window bounds below are
-        # tighter. It also bounds a consumer that stops requesting new messages.
         duration = (collect_seconds if mode == pb.SubscriptionList.STREAM else
                     poll_count * (self.timeout + poll_interval) if mode == pb.SubscriptionList.POLL else self.timeout)
         with self._stub() as stub:
-            call = stub.Subscribe(requests(), timeout=duration + 1)
-
-            def receive():
-                try:
-                    for response in call:
-                        enqueue(response)
-                except grpc.RpcError as error:
-                    enqueue(error)
-                finally:
-                    enqueue(None)
-
-            reader = threading.Thread(target=receive, name="gnmi-subscribe-reader")
-            reader.start()
+            subscriber = _Subscriber(stub, request, duration + 1)
             deadline = time.monotonic() + (collect_seconds if mode == pb.SubscriptionList.STREAM else self.timeout)
-            batch, produced = {}, 0
-            initial_stream = mode == pb.SubscriptionList.STREAM and request.subscribe.prefix.target != "EVENTS"
+            produced = 0
             try:
                 while True:
-                    remaining = deadline - time.monotonic()
+                    timeout = self.timeout if mode == pb.SubscriptionList.POLL else deadline - time.monotonic()
                     try:
-                        if remaining <= 0:
-                            raise queue.Empty
-                        response = incoming.get(timeout=remaining)
+                        response = subscriber.get_update(timeout)
                     except queue.Empty:
                         if mode == pb.SubscriptionList.STREAM:
                             return
                         raise GnmiClientTimeoutError("Subscribe did not synchronize within timeout") from None
-                    if isinstance(response, grpc.RpcError):
-                        raise response
-                    if response is None:
-                        raise GnmiClientError("Subscribe ended before the requested collection completed")
-                    kind = response.WhichOneof("response")
-                    if kind == "error":
-                        raise GnmiClientError(f"Subscribe error {response.error.code}: {response.error.message}")
-                    if kind == "update":
-                        notification = _notification(response.update)
-                        if mode == pb.SubscriptionList.POLL or initial_stream:
-                            _merge(batch, notification)
-                            continue
-                        result = {"update": notification}
-                    elif kind == "sync_response" and response.sync_response:
-                        result = {"sync_response": True}
-                        if mode == pb.SubscriptionList.POLL or initial_stream:
-                            result["update"] = batch
-                            batch = {}
-                            initial_stream = False
-                    else:
-                        raise GnmiClientError("Subscribe returned an empty or invalid response")
                     produced += 1
-                    yield result
-                    if mode == pb.SubscriptionList.ONCE and kind == "sync_response":
+                    yield response
+                    if mode == pb.SubscriptionList.ONCE and response.get("sync_response"):
                         return
                     if mode == pb.SubscriptionList.STREAM and count is not None and produced >= count:
                         return
@@ -375,12 +418,5 @@ class GnmiClient:
                         if produced >= poll_count:
                             return
                         time.sleep(poll_interval)
-                        deadline = time.monotonic() + self.timeout
-                        outgoing.put(pb.SubscribeRequest(poll=pb.Poll()))
             finally:
-                stopped.set()
-                outgoing.put(None)
-                call.cancel()
-                reader.join(5)
-                if reader.is_alive() or (requests_started.is_set() and not requests_done.wait(5)):
-                    raise GnmiClientError("Subscribe workers did not stop after cancellation")
+                subscriber.close()
