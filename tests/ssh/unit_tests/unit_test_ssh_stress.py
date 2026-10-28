@@ -169,6 +169,54 @@ def test_nested_vrf_route_is_detected_in_config_facts(ssh_stress):
     assert not ssh_stress._config_has_key_component(routes, "192.0.2.0/24")
 
 
+def test_quiescence_reads_portchannel_carrier_from_interface_facts(
+    ssh_stress, monkeypatch
+):
+    portchannel = "PortChannel101"
+
+    class FakeDut:
+        hostname = "dut"
+        link = True
+
+        def config_facts(self, **_kwargs):
+            return {
+                "ansible_facts": {
+                    "PORTCHANNEL": {
+                        portchannel: {"admin_status": "up"},
+                    },
+                    "STATIC_ROUTE": {},
+                    "ACL_RULE": {},
+                }
+            }
+
+        def interface_facts(self):
+            return {
+                "ansible_facts": {
+                    "ansible_interface_facts": {
+                        portchannel: {"link": self.link},
+                    }
+                }
+            }
+
+        def is_interface_status_up(self, _interface):
+            pytest.fail("physical-port status API used for a PortChannel")
+
+    dut = FakeDut()
+    monkeypatch.setattr(
+        ssh_stress,
+        "_control_plane_is_healthy",
+        lambda *_args, **_kwargs: True,
+    )
+
+    assert ssh_stress._stress_state_is_quiescent(
+        dut, [portchannel], {}, portchannel
+    )
+    dut.link = False
+    assert not ssh_stress._stress_state_is_quiescent(
+        dut, [portchannel], {}, portchannel
+    )
+
+
 def _fake_runner(channel):
     transport = types.SimpleNamespace(
         open_session=lambda **_kwargs: channel
@@ -349,6 +397,7 @@ def test_run_command_waits_for_output_after_exit_status(
     ssh_stress, monkeypatch
 ):
     stdout_chunks = [b"trailing output\n"]
+    cancelled = []
 
     class FakeChannel:
         closed = False
@@ -403,10 +452,89 @@ def test_run_command_waits_for_output_after_exit_status(
         "_reserve_remote_command",
         lambda _runner, _token, _deadline: None,
     )
+    monkeypatch.setattr(
+        ssh_stress,
+        "_cancel_remote_command",
+        lambda _runner, token: cancelled.append(token),
+    )
 
     with pytest.raises(AssertionError, match="trailing output"):
         ssh_stress._run_command(runner, "failed-command")
 
+    assert stdout_chunks == []
+    assert len(cancelled) == 1
+    assert channel.closed
+
+
+def test_run_command_duration_includes_eof_drain(ssh_stress, monkeypatch):
+    now = [10.0]
+    stdout_chunks = [b"trailing output\n"]
+
+    class FakeChannel:
+        closed = False
+        eof_received = False
+
+        def __init__(self):
+            self.status_received = False
+            self.post_status_checks = 0
+
+        def settimeout(self, _timeout):
+            pass
+
+        def exec_command(self, _command):
+            pass
+
+        def recv_ready(self):
+            if not self.status_received:
+                return False
+            self.post_status_checks += 1
+            if self.post_status_checks == 1:
+                return False
+            if stdout_chunks:
+                return True
+            self.eof_received = True
+            return False
+
+        def recv(self, _size):
+            return stdout_chunks.pop(0)
+
+        def recv_stderr_ready(self):
+            return False
+
+        def recv_stderr(self, _size):
+            raise AssertionError("stderr was not ready")
+
+        def exit_status_ready(self):
+            return True
+
+        def recv_exit_status(self):
+            self.status_received = True
+            return 0
+
+        def close(self):
+            self.closed = True
+
+    channel = FakeChannel()
+    runner = _fake_runner(channel)
+    monkeypatch.setattr(ssh_stress, "COMMAND_POLL_INTERVAL", 0.1)
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(
+        ssh_stress.time,
+        "sleep",
+        lambda seconds: now.__setitem__(0, now[0] + seconds),
+    )
+    monkeypatch.setattr(
+        ssh_stress,
+        "_reserve_remote_command",
+        lambda _runner, _token, _deadline: None,
+    )
+
+    dispatch_duration, completion_duration = ssh_stress._run_command(
+        runner, "successful-command"
+    )
+
+    assert dispatch_duration == 0
+    assert completion_duration == pytest.approx(0.1)
     assert stdout_chunks == []
     assert channel.closed
 
@@ -488,6 +616,51 @@ def test_cancel_waits_for_late_mutation_before_restoration(
     assert restored.exists()
     assert not late.exists()
     assert result and result[0] != 0
+
+
+def test_failed_group_fence_retains_owner_metadata(
+    command_helper, monkeypatch, tmp_path
+):
+    token = uuid.uuid4().hex
+
+    class FakeProcess:
+        pid = 12345
+        returncode = 0
+
+        def communicate(self):
+            return b"", b""
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(
+        command_helper.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: FakeProcess(),
+    )
+    monkeypatch.setattr(
+        command_helper, "_process_start_time", lambda _pid: "1"
+    )
+    monkeypatch.setattr(
+        command_helper,
+        "_terminate_process_group",
+        lambda _pid: (_ for _ in ()).throw(
+            RuntimeError("process group still alive")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="process group still alive"):
+        command_helper.run_command(
+            str(tmp_path),
+            token,
+            command_helper.base64.b64encode(b"true").decode(),
+            stdout=io.BytesIO(),
+            stderr=io.BytesIO(),
+        )
+
+    directory = tmp_path / token
+    assert (directory / "owner.json").exists()
+    assert not (directory / "done.json").exists()
 
 
 def test_normal_completion_fences_background_descendants(

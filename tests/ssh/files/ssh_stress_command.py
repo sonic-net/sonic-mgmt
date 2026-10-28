@@ -309,11 +309,17 @@ def run_command(
         if previous_int is not None:
             signal.signal(signal.SIGINT, previous_int)
         if directory is not None and process is not None:
-            if process.poll() is None:
-                _terminate_child_process(process)
-            with _locked_state(state_root, token) as directory:
-                if not os.path.exists(os.path.join(directory, "done.json")):
-                    _mark_done(directory, process.returncode)
+            done_path = os.path.join(directory, "done.json")
+            if not os.path.exists(done_path):
+                if process.poll() is None:
+                    _terminate_child_process(process)
+                else:
+                    # A leader exit does not prove that the owned process group
+                    # is empty; retain owner.json if fencing cannot be proved.
+                    _terminate_process_group(process.pid)
+                with _locked_state(state_root, token) as directory:
+                    if not os.path.exists(done_path):
+                        _mark_done(directory, process.returncode)
 
 
 def control(state_root):

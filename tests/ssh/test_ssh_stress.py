@@ -127,10 +127,14 @@ def _stress_state_is_quiescent(
         for key, value in config_facts.get("PORTCHANNEL", {}).items()
         if stress_portchannel in _config_key_parts(key)
     ), None)
+    interface_facts = duthost.interface_facts()["ansible_facts"].get(
+        "ansible_interface_facts", {}
+    )
+    portchannel_link = interface_facts.get(stress_portchannel, {}).get("link")
     if (
         configured_portchannel is None
         or configured_portchannel.get("admin_status") != "up"
-        or not duthost.is_interface_status_up(stress_portchannel)
+        or portchannel_link is not True
     ):
         return False
 
@@ -693,14 +697,7 @@ def _run_command(runner, command):
             _drain_ready_output(
                 channel, stderr_chunks, deadline, stderr=True
             )
-            completed_at = time.monotonic()
             if channel.exit_status_ready():
-                if completed_at > deadline:
-                    raise socket.timeout(
-                        "Command {!r} did not complete within {} seconds".format(
-                            command, COMMAND_TIMEOUT
-                        )
-                    )
                 exit_status = channel.recv_exit_status()
                 _drain_output_until_eof(
                     channel,
@@ -708,10 +705,28 @@ def _run_command(runner, command):
                     stderr_chunks,
                     deadline,
                 )
+                completed_at = time.monotonic()
+                if completed_at > deadline:
+                    raise socket.timeout(
+                        "Command {!r} did not complete within {} seconds".format(
+                            command, COMMAND_TIMEOUT
+                        )
+                    )
                 break
             time.sleep(
                 min(COMMAND_POLL_INTERVAL, _remaining_time(deadline))
             )
+
+        stdout_lines = _decode_output_lines(stdout_chunks)
+        stderr_lines = _decode_output_lines(stderr_chunks)
+        if exit_status != 0:
+            raise AssertionError(
+                "Command {!r} failed with rc={}: stdout={!r}, "
+                "stderr={!r}".format(
+                    command, exit_status, stdout_lines, stderr_lines
+                )
+            )
+        return dispatch_duration, completed_at - start_time
     except socket.timeout:
         if request_started:
             _cancel_remote_command(runner, token)
@@ -727,16 +742,6 @@ def _run_command(runner, command):
     finally:
         if channel is not None:
             channel.close()
-
-    stdout_lines = _decode_output_lines(stdout_chunks)
-    stderr_lines = _decode_output_lines(stderr_chunks)
-    if exit_status != 0:
-        raise AssertionError(
-            "Command {!r} failed with rc={}: stdout={!r}, stderr={!r}".format(
-                command, exit_status, stdout_lines, stderr_lines
-            )
-        )
-    return dispatch_duration, completed_at - start_time
 
 
 def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
