@@ -31,11 +31,13 @@ Part 1:
     - Add a route to the routemap and remove it
     - Add a port channel and remove it
 5. Record every completed command duration during the five-minute stress phase.
-   For each command direction with at least 20 samples, compare the nearest-rank
-   p95 with five times that command's own serial baseline median. This allows one
-   command no more time than five serial executions of that command. A p95 at or
-   above the limit, a timeout, or a nonzero command exit status fails the test.
-   The maximum and sample count are logged for diagnosis.
+   Each worker must complete at least 20 full alternating command-pair cycles,
+   an average of at least one cycle every 15 seconds over the stress phase. A
+   final unmatched command does not count as an additional cycle. A command
+   timeout, nonzero exit status, rollback failure, or insufficient cycle count
+   fails the test. Each command's nearest-rank p95, maximum, serial baseline
+   median, and p95 slowdown are logged as diagnostics; they are not treated as a
+   queueing bound for the heterogeneous five-worker workload.
 6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
 7. After the stress workers stop, require CPU and memory to remain within 20

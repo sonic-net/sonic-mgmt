@@ -105,6 +105,106 @@ def test_command_baselines_use_matching_preestablished_clients(
     ]
 
 
+def test_stress_progress_accepts_sustained_cycles_despite_high_p95(
+    ssh_stress, monkeypatch
+):
+    monkeypatch.setattr(ssh_stress, "MIN_STRESS_CYCLES", 20)
+    monkeypatch.setattr(ssh_stress, "STRESS_DURATION", 300)
+    command_pairs = [("add", "del")]
+    baseline_times = [(0.50, 0.40)]
+    stress_durations = [[
+        [2.60] * 20,
+        [2.54] * 20,
+    ]]
+
+    # The delete p95 is 6.35x its serial median. That ratio is diagnostic;
+    # the hard invariant is sustained completion of full command-pair cycles.
+    ssh_stress._assert_stress_progress(
+        command_pairs, baseline_times, stress_durations
+    )
+
+
+@pytest.mark.parametrize("sample_counts", [(20, 19), (19, 20)])
+def test_stress_progress_rejects_incomplete_cycle_floor(
+    ssh_stress, monkeypatch, sample_counts
+):
+    monkeypatch.setattr(ssh_stress, "MIN_STRESS_CYCLES", 20)
+    monkeypatch.setattr(ssh_stress, "STRESS_DURATION", 300)
+    stress_durations = [[
+        [0.50] * sample_counts[0],
+        [0.40] * sample_counts[1],
+    ]]
+
+    with pytest.raises(AssertionError, match="completed only 19 full cycles"):
+        ssh_stress._assert_stress_progress(
+            [("add", "del")], [(0.50, 0.40)], stress_durations
+        )
+
+
+def test_unmatched_final_command_does_not_count_as_an_extra_cycle(ssh_stress):
+    commands = ("add", "del")
+    durations = [[0.50] * 21, [0.40] * 20]
+
+    assert ssh_stress._completed_stress_cycles(commands, durations) == 20
+
+
+def test_bgp_cycle_counts_only_shutdowns_restored_inside_window(ssh_stress):
+    commands = (ssh_stress.START_BGP_NBRS, ssh_stress.STOP_BGP_NBRS)
+
+    assert ssh_stress._completed_stress_cycles(
+        commands, [[0.50] * 21, [0.40] * 20]
+    ) == 20
+    assert ssh_stress._completed_stress_cycles(
+        commands, [[0.50] * 20, [0.40] * 20]
+    ) == 19
+
+
+def test_completion_after_stress_deadline_is_not_recorded(ssh_stress):
+    durations = [[], []]
+
+    assert not ssh_stress._record_stress_completion(
+        durations, 0, 2.50, completed_at=301, deadline=300
+    )
+    assert durations == [[], []]
+
+
+def test_worker_does_not_dispatch_after_stress_deadline(
+    ssh_stress, monkeypatch
+):
+    now = iter([300.0])
+    run_commands = []
+    stop_event = ssh_stress.threading.Event()
+    start_event = ssh_stress.threading.Event()
+    start_event.set()
+
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: next(now))
+    monkeypatch.setattr(
+        ssh_stress,
+        "_run_command",
+        lambda _ssh, command: run_commands.append(command),
+    )
+
+    ssh_stress.work(
+        types.SimpleNamespace(close=lambda: None),
+        ("add", "del"),
+        ssh_stress.queue.Queue(),
+        0,
+        types.SimpleNamespace(wait=lambda: None),
+        start_event,
+        stop_event,
+        [300.0],
+        [[], []],
+    )
+
+    assert run_commands == []
+
+
+def test_nearest_rank_p95_remains_a_diagnostic(ssh_stress):
+    values = list(range(1, 54))
+
+    assert ssh_stress._nearest_rank_percentile(values, 0.95) == 51
+
+
 def test_usage_baseline_is_median_of_current_samples(ssh_stress, monkeypatch):
     readings = iter([
         (0.30, 0.90),

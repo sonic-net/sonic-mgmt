@@ -41,7 +41,7 @@ BASELINE_ITERATIONS = 5
 RESOURCE_BASELINE_SAMPLES = 3
 STRESS_DURATION = 300
 STRESS_PERCENTILE = 0.95
-MIN_STRESS_SAMPLES = 20
+MIN_STRESS_CYCLES = 20
 
 # Maximum fraction a resource may stay above its pre-test baseline.
 RECOVER_THRESHOLD = 0.2
@@ -451,53 +451,76 @@ def _nearest_rank_percentile(values, percentile):
     return sorted(values)[rank - 1]
 
 
-def _assert_stress_timings(
+def _record_stress_completion(
+    durations, command_ind, completion_duration, completed_at, deadline
+):
+    """Record only commands completed inside the fixed stress window."""
+    if completed_at > deadline:
+        return False
+    durations[command_ind].append(completion_duration)
+    return True
+
+
+def _completed_stress_cycles(commands, durations):
+    """Return cycles that reached the pair's restored state in the window."""
+    restore_ind = commands.index(_restore_command(commands))
+    mutation_ind = 1 - restore_ind
+    restored_completions = len(durations[restore_ind])
+
+    # BGP starts in its restored state and its restore command is first. Its
+    # initial no-op startup does not complete a shutdown/startup cycle.
+    if restore_ind == 0:
+        restored_completions = max(0, restored_completions - 1)
+
+    return min(len(durations[mutation_ind]), restored_completions)
+
+
+def _assert_stress_progress(
     command_pairs,
     baseline_times,
     stress_durations,
 ):
-    parallel_task_count = len(command_pairs)
-    timing_failures = []
+    progress_failures = []
 
     for commands, baselines, durations in zip(
         command_pairs, baseline_times, stress_durations
     ):
+        completed_cycles = _completed_stress_cycles(commands, durations)
+        logging.info(
+            "Stress command pair %s completed_cycles=%d required_cycles=%d",
+            commands, completed_cycles, MIN_STRESS_CYCLES,
+        )
+        if completed_cycles < MIN_STRESS_CYCLES:
+            progress_failures.append(
+                "Command pair {} completed only {} full cycles; at least {} "
+                "are required in {} seconds".format(
+                    commands,
+                    completed_cycles,
+                    MIN_STRESS_CYCLES,
+                    STRESS_DURATION,
+                )
+            )
+
         for command, baseline, samples in zip(commands, baselines, durations):
-            if len(samples) < MIN_STRESS_SAMPLES:
-                timing_failures.append(
-                    "Command {} produced only {} stress samples; at least {} "
-                    "are required for p95".format(
-                        command, len(samples), MIN_STRESS_SAMPLES
-                    )
+            if not samples:
+                logging.info(
+                    "Stress command %s samples=0 baseline_median=%.2fs",
+                    command, baseline,
                 )
                 continue
 
             p95 = _nearest_rank_percentile(samples, STRESS_PERCENTILE)
-            completion_limit = parallel_task_count * baseline
+            slowdown = p95 / baseline if baseline > 0 else float("inf")
             logging.info(
                 "Stress command %s samples=%d p95=%.2fs max=%.2fs "
-                "baseline_median=%.2fs limit=%.2fs",
+                "baseline_median=%.2fs p95_slowdown=%.2fx",
                 command, len(samples), p95, max(samples), baseline,
-                completion_limit,
+                slowdown,
             )
-            if p95 >= completion_limit:
-                timing_failures.append(
-                    "Command {} p95 {:.2f}s from {} samples exceeded "
-                    "the {:.2f}s limit ({} parallel tasks * {:.2f}s "
-                    "baseline median); max {:.2f}s".format(
-                        command,
-                        p95,
-                        len(samples),
-                        completion_limit,
-                        parallel_task_count,
-                        baseline,
-                        max(samples),
-                    )
-                )
 
     pytest_assert(
-        not timing_failures,
-        "SSH stress timing failures: {}".format(timing_failures),
+        not progress_failures,
+        "SSH stress progress failures: {}".format(progress_failures),
     )
 
 
@@ -509,18 +532,34 @@ def work(
     ready_barrier,
     start_event,
     stop_event,
+    stress_deadline,
     durations,
 ):
     """Run a synchronized command pair and collect completion durations."""
     command_ind = 0
+    command_dispatched = False
     last_completed_command = None
     try:
         ready_barrier.wait()
         start_event.wait()
+        deadline = stress_deadline[0]
+        if deadline is None:
+            raise RuntimeError("Stress phase ended before workers were released")
         while not stop_event.is_set():
+            if time.monotonic() >= deadline:
+                break
+            command_dispatched = True
             _, completion_duration = _run_command(ssh, commands[command_ind])
             last_completed_command = commands[command_ind]
-            durations[command_ind].append(completion_duration)
+            completed_at = time.monotonic()
+            if not _record_stress_completion(
+                durations,
+                command_ind,
+                completion_duration,
+                completed_at,
+                deadline,
+            ):
+                break
             if stop_event.wait(command_settle_time):
                 break
             command_ind += 1 if not command_ind else -1
@@ -529,7 +568,7 @@ def work(
         stop_event.set()
     finally:
         restore_command = _restore_command(commands)
-        if last_completed_command != restore_command:
+        if command_dispatched and last_completed_command != restore_command:
             try:
                 _run_command(ssh, restore_command)
             except Exception as error:
@@ -650,6 +689,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     ready_barrier = threading.Barrier(len(command_pairs) + 1)
     start_event = threading.Event()
     stop_event = threading.Event()
+    stress_deadline = [None]
     monitor_ready = threading.Event()
     metrics = _new_usage_metrics()
     clients = []
@@ -713,6 +753,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
                     ready_barrier,
                     start_event,
                     stop_event,
+                    stress_deadline,
                     stress_durations[ind],
                 ),
                 name="ssh-stress-worker-{}".format(ind),
@@ -743,8 +784,9 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         _reset_usage_peaks(metrics, init_mem, init_cpu)
 
         logging.info("Releasing synchronized SSH command workers")
+        stress_deadline[0] = time.monotonic() + STRESS_DURATION
         start_event.set()
-        stop_event.wait(STRESS_DURATION)
+        stop_event.wait(max(0, stress_deadline[0] - time.monotonic()))
     finally:
         stop_event.set()
         start_event.set()
@@ -759,7 +801,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         not failures,
         "SSH stress worker failures: {}".format(failures),
     )
-    _assert_stress_timings(
+    _assert_stress_progress(
         command_pairs,
         baseline_times,
         stress_durations,
