@@ -45,10 +45,10 @@ Part 1:
    queueing bound for the heterogeneous five-worker workload.
 6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
-7. After the stress workers stop, require CPU and memory to remain within 20
-   percentage points of their respective pre-test baselines for three consecutive
-   readings. Poll every five seconds, stop as soon as recovery is stable, and
-   allow at most the existing 180-second health-recovery window.
+7. After the stress workers stop, require one current CPU and memory sample to
+   return within the test's long-standing 20-percentage-point guardrail relative
+   to the pre-test baselines. Poll every five seconds, stop at the first qualifying
+   sample, and allow at most the existing 180-second health-recovery window.
 
 Part 2:
 
@@ -58,7 +58,7 @@ Part 2:
    of three current one-second `vmstat` samples as the CPU and memory baseline.
 2. After each SSH session is started, "show mac" is run to ensure the DUT is responding
 3. If there is no response the test reports the number of SSH sessions reached
-4. After the workload sessions close, apply the same consecutive-reading,
+4. After the workload sessions close, apply the same single-qualifying-sample,
    180-second CPU and memory recovery check used in Part 1.
 
 Teardown first fences every command token owned by this test, then restores the

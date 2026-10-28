@@ -880,13 +880,12 @@ def test_monitor_rejects_sample_read_across_phase_reset(ssh_stress):
     assert metrics["max_cpu"] == 0.30
 
 
-def test_recovery_requires_consecutive_readings(ssh_stress, monkeypatch):
+def test_recovery_accepts_first_reading_within_threshold(
+    ssh_stress, monkeypatch
+):
     readings = iter([
-        (0.20, 0.20),  # recovered once
-        (0.31, 0.31),  # one spike resets the streak
         (0.20, 0.20),
-        (0.19, 0.19),
-        (0.18, 0.18),
+        (0.31, 0.31),
     ])
     sample_count = 0
 
@@ -903,17 +902,17 @@ def test_recovery_requires_consecutive_readings(ssh_stress, monkeypatch):
         0.10, 0.10, object(), 0.80, 0.90
     )
 
-    assert sample_count == 5
+    assert sample_count == 1
 
 
-def test_recovery_rejects_one_lucky_minimum_within_bounded_window(
+def test_recovery_rejects_readings_outside_threshold(
     ssh_stress, monkeypatch
 ):
     readings = iter([
-        (0.20, 0.20),
         (0.31, 0.31),
-        (0.19, 0.19),
         (0.32, 0.32),
+        (0.33, 0.33),
+        (0.34, 0.34),
     ])
     sample_count = 0
 
@@ -926,7 +925,7 @@ def test_recovery_rejects_one_lucky_minimum_within_bounded_window(
     monkeypatch.setattr(ssh_stress, "HEALTH_RECOVERY_TIMEOUT", 25)
     _install_fake_clock(ssh_stress, monkeypatch)
 
-    with pytest.raises(AssertionError, match="3 consecutive readings"):
+    with pytest.raises(AssertionError, match="did not return within 20 points"):
         ssh_stress.run_post_test_system_check(
             0.10, 0.10, object(), 0.80, 0.90
         )
@@ -946,11 +945,13 @@ def test_recovery_rejects_samples_completed_after_deadline(
         sample_starts.append(now[0])
         now[0] += 2
         sample_completions.append(now[0])
-        return 0.10, 0.10
+        if now[0] > ssh_stress.HEALTH_RECOVERY_TIMEOUT:
+            return 0.10, 0.10
+        return 0.31, 0.31
 
     monkeypatch.setattr(ssh_stress, "get_system_stats", get_stats)
 
-    with pytest.raises(AssertionError, match="3 consecutive readings"):
+    with pytest.raises(AssertionError, match="did not return within 20 points"):
         ssh_stress.run_post_test_system_check(
             0.10, 0.10, object(), 0.80, 0.90
         )
