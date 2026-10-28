@@ -146,6 +146,7 @@ class TestLeakSensorApi(PlatformApiTestBase):
     @pytest.fixture(scope="function")
     def leak_test_injection(self, platform_api_conn):  # noqa: F811
         """Skip if leak test injection is unsupported; withdraw all injections afterwards."""
+        supported = False
         try:
             supported = leak_sensor_test.is_leak_test_supported(platform_api_conn)
         except Exception as e:
