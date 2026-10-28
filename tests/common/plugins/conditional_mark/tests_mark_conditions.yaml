@@ -45,6 +45,14 @@
           't1-isolated-d32', 't1-isolated-v6-d56u2',
           't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
           't1-isolated-v6-d128' ]
+    - &srv6NotSupported |
+        not (
+          ( asic_type == 'vpp' ) or
+          ( asic_type == 'mellanox' and asic_gen not in ['spc1', 'spc2', 'spc3'] ) or
+          ( asic_type == 'broadcom' and asic_gen in ['th6', 'q3d'] ) or
+          ( asic_type == 'broadcom' and asic_gen in ['th5'] and
+            hwsku == 'Arista-7060X6-64PE-B' and 'isolated' in topo_name and
+            topo_name not in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32'] ) )
 
 #######################################
 #####          custom_acl         #####
@@ -2893,13 +2901,10 @@ generic_config_updater/test_pg_headroom_update.py:
 
 generic_config_updater/test_srv6:
   skip:
-    reason: "SRv6 is not supported on older ASICs (TH/TH2/TD3, SPC1-3). Skip for unsupported topologies and platforms."
+    reason: "SRv6 is only supported on some ASICs and some topologies."
     conditions_logical_operator: "OR"
     conditions:
-      - "topo_name in ['t0-isolated-d96u32s2']"
-      - "asic_type not in ['mellanox', 'broadcom', 'cisco', 'cisco-8000', 'vs'] or (release != 'master' and release < '202511')"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - *srv6NotSupported
 
 generic_config_updater/test_static_route.py:
   skip:
@@ -3010,19 +3015,16 @@ gnmi/test_gnmi_smartswitch.py:
 
 gnmi/test_gnmi_srv6.py:
   skip:
-    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    reason: "SRv6 is only supported on some ASICs and some topologies."
     conditions_logical_operator: or
     conditions:
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'bmc' in topo_type"
+      - *srv6NotSupported
 
 gnmi/test_gnmi_srv6.py::test_poll_mode_srv6_sid_counters:
   skip:
-    reason: "Skip E2E gnmi SRv6 test for non-supported branches and HW"
+    reason: "SRv6 is only supported on some ASICs and some topologies."
     conditions:
-      - "release not in ['202412']"
-      - "asic_type not in ['mellanox', 'broadcom']"
+      - *srv6NotSupported
 
 gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
   skip:
@@ -4045,10 +4047,13 @@ packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric
       - "asic_gen in ['th5']"
 
 packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_with_srv6:
-  xfail:
-    reason: "vlan decap is disabled in 202412 image"
+  skip:
+    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    conditions_logical_operator: or
     conditions:
-      - "'isolated' in topo_name and release in ['202412']"
+      - "asic_type in ['vs']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - *srv6NotSupported
 
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters_with_feature_toggle:
   skip:
@@ -4057,10 +4062,13 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
       - "asic_gen in ['th5']"
 
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_srv6:
-  xfail:
-    reason: "vlan decap is disabled in 202412 image"
+  skip:
+    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    conditions_logical_operator: or
     conditions:
-      - "'isolated' in topo_name and release in ['202412']"
+      - "asic_type in ['vs']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+      - *srv6NotSupported
 
 #######################################
 #####           pc               #####
@@ -5540,49 +5548,33 @@ srv6/test_srv6_dataplane.py:
     reason: "Only target Mellanox SPC4+ and SRv6-capable Broadcom platforms with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "asic_type == 'broadcom' and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - *srv6NotSupported
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
-  xfail:
-    reason: "vlan decap is disabled in 202412 image, which causes the test case failure."
-    conditions:
-      - "'isolated' in topo_name and release in ['202412']"
-
 srv6/test_srv6_static_config.py:
   skip:
-    reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "SRv6 is only supported on some ASICs and some topologies."
     conditions_logical_operator: or
     conditions:
-      - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp']"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - *srv6NotSupported
 
 srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
     reason: "Unsupported platform"
+    conditions_logical_operator: or
     conditions:
+      - *srv6NotSupported
       - "asic_type in ['mellanox', 'vpp']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
-    reason: "Only target mellanox SPC4+/brcm platform with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "SRv6 is only supported on some ASICs and some topologies."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom'] or (release != 'master' and release != '202412' and release < '202511')"
-      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
-      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - *srv6NotSupported
 
 srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
   xfail:
