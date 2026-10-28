@@ -37,18 +37,16 @@ VPP_COMMAND_SETTLE_TIME = 1
 HEALTH_RECOVERY_TIMEOUT = 180
 ROUTE_CHECK_RECOVERY_TIMEOUT = 900
 QUIESCENCE_STABILITY_INTERVAL = 10
-VPP_SETTLE_POLLS = 18
 BASELINE_ITERATIONS = 5
+RESOURCE_BASELINE_SAMPLES = 3
 STRESS_DURATION = 300
 STRESS_PERCENTILE = 0.95
 MIN_STRESS_SAMPLES = 20
 
-# After the stress test, CPU and memory should drop back close to where they started.
-# We take a few readings while things settle and keep the lowest one, then allow it to
-# sit at most RECOVER_THRESHOLD above the pre-test baseline before calling it a failure.
-RECOVER_THRESHOLD = 0.2    # how far a metric may stay above its pre-test baseline (fraction)
-SETTLE_POLLS = 6           # how many readings to take while waiting for usage to settle
-SETTLE_INTERVAL = 5        # seconds to wait between those readings
+# Maximum fraction a resource may stay above its pre-test baseline.
+RECOVER_THRESHOLD = 0.2
+SETTLE_INTERVAL = 5
+RECOVERY_CONSECUTIVE_SAMPLES = 3
 
 
 def _restore_command(commands):
@@ -146,16 +144,16 @@ def _setup_stress(duthost, request):
     is_vpp = duthost.facts["asic_type"] == "vpp"
     if is_vpp:
         command_settle_time = VPP_COMMAND_SETTLE_TIME
-        settle_polls = VPP_SETTLE_POLLS
     else:
         command_settle_time = 0
-        settle_polls = SETTLE_POLLS
 
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running"
     )["ansible_facts"]
     portchannels = sorted(config_facts.get("PORTCHANNEL", {}))
-    pytest_assert(portchannels, "No configured port channel available for stress")
+    pytest_assert(
+        portchannels, "No configured port channel available for stress"
+    )
     pytest_assert(
         not _config_has_key_component(
             config_facts.get("PORTCHANNEL", {}), STRESS_PORTCHANNEL
@@ -209,7 +207,6 @@ def _setup_stress(duthost, request):
         "command_pairs": command_pairs,
         "command_settle_time": command_settle_time,
         "portchannels": portchannels,
-        "settle_polls": settle_polls,
         "stress_portchannel": portchannel,
         "username": harness_creds["sonicadmin_user"],
         "password": harness_creds["sonicadmin_password"],
@@ -267,15 +264,27 @@ def setup_teardown(duthosts, rand_one_dut_hostname, request):
 def get_system_stats(duthost):
     """Return the DUT's current memory and CPU usage, each as a fraction (0-1).
 
-    Plain ``vmstat`` reports CPU usage averaged since boot. Over a short test that
-    average barely moves, so the peak seen during the test and the reading taken
-    afterwards look almost the same. ``vmstat 1 2`` adds a second row measured over
-    one second, so we read that last row to get the load right now.
+    Plain ``vmstat`` reports CPU usage averaged since boot. Over a short test
+    that average barely moves, so the peak seen during the test and the reading
+    taken afterwards look almost the same. ``vmstat 1 2`` adds a second row
+    measured over one second, so we read that last row to get the load right
+    now.
     """
-    # The last line of `vmstat 1 2` is the 1-second (current) sample; line [2] would
-    # be the since-boot average.
+    # The last line is the 1-second sample; line [2] is the boot average.
     stdout_lines = duthost.command("vmstat 1 2")["stdout_lines"]
     return _parse_vmstat_line(stdout_lines[-1])
+
+
+def _get_usage_baseline(duthost, sample_count=RESOURCE_BASELINE_SAMPLES):
+    """Return median current memory and CPU usage from multiple samples."""
+    samples = [get_system_stats(duthost) for _ in range(sample_count)]
+    baseline_mem = statistics.median(sample[0] for sample in samples)
+    baseline_cpu = statistics.median(sample[1] for sample in samples)
+    logging.info(
+        "Usage baseline samples=%s median CPU=%.3f MEM=%.3f",
+        samples, baseline_cpu, baseline_mem,
+    )
+    return baseline_mem, baseline_cpu
 
 
 def _parse_vmstat_line(line):
@@ -323,11 +332,15 @@ def monitor_system(ssh, stop_event, failures, ready, metrics):
         )
         skipped_since_boot_sample = False
         while True:
+            with metrics["lock"]:
+                sample_epoch = metrics["epoch"]
             line = stdout.readline()
             if not line:
                 if stop_event.is_set():
                     break
-                raise RuntimeError("vmstat monitoring stream ended unexpectedly")
+                raise RuntimeError(
+                    "vmstat monitoring stream ended unexpectedly"
+                )
             if stop_event.is_set():
                 break
             try:
@@ -342,8 +355,7 @@ def monitor_system(ssh, stop_event, failures, ready, metrics):
             ready.set()
             logging.info("Memory Usage: {}% | CPU Usage: {}%".format(
                 dut_stats[0]*100, dut_stats[1]*100))
-            metrics["max_mem"] = max(metrics["max_mem"], dut_stats[0])
-            metrics["max_cpu"] = max(metrics["max_cpu"], dut_stats[1])
+            _record_usage_sample(metrics, sample_epoch, dut_stats)
     except Exception as error:
         failures.put("system monitor: {}".format(error))
         stop_event.set()
@@ -351,6 +363,35 @@ def monitor_system(ssh, stop_event, failures, ready, metrics):
     finally:
         if stdout is not None:
             stdout.channel.close()
+
+
+def _new_usage_metrics():
+    return {
+        "max_mem": 0,
+        "max_cpu": 0,
+        "epoch": 0,
+        "recording": False,
+        "lock": threading.Lock(),
+    }
+
+
+def _record_usage_sample(metrics, sample_epoch, dut_stats):
+    """Record a sample only if it belongs to the active measurement phase."""
+    with metrics["lock"]:
+        if not metrics["recording"] or sample_epoch != metrics["epoch"]:
+            return False
+        metrics["max_mem"] = max(metrics["max_mem"], dut_stats[0])
+        metrics["max_cpu"] = max(metrics["max_cpu"], dut_stats[1])
+        return True
+
+
+def _reset_usage_peaks(metrics, baseline_mem, baseline_cpu):
+    """Exclude setup/calibration load from the measured stress peaks."""
+    with metrics["lock"]:
+        metrics["epoch"] += 1
+        metrics["max_mem"] = baseline_mem
+        metrics["max_cpu"] = baseline_cpu
+        metrics["recording"] = True
 
 
 def _run_command(ssh, command):
@@ -371,10 +412,13 @@ def _run_command(ssh, command):
     return dispatch_duration, time.time() - start_time
 
 
-def _get_baseline_times(ssh, command_pairs, command_settle_time):
-    """Measure five serial samples per command and return each median."""
+def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
+    """Measure commands serially on established worker clients."""
+    if len(ssh_clients) != len(command_pairs):
+        raise ValueError("Each command pair must have one SSH worker client")
+
     baseline_times = []
-    for commands in command_pairs:
+    for ssh, commands in zip(ssh_clients, command_pairs):
         samples = [[], []]
         last_completed_command = None
         try:
@@ -494,48 +538,74 @@ def work(
         ssh.close()
 
 
-def _assert_usage_recovered(resource, baseline, peak, lowest):
-    """Fail if a resource did not settle back near its pre-test baseline after the test.
-
-    ``resource`` is a label used only in the message ("CPU" / "Memory"); ``baseline``,
-    ``peak`` and ``lowest`` are usage fractions (0-1).
-    """
-    pytest_assert(
-        lowest - baseline < RECOVER_THRESHOLD,
-        "{} usage did not recover after the test: it stayed more than {:.0f} points above the "
-        "pre-test baseline.\nBaseline: {}, In-test peak: {}, Lowest after test: {}".format(
-            resource, RECOVER_THRESHOLD * 100, baseline, peak, lowest))
-
-
 def run_post_test_system_check(
-    init_mem, init_cpu, duthost, settle_polls, peak_mem, peak_cpu
+    init_mem, init_cpu, duthost, peak_mem, peak_cpu
 ):
-    """Check that CPU and memory settle back near their pre-test baseline.
-
-    The SSH worker threads stop asynchronously, so the first reading taken after the
-    test can still be high. We take several readings, keep the lowest (most recovered)
-    one, and compare it to the pre-test baseline.
-
-    We compare against the baseline on purpose, not against the in-test peak. The old
-    check ("peak minus a single later reading") failed whenever that later reading
-    happened to be at or above the peak -- reporting a problem even when usage had
-    actually recovered.
-    """
+    """Require stable CPU and memory recovery within the health timeout."""
     lowest_mem, lowest_cpu = 1.0, 1.0
-    for _ in range(settle_polls):
-        time.sleep(SETTLE_INTERVAL)
+    latest_mem, latest_cpu = 1.0, 1.0
+    consecutive_recovered = 0
+    start_time = time.monotonic()
+    deadline = start_time + HEALTH_RECOVERY_TIMEOUT
+    next_poll = start_time + SETTLE_INTERVAL
+    max_polls = int(math.ceil(
+        HEALTH_RECOVERY_TIMEOUT / SETTLE_INTERVAL
+    ))
+    poll = 0
+
+    while True:
+        now = time.monotonic()
+        if now >= deadline:
+            break
+        time.sleep(min(max(0, next_poll - now), deadline - now))
+        if time.monotonic() >= deadline:
+            break
+        poll += 1
         mem, cpu = get_system_stats(duthost)
+        completed_at = time.monotonic()
+        if completed_at > deadline:
+            break
+        latest_mem, latest_cpu = mem, cpu
         lowest_mem = min(lowest_mem, mem)
         lowest_cpu = min(lowest_cpu, cpu)
+        recovered = (
+            cpu - init_cpu < RECOVER_THRESHOLD
+            and mem - init_mem < RECOVER_THRESHOLD
+        )
+        consecutive_recovered = (
+            consecutive_recovered + 1 if recovered else 0
+        )
         logging.info(
-            "Waiting for usage to settle: CPU={:.3f} MEM={:.3f} (lowest so far CPU={:.3f} MEM={:.3f})".format(
-                cpu, mem, lowest_cpu, lowest_mem))
-        # Stop early once both have come back down near the baseline.
-        if lowest_cpu - init_cpu < RECOVER_THRESHOLD and lowest_mem - init_mem < RECOVER_THRESHOLD:
-            break
+            "Waiting for stable usage recovery: poll=%d/%d CPU=%.3f "
+            "MEM=%.3f consecutive=%d/%d",
+            poll, max_polls, cpu, mem, consecutive_recovered,
+            RECOVERY_CONSECUTIVE_SAMPLES,
+        )
+        if consecutive_recovered >= RECOVERY_CONSECUTIVE_SAMPLES:
+            return
+        while next_poll <= completed_at:
+            next_poll += SETTLE_INTERVAL
 
-    _assert_usage_recovered("CPU", init_cpu, peak_cpu, lowest_cpu)
-    _assert_usage_recovered("Memory", init_mem, peak_mem, lowest_mem)
+    pytest_assert(
+        False,
+        "CPU and memory usage did not remain within {:.0f} points of their "
+        "pre-test baselines for {} consecutive readings during the {}-second "
+        "recovery window. Baseline CPU: {:.3f}, MEM: {:.3f}; in-test peak "
+        "CPU: {:.3f}, MEM: {:.3f}; latest CPU: {:.3f}, MEM: {:.3f}; lowest "
+        "CPU: {:.3f}, MEM: {:.3f}".format(
+            RECOVER_THRESHOLD * 100,
+            RECOVERY_CONSECUTIVE_SAMPLES,
+            HEALTH_RECOVERY_TIMEOUT,
+            init_cpu,
+            init_mem,
+            peak_cpu,
+            peak_mem,
+            latest_cpu,
+            latest_mem,
+            lowest_cpu,
+            lowest_mem,
+        ),
+    )
 
 
 def _drain_failures(failures):
@@ -575,24 +645,13 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     command_pairs = setup_teardown["command_pairs"]
     command_settle_time = setup_teardown["command_settle_time"]
 
-    init_mem, init_cpu = get_system_stats(duthost)
-
-    logging.info("Collecting serial baseline times for commands")
-    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
-    try:
-        baseline_times = _get_baseline_times(
-            ssh, command_pairs, command_settle_time
-        )
-    finally:
-        ssh.close()
-
     worker_failures = queue.Queue()
     stress_durations = [[[], []] for _ in command_pairs]
     ready_barrier = threading.Barrier(len(command_pairs) + 1)
     start_event = threading.Event()
     stop_event = threading.Event()
     monitor_ready = threading.Event()
-    metrics = {"max_mem": 0, "max_cpu": 0}
+    metrics = _new_usage_metrics()
     clients = []
     threads = []
 
@@ -623,6 +682,25 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         monitor_thread.start()
         threads.append(monitor_thread)
 
+        pytest_assert(
+            monitor_ready.wait(COMMAND_TIMEOUT),
+            "System monitor did not produce a live vmstat sample",
+        )
+        monitor_startup_failures = _drain_failures(worker_failures)
+        pytest_assert(
+            not monitor_startup_failures and not stop_event.is_set(),
+            "SSH stress monitor startup failures: {}".format(
+                monitor_startup_failures
+            ),
+        )
+
+        logging.info(
+            "Collecting serial baselines on the established worker clients"
+        )
+        baseline_times = _get_baseline_times(
+            clients[:-1], command_pairs, command_settle_time
+        )
+
         logging.info("Preparing synchronized SSH command workers")
         for ind, worker_ssh in enumerate(clients[:-1]):
             new_thread = threading.Thread(
@@ -645,10 +723,6 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
 
         ready_barrier.wait(timeout=COMMAND_TIMEOUT)
         pytest_assert(
-            monitor_ready.wait(COMMAND_TIMEOUT),
-            "System monitor did not produce a live vmstat sample",
-        )
-        pytest_assert(
             not stop_event.is_set(),
             "SSH stress stopped while preparing workers",
         )
@@ -663,6 +737,10 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
             not startup_failures and not stop_event.is_set(),
             "SSH stress startup failures: {}".format(startup_failures),
         )
+
+        logging.info("Collecting pre-stress CPU and memory baseline")
+        init_mem, init_cpu = _get_usage_baseline(duthost)
+        _reset_usage_peaks(metrics, init_mem, init_cpu)
 
         logging.info("Releasing synchronized SSH command workers")
         start_event.set()
@@ -692,19 +770,19 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         init_mem,
         init_cpu,
         duthost,
-        setup_teardown["settle_polls"],
         metrics["max_mem"],
         metrics["max_cpu"],
     )
 
     logging.info(
-        "Multi-tool SSH connections succeeded without exceeding memory or CPU capacity")
+        "Multi-tool SSH connections succeeded without exceeding memory or "
+        "CPU capacity"
+    )
 
-    init_mem, init_cpu = get_system_stats(duthost)
     monitor_failures = queue.Queue()
     monitor_stop = threading.Event()
     monitor_ready = threading.Event()
-    metrics = {"max_mem": 0, "max_cpu": 0}
+    metrics = _new_usage_metrics()
     monitor_ssh = None
     monitor_thread = None
     ssh_connections = []
@@ -738,6 +816,10 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
                 startup_failures
             ),
         )
+
+        logging.info("Collecting pre-session CPU and memory baseline")
+        init_mem, init_cpu = _get_usage_baseline(duthost)
+        _reset_usage_peaks(metrics, init_mem, init_cpu)
 
         for _ in range(20):
             if monitor_stop.is_set():
@@ -784,7 +866,6 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         init_mem,
         init_cpu,
         duthost,
-        setup_teardown["settle_polls"],
         metrics["max_mem"],
         metrics["max_cpu"],
     )

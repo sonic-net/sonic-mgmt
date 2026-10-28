@@ -12,40 +12,47 @@ topologies. The workload requires configured PortChannels and IPv4 BGP neighbors
 ## Test Procedure
 Part 1:
 
-1. For each command, a baseline is generated from the median of five serial
-   alternating executions of its command pair. Each pair restores its original
-   state afterwards. Before the stress phase, the test requires temporary
-   configuration to remain absent and teamd/BGP health to remain recovered
-   across two checks ten seconds apart.
-2. Pre-establish five workload SSH connections and one observer connection to
-   the DUT. Start one worker per command pair and release all workers together
-   after the observer's persistent `vmstat` stream produces its first live sample.
-3. Over the five connections, simultaneously and repeatedly perform the following actions
+1. Pre-establish five workload SSH connections and one observer connection to
+   the DUT, then start the observer's persistent `vmstat` stream.
+2. On each workload connection that will later run stress, generate its command
+   baseline from the median of five serial alternating executions of its command
+   pair. The other workload connections and observer remain established, but no
+   stress workers are released during calibration. Each pair restores its
+   original state afterwards.
+3. Before releasing the synchronized workers, require temporary configuration
+   to remain absent and teamd/BGP health to remain recovered across two checks
+   ten seconds apart. Then use the median of three current one-second `vmstat`
+   samples as the pre-stress CPU and memory baseline. Calibration load is
+   excluded from the stress peak measurements.
+4. Over the five connections, simultaneously and repeatedly perform the following actions
     - Startup BGP connections, then shut them down
     - Shutdown an operating interface and start it back up
     - Configure an acl and then remove it
     - Add a route to the routemap and remove it
     - Add a port channel and remove it
-4. Record every completed command duration during the five-minute stress phase.
+5. Record every completed command duration during the five-minute stress phase.
    For each command direction with at least 20 samples, compare the nearest-rank
    p95 with five times that command's own serial baseline median. This allows one
    command no more time than five serial executions of that command. A p95 at or
    above the limit, a timeout, or a nonzero command exit status fails the test.
    The maximum and sample count are logged for diagnosis.
-5. Monitor memory and CPU usage over the following 5 minutes through one
+6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
-6. After the stress workers stop, require CPU and memory to return within 20
-   percentage points of their respective pre-test baselines.
+7. After the stress workers stop, require CPU and memory to remain within 20
+   percentage points of their respective pre-test baselines for three consecutive
+   readings. Poll every five seconds, stop as soon as recovery is stable, and
+   allow at most the existing 180-second health-recovery window.
 
 Part 2:
 
 1. Attempt to start 20 workload SSH connections while monitoring CPU and memory
    through one additional observer connection, which is excluded from the reported
-   workload-session count.
+   workload-session count. Before opening the workload sessions, use the median
+   of three current one-second `vmstat` samples as the CPU and memory baseline.
 2. After each SSH session is started, "show mac" is run to ensure the DUT is responding
 3. If there is no response the test reports the number of SSH sessions reached
-4. After the workload sessions close, require CPU and memory to return within
-   20 percentage points of their respective pre-test baselines.
+4. After the workload sessions close, apply the same consecutive-reading,
+   180-second CPU and memory recovery check used in Part 1.
 
 Teardown restores the configuration workloads and waits for teamd and BGP
 recovery. On VPP, it also requires a successful `route_check.py` execution and
