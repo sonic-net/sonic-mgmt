@@ -31,8 +31,9 @@ STRESS_PORTCHANNEL = "PortChannel0010"
 STRESS_ROUTE_PREFIX = "2.2.3.4/32"
 
 COMMAND_TIMEOUT = 60
+COMMAND_POLL_INTERVAL = 0.1
 SSH_CONNECT_TIMEOUT = 30
-THREAD_JOIN_TIMEOUT = COMMAND_TIMEOUT + 10
+THREAD_JOIN_TIMEOUT = 2 * COMMAND_TIMEOUT + 10
 VPP_COMMAND_SETTLE_TIME = 1
 HEALTH_RECOVERY_TIMEOUT = 180
 ROUTE_CHECK_RECOVERY_TIMEOUT = 900
@@ -84,9 +85,13 @@ def _config_key_parts(key):
 
 
 def _config_has_key_component(table, component):
+    """Find a component in flat or nested config-facts table keys."""
+    if not isinstance(table, dict):
+        return False
     return any(
         component in _config_key_parts(key)
-        for key in table
+        or _config_has_key_component(value, component)
+        for key, value in table.items()
     )
 
 
@@ -394,22 +399,74 @@ def _reset_usage_peaks(metrics, baseline_mem, baseline_cpu):
         metrics["recording"] = True
 
 
-def _run_command(ssh, command):
-    """Run one churn command to completion and require success."""
-    start_time = time.time()
-    _, stdout, stderr = ssh.exec_command(command, timeout=COMMAND_TIMEOUT)
-    dispatch_duration = time.time() - start_time
-    stdout_lines = stdout.readlines()
-    stderr_lines = stderr.readlines()
-    exit_status = stdout.channel.recv_exit_status()
+def _decode_output_lines(chunks):
+    return b"".join(chunks).decode("utf-8", errors="replace").splitlines()
 
+
+def _drain_ready_output(channel, deadline, chunks, stderr=False):
+    ready = channel.recv_stderr_ready if stderr else channel.recv_ready
+    receive = channel.recv_stderr if stderr else channel.recv
+    while ready():
+        if time.monotonic() > deadline:
+            return False
+        chunks.append(receive(65536))
+    return True
+
+
+def _run_command(ssh, command):
+    """Run one churn command with a strict end-to-end completion deadline."""
+    start_time = time.monotonic()
+    deadline = start_time + COMMAND_TIMEOUT
+    _, stdout, _ = ssh.exec_command(command, timeout=COMMAND_TIMEOUT)
+    channel = stdout.channel
+    dispatch_duration = time.monotonic() - start_time
+    stdout_chunks = []
+    stderr_chunks = []
+
+    while True:
+        if not _drain_ready_output(
+            channel, deadline, stdout_chunks
+        ) or not _drain_ready_output(
+            channel, deadline, stderr_chunks, stderr=True
+        ):
+            channel.close()
+            raise socket.timeout(
+                "Command {!r} did not complete within {} seconds".format(
+                    command, COMMAND_TIMEOUT
+                )
+            )
+
+        completed_at = time.monotonic()
+        if channel.exit_status_ready():
+            if completed_at > deadline:
+                channel.close()
+                raise socket.timeout(
+                    "Command {!r} did not complete within {} seconds".format(
+                        command, COMMAND_TIMEOUT
+                    )
+                )
+            exit_status = channel.recv_exit_status()
+            break
+
+        remaining = deadline - completed_at
+        if remaining <= 0:
+            channel.close()
+            raise socket.timeout(
+                "Command {!r} did not complete within {} seconds".format(
+                    command, COMMAND_TIMEOUT
+                )
+            )
+        time.sleep(min(COMMAND_POLL_INTERVAL, remaining))
+
+    stdout_lines = _decode_output_lines(stdout_chunks)
+    stderr_lines = _decode_output_lines(stderr_chunks)
     if exit_status != 0:
         raise AssertionError(
             "Command {!r} failed with rc={}: stdout={!r}, stderr={!r}".format(
                 command, exit_status, stdout_lines, stderr_lines
             )
         )
-    return dispatch_duration, time.time() - start_time
+    return dispatch_duration, completed_at - start_time
 
 
 def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
@@ -420,17 +477,20 @@ def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
     baseline_times = []
     for ssh, commands in zip(ssh_clients, command_pairs):
         samples = [[], []]
-        last_completed_command = None
+        restore_command = _restore_command(commands)
+        state_restored = True
         try:
             for _ in range(BASELINE_ITERATIONS):
                 for command_ind, command in enumerate(commands):
+                    if command != restore_command:
+                        state_restored = False
                     _, completion_duration = _run_command(ssh, command)
-                    last_completed_command = command
+                    if command == restore_command:
+                        state_restored = True
                     samples[command_ind].append(completion_duration)
                     time.sleep(command_settle_time)
         finally:
-            restore_command = _restore_command(commands)
-            if last_completed_command != restore_command:
+            if not state_restored:
                 _run_command(ssh, restore_command)
                 time.sleep(command_settle_time)
 
@@ -538,7 +598,8 @@ def work(
     """Run a synchronized command pair and collect completion durations."""
     command_ind = 0
     command_dispatched = False
-    last_completed_command = None
+    restore_command = _restore_command(commands)
+    state_restored = True
     try:
         ready_barrier.wait()
         start_event.wait()
@@ -548,9 +609,13 @@ def work(
         while not stop_event.is_set():
             if time.monotonic() >= deadline:
                 break
+            command = commands[command_ind]
             command_dispatched = True
-            _, completion_duration = _run_command(ssh, commands[command_ind])
-            last_completed_command = commands[command_ind]
+            if command != restore_command:
+                state_restored = False
+            _, completion_duration = _run_command(ssh, command)
+            if command == restore_command:
+                state_restored = True
             completed_at = time.monotonic()
             if not _record_stress_completion(
                 durations,
@@ -567,8 +632,7 @@ def work(
         failures.put("{}: {}".format(commands, error))
         stop_event.set()
     finally:
-        restore_command = _restore_command(commands)
-        if command_dispatched and last_completed_command != restore_command:
+        if command_dispatched and not state_restored:
             try:
                 _run_command(ssh, restore_command)
             except Exception as error:

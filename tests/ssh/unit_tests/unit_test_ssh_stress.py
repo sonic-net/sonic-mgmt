@@ -105,6 +105,132 @@ def test_command_baselines_use_matching_preestablished_clients(
     ]
 
 
+def test_nested_vrf_route_is_detected_in_config_facts(ssh_stress):
+    routes = {
+        "default": {
+            ssh_stress.STRESS_ROUTE_PREFIX: {
+                "nexthop": "10.0.0.1",
+            }
+        }
+    }
+
+    assert ssh_stress._config_has_key_component(
+        routes, ssh_stress.STRESS_ROUTE_PREFIX
+    )
+    assert not ssh_stress._config_has_key_component(routes, "192.0.2.0/24")
+
+
+def test_run_command_enforces_deadline_despite_periodic_output(
+    ssh_stress, monkeypatch
+):
+    now = [0.0]
+
+    class FakeChannel:
+        def __init__(self):
+            self.closed = False
+
+        def recv_ready(self):
+            return True
+
+        def recv(self, _size):
+            now[0] += 0.4
+            return b"still running\n"
+
+        def recv_stderr_ready(self):
+            return False
+
+        def recv_stderr(self, _size):
+            raise AssertionError("stderr was not ready")
+
+        def exit_status_ready(self):
+            return False
+
+        def close(self):
+            self.closed = True
+
+    channel = FakeChannel()
+    stdout = types.SimpleNamespace(channel=channel)
+    ssh = types.SimpleNamespace(
+        exec_command=lambda *_args, **_kwargs: (None, stdout, None)
+    )
+    monkeypatch.setattr(ssh_stress, "COMMAND_TIMEOUT", 1)
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: now[0])
+
+    with pytest.raises(ssh_stress.socket.timeout, match="within 1 seconds"):
+        ssh_stress._run_command(ssh, "noisy-command")
+
+    assert channel.closed
+    assert now[0] > 1
+
+
+def test_run_command_drains_output_and_returns_status(ssh_stress, monkeypatch):
+    stdout_chunks = [b"ok\n"]
+    stderr_chunks = [b"warning\n"]
+
+    class FakeChannel:
+        def recv_ready(self):
+            return bool(stdout_chunks)
+
+        def recv(self, _size):
+            return stdout_chunks.pop(0)
+
+        def recv_stderr_ready(self):
+            return bool(stderr_chunks)
+
+        def recv_stderr(self, _size):
+            return stderr_chunks.pop(0)
+
+        def exit_status_ready(self):
+            return True
+
+        def recv_exit_status(self):
+            return 0
+
+    stdout = types.SimpleNamespace(channel=FakeChannel())
+    ssh = types.SimpleNamespace(
+        exec_command=lambda *_args, **_kwargs: (None, stdout, None)
+    )
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: 10.0)
+
+    assert ssh_stress._run_command(ssh, "successful-command") == (0.0, 0.0)
+    assert stdout_chunks == []
+    assert stderr_chunks == []
+
+
+def test_worker_rolls_back_a_timed_out_mutation(ssh_stress, monkeypatch):
+    calls = []
+    stop_event = ssh_stress.threading.Event()
+    start_event = ssh_stress.threading.Event()
+    start_event.set()
+
+    def run_command(_ssh, command):
+        calls.append(command)
+        if command == "add":
+            raise ssh_stress.socket.timeout("timed out")
+        return 0, 0
+
+    monkeypatch.setattr(ssh_stress, "_run_command", run_command)
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: 0)
+
+    ssh_stress.work(
+        types.SimpleNamespace(close=lambda: None),
+        ("add", "del"),
+        ssh_stress.queue.Queue(),
+        0,
+        types.SimpleNamespace(wait=lambda: None),
+        start_event,
+        stop_event,
+        [300.0],
+        [[], []],
+    )
+
+    assert calls == ["add", "del"]
+
+
+def test_thread_join_budget_allows_command_and_rollback(ssh_stress):
+    assert ssh_stress.THREAD_JOIN_TIMEOUT >= 2 * ssh_stress.COMMAND_TIMEOUT + 10
+
+
 def test_stress_progress_accepts_sustained_cycles_despite_high_p95(
     ssh_stress, monkeypatch
 ):
