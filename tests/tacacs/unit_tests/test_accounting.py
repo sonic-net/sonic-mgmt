@@ -14,6 +14,8 @@ from unittest.mock import Mock
 import pytest
 
 
+pytestmark = [pytest.mark.topology("any")]
+
 SOURCE = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("accounting", SOURCE / "accounting.py")
 accounting = importlib.util.module_from_spec(SPEC)
