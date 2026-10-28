@@ -12,12 +12,11 @@ import pytest
 import ptf.mask as mask
 import ptf.testutils as testutils
 from scapy.all import (
-    Ether, IPv6, ICMPv6ND_NA, ICMPv6ND_NS,
+    ARP, Ether, IPv6, ICMPv6ND_NA, ICMPv6ND_NS,
     ICMPv6NDOptDstLLAddr, ICMPv6NDOptSrcLLAddr,
     in6_getnsmac, in6_getnsma, inet_ntop, inet_pton
 )
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
     show_muxcable_status, config_dualtor_arp_responder      # noqa: F401
@@ -500,9 +499,10 @@ def get_neighbor_test_duthosts(
     return [rand_selected_dut]
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
-                                        ptfadapter, packets_for_test, upper_tor_host,   # noqa: F811
-                                        toggle_all_simulator_ports_to_upper_tor):   # noqa: F811
+                                        ptfadapter, packets_for_test, duthosts,         # noqa: F811
+                                        enum_rand_one_per_hwsku_frontend_hostname):     # noqa: F811
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
     within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
@@ -511,7 +511,8 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
     DUT should reply with an ARP reply or neighbor advertisement (NA) containing the DUT's own MAC
 
     Test steps:
-    1. During setup, learn neighbor IPs on ToR interfaces using `run_garp_service` fixture
+    1. During setup, enable proxy ARP and select the same ToR for traffic, then learn neighbor IPs
+       using the `run_garp_service` fixture
     2. Pick a learned IP address as the target IP and generate an ARP request/neighbor solicitation for it
     3. Set the interface this IP is learned on to standby. This will ensure the route for the IP points to the
        IPinIP tunnel
@@ -527,17 +528,25 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
 
     if ip_version == 'v4':
         pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
-        intf_name_cmd = "show arp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv4_addr)
+        target_ip = outgoing_packet[ARP].pdst
+        intf_name_cmd = "show arp | awk '$1 == \"{}\" {{ print $3; exit }}'".format(target_ip)
     elif ip_version == 'v6':
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
-        intf_name_cmd = "show ndp | grep -m 1 '{}' | awk '{{ print $3 }}'".format(ptf_intf_ipv6_addr)
+        target_ip = outgoing_packet[ICMPv6ND_NS].tgt
+        intf_name_cmd = "show ndp | awk '$1 == \"{}\" {{ print $3; exit }}'".format(target_ip)
+    else:
+        raise ValueError("Unsupported IP version: {}".format(ip_version))
 
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Find the interface on which the target IP is learned and set it to standby to force it to point to a tunnel route
-    intf_name = upper_tor_host.shell(intf_name_cmd)['stdout']
+    intf_name = duthost.shell(intf_name_cmd)['stdout']
+    pytest_assert(intf_name, "Target neighbor {} is not learned on {}".format(target_ip, duthost.hostname))
     mux_mode_cmd = "sudo config mux mode standby {}".format(intf_name)
-    upper_tor_host.shell(mux_mode_cmd)
-    pytest_assert(wait_until(5, 1, 0, lambda: show_muxcable_status(upper_tor_host)[intf_name]['status'] == "standby"),
-                  "Interface {} not standby on {}".format(intf_name, upper_tor_host))
+    duthost.shell(mux_mode_cmd)
+    pytest_assert(
+        wait_until(5, 1, 0, lambda: show_muxcable_status(duthost)[intf_name]['status'] == "standby"),
+        "Interface {} not standby on {}".format(intf_name, duthost)
+    )
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
