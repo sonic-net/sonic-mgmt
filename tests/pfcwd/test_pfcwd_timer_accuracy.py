@@ -153,7 +153,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     pfc_queue_index = 4
     pfc_frames_count = 1000000
     peer_device = peer_params['peerdevice'] if dut.facts['asic_type'] != 'vs' else ""
-    if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
+    if dut.topo_type == 't2' and dut.facts['asic_type'] != 'vs' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
     else:
