@@ -10,7 +10,6 @@ PortChannel min_links with GCU.
 """
 
 import ast
-import ipaddress
 import json
 import logging
 import os
@@ -18,9 +17,7 @@ import random
 import shlex
 
 import pytest
-import requests
 
-from tests.common.config_reload import config_reload
 from tests.common.gu_utils import (
     apply_patch,
     delete_tmpfile,
@@ -33,7 +30,6 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.add_cluster.helpers import (
     clear_traffic_counters,
-    filter_oper_up_ports,
     find_portchannels_by_member_speed,
     format_sonic_interface_dict,
     get_exabgp_port_for_neighbor,
@@ -44,6 +40,40 @@ from tests.generic_config_updater.add_cluster.helpers import (
     verify_routev4_existence,
 )
 
+from tests.generic_config_updater.add_cluster.constants import (
+    ASIC_DB_WAIT_INTERVAL,
+    ASIC_DB_WAIT_TIME,
+    EXABGP_BASE_PORT,
+    LAG_STATE_WAIT_INTERVAL,
+    LAG_STATE_WAIT_TIME,
+    PORTCHANNEL_HASH_ATTEMPTS,
+    PORTCHANNEL_TRAFFIC_COUNT,
+    PORT_COUNTER_WAIT_INTERVAL,
+    PORT_COUNTER_WAIT_TIME,
+    SPEED_400G,
+)
+from tests.generic_config_updater.add_cluster.portchannel_helpers import (
+    add_static_route_no_proxy as _add_static_route_no_proxy,
+    db_hget as _db_hget,
+    db_hgetall as _db_hgetall,
+    db_keys as _db_keys,
+    escape_json_pointer_key as _escape_json_pointer_key,
+    format_sonic_queue_dict as _format_sonic_queue_dict,
+    get_counters_db_counter_value as _get_counters_db_counter_value,
+    get_interface_neighbor_and_intfs as _get_interface_neighbor_and_intfs,
+    get_member_counter_snapshot as _get_member_counter_snapshot,
+    get_portstat_counter as _get_portstat_counter,
+    normalize_acl_ports as _normalize_acl_ports,
+    queue_key_matches_port as _queue_key_matches_port,
+    remove_static_route_no_proxy as _remove_static_route_no_proxy,
+    restore_dut_via_minigraph as _restore_dut_via_minigraph,
+    route_uses_portchannel,
+    runner_member_selected as _runner_member_selected,
+    select_ptf_source_port as _select_ptf_source_port,
+    select_unused_portchannel_traffic_dst_ip,
+    wait_for_portchannel_up_or_log as _wait_for_portchannel_up_or_log,
+)
+
 pytestmark = [
     pytest.mark.topology("t2")
 ]
@@ -51,51 +81,18 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 allure.logger = logger
 
-SPEED_400G = "400000"
-PORTCHANNEL_UP_WAIT_TIME = 300
-PORTCHANNEL_UP_WAIT_INTERVAL = 20
-LAG_STATE_WAIT_TIME = 120
-LAG_STATE_WAIT_INTERVAL = 5
-ASIC_DB_WAIT_TIME = 60
-ASIC_DB_WAIT_INTERVAL = 5
-PORT_COUNTER_WAIT_TIME = 60
-PORT_COUNTER_WAIT_INTERVAL = 5
-PORTCHANNEL_TRAFFIC_COUNT = 10
-PORTCHANNEL_HASH_ATTEMPTS = 64
 PORTCHANNEL_TRAFFIC_DST_IPS = (
     "198.18.251.251",
     "198.18.251.252",
     "198.18.251.253",
     "198.18.251.254",
 )
-EXABGP_BASE_PORT = 5000
-NHIPV4 = "10.10.246.254"
-COUNTERS_DB_TX_FIELDS = (
-    "SAI_PORT_STAT_IF_OUT_UCAST_PKTS",
-    "SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS",
-    "SAI_PORT_STAT_IF_OUT_OCTETS",
-    "SAI_PORT_STAT_ETHER_STATS_TX_NO_ERRORS",
-)
-INTERNAL_PORT_PREFIXES = ("Ethernet-BP", "Ethernet-IB", "Ethernet-Rec")
 LOGANALYZER_IGNORE_REGEX = [
     ".*ERR sonic_yang.*",
     ".*ERR teamd[0-9].*get_dump: Can't get dump for LAG.*",
     ".*ERR swss[0-9]*#orchagent.*removeLag.*",
     ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid buffer task",
 ]
-
-
-def _restore_dut_via_minigraph(duthost, loganalyzer=None):
-    """
-    Restore the selected DUT with minigraph config reload.
-    """
-    config_reload(
-        duthost,
-        config_source="minigraph",
-        safe_reload=True,
-        wait_for_bgp=True,
-        ignore_loganalyzer=loganalyzer,
-    )
 
 
 def _frontend_candidates_for_hwsku(duthosts, selected_hostname):
@@ -166,13 +163,6 @@ def _ordered_asic_indices(duthost, preferred_asic_index=None):
     return asic_indices
 
 
-def _escape_json_pointer_key(key):
-    """
-    Escape a CONFIG_DB key segment for a JSON patch path.
-    """
-    return key.replace('~', '~0').replace('/', '~1')
-
-
 def _iter_buffer_pg_entries(config_facts, port):
     """
     Iterate BUFFER_PG entries for a port as (key, value).
@@ -187,44 +177,6 @@ def _iter_buffer_pg_entries(config_facts, port):
                 yield f"{port}|{pg_key}", pg_value
         elif key.startswith(f"{port}|"):
             yield key, value
-
-
-def _queue_key_matches_port(queue_key, port):
-    """
-    Return True when a QUEUE key belongs to the selected physical port.
-    """
-    if queue_key.startswith("QUEUE|"):
-        queue_key = queue_key.split('|', 1)[1]
-    return port in queue_key.split('|')
-
-
-def _format_sonic_queue_dict(queue_dict):
-    """
-    Convert QUEUE config_facts into CONFIG_DB key/value form.
-    """
-    formatted_queue_dict = {}
-    for key, value in queue_dict.items():
-        nested_queue_table = (
-            isinstance(value, dict) and
-            value and
-            all(
-                isinstance(nested_value, dict)
-                for nested_value in value.values()
-            )
-        )
-        if nested_queue_table:
-            for nested_key, nested_value in value.items():
-                queue_key = "{}|{}".format(key, nested_key)
-                if queue_key.startswith("QUEUE|"):
-                    queue_key = queue_key.split('|', 1)[1]
-                formatted_queue_dict[queue_key] = nested_value
-            continue
-
-        queue_key = key
-        if queue_key.startswith("QUEUE|"):
-            queue_key = queue_key.split('|', 1)[1]
-        formatted_queue_dict[queue_key] = value
-    return formatted_queue_dict
 
 
 def _iter_queue_entries(config_facts, port):
@@ -261,51 +213,6 @@ def _build_port_interface_entries(config_facts, port):
             port,
         ).items()
     }
-
-
-def _wait_for_portchannel_up_or_log(duthost, asic_namespace, portchannel,
-                                    operation_description="min_links update"):
-    """
-    Wait for a PortChannel to become up and log an error on timeout.
-
-    The caller decides whether timeout is fatal for the current stage.
-    """
-    last_result = {"stdout": "", "stderr": "", "rc": None}
-    last_status = {}
-
-    def _is_portchannel_up():
-        nonlocal last_result, last_status
-        last_status, last_result = get_portchannel_status_map(
-            duthost,
-            asic_namespace,
-            portchannels_to_check={portchannel},
-        )
-        logger.info(
-            "PortChannel %s status while waiting for up: %s",
-            portchannel,
-            last_status.get(portchannel),
-        )
-        return last_status.get(portchannel) == "up"
-
-    if wait_until(
-        PORTCHANNEL_UP_WAIT_TIME,
-        PORTCHANNEL_UP_WAIT_INTERVAL,
-        0,
-        _is_portchannel_up,
-    ):
-        return True
-
-    logger.error(
-        "PortChannel %s did not come up after %s. "
-        "Last status=%s rc=%s stdout=%s stderr=%s",
-        portchannel,
-        operation_description,
-        last_status.get(portchannel),
-        last_result.get("rc"),
-        last_result.get("stdout", ""),
-        last_result.get("stderr", ""),
-    )
-    return False
 
 
 def _collect_portchannel_member_add_options(candidates, speed,
@@ -1123,21 +1030,6 @@ def verify_portchannel_member_state(duthost, cli_namespace_prefix, config_facts,
         )
 
 
-def _normalize_acl_ports(value):
-    """
-    Return ACL table ports as a normalized list.
-    """
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return [
-            port.strip()
-            for port in value.split(',')
-            if port.strip()
-        ]
-    return list(value)
-
-
 def _namespace_command_prefix(asic_namespace):
     """
     Return an ip-netns command prefix for namespace-aware SONiC CLIs.
@@ -1145,112 +1037,6 @@ def _namespace_command_prefix(asic_namespace):
     if asic_namespace is None:
         return ""
     return "sudo ip netns exec {}".format(asic_namespace)
-
-
-def _parse_counter_value(counter_value):
-    """
-    Parse a SONiC counter value into an integer.
-    """
-    if counter_value is None:
-        return None
-    try:
-        return int(str(counter_value).replace(',', ''))
-    except ValueError:
-        return None
-
-
-def _db_hget(duthost, cli_namespace_prefix, db_name, key, field):
-    """
-    Return one Redis DB hash field value, or None on command failure.
-    """
-    cmd = "sonic-db-cli {} {} HGET {} {}".format(
-        cli_namespace_prefix,
-        db_name,
-        shlex.quote(key),
-        shlex.quote(field),
-    )
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output["rc"]:
-        logger.info(
-            "Failed to read %s field %s/%s: rc=%s stdout=%s stderr=%s",
-            db_name,
-            key,
-            field,
-            output.get("rc"),
-            output.get("stdout", ""),
-            output.get("stderr", ""),
-        )
-        return None
-    return output.get("stdout", "").strip()
-
-
-def _db_hgetall(duthost, cli_namespace_prefix, db_name, key):
-    """
-    Return one Redis DB hash as a dictionary, or None on command/parse failure.
-    """
-    cmd = "sonic-db-cli {} {} HGETALL {}".format(
-        cli_namespace_prefix,
-        db_name,
-        shlex.quote(key),
-    )
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output["rc"]:
-        logger.info(
-            "Failed to read %s hash %s: rc=%s stdout=%s stderr=%s",
-            db_name,
-            key,
-            output.get("rc"),
-            output.get("stdout", ""),
-            output.get("stderr", ""),
-        )
-        return None
-
-    lines = output.get("stdout_lines", [])
-    if len(lines) == 1:
-        try:
-            parsed_output = ast.literal_eval(lines[0])
-        except (SyntaxError, ValueError):
-            parsed_output = None
-        if isinstance(parsed_output, dict):
-            return {
-                str(hash_key): str(hash_value)
-                for hash_key, hash_value in parsed_output.items()
-            }
-
-    if not lines:
-        return {}
-    if len(lines) % 2:
-        logger.warning(
-            "Failed to parse %s hash %s HGETALL output: %s",
-            db_name,
-            key,
-            lines,
-        )
-        return None
-    return dict(zip(lines[0::2], lines[1::2]))
-
-
-def _db_keys(duthost, cli_namespace_prefix, db_name, pattern):
-    """
-    Return Redis keys matching a pattern.
-    """
-    cmd = "sonic-db-cli {} {} KEYS {}".format(
-        cli_namespace_prefix,
-        db_name,
-        shlex.quote(pattern),
-    )
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output["rc"]:
-        logger.info(
-            "Failed to query %s keys %s: rc=%s stdout=%s stderr=%s",
-            db_name,
-            pattern,
-            output.get("rc"),
-            output.get("stdout", ""),
-            output.get("stderr", ""),
-        )
-        return None
-    return output.get("stdout_lines", [])
 
 
 def _db_key_exists(duthost, cli_namespace_prefix, db_name, key):
@@ -1277,145 +1063,6 @@ def _db_key_exists(duthost, cli_namespace_prefix, db_name, key):
         output.get("stdout", ""),
         "{} key {}".format(db_name, key),
     )
-
-
-def _get_counters_db_port_oid(duthost, cli_namespace_prefix, port):
-    """
-    Return SAI object ID for a port from COUNTERS_DB.
-    """
-    port_oid = _db_hget(
-        duthost,
-        cli_namespace_prefix,
-        "COUNTERS_DB",
-        "COUNTERS_PORT_NAME_MAP",
-        port,
-    )
-    pytest_assert(
-        port_oid,
-        "COUNTERS_DB missing COUNTERS_PORT_NAME_MAP entry for {}".format(
-            port
-        ),
-    )
-    return port_oid
-
-
-def _get_counters_db_counter_value(duthost, cli_namespace_prefix, port):
-    """
-    Return one usable TX counter field/value for a port from COUNTERS_DB.
-    """
-    port_oid = _get_counters_db_port_oid(
-        duthost,
-        cli_namespace_prefix,
-        port,
-    )
-    counter_hash = _db_hgetall(
-        duthost,
-        cli_namespace_prefix,
-        "COUNTERS_DB",
-        "COUNTERS:{}".format(port_oid),
-    )
-    pytest_assert(
-        counter_hash,
-        "COUNTERS_DB missing readable COUNTERS hash for {} ({})".format(
-            port,
-            port_oid,
-        ),
-    )
-    for field in COUNTERS_DB_TX_FIELDS:
-        counter_value = _parse_counter_value(counter_hash.get(field))
-        if counter_value is not None:
-            return field, counter_value
-    pytest_assert(
-        False,
-        "COUNTERS_DB for {} ({}) lacks TX fields {}; available fields={}".format(
-            port,
-            port_oid,
-            COUNTERS_DB_TX_FIELDS,
-            sorted(counter_hash.keys()),
-        ),
-    )
-    raise AssertionError("pytest_assert(False) did not raise")
-
-
-def _get_portstat_counter(duthost, port, counter_name):
-    """
-    Return one counter from ``portstat -j`` output.
-    """
-    output = duthost.shell(
-        "portstat -ji {}".format(shlex.quote(port)),
-        module_ignore_errors=True,
-    )
-    if output["rc"]:
-        logger.info(
-            "Failed to read portstat for %s: rc=%s stdout=%s stderr=%s",
-            port,
-            output.get("rc"),
-            output.get("stdout", ""),
-            output.get("stderr", ""),
-        )
-        return None
-
-    stdout = output.get("stdout", "")
-    json_start = stdout.find("{")
-    if json_start == -1:
-        logger.info("portstat output for %s has no JSON payload: %s", port, stdout)
-        return None
-
-    try:
-        port_stats = json.loads(stdout[json_start:])
-    except ValueError:
-        logger.exception("Failed to parse portstat JSON for %s: %s", port, stdout)
-        return None
-
-    return _parse_counter_value(
-        port_stats.get(port, {}).get(counter_name),
-    )
-
-
-def _get_member_counter_snapshot(duthost, cli_namespace_prefix, member):
-    """
-    Return portstat and COUNTERS_DB TX counter values for one member.
-    """
-    counters_db_field, counters_db_value = _get_counters_db_counter_value(
-        duthost,
-        cli_namespace_prefix,
-        member,
-    )
-    snapshot = {
-        "portstat_TX_OK": _get_portstat_counter(duthost, member, "TX_OK"),
-        "counters_db_field": counters_db_field,
-        "counters_db_value": counters_db_value,
-    }
-    pytest_assert(
-        snapshot["portstat_TX_OK"] is not None,
-        "portstat TX_OK counter is not readable for {}".format(member),
-    )
-    pytest_assert(
-        snapshot["counters_db_value"] is not None,
-        "COUNTERS_DB TX counter is not readable for {}".format(member),
-    )
-    return snapshot
-
-
-def _runner_member_selected(member_state):
-    """
-    Return True when teamd reports the member selected and link-up.
-    """
-    runner_state = member_state.get("runner", {})
-    link_state = member_state.get("link", {})
-    selected = runner_state.get("selected")
-    link_up = link_state.get("up")
-
-    if isinstance(selected, bool):
-        selected_ok = selected
-    else:
-        selected_ok = str(selected).lower() in ("true", "yes", "1")
-
-    if link_up is None:
-        return selected_ok
-    if isinstance(link_up, bool):
-        return selected_ok and link_up
-    return selected_ok and str(link_up).lower() in ("true", "yes", "1")
 
 
 def _expected_portchannel_members(runtime):
@@ -1664,183 +1311,11 @@ def verify_counters_db_lag_member_readable(duthost, cli_namespace_prefix,
     )
 
 
-def _get_interface_neighbor_and_intfs(mg_facts, selected_port):
-    """
-    Resolve BGP neighbor name and addresses for one DUT interface.
-    """
-    vm_neighbors = mg_facts.get("minigraph_neighbors", {})
-    pytest_assert(
-        selected_port in vm_neighbors,
-        "No minigraph neighbor found for {}".format(selected_port),
-    )
-    neighbor_name = vm_neighbors[selected_port]['name']
-    neighbor_addr = []
-    neighbor_ipv4_addr = ""
-    neighbor_ipv6_addr = ""
-
-    for neighbor_info in mg_facts.get("minigraph_bgp", []):
-        if neighbor_info.get("name") != neighbor_name:
-            continue
-        addr = neighbor_info.get("addr")
-        if not addr:
-            continue
-        neighbor_addr.append(addr)
-        try:
-            parsed_addr = ipaddress.ip_address(addr)
-        except ValueError:
-            continue
-        if parsed_addr.version == 4:
-            neighbor_ipv4_addr = addr
-        elif parsed_addr.version == 6:
-            neighbor_ipv6_addr = addr
-
-    neighbor_addr = sorted(set(neighbor_addr))
-    logger.info(
-        "Found neighbor %s with addresses %s for DUT port %s. "
-        "IPv4=%s IPv6=%s",
-        neighbor_name,
-        neighbor_addr,
-        selected_port,
-        neighbor_ipv4_addr,
-        neighbor_ipv6_addr,
-    )
-    return neighbor_name, neighbor_addr, neighbor_ipv4_addr, neighbor_ipv6_addr
-
-
-def _change_static_route_no_proxy(operation, tbinfo, neighbor_ip,
-                                  exabgp_port, route_ip, mask='32',
-                                  aspath=65500, nhipv4=NHIPV4):
-    """
-    Announce or withdraw a PTF ExaBGP route without using proxy env settings.
-    """
-    common_config = tbinfo['topo']['properties']['configuration_properties'].get(
-        'common',
-        {},
-    )
-    ptf_ip = tbinfo['ptf_ip']
-    dst_prefix = "{}/{}".format(route_ip, mask)
-    nexthop = common_config.get('nhipv4', nhipv4)
-    url = "http://{}:{}".format(ptf_ip, exabgp_port)
-    data = {
-        "command": "{} route {} next-hop {} as-path [ {} ]".format(
-            operation,
-            dst_prefix,
-            nexthop,
-            aspath,
-        )
-    }
-    logger.info(
-        "%s route through PTF ExaBGP: url=%s dst_prefix=%s nexthop=%s "
-        "aspath=%s neighbor=%s",
-        operation.capitalize(),
-        url,
-        dst_prefix,
-        nexthop,
-        aspath,
-        neighbor_ip,
-    )
-    session = requests.Session()
-    session.trust_env = False
-    response = session.post(url, data=data, timeout=10)
-    pytest_assert(
-        response.status_code == 200,
-        "{} route request failed: url={} status={} body={}".format(
-            operation,
-            url,
-            response.status_code,
-            response.text[:500],
-        ),
-    )
-
-
-def _add_static_route_no_proxy(tbinfo, neighbor_ip, exabgp_port, route_ip):
-    """
-    Announce a static route through PTF ExaBGP without proxy env settings.
-    """
-    _change_static_route_no_proxy(
-        "announce",
-        tbinfo,
-        neighbor_ip,
-        exabgp_port,
-        route_ip,
-    )
-
-
-def _remove_static_route_no_proxy(tbinfo, neighbor_ip, exabgp_port, route_ip):
-    """
-    Withdraw a static route through PTF ExaBGP without proxy env settings.
-    """
-    _change_static_route_no_proxy(
-        "withdraw",
-        tbinfo,
-        neighbor_ip,
-        exabgp_port,
-        route_ip,
-    )
-
-
 def _select_unused_portchannel_traffic_dst_ip(duthost, asic_index):
-    """
-    Select a route prefix that is absent before dataplane validation starts.
-    """
-    for dst_ip in PORTCHANNEL_TRAFFIC_DST_IPS:
-        if verify_routev4_existence(
-            duthost,
-            asic_index,
-            dst_ip,
-            should_exist=False,
-        ):
-            logger.info(
-                "Selected unused PortChannel traffic destination %s",
-                dst_ip,
-            )
-            return dst_ip
-        logger.info(
-            "PortChannel traffic destination candidate %s already exists",
-            dst_ip,
-        )
-
-    pytest_assert(
-        False,
-        "No unused PortChannel traffic destination found from candidates {}".format(
-            PORTCHANNEL_TRAFFIC_DST_IPS,
-        ),
+    """Select an unused destination from this test's reserved route prefixes."""
+    return select_unused_portchannel_traffic_dst_ip(
+        duthost, asic_index, PORTCHANNEL_TRAFFIC_DST_IPS
     )
-    raise AssertionError("pytest_assert(False) did not raise")
-
-
-def _select_ptf_source_port(duthost, asic_namespace, mg_facts,
-                            excluded_interfaces):
-    """
-    Select a frontend PTF source port that is not in the tested PortChannel.
-    """
-    status_map = get_asic_interface_status_map(duthost, asic_namespace)
-    ptf_indices = mg_facts.get("minigraph_ptf_indices", {})
-    oper_up_ports = set(filter_oper_up_ports(ptf_indices, status_map))
-    for interface, ptf_index in sorted(
-        ptf_indices.items(),
-        key=lambda item: item[1],
-    ):
-        if interface in excluded_interfaces:
-            continue
-        if interface.startswith(INTERNAL_PORT_PREFIXES):
-            continue
-        if interface not in oper_up_ports:
-            continue
-        logger.info(
-            "Selected PTF source interface %s ptf_index=%s",
-            interface,
-            ptf_index,
-        )
-        return interface, ptf_index
-
-    pytest_assert(
-        False,
-        "No oper-up frontend PTF source port found outside {}".format(
-            sorted(excluded_interfaces)
-        ),
-    )
-    raise AssertionError("pytest_assert(False) did not raise")
 
 
 def _wait_for_restored_member_counters(duthost, cli_namespace_prefix,
@@ -1906,7 +1381,7 @@ def _wait_for_restored_member_counters(duthost, cli_namespace_prefix,
     )
 
 
-def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter):
+def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter, nbrhosts):
     """
     Verify PTF traffic can hash to the restored LAG member.
     """
@@ -1945,6 +1420,7 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter):
         tbinfo,
         neighbor_name,
         EXABGP_BASE_PORT,
+        nbrhosts=nbrhosts,
     )
     traffic_dst_ip = _select_unused_portchannel_traffic_dst_ip(
         duthost,
@@ -1965,14 +1441,15 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter):
                 30,
                 3,
                 0,
-                verify_routev4_existence,
+                route_uses_portchannel,
                 duthost,
                 asic_index,
                 traffic_dst_ip,
-                should_exist=True,
+                portchannel,
             ),
-            "Static route {} did not appear on {} asic {}".format(
+            "Static route {} did not resolve through {} on {} asic {}".format(
                 traffic_dst_ip,
+                portchannel,
                 duthost.hostname,
                 asic_index,
             ),
@@ -2159,7 +1636,7 @@ def verify_acl_feature_bindings(duthost, asic_namespace, config_facts,
         )
 
 
-def verify_post_restore_operational_state(duthost, runtime, tbinfo, ptfadapter):
+def verify_post_restore_operational_state(duthost, runtime, tbinfo, ptfadapter, nbrhosts):
     """
     Verify restored LAG member state through CLI, teamd, ASIC_DB, counters and PTF.
     """
@@ -2223,6 +1700,7 @@ def verify_post_restore_operational_state(duthost, runtime, tbinfo, ptfadapter):
             runtime,
             tbinfo,
             ptfadapter,
+            nbrhosts,
         )
 
 
@@ -2460,7 +1938,7 @@ def setup_portchannel_member_add(
 
 
 def test_portchannel_400g_member_add(duthosts, setup_portchannel_member_add,
-                                     tbinfo, ptfadapter):
+                                     tbinfo, ptfadapter, nbrhosts):
     """
     Add a removed 400G PortChannel member and restore original min_links.
     """
@@ -2525,4 +2003,5 @@ def test_portchannel_400g_member_add(duthosts, setup_portchannel_member_add,
             runtime,
             tbinfo,
             ptfadapter,
+            nbrhosts,
         )

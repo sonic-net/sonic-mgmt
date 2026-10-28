@@ -12,11 +12,10 @@ import ptf.packet as packet
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import clear_counters, get_queue_count_all_prio
-from tests.common.utilities import wait_until
+from tests.common.utilities import get_neighbor_exabgp_vm_offset, wait_until
+from tests.generic_config_updater.add_cluster.constants import EXABGP_BASE_PORT, INTERNAL_PORT_PREFIXES
 
 logger = logging.getLogger(__name__)
-
-INTERNAL_PORT_PREFIXES = ("Ethernet-BP", "Ethernet-IB", "Ethernet-Rec")
 
 
 def format_sonic_interface_dict(interface_dict, single_entry=True):
@@ -278,8 +277,9 @@ def find_portchannels_by_member_speed(config_facts,
 # Static Route Helper Functions
 # -----------------------------
 
-def get_exabgp_port_for_neighbor(tbinfo, neigh_name, exabgp_base_port=5000):
-    offset = tbinfo['topo']['properties']['topology']['VMs'][neigh_name]['vm_offset']
+def get_exabgp_port_for_neighbor(tbinfo, neigh_name, exabgp_base_port=EXABGP_BASE_PORT, nbrhosts=None):
+    """Resolve the ExaBGP port, using original logical offsets on converged topologies."""
+    offset = get_neighbor_exabgp_vm_offset(nbrhosts or {}, tbinfo, neigh_name)
     exabgp_port = exabgp_base_port + offset
     return exabgp_port
 

@@ -198,18 +198,25 @@ flowchart TD
     LAG counter object is present, verify its counter hash can be read.
 11. Verify existing ACL and Mirror tables that reference the restored
     PortChannel or member still have bindings in CONFIG_DB and APP_DB.
-12. Select an oper-up PTF source port outside the tested PortChannel.
+12. Select a PTF source port outside the tested PortChannel with a known
+    admin-up and oper-up status.
 13. Select an unused temporary IPv4 route from the test candidate list, advertise
-    it through the restored member's neighbor ExaBGP port, and wait for the
-    route to appear on the selected ASIC.
-14. Send PTF traffic with multiple hash attempts until traffic selects the
-    restored member.
-15. Clear traffic counters, capture a post-clear pre-traffic baseline, send the
-    PTF traffic without clearing counters again, then verify `portstat -j` and
-    COUNTERS_DB TX counter deltas for the restored member meet or exceed the
-    sent packet count.
+    it through the restored member's neighbor ExaBGP port, and wait for all
+    resolved route nexthops on the selected ASIC to use the tested PortChannel.
+    On converged topologies, use the logical neighbor's original ExaBGP offset
+    from `nbrhosts`, rather than the collapsed VM offset.
+14. Clear traffic counters and capture a post-clear baseline, then send PTF
+    traffic with multiple hash attempts until traffic selects the restored
+    member. Do not clear counters between attempts.
+15. Verify `portstat -j` and COUNTERS_DB TX counter deltas for the restored
+    member meet or exceed the sent packet count.
 16. Withdraw only the temporary route installed by this test and assert it is
     removed from the selected ASIC.
+
+Shared queue parsing, DB/counter reads, neighbor lookup, and route helpers are
+implemented in `add_cluster/portchannel_helpers.py`. Shared validation defaults
+are defined in `add_cluster/constants.py`; the tests keep distinct temporary
+route candidate lists and their own DUT selection and GCU patch flows.
 
 ### 5.4 Cleanup
 

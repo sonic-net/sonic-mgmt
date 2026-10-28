@@ -29,7 +29,6 @@ from tests.common.utilities import (
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.config_reload import config_reload
 from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
@@ -47,6 +46,14 @@ from tests.generic_config_updater.add_cluster.helpers import (
     send_and_verify_traffic,
 )
 
+from tests.generic_config_updater.add_cluster.constants import (
+    SPEED_100G,
+    SPEED_400G,
+)
+from tests.generic_config_updater.add_cluster.portchannel_helpers import (
+    restore_dut_via_minigraph as _restore_dut_via_minigraph,
+)
+
 pytestmark = [
     pytest.mark.topology("t2")
 ]
@@ -57,8 +64,6 @@ allure.logger = logger
 # -----------------------------
 # Speed and ACL constants
 # -----------------------------
-SPEED_100G = "100000"
-SPEED_400G = "400000"
 
 PORT_SPEED_UPGRADE_SUPPORTED_SPEEDS_MAP = {
     'x86_64-88_lc0_36fh-r0': [SPEED_100G, SPEED_400G],
@@ -97,26 +102,6 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*ERR swss[0-9]*#orchagent: :- processPriorityGroup: Port with alias:.* not found",
     ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid buffer task",
 ]
-
-
-def _restore_dut_via_minigraph(duthost, loganalyzer=None):
-    """
-    Restore the DUT to the original minigraph configuration.
-
-    Used for teardown and for recovery when setup or the test leaves the DUT in
-    a bad state (for example telemetry start-limit-hit after GCU speed changes).
-
-    Args:
-        duthost: DUT host object.
-        loganalyzer: Optional loganalyzer fixture for reload-time syslog ignores.
-    """
-    config_reload(
-        duthost,
-        config_source="minigraph",
-        safe_reload=True,
-        wait_for_bgp=True,
-        ignore_loganalyzer=loganalyzer,
-    )
 
 
 # -----------------------------
