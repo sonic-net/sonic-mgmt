@@ -45,6 +45,8 @@ The test looks up firmware by exact vendor part number and does not infer compat
 
 Only a part number absent from the configuration causes that module's case to be skipped. Once a part number is configured, missing `version` or `path` properties, unreadable firmware files, invalid JSON, or an invalid field format cause a failure.
 
+The configuration must be updated whenever a new module or firmware version is added; otherwise, the corresponding part number's case is skipped.
+
 ## Module Selection
 
 1. Create one parameterized case for each candidate physical port and deduplicate breakout interfaces that share one physical module.
