@@ -2,14 +2,18 @@
 
 import logging
 import threading
+from unittest import mock
 
 import grpc
 import pytest
+from pygnmi.client import gNMIException
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.pygnmi_client import (
     PygnmiClient,
     PygnmiClientCallError,
+    PygnmiClientConnectionError,
+    PygnmiClientTimeoutError,
     StreamMode,
     SubscribeMode,
 )
@@ -458,3 +462,159 @@ def test_subscribe_reports_unexpected_receiver_exception(monkeypatch, error):
 
     assert len(unhandled) == 1
     assert unhandled[0] is error
+
+
+# pygnmi hides some failures: its capabilities() returns None after swallowing
+# an error with a bare except, its connect() then raises a raw TypeError while
+# indexing that None, and its set() returns None when it cannot parse the
+# SetResponse. PygnmiClient must turn each into a typed PygnmiClientError and
+# close any channel it opened.
+
+
+@pytest.fixture
+def fake_gnmi(monkeypatch: pytest.MonkeyPatch) -> mock.MagicMock:
+    """Replace pygnmi's gNMIclient with a mock; returns the mock instance every channel uses."""
+    channel = mock.MagicMock(name="gNMIclient")
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", mock.MagicMock(return_value=channel))
+    return channel
+
+
+def test_connect_type_error_becomes_connection_error(fake_gnmi):
+    """Test pygnmi's TypeError from indexing its swallowed capabilities() probe (None) is mapped."""
+    fake_gnmi.connect.side_effect = TypeError("argument of type 'NoneType' is not iterable")
+    client = _offline_client()
+
+    with pytest.raises(PygnmiClientConnectionError, match="gnmi connect failed: TypeError"):
+        client.capabilities()
+
+    fake_gnmi.close.assert_called()
+    assert client._client is None
+
+
+def test_connect_unexpected_error_propagates(fake_gnmi):
+    """Test a connect() error that is not the swallowed-probe TypeError is neither mapped nor leaks the channel."""
+    fake_gnmi.connect.side_effect = AttributeError("pygnmi bug")
+    client = _offline_client()
+
+    with pytest.raises(AttributeError, match="pygnmi bug"):
+        client.capabilities()
+
+    fake_gnmi.close.assert_called_once()
+    assert client._client is None
+
+
+def test_connect_failure_closes_half_built_channel(fake_gnmi):
+    """Test a failed connect() closes the channel it opened."""
+    fake_gnmi.connect.side_effect = grpc.FutureTimeoutError()
+    client = _offline_client()
+
+    with pytest.raises(PygnmiClientConnectionError):
+        client.get("/interfaces")
+
+    fake_gnmi.close.assert_called_once()
+    assert client._client is None
+
+
+def test_connect_timeout_message_includes_deadline(fake_gnmi):
+    """Test the connection-timeout message states the deadline, since grpc.FutureTimeoutError's str() is empty."""
+    fake_gnmi.connect.side_effect = grpc.FutureTimeoutError()
+    client = _offline_client()
+
+    with pytest.raises(PygnmiClientConnectionError, match="connection timed out after 30s"):
+        client.capabilities()
+
+
+def _rpc_error(status: grpc.StatusCode) -> grpc.RpcError:
+    """A grpc.RpcError with the given status, like the ones pygnmi wraps in gNMIException.orig_exc."""
+    return type(
+        "FakeRpcError",
+        (grpc.RpcError,),
+        {
+            "code": lambda self: status,
+            "details": lambda self: f"{status.name} from fake server",
+        },
+    )()
+
+
+@pytest.mark.parametrize(
+    "orig_exc, expected",
+    [
+        (_rpc_error(grpc.StatusCode.UNAVAILABLE), PygnmiClientConnectionError),
+        (_rpc_error(grpc.StatusCode.UNAUTHENTICATED), PygnmiClientConnectionError),
+        (_rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED), PygnmiClientTimeoutError),
+        (_rpc_error(grpc.StatusCode.PERMISSION_DENIED), PygnmiClientCallError),
+        (None, PygnmiClientCallError),
+    ],
+    ids=["unavailable", "unauthenticated", "deadline-exceeded", "permission-denied", "no-rpc-error"],
+)
+def test_wrapped_rpc_error_classified_by_status(fake_gnmi, orig_exc, expected):
+    """Test a gNMIException is classified by the status of the RPC error it wraps, keeping pygnmi's message."""
+    fake_gnmi.get.side_effect = gNMIException("GRPC ERROR Host: 192.0.2.1:50052", orig_exc)
+
+    with pytest.raises(expected, match="GRPC ERROR Host: 192.0.2.1:50052"):
+        _offline_client().get("/interfaces")
+
+
+def test_construction_with_connect_maps_gnmi_errors(fake_gnmi):
+    """Test connect=True maps a gNMI error from the initial connection's capabilities() probe."""
+    fake_gnmi.connect.side_effect = gNMIException(
+        "GRPC ERROR Host: 192.0.2.1:50052, Error: refused", _rpc_error(grpc.StatusCode.UNAVAILABLE)
+    )
+
+    with pytest.raises(PygnmiClientConnectionError, match="connection failed"):
+        PygnmiClient("", 0, plaintext=True, connect=True)
+
+    fake_gnmi.close.assert_called()
+
+
+def test_construction_with_connect_closes_probe_channel(fake_gnmi):
+    """Test connect=True closes the channel it opened to probe the connection."""
+    PygnmiClient("", 0, plaintext=True, connect=True)
+
+    fake_gnmi.connect.assert_called_once()
+    fake_gnmi.close.assert_called_once()
+
+
+def test_context_manager_opens_no_channel(fake_gnmi):
+    """Test entering a with block opens no channel beyond the constructor's probe."""
+    with PygnmiClient("", 0, plaintext=True, connect=True):
+        fake_gnmi.connect.assert_called_once()
+        fake_gnmi.close.assert_called_once()
+
+
+def test_capabilities_none_raises(fake_gnmi):
+    """Test capabilities() raises when pygnmi swallows an error and returns None."""
+    fake_gnmi.capabilities.return_value = None
+    client = _offline_client()
+
+    with pytest.raises(PygnmiClientCallError, match="gnmi capabilities returned no response"):
+        client.capabilities()
+
+    fake_gnmi.close.assert_called_once()
+
+
+def test_capabilities_returns_response(fake_gnmi):
+    """Test capabilities() returns pygnmi's response."""
+    response = {"supported_encodings": ["json_ietf"]}
+    fake_gnmi.capabilities.return_value = response
+
+    assert _offline_client().capabilities() == response
+
+
+def test_set_none_raises(fake_gnmi):
+    """Test set() raises when pygnmi cannot parse the SetResponse and returns None."""
+    fake_gnmi.set.return_value = None
+    client = _offline_client()
+
+    with pytest.raises(PygnmiClientCallError, match="gnmi set returned an unparseable SetResponse"):
+        client.set(update=[("/interfaces", {})])
+
+    fake_gnmi.close.assert_called_once()
+
+
+def test_set_returns_response(fake_gnmi):
+    """Test set() returns pygnmi's response."""
+    response = {"response": [{"op": "UPDATE"}]}
+    fake_gnmi.set.return_value = response
+
+    assert _offline_client().set(update=[("/interfaces", {})]) == response
