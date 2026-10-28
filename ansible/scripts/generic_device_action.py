@@ -91,7 +91,7 @@ def run(action, directory):
     config, report = request["config"], request["report"]
     if action in ("stage", "apply") and digest(config) != report["config_sha256"]:
         raise ValueError("Rendered configuration digest does not match its report")
-    running = None if action == "rollback" else read_running()
+    running = None if action in ("rollback", "save") else read_running()
     if action == "stage":
         if digest(running) != report["baseline_sha256"]:
             raise ValueError("Running CONFIG_DB changed since rendering; render a fresh scenario")
@@ -117,9 +117,15 @@ def run(action, directory):
         write_private(directory / "reload-attempted.json", {"config_sha256": report["config_sha256"]})
         reload_config(directory / "new-config.json")
     elif action == "save":
-        subprocess.run(["config", "save", "-y"], check=True)
-        if digest(json.loads(Path("/etc/sonic/config_db.json").read_text())) != digest(running):
-            raise ValueError("Saved startup configuration differs from running CONFIG_DB")
+        for _ in range(3):
+            before = digest(read_running())
+            subprocess.run(["config", "save", "-y"], check=True)
+            saved = digest(json.loads(Path("/etc/sonic/config_db.json").read_text()))
+            after = digest(read_running())
+            if before == saved == after:
+                break
+        else:
+            raise ValueError("Saved startup configuration differs from stable running CONFIG_DB after 3 save attempts")
     elif action == "rollback":
         if not (directory / "reload-attempted.json").exists():
             remove_created_alias(directory)

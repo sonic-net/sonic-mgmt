@@ -37,16 +37,17 @@ function usage
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] update-breakout <testbed-name> <links-csv> <target-breakout> [--dry-run]"
-  echo "    $0 [-t <tbfile>] recover-generic <testbed-name> <inventory> <vault-password-file> [--apply]"
+  echo "    $0 [-t <tbfile>] recover-generic <testbed-name> <inventory> <vault-password-file> [--print-data]"
   echo "    Generic commands share plan/, prepared/, rendered/ under system temp/sonic-generic-UID/TESTBED."
-  echo "    add-topo plans and prepares PORT/PTF mappings; --apply attaches PTF to existing transport."
+  echo "    add-topo plans, prepares PORT/PTF mappings, and attaches PTF to existing transport."
   echo "    add-topo --exclude-managed-acls omits managed DATAACL/EVERFLOW bindings, preserving protected bindings/rules."
   echo "    add-topo/remove-topo read vars/topo_<topo>.yml; a generic_topology section selects the generic workflow."
   echo "    deploy-mg still requires --generic. Explicit --generic remains available to select this workflow."
-  echo "    Generic add-topo/remove-topo/deploy-mg default to DRY RUN. --apply authorizes changes."
+  echo "    Generic commands execute by default. --print-data previews changes without applying them."
   echo "    Automatic generic add-topo prepares its workspace from the named recipe plus optional --overrides."
-  echo "    Without --apply, preparation may read devices but does not mutate host/fanout/device configuration."
-  echo "    deploy-mg --generic renders/YANG-validates both configs from that fixed layout; --apply reloads/saves."
+  echo "    Fresh --print-data preparation/rendering may read devices, but never provisions, reloads, or saves."
+  echo "    deploy-mg --generic renders/YANG-validates the fixed layout, reloads both devices, and saves."
+  echo "    Successful deployment removes disposable artifacts; ownership metadata and recovery backups remain."
   echo "    Generic commands leave root-fanout connections and shared trunks untouched."
   echo "    Existing stages are never overwritten; remove-topo/recover-generic accept --scenario-dir for older runs."
   echo
@@ -126,9 +127,9 @@ function usage
   echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
   echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
   echo "        --dry-run             Preview changes without writing"
-  echo "To prepare generic breakout/forwarding and PTF transport (mutations require --apply):"
+  echo "To prepare and attach generic breakout/forwarding and PTF transport (--print-data previews only):"
   echo "    $0 [-t <tbfile>] add-topo <testbed-name> <vault-password-file> --peer-hostname <leaf> \\"
-  echo "        --links-csv <path> [--inventory <path>]"
+  echo "        --links-csv <path> [--inventory <path>] [--print-data]"
   echo "    Missing platform/lookup snapshots are collected through Ansible inventory (default: testbed inv_name)."
   echo "    Supply --platform-json, --peer-platform-json, and --pg-profile-lookup for fully offline use."
   echo "    All wired eligible children participate; missing CSV VLANs mean physical-only coverage, without PTF transport."
@@ -136,7 +137,7 @@ function usage
   echo "    Empty recipe uplinks select the first eight realized DUT ports in numeric order."
   echo "    Matching mode/speed uplinks are not required by default; generated topology.yml records resolved roles."
   echo "    --min-same-breakout-uplinks N is an optional legacy constraint for explicit nonempty uplink selectors."
-  echo "    deploy-mg <testbed-name> <inventory> <vault-password-file> --generic [--apply]"
+  echo "    deploy-mg <testbed-name> <inventory> <vault-password-file> --generic [--print-data]"
   echo
   echo "You should define your topology in testbed YAML file"
   echo
@@ -1374,6 +1375,10 @@ done
 shift $((OPTIND-1))
 
 for argument in "$@"; do
+  if [[ "$argument" == "--apply" || "$argument" == --apply=* ]]; then
+    echo "Error: --apply was removed; generic commands execute by default. Use --print-data to preview changes." >&2
+    exit 1
+  fi
   if [[ "$argument" == "--workspace" || "$argument" == --workspace=* ]]; then
     echo "Error: --workspace was removed; generic artifact storage is automatic per testbed. Older-run cleanup/recovery may use --scenario-dir." >&2
     exit 1
@@ -1413,7 +1418,8 @@ case "${1:-}" in
         generic_arguments+=("$generic_argument")
       fi
       if [[ "$generic_argument" == "--scenario-dir" || "$generic_argument" == --scenario-dir=* ||
-            "$generic_argument" == "--apply" || "$generic_argument" == "--finalize-roles" ||
+            "$generic_argument" == "--print-data" || "$generic_argument" == --print-data=* ||
+            "$generic_argument" == "--finalize-roles" ||
             "$generic_argument" == "--exclude-managed-acls" ]]; then
         generic_options=true
       fi
@@ -1447,7 +1453,7 @@ except (OSError, ValueError, yaml.YAMLError) as error:
       generic_scenario_command "$generic_action" "$@"
       exit
     elif [[ "$generic_options" == true ]]; then
-      echo "Error: --generic is required with generic scenario/apply options." >&2
+      echo "Error: --generic is required with generic scenario/preview options." >&2
       exit 1
     fi
     set -- "$generic_action" "$@"

@@ -141,6 +141,64 @@ def remove_owned(config, owned):
             row["members"] = [port for port in row["members"] if port not in owned]
 
 
+def retire_static_routes(config, affected):
+    """Resolve route ownership against connected subnets before retiring their interfaces."""
+    if not config.get("STATIC_ROUTE"):
+        return
+    connected = []
+    for table in ("INTERFACE", "PORTCHANNEL_INTERFACE", "VLAN_INTERFACE",
+                  "LOOPBACK_INTERFACE", "MGMT_INTERFACE", "VLAN_SUB_INTERFACE"):
+        rows = config.get(table, {})
+        default_vrf = "default"
+        if (table == "MGMT_INTERFACE"
+                and config.get("MGMT_VRF_CONFIG", {}).get("vrf_global", {}).get("mgmtVrfEnabled") == "true"):
+            default_vrf = "mgmt"
+        for key in rows:
+            if "|" in key:
+                interface, address = key.split("|")
+                binding = rows.get(interface, {})
+                if binding.get("vnet_name"):
+                    continue
+                vrf = binding.get("vrf_name", default_vrf)
+                connected.append((vrf, ipaddress.ip_interface(address).network, interface))
+    for prefix, row in list(config.get("STATIC_ROUTE", {}).items()):
+        route_vrf = prefix.split("|")[0] if "|" in prefix else "default"
+        fields = {}
+        for field in ("ifname", "nexthop", "nexthop-vrf", "blackhole"):
+            value = row.get(field, "")
+            if not isinstance(value, str):
+                raise ValueError("Static route next-hop fields must be strings")
+            fields[field] = value.split(",") if value.strip() else None
+        sizes = {len(values) for values in fields.values() if values is not None}
+        if len(sizes) > 1:
+            raise ValueError("Static route next-hop fields have different lengths")
+        dependencies = []
+        for index in range(next(iter(sizes), 0)):
+            values = {field: entries[index] if entries is not None else "" for field, entries in fields.items()}
+            owners = set()
+            if values["blackhole"] == "true":
+                pass
+            elif values["ifname"]:
+                owners.add(values["ifname"])
+            elif values["nexthop"].startswith("PortChannel"):
+                owners.add(values["nexthop"])
+            elif values["nexthop"]:
+                nexthop = ipaddress.ip_address(values["nexthop"])
+                vrf = values["nexthop-vrf"] or route_vrf
+                owners = {interface for context, network, interface in connected
+                          if context == vrf and nexthop in network}
+                if owners.intersection(affected) and len(owners) > 1:
+                    raise ValueError("Cannot change a static route with ambiguous next-hop interfaces: {}".format(
+                        prefix))
+            dependencies.append(owners)
+        if any(owners.intersection(affected) for owners in dependencies):
+            if any(not owners or not owners.issubset(affected) for owners in dependencies):
+                raise ValueError(
+                    "Cannot change a static route shared with protected interfaces or unresolved next hops: {}".format(
+                        prefix))
+            del config["STATIC_ROUTE"][prefix]
+
+
 def retire_logical_interfaces(config, owned):
     affected = set(owned)
     for channel in list(config.get("PORTCHANNEL", {})):
@@ -159,6 +217,7 @@ def retire_logical_interfaces(config, owned):
             affected.add(vlan)
             del config["VLAN"][vlan]
             config.get("DHCP_RELAY", {}).pop(vlan, None)
+    retire_static_routes(config, affected)
     addresses = set()
     for table in ("INTERFACE", "PORTCHANNEL_INTERFACE", "VLAN_INTERFACE"):
         for key in list(config.get(table, {})):
@@ -176,12 +235,6 @@ def retire_logical_interfaces(config, owned):
     for key in list(config.get("VLAN_MEMBER", {})):
         if set(key.split("|")).intersection(affected):
             del config["VLAN_MEMBER"][key]
-    for prefix, row in list(config.get("STATIC_ROUTE", {}).items()):
-        interfaces = set(row.get("ifname", "").split(","))
-        if interfaces.intersection(affected):
-            if not interfaces.issubset(affected):
-                raise ValueError("Cannot change a static route shared with protected interfaces")
-            del config["STATIC_ROUTE"][prefix]
     return affected - owned
 
 
@@ -336,6 +389,17 @@ def build_ports(base, platform, layouts, canonical, exclude_managed_acls=False, 
     if not cleanup.issubset(base["PORT"]) or cleanup.intersection(owned):
         raise ValueError("Forwarding-only cleanup must use existing fixed-breakout ports")
     retired_logical = retire_logical_interfaces(config, owned | cleanup)
+    inheritable = owned | {channel for memberships in channels.values() for channel in memberships}
+    for name, acl in config.get("ACL_TABLE", {}).items():
+        if "ports" not in acl:
+            continue
+        if not isinstance(acl["ports"], list):
+            raise ValueError("ACL_TABLE.ports must be a list for generic rendering")
+        removed = set(acl["ports"]).intersection(owned | retired_logical)
+        if removed and (name not in {"DATAACL", "EVERFLOW"}
+                        or not exclude_managed_acls and not removed.issubset(inheritable)):
+            raise ValueError("Unsupported ACL_TABLE {} bindings on {}; explicit ACL migration is required".format(
+                name, ", ".join(sorted(removed))))
     remove_owned(config, owned | retired_logical)
     for row in config.get("VLAN", {}).values():
         if "members" in row:
@@ -792,7 +856,9 @@ def direction_template(source):
     """Adapt only the inspected shared-template role-list contract, never its QoS policy."""
     from jinja2 import Environment, nodes
 
-    tree = Environment().parse(source)
+    # AST inspection only; configuration rendering remains owned by sonic-cfggen.
+    # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+    tree = Environment(autoescape=True).parse(source)
     roles = {"PORT_UPLINK": "GENERIC_UPLINK_PORTS", "PORT_DOWNLINK": "GENERIC_DOWNLINK_PORTS"}
     initializers = {name: [node for node in tree.body if isinstance(node, nodes.Assign)
                            and isinstance(node.target, nodes.Name) and node.target.name == name
@@ -831,7 +897,9 @@ def direction_template(source):
         raise ValueError("Unrecognized QoS classification boundaries")
     lines[start:end] = ["{%- if GENERIC_UPLINK_PORTS is not defined %}\n"] + lines[start:end] + ["{% endif %}\n"]
     result = "".join(lines)
-    Environment().parse(result)
+    # Syntax validation only; this environment never renders output.
+    # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+    Environment(autoescape=True).parse(result)
     return result
 
 
@@ -852,7 +920,9 @@ def prepare_qos_template(directory, platform_dir, sku_dir):
             if not destination.exists():
                 destination.symlink_to(asset)
     source = installed_asset(platform_dir, sku_dir, "qos.json.j2").read_text()
-    includes = [node for node in Environment().parse(source).find_all(nodes.Include)
+    # AST inspection only; configuration rendering remains owned by sonic-cfggen.
+    # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+    includes = [node for node in Environment(autoescape=True).parse(source).find_all(nodes.Include)
                 if isinstance(node.template, nodes.Const) and node.template.value == "qos_config.j2"]
     if len(includes) != 1:
         raise ValueError("Installed qos.json.j2 must have one static shared qos_config.j2 include")
@@ -973,7 +1043,9 @@ def render_device(request):
         daemon_profiles={"pg_lossless_{}_{}_profile".format(link[role]["speed"], link["buffer_case"]["cable"])
                          for link in facts["connections"]})
     lookup = parse_buffer_lookup(lookup_path.read_text())
-    lossless = apply_qos(config, generated, facts, role, lookup, base, owned, selected)
+    lossless = apply_qos(
+        config, generated, facts, role, lookup, base, owned, selected,
+        egress_profile=buffer_policy["profile_aliases"].get("egress_lossless_profile", "egress_lossless_profile"))
     buffer_policy["omitted_profiles"] = lossless.get("omitted_profiles", {})
     buffer_policy["lossy_cable_cases"] = {
         link[role]["port"]: {"speed": str(link[role]["speed"]), "cable": link["buffer_case"]["cable"]}

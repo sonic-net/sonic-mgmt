@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generic add-topo preparation and explicit deployment, separate from legacy minigraph workflows."""
+"""Generic testbed lifecycle; use --print-data to preview without applying changes."""
 
 import argparse
 from copy import deepcopy
@@ -133,7 +133,7 @@ def device_stage(args, artifacts, testbed, hostname, phase):
         manifest["transport_prepared"] = phase == "prepare" or bool(prepared)
         manifest["deployable"] = phase == "render"
         manifest["testbed"] = testbed
-        manifest["requires_explicit_apply"] = True
+        manifest.pop("requires_explicit_apply", None)
         manifest.setdefault("policy", {})["exclude_managed_acls"] = exclude_managed_acls
         manifest["policy"].pop("enable_lossless_adapter", None)
         manifest["limitations"] = [
@@ -173,13 +173,108 @@ def render(args, artifacts, testbed, hostname):
     device_stage(args, artifacts, testbed, hostname, "render")
 
 
+def print_changes(args, artifacts, hostname):
+    """Print only approved summary fields, never inherited configuration values."""
+    manifest, facts = artifacts["manifest.json"], artifacts["resolved_facts.json"]
+    report = artifacts.get("preparation_report.json") or artifacts["render_report.json"]
+    summary = {
+        "action": args.action, "dut": hostname, "peer": facts["peer_hostname"],
+        "scenario_id": manifest["scenario_id"], "status": manifest.get("status"),
+        "coverage": artifacts["coverage.json"]["status"],
+        "operations": {
+            "add-topo": ["attach scenario-owned host/PTF endpoints"],
+            "remove-topo": ["remove scenario-owned host/PTF endpoints"],
+            "deploy-mg": (["already deployed; no reload"] if manifest.get("status") == "deployed" else
+                          ["verify host/PTF endpoints", "stage both devices", "reload both devices",
+                           "save both devices", "clean disposable local artifacts"]),
+            "recover": ["restore on-device running/startup backups"],
+        }[args.action],
+        "transport": [{field: item[field] for field in ("vlan_id", "dut_port", "peer_port", "ptf_index")
+                       if field in item} for item in report["peer"]["transport"]],
+        "links": [{
+            "dut_port": link["dut"]["port"], "peer_port": link["peer"]["port"],
+            "role": link["role"], "speed": link["dut"].get("speed"),
+            "transport_vlan_id": link.get("transport_vlan_id"), "ptf_index": link.get("ptf_index"),
+            "dut_port_index": link.get("dut_port_index"),
+        } for link in facts.get("connections", [])],
+        "configuration_table_counts": manifest.get("configuration_table_counts", {
+            role: {table: len(rows) for table, rows in artifacts.get(name, {}).items()}
+            for role, name in (("dut", "dut_config.json"), ("peer", "leaf_config.json"))}),
+    }
+    print("PRINT DATA: no host provisioning or device configuration applied.")
+    print(json.dumps(summary, indent=2))
+
+
+def cleanup_scenario(directory, artifacts):
+    """Discard only known local artifacts; retain the active scenario and remote recovery bundle."""
+    directory = Path(directory)
+    if directory.name != "rendered" or directory.is_symlink() or directory.parent.is_symlink():
+        raise ValueError("Cleanup requires the automatic rendered scenario directory")
+    manifest = deepcopy(artifacts["manifest.json"])
+    root = directory.parent
+    files = [directory / name for name in ("dut_config.json", "leaf_config.json")]
+    directories = []
+    for stage in ("plan", "prepared"):
+        path = root / stage
+        if not path.exists() and not path.is_symlink():
+            continue
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError("Refusing cleanup of an invalid scenario stage")
+        previous = json.loads((path / "manifest.json").read_text())
+        expected = manifest.get("plan_id") if stage == "plan" else manifest["scenario_id"]
+        if previous.get("scenario_id") != expected:
+            raise ValueError("Refusing cleanup of a different scenario")
+        names = ("coverage.json", "topology.yml", "resolved_facts.json",
+                 "preparation_report.json", "render_report.json", "dut_config.json", "leaf_config.json")
+        files.extend(path / name for name in names)
+        if all(child.name in (*names, "manifest.json") for child in path.iterdir()):
+            files.append(path / "manifest.json")
+        directories.append(path)
+    snapshots = root / "plan.inputs"
+    if str(snapshots / "collection.json") in manifest.get("source_sha256", {}):
+        files.append(snapshots / "collection.json")
+        for role, names in (("dut", ("platform.json", "pg_profile_lookup.ini")), ("peer", ("platform.json",))):
+            path = snapshots / role
+            files.extend(path / name for name in names)
+            directories.append(path)
+        directories.append(snapshots)
+    for path in [directory, *directories]:
+        if path.is_symlink() or path.exists() and (
+                not path.is_dir() or path.stat().st_uid != os.getuid()):
+            raise ValueError("Refusing cleanup of an unowned or invalid artifact directory")
+    for path in files:
+        if path.is_symlink() or path.exists() and (
+                not path.is_file() or path.stat().st_uid != os.getuid()):
+            raise ValueError("Refusing cleanup of an invalid artifact file")
+    manifest["status"] = "deployed"
+    manifest.pop("requires_explicit_apply", None)
+    if "dut_config.json" in artifacts:
+        manifest["configuration_table_counts"] = {
+            role: {table: len(rows) for table, rows in artifacts[name].items()}
+            for role, name in (("dut", "dut_config.json"), ("peer", "leaf_config.json"))}
+    for name in ("dut_config.json", "leaf_config.json"):
+        manifest["artifact_sha256"].pop(name, None)
+    with tempfile.TemporaryDirectory(prefix=".generic-cleanup-", dir=str(root)) as temporary:
+        replacement = Path(temporary) / "manifest.json"
+        write_private(replacement, manifest)
+        os.replace(str(replacement), str(directory / "manifest.json"))
+    for path in files:
+        if path.exists():
+            path.unlink()
+    for path in directories:
+        if path.exists() and not any(path.iterdir()):
+            path.rmdir()
+    print("Removed disposable local configurations, planning artifacts, and default snapshots. "
+          "Lifecycle metadata retained in {}; on-device recovery backups are unchanged.".format(directory))
+
+
 def deploy(args, artifacts, testbed, hostname):
     manifest, facts = artifacts["manifest.json"], artifacts["resolved_facts.json"]
     if manifest["hostname"] != hostname:
         raise ValueError("Scenario DUT does not match the selected testbed")
     host_action = args.action in ("add-topo", "remove-topo")
     ready = manifest.get("deployable") or (host_action and manifest.get("transport_prepared"))
-    if not ready or not manifest.get("requires_explicit_apply"):
+    if not ready:
         raise ValueError("A {} generic scenario is required; run add-topo first".format(
             "prepared" if host_action else "rendered"))
     if artifacts["coverage.json"]["status"] != "complete":
@@ -191,12 +286,11 @@ def deploy(args, artifacts, testbed, hostname):
     if manifest.get("testbed") != testbed:
         raise ValueError("Testbed host/PTF settings changed since rendering; render a new scenario")
     report = artifacts.get("preparation_report.json") or artifacts["render_report.json"]
-    if not args.apply:
-        print("DRY RUN: {} for {} / {}; scenario {}".format(
-            args.action, hostname, facts["peer_hostname"], manifest["scenario_id"]))
-        print("No host provisioning or device configuration applied. "
-              "Re-run with --apply only in a reserved maintenance window.")
-        print("Transport VLANs: {}".format([item["vlan_id"] for item in report["peer"]["transport"]]))
+    if args.print_data:
+        print_changes(args, artifacts, hostname)
+        return
+    if args.action == "deploy-mg" and manifest.get("status") == "deployed":
+        print("Scenario is already deployed; retained metadata cannot be used to repeat a reload.")
         return
     with tempfile.TemporaryDirectory(prefix="generic-deploy-") as temporary:
         local = Path(temporary)
@@ -210,15 +304,15 @@ def deploy(args, artifacts, testbed, hostname):
             variables["generic_host_action"] = args.action
             run_playbook(args, "generic_host.yml", variables, local, host=True)
             return
+        if args.action == "recover":
+            variables["generic_action"] = "rollback"
+            run_playbook(args, "generic_devices.yml", variables, local)
+            return
         report = artifacts["render_report.json"]
         for role in ("dut", "peer"):
             write_private(local / (role + "-request.json"), {
                 "config": artifacts[("dut" if role == "dut" else "leaf") + "_config.json"], "report": report[role],
             })
-        if args.action == "recover":
-            variables["generic_action"] = "rollback"
-            run_playbook(args, "generic_devices.yml", variables, local)
-            return
         variables["generic_host_action"] = "verify"
         run_playbook(args, "generic_host.yml", variables, local, host=True)
         variables["generic_action"] = "stage"
@@ -243,7 +337,7 @@ def deploy(args, artifacts, testbed, hostname):
 def automatic_prepare(args, testbed, hostname):
     root = resolve_workspace(testbed["conf-name"])
     prepared = root / "prepared"
-    cached = prepared if prepared.exists() else root / "rendered"
+    cached = root / "rendered" if (root / "rendered").exists() else prepared
     if cached.exists():
         artifacts = load_scenario(cached)
         if (getattr(args, "exclude_managed_acls", False)
@@ -280,7 +374,8 @@ def main():
         command.add_argument("--testbed", required=True)
         command.add_argument("--testbed-file", required=True)
         command.add_argument("--vm-inventory", default="veos")
-        command.add_argument("--apply", action="store_true")
+        command.add_argument("--print-data", action="store_true",
+                             help="Show a credential-safe change summary without provisioning, reloading, or saving")
         if action == "add-topo":
             command.add_argument("--exclude-managed-acls", action="store_true",
                                  help="Omit inherited DATAACL/EVERFLOW bindings on managed ports; "
@@ -316,8 +411,15 @@ def main():
             stage_args = deepcopy(args)
             stage_args.output_dir = str(root / "rendered")
             render(stage_args, artifacts, testbed, hostname)
-            artifacts = load_scenario(root / "rendered")
+            scenario_dir = root / "rendered"
+            artifacts = load_scenario(scenario_dir)
         deploy(args, artifacts, testbed, hostname)
+        if args.action == "deploy-mg" and not args.print_data:
+            try:
+                cleanup_scenario(scenario_dir, artifacts)
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                raise ValueError("Both devices are saved, but local artifact cleanup failed; "
+                                 "recovery data is retained: {}".format(error)) from error
     except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError) as error:
         parser.exit(1, "Generic operation failed: {}\n".format(error))
 
