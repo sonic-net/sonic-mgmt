@@ -12,8 +12,10 @@ topologies. The workload requires configured PortChannels and IPv4 BGP neighbors
 ## Test Procedure
 Part 1:
 
-1. Pre-establish five workload SSH connections and one observer connection to
-   the DUT, then start the observer's persistent `vmstat` stream.
+1. Pre-establish five workload SSH connections, one dormant cancellation-control
+   connection per worker, and one observer connection to the DUT. Start the
+   observer's persistent `vmstat` stream and each worker's cancellation helper
+   before calibration.
 2. On each workload connection that will later run stress, generate its command
    baseline from the median of five serial alternating executions of its command
    pair. The other workload connections and observer remain established, but no
@@ -35,7 +37,10 @@ Part 1:
    an average of at least one cycle every 15 seconds over the stress phase. A
    final unmatched command does not count as an additional cycle. A command
    timeout, nonzero exit status, rollback failure, or insufficient cycle count
-   fails the test. Each command's nearest-rank p95, maximum, serial baseline
+   fails the test. The 60-second timeout covers channel creation, exec-request
+   acknowledgement, output, and exit status. A uniquely owned remote helper
+   terminates and fences a timed-out process group before rollback can begin.
+   Each command's nearest-rank p95, maximum, serial baseline
    median, and p95 slowdown are logged as diagnostics; they are not treated as a
    queueing bound for the heterogeneous five-worker workload.
 6. Monitor memory and CPU usage over the following 5 minutes through one
@@ -56,8 +61,9 @@ Part 2:
 4. After the workload sessions close, apply the same consecutive-reading,
    180-second CPU and memory recovery check used in Part 1.
 
-Teardown restores the configuration workloads and waits for teamd and BGP
-recovery. On VPP, it also requires a successful `route_check.py` execution and
+Teardown first fences every command token owned by this test, then restores the
+configuration workloads and waits for teamd and BGP recovery. On VPP, it also
+requires a successful `route_check.py` execution and
 a healthy monit `routeCheck` status before returning. Monit's periodic result
 can lag behind route convergence after intentional churn; the bounded recovery
 wait does not disable the checker or accept persistent route mismatches.

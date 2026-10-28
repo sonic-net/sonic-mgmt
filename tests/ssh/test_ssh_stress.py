@@ -1,3 +1,4 @@
+import base64
 import math
 import socket
 import statistics
@@ -7,6 +8,8 @@ import time
 import pytest
 import logging
 import queue
+import shlex
+import uuid
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -31,9 +34,13 @@ STRESS_PORTCHANNEL = "PortChannel0010"
 STRESS_ROUTE_PREFIX = "2.2.3.4/32"
 
 COMMAND_TIMEOUT = 60
+COMMAND_CANCEL_TIMEOUT = 20
 COMMAND_POLL_INTERVAL = 0.1
 SSH_CONNECT_TIMEOUT = 30
-THREAD_JOIN_TIMEOUT = 2 * COMMAND_TIMEOUT + 10
+THREAD_JOIN_TIMEOUT = (
+    2 * (COMMAND_TIMEOUT + COMMAND_CANCEL_TIMEOUT) + 10
+)
+COMMAND_HELPER_SOURCE = "ssh/files/ssh_stress_command.py"
 VPP_COMMAND_SETTLE_TIME = 1
 HEALTH_RECOVERY_TIMEOUT = 180
 ROUTE_CHECK_RECOVERY_TIMEOUT = 900
@@ -145,6 +152,26 @@ def _stress_state_is_stably_quiescent(
     )
 
 
+def _install_stress_artifacts(duthost, command_helper):
+    try:
+        duthost.template(
+            src="acl/templates/acltb_test_rules.j2",
+            dest="/tmp/acl.json",
+            mode="0755",
+        )
+        duthost.copy(
+            src=COMMAND_HELPER_SOURCE,
+            dest=command_helper,
+            mode="0755",
+        )
+    except Exception:
+        try:
+            duthost.file(path="/tmp/acl.json", state="absent")
+        finally:
+            duthost.file(path=command_helper, state="absent")
+        raise
+
+
 def _setup_stress(duthost, request):
     is_vpp = duthost.facts["asic_type"] == "vpp"
     if is_vpp:
@@ -197,20 +224,21 @@ def _setup_stress(duthost, request):
         (ADD_PORTCHANNEL, REMOVE_PORTCHANNEL),
     ]
 
+    harness_creds = request.getfixturevalue("creds")
     duthost.host.options["variable_manager"].extra_vars.update(
         {"acl_table_name": ACL_TABLE_NAME, "dualtor": False}
     )
-    duthost.template(
-        src="acl/templates/acltb_test_rules.j2",
-        dest="/tmp/acl.json",
-        mode="0755",
-    )
+    run_id = uuid.uuid4().hex
+    command_helper = "/tmp/ssh_stress_command_{}.py".format(run_id)
+    command_state_root = "/tmp/ssh-stress-command-state-{}".format(run_id)
+    _install_stress_artifacts(duthost, command_helper)
 
-    harness_creds = request.getfixturevalue("creds")
     return {
         "bgp_neighbors": bgp_neighbors,
         "command_pairs": command_pairs,
         "command_settle_time": command_settle_time,
+        "command_helper": command_helper,
+        "command_state_root": command_state_root,
         "portchannels": portchannels,
         "stress_portchannel": portchannel,
         "username": harness_creds["sonicadmin_user"],
@@ -218,7 +246,26 @@ def _setup_stress(duthost, request):
     }
 
 
+def _fence_remote_commands(duthost, context):
+    command = "sudo -n timeout {} python3 {} --state-root {} cancel-all".format(
+        THREAD_JOIN_TIMEOUT,
+        shlex.quote(context["command_helper"]),
+        shlex.quote(context["command_state_root"]),
+    )
+    result = duthost.command(command, module_ignore_errors=True)
+    if result.get("rc", 1) != 0:
+        logging.error(
+            "Could not fence SSH stress commands: stdout=%r stderr=%r",
+            result.get("stdout"), result.get("stderr"),
+        )
+        return False
+    return True
+
+
 def _restore_stress_state(duthost, context):
+    if not _fence_remote_commands(duthost, context):
+        return False
+
     for commands in reversed(context["command_pairs"]):
         duthost.shell(
             _restore_command(commands), module_ignore_errors=True
@@ -237,9 +284,11 @@ def _restore_stress_state(duthost, context):
 
 
 def _teardown_stress(duthost, context):
+    state_restored = False
     try:
+        state_restored = _restore_stress_state(duthost, context)
         pytest_assert(
-            _restore_stress_state(duthost, context),
+            state_restored,
             "SSH stress state did not recover after the test",
         )
         if duthost.facts["asic_type"] == "vpp":
@@ -255,7 +304,18 @@ def _teardown_stress(duthost, context):
                 "SSH stress",
             )
     finally:
-        duthost.file(path="/tmp/acl.json", state="absent")
+        try:
+            duthost.file(path="/tmp/acl.json", state="absent")
+        finally:
+            if state_restored:
+                try:
+                    duthost.file(
+                        path=context["command_helper"], state="absent"
+                    )
+                finally:
+                    duthost.file(
+                        path=context["command_state_root"], state="absent"
+                    )
 
 
 @pytest.fixture
@@ -325,6 +385,132 @@ def start_SSH_connection(dut_mgmt_ip, username, password):
         ssh.close()
         raise
     return ssh
+
+
+class _RemoteCommandFenceError(RuntimeError):
+    pass
+
+
+class _CommandRunner:
+    def __init__(
+        self,
+        command_ssh,
+        control_ssh,
+        control_channel,
+        command_helper,
+        command_state_root,
+        username,
+    ):
+        self.command_ssh = command_ssh
+        self.control_ssh = control_ssh
+        self.control_channel = control_channel
+        self.control_buffer = bytearray()
+        self.command_helper = command_helper
+        self.command_state_root = command_state_root
+        self.username = username
+
+    def close(self):
+        try:
+            self.control_channel.close()
+        finally:
+            self.control_ssh.close()
+            self.command_ssh.close()
+
+
+def _remaining_time(deadline):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise socket.timeout("SSH command deadline expired")
+    return remaining
+
+
+def _dispatch_channel_command(channel, command, deadline):
+    completed = threading.Event()
+    errors = []
+
+    def dispatch():
+        try:
+            channel.exec_command(command)
+        except Exception as error:
+            errors.append(error)
+        finally:
+            completed.set()
+
+    thread = threading.Thread(
+        target=dispatch,
+        name="ssh-command-dispatch",
+        daemon=True,
+    )
+    thread.start()
+    if not completed.wait(_remaining_time(deadline)):
+        channel.close()
+        raise socket.timeout("SSH exec request exceeded its deadline")
+    if errors:
+        raise errors[0]
+
+
+def _read_channel_line(channel, buffer, deadline):
+    while True:
+        newline = buffer.find(b"\n")
+        if newline >= 0:
+            line = bytes(buffer[:newline]).decode("utf-8", errors="replace")
+            del buffer[:newline + 1]
+            return line
+        if channel.recv_ready():
+            buffer.extend(channel.recv(65536))
+            continue
+        if channel.closed or channel.exit_status_ready():
+            raise RuntimeError("SSH command-control channel ended unexpectedly")
+        time.sleep(min(COMMAND_POLL_INTERVAL, _remaining_time(deadline)))
+
+
+def _start_command_runner(
+    dut_mgmt_ip, username, password, command_helper, command_state_root
+):
+    command_ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+    control_ssh = None
+    control_channel = None
+    try:
+        control_ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        deadline = time.monotonic() + COMMAND_TIMEOUT
+        control_channel = control_ssh.get_transport().open_session(
+            timeout=_remaining_time(deadline)
+        )
+        control_channel.settimeout(_remaining_time(deadline))
+        control_command = "sudo -n python3 {} --state-root {} control".format(
+            shlex.quote(command_helper),
+            shlex.quote(command_state_root),
+        )
+        _dispatch_channel_command(
+            control_channel, control_command, deadline
+        )
+        control_buffer = bytearray()
+        ready = _read_channel_line(
+            control_channel, control_buffer, deadline
+        )
+        if ready != "READY":
+            raise RuntimeError(
+                "Unexpected SSH command-control startup response: {!r}".format(
+                    ready
+                )
+            )
+        runner = _CommandRunner(
+            command_ssh,
+            control_ssh,
+            control_channel,
+            command_helper,
+            command_state_root,
+            username,
+        )
+        runner.control_buffer = control_buffer
+        return runner
+    except Exception:
+        if control_channel is not None:
+            control_channel.close()
+        if control_ssh is not None:
+            control_ssh.close()
+        command_ssh.close()
+        raise
 
 
 def monitor_system(ssh, stop_event, failures, ready, metrics):
@@ -403,60 +589,144 @@ def _decode_output_lines(chunks):
     return b"".join(chunks).decode("utf-8", errors="replace").splitlines()
 
 
-def _drain_ready_output(channel, deadline, chunks, stderr=False):
+def _drain_ready_output(channel, chunks, deadline, stderr=False):
     ready = channel.recv_stderr_ready if stderr else channel.recv_ready
     receive = channel.recv_stderr if stderr else channel.recv
     while ready():
-        if time.monotonic() > deadline:
-            return False
+        _remaining_time(deadline)
         chunks.append(receive(65536))
-    return True
 
 
-def _run_command(ssh, command):
-    """Run one churn command with a strict end-to-end completion deadline."""
+def _send_control_request(runner, action, token, deadline):
+    try:
+        runner.control_channel.settimeout(_remaining_time(deadline))
+        runner.control_channel.sendall(
+            "{} {}\n".format(action, token).encode("ascii")
+        )
+        response = _read_channel_line(
+            runner.control_channel,
+            runner.control_buffer,
+            deadline,
+        )
+    except Exception as error:
+        raise _RemoteCommandFenceError(
+            "Remote command {} failed for {}: {}".format(
+                action.lower(), token, error
+            )
+        )
+    response_action = {
+        "RESERVE": "RESERVED",
+        "CANCEL": "CANCELLED",
+    }[action]
+    expected = "{} {}".format(response_action, token)
+    if response != expected:
+        raise _RemoteCommandFenceError(
+            "Remote command {} failed for {}: {!r}".format(
+                action.lower(), token, response
+            )
+        )
+
+
+def _reserve_remote_command(runner, token, deadline):
+    _send_control_request(runner, "RESERVE", token, deadline)
+
+
+def _drain_output_until_eof(
+    channel, stdout_chunks, stderr_chunks, deadline
+):
+    while True:
+        _drain_ready_output(channel, stdout_chunks, deadline)
+        _drain_ready_output(
+            channel, stderr_chunks, deadline, stderr=True
+        )
+        if channel.closed or getattr(channel, "eof_received", False):
+            _drain_ready_output(channel, stdout_chunks, deadline)
+            _drain_ready_output(
+                channel, stderr_chunks, deadline, stderr=True
+            )
+            return
+        time.sleep(min(COMMAND_POLL_INTERVAL, _remaining_time(deadline)))
+
+
+def _cancel_remote_command(runner, token):
+    deadline = time.monotonic() + COMMAND_CANCEL_TIMEOUT
+    _send_control_request(runner, "CANCEL", token, deadline)
+
+
+def _remote_run_command(runner, token, command):
+    encoded_command = base64.b64encode(command.encode("utf-8")).decode("ascii")
+    return (
+        "sudo -n python3 {} --state-root {} run --run-user {} {} {}"
+    ).format(
+        shlex.quote(runner.command_helper),
+        shlex.quote(runner.command_state_root),
+        shlex.quote(runner.username),
+        token,
+        encoded_command,
+    )
+
+
+def _run_command(runner, command):
+    """Run a command under one deadline and fence it before timeout returns."""
     start_time = time.monotonic()
     deadline = start_time + COMMAND_TIMEOUT
-    _, stdout, _ = ssh.exec_command(command, timeout=COMMAND_TIMEOUT)
-    channel = stdout.channel
-    dispatch_duration = time.monotonic() - start_time
-    stdout_chunks = []
-    stderr_chunks = []
+    token = uuid.uuid4().hex
+    channel = None
+    request_started = False
+    try:
+        _reserve_remote_command(runner, token, deadline)
+        transport = runner.command_ssh.get_transport()
+        channel = transport.open_session(timeout=_remaining_time(deadline))
+        channel.settimeout(_remaining_time(deadline))
+        request_started = True
+        _dispatch_channel_command(
+            channel,
+            _remote_run_command(runner, token, command),
+            deadline,
+        )
+        dispatch_duration = time.monotonic() - start_time
+        stdout_chunks = []
+        stderr_chunks = []
 
-    while True:
-        if not _drain_ready_output(
-            channel, deadline, stdout_chunks
-        ) or not _drain_ready_output(
-            channel, deadline, stderr_chunks, stderr=True
-        ):
-            channel.close()
-            raise socket.timeout(
-                "Command {!r} did not complete within {} seconds".format(
-                    command, COMMAND_TIMEOUT
-                )
+        while True:
+            _drain_ready_output(channel, stdout_chunks, deadline)
+            _drain_ready_output(
+                channel, stderr_chunks, deadline, stderr=True
             )
-
-        completed_at = time.monotonic()
-        if channel.exit_status_ready():
-            if completed_at > deadline:
-                channel.close()
-                raise socket.timeout(
-                    "Command {!r} did not complete within {} seconds".format(
-                        command, COMMAND_TIMEOUT
+            completed_at = time.monotonic()
+            if channel.exit_status_ready():
+                if completed_at > deadline:
+                    raise socket.timeout(
+                        "Command {!r} did not complete within {} seconds".format(
+                            command, COMMAND_TIMEOUT
+                        )
                     )
+                exit_status = channel.recv_exit_status()
+                _drain_output_until_eof(
+                    channel,
+                    stdout_chunks,
+                    stderr_chunks,
+                    deadline,
                 )
-            exit_status = channel.recv_exit_status()
-            break
-
-        remaining = deadline - completed_at
-        if remaining <= 0:
-            channel.close()
-            raise socket.timeout(
-                "Command {!r} did not complete within {} seconds".format(
-                    command, COMMAND_TIMEOUT
-                )
+                break
+            time.sleep(
+                min(COMMAND_POLL_INTERVAL, _remaining_time(deadline))
             )
-        time.sleep(min(COMMAND_POLL_INTERVAL, remaining))
+    except socket.timeout:
+        if request_started:
+            _cancel_remote_command(runner, token)
+        raise socket.timeout(
+            "Command {!r} did not complete within {} seconds".format(
+                command, COMMAND_TIMEOUT
+            )
+        )
+    except Exception:
+        if request_started:
+            _cancel_remote_command(runner, token)
+        raise
+    finally:
+        if channel is not None:
+            channel.close()
 
     stdout_lines = _decode_output_lines(stdout_chunks)
     stderr_lines = _decode_output_lines(stderr_chunks)
@@ -479,18 +749,21 @@ def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
         samples = [[], []]
         restore_command = _restore_command(commands)
         state_restored = True
+        rollback_safe = True
         try:
             for _ in range(BASELINE_ITERATIONS):
                 for command_ind, command in enumerate(commands):
-                    if command != restore_command:
-                        state_restored = False
+                    state_restored = False
                     _, completion_duration = _run_command(ssh, command)
                     if command == restore_command:
                         state_restored = True
                     samples[command_ind].append(completion_duration)
                     time.sleep(command_settle_time)
+        except _RemoteCommandFenceError:
+            rollback_safe = False
+            raise
         finally:
-            if not state_restored:
+            if not state_restored and rollback_safe:
                 _run_command(ssh, restore_command)
                 time.sleep(command_settle_time)
 
@@ -600,6 +873,7 @@ def work(
     command_dispatched = False
     restore_command = _restore_command(commands)
     state_restored = True
+    rollback_safe = True
     try:
         ready_barrier.wait()
         start_event.wait()
@@ -611,8 +885,7 @@ def work(
                 break
             command = commands[command_ind]
             command_dispatched = True
-            if command != restore_command:
-                state_restored = False
+            state_restored = False
             _, completion_duration = _run_command(ssh, command)
             if command == restore_command:
                 state_restored = True
@@ -629,10 +902,12 @@ def work(
                 break
             command_ind += 1 if not command_ind else -1
     except Exception as error:
+        if isinstance(error, _RemoteCommandFenceError):
+            rollback_safe = False
         failures.put("{}: {}".format(commands, error))
         stop_event.set()
     finally:
-        if command_dispatched and not state_restored:
+        if command_dispatched and not state_restored and rollback_safe:
             try:
                 _run_command(ssh, restore_command)
             except Exception as error:
@@ -760,10 +1035,18 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     threads = []
 
     try:
-        logging.info("Pre-establishing SSH connections for stress workers")
+        logging.info(
+            "Pre-establishing SSH command and cancellation-control sessions"
+        )
         for _ in command_pairs:
             clients.append(
-                start_SSH_connection(dut_mgmt_ip, username, password)
+                _start_command_runner(
+                    dut_mgmt_ip,
+                    username,
+                    password,
+                    setup_teardown["command_helper"],
+                    setup_teardown["command_state_root"],
+                )
             )
         monitor_ssh = start_SSH_connection(
             dut_mgmt_ip, username, password
