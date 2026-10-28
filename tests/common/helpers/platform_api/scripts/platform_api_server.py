@@ -89,11 +89,17 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
 
         api = path.pop()
         args = request['args']
+        kwargs = request.get('kwargs', {})
+
+        # Enum arguments cannot travel as JSON, so they are sent by name
+        if isinstance(kwargs.get('severity'), str):
+            from sonic_platform_base.liquid_cooling_base import LeakSeverity
+            kwargs['severity'] = LeakSeverity(kwargs['severity'])
 
         res = None
 
         try:
-            res = getattr(obj, api)(*args)
+            res = getattr(obj, api)(*args, **kwargs)
         except NotImplementedError:
             syslog.syslog(syslog.LOG_WARNING, "API '{}' not implemented".format(api))
         except Exception as e:

@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from tests.common.helpers.liquid_leakage_control_test_helper import LiquidLeakageMocker
+from tests.common.helpers.platform_api import leak_sensor_test
 from tests.common.platform.bmc_utils import get_sensor_data, get_system_leak_status
 
 logger = logging.getLogger(__name__)
@@ -143,3 +144,49 @@ class LiquidLeakageMockerBMC(LiquidLeakageMocker, ABC):
             return int(str(raw).strip())
         except (TypeError, ValueError):
             return None
+
+
+class LiquidLeakageMockerPlatformApi(LiquidLeakageMockerBMC):
+    """
+    Vendor-independent BMC liquid leakage mocker.
+
+    Injects leaks through the platform leak test API (LeakageSensorTestBase,
+    reached via LiquidCoolingBase.get_leak_sensor_test()) using the platform
+    API server on the DUT. Injected leaks are flagged as test leaks, so no
+    mitigation action is taken by the platform.
+    """
+
+    def __init__(self, dut, conn):
+        self.conn = conn
+        super().__init__(dut)
+
+    @staticmethod
+    def is_supported(conn):
+        """Return True if the platform exposes the leak test API."""
+        try:
+            return bool(leak_sensor_test.is_leak_test_supported(conn))
+        except Exception as e:
+            logger.info("Leak test platform API not available: %r", e)
+            return False
+
+    def restore_all_sensors(self):
+        """Withdraw every injected test leak."""
+        leak_sensor_test.clear_test_leaks(self.conn)
+
+    def set_sensor_state(self, index, state):
+        """
+        Inject or withdraw a test leak on a sensor by index.
+
+        :param index: Leak sensor index.
+        :param state: One of 'None', 'MINOR', or 'CRITICAL'.
+        """
+        self._validate_sensor_state(state)
+        if state == 'FAULT':
+            raise ValueError("The leak test platform API cannot inject a sensor fault")
+        name = self.get_sensor_name(index)
+        if state == 'None':
+            ok = leak_sensor_test.set_test_leak(self.conn, name, False)
+        else:
+            ok = leak_sensor_test.set_test_leak(self.conn, name, True, severity=state)
+        if ok is not True:
+            raise RuntimeError("set_test_leak({}, state={}) failed, returned {!r}".format(name, state, ok))
