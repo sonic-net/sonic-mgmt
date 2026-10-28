@@ -144,6 +144,11 @@ class SonicTopoConverger:
         ptf_bp_addr_offset = 101
         base_v4_addr = "10.10.246.0"
         base_v6_addr = "fc0a::"
+        common_config = self.topo["configuration_properties"].get("common", {})
+        reserved_bp_addrs = {
+            ip_address(common_config[key])
+            for key in ("nhipv4", "nhipv6") if key in common_config
+        }
         for prime_dev, peer_list in self.prime_device_mapping.items():
             intf_counter_base = 1
             eth_intf_index = 1
@@ -212,6 +217,15 @@ class SonicTopoConverger:
                     vrf[lo_intf] = deepcopy(peer_intfs["Loopback0"])
 
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
+
+                # Keep the legacy PTF next hops out of every per-VRF address pair.
+                while any(
+                    ip_address(self.modify_l3_address(base, addr_offset)) in reserved_bp_addrs
+                    for base in (base_v4_addr, base_v6_addr)
+                    for addr_offset in (peer_bp_addr_offset, ptf_bp_addr_offset)
+                ):
+                    peer_bp_addr_offset += 2
+                    ptf_bp_addr_offset += 2
 
                 bp_addr_data = {}
                 if "ipv4" in peer["bp_interface"]:
