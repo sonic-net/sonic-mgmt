@@ -41,6 +41,10 @@ def check_local_accounting(duthost, tacacs_creds, command, config_command,
             verify_accounting(cursors, tacacs_creds['tacacs_rw_user'], [command], timeout=LOCAL_TIMEOUT)
             return
         except MissingAccounting:
+            # Cleanup on retry would erase an incomplete record before its
+            # user/command can be validated, even if another source is missing.
+            if any(cursor.pending for cursor in cursors):
+                raise AssertionError("Incomplete accounting record prevents retry")
             logger.debug("Found logs: %s", duthost.command("tail /var/log/syslog -n 2000"))
             logger.debug("tacplus_nss.conf: %s", duthost.command("cat /etc/tacplus_nss.conf"))
             if attempt == retry - 1:

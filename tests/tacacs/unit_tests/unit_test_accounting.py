@@ -257,6 +257,7 @@ def test_local_retry_preserves_readiness_and_reexecutes_only_on_missing():
              "ssh_run_command", "LogCursor", "logger"]
     namespace = {name: Mock() for name in names}
     namespace.update(MissingAccounting=accounting.MissingAccounting, LOCAL_TIMEOUT=120)
+    namespace["LogCursor"].return_value.pending = ""
     namespace["verify_accounting"] = Mock(side_effect=[accounting.MissingAccounting("missing"), None])
     exec(compile(ast.Module(body=[node], type_ignores=[]), "local helper", "exec"), namespace)
     namespace["check_local_accounting"](Mock(), {"tacacs_rw_user": "rw"}, "grep", "config", Mock(), Mock())
@@ -267,6 +268,46 @@ def test_local_retry_preserves_readiness_and_reexecutes_only_on_missing():
     with pytest.raises(AssertionError, match="forbidden"):
         namespace["check_local_accounting"](Mock(), {"tacacs_rw_user": "rw"}, "grep", "config", Mock(), Mock())
     assert namespace["verify_accounting"].call_count == 1
+
+
+@pytest.mark.parametrize("local", [True, False], ids=["local", "remote"])
+@pytest.mark.parametrize("user", ["rw", "other"], ids=["expected-user", "forbidden-user"])
+def test_missing_positive_cannot_retry_away_partial_record(clock, local, user):
+    node = functions()["check_local_accounting"]
+    hosts = [Host(clock), Host(clock)]
+    partial = record(user=user, local=local).rstrip("\n")
+    hosts[0 if local else 1].events = [(1, "append", partial)]
+    cursors = []
+
+    def make_cursor(host, path, local=False):
+        log = accounting.LogCursor(host, path, local=local)
+        cursors.append(log)
+        return log
+
+    def cleanup(*args):
+        # A retry would discard the partial record and let later positives
+        # pass. Model that failure mode, not merely a mocked retry exception.
+        for host in hosts:
+            host.data = ""
+            if namespace["cleanup_tacacs_log"].call_count > 1:
+                host.events = [(clock.now + 1, "append", record(local=host is hosts[0]))]
+
+    namespace = {name: Mock() for name in ["change_and_wait_aaa_config_update", "ssh_run_command", "logger"]}
+    namespace.update(MissingAccounting=accounting.MissingAccounting, LOCAL_TIMEOUT=10,
+                     LogCursor=make_cursor, capture_logs=accounting.capture_logs,
+                     cleanup_tacacs_log=Mock(side_effect=cleanup))
+    namespace["verify_accounting"] = lambda logs, username, commands, timeout: accounting.verify_accounting(
+        logs, username, commands, timeout=timeout, absence_window=1)
+    hosts[0].command = Mock(return_value={})
+    exec(compile(ast.Module(body=[node], type_ignores=[]), "local helper", "exec"), namespace)
+    with pytest.raises(AssertionError, match="Incomplete accounting record"):
+        namespace["check_local_accounting"](
+            hosts[0], {"tacacs_rw_user": "rw"}, "grep", "config", hosts[1], Mock(), tacacs=True)
+    assert cursors[0 if local else 1].pending == partial
+    assert len(cursors) == 2  # no second attempt/boundary capture
+    for name in ["change_and_wait_aaa_config_update", "cleanup_tacacs_log", "ssh_run_command"]:
+        assert namespace[name].call_count == 1
+    assert clock.now == 10
 
 
 def test_exit_record_does_not_double_count_command(clock):
