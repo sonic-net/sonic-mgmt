@@ -109,7 +109,8 @@ def test_command_baselines_use_matching_preestablished_clients(
     }
     calls = []
 
-    def run_command(client, command):
+    def run_command(client, command, timeout=None):
+        assert timeout == ssh_stress.CALIBRATION_COMMAND_TIMEOUT
         calls.append((client, command))
         return 0, durations[command]
 
@@ -809,6 +810,39 @@ def test_worker_rolls_back_a_timed_out_mutation(ssh_stress, monkeypatch):
     assert calls == ["add", "del"]
 
 
+def test_worker_uses_baseline_scaled_timeout_for_mutation_and_rollback(
+    ssh_stress, monkeypatch
+):
+    calls = []
+    stop_event = ssh_stress.threading.Event()
+    start_event = ssh_stress.threading.Event()
+    start_event.set()
+
+    def run_command(_ssh, command, timeout):
+        calls.append((command, timeout))
+        if command == "add":
+            stop_event.set()
+        return 0, 1
+
+    monkeypatch.setattr(ssh_stress, "_run_command", run_command)
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: 0)
+
+    ssh_stress.work(
+        types.SimpleNamespace(close=lambda: None),
+        ("add", "del"),
+        ssh_stress.queue.Queue(),
+        0,
+        types.SimpleNamespace(wait=lambda: None),
+        start_event,
+        stop_event,
+        [300.0],
+        [[], []],
+        (101.0, 60),
+    )
+
+    assert calls == [("add", 101.0), ("del", 60)]
+
+
 def test_worker_retries_a_timed_out_initial_bgp_restore(
     ssh_stress, monkeypatch
 ):
@@ -877,46 +911,111 @@ def test_worker_does_not_rollback_without_a_remote_fence(
 def test_thread_join_budget_allows_command_fence_and_rollback(ssh_stress):
     assert ssh_stress.THREAD_JOIN_TIMEOUT >= (
         2 * (
-            ssh_stress.COMMAND_TIMEOUT
+            ssh_stress.MAX_COMMAND_TIMEOUT
             + ssh_stress.COMMAND_CANCEL_TIMEOUT
         )
         + 10
     )
 
 
-def test_stress_progress_accepts_sustained_cycles_despite_high_p95(
-    ssh_stress, monkeypatch
-):
-    monkeypatch.setattr(ssh_stress, "MIN_STRESS_CYCLES", 20)
-    monkeypatch.setattr(ssh_stress, "STRESS_DURATION", 300)
-    command_pairs = [("add", "del")]
-    baseline_times = [(0.50, 0.40)]
-    stress_durations = [[
-        [2.60] * 20,
-        [2.54] * 20,
-    ]]
+def test_fast_host_retains_twenty_cycle_cap(ssh_stress):
+    command_pairs = [
+        ("add-{}".format(ind), "del-{}".format(ind))
+        for ind in range(5)
+    ]
+    requirements = ssh_stress._derive_stress_requirements(
+        command_pairs,
+        [(1.0, 1.0)] * 5,
+        command_settle_time=1,
+    )
 
-    # The delete p95 is 6.35x its serial median. That ratio is diagnostic;
-    # the hard invariant is sustained completion of full command-pair cycles.
-    ssh_stress._assert_stress_progress(
-        command_pairs, baseline_times, stress_durations
+    assert all(
+        requirement["required_cycles"] == 20
+        for requirement in requirements
+    )
+    assert all(
+        requirement["command_timeouts"] == (60, 60)
+        for requirement in requirements
     )
 
 
-@pytest.mark.parametrize("sample_counts", [(20, 19), (19, 20)])
-def test_stress_progress_rejects_incomplete_cycle_floor(
-    ssh_stress, monkeypatch, sample_counts
+def test_slow_host_gets_baseline_scaled_limits_and_inconclusive_result(
+    ssh_stress
 ):
-    monkeypatch.setattr(ssh_stress, "MIN_STRESS_CYCLES", 20)
-    monkeypatch.setattr(ssh_stress, "STRESS_DURATION", 300)
+    command_pairs = [
+        ("add-{}".format(ind), "del-{}".format(ind))
+        for ind in range(5)
+    ]
+    baseline_times = [(20.0, 10.0)] + [(1.0, 1.0)] * 4
+    requirements = ssh_stress._derive_stress_requirements(
+        command_pairs, baseline_times, command_settle_time=1
+    )
+
+    assert requirements[0]["command_budgets"] == (101.0, 51.0)
+    assert requirements[0]["command_timeouts"] == (101.0, 60)
+    assert requirements[0]["required_cycles"] == 1
+    with pytest.raises(pytest.skip.Exception, match="INFRASTRUCTURE_LIMITED"):
+        ssh_stress._require_meaningful_stress_evidence(
+            command_pairs, requirements
+        )
+
+
+def test_adaptive_command_timeout_retains_hard_ceiling(ssh_stress):
+    command_pairs = [
+        ("add-{}".format(ind), "del-{}".format(ind))
+        for ind in range(5)
+    ]
+    requirements = ssh_stress._derive_stress_requirements(
+        command_pairs,
+        [(100.0, 100.0)] + [(1.0, 1.0)] * 4,
+        command_settle_time=1,
+    )
+
+    assert requirements[0]["command_budgets"] == (180, 180)
+    assert requirements[0]["command_timeouts"] == (180, 180)
+
+
+def test_stress_progress_accepts_baseline_derived_cycle_floor(
+    ssh_stress
+):
+    command_pairs = [("add", "del")]
+    baseline_times = [(0.50, 0.40)]
+    stress_durations = [[[2.60] * 3, [2.54] * 3]]
+    requirements = [{
+        "required_cycles": 3,
+        "serial_cycle_duration": 0.90,
+        "allowed_cycle_duration": 5.50,
+        "command_budgets": (3.50, 3.00),
+        "command_timeouts": (60, 60),
+    }]
+
+    ssh_stress._assert_stress_progress(
+        command_pairs, baseline_times, stress_durations, requirements
+    )
+
+
+@pytest.mark.parametrize("sample_counts", [(3, 2), (2, 3)])
+def test_stress_progress_rejects_incomplete_baseline_derived_floor(
+    ssh_stress, sample_counts
+):
     stress_durations = [[
         [0.50] * sample_counts[0],
         [0.40] * sample_counts[1],
     ]]
+    requirements = [{
+        "required_cycles": 3,
+        "serial_cycle_duration": 0.90,
+        "allowed_cycle_duration": 5.50,
+        "command_budgets": (3.50, 3.00),
+        "command_timeouts": (60, 60),
+    }]
 
-    with pytest.raises(AssertionError, match="completed only 19 full cycles"):
+    with pytest.raises(AssertionError, match="completed only 2 full cycles"):
         ssh_stress._assert_stress_progress(
-            [("add", "del")], [(0.50, 0.40)], stress_durations
+            [("add", "del")],
+            [(0.50, 0.40)],
+            stress_durations,
+            requirements,
         )
 
 

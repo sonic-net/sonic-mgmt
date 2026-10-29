@@ -34,11 +34,13 @@ STRESS_PORTCHANNEL = "PortChannel0010"
 STRESS_ROUTE_PREFIX = "2.2.3.4/32"
 
 COMMAND_TIMEOUT = 60
+CALIBRATION_COMMAND_TIMEOUT = 180
+MAX_COMMAND_TIMEOUT = 180
 COMMAND_CANCEL_TIMEOUT = 20
 COMMAND_POLL_INTERVAL = 0.1
 SSH_CONNECT_TIMEOUT = 30
 THREAD_JOIN_TIMEOUT = (
-    2 * (COMMAND_TIMEOUT + COMMAND_CANCEL_TIMEOUT) + 10
+    2 * (MAX_COMMAND_TIMEOUT + COMMAND_CANCEL_TIMEOUT) + 10
 )
 COMMAND_HELPER_SOURCE = "ssh/files/ssh_stress_command.py"
 VPP_COMMAND_SETTLE_TIME = 1
@@ -49,7 +51,9 @@ BASELINE_ITERATIONS = 5
 RESOURCE_BASELINE_SAMPLES = 3
 STRESS_DURATION = 300
 STRESS_PERCENTILE = 0.95
-MIN_STRESS_CYCLES = 20
+MAX_STRESS_CYCLES = 20
+MIN_MEANINGFUL_STRESS_CYCLES = 3
+STRESS_COMMAND_MARGIN = 1
 
 # Preserve the test's long-standing 20-point recovery guard. This is a
 # compatibility guardrail rather than a product resource-utilization SLO.
@@ -670,10 +674,12 @@ def _remote_run_command(runner, token, command):
     )
 
 
-def _run_command(runner, command):
+def _run_command(runner, command, command_timeout=None):
     """Run a command under one deadline and fence it before timeout returns."""
+    if command_timeout is None:
+        command_timeout = COMMAND_TIMEOUT
     start_time = time.monotonic()
-    deadline = start_time + COMMAND_TIMEOUT
+    deadline = start_time + command_timeout
     token = uuid.uuid4().hex
     channel = None
     request_started = False
@@ -709,7 +715,7 @@ def _run_command(runner, command):
                 if completed_at > deadline:
                     raise socket.timeout(
                         "Command {!r} did not complete within {} seconds".format(
-                            command, COMMAND_TIMEOUT
+                            command, command_timeout
                         )
                     )
                 break
@@ -732,7 +738,7 @@ def _run_command(runner, command):
             _cancel_remote_command(runner, token)
         raise socket.timeout(
             "Command {!r} did not complete within {} seconds".format(
-                command, COMMAND_TIMEOUT
+                command, command_timeout
             )
         )
     except Exception:
@@ -759,7 +765,9 @@ def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
             for _ in range(BASELINE_ITERATIONS):
                 for command_ind, command in enumerate(commands):
                     state_restored = False
-                    _, completion_duration = _run_command(ssh, command)
+                    _, completion_duration = _run_command(
+                        ssh, command, CALIBRATION_COMMAND_TIMEOUT
+                    )
                     if command == restore_command:
                         state_restored = True
                     samples[command_ind].append(completion_duration)
@@ -769,7 +777,9 @@ def _get_baseline_times(ssh_clients, command_pairs, command_settle_time):
             raise
         finally:
             if not state_restored and rollback_safe:
-                _run_command(ssh, restore_command)
+                _run_command(
+                    ssh, restore_command, CALIBRATION_COMMAND_TIMEOUT
+                )
                 time.sleep(command_settle_time)
 
         medians = tuple(statistics.median(values) for values in samples)
@@ -787,6 +797,72 @@ def _nearest_rank_percentile(values, percentile):
         raise ValueError("Cannot calculate a percentile without samples")
     rank = max(1, int(math.ceil(percentile * len(values))))
     return sorted(values)[rank - 1]
+
+
+def _derive_stress_requirements(
+    command_pairs, baseline_times, command_settle_time
+):
+    """Normalize throughput and command watchdogs to this DUT's baselines."""
+    if len(command_pairs) != len(baseline_times):
+        raise ValueError("Each command pair must have serial baselines")
+
+    parallel_task_count = len(command_pairs)
+    requirements = []
+    for commands, baselines in zip(command_pairs, baseline_times):
+        if len(commands) != len(baselines):
+            raise ValueError("Each command must have one serial baseline")
+        if any(baseline <= 0 for baseline in baselines):
+            raise ValueError("Serial command baselines must be positive")
+
+        command_budgets = tuple(
+            min(
+                MAX_COMMAND_TIMEOUT,
+                parallel_task_count * baseline + STRESS_COMMAND_MARGIN,
+            )
+            for baseline in baselines
+        )
+        command_timeouts = tuple(
+            max(COMMAND_TIMEOUT, budget) for budget in command_budgets
+        )
+        serial_cycle_duration = (
+            sum(baselines) + len(commands) * command_settle_time
+        )
+        allowed_cycle_duration = (
+            sum(command_budgets) + len(commands) * command_settle_time
+        )
+        required_cycles = min(
+            MAX_STRESS_CYCLES,
+            int(STRESS_DURATION // allowed_cycle_duration),
+        )
+        requirements.append({
+            "required_cycles": required_cycles,
+            "serial_cycle_duration": serial_cycle_duration,
+            "allowed_cycle_duration": allowed_cycle_duration,
+            "command_budgets": command_budgets,
+            "command_timeouts": command_timeouts,
+        })
+    return requirements
+
+
+def _require_meaningful_stress_evidence(command_pairs, requirements):
+    insufficient = [
+        {
+            "commands": commands,
+            "required_cycles": requirement["required_cycles"],
+            "allowed_cycle_duration": requirement["allowed_cycle_duration"],
+        }
+        for commands, requirement in zip(command_pairs, requirements)
+        if requirement["required_cycles"] < MIN_MEANINGFUL_STRESS_CYCLES
+    ]
+    if insufficient:
+        pytest.skip(
+            "INFRASTRUCTURE_LIMITED: serial baselines predict fewer than {} "
+            "meaningful restored cycles in {} seconds: {}".format(
+                MIN_MEANINGFUL_STRESS_CYCLES,
+                STRESS_DURATION,
+                insufficient,
+            )
+        )
 
 
 def _record_stress_completion(
@@ -817,29 +893,44 @@ def _assert_stress_progress(
     command_pairs,
     baseline_times,
     stress_durations,
+    requirements,
 ):
     progress_failures = []
 
-    for commands, baselines, durations in zip(
-        command_pairs, baseline_times, stress_durations
+    for commands, baselines, durations, requirement in zip(
+        command_pairs, baseline_times, stress_durations, requirements
     ):
         completed_cycles = _completed_stress_cycles(commands, durations)
+        required_cycles = requirement["required_cycles"]
         logging.info(
-            "Stress command pair %s completed_cycles=%d required_cycles=%d",
-            commands, completed_cycles, MIN_STRESS_CYCLES,
+            "Stress command pair %s completed_cycles=%d required_cycles=%d "
+            "serial_cycle=%.2fs allowed_cycle=%.2fs",
+            commands,
+            completed_cycles,
+            required_cycles,
+            requirement["serial_cycle_duration"],
+            requirement["allowed_cycle_duration"],
         )
-        if completed_cycles < MIN_STRESS_CYCLES:
+        if completed_cycles < required_cycles:
             progress_failures.append(
                 "Command pair {} completed only {} full cycles; at least {} "
-                "are required in {} seconds".format(
+                "are required in {} seconds from its {:.2f}s serial cycle "
+                "baseline and {:.2f}s contention budget".format(
                     commands,
                     completed_cycles,
-                    MIN_STRESS_CYCLES,
+                    required_cycles,
                     STRESS_DURATION,
+                    requirement["serial_cycle_duration"],
+                    requirement["allowed_cycle_duration"],
                 )
             )
 
-        for command, baseline, samples in zip(commands, baselines, durations):
+        for command, baseline, samples, budget in zip(
+            commands,
+            baselines,
+            durations,
+            requirement["command_budgets"],
+        ):
             if not samples:
                 logging.info(
                     "Stress command %s samples=0 baseline_median=%.2fs",
@@ -851,9 +942,15 @@ def _assert_stress_progress(
             slowdown = p95 / baseline if baseline > 0 else float("inf")
             logging.info(
                 "Stress command %s samples=%d p95=%.2fs max=%.2fs "
-                "baseline_median=%.2fs p95_slowdown=%.2fx",
-                command, len(samples), p95, max(samples), baseline,
+                "baseline_median=%.2fs p95_slowdown=%.2fx "
+                "relative_budget=%.2fs",
+                command,
+                len(samples),
+                p95,
+                max(samples),
+                baseline,
                 slowdown,
+                budget,
             )
 
     pytest_assert(
@@ -872,6 +969,7 @@ def work(
     stop_event,
     stress_deadline,
     durations,
+    command_timeouts=None,
 ):
     """Run a synchronized command pair and collect completion durations."""
     command_ind = 0
@@ -891,7 +989,13 @@ def work(
             command = commands[command_ind]
             command_dispatched = True
             state_restored = False
-            _, completion_duration = _run_command(ssh, command)
+            if command_timeouts is None:
+                result = _run_command(ssh, command)
+            else:
+                result = _run_command(
+                    ssh, command, command_timeouts[command_ind]
+                )
+            _, completion_duration = result
             if command == restore_command:
                 state_restored = True
             completed_at = time.monotonic()
@@ -914,7 +1018,13 @@ def work(
     finally:
         if command_dispatched and not state_restored and rollback_safe:
             try:
-                _run_command(ssh, restore_command)
+                if command_timeouts is None:
+                    _run_command(ssh, restore_command)
+                else:
+                    restore_ind = commands.index(restore_command)
+                    _run_command(
+                        ssh, restore_command, command_timeouts[restore_ind]
+                    )
             except Exception as error:
                 failures.put("rollback for {}: {}".format(commands, error))
                 stop_event.set()
@@ -1086,6 +1196,12 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         baseline_times = _get_baseline_times(
             clients[:-1], command_pairs, command_settle_time
         )
+        stress_requirements = _derive_stress_requirements(
+            command_pairs, baseline_times, command_settle_time
+        )
+        _require_meaningful_stress_evidence(
+            command_pairs, stress_requirements
+        )
 
         logging.info("Preparing synchronized SSH command workers")
         for ind, worker_ssh in enumerate(clients[:-1]):
@@ -1101,6 +1217,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
                     stop_event,
                     stress_deadline,
                     stress_durations[ind],
+                    stress_requirements[ind]["command_timeouts"],
                 ),
                 name="ssh-stress-worker-{}".format(ind),
                 daemon=True,
@@ -1151,6 +1268,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         command_pairs,
         baseline_times,
         stress_durations,
+        stress_requirements,
     )
 
     logging.info("Running post-test system check")

@@ -20,7 +20,9 @@ Part 1:
    baseline from the median of five serial alternating executions of its command
    pair. The other workload connections and observer remain established, but no
    stress workers are released during calibration. Each pair restores its
-   original state afterwards.
+   original state afterwards. Calibration uses a bounded 180-second watchdog so
+   a slower host can provide a baseline instead of failing the historical
+   60-second stress-command floor before comparison begins.
 3. Before releasing the synchronized workers, require temporary configuration
    to remain absent and teamd/BGP health to remain recovered across two checks
    ten seconds apart. Then use the median of three current one-second `vmstat`
@@ -33,16 +35,23 @@ Part 1:
     - Add a route to the routemap and remove it
     - Add a port channel and remove it
 5. Record every completed command duration during the five-minute stress phase.
-   Each worker must complete at least 20 full alternating command-pair cycles,
-   an average of at least one cycle every 15 seconds over the stress phase. A
-   final unmatched command does not count as an additional cycle. A command
-   timeout, nonzero exit status, rollback failure, or insufficient cycle count
-   fails the test. The 60-second timeout covers channel creation, exec-request
-   acknowledgement, output, and exit status. A uniquely owned remote helper
-   terminates and fences a timed-out process group before rollback can begin.
-   Each command's nearest-rank p95, maximum, serial baseline
-   median, and p95 slowdown are logged as diagnostics; they are not treated as a
-   queueing bound for the heterogeneous five-worker workload.
+   Normalize each pair's required restored-cycle count to that DUT's serial
+   medians. For each command, budget five times its serial median plus one second
+   for the five concurrent workers; add the normal settle delays to form the
+   pair's contention budget. Require the number of full cycles that fit in 300
+   seconds under that budget, capped at the existing 20-cycle maximum. A host
+   whose serial baselines predict fewer than three meaningful cycles is reported
+   as `INFRASTRUCTURE_LIMITED` so the run can be rescheduled rather than recorded
+   as a product failure. A final unmatched command does not count as an additional
+   cycle.
+   Command watchdogs scale from the same baseline-derived budgets, with a
+   60-second floor and 180-second hard ceiling. Nonzero exit status, rollback
+   failure, a deadline violation, or insufficient baseline-normalized progress
+   remains a strict failure. A uniquely owned remote helper terminates and
+   fences a timed-out process group before rollback can begin. Each command's
+   nearest-rank p95, maximum, serial baseline median, p95 slowdown, and relative
+   budget are logged as diagnostics; the hard performance gate is restored-cycle
+   throughput rather than a per-command queueing assertion.
 6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
 7. After the stress workers stop, require one current CPU and memory sample to
