@@ -17,6 +17,7 @@ from scapy.all import (
     in6_getnsmac, in6_getnsma, inet_ntop, inet_pton
 )
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.dualtor.control_plane_utils import DBChecker
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
     show_muxcable_status, config_dualtor_arp_responder      # noqa: F401
@@ -500,9 +501,11 @@ def get_neighbor_test_duthosts(
 
 
 @pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
-def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
-                                        ptfadapter, packets_for_test, duthosts,         # noqa: F811
-                                        enum_rand_one_per_hwsku_frontend_hostname):     # noqa: F811
+def test_proxy_arp_for_standby_neighbor(
+    proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config, mux_config,  # noqa: F811
+    ptfadapter, packets_for_test, duthosts,                                    # noqa: F811
+    enum_rand_one_per_hwsku_frontend_hostname                                  # noqa: F811
+):
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address
     within the subnet of the DUT's VLAN that is routed via the IPinIP tunnel
@@ -514,8 +517,7 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
     1. During setup, enable proxy ARP and select the same ToR for traffic, then learn neighbor IPs
        using the `run_garp_service` fixture
     2. Pick a learned IP address as the target IP and generate an ARP request/neighbor solicitation for it
-    3. Set the interface this IP is learned on to standby. This will ensure the route for the IP points to the
-       IPinIP tunnel
+    3. Set the interface this IP is learned on to standby and wait for the route to point to the IPinIP tunnel
     4. Send the ARP request/NS packet to the ToR on some other active interface
     5. Expect the ToR to still proxy ARP for the IP and send an ARP reply/neighbor advertisement back, even though
        the route for the requested IP is pointing to the tunnel
@@ -547,6 +549,10 @@ def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, res
         wait_until(5, 1, 0, lambda: show_muxcable_status(duthost)[intf_name]['status'] == "standby"),
         "Interface {} not standby on {}".format(intf_name, duthost)
     )
+    selected_cable_type = mux_config[intf_name]["SERVER"].get("cable_type", CableType.default_type)
+    DBChecker(
+        duthost, state="standby", health=None, intf_names=[intf_name], cable_type=selected_cable_type
+    ).verify_tunnel_route()
     ptfadapter.dataplane.flush()
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
