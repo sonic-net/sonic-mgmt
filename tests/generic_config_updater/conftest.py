@@ -68,11 +68,21 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
 
        GCU will try several sortings of JsonPatch until the sorting passes yang validation
 
+       VS management NIC resets can also occur on peer DUTs monitored by loganalyzer.
+       Other expected GCU errors remain scoped to the selected DUT.
+
        Args:
             request: Pytest request object to detect which DUT fixture is being used
             duthosts: list of DUTs.
            loganalyzer: Loganalyzer utility fixture
     """
+    if loganalyzer:
+        for dut in duthosts:
+            if dut.facts.get("asic_type") == "vs":
+                loganalyzer[dut.hostname].ignore_regex.append(
+                    r".*ERR kernel:.* e1000 \S+ eth0: Reset adapter\s*$"
+                )
+
     # Determine which DUT hostname fixture is being used.
     # Cluster tests: prefer downstream/context over selected_dut_hostname (pulled in
     # by module autouse check_image_version but is not the GCU target).
