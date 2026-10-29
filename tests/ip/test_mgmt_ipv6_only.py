@@ -210,9 +210,9 @@ def test_ro_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only,
             check_output(res, 'test', 'remote_user')
 
     nodes_per_hwsku = get_nodes_per_hwsku(duthosts_ipv6_mgmt_only, request)
-    with SafeThreadPoolExecutor(max_workers=8) as executor:
-        for duthost in nodes_per_hwsku:
-            executor.submit(verify_ro_user_ipv6_only, duthost)
+    # Each context reconfigures and stops the same PTF TACACS server.
+    for duthost in nodes_per_hwsku:
+        verify_ro_user_ipv6_only(duthost)
 
 
 def test_rw_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only, tacacs_creds):  # noqa: F411, F811
@@ -228,9 +228,9 @@ def test_rw_user_ipv6_only(request, localhost, ptfhost, duthosts_ipv6_mgmt_only,
             check_output(res, 'testadmin', 'remote_user_su')
 
     nodes_per_hwsku = get_nodes_per_hwsku(duthosts_ipv6_mgmt_only, request)
-    with SafeThreadPoolExecutor(max_workers=8) as executor:
-        for duthost in nodes_per_hwsku:
-            executor.submit(verify_rw_usr_ipv6_only, duthost)
+    # Each context reconfigures and stops the same PTF TACACS server.
+    for duthost in nodes_per_hwsku:
+        verify_rw_usr_ipv6_only(duthost)
 
 
 def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost, ptfhost, gnxi_path):  # noqa: F411,F811
