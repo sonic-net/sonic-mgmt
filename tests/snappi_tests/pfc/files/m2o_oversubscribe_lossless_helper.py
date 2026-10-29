@@ -146,8 +146,8 @@ def run_m2o_oversubscribe_lossless_test(api,
         # Calculate the total received packets
         total_rx_pkts = rx_pkts_1 + rx_pkts_2
         # Calculate the drop percentage
-        #drop_percentage = 100 * pkt_drop / total_rx_pkts
-        #pytest_assert(round(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
+        drop_percentage = 100 * pkt_drop / total_rx_pkts
+        pytest_assert(round(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
 
         """ Verify Results """
         verify_m2o_oversubscribe_lossless_result(flow_stats,
