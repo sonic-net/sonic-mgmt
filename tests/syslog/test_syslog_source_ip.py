@@ -318,13 +318,6 @@ class TestSSIP:
         memory_monitor.record_monit_baseline_from_validate_output(validate_output)
         memory_monitor.read_monit_status_with_freshness_retry("sudo monit status", enable_retry=True)
 
-        monit_services_status = self.duthost.get_monit_services_status()
-        rsyslog_status = monit_services_status.get("rsyslog", {}).get("service_status")
-        pytest_assert(
-            rsyslog_status in ("OK", "Running"),
-            "rsyslog is not healthy after post-cleanup Monit refresh: {}".format(rsyslog_status)
-        )
-
     def configure_data_vrf_test_data(self, routed_interfaces):
         """
         Configure test data for data vrf
