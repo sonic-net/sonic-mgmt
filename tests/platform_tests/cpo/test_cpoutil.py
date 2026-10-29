@@ -13,6 +13,7 @@ import shlex
 import pytest
 
 from tests.common.utilities import wait_until
+from .argument_cases import ARGUMENT_CASES, HELP_COMMANDS, LEAF_COMMANDS
 
 
 logger = logging.getLogger(__name__)
@@ -294,14 +295,16 @@ def eeprom_ranges(environment, port, target):
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
-def test_eeprom_reads(cpo_environment, target):
+@pytest.mark.parametrize("syntax", ("short-decimal", "long-hex"))
+def test_eeprom_reads(cpo_environment, target, syntax):
     """Compare declared ranges through endpoint/interface paths without returning their bytes."""
     dut = cpo_environment["dut"]
     for port, mapping in cpo_environment["mapping"].items():
         name = mapping[target]["id"]
         for bank, page, offset in eeprom_ranges(cpo_environment, port, target):
-            args = "-n {} -o {} -s 4".format(page, offset)
-            direct = run(dut, "read-eeprom {} -i {} -b {} {}".format(
+            args = "-n {} -o {} -s 4".format(page, offset) if syntax == "short-decimal" else (
+                "--page {} --offset {} --size 4".format(hex(page), hex(offset)))
+            direct = run(dut, "read-eeprom {} --index {} --bank {} {}".format(
                 target, int(name[len(target):]), bank, args))
             indirect = run(dut, "read-eeprom interface -p {} --{} {}".format(port, target, args))
             assert direct["eeprom"]["size"] == indirect["eeprom"]["size"] == 4
@@ -319,29 +322,82 @@ def test_eeprom_full_dump(cpo_environment, target):
     assert result["eeprom"]["size"] > 0
 
 
+@pytest.mark.parametrize("target", ("oe", "els"))
+@pytest.mark.parametrize("access", ("endpoint", "interface"))
+def test_selected_eeprom_full_dump(cpo_environment, target, access):
+    """Omitting all three range fields is a valid single-resource/interface full dump."""
+    env = cpo_environment
+    port = resources(env, "interface")[0]
+    name = env["mapping"][port][target]["id"]
+    arguments = "read-eeprom {} -i {}".format(target, int(name[len(target):])) if access == "endpoint" else (
+        "read-eeprom interface --port {} --{}".format(port, target))
+    result = run(env["dut"], arguments)
+    assert result["eeprom"]["size"] > 0
+    assert len(result["eeprom"]["headings"]) == 1
+    expected = name if access == "endpoint" else "port {} ({})".format(port, name)
+    assert result["eeprom"]["headings"][0] == "EEPROM hexdump for " + expected
+
+
+@pytest.mark.parametrize("case", ARGUMENT_CASES, ids=lambda case: case[0])
+def test_argument_matrix(cpo_environment, case):
+    """Exercise missing fields, bad values and invalid combinations across every leaf command."""
+    _, arguments, diagnostic, _ = case
+    values = {"port": resources(cpo_environment, "interface")[0],
+              "oe": int(resources(cpo_environment, "oe")[0][2:]),
+              "els": int(resources(cpo_environment, "els")[0][3:])}
+    result = run(cpo_environment["dut"], arguments.format(**values), rc=ERROR_RC)
+    assert diagnostic in result["stderr"], "Incorrect argument-error category"
+
+
+@pytest.mark.parametrize("command", HELP_COMMANDS, ids=lambda command: command or "root")
+def test_command_help(cpo_environment, command):
+    """Every group and leaf publishes help without changing hardware."""
+    assert "Usage:" in run(cpo_environment["dut"], (command + " --help").strip())["stdout"]
+
+
+FAULT_CASES = tuple(("read-eeprom", target, failure) for target in (
+    "oe", "els", "interface-oe", "interface-els") for failure in (
+        "none", "short", "oserror", "timeout", "unsupported", "attribute")) + tuple(
+    ("write-eeprom", target, failure) for target in ("oe", "els", "interface-oe", "interface-els")
+    for failure in ("false", "oserror", "timeout", "unsupported", "attribute")) + tuple(
+    (operation, target, failure) for operation, target in (
+        ("tx-disable", "interface"), ("lpmode", "oe"), ("reset", "oe"), ("lpmode", "els"), ("reset", "els"))
+    for failure in ("false", "oserror", "timeout", "unsupported")) + (("tx-disable", "interface", "partial"),)
+
+
+@pytest.mark.parametrize("case", FAULT_CASES, ids=lambda case: "-".join(case))
+def test_simulated_io_failures(cpo_environment, case):
+    """Installed CLI reports synthetic failures without a real platform/EEPROM write."""
+    operation, target, failure = case
+    script = (Path(__file__).parent / "files" / "cpo_faults.py").read_text(encoding="utf-8")
+    payload = {"operation": operation, "target": target, "failure": failure}
+    command = "sudo python3 -c {} {}".format(shlex.quote(script), shlex.quote(json.dumps(payload)))
+    outer = cpo_environment["dut"].command(command, module_ignore_errors=True, verbose=False)
+    assert outer["rc"] == 0, "Synthetic-fault helper failed; raw output suppressed"
+    result = json.loads(outer["stdout"])
+    assert result["rc"] == ERROR_RC and not result["traceback"], "Fault escaped CLI error handling"
+    if operation == "read-eeprom":
+        assert result["reads"] == 1 and result["writes"] == result["controls"] == 0
+    elif operation == "write-eeprom":
+        assert result["writes"] == 1 and result["reads"] == result["controls"] == 0
+    else:
+        assert result["controls"] == (2 if failure == "partial" else 1)
+        assert result["reads"] == result["writes"] == 0
+    assert result["unsupported"] if failure == "unsupported" and operation not in (
+        "read-eeprom", "write-eeprom") else result["failed"]
+    if failure == "partial":
+        assert result["partial"], "Partial completion was not identified"
+
+
 @pytest.mark.parametrize("arguments,diagnostic", (
-    ("show interface presence -p __invalid_cpo_port__", "invalid"),
     ("show oe temperature -1", "-1"), ("show els temperature -1", "-1"),
-    ("config interface tx-disable -p __invalid_cpo_port__ enable", "invalid value"),
-    ("config oe lpmode -1 invalid", "invalid"), ("config els lpmode -1 invalid", "invalid"),
-    ("read-eeprom oe -i {oe} -n 0 -o 0 -s 0", "size must be greater than zero"),
-    ("read-eeprom oe -i {oe} -n 0 -o 255 -s 2", "crosses the cmis page boundary"),
-    ("read-eeprom oe -i {oe} -n 256 -o 128 -s 1", "page must be between"),
     ("read-eeprom oe -i {oe} -b 1 -n 0 -o 0 -s 1", "does not use bank selection"),
-    ("read-eeprom els -i {els} -n 1 -o 0 -s 1", "valid range: 80h-ffh"),
-    ("read-eeprom oe -i {oe} -n 0", "must be supplied together"),
-    ("write-eeprom oe -i {oe} -n 0 -o 0 -d zz", "hex"),
-    ("write-eeprom els -i {els} -n 0 -o 0 -d 1", "hex"),
     ("show oe input-power", "no such command"), ("show els output-power", "no such command"),
     ("show els presence", "no such command"),
     ("config oe tx-disable 0 true", "no such command"), ("config els tx-disable 0 true", "no such command"),
     ("show interface lpmode", "no such command"),
     ("config interface lpmode -p __invalid_cpo_port__ low", "no such command"),
     ("config interface reset -p __invalid_cpo_port__", "no such command"),
-    ("show interface map __invalid_cpo_port__", "unexpected extra argument"),
-    ("config interface tx-disable true", "missing option"),
-    ("read-eeprom interface --oe -n 0 -o 0 -s 1", "missing option"),
-    ("write-eeprom interface --oe -n 0 -o 0 -d zz", "missing option"),
 ))
 def test_invalid_arguments(cpo_environment, arguments, diagnostic):
     """Rejected inputs and removed commands must return the CLI's documented error code."""
@@ -367,7 +423,8 @@ def test_undeclared_eeprom_page(cpo_environment, target, operation):
     assert "not declared" in result["stderr"], "Undeclared page must be rejected before hardware access"
 
 
-@pytest.mark.parametrize("arguments,expected_rc", (("--help", 0), ("show interface map --json", 1)))
+@pytest.mark.parametrize("arguments,expected_rc", (("--help", 0),) + tuple(
+    (command, 1) for command in LEAF_COMMANDS + ("read-eeprom",)))
 def test_root_privileges(cpo_environment, arguments, expected_rc):
     """Top-level help is public; hardware commands reject an unprivileged user."""
     result = run(cpo_environment["dut"], arguments, rc=expected_rc, privileged=False)

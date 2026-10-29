@@ -14,7 +14,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 DIAGNOSTICS = (
-    "not implemented", "invalid", "no such command", "no such option", "missing option",
+    "not implemented", "invalid", "no such command", "no such option", "missing option", "missing argument",
+    "requires an argument", "invalid value", "offset must be between", "bank must be between",
+    "data must contain at least one byte",
     "unexpected extra argument", "root privileges are required", "-1", "hex",
     "size must be greater than zero", "crosses the cmis page boundary", "page must be between",
     "does not use bank selection", "valid range: 80h-ffh", "must be supplied together",
@@ -87,7 +89,9 @@ def summarize_dump(output, ranged):
 def run(arguments, privileged=True):
     result = execute(arguments, privileged)
     safe = {"rc": result.returncode, "stdout": "", "stderr": diagnostic(result)}
-    if arguments[:3] == ["show", "interface", "dom"]:
+    if result.returncode == 0 and ("--help" in arguments or "-h" in arguments):
+        safe["stdout"] = result.stdout
+    elif arguments[:3] == ["show", "interface", "dom"]:
         if "--json" in arguments or "-j" in arguments:
             try:
                 safe["stdout"] = json.dumps(redact_dom(json.loads(result.stdout)))

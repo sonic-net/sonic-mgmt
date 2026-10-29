@@ -51,10 +51,11 @@ Invalid commands/resources return 3.
 | Interface map/presence/DOM/Tx-disable/Application/lane-status | Bulk and each selected port in JSON and table form; exact mapping/inventory, typed fields and lane counts. Presence and Tx-disable agree with independent CPO hooks. Empty threshold dictionaries are allowed. |
 | OE/ELS status, temperature and low power | Unique endpoint inventory, single selectors, valid JSON fields and table resource rows; low power agrees with endpoint hooks. |
 | EEPROM ranges | Compare byte count and digest through direct and interface paths, using ranges from the selected endpoint's actual memory map. Include mapped OE-local banks when page 10h is declared. No ELS page-zero alias or fixed base page is assumed. |
-| Full EEPROM dumps | OE, ELS and combined dumps contain exactly the expected endpoint headings and nonempty byte content. |
+| Full EEPROM dumps | OE, ELS and combined dumps, plus individually selected endpoint/interface dumps with all range options omitted, have the expected headings and nonempty byte content. |
 | EEPROM page guard | Both reads and writes reject an undeclared page before EEPROM access. These rejection cases do not write hardware. |
-| Invalid syntax/resources | Bad selectors, modes, ranges and hex; removed commands, positional front-panel selectors and missing required port options return 3 with a diagnostic category. |
-| Root privileges | Unprivileged top-level help succeeds; an unprivileged hardware command returns 1. |
+| Invalid syntax/resources | 300 generated cases cover all 23 leaf commands: unknown options, missing fields/values, bad selectors/modes/numbers, range boundaries and invalid hex. Additional removed-command and undeclared-page guards remain. See the [command matrix](cpoutil-cli-coverage.md). |
+| Synthetic I/O failures | 65 process-local fault cases run installed CLI callbacks against synthetic endpoints: missing/short EEPROM reads, failed writes, I/O exceptions/timeouts, unsupported APIs, missing attributes and partial Tx-disable completion. No platform is initialized or hardware written by these simulations. |
+| Help/root privileges | All 35 group/leaf help paths succeed; all 23 leaf actions and the default combined dump reject an unprivileged user with code 1. Top-level help is public. |
 | Coexistence | Ordinary SFP ports are omitted from CPO bulk output and explicit selection directs the user to sfputil. |
 | Concurrency | Four independent mapping or temperature CLI processes return complete records. |
 | OE/ELS low power | Toggle one endpoint, verify readback and restore the original full-power state. |
@@ -109,8 +110,9 @@ From the sonic-mgmt `tests` directory:
   -c platform_tests/cpo/test_cpoutil.py -u -l info
 ```
 
-Default execution performs queries and negative cases, including EEPROM writes
-that must be rejected by validation. Successful control operations require:
+Default execution performs queries, negative cases and process-local failure
+simulations, including EEPROM writes that must be rejected by validation.
+Successful hardware control operations require:
 
 ```sh
 ./run_tests.sh -n <testbed> -d <dut> -i <inventory> \
@@ -127,12 +129,15 @@ Unsupported/disabled control cases are skips, not hardware PASS.
 
 ## Validation status and limits
 
-2026-10-29: 59 parametrized integration cases collect in isolation. 73 local
-checks pass, including merged Click declarations/root handling, merged page
-validators, mapping/format parsing, output privacy and failure restoration.
-Grammar checks retain the merged parser but stub hardware callbacks; other
-local checks use synthetic endpoints and command results. Compilation,
-flake8 and diff checks pass.
+2026-10-29: 473 parametrized integration cases collect in isolation. 498 local
+checks pass, including all 300 argument cases through the actual merged CLI
+callbacks with hardware dependencies replaced, all 65 synthetic I/O failure
+cases through the merged error handlers, command inventory, help/root handling,
+page validators, mapping/format parsing, output privacy and failure restoration.
+Parser-only checks stub hardware callbacks; failure/argument checks retain the
+merged callbacks and replace topology/endpoint dependencies. Invalid-input
+checks assert no EEPROM read/write or page lookup occurs. Compilation, flake8
+and diff checks pass.
 
 The full sonic-mgmt/Ansible environment and DUT execution remain unverified.
 Dependency PR results are not results for this suite. Traffic, live breakout,
