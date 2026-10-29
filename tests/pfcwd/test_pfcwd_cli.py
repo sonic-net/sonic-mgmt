@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
     shutdown_lag_members, restore_original_config
-from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import has_neighbor_device, is_pfcwd_hw_recovery_enabled
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
@@ -350,7 +350,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         Returns:
             loganalyzer(Loganalyzer) : instance
         """
-        restore_time = self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
+            else self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
 
         selected_test_ports = [self.pfc_wd['rx_port'][0]]
@@ -475,7 +476,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
         if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
-                or is_tunnel_qos_remap_enabled(duthost):
+                or is_tunnel_qos_remap_enabled(duthost) \
+                or self.is_hw_recovery:
+            # HW recovery is egress-only
             self.rx_action = "forward"
         else:
             self.rx_action = action
@@ -518,6 +521,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.rx_action = None
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
 
         # skip the pytest when the device does not have neighbors
         # 'rx_port' being None indicates there are no ports available to receive frames for pfc storm
