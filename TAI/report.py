@@ -1,0 +1,178 @@
+"""
+TAI coverage report.
+
+Walks the adapter inheritance tree for each family and emits a markdown
+matrix to TAI/COVERAGE.md showing, for every registered platform, which
+class effectively defines each method. Run after adding or changing
+adapters:
+
+    python TAI/report.py
+"""
+
+import os
+import sys
+from collections import defaultdict
+from typing import Any, Dict, List, Type
+
+# put the repo root on sys.path so this runs as `python TAI/report.py` from anywhere
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import TAI  # noqa: E402,F401  # triggers decorator registration for every platform
+from TAI.core.base import AdapterBase  # noqa: E402
+from TAI.core.factory import AdapterFactory  # noqa: E402
+from TAI.core.qos import QoSAdapter  # noqa: E402
+from TAI.core.thrift import ThriftAdapter  # noqa: E402
+
+
+REPORT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'COVERAGE.md')
+
+ADAPTER_TYPES: List[Type[AdapterBase]] = [ThriftAdapter, QoSAdapter]
+
+
+def family_of(cls: Type[AdapterBase]) -> str:
+    """Derive family name from the class's module path.
+
+    TAI.platforms.tomahawk.th5.qos -> 'tomahawk'
+    Base adapter classes (not under platforms.*) -> 'core'.
+    """
+    parts = cls.__module__.split('.')
+    if len(parts) >= 3 and parts[0] == 'TAI' and parts[1] == 'platforms':
+        return parts[2]
+    return 'core'
+
+
+def public_methods_defined_on(cls: Type[Any]) -> List[str]:
+    """Method names defined directly on cls (not inherited)."""
+    return [
+        name for name, value in vars(cls).items()
+        if callable(value) and not name.startswith('_')
+    ]
+
+
+def all_methods_in_chain(cls: Type[AdapterBase], base: Type[AdapterBase]) -> List[str]:
+    """Collect every public method defined anywhere from cls up to (and including) base."""
+    names = set()
+    for klass in cls.__mro__:
+        if not issubclass(klass, base):
+            continue
+        names.update(public_methods_defined_on(klass))
+    return sorted(names)
+
+
+def effective_source_short(cls: Type[Any], method_name: str, base: Type[AdapterBase]) -> str:
+    """Short name of the nearest class in cls.__mro__ that defines method_name."""
+    for klass in cls.__mro__:
+        if not issubclass(klass, base):
+            continue
+        if method_name in vars(klass):
+            return short_name(klass, base)
+    return '-'
+
+
+def short_name(cls: Type[Any], adapter_type: Type[AdapterBase]) -> str:
+    """Render a class's name trimmed of the adapter-type suffix for table cells.
+
+    TH5ThriftAdapter -> TH5, ThriftAdapter -> base.
+    """
+    suffix = adapter_type.__name__
+    name = cls.__name__
+    if name == suffix:
+        return 'base'
+    if name.endswith(suffix):
+        return name[: -len(suffix)]
+    return name
+
+
+def families_for_adapter_type(adapter_type: Type[AdapterBase]) -> Dict[str, List[Type[AdapterBase]]]:
+    """Group registered platform classes for adapter_type by family."""
+    registry = AdapterFactory._adapters.get(adapter_type, {})
+    grouped: Dict[str, List[Type[AdapterBase]]] = defaultdict(list)
+    for platform_name, cls in registry.items():
+        grouped[family_of(cls)].append(cls)
+    for family in grouped:
+        grouped[family].sort(key=lambda c: c.__name__)
+    return dict(sorted(grouped.items()))
+
+
+def render_table(
+    adapter_type: Type[AdapterBase],
+    family: str,
+    platforms: List[Type[AdapterBase]],
+) -> str:
+    """Render one effective-source matrix for a (adapter_type, family) pair."""
+    methods = sorted({
+        m
+        for cls in platforms
+        for m in all_methods_in_chain(cls, adapter_type)
+    })
+    if not methods:
+        return f"### {family} — {adapter_type.__name__}\n\n_no methods_\n"
+
+    headers = ['method'] + [short_name(cls, adapter_type) for cls in platforms]
+    rows = []
+    for method in methods:
+        row = [method]
+        for cls in platforms:
+            source = effective_source_short(cls, method, adapter_type)
+            cell = f"**{source}**" if source == short_name(cls, adapter_type) else source
+            row.append(cell)
+        rows.append(row)
+
+    lines = []
+    lines.append('| ' + ' | '.join(headers) + ' |')
+    lines.append('|' + '|'.join(['---'] * len(headers)) + '|')
+    for row in rows:
+        lines.append('| ' + ' | '.join(row) + ' |')
+    return '\n'.join(lines)
+
+
+def render_chain_legend(adapter_type: Type[AdapterBase], platforms: List[Type[AdapterBase]]) -> str:
+    """Show the parent of each platform class so branching is explicit."""
+    bits = []
+    for cls in platforms:
+        parent = next(
+            (b for b in cls.__bases__ if issubclass(b, adapter_type)),
+            None,
+        )
+        parent_name = short_name(parent, adapter_type) if parent else '-'
+        bits.append(f"{short_name(cls, adapter_type)} < {parent_name}")
+    return ', '.join(bits)
+
+
+def generate_report() -> str:
+    lines = [
+        "# TAI adapter coverage",
+        "",
+        "Auto-generated by `python TAI/report.py`. Each cell shows the class that",
+        "effectively defines the method for that platform. **Bold** means the method",
+        "is defined at the platform itself (an override point); plain text means the",
+        "method is inherited from the named ancestor.",
+        "",
+    ]
+    for adapter_type in ADAPTER_TYPES:
+        lines.append(f"## {adapter_type.__name__}")
+        lines.append("")
+        families = families_for_adapter_type(adapter_type)
+        if not families:
+            lines.append("_no adapters registered_")
+            lines.append("")
+            continue
+        for family, platforms in families.items():
+            lines.append(f"### {family}")
+            lines.append("")
+            lines.append(f"_inheritance: {render_chain_legend(adapter_type, platforms)}_")
+            lines.append("")
+            lines.append(render_table(adapter_type, family, platforms))
+            lines.append("")
+    return '\n'.join(lines).rstrip() + '\n'
+
+
+def main() -> None:
+    report = generate_report()
+    with open(REPORT_PATH, 'w') as f:
+        f.write(report)
+    print(f"Wrote {REPORT_PATH}")
+
+
+if __name__ == '__main__':
+    main()
