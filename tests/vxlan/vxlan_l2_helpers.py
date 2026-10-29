@@ -287,19 +287,67 @@ def kernel_fdb_forget(duthost, vlan_id, macs):
                check=False)
 
 
-def flush_fdb(duthost, scope, name):
-    """FdbOrch's dynamic flush of one PORT or VLAN (the SAI call a link-down flush makes)."""
+def flush_fdb(duthost, scope, name, wait=0):
+    """FdbOrch's dynamic flush of one PORT or VLAN (the SAI call a link-down flush makes).
+
+    The request is asynchronous: orchagent runs it whenever its main loop gets to it, which can be seconds later,
+    after MACs learned in the meantime, and the flush then removes them. With wait (seconds), return only once
+    orchagent has logged that it ran the flush (its NOTICE after the SAI flush call returns), after a syslog marker
+    written before the request. A failed SAI flush logs an ERR first, which fails the case in LogAnalyzer.
+    """
+    if wait:
+        if scope not in ("PORT", "VLAN"):
+            raise ValueError("flush_fdb waits only for a PORT or VLAN flush, not {}".format(scope))
+        mark = "vxlan_l2 flush_fdb {} {} {}".format(scope, name, time.time_ns())
+        since = log_marker(duthost, "vxlan_l2", mark)
     sh(duthost, "redis-cli -n 0 PUBLISH FLUSHFDBREQUEST '[\"{}\",\"{}\"]'".format(scope, name))
+    if wait:
+        # a port flush's line is not the port+vlan one, 'Clear fdb by port(X)+vlan(Y)'
+        done = (r"Clear fdb by vlan\(Vlan{}\)".format(name) if scope == "VLAN" else
+                r"Clear fdb by port\({}\)([^+]|$)".format(name))
+        wait_for(wait, 1, lambda: log_since(duthost, mark, done, since)[1], "orchagent to run the {} {} FDB flush "
+                 "request ('{}' in syslog after '{}')".format(scope, name, done, mark))
+
+
+LOG_MARKER_FOUND = "VXLAN-LOG-MARKER-FOUND"
+
+
+def log_marker(duthost, tag, text):
+    """Log text in syslog under tag; returns the DUT's epoch at that point, the `since` of log_since."""
+    return int(sh(duthost, "logger -t {} '{}'; date +%s".format(tag, text)).split()[-1])
+
+
+def log_since(duthost, marker, pattern, since):
+    """(marker found, syslog lines after marker that match the extended regex pattern), over every syslog file written
+    since the DUT epoch `since` (syslog rotates, and the per-test LogAnalyzer rotates it before each case). The marker
+    counts only on the logger's own line, and no line that logs a command (ansible, sudo's COMMAND=) is returned, so
+    this very read cannot match. Neither marker nor pattern may hold a single quote."""
+    out = sh(duthost, "sudo sh -c 'fs=$(find /var/log -maxdepth 1 -name \"syslog*\" -newermt @{t}); "
+                      "[ -n \"$fs\" ] && for f in $(ls -1tr $fs); do zcat -f \"$f\"; done' | "
+                      "awk '/{m}/ && !/ansible|COMMAND=/ && !f {{f=1; print \"{found}\"}} f' | "
+                      "grep -a -v -E 'ansible|COMMAND=' | grep -a -E '{found}|{p}'; true".format(
+                          t=int(since) - 120, m=marker, found=LOG_MARKER_FOUND, p=pattern),
+             check=False).splitlines()
+    return LOG_MARKER_FOUND in out, [x for x in out if x != LOG_MARKER_FOUND]
 
 
 def flush_vlan_fdb(duthost, vlan_id, timeout=30):
     """Flush vlan_id's learned MACs until STATE_DB holds none (a PTF host's own frames can be learned again in
-    between). Done while the VLAN members exist: once a member is gone, fdbsyncd's kernel delete of its MACs fails
+    between). Every flush is waited for (flush_fdb wait), so none is left queued to remove a MAC learned after this
+    returns. Done while the VLAN members exist: once a member is gone, fdbsyncd's kernel delete of its MACs fails
     (ERR "updateLocalMac: Failed cmd: bridge fdb del"), because the kernel already dropped them."""
-    def flushed():
-        flush_fdb(duthost, "VLAN", str(vlan_id))
-        return not db_keys(duthost, "STATE_DB", "FDB_TABLE|Vlan{}:*".format(vlan_id))
-    wait_for(timeout, 3, flushed, "STATE_DB FDB of Vlan{} to empty".format(vlan_id))
+    key = "FDB_TABLE|Vlan{}:*".format(vlan_id)
+    if not db_keys(duthost, "STATE_DB", key):
+        return      # nothing learned, or a VLAN orchagent never had (it logs no flush for one)
+    end = time.time() + timeout
+    while True:
+        flush_fdb(duthost, "VLAN", str(vlan_id), wait=max(5, end - time.time()))
+        # orchagent logs the flush when the SAI call returns; STATE_DB follows with the flush notifications
+        if wait_until(5, 1, 0, lambda: not db_keys(duthost, "STATE_DB", key)):
+            return
+        if time.time() >= end:
+            raise AssertionError("timed out after {}s waiting for STATE_DB FDB of Vlan{} to empty: {}".format(
+                timeout, vlan_id, db_keys(duthost, "STATE_DB", key)))
 
 
 def kernel_rx_packets(duthost, netdev):

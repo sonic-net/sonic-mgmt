@@ -721,6 +721,7 @@ MOVED_MAC = "02:4c:35:00:00:01"       # the station that moves
 CTRL_MAC_H2 = "02:4c:35:00:00:02"     # control station on H2
 CTRL_MAC_H1 = "02:4c:35:00:00:03"     # control station on H1
 SENDER_MAC = "02:4c:35:00:00:04"      # source of the probes from H0
+FLUSH_WAIT_S = 30                     # bound on orchagent running a flush request
 
 
 def where_does(r, ptfadapter, mac, name):
@@ -761,6 +762,32 @@ def reading(counts, r):
     return "unreadable {}".format(counts)
 
 
+def station_move_cleanup(r, strict):
+    """Flush the case's MACs out of the VLAN and check `show mac` no longer holds them, so the next case starts on an
+    empty VLAN with no flush request still queued. strict: a clean-up that fails fails the case; otherwise (the case
+    has already failed, and that failure is the one to report) it is logged."""
+    macs = [MOVED_MAC, CTRL_MAC_H1, CTRL_MAC_H2]
+    err = None
+    try:
+        flush_vlan_fdb(r.duthost, VLAN_ID, timeout=FLUSH_WAIT_S)
+    except (AssertionError, RuntimeError) as e:
+        err = e
+    if r.vs:
+        kernel_fdb_forget(r.duthost, VLAN_ID, [MOVED_MAC])
+    if err is None:
+        try:
+            want = {m.lower() for m in macs}
+            wait_for(20, 1, lambda: not want & set(sh(r.duthost, "show mac -v {}".format(VLAN_ID)).lower().split()),
+                     "{} flushed from Vlan{} in show mac".format(macs, VLAN_ID))
+        except AssertionError as e:
+            err = e
+    time.sleep(3)
+    if err is not None:
+        if strict:
+            raise AssertionError("station move clean-up: {}".format(err))
+        logger.error("station move clean-up after a failed case: %s", err)
+
+
 def flush_port(r, port, gone):
     flush_fdb(r.duthost, "PORT", port)
     wait_for(20, 1, lambda: all(fdb_port(r.duthost, VLAN_ID, m) is None for m in gone),
@@ -786,8 +813,10 @@ def test_station_move_updates_fdb_record(rig, ptfadapter, loganalyzer, path):
     r = rig
     if loganalyzer:
         loganalyzer[r.duthost.hostname].ignore_regex.extend(MOVE_DEL_LOG)
-    flush_fdb(r.duthost, "VLAN", str(VLAN_ID))
+    flush_fdb(r.duthost, "VLAN", str(VLAN_ID), wait=FLUSH_WAIT_S)
+    # orchagent logs the flush once the SAI call returns; the hardware delete may still be running then
     time.sleep(3)
+    passed = False
     try:
         learn(r, ptfadapter, r.p1, r.h1, MOVED_MAC, vid=VLAN_ID)
         if r.vs:
@@ -800,6 +829,7 @@ def test_station_move_updates_fdb_record(rig, ptfadapter, loganalyzer, path):
                 got = reading(where_does(r, ptfadapter, MOVED_MAC, "v{}".format(i)), r)
                 assert got == "only " + h, "the dataplane did not follow the station move ({}, step {}) to {}: {}" \
                     .format(path, i, h, got)
+            passed = True
             return
         if path == "move":
             learn(r, ptfadapter, r.p2, r.h2, CTRL_MAC_H2, vid=VLAN_ID)
@@ -834,8 +864,6 @@ def test_station_move_updates_fdb_record(rig, ptfadapter, loganalyzer, path):
             subj = reading(where_does(r, ptfadapter, MOVED_MAC, "r3"), r)
             assert subj == "flooded", ("station move round trip: the moved MAC ({} -> {} -> {}) survives the {} "
                                        "flush in hardware ('{}')".format(r.h1, r.h2, r.h1, r.h1, subj))
+        passed = True
     finally:
-        flush_fdb(r.duthost, "VLAN", str(VLAN_ID))
-        if r.vs:
-            kernel_fdb_forget(r.duthost, VLAN_ID, [MOVED_MAC])
-        time.sleep(3)
+        station_move_cleanup(r, strict=passed)
