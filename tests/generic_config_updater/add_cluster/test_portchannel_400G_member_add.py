@@ -1477,6 +1477,7 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter, nbrho
         last_error = None
         matched_restored_member = False
         for attempt in range(PORTCHANNEL_HASH_ATTEMPTS):
+            src_ip = "30.0.0.{}".format(10 + attempt)
             sport = 5000 + attempt
             try:
                 send_and_verify_traffic(
@@ -1489,6 +1490,7 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter, nbrho
                     ptf_sport=source_ptf_index,
                     ptf_dst_ports=[restored_member_ptf_index],
                     ptf_dst_interfaces=[restored_member],
+                    src_ip=src_ip,
                     dst_ip=traffic_dst_ip,
                     count=PORTCHANNEL_TRAFFIC_COUNT,
                     sport=sport,
@@ -1499,9 +1501,10 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter, nbrho
                 )
                 logger.info(
                     "PTF traffic selected restored LAG member %s on hash "
-                    "attempt %s using tcp_sport=%s",
+                    "attempt %s using src_ip=%s tcp_sport=%s",
                     restored_member,
                     attempt + 1,
+                    src_ip,
                     sport,
                 )
                 matched_restored_member = True
@@ -1510,9 +1513,10 @@ def verify_restored_member_dataplane(duthost, runtime, tbinfo, ptfadapter, nbrho
                 last_error = str(exc)
                 logger.info(
                     "PTF traffic did not select restored member %s on hash "
-                    "attempt %s using tcp_sport=%s: %s",
+                    "attempt %s using src_ip=%s tcp_sport=%s: %s",
                     restored_member,
                     attempt + 1,
+                    src_ip,
                     sport,
                     last_error,
                 )

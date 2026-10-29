@@ -207,7 +207,9 @@ flowchart TD
     from `nbrhosts`, rather than the collapsed VM offset.
 14. Clear traffic counters and capture a post-clear baseline, then send PTF
     traffic with multiple hash attempts until traffic selects the restored
-    member. Do not clear counters between attempts.
+    member. Vary both the IPv4 source address and TCP source port so attempts
+    cover L3-only as well as L4-aware LAG hashing. Do not clear counters between
+    attempts.
 15. Verify `portstat -j` and COUNTERS_DB TX counter deltas for the restored
     member meet or exceed the sent packet count.
 16. Withdraw only the temporary route installed by this test and assert it is
