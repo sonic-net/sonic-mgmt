@@ -38,7 +38,6 @@ from tests.common.platform.bmc_utils import (
     wait_host_off,
     wait_host_on,
 )
-from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
@@ -71,11 +70,11 @@ class TestBmcctldDaemon:
         if not self.duthost.is_bmc():
             pytest.skip("Device is not a BMC system")
 
-        if not check_pmon_daemon_enable_status(self.duthost, "bmcctld"):
-            pytest.skip("bmcctld is not enabled on {}".format(self.duthost.facts['platform']))
-        daemon_status, _ = self.duthost.get_pmon_daemon_status("bmcctld")
-        if daemon_status != "RUNNING":
-            pytest.skip("bmcctld daemon not running")
+        pytest_assert(
+            wait_until(800, 10, 0, _bmcctld_check_expected_status,
+                       self.duthost, _expected_running_status),
+            "bmcctld did not become RUNNING within 800 seconds on {}".format(self.duthost.hostname),
+        )
 
         yield
 
@@ -611,8 +610,13 @@ def _bmcctld_check_restarted(duthost, pre_pid):
 @pytest.fixture(scope="module")
 def bmcctld_data_before_restart(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not check_pmon_daemon_enable_status(duthost, BMCCTLD_DAEMON_NAME):
-        pytest.skip("{} is not enabled on {}".format(BMCCTLD_DAEMON_NAME, duthost.facts['platform']))
+    if not duthost.is_bmc():
+        pytest.skip("Device is not a BMC system")
+    pytest_assert(
+        wait_until(800, 10, 0, _bmcctld_check_expected_status,
+                   duthost, _expected_running_status),
+        "bmcctld did not become RUNNING within 800 seconds on {}".format(duthost.hostname),
+    )
     return _bmcctld_collect_data(duthost)
 
 
