@@ -437,7 +437,10 @@ class TestPfcwdAllTimer(object):
                     self.run_test(setup_info)
                 self.verify_pfcwd_timers_t2()
             else:
-                for i in range(1, ITERATION_NUM):
+                # Storms are not generated and timers are not verified on vs, so a single
+                # iteration is enough to exercise PFCWD setup, traffic and teardown.
+                iteration_num = 2 if self.dut.facts['asic_type'] == 'vs' else ITERATION_NUM
+                for i in range(1, iteration_num):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
 
                     cmd = "show pfc counters"
