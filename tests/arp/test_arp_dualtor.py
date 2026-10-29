@@ -849,8 +849,7 @@ def test_standby_unsolicited_neigh_learning(
     ip_version = ip_address(neighbor_ip).version
     if ip_version == 6 and rand_unselected_dut.facts["asic_type"] == "vs":
         pytest.skip("Temporarily skipped to let the sonic-swss submodule be updated.")
-    # IPv6 NUD can spend five seconds in DELAY, and arp_update processes IPv4
-    # neighbors before refreshing IPv6. Allow both paths time to converge.
+    # IPv6 NUD can spend five seconds in DELAY before probing.
     reachable_timeout = 15 if ip_version == 6 else 5
     ping_cmd = "timeout 0.2 ping -c1 -W1 -i0.2 -n -q {}".format(neighbor_ip)
 
@@ -864,6 +863,8 @@ def test_standby_unsolicited_neigh_learning(
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     rand_selected_dut.shell(arp_update_cmd)
 
+    # arp_update scans existing neighbors before sending ARP/NDP refreshes.
+    # Its startup does not mean the standby has received the first refresh yet.
     pytest_assert(
-        wait_until(reachable_timeout, 1, 0, verify_neighbor_status, rand_unselected_dut, neighbor_ip, REACHABLE),
+        wait_until(15, 1, 0, verify_neighbor_status, rand_unselected_dut, neighbor_ip, REACHABLE),
         "Neighbor {} did not become REACHABLE on standby ToR {}".format(neighbor_ip, rand_unselected_dut.hostname))
