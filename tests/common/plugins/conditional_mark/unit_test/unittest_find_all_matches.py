@@ -1,6 +1,7 @@
 import logging
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from tests.common.plugins import conditional_mark
 from tests.common.plugins.conditional_mark import find_all_matches, load_conditions
 
 logger = logging.getLogger(__name__)
@@ -366,6 +367,74 @@ class TestFindAllMatches(unittest.TestCase):
             "test_everflow_reorder_mark.py::test_everflow_reorder_mark_extra[ipv4-erspan_ipv4-default]",
         ):
             self.assertFalse(collect_marks(nodeid), "unexpected match for {}".format(nodeid))
+
+
+class TestTestbedInfoCache(unittest.TestCase):
+    """Collection lookups share the tbinfo fixture's cache without eager loading."""
+
+    def setUp(self):
+        self.session = MagicMock()
+        self.session.config.option.testbed = 'sample-testbed'
+        self.session.config.option.testbed_file = 'sample-testbed.yaml'
+        self.session.config.option.ansible_host_pattern = 'all'
+        self.session.config.option.ignore_conditional_mark = False
+        self.session.config.option.dynamic_update_skip_reason = False
+        self.session.config.option.customize_inventory_file = False
+        self.session.config.rootpath = 'tests'
+        self.session.config.getoption.side_effect = (
+            lambda name, default: 'other' if name == '--dut_vendor' else default)
+        pytest_cache = {
+            'TESTS_MARK_CONDITIONS': [{'test_case.py': {}}],
+            'BASIC_FACTS_dut-a': {'topo_type': 't0'},
+        }
+        self.session.config.cache.get.side_effect = pytest_cache.get
+        self.session.config.cache.set.side_effect = pytest_cache.__setitem__
+        self.testbed_info = MagicMock()
+        self.testbed_info.testbed_topo = {
+            'sample-testbed': {'duts': ['dut-a'], 'topo': {'name': 't0', 'type': 't0'}},
+        }
+        self.entries = {}
+        self.cache = MagicMock()
+        self.cache.NOTEXIST = object()
+        self.cache.read.side_effect = lambda zone, key: self.entries.get((zone, key), self.cache.NOTEXIST)
+        self.cache.write.side_effect = lambda zone, key, value: self.entries.__setitem__((zone, key), value)
+        factory_patch = patch.object(conditional_mark, 'FactsCache', return_value=self.cache)
+        constructor_patch = patch.object(conditional_mark, 'TestbedInfo', return_value=self.testbed_info)
+        self.cache_factory = factory_patch.start()
+        self.constructor = constructor_patch.start()
+        self.addCleanup(factory_patch.stop)
+        self.addCleanup(constructor_patch.stop)
+
+    def test_collection_reuses_testbed_info(self):
+        """DUT resolution during collection constructs and caches testbed info once."""
+        item = MagicMock()
+        item.nodeid = 'test_case.py::test_case'
+        item.get_closest_marker.return_value = None
+        with patch.object(conditional_mark, 'load_conditions', return_value=[{'test_case.py': {}}]), \
+                patch.object(conditional_mark, 'find_all_matches', return_value=[]):
+            conditional_mark.pytest_collection(self.session)
+            conditional_mark.pytest_collection_modifyitems(self.session, self.session.config, [item])
+        self.constructor.assert_called_once_with('sample-testbed.yaml')
+        self.cache.write.assert_called_once_with('sample-testbed', 'tbinfo', self.testbed_info)
+
+    def test_basic_facts_reuse_existing_testbed_cache(self):
+        """An existing fixture cache serves both DUT-name and basic-fact lookups."""
+        self.entries[('sample-testbed', 'tbinfo')] = self.testbed_info
+        with patch.object(conditional_mark, 'get_http_proxies', return_value={}):
+            self.assertEqual(conditional_mark.get_dut_name(self.session), 'dut-a')
+            facts = conditional_mark.load_basic_facts('dut-a', self.session)
+        self.assertEqual(facts['testbed'], 'sample-testbed')
+        self.assertEqual(facts['topo_type'], 't0')
+        self.constructor.assert_not_called()
+        self.cache.write.assert_not_called()
+
+    def test_all_skipped_items_do_not_load_testbed_info(self):
+        """Preserve lazy loading when earlier hooks have skipped every item."""
+        item = MagicMock()
+        item.get_closest_marker.return_value = object()
+        conditional_mark.pytest_collection_modifyitems(self.session, self.session.config, [item])
+        self.constructor.assert_not_called()
+        self.cache_factory.assert_not_called()
 
 
 if __name__ == "__main__":
