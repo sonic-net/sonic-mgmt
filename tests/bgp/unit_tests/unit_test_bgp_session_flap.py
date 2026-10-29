@@ -1,4 +1,4 @@
-"""Regression tests for BGP session-flap worker and mark behavior."""
+"""Regression tests for BGP session-flap workers, memory and marks."""
 
 import ast
 import sys
@@ -37,6 +37,7 @@ HELPERS = {
     "stop_flap_workers",
     "start_flap_worker",
     "assert_flap_workers_succeeded",
+    "wait_for_peer_memory_recovery",
     "flap_neighbor_session",
     "test_bgp_single_session_flaps",
     "test_bgp_multiple_session_flaps",
@@ -108,6 +109,7 @@ def flap_helpers():
         if isinstance(node, ast.FunctionDef) and node.name in HELPERS
     ]
     namespace = {
+        "BGP_POLL_INTERVAL": 10,
         "BGP_SESSION_TIMEOUT": 300,
         "FLAP_THREAD_STOP_TIMEOUT": 2,
         "InterruptableThread": CapturingThread,
@@ -120,6 +122,7 @@ def flap_helpers():
         "threading": threading,
         "time": time,
         "traceback": __import__("traceback"),
+        "wait_until": lambda timeout, interval, delay, condition: condition(),
         "wait_time": 2,
     }
     module = compile(
@@ -267,6 +270,46 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
 
     assert received_neighbors == neighbors
     assert stopped_neighbors == neighbors
+
+
+def _run_flap_with_stats(flap_helpers, samples):
+    samples = iter(samples)
+    flap_completed = threading.Event()
+    flap_completed.set()
+    flap_helpers.update({
+        "get_cpu_stats": lambda _: next(samples),
+        "start_flap_worker": lambda *_: (CapturingThread(), flap_completed),
+        "stop_flap_workers": lambda *args: [],
+        "wait_until": lambda timeout, interval, delay, condition: any(
+            condition() for _ in range(3)
+        ),
+        "time": type(
+            "NoWait", (), {"sleep": staticmethod(lambda _: None)}
+        ),
+    })
+    flap_helpers["test_bgp_single_session_flaps"]({
+        "duthost": object(),
+        "neighhost": FakeNeighbor(),
+    })
+
+
+def test_transient_peer_memory_growth_recovers_after_flap(flap_helpers):
+    baseline = [0, 0, 0, 1028480, 736704, 216, 1028160, 736704, 216]
+    spike = baseline.copy()
+    spike[4] = 982272
+
+    _run_flap_with_stats(
+        flap_helpers, [baseline, spike] + [baseline] * 9 + [spike, baseline]
+    )
+
+
+def test_persistent_peer_memory_growth_fails_after_flap(flap_helpers):
+    baseline = [0, 0, 0, 1028480, 736704, 216, 1028160, 736704, 216]
+    spike = baseline.copy()
+    spike[4] = 982272
+
+    with pytest.raises(AssertionError, match="BGP peer memory did not recover"):
+        _run_flap_with_stats(flap_helpers, [baseline] * 11 + [spike] * 3)
 
 
 def test_partial_start_reports_primary_and_worker_failures(flap_helpers):

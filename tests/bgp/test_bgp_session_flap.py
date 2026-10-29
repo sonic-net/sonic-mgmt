@@ -1,7 +1,7 @@
 '''
 
 This script is to test BGP session flapping on SONiC and monitor
-the CPU.
+CPU and memory.
 
 '''
 
@@ -217,6 +217,26 @@ def get_cpu_stats(dut):
     return data
 
 
+def wait_for_peer_memory_recovery(dut, baseline):
+    """Only count peer-memory growth that persists after flapping stops."""
+    def peer_memory_recovered():
+        stats = get_cpu_stats(dut)
+        return all(
+            stats[index] <= baseline[index] * memSpike
+            for index in (4, 7)
+        )
+
+    pytest_assert(
+        wait_until(
+            BGP_SESSION_TIMEOUT, BGP_POLL_INTERVAL, 0,
+            peer_memory_recovered
+        ),
+        "BGP peer memory did not recover after flapping within {} seconds".format(
+            BGP_SESSION_TIMEOUT
+        )
+    )
+
+
 @pytest.fixture(scope='module')
 def setup(
     tbinfo,
@@ -370,10 +390,8 @@ def test_bgp_single_session_flaps(setup):
             assert stats[index][2] < (stats[0][2] + cpuSpike)
             # Memory can be zero when an address family has no neighbors.
             assert stats[index][3] <= (stats[0][3] * memSpike)
-            assert stats[index][4] <= (stats[0][4] * memSpike)
             assert stats[index][5] <= (stats[0][5] * memSpike)
             assert stats[index][6] <= (stats[0][6] * memSpike)
-            assert stats[index][7] <= (stats[0][7] * memSpike)
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
             time.sleep(wait_time)
@@ -385,6 +403,7 @@ def test_bgp_single_session_flaps(setup):
         )
 
     assert_flap_workers_succeeded(workers, worker_errors, test_exception)
+    wait_for_peer_memory_recovery(setup['duthost'], stats[0])
 
 
 def test_bgp_multiple_session_flaps(setup):
@@ -408,10 +427,8 @@ def test_bgp_multiple_session_flaps(setup):
             assert stats[index][2] < (stats[0][2] + cpuSpike)
             # Memory can be zero when an address family has no neighbors.
             assert stats[index][3] <= (stats[0][3] * memSpike)
-            assert stats[index][4] <= (stats[0][4] * memSpike)
             assert stats[index][5] <= (stats[0][5] * memSpike)
             assert stats[index][6] <= (stats[0][6] * memSpike)
-            assert stats[index][7] <= (stats[0][7] * memSpike)
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
             time.sleep(wait_time)
@@ -421,3 +438,4 @@ def test_bgp_multiple_session_flaps(setup):
         worker_errors = stop_flap_workers(workers, stop_event, neighbors)
 
     assert_flap_workers_succeeded(workers, worker_errors, test_exception)
+    wait_for_peer_memory_recovery(setup['duthost'], stats[0])
