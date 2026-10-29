@@ -690,6 +690,7 @@ t1-lag-vpp:
   - decap/test_decap.py
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
+  - drop_packets/test_configurable_drop_counter_monitor.py
   - drop_packets/test_drop_counters.py
   # ecmp: only test_ecmp_balance.py can run on sonic-vpp today. The others are
   # listed so they are reported as expected skips instead of silently not running:
@@ -795,6 +796,8 @@ t0-vpp:
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+  - drop_packets/test_configurable_drop_counter_monitor.py
+  - drop_packets/test_configurable_drop_counters.py
   - fdb/test_fdb_flush.py
   - fib/test_fib.py
   - fips/test_fips.py

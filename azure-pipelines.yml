@@ -238,3 +238,10 @@ stages:
 
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
+      parameters:
+        IMPACT_AREA_INFO:
+          t0-vpp_checker:
+            - drop_packets/test_configurable_drop_counters.py
+            - drop_packets/test_configurable_drop_counter_monitor.py
+          t1-lag-vpp_checker:
+            - drop_packets/test_configurable_drop_counter_monitor.py
