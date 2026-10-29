@@ -11,7 +11,7 @@ from .syslog_utils import create_vrf, remove_vrf, capture_syslog_packets, \
 from tests.common.utilities import wait_until
 from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_server, is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.memory_utilization import monit_refresh_setup, monit_refresh_teardown
+from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa F401
@@ -308,15 +308,21 @@ class TestSSIP:
         self.duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         yield
-        refresh_state = monit_refresh_setup(self.duthost)
         syslog_config_list = self.duthost.show_syslog()
         if syslog_config_list:
             for syslog_config in syslog_config_list:
                 del_syslog_server(self.duthost, syslog_server_ip=syslog_config["server ip"])
-        status_output = monit_refresh_teardown(refresh_state)
+
+        memory_monitor = MemoryMonitor(ansible_host=self.duthost)
+        validate_output = memory_monitor.execute_command("sudo monit validate")
+        memory_monitor.record_monit_baseline_from_validate_output(validate_output)
+        memory_monitor.read_monit_status_with_freshness_retry("sudo monit status", enable_retry=True)
+
+        monit_services_status = self.duthost.get_monit_services_status()
+        rsyslog_status = monit_services_status.get("rsyslog", {}).get("service_status")
         pytest_assert(
-            re.search(r"Process 'rsyslog'.*?status\s+OK", status_output, re.DOTALL),
-            "rsyslog is not healthy after post-cleanup Monit refresh"
+            rsyslog_status in ("OK", "Running"),
+            "rsyslog is not healthy after post-cleanup Monit refresh: {}".format(rsyslog_status)
         )
 
     def configure_data_vrf_test_data(self, routed_interfaces):

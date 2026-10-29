@@ -9,31 +9,6 @@ logger.setLevel(logging.INFO)
 _memory_errors_by_test = {}
 
 
-def is_memory_utilization_enabled(config, keywords, duthost):
-    if config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in keywords:
-        return False
-    if duthost is not None and (duthost.topo_type == "t2" or duthost.is_bmc()):
-        return False
-    return True
-
-
-def monit_refresh_setup(duthost, memory_monitor=None):
-    if memory_monitor is None:
-        memory_monitor = MemoryMonitor(ansible_host=duthost)
-        memory_monitor.parse_and_register_commands(hwsku=duthost.sonichost._facts["hwsku"])
-    monit_command = next(
-        cmd for name, cmd, _memory_params, _memory_check in memory_monitor.commands if name == "monit"
-    )
-    validate_output = memory_monitor.execute_command("sudo monit validate")
-    memory_monitor.record_monit_baseline_from_validate_output(validate_output)
-    return memory_monitor, monit_command
-
-
-def monit_refresh_teardown(refresh_state):
-    memory_monitor, command = refresh_state
-    return memory_monitor.read_monit_status_with_freshness_retry(command, enable_retry=True)
-
-
 def pytest_addoption(parser):
     parser.addoption(
         "--disable_memory_utilization",
@@ -61,7 +36,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function", autouse=True)
 def store_fixture_values(request, duthosts, memory_utilization):
-    if not is_memory_utilization_enabled(request.config, request.keywords, None):
+    if request.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in request.keywords:
         return
 
     logger.debug("store memory_utilization {}".format(request.node.name))
@@ -74,7 +49,8 @@ def pytest_runtest_setup(item):
     if "request" in item.fixturenames:
         request = item.funcargs.get("request", None)
         if request:
-            if not is_memory_utilization_enabled(request.config, request.keywords, None):
+            if request.config.getoption("--disable_memory_utilization") or \
+                    "disable_memory_utilization" in request.keywords:
                 return
 
     logger.debug("collect memory before test {}".format(item.name))
@@ -92,14 +68,16 @@ def pytest_runtest_setup(item):
         "enable_monit_refresh" in item.keywords
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(item.config, item.keywords, duthost):
+        if duthost.topo_type == 't2':
+            continue
+        if duthost.is_bmc():
             continue
 
-        refresh_state = None
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            refresh_state = monit_refresh_setup(duthost, memory_monitors[duthost.hostname])
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
                 "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
@@ -109,11 +87,8 @@ def pytest_runtest_setup(item):
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
                 if name == "monit":
-                    if enable_monit_refresh:
-                        output = monit_refresh_teardown(refresh_state)
-                    else:
-                        output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
-                            cmd, enable_retry=False)
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                        cmd, enable_retry=enable_monit_refresh)
                 else:
                     output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
@@ -133,7 +108,8 @@ def pytest_runtest_teardown(item, nextitem):
     if "request" in item.fixturenames:
         request = item.funcargs.get("request", None)
         if request:
-            if not is_memory_utilization_enabled(request.config, request.keywords, None):
+            if request.config.getoption("--disable_memory_utilization") or \
+                    "disable_memory_utilization" in request.keywords:
                 return
 
     logger.debug("collect memory after test {}".format(item.name))
@@ -150,14 +126,16 @@ def pytest_runtest_teardown(item, nextitem):
         "enable_monit_refresh" in item.keywords
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(item.config, item.keywords, duthost):
+        if duthost.topo_type == 't2':
+            continue
+        if duthost.is_bmc():
             continue
 
-        refresh_state = None
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            refresh_state = monit_refresh_setup(duthost, memory_monitors[duthost.hostname])
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
                 "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
@@ -167,11 +145,8 @@ def pytest_runtest_teardown(item, nextitem):
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
                 if name == "monit":
-                    if enable_monit_refresh:
-                        output = monit_refresh_teardown(refresh_state)
-                    else:
-                        output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
-                            cmd, enable_retry=False)
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                        cmd, enable_retry=enable_monit_refresh)
                 else:
                     output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
@@ -205,7 +180,7 @@ def pytest_runtest_teardown(item, nextitem):
 
 @pytest.fixture(autouse=True)
 def memory_utilization(duthosts, request):
-    if not is_memory_utilization_enabled(request.config, request.keywords, None):
+    if request.config.getoption("--disable_memory_utilization") or "disable_memory_utilization" in request.keywords:
         logger.info("Memory utilization monitoring is disabled")
         yield None, None
         return
@@ -214,7 +189,9 @@ def memory_utilization(duthosts, request):
     memory_values = {"before_test": {}, "after_test": {}}
 
     for duthost in duthosts:
-        if not is_memory_utilization_enabled(request.config, request.keywords, duthost):
+        if duthost.topo_type == 't2':
+            continue
+        if duthost.is_bmc():
             continue
         memory_monitor = MemoryMonitor(ansible_host=duthost)
         memory_values["before_test"][duthost.hostname] = {}
