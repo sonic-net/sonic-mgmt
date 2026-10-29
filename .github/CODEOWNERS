@@ -1,3 +1,9 @@
+# Community co-owners use sonic-tsc/pr_reviewer/sonic-mgmt contributor metadata,
+# pr_reviewer-by-files.yml qualification, and raw_change_weights.yml rankings.
+# Select up to one available contributor per module from ANET, NVDA, CSCO, and NXHP,
+# ranked by decayed changed-line weight (minimum 50); ties use GitHub login.
+# Repeat module co-owners on file overrides because only the last match applies.
+
 # Repository default; more specific rules below override this owner.
 *                                                                            @StormLiangMS
 
@@ -9,48 +15,48 @@
 /tests/bfd/                                                                  @prsunny
 /tests/bgp/                                                                  @deepak-singhal0408
 /tests/bmp/                                                                  @FengPan-Frank
-/tests/cacl/                                                                 @yyynini
+/tests/cacl/                                                                 @yyynini @shreyansh-nexthop
 /tests/clock/                                                                @wsycqyz
 /tests/configlet/                                                            @vaibhavhd
 /tests/console/                                                              @StormLiangMS
 /tests/container_checker/                                                    @augusdn
 /tests/container_hardening/                                                  @augusdn
 /tests/copp/                                                                 @prsunny
-/tests/crm/                                                                  @prsunny
+/tests/crm/                                                                  @prsunny @AntonHryshchuk @isiddeeq-cisco
 /tests/database/                                                             @qiluo-msft
 /tests/db_migrator/                                                          @vaibhavhd
-/tests/dash/                                                                 @prsunny
-/tests/decap/                                                                @prsunny
+/tests/dash/                                                                 @prsunny @congh-nvidia @aronovic
+/tests/decap/                                                                @prsunny @echuawu
 /tests/dhcp_relay/                                                           @Xichen96
 /tests/dhcp_server/                                                          @Xichen96
 /tests/disk/                                                                 @augusdn
 /tests/dns/                                                                  @qiluo-msft
 /tests/drop_packets/                                                         @prsunny
 /tests/dualtor/                                                              @lolyu
-/tests/dualtor_io/                                                           @lolyu
+/tests/dualtor_io/                                                           @lolyu @aakashtiwari2630-max
 /tests/dualtor_mgmt/                                                         @lolyu
 /tests/dut_console/                                                          @StormLiangMS
 /tests/ecmp/                                                                 @anish-n
-/tests/everflow/                                                             @bingwang-ms
-/tests/fdb/                                                                  @prsunny
+/tests/everflow/                                                             @bingwang-ms @rajkumar1-arista @echuawu @venu-nexthop
+/tests/fdb/                                                                  @prsunny @senthil-nexthop
 /tests/fib/                                                                  @prsunny
-/tests/generic_config_updater/                                               @rimunagala
-/tests/gnmi/                                                                 @donghaolicd
+/tests/generic_config_updater/                                               @rimunagala @anamehra
+/tests/gnmi/                                                                 @donghaolicd @ronan-nexthop
 /tests/golden_config_infra/                                                  @rimunagala
-/tests/hash/                                                                 @prsunny
+/tests/hash/                                                                 @prsunny @echuawu
 /tests/high_frequency_telemetry/                                             @Pterosaur
 /tests/http/                                                                 @qiluo-msft
 /tests/iface_loopback_action/                                                @prsunny
 /tests/iface_namingmode/                                                     @StormLiangMS
-/tests/ip/                                                                   @prsunny
+/tests/ip/                                                                   @prsunny @illia-kotvitskyi @ashutosh-agrawal
 /tests/ipfwd/                                                                @prsunny
 /tests/k8s/                                                                  @losha228
 /tests/kubesonic/                                                            @isabelmsft
-/tests/layer1/                                                               @mihirpat1
+/tests/layer1/                                                               @mihirpat1 @aisjoshi-cisco
 /tests/lldp/                                                                 @xwjiang-ms
 /tests/log_fidelity/                                                         @StormLiangMS
 /tests/l2/                                                                   @hdwhdw
-/tests/macsec/                                                               @Pterosaur
+/tests/macsec/                                                               @Pterosaur @senthil-nexthop
 /tests/memory_checker/                                                       @augusdn
 /tests/minigraph/                                                            @zbud-msft
 /tests/monit/                                                                @qiluo-msft
@@ -58,30 +64,30 @@
 /tests/mvrf/                                                                 @StormLiangMS
 /tests/test_nbr_health.py                                                    @Pterosaur
 /tests/ntp/                                                                  @wsycqyz
-/tests/override_config_table/                                                @vaibhavhd
-/tests/packet_trimming/                                                      @kperumalbfn
+/tests/override_config_table/                                                @vaibhavhd @arista-nwolfe
+/tests/packet_trimming/                                                      @kperumalbfn @weiguo-nvidia
 /tests/passw_hardening/                                                      @qiluo-msft
-/tests/pc/                                                                   @saiarcot895
+/tests/pc/                                                                   @saiarcot895 @peterbailey-arista
 /tests/pfc_asym/                                                             @kperumalbfn
-/tests/pfcwd/                                                                @lipxu
-/tests/platform_tests/                                                       @rlhui
+/tests/pfcwd/                                                                @lipxu @peterbailey-arista @dcaugher @indrashis-nexthop
+/tests/platform_tests/                                                       @rlhui @JibinBao @aisjoshi-cisco @chander-nexthop
 /tests/portstat/                                                             @judyjoseph
 /tests/process_monitoring/                                                   @qiluo-msft
 /tests/pytest.ini                                                            @xwjiang-ms
-/tests/qos/                                                                  @lipxu
+/tests/qos/                                                                  @lipxu @rick-arista @zhixzhu @purush-nexthop
 /tests/radv/                                                                 @vaibhavhd
 /tests/read_mac/                                                             @bingwang-ms
 /tests/reset_factory/                                                        @bingwang-ms
 /tests/restapi/                                                              @prsunny
-/tests/route/                                                                @prsunny
+/tests/route/                                                                @prsunny @wenjwang-nv
 /tests/saitests/                                                             @lipxu
-/tests/smartswitch/                                                          @vvolam
+/tests/smartswitch/                                                          @vvolam @congh-nvidia
 /tests/scp/                                                                  @augusdn
 /tests/show_techsupport/                                                     @StormLiangMS
 /tests/snappi_tests/                                                         @sdszhang
-/tests/snmp/                                                                 @qiluo-msft
+/tests/snmp/                                                                 @qiluo-msft @dcaugher
 /tests/span/                                                                 @bingwang-ms
-/tests/srv6/                                                                 @r12f
+/tests/srv6/                                                                 @r12f @echuawu
 /tests/ssh/                                                                  @augusdn
 /tests/stress/                                                               @prsunny
 /tests/sub_port_interfaces/                                                  @prgeor
@@ -89,11 +95,11 @@
 /tests/system_health/                                                        @rlhui
 /tests/tacacs/                                                               @qiluo-msft
 /tests/testbed_setup/                                                        @yejianquan
-/tests/transceiver/                                                          @mihirpat1
-/tests/vlan/                                                                 @prsunny
-/tests/voq/                                                                  @arlakshm
+/tests/transceiver/                                                          @mihirpat1 @aisjoshi-cisco
+/tests/vlan/                                                                 @prsunny @cshivashgit
+/tests/voq/                                                                  @arlakshm @jfeng-arista
 /tests/vrf/                                                                  @prsunny
-/tests/vxlan/                                                                @prsunny
+/tests/vxlan/                                                                @prsunny @aakashtiwari2630-max
 /tests/test_pretest.py                                                       @yejianquan
 /tests/test_posttest.py                                                      @yejianquan
 /tests/test_pktgen.py                                                        @wsycqyz
@@ -151,9 +157,9 @@
 /tests/bgp/test_traffic_shift.py                                             @tjchadaga
 /tests/bgp/test_traffic_shift_lc.py                                          @tjchadaga
 /tests/bgp/test_traffic_shift_sup.py                                         @tjchadaga
-/tests/bgp/test_bgp_bbr_default_state.py                                     @prsunny
-/tests/bgp/test_bgp_route_neigh_learning.py                                  @prsunny
-/tests/bgp/test_bgp_establish_combo.py                                       @lizhijianrd
+/tests/bgp/test_bgp_bbr_default_state.py                                     @nishant111
+/tests/bgp/test_bgp_route_neigh_learning.py                                  @nishant111
+/tests/bgp/test_bgp_establish_combo.py                                       @nishant111
 /tests/bgp/test_bgp_sentinel.py                                              @guangyao6
 
 # drop_packets
@@ -171,74 +177,74 @@
 /tests/ecmp/test_ecmp_balance.py                                             @xwjiang-ms
 
 # fdb
-/tests/fdb/test_fdb_flush.py                                                 @lipxu
+/tests/fdb/test_fdb_flush.py                                                 @lipxu @senthil-nexthop
 
 # generic_config_updater
-/tests/generic_config_updater/test_bgp_prefix.py                             @wenyiz2021
-/tests/generic_config_updater/test_bgp_speaker.py                            @wenyiz2021
-/tests/generic_config_updater/test_bgpl.py                                   @wenyiz2021
-/tests/generic_config_updater/test_bgp_sentinel.py                           @guangyao6
-/tests/generic_config_updater/test_cacl.py                                   @yyynini
-/tests/generic_config_updater/test_dhcp_relay.py                             @Xichen96
-/tests/generic_config_updater/test_ntp.py                                    @wsycqyz
-/tests/generic_config_updater/test_syslog.py                                 @qiluo-msft
-/tests/generic_config_updater/test_monitor_config.py                         @qiluo-msft
-/tests/generic_config_updater/test_aaa.py                                    @qiluo-msft
-/tests/generic_config_updater/test_lo_interface.py                           @prsunny
-/tests/generic_config_updater/test_vlan_interface.py                         @prsunny
-/tests/generic_config_updater/test_portchannel_interface.py                  @saiarcot895
-/tests/generic_config_updater/test_pfcwd_interval.py                         @lipxu
-/tests/generic_config_updater/test_pfcwd_status.py                           @lipxu
-/tests/generic_config_updater/test_ecn_config_update.py                      @lipxu
-/tests/generic_config_updater/test_incremental_qos.py                        @lipxu
-/tests/generic_config_updater/test_pg_headroom_update.py                     @lipxu
-/tests/generic_config_updater/test_mmu_dynamic_threshold_config_update.py    @developfast
-/tests/generic_config_updater/test_dynamic_acl.py                            @jongorel
-/tests/generic_config_updater/test_srv6.py                                   @r12f
-/tests/generic_config_updater/test_srv6_link_isolation_acl.py                @r12f
-/tests/generic_config_updater/test_static_route.py                           @prsunny
-/tests/generic_config_updater/test_mac_move_guard.py                         @prsunny
-/tests/generic_config_updater/test_dns_nameserver.py                         @qiluo-msft
+/tests/generic_config_updater/test_bgp_prefix.py                             @wenyiz2021 @anamehra
+/tests/generic_config_updater/test_bgp_speaker.py                            @wenyiz2021 @anamehra
+/tests/generic_config_updater/test_bgpl.py                                   @wenyiz2021 @anamehra
+/tests/generic_config_updater/test_bgp_sentinel.py                           @guangyao6 @anamehra
+/tests/generic_config_updater/test_cacl.py                                   @yyynini @anamehra
+/tests/generic_config_updater/test_dhcp_relay.py                             @Xichen96 @anamehra
+/tests/generic_config_updater/test_ntp.py                                    @wsycqyz @anamehra
+/tests/generic_config_updater/test_syslog.py                                 @qiluo-msft @anamehra
+/tests/generic_config_updater/test_monitor_config.py                         @qiluo-msft @anamehra
+/tests/generic_config_updater/test_aaa.py                                    @qiluo-msft @anamehra
+/tests/generic_config_updater/test_lo_interface.py                           @prsunny @anamehra
+/tests/generic_config_updater/test_vlan_interface.py                         @prsunny @anamehra
+/tests/generic_config_updater/test_portchannel_interface.py                  @saiarcot895 @anamehra
+/tests/generic_config_updater/test_pfcwd_interval.py                         @lipxu @anamehra
+/tests/generic_config_updater/test_pfcwd_status.py                           @lipxu @anamehra
+/tests/generic_config_updater/test_ecn_config_update.py                      @lipxu @anamehra
+/tests/generic_config_updater/test_incremental_qos.py                        @lipxu @anamehra
+/tests/generic_config_updater/test_pg_headroom_update.py                     @lipxu @anamehra
+/tests/generic_config_updater/test_mmu_dynamic_threshold_config_update.py    @developfast @anamehra
+/tests/generic_config_updater/test_dynamic_acl.py                            @jongorel @anamehra
+/tests/generic_config_updater/test_srv6.py                                   @r12f @anamehra
+/tests/generic_config_updater/test_srv6_link_isolation_acl.py                @r12f @anamehra
+/tests/generic_config_updater/test_static_route.py                           @prsunny @anamehra
+/tests/generic_config_updater/test_mac_move_guard.py                         @prsunny @anamehra
+/tests/generic_config_updater/test_dns_nameserver.py                         @qiluo-msft @anamehra
 
 # gnoi
-/tests/gnmi/test_gnoi_killprocess.py                                         @ryanzhu706
-/tests/gnmi/test_gnoi_os.py                                                  @ryanzhu706
-/tests/gnmi/test_gnoi_system.py                                              @ryanzhu706
-/tests/gnmi/test_gnoi_system_reboot.py                                       @ryanzhu706
+/tests/gnmi/test_gnoi_killprocess.py                                         @ryanzhu706 @ronan-nexthop
+/tests/gnmi/test_gnoi_os.py                                                  @ryanzhu706 @ronan-nexthop
+/tests/gnmi/test_gnoi_system.py                                              @ryanzhu706 @ronan-nexthop
+/tests/gnmi/test_gnoi_system_reboot.py                                       @ryanzhu706 @ronan-nexthop
 
 # ip
-/tests/ip/test_mgmt_ipv6_only.py                                             @qiluo-msft
+/tests/ip/test_mgmt_ipv6_only.py                                             @opcoder0 @illia-kotvitskyi @ashutosh-agrawal
 
 # override_config_table
-/tests/override_config_table/test_override_config_table_masic.py             @wenyiz2021
+/tests/override_config_table/test_override_config_table_masic.py             @wenyiz2021 @arista-nwolfe
 
 # pfcwd
-/tests/pfcwd/test_pfc_config.py                                              @bingwang-ms
+/tests/pfcwd/test_pfc_config.py                                              @bingwang-ms @peterbailey-arista @dcaugher @indrashis-nexthop
 
 # platform_tests
-/tests/platform_tests/broadcom/test_ser.py                                   @lipxu
-/tests/platform_tests/api/test_sfp.py                                        @mihirpat1
-/tests/platform_tests/mellanox/test_check_sfp_eeprom.py                      @mihirpat1
-/tests/platform_tests/mellanox/test_check_sfp_using_ethtool.py               @mihirpat1
-/tests/platform_tests/sfp/test_sfpshow.py                                    @mihirpat1
-/tests/platform_tests/sfp/test_sfputil.py                                    @mihirpat1
-/tests/platform_tests/daemon/test_ledd.py                                    @mihirpat1
-/tests/platform_tests/sfp/test_show_intf_xcvr.py                             @mihirpat1
-/tests/platform_tests/test_xcvr_info_in_db.py                                @mihirpat1
-/tests/platform_tests/test_sfp_thermal_state_db.py                           @mihirpat1
-/tests/platform_tests/counterpoll/test_counterpoll_watermark.py              @judyjoseph
-/tests/platform_tests/test_advanced_reboot.py                                @Ryangwaite
-/tests/platform_tests/test_cont_warm_reboot.py                               @Ryangwaite
-/tests/platform_tests/test_service_warm_restart.py                           @Ryangwaite
+/tests/platform_tests/broadcom/test_ser.py                                   @lipxu @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/api/test_sfp.py                                        @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/mellanox/test_check_sfp_eeprom.py                      @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/mellanox/test_check_sfp_using_ethtool.py               @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/sfp/test_sfpshow.py                                    @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/sfp/test_sfputil.py                                    @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/daemon/test_ledd.py                                    @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/sfp/test_show_intf_xcvr.py                             @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/test_xcvr_info_in_db.py                                @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/test_sfp_thermal_state_db.py                           @mihirpat1 @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/counterpoll/test_counterpoll_watermark.py              @judyjoseph @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/test_advanced_reboot.py                                @Ryangwaite @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/test_cont_warm_reboot.py                               @Ryangwaite @JibinBao @aisjoshi-cisco @chander-nexthop
+/tests/platform_tests/test_service_warm_restart.py                           @Ryangwaite @JibinBao @aisjoshi-cisco @chander-nexthop
 
 # qos
-/tests/qos/test_qos_masic.py                                                 @rlhui
-/tests/qos/test_qos_dscp_mapping.py                                          @developfast
+/tests/qos/test_qos_masic.py                                                 @rlhui @rick-arista @zhixzhu @purush-nexthop
+/tests/qos/test_qos_dscp_mapping.py                                          @kperumalbfn @rick-arista @zhixzhu @purush-nexthop
 
 # srv6
-/tests/srv6/test_srv6_static_config.py                                       @BYGX-wcr
-/tests/srv6/test_srv6_dataplane.py                                           @BYGX-wcr
-/tests/srv6/test_srv6_vlan_forwarding.py                                     @BYGX-wcr
+/tests/srv6/test_srv6_static_config.py                                       @BYGX-wcr @echuawu
+/tests/srv6/test_srv6_dataplane.py                                           @BYGX-wcr @echuawu
+/tests/srv6/test_srv6_vlan_forwarding.py                                     @BYGX-wcr @echuawu
 
 # sub_port_interfaces
 /tests/sub_port_interfaces/test_sub_port_interfaces.py                       @StormLiangMS
@@ -252,6 +258,6 @@
 
 # Case-level owners promoted to file co-owners.
 # test_warm_reboot is also in test_advanced_reboot.py, already owned by Ryan Garthwaite.
-/tests/platform_tests/test_reboot.py                                         @rlhui @Ryangwaite
+/tests/platform_tests/test_reboot.py                                         @rlhui @Ryangwaite @JibinBao @aisjoshi-cisco @chander-nexthop
 # test_orchagent_logrotate is in test_logrotate.py, outside its source script group.
 /tests/syslog/test_logrotate.py                                              @vvolam @theasianpianist
