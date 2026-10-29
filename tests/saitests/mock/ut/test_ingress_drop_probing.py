@@ -151,6 +151,18 @@ class TestIngressDropProbingConfiguration(unittest.TestCase):
         assert value == 1500
         assert "Ingress Drop threshold" in description
 
+    @pytest.mark.order(3025)
+    def test_get_expected_threshold_with_egr_mem(self):
+        """Test get_expected_threshold includes configured egress memory."""
+        instance = TestIngressDropProbingInstance()
+        instance.hwsku = "Arista-7060X6"
+        instance.pkts_num_trig_ingr_drp = 117679
+        instance.pkts_num_egr_mem = 206
+
+        result = IngressDropProbing.get_expected_threshold(instance)
+
+        assert result == (instance.pkts_num_trig_ingr_drp + instance.pkts_num_egr_mem, "Ingress Drop threshold")
+
     @pytest.mark.order(3030)
     def test_get_expected_threshold_absent(self):
         """Test get_expected_threshold when pkts_num_trig_ingr_drp is None."""
