@@ -50,12 +50,17 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                 [
                     # Interface flaps in test_lldp_entry_table_after_flap can cause routeCheck to fail momentarily
                     r".*ERR.* 'routeCheck' status failed.*",
-                    # The batched/continuous flap cases churn routes on every port at once, which can
-                    # make routeCheck run long enough for monit to hit its timeout and kill it. The
-                    # resulting "'routeCheck' program timed out ... Killing program" ERR is the same
-                    # benign, flap-induced noise as the "status failed" message above.
-                    r".*ERR.* 'routeCheck' program timed out.*",
                 ]
+            )
+
+
+@pytest.fixture(scope="function")
+def ignore_flap_loganalyzer_exceptions(duthosts, loganalyzer, ignore_expected_loganalyzer_exceptions):
+    """Ignore routeCheck timeouts only in the interface-flap tests."""
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.append(
+                r".*ERR.* 'routeCheck' program timed out.*"
             )
 
 
@@ -487,7 +492,7 @@ def test_lldp_entry_table_after_cont_flap(
     enum_rand_one_per_hwsku_frontend_hostname,
     db_instance,
     capture_and_validate_baseline,
-    ignore_expected_loganalyzer_exceptions,
+    ignore_flap_loganalyzer_exceptions,
 ):
     """Verify LLDP convergence after each selected front-panel interface flap."""
     max_test_interfaces = 32
@@ -515,7 +520,7 @@ def test_lldp_entry_table_after_all_batched_flap(
     enum_rand_one_per_hwsku_frontend_hostname,
     db_instance,
     capture_and_validate_baseline,
-    ignore_expected_loganalyzer_exceptions,
+    ignore_flap_loganalyzer_exceptions,
 ):
     """Require all flapped ports to recover while retaining management checks."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
