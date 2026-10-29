@@ -536,6 +536,7 @@ configuration_properties:
     swrole: leaf
   peer-leaf:
     swrole: peer-leaf
+    device_type: LeafRouter
 
 configuration:
   ARISTA01T1:
