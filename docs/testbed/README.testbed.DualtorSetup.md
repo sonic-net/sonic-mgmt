@@ -35,6 +35,40 @@ For `dualtor-aa` topology, all ports works in `active-standby` mode that operate
 
 
 
+### `dualtor-aa-o32v192` topology
+
+Use [topo_dualtor-aa-o32v192.yml](../../ansible/vars/topo_dualtor-aa-o32v192.yml)
+for `Arista-7060X6-64PE-B-O32V192` with its full 32x400G + 192x200G breakout.
+This variant exercises 24 active-active 200G downlinks and four 400G uplinks
+per DUT, instead of requiring test-server resources for all 192 downlinks.
+It provides subset functional coverage, not full-port scale qualification.
+
+The following mapping applies to both DUTs. DUT indices are zero-based positions
+in the HWSKU's ordered `port_alias` list, not Ethernet name suffixes or physical
+connector numbers. Ethernet ranges below advance by two.
+
+| Role | DUT indices | SONiC interfaces | Front-panel aliases | PTF indices |
+| --- | --- | --- | --- | --- |
+| Active-active downlinks, 200G | 2-13 | Ethernet8-Ethernet30 | etp2a-etp4d | 2-13, shared |
+| Active-active downlinks, 200G | 16-27 | Ethernet40-Ethernet62 | etp6a-etp8d | 16-27, shared |
+| Disabled host ports, 200G | 30-33 | Ethernet72-Ethernet78 | etp10a-etp10d | 30-33, shared |
+| ARISTA01T1 uplink, 400G | 0 | Ethernet0 | etp1a | 34 / 35 (DUT 0 / 1) |
+| ARISTA02T1 uplink, 400G | 14 | Ethernet32 | etp5a | 36 / 37 (DUT 0 / 1) |
+| ARISTA03T1 uplink, 400G | 28 | Ethernet64 | etp9a | 38 / 39 (DUT 0 / 1) |
+| ARISTA04T1 uplink, 400G | 42 | Ethernet96 | etp13a | 40 / 41 (DUT 0 / 1) |
+
+Host entries explicitly use `DUT.PORT@PTF`, with PTF indices equal to DUT indices:
+the NIC simulator looks up mux facts using that index. Uplink PTF indices are
+separate from all host PTF indices. The one-, two-, and four-VLAN configurations
+use the same 24 active downlinks; disabled host ports are excluded from VLANs
+and mux-cable configuration.
+
+Set `topo: dualtor-aa-o32v192` in the lab's testbed entry and supply the usual
+active-active `netns_mgmt_ip` and NIC simulator configuration. Confirm the port
+ordering and connection-graph/fanout wiring against this table before deployment.
+Other HWSKU interfaces are outside this topology and should not be cabled into
+the test forwarding paths. The original `dualtor-aa` topology remains unchanged.
+
 ### `dualtor-mixed` topology
 ![dualtor-mixed topology](./img/testbed_dualtor_mixed_topo.png)
 
