@@ -11,7 +11,7 @@ from tests.common.platform.interface_utils import get_port_map, get_lport_to_fir
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes, PMON_READY_TIMEOUT_SECS
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -26,7 +26,7 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+    pytest_assert(wait_until(PMON_READY_TIMEOUT_SECS, 10, 0, check_pmon_uptime_minutes, duthost),
                   "Pmon docker is not ready for test")
 
     logging.info("Check transceiver status")
