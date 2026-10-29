@@ -42,6 +42,10 @@ Options:
       description: announce or withdraw routes
       required: False
 
+    - option-name: routes_batch_size
+      description: maximum route commands sent in one HTTP request
+      required: False
+
     - option-name: path
       description: to figure out the path of topo_{}.yml
       required: False
@@ -187,7 +191,9 @@ def read_topo(topo_name, path):
         return {}
 
 
-def change_routes(action, ptf_ip, port, routes, routes_batch_size=ROUTES_BATCH_SIZE):
+def change_routes(action, ptf_ip, port, routes, routes_batch_size=None):
+    if routes_batch_size is None:
+        routes_batch_size = ROUTES_BATCH_SIZE
     logging.debug("action = {}, ptf_ip = {}, port = {}, routes_batch_size = {}, routes = {}"
                   .format(action, ptf_ip, port, routes_batch_size, routes))
     messages = []
@@ -572,6 +578,7 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
 
     multi_vrf = topo.get('topo_is_multi_vrf', False)
     multi_vrf_data = topo.get('convergence_data', {})
+    csonic_multi_vrf = multi_vrf and 'vrf_name_mapping' in multi_vrf_data
 
     vms = topo['topology']['VMs']
     if multi_vrf:
@@ -591,8 +598,23 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             if "PT" in vm_name:
                 tor_default_route = True
         port, port6 = get_change_routes_ports(vm_name, topo)
+        route_nhipv4 = nhipv4
+        route_nhipv6 = nhipv6
+        if csonic_multi_vrf:
+            # Every logical cSONiC peer has an isolated backplane subnet.  The
+            # shared topology next hops (10.10.246.254/fc0a::ff for T0) are
+            # reachable only from the prime peer's legacy compatibility subnet,
+            # so using them makes routes learned in the other VRFs invalid.
+            # Keep the established cEOS announcement payload unchanged; cEOS
+            # already rewrites these routes with its next-hop-peer setting.
+            ptf_backplane = multi_vrf_data['ptf_backplane_addrs'][vm_name]
+            route_nhipv4 = ptf_backplane.get('ipv4', nhipv4).split('/')[0]
+            route_nhipv6 = ptf_backplane.get('ipv6', nhipv6).split('/')[0]
         aggregate_prefixes = topo['configuration'][vm_name].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
-        aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
+        aggregate_routes = [
+            (prefix, route_nhipv4 if "." in prefix else route_nhipv6, "")
+            for prefix in aggregate_prefixes
+        ]
         aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
         aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
         topo_routes[vm_name] = {}
@@ -600,7 +622,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         if enable_ipv4_routes_generation:
             routes_v4, last_suffix = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
                                                      spine_asn, leaf_asn_start, tor_asn_start,
-                                                     nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
+                                                     route_nhipv4, route_nhipv4, tor_subnet_size,
+                                                     max_tor_subnet_number, "t0",
                                                      router_type=router_type,
                                                      no_default_route=no_default_route, offset=current_routes_offset,
                                                      tor_default_route=tor_default_route)
@@ -613,7 +636,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
         if enable_ipv6_routes_generation:
             routes_v6, last_suffix = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
                                                      spine_asn, leaf_asn_start, tor_asn_start,
-                                                     nhipv6, nhipv6, tor_subnet_size, max_tor_subnet_number, "t0",
+                                                     route_nhipv6, route_nhipv6, tor_subnet_size,
+                                                     max_tor_subnet_number, "t0",
                                                      router_type=router_type,
                                                      no_default_route=no_default_route,
                                                      ipv6_address_pattern=ipv6_address_pattern,
@@ -1704,7 +1728,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
                 ipv4_routes.append((str(subnetv4), vm_nhipv4, as_path))
                 ipv6_routes.append((str(subnetv6), vm_nhipv6, as_path))
 
-            ipv4_routes.append((str(next(extra_ipv4_t1)), vm_nhipv4, as_path))
+            ipv4_routes.append(("{}/32".format(next(extra_ipv4_t1)), vm_nhipv4, as_path))
 
             topo_routes[vm_name] = {}
             topo_routes[vm_name][IPV4] = ipv4_routes
@@ -1867,6 +1891,8 @@ def convert_routes_to_str(topo_routes):
 
 
 def main():
+    global ROUTES_BATCH_SIZE
+
     module = AnsibleModule(
         argument_spec=dict(
             topo_name=dict(required=True, type='str'),
@@ -1878,6 +1904,7 @@ def main():
             adhoc=dict(required=False, type='bool', default=False),
             peers_routes_to_change=dict(required=False, type='dict', default={}),
             log_path=dict(required=False, type='str', default='/tmp'),
+            routes_batch_size=dict(required=False, type='int', default=ROUTES_BATCH_SIZE),
             upstream_neighbor_groups=dict(required=False, type='int', default=0),
             downstream_neighbor_groups=dict(required=False, type='int', default=0)
         ),
@@ -1893,8 +1920,13 @@ def main():
     path = module.params['path']
     adhoc = module.params['adhoc']
     peers_routes_to_change = module.params['peers_routes_to_change']
+    routes_batch_size = module.params['routes_batch_size']
     upstream_neighbor_groups = module.params['upstream_neighbor_groups']
     downstream_neighbor_groups = module.params['downstream_neighbor_groups']
+
+    if routes_batch_size <= 0:
+        module.fail_json(msg='routes_batch_size must be a positive integer')
+    ROUTES_BATCH_SIZE = routes_batch_size
 
     topo = read_topo(topo_name, path)
     if not topo:

@@ -44,6 +44,20 @@
   shell: sonic-cfggen -j /tmp/cisco_minimal_config.json --write-to-db
   become: yes
 
+- name: Remove buffer config that references undefined buffer profiles
+  # 'config reload' skips the missing config_db.json without flushing CONFIG_DB,
+  # so the reload above keeps any buffer tables of the previous config. If
+  # BUFFER_PG/BUFFER_QUEUE exist but no BUFFER_PROFILE is defined, orchagent
+  # never marks the ports ready and no port is programmed in the ASIC, so every
+  # fanout link stays down. A fanout needs no buffer configuration.
+  shell: |
+    if [ -z "$(sonic-db-cli CONFIG_DB KEYS 'BUFFER_PROFILE|*')" ]; then
+      for table in BUFFER_PG BUFFER_QUEUE BUFFER_PORT_INGRESS_PROFILE_LIST BUFFER_PORT_EGRESS_PROFILE_LIST; do
+        sonic-db-cli CONFIG_DB KEYS "${table}|*" | xargs -r -n 100 sonic-db-cli CONFIG_DB DEL
+      done
+    fi
+  become: yes
+
 - name: Disable LLDP feature
   shell: |
     config feature autorestart lldp disabled

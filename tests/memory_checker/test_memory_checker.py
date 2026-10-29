@@ -248,6 +248,11 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
 
     yield
 
+    # test_memory_checker relies on a container restart to clear its allocation, so it
+    # leaks the same way if it fails before that happens. Stop any allocation still
+    # running before handing the device to the next test.
+    container.stop_consume_memory()
+
     restore_monit_config_files(duthost)
     restart_monit_service(duthost)
 
@@ -563,9 +568,9 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
-        timeout_monit_fail = 360  # fails happens after timeout wait
         container.start_consume_memory()
-        container.wait_monit_mem_failed(timeout_monit_fail)
+        # Monit reports failure only after its multi-cycle threshold is reached.
+        container.wait_monit_mem_failed()
         logger.info("Container %s should now be restarting", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
         # Wait until the service has started, then the loganalyzer will capture all the expected messages
@@ -607,6 +612,10 @@ def consumes_memory_and_checks_monit(duthost, container):
     # Monit container memory check should still be failed at this point
     container.wait_monit_mem_failed(10)
 
+    # Capture the second restart before it can occur during the first log analysis.
+    second_start_date = container.get_last_start_date()
+    second_marker = loganalyzer.update_marker_prefix("test_monit_counter")
+
     # Start consuming memory early and then check the logs so we hit the memory
     # limit before monit first cycle
     container.start_consume_memory()
@@ -615,14 +624,12 @@ def consumes_memory_and_checks_monit(duthost, container):
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
-    marker = loganalyzer.update_marker_prefix("test_monit_counter")
-
     logger.info("Waiting for container %s to restart after monit initial delay", container.name)
-    container.wait_restarted()
+    container.wait_restarted(second_start_date)
     container.wait_ready()
 
     logger.info("Analyzing syslog messages to verify whether '%s' is restarted ...", container.name)
-    loganalyzer.analyze(marker)
+    loganalyzer.analyze(second_marker)
 
     logger.info("Monit was able to restart '%s'", container.name)
 
@@ -685,9 +692,15 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
         timeout_status_change = 30
 
     container.start_consume_memory()
-    container.wait_monit_mem_last_failed(timeout_status_change)
+    try:
+        container.wait_monit_mem_last_failed(timeout_status_change)
+    finally:
+        # If the wait above fails we are still holding the allocation, and nothing else
+        # in this test stops it. Leaving it running keeps the container inflated into the
+        # next test, which then gets failed by the memory utilization plugin for memory it
+        # never allocated.
+        container.stop_consume_memory()
 
-    container.stop_consume_memory()
     container.wait_monit_mem_last_ok(timeout_status_change)
 
     analysis = loganalyzer.analyze(marker, fail=False)
