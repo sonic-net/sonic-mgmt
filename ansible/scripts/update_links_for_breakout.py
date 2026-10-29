@@ -11,6 +11,10 @@ Optionally updates the HwSku column in devices.csv when --hwsku is provided.
 Supports uniform breakout (all cages same) and mixed breakout (different
 breakout per port range).
 
+Use --device-role fanout with --platform-json and explicit port ranges for
+endpoint-aware remapping that preserves unselected cages and trunk connections.
+This updates CSVs only, not the running device or its installed SKU files.
+
 Usage:
     # Uniform breakout — all cages get the same mode
     python3 update_links_for_breakout.py \\
@@ -63,11 +67,15 @@ Examples:
 """
 
 import argparse
+from collections import defaultdict
 import csv
 import io
+import json
 import os
 import re
 import sys
+
+from generate_port_config import find_matching_breakout_mode
 
 
 def parse_breakout(breakout_str):
@@ -139,12 +147,176 @@ def csv_split_line(line):
     return []
 
 
-def csv_join_line(parts):
+def csv_join_line(parts, line_ending='\n'):
     """Join fields into a CSV line, quoting fields that contain commas."""
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator='')
     writer.writerow(parts)
-    return buf.getvalue() + '\n'
+    return buf.getvalue() + line_ending
+
+
+def csv_line_ending(line):
+    return line[len(line.rstrip('\r\n')):]
+
+
+def parse_port_ranges(spec):
+    """Parse comma-separated port numbers or inclusive numeric ranges."""
+    ports = set()
+    for part in spec.split(','):
+        match = re.fullmatch(r'(\d+)(?:-(\d+))?', part.strip())
+        if not match:
+            raise ValueError("Invalid preserved port range {!r}".format(part))
+        start = int(match[1])
+        end = int(match[2] or match[1])
+        if start > end:
+            raise ValueError("Reversed preserved port range {!r}".format(part))
+        ports.update(range(start, end + 1))
+    return ports
+
+
+def remap_fanout_links(lines, hostname, breakout_spec, platform_path, preserved_ports):
+    """Remap declared fanout wiring without inventing peers or dropping assigned links."""
+    if ':' not in breakout_spec:
+        raise ValueError("Fanout mode requires explicit whole-cage ranges, e.g. 4x200G:0-7")
+    if any(not re.fullmatch(r'\d+x\d+G\s*:\s*\d+-\d+', part.strip()) for part in breakout_spec.split(',')):
+        raise ValueError("Fanout breakout entries must have format NxSPEEDG:START-END")
+    ranges = parse_breakout_spec(breakout_spec)
+    for num_ports, speed, start, end in ranges:
+        if num_ports <= 0 or speed <= 0 or start > end:
+            raise ValueError("Invalid fanout breakout range")
+    ordered_ranges = sorted(ranges, key=lambda item: item[2])
+    if any(left[3] >= right[2] for left, right in zip(ordered_ranges, ordered_ranges[1:])):
+        raise ValueError("Fanout breakout ranges must not overlap")
+
+    with open(platform_path) as stream:
+        platform = json.load(stream)
+    interfaces = platform.get('interfaces') if isinstance(platform, dict) else None
+    if not isinstance(interfaces, dict) or not interfaces:
+        raise ValueError("platform.json must contain a nonempty interfaces object")
+    cages = {}
+    platform_lanes = set()
+    for name, info in interfaces.items():
+        if not re.fullmatch(r'Ethernet\d+', name) or not isinstance(info, dict):
+            raise ValueError("platform.json requires canonical Ethernet<N> cage definitions")
+        lane_spec = info.get('lanes')
+        if not isinstance(lane_spec, str):
+            raise ValueError("Invalid platform lanes for {}".format(name))
+        lanes = [lane.strip() for lane in lane_spec.split(',') if lane.strip()]
+        if not lanes or len(lanes) != len(set(lanes)):
+            raise ValueError("Invalid platform lanes for {}".format(name))
+        if platform_lanes.intersection(lanes):
+            raise ValueError("Platform cages have overlapping lanes")
+        platform_lanes.update(lanes)
+        if not isinstance(info.get('breakout_modes'), dict):
+            raise ValueError("Invalid breakout_modes for {}".format(name))
+        base = int(name[8:])
+        cages[base] = (base + len(lanes) - 1, info)
+    ordered_cages = sorted(cages)
+    if any(cages[left][0] >= right for left, right in zip(ordered_cages, ordered_cages[1:])):
+        raise ValueError("Overlapping platform cage address ranges")
+
+    selected = {}
+    for num_ports, speed, start, end in ranges:
+        covered = 0
+        for base, (last, _) in cages.items():
+            if last < start or base > end:
+                continue
+            if base < start or last > end:
+                raise ValueError("Range {}-{} splits cage Ethernet{}".format(start, end, base))
+            selected[base] = (num_ports, speed)
+            covered += last - base + 1
+        if covered != end - start + 1:
+            raise ValueError("Range {}-{} contains addresses absent from platform.json".format(start, end))
+
+    if not lines:
+        raise ValueError("Links CSV is empty")
+    fields = csv_split_line(lines[0])
+    required = ['StartDevice', 'StartPort', 'EndDevice', 'EndPort', 'BandWidth', 'VlanID', 'VlanMode']
+    if any(fields.count(field) != 1 for field in required):
+        raise ValueError("Links CSV requires unique columns: {}".format(', '.join(required)))
+    columns = {field: fields.index(field) for field in required}
+    connections = defaultdict(list)
+    endpoints = defaultdict(int)
+    seen_ports = set()
+    for index, line in enumerate(lines[1:], 1):
+        parts = csv_split_line(line)
+        if not parts:
+            continue
+        if len(parts) <= max(columns.values()):
+            raise ValueError("Incomplete links CSV row {}".format(index + 1))
+        sides = []
+        for side in ('Start', 'End'):
+            device = parts[columns[side + 'Device']]
+            port = parts[columns[side + 'Port']]
+            endpoints[(device, port)] += 1
+            if device == hostname:
+                sides.append(side)
+        if not sides:
+            continue
+        if len(sides) != 1:
+            raise ValueError("Self connection for {}".format(hostname))
+        side = sides[0]
+        local_port = parts[columns[side + 'Port']]
+        if not re.fullmatch(r'Ethernet\d+', local_port):
+            raise ValueError("Fanout ports must use canonical Ethernet<N> names: {}".format(local_port))
+        if local_port in seen_ports:
+            raise ValueError("Duplicate fanout port {}".format(local_port))
+        seen_ports.add(local_port)
+        port_num = int(local_port[8:])
+        bases = [base for base, (last, _) in cages.items() if base <= port_num <= last]
+        if not bases:
+            raise ValueError("{} is absent from platform.json".format(local_port))
+        other = 'End' if side == 'Start' else 'Start'
+        peer = (parts[columns[other + 'Device']], parts[columns[other + 'Port']])
+        connections[bases[0]].append((index, parts, port_num, peer))
+    if not seen_ports:
+        raise ValueError("Hostname {!r} not found in links CSV".format(hostname))
+
+    replacements = {}
+    removed = set()
+    protected = []
+    processed = 0
+    for base, (num_ports, speed) in selected.items():
+        last, info = cages[base]
+        rows = connections[base]
+        if any(base <= port <= last for port in preserved_ports) or any(
+                parts[columns['VlanMode']].strip().lower() == 'trunk' for _, parts, _, _ in rows):
+            protected.append("Ethernet{}".format(base))
+            continue
+        width = last - base + 1
+        mode, aliases = find_matching_breakout_mode(info.get('breakout_modes', {}), num_ports, speed)
+        if width % num_ports or mode is None or not isinstance(aliases, list) or len(aliases) != num_ports:
+            raise ValueError("Unsupported {}x{}G for Ethernet{}".format(num_ports, speed // 1000, base))
+        targets = set(range(base, last + 1, width // num_ports))
+        declared = {port for _, _, port, _ in rows}
+        if targets - declared:
+            missing = ', '.join("Ethernet{}".format(port) for port in sorted(targets - declared))
+            raise ValueError(
+                "Missing wiring for {}; supply reviewed graph entries, "
+                "not inferred peers".format(missing))
+        if len({peer[0] for _, _, _, peer in rows}) != 1:
+            raise ValueError(
+                "Cage Ethernet{} is shared between peer devices; "
+                "review its wiring explicitly".format(base))
+        for index, parts, port, peer in rows:
+            if not all(peer) or endpoints[peer] != 1:
+                raise ValueError("Missing or duplicate peer endpoint {}:{}".format(*peer))
+            if port not in targets:
+                if parts[columns['VlanID']].strip():
+                    raise ValueError("Cannot remove VLAN-assigned link {} Ethernet{}".format(hostname, port))
+                removed.add(index)
+                continue
+            if parts[columns['BandWidth']] != str(speed):
+                parts[columns['BandWidth']] = str(speed)
+                replacements[index] = csv_join_line(parts, csv_line_ending(lines[index]))
+        processed += 1
+    if not processed:
+        raise ValueError("No unprotected cages selected")
+
+    print("Fanout cages processed: {}; protected: {}".format(processed, ', '.join(protected) or 'none'))
+    print("Updated link speeds: {}; removed unassigned graph links: {}".format(len(replacements), len(removed)))
+    print("Peer endpoints, retained VLANs and all other rows are preserved.")
+    return [replacements.get(index, line) for index, line in enumerate(lines) if index not in removed]
 
 
 def parse_vlan_field(vlan_str):
@@ -212,8 +384,8 @@ def preflight_devices_csv(csv_path, hostname):
     with open(csv_path, newline='') as f:
         reader = csv.DictReader(f)
         fieldnames = reader.fieldnames
-        if not fieldnames or 'Hostname' not in fieldnames or 'HwSku' not in fieldnames:
-            print(f"Error: devices CSV missing required columns 'Hostname' and/or 'HwSku': {csv_path}",
+        if not fieldnames or fieldnames.count('Hostname') != 1 or fieldnames.count('HwSku') != 1:
+            print(f"Error: devices CSV requires unique columns 'Hostname' and 'HwSku': {csv_path}",
                   file=sys.stderr)
             sys.exit(1)
         rows = list(reader)
@@ -226,11 +398,14 @@ def preflight_devices_csv(csv_path, hostname):
         print(f"Error: hostname '{hostname}' appears {len(matches)} times in {csv_path} (expected exactly 1)",
               file=sys.stderr)
         sys.exit(1)
+    if matches[0]['HwSku'] is None:
+        print(f"Error: hostname '{hostname}' has an incomplete HwSku field in {csv_path}", file=sys.stderr)
+        sys.exit(1)
 
     return rows, fieldnames
 
 
-def update_devices_csv(csv_path, hostname, new_hwsku, dry_run=False):
+def update_devices_csv(csv_path, hostname, new_hwsku, dry_run=False, preserve_format=False):
     """Update the HwSku column for hostname in devices.csv."""
     rows, fieldnames = preflight_devices_csv(csv_path, hostname)
 
@@ -251,10 +426,22 @@ def update_devices_csv(csv_path, hostname, new_hwsku, dry_run=False):
     if dry_run:
         print("  [DRY RUN] No changes written to devices CSV.")
     else:
-        with open(csv_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
+        if preserve_format:
+            with open(csv_path, newline='') as f:
+                lines = f.readlines()
+            hostname_column = fieldnames.index('Hostname')
+            for index, line in enumerate(lines[1:], 1):
+                parts = csv_split_line(line)
+                if len(parts) > hostname_column and parts[hostname_column] == hostname:
+                    parts[fieldnames.index('HwSku')] = new_hwsku
+                    lines[index] = csv_join_line(parts, csv_line_ending(line))
+            with open(csv_path, 'w', newline='') as f:
+                f.writelines(lines)
+        else:
+            with open(csv_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
         print(f"  Written to {csv_path}")
 
 
@@ -264,7 +451,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='Breakout spec can be uniform ("2x400G") or mixed ("1x800G:0-255,2x400G:256-504")')
     parser.add_argument('--links-csv', required=True, help='Path to sonic_<lab>_links.csv')
-    parser.add_argument('--hostname', required=True, help='DUT hostname (e.g., str4-7060x6-64pe-11)')
+    parser.add_argument('--hostname', required=True, help='Device hostname (e.g., str4-7060x6-64pe-11)')
+    parser.add_argument('--device-role', choices=('dut', 'fanout'), default='dut',
+                        help='Use conservative, endpoint-aware CSV remapping for a fanout (default: dut)')
+    parser.add_argument('--platform-json', help="Fanout's own platform.json; required for --device-role fanout")
+    parser.add_argument('--preserve-ports',
+                        help='Fanout port numbers/ranges whose entire cages must be preserved, e.g. 496-503,512,520')
     parser.add_argument('--target-breakout', required=True,
                         help='Target breakout: uniform "2x400G" or mixed "1x800G:0-255,2x400G:256-504"')
     parser.add_argument('--lanes-per-cage', type=int, default=8, help='Lanes per physical cage (default: 8)')
@@ -276,6 +468,10 @@ def main():
                         help='Path to sonic_<lab>_devices.csv (auto-derived from --links-csv if omitted)')
     parser.add_argument('--dry-run', action='store_true', help='Preview changes without writing')
     args = parser.parse_args()
+    if args.device_role == 'fanout' and not args.platform_json:
+        parser.error("--device-role fanout requires --platform-json")
+    if args.device_role != 'fanout' and (args.platform_json or args.preserve_ports):
+        parser.error("--platform-json and --preserve-ports require --device-role fanout")
 
     # Resolve devices.csv path and preflight if --hwsku is provided
     devices_csv_path = None
@@ -287,6 +483,26 @@ def main():
             sys.exit(1)
         # Preflight before doing any work — fail early if devices.csv is invalid
         preflight_devices_csv(devices_csv_path, args.hostname)
+
+    if args.device_role == 'fanout':
+        try:
+            preserved = parse_port_ranges(args.preserve_ports) if args.preserve_ports else set()
+            preserved.update(parse_port_ranges(args.mgmt_ports))
+            with open(args.links_csv, newline='') as f:
+                lines = f.readlines()
+            new_lines = remap_fanout_links(lines, args.hostname, args.target_breakout, args.platform_json, preserved)
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
+        if args.dry_run:
+            print("[DRY RUN] No changes written.")
+        else:
+            with open(args.links_csv, 'w', newline='') as f:
+                f.writelines(new_lines)
+            print("Written to {}".format(args.links_csv))
+        if args.hwsku:
+            update_devices_csv(devices_csv_path, args.hostname, args.hwsku,
+                               dry_run=args.dry_run, preserve_format=True)
+        return
 
     breakout_ranges = parse_breakout_spec(args.target_breakout)
     mgmt_ports = set(int(p) for p in args.mgmt_ports.split(','))
@@ -304,8 +520,7 @@ def main():
 
     # --- Pre-scan: collect existing VLANs and DUT fanout info ---
     all_vlans_in_file = set()
-    old_dut_vlans = set()
-    dut_fanout_devices = set()
+    old_fanout_vlans = defaultdict(set)
 
     for line in lines:
         parts = csv_split_line(line)
@@ -317,10 +532,8 @@ def main():
                 port_num = int(port_str.replace('Ethernet', ''))
                 vlan_mode = parts[6].strip() if len(parts) > 6 else ''
                 if port_num not in mgmt_ports and vlan_mode != 'Trunk':
-                    if len(parts) > 5:
-                        old_dut_vlans.update(parse_vlan_field(parts[5]))
-                    if parts[2].strip():
-                        dut_fanout_devices.add(parts[2].strip())
+                    if len(parts) > 5 and parts[2].strip():
+                        old_fanout_vlans[parts[2].strip()].update(parse_vlan_field(parts[5]))
 
     max_vlan = max(all_vlans_in_file) if all_vlans_in_file else 0
     next_vlan = max_vlan + 1
@@ -329,7 +542,7 @@ def main():
     new_lines = []
     seen_target_ports = set()
     cage_info = {}
-    new_dut_vlans = set()
+    new_fanout_vlans = defaultdict(set)
     dut_lines_original = 0
     dut_lines_new = 0
     skipped = 0
@@ -393,8 +606,8 @@ def main():
         # Update: DUT port name and speed (VlanID preserved from source)
         parts[1] = target_port
         parts[4] = str(speed_mbps)
-        if len(parts) > 5 and parts[5].strip():
-            new_dut_vlans.update(parse_vlan_field(parts[5]))
+        if len(parts) > 5 and parts[5].strip() and parts[2].strip():
+            new_fanout_vlans[parts[2].strip()].update(parse_vlan_field(parts[5]))
 
         last_dut_access_idx = len(new_lines)
         new_lines.append(csv_join_line(parts))
@@ -419,7 +632,7 @@ def main():
             entry[5] = str(next_vlan)
             if len(entry) > 6:
                 entry[6] = 'Access'
-            new_dut_vlans.add(next_vlan)
+            new_fanout_vlans[entry[2].strip()].add(next_vlan)
             next_vlan += 1
             expansion_entries.append(csv_join_line(entry))
             dut_lines_new += 1
@@ -460,7 +673,7 @@ def main():
                 entry[5] = str(next_vlan)
                 if len(entry) > 6:
                     entry[6] = 'Access'
-                new_dut_vlans.add(next_vlan)
+                new_fanout_vlans[entry[2].strip()].add(next_vlan)
                 next_vlan += 1
                 expansion_entries.append(csv_join_line(entry))
                 dut_lines_new += 1
@@ -472,22 +685,26 @@ def main():
 
     # --- Update trunk/root fanout VLAN range ---
     trunk_updated = False
-    if dut_fanout_devices and new_dut_vlans:
+    dut_fanout_devices = old_fanout_vlans.keys() | new_fanout_vlans.keys()
+    if dut_fanout_devices:
         for i, line in enumerate(new_lines):
             parts = csv_split_line(line)
             if len(parts) > 6 and parts[6].strip() == 'Trunk':
                 start_dev = parts[0].strip()
                 end_dev = parts[2].strip()
-                if start_dev in dut_fanout_devices or end_dev in dut_fanout_devices:
+                fanouts = {start_dev, end_dev} & dut_fanout_devices
+                if fanouts:
                     trunk_vlans = parse_vlan_field(parts[5])
-                    trunk_vlans -= old_dut_vlans
-                    trunk_vlans |= new_dut_vlans
-                    # Trunk lines use min-max range to avoid commas in CSV
-                    vlan_min = min(trunk_vlans)
-                    vlan_max = max(trunk_vlans)
-                    parts[5] = f'{vlan_min}-{vlan_max}'
-                    new_lines[i] = csv_join_line(parts)
-                    trunk_updated = True
+                    old_vlans = set()
+                    new_vlans = set()
+                    for fanout in fanouts:
+                        old_vlans.update(old_fanout_vlans.get(fanout, ()))
+                        new_vlans.update(new_fanout_vlans.get(fanout, ()))
+                    updated_vlans = (trunk_vlans - old_vlans) | new_vlans
+                    if updated_vlans != trunk_vlans:
+                        parts[5] = format_vlan_range(updated_vlans)
+                        new_lines[i] = csv_join_line(parts)
+                        trunk_updated = True
 
     # Summary
     total_non_mgmt = dut_lines_new - mgmt_kept
