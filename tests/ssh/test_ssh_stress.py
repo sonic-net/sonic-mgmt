@@ -952,7 +952,7 @@ def _assert_stress_progress(
                 slowdown,
                 budget,
             )
-            if p95 > budget:
+            if p95 >= budget:
                 progress_failures.append(
                     "Command {} p95 {:.2f}s exceeded the {:.2f}s "
                     "mixed-workload budget derived from all serial "
@@ -997,12 +997,13 @@ def work(
             command = commands[command_ind]
             command_dispatched = True
             state_restored = False
-            if command_timeouts is None:
-                result = _run_command(ssh, command)
-            else:
-                result = _run_command(
-                    ssh, command, command_timeouts[command_ind]
-                )
+            command_timeout = COMMAND_TIMEOUT
+            if command_timeouts is not None:
+                command_timeout = command_timeouts[command_ind]
+            command_timeout = min(
+                command_timeout, max(0, deadline - time.monotonic())
+            )
+            result = _run_command(ssh, command, command_timeout)
             _, completion_duration = result
             if command == restore_command:
                 state_restored = True
@@ -1014,7 +1015,10 @@ def work(
                 completed_at,
                 deadline,
             ):
-                break
+                raise socket.timeout(
+                    "Command {!r} completed after the shared stress deadline"
+                    .format(command)
+                )
             if stop_event.wait(command_settle_time):
                 break
             command_ind += 1 if not command_ind else -1

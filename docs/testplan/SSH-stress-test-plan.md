@@ -48,15 +48,19 @@ Part 1:
    The relative per-command budget includes the slower serial direction from
    every pair plus one second per concurrent worker. Stress-command watchdogs
    scale from that mixed-workload budget, with a 60-second floor and 180-second
-   hard ceiling. Nonzero exit status, rollback failure, a deadline violation,
-   p95 above the relative mixed-workload budget, or insufficient normalized
-   progress remains a strict failure. A uniquely owned remote helper terminates
+   hard ceiling. A command dispatched near the shared stress deadline is bounded
+   by the remaining window; completing after that deadline is a failure rather
+   than an unmeasured tail. Nonzero exit status, rollback failure, a deadline
+   violation, p95 at or above the relative mixed-workload budget, or insufficient
+   normalized progress remains a strict failure. A uniquely owned remote helper terminates
    and fences a timed-out process group before rollback can begin. Each command's
    nearest-rank p95, maximum, serial baseline median, p95 slowdown, and relative
    budget are logged. This test gates concurrency degradation relative to the
-   assigned DUT's serial behavior; the independent three-cycle floor and hard
-   deadline prevent arbitrarily slow runs from calibrating themselves into a
-   pass.
+   assigned DUT's serial behavior. It intentionally does not assert an absolute
+   serial-command performance SLO: a broad serial slowdown that is proportional
+   under concurrency is outside this test's scope. The independent three-cycle
+   floor and hard deadline still bound the minimum evidence and total command
+   time accepted by this concurrency gate.
 6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
 7. After the stress workers stop, require one current CPU and memory sample to

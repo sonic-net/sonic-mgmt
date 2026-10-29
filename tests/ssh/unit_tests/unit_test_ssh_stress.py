@@ -786,7 +786,7 @@ def test_worker_rolls_back_a_timed_out_mutation(ssh_stress, monkeypatch):
     start_event = ssh_stress.threading.Event()
     start_event.set()
 
-    def run_command(_ssh, command):
+    def run_command(_ssh, command, _timeout=None):
         calls.append(command)
         if command == "add":
             raise ssh_stress.socket.timeout("timed out")
@@ -851,7 +851,7 @@ def test_worker_retries_a_timed_out_initial_bgp_restore(
     start_event = ssh_stress.threading.Event()
     start_event.set()
 
-    def run_command(_ssh, command):
+    def run_command(_ssh, command, _timeout=None):
         calls.append(command)
         if len(calls) == 1:
             raise ssh_stress.socket.timeout("timed out")
@@ -886,7 +886,7 @@ def test_worker_does_not_rollback_without_a_remote_fence(
     start_event = ssh_stress.threading.Event()
     start_event.set()
 
-    def run_command(_ssh, command):
+    def run_command(_ssh, command, _timeout=None):
         calls.append(command)
         raise ssh_stress._RemoteCommandFenceError("fence unavailable")
 
@@ -1064,8 +1064,9 @@ def test_stress_progress_rejects_incomplete_baseline_derived_floor(
         )
 
 
-def test_stress_progress_rejects_p95_above_mixed_workload_budget(
-    ssh_stress
+@pytest.mark.parametrize("p95", [3.50, 3.60])
+def test_stress_progress_rejects_p95_at_or_above_mixed_workload_budget(
+    ssh_stress, p95
 ):
     requirements = [{
         "required_cycles": 3,
@@ -1079,7 +1080,7 @@ def test_stress_progress_rejects_p95_above_mixed_workload_budget(
         ssh_stress._assert_stress_progress(
             [("add", "del")],
             [(0.50, 0.40)],
-            [[[3.60] * 3, [3.40] * 3]],
+            [[[p95] * 3, [3.40] * 3]],
             requirements,
         )
 
@@ -1109,6 +1110,41 @@ def test_completion_after_stress_deadline_is_not_recorded(ssh_stress):
         durations, 0, 2.50, completed_at=301, deadline=300
     )
     assert durations == [[], []]
+
+
+def test_worker_fails_and_rolls_back_completion_after_stress_deadline(
+    ssh_stress, monkeypatch
+):
+    now = iter([299.0, 299.0, 301.0])
+    calls = []
+    failures = ssh_stress.queue.Queue()
+    stop_event = ssh_stress.threading.Event()
+    start_event = ssh_stress.threading.Event()
+    start_event.set()
+
+    def run_command(_ssh, command, timeout=None):
+        calls.append((command, timeout))
+        return 0, 50
+
+    monkeypatch.setattr(ssh_stress.time, "monotonic", lambda: next(now))
+    monkeypatch.setattr(ssh_stress, "_run_command", run_command)
+
+    ssh_stress.work(
+        types.SimpleNamespace(close=lambda: None),
+        ("add", "del"),
+        failures,
+        0,
+        types.SimpleNamespace(wait=lambda: None),
+        start_event,
+        stop_event,
+        [300.0],
+        [[], []],
+        (60, 60),
+    )
+
+    assert calls == [("add", 1.0), ("del", 60)]
+    assert "completed after the shared stress deadline" in failures.get_nowait()
+    assert stop_event.is_set()
 
 
 def test_worker_does_not_dispatch_after_stress_deadline(
