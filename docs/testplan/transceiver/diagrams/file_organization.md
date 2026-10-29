@@ -34,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_firmware_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -113,19 +122,24 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute constants and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
 │   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
 │   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
 │   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
 │   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
 │   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
-│   └── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -174,10 +188,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py
@@ -225,8 +237,11 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field planning, namespace-batched reads, and availability checks
+│   └── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
 │
 └── pm/
     ├── __init__.py

@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
 from tests.common.helpers.liquid_leakage_control_test_helper import verify_leakage_status, \
     verify_leakage_status_in_health_system, get_liquid_cooling_update_interval, \
-    startmonitor_gnmi_event, verify_gnmi_msg_is_sent, setup_gnmi_server, WAIT_GNMI_EVENT_TIMEOUT,\
+    startmonitor_gnmi_event, verify_gnmi_msg_is_sent, setup_gnmi_server, WAIT_GNMI_EVENT_TIMEOUT, \
     ensure_liquid_cooling_in_system_health_monitoring_config, skip_when_no_liquid_cooling_system  # noqa: F401
 from tests.common.mellanox_data import get_platform_data
 from tests.common.helpers.mellanox_liquid_leakage_control_test_helper import MlxLiquidLeakageMocker  # noqa: F401

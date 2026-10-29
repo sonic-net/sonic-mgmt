@@ -100,7 +100,7 @@ class IxiaFanoutManager ():
                 format(self.ip_address, fanout_port, peer_port, peer_device, speed)
             retval.append(string)
 
-        return(retval)
+        return (retval)
 
     def get_fanout_device_details(self, device_number):
         """With the help of this function you can select the chassis you want
@@ -153,7 +153,7 @@ class IxiaFanoutManager ():
         Returns:
             Details of the chassis connection as dictionary format.
         """
-        return(self.last_device_connection_details)
+        return (self.last_device_connection_details)
 
     def get_chassis_ip(self):
         """This function returns IP address of a particular chassis
@@ -630,7 +630,7 @@ def create_ipv4_traffic(session,
         traffic_config.TransmissionControl.update(Type='fixedFrameCount', FrameCount=pkt_count)
 
     elif duration is not None:
-        if type(duration) != int or duration <= 0:
+        if not isinstance(duration, int) or duration <= 0:
             logger.error('Invalid duration value {} (positive integer only)'.format(duration))
             return None
         else:
@@ -723,7 +723,7 @@ def create_pause_traffic(session, name, source, pkt_per_sec, pkt_count=None,
             FrameCount=pkt_count)
 
     elif duration is not None:
-        if type(duration) != int or duration <= 0:
+        if not isinstance(duration, int) or duration <= 0:
             logger.error('Invalid duration value {} (positive integer only)'.format(duration))
 
             return None

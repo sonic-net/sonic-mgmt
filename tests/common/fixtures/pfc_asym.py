@@ -1,6 +1,7 @@
 import pytest
 import os
 import time
+import pathlib
 
 from netaddr import IPAddress
 from tests.common.helpers.generators import generate_ips
@@ -10,12 +11,13 @@ PFC_GEN_FILE = "pfc_gen.py"
 PFC_FRAMES_NUMBER = 50000000
 PFC_QUEUE_INDEX = 0xff
 
-ANSIBLE_ROOT = os.path.normpath((os.path.join(__file__, "../../../ansible")))
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 OS_ROOT_DIR = "/root"
 TESTS_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "../.."))
-ANSIBLE_ROOT = os.path.realpath(os.path.join(TESTS_ROOT, "../ansible"))
+ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+
 
 ARP_RESPONDER = os.path.join(TESTS_ROOT, "scripts/arp_responder.py")
 ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")

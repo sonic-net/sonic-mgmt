@@ -685,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -722,6 +722,16 @@ def str2bool(str):
     return str.lower() not in ["0", "false", "no"]
 
 
+def get_ptf_eth_ports_from_minigraph_interfaces(minigraph_interfaces, port_indices):
+    """Map minigraph L3 interfaces to PTF eth names when no portchannels exist."""
+    net_ports = []
+    for intf in minigraph_interfaces or []:
+        attachto = intf['attachto']
+        if attachto in port_indices:
+            net_ports.append('eth%d' % port_indices[attachto])
+    return net_ports
+
+
 def setup_ferret(duthost, ptfhost, tbinfo):
     '''
         Sets Ferret service on PTF host.
@@ -744,11 +754,16 @@ def setup_ferret(duthost, ptfhost, tbinfo):
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_interfaces': mgFacts['minigraph_interfaces'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
             'dut_mac': duthost.facts['router_mac']
         }
+        if not vxlanConfigData.get('minigraph_portchannels'):
+            vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+                vxlanConfigData['minigraph_interfaces'],
+                vxlanConfigData['minigraph_port_indices'])
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))
 
@@ -1057,6 +1072,21 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     if is_upper:
         return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def flush_permanent_neighbors(duthost):
+    """
+    Flush PERMANENT neighbor entries on all interfaces except 'lo'.
+
+    All IPv4 traffic over 'lo' shares the single kernel neighbor entry '0.0.0.0 dev lo'. The kernel creates it
+    as NOARP, but Cisco 8000 images (platform-cisco-8000 202605.1.0.7 and later) pin it PERMANENT from an
+    if-up.d hook. If that entry is deleted while it is in use, the kernel can leave it FAILED, which
+    black-holes 127.0.0.1 (e.g. Redis TCP) until 'lo' is bounced or the DUT is rebooted.
+    """
+    duthost.shell(
+        "ip neigh show nud permanent | awk '$2 == \"dev\" && $3 != \"lo\" {print $3}' | sort -u | "
+        "xargs -r -t -I{} sudo ip neigh flush dev {} nud permanent"
+    )
 
 
 def is_ipv6_only_topology(tbinfo):
@@ -1533,19 +1563,22 @@ def get_running_config(duthost, asic=None, filter=None):
     return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
-def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True, wait_for_bgp=True):
     """
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     from tests.common.config_reload import config_reload
-    golden_config = "/etc/sonic/golden_config_db.json"
+    golden_config = constants.GOLDEN_CONFIG_DB_PATH
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
         config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
-                      wait_for_bgp=True)
+                      wait_for_bgp=wait_for_bgp)
     finally:
-        # Cleanup golden config because some other test or device recover may reload config with golden config
+        # Cleanup golden config because some other test or device recover may reload config with golden config,
+        # then restore the original golden config.
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+        if file_exists_on_dut(duthost, constants.GOLDEN_CONFIG_DB_PATH_ORI):
+            duthost.command('cp {} {}'.format(constants.GOLDEN_CONFIG_DB_PATH_ORI, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

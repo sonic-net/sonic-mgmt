@@ -148,7 +148,6 @@ test_t0() {
       tacacs/test_ro_disk.py \
       tacacs/test_ro_user.py \
       tacacs/test_rw_user.py \
-      telemetry/test_telemetry.py \
       test_features.py \
       test_interfaces.py \
       test_procdockerstatsd.py"
@@ -177,7 +176,7 @@ test_t0() {
       gnmi/test_gnmi_configdb.py \
       gnmi/test_gnmi_appldb.py \
       gnmi/test_gnmi_countersdb.py \
-      gnmi_e2e/test_gnmi_auth.py \
+      gnmi/test_gnmi_aaa.py \
       override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \

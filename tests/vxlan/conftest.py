@@ -54,6 +54,22 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
+        "--vxlan_sport",
+        action="store",
+        default=5120,
+        type=int,
+        help="Base UDP source port for VxLAN sport entropy"
+    )
+
+    vxlan_group.addoption(
+        "--vxlan_mask",
+        action="store",
+        default=7,
+        type=int,
+        help="Number of bits to vary in the VxLAN UDP source port range"
+    )
+
+    vxlan_group.addoption(
         "--num_vnet",
         action="store",
         default=5,
