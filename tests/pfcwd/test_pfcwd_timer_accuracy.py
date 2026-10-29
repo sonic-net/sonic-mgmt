@@ -430,7 +430,8 @@ class TestPfcwdAllTimer(object):
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
         try:
-            if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            if (self.dut.topo_type == 't2' and self.dut.facts['asic_type'] != 'vs'
+                    and self.storm_handle.peer_device.os == 'sonic'):
                 for i in range(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test(setup_info)
