@@ -111,17 +111,6 @@ decap/test_subnet_decap.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           Drop              #####
-#######################################
-drop_packets/test_configurable_drop_counters.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####          DUT Console        #####
 #######################################
 dut_console/test_console_baud_rate.py:
