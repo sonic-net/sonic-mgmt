@@ -92,6 +92,32 @@
       | map(attribute='ptf_imagetag')
       | first is defined
 
+  - name: Set custom_ptf_mem_size from testbed.yaml
+    set_fact:
+      custom_ptf_mem_size: >-
+        {{ (lookup('file', "testbed.yaml")|from_yaml)
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | map(attribute='custom_ptf_mem_size')
+        | first }}
+    when: >-
+      (lookup('file', "testbed.yaml")|from_yaml)
+      | selectattr('conf-name', 'equalto', testbed_name)
+      | map(attribute='custom_ptf_mem_size')
+      | first is defined
+
+  - name: Set custom_ptf_swap_mem_size from testbed.yaml
+    set_fact:
+      custom_ptf_swap_mem_size: >-
+        {{ (lookup('file', "testbed.yaml")|from_yaml)
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | map(attribute='custom_ptf_swap_mem_size')
+        | first }}
+    when: >-
+      (lookup('file', "testbed.yaml")|from_yaml)
+      | selectattr('conf-name', 'equalto', testbed_name)
+      | map(attribute='custom_ptf_swap_mem_size')
+      | first is defined
+
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
   - set_fact:
