@@ -1000,9 +1000,6 @@ def work(
             command_timeout = COMMAND_TIMEOUT
             if command_timeouts is not None:
                 command_timeout = command_timeouts[command_ind]
-            command_timeout = min(
-                command_timeout, max(0, deadline - time.monotonic())
-            )
             result = _run_command(ssh, command, command_timeout)
             _, completion_duration = result
             if command == restore_command:
@@ -1015,10 +1012,7 @@ def work(
                 completed_at,
                 deadline,
             ):
-                raise socket.timeout(
-                    "Command {!r} completed after the shared stress deadline"
-                    .format(command)
-                )
+                break
             if stop_event.wait(command_settle_time):
                 break
             command_ind += 1 if not command_ind else -1

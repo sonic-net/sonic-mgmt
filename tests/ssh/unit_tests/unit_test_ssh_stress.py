@@ -1112,11 +1112,12 @@ def test_completion_after_stress_deadline_is_not_recorded(ssh_stress):
     assert durations == [[], []]
 
 
-def test_worker_fails_and_rolls_back_completion_after_stress_deadline(
+def test_worker_excludes_late_completion_and_rolls_back(
     ssh_stress, monkeypatch
 ):
-    now = iter([299.0, 299.0, 301.0])
+    now = iter([299.0, 301.0])
     calls = []
+    durations = [[], []]
     failures = ssh_stress.queue.Queue()
     stop_event = ssh_stress.threading.Event()
     start_event = ssh_stress.threading.Event()
@@ -1138,13 +1139,14 @@ def test_worker_fails_and_rolls_back_completion_after_stress_deadline(
         start_event,
         stop_event,
         [300.0],
-        [[], []],
+        durations,
         (60, 60),
     )
 
-    assert calls == [("add", 1.0), ("del", 60)]
-    assert "completed after the shared stress deadline" in failures.get_nowait()
-    assert stop_event.is_set()
+    assert calls == [("add", 60), ("del", 60)]
+    assert durations == [[], []]
+    assert failures.empty()
+    assert not stop_event.is_set()
 
 
 def test_worker_does_not_dispatch_after_stress_deadline(

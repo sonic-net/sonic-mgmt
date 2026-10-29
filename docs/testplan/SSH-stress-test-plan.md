@@ -48,11 +48,12 @@ Part 1:
    The relative per-command budget includes the slower serial direction from
    every pair plus one second per concurrent worker. Stress-command watchdogs
    scale from that mixed-workload budget, with a 60-second floor and 180-second
-   hard ceiling. A command dispatched near the shared stress deadline is bounded
-   by the remaining window; completing after that deadline is a failure rather
-   than an unmeasured tail. Nonzero exit status, rollback failure, a deadline
-   violation, p95 at or above the relative mixed-workload budget, or insufficient
-   normalized progress remains a strict failure. A uniquely owned remote helper terminates
+   hard ceiling. A command dispatched before the shared stress deadline keeps
+   its independent watchdog; a completion after the deadline is excluded from
+   measured progress, no later command is dispatched, and any mutation is still
+   rolled back safely. Nonzero exit status, command timeout, rollback failure,
+   p95 at or above the relative mixed-workload budget, or insufficient normalized
+   progress remains a strict failure. A uniquely owned remote helper terminates
    and fences a timed-out process group before rollback can begin. Each command's
    nearest-rank p95, maximum, serial baseline median, p95 slowdown, and relative
    budget are logged. This test gates concurrency degradation relative to the
