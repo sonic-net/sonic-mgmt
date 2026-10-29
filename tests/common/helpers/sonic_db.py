@@ -611,6 +611,7 @@ class VoqDbCli(SonicDbCli):
         host: a SonicHost instance for a supervisor card.  Commands will be run on this shell.
 
     """
+    CHASSIS_DB_ADDRESS_FILE_PATH = "/etc/sonic/chassisdb_address"
     SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
     SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
     SYSTEM_NEIGHBOR_TABLE = "SYSTEM_NEIGH"
@@ -618,8 +619,8 @@ class VoqDbCli(SonicDbCli):
     def __init__(self, host):
         """Initializes the class with the database parameters and finds the IP address of the database"""
         super(VoqDbCli, self).__init__(host, 'CHASSIS_APP_DB')
-        output = host.command("grep chassis_db_address /etc/sonic/chassisdb.conf")
-        self.ip = output['stdout'].split("=")[1]
+        output = host.command("grep chassis_db_address {}".format(VoqDbCli.CHASSIS_DB_ADDRESS_FILE_PATH))
+        self.ip = output['stdout'].split("=")[1].strip()
 
     def get_neighbor_key_by_ip(self, ipaddr):
         """Returns the key in the neighbor table that is for a specific IP neighbor
