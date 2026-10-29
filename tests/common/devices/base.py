@@ -2,6 +2,7 @@ import inspect
 import json
 import logging
 import collections
+import os
 import signal
 import threading
 from contextlib import contextmanager
@@ -42,6 +43,11 @@ def ansible_tqm_has_signal_registration():
 _signal_patch_lock = threading.RLock()
 _signal_patch_ref_count = 0
 _original_signal = None
+# pytest-ansible resolves modules through mutable plugin-loader caches shared
+# by threads in each Python process. Reset the process-local lock after fork so
+# a child cannot inherit it while held by a vanished parent thread.
+_ansible_module_resolution_lock = threading.RLock()
+os.register_at_fork(after_in_child=_ansible_module_resolution_lock._at_fork_reinit)
 
 
 @contextmanager
@@ -158,7 +164,9 @@ class AnsibleHostBase(object):
         self.hostname = hostname
 
     def __getattr__(self, module_name):
-        if self.host.has_module(module_name):
+        with _ansible_module_resolution_lock:
+            has_module = self.host.has_module(module_name)
+        if has_module:
             def _run_wrapper(*module_args, **kwargs):
                 return self._run(module_name, *module_args, **kwargs)
             return _run_wrapper
@@ -166,13 +174,17 @@ class AnsibleHostBase(object):
             "'%s' object has no attribute '%s'" % (self.__class__, module_name)
             )
 
+    def _get_ansible_module(self, module_name):
+        with _ansible_module_resolution_lock:
+            return getattr(self.host, module_name)
+
     def _run(self, module_name, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
 
         verbose = complex_args.pop('verbose', True)
-        module = getattr(self.host, module_name)
+        module = self._get_ansible_module(module_name)
         if verbose:
             logger.debug(
                 "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
