@@ -925,7 +925,7 @@ def test_fast_host_retains_twenty_cycle_cap(ssh_stress):
     ]
     requirements = ssh_stress._derive_stress_requirements(
         command_pairs,
-        [(1.0, 1.0)] * 5,
+        [(0.1, 0.1)] * 5,
         command_settle_time=1,
     )
 
@@ -934,14 +934,16 @@ def test_fast_host_retains_twenty_cycle_cap(ssh_stress):
         for requirement in requirements
     )
     assert all(
+        requirement["command_budgets"] == (5.5, 5.5)
+        for requirement in requirements
+    )
+    assert all(
         requirement["command_timeouts"] == (60, 60)
         for requirement in requirements
     )
 
 
-def test_slow_host_gets_baseline_scaled_limits_and_inconclusive_result(
-    ssh_stress
-):
+def test_slow_host_uses_global_mixed_workload_budget(ssh_stress):
     command_pairs = [
         ("add-{}".format(ind), "del-{}".format(ind))
         for ind in range(5)
@@ -951,13 +953,56 @@ def test_slow_host_gets_baseline_scaled_limits_and_inconclusive_result(
         command_pairs, baseline_times, command_settle_time=1
     )
 
-    assert requirements[0]["command_budgets"] == (101.0, 51.0)
-    assert requirements[0]["command_timeouts"] == (101.0, 60)
-    assert requirements[0]["required_cycles"] == 1
-    with pytest.raises(pytest.skip.Exception, match="INFRASTRUCTURE_LIMITED"):
-        ssh_stress._require_meaningful_stress_evidence(
-            command_pairs, requirements
-        )
+    assert all(
+        requirement["command_budgets"] == (29.0, 29.0)
+        for requirement in requirements
+    )
+    assert all(
+        requirement["command_timeouts"] == (60, 60)
+        for requirement in requirements
+    )
+    assert all(
+        requirement["required_cycles"] == 6
+        for requirement in requirements
+    )
+
+
+def test_adaptive_floor_never_drops_below_three_cycles(ssh_stress):
+    command_pairs = [
+        ("add-{}".format(ind), "del-{}".format(ind))
+        for ind in range(5)
+    ]
+    requirements = ssh_stress._derive_stress_requirements(
+        command_pairs,
+        [(10.0, 10.0)] * 5,
+        command_settle_time=1,
+    )
+
+    assert all(
+        requirement["required_cycles"] == 3
+        for requirement in requirements
+    )
+
+
+def test_restore_first_pair_accounts_for_initial_command_budget(ssh_stress):
+    command_pairs = [
+        (ssh_stress.START_BGP_NBRS, ssh_stress.STOP_BGP_NBRS),
+    ] + [
+        ("add-{}".format(ind), "del-{}".format(ind))
+        for ind in range(1, 5)
+    ]
+    requirements = ssh_stress._derive_stress_requirements(
+        command_pairs,
+        [(5.8, 5.8)] * 5,
+        command_settle_time=1,
+    )
+
+    assert requirements[0]["initial_restore_budget"] == 35.0
+    assert requirements[0]["required_cycles"] == 3
+    assert all(
+        requirement["required_cycles"] == 4
+        for requirement in requirements[1:]
+    )
 
 
 def test_adaptive_command_timeout_retains_hard_ceiling(ssh_stress):
@@ -967,7 +1012,7 @@ def test_adaptive_command_timeout_retains_hard_ceiling(ssh_stress):
     ]
     requirements = ssh_stress._derive_stress_requirements(
         command_pairs,
-        [(100.0, 100.0)] + [(1.0, 1.0)] * 4,
+        [(200.0, 200.0)] + [(1.0, 1.0)] * 4,
         command_settle_time=1,
     )
 
@@ -985,7 +1030,7 @@ def test_stress_progress_accepts_baseline_derived_cycle_floor(
         "required_cycles": 3,
         "serial_cycle_duration": 0.90,
         "allowed_cycle_duration": 5.50,
-        "command_budgets": (3.50, 3.00),
+        "command_budgets": (3.50, 3.50),
         "command_timeouts": (60, 60),
     }]
 
@@ -1006,7 +1051,7 @@ def test_stress_progress_rejects_incomplete_baseline_derived_floor(
         "required_cycles": 3,
         "serial_cycle_duration": 0.90,
         "allowed_cycle_duration": 5.50,
-        "command_budgets": (3.50, 3.00),
+        "command_budgets": (3.50, 3.50),
         "command_timeouts": (60, 60),
     }]
 
@@ -1015,6 +1060,26 @@ def test_stress_progress_rejects_incomplete_baseline_derived_floor(
             [("add", "del")],
             [(0.50, 0.40)],
             stress_durations,
+            requirements,
+        )
+
+
+def test_stress_progress_rejects_p95_above_mixed_workload_budget(
+    ssh_stress
+):
+    requirements = [{
+        "required_cycles": 3,
+        "serial_cycle_duration": 0.90,
+        "allowed_cycle_duration": 5.50,
+        "command_budgets": (3.50, 3.50),
+        "command_timeouts": (60, 60),
+    }]
+
+    with pytest.raises(AssertionError, match="mixed-workload budget"):
+        ssh_stress._assert_stress_progress(
+            [("add", "del")],
+            [(0.50, 0.40)],
+            [[[3.60] * 3, [3.40] * 3]],
             requirements,
         )
 

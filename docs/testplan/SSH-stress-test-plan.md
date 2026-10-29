@@ -35,23 +35,28 @@ Part 1:
     - Add a route to the routemap and remove it
     - Add a port channel and remove it
 5. Record every completed command duration during the five-minute stress phase.
-   Normalize each pair's required restored-cycle count to that DUT's serial
-   medians. For each command, budget five times its serial median plus one second
-   for the five concurrent workers; add the normal settle delays to form the
-   pair's contention budget. Require the number of full cycles that fit in 300
-   seconds under that budget, capped at the existing 20-cycle maximum. A host
-   whose serial baselines predict fewer than three meaningful cycles is reported
-   as `INFRASTRUCTURE_LIMITED` so the run can be rescheduled rather than recorded
-   as a product failure. A final unmatched command does not count as an additional
-   cycle.
-   Command watchdogs scale from the same baseline-derived budgets, with a
-   60-second floor and 180-second hard ceiling. Nonzero exit status, rollback
-   failure, a deadline violation, or insufficient baseline-normalized progress
-   remains a strict failure. A uniquely owned remote helper terminates and
-   fences a timed-out process group before rollback can begin. Each command's
+   Normalize the required restored-cycle count to the complete mixed workload's
+   serial medians rather than multiplying each heterogeneous command by its own
+   worker count. One fair contention round includes both serial directions from
+   all five pairs, one second of scheduling/transport margin per command, and the
+   pair's normal settle delay. Require the number of those rounds that fit in 300
+   seconds, with an independent minimum of three cycles and a cap of 20. This
+   intentionally converts the former fixed 20-cycle minimum into a host-normalized
+   range of 3..20 while preserving a non-negotiable evidence floor. The initial
+   no-op BGP startup is subtracted before deriving its cycle count. A final
+   unmatched command does not count as an additional cycle.
+   The relative per-command budget includes the slower serial direction from
+   every pair plus one second per concurrent worker. Stress-command watchdogs
+   scale from that mixed-workload budget, with a 60-second floor and 180-second
+   hard ceiling. Nonzero exit status, rollback failure, a deadline violation,
+   p95 above the relative mixed-workload budget, or insufficient normalized
+   progress remains a strict failure. A uniquely owned remote helper terminates
+   and fences a timed-out process group before rollback can begin. Each command's
    nearest-rank p95, maximum, serial baseline median, p95 slowdown, and relative
-   budget are logged as diagnostics; the hard performance gate is restored-cycle
-   throughput rather than a per-command queueing assertion.
+   budget are logged. This test gates concurrency degradation relative to the
+   assigned DUT's serial behavior; the independent three-cycle floor and hard
+   deadline prevent arbitrarily slow runs from calibrating themselves into a
+   pass.
 6. Monitor memory and CPU usage over the following 5 minutes through one
    persistent `vmstat` process rather than repeatedly creating monitoring sessions.
 7. After the stress workers stop, require one current CPU and memory sample to

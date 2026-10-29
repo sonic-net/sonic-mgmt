@@ -52,7 +52,7 @@ RESOURCE_BASELINE_SAMPLES = 3
 STRESS_DURATION = 300
 STRESS_PERCENTILE = 0.95
 MAX_STRESS_CYCLES = 20
-MIN_MEANINGFUL_STRESS_CYCLES = 3
+MIN_STRESS_CYCLES = 3
 STRESS_COMMAND_MARGIN = 1
 
 # Preserve the test's long-standing 20-point recovery guard. This is a
@@ -806,63 +806,63 @@ def _derive_stress_requirements(
     if len(command_pairs) != len(baseline_times):
         raise ValueError("Each command pair must have serial baselines")
 
-    parallel_task_count = len(command_pairs)
-    requirements = []
     for commands, baselines in zip(command_pairs, baseline_times):
         if len(commands) != len(baselines):
             raise ValueError("Each command must have one serial baseline")
         if any(baseline <= 0 for baseline in baselines):
             raise ValueError("Serial command baselines must be positive")
 
-        command_budgets = tuple(
-            min(
-                MAX_COMMAND_TIMEOUT,
-                parallel_task_count * baseline + STRESS_COMMAND_MARGIN,
+    # Each worker can have only one command in flight. One command therefore
+    # competes with at most the slower direction from every other pair.
+    relative_command_budget = min(
+        MAX_COMMAND_TIMEOUT,
+        sum(max(baselines) for baselines in baseline_times)
+        + len(command_pairs) * STRESS_COMMAND_MARGIN,
+    )
+    command_timeout = max(COMMAND_TIMEOUT, relative_command_budget)
+
+    # One restored cycle from every worker consumes both directions from every
+    # pair. Settle waits overlap across workers, while per-command margins model
+    # scheduling/transport overhead that the serial medians do not include.
+    serial_round_duration = sum(
+        sum(baselines) for baselines in baseline_times
+    )
+    allowed_round_duration = (
+        serial_round_duration
+        + sum(len(commands) for commands in command_pairs)
+        * STRESS_COMMAND_MARGIN
+        + max(len(commands) for commands in command_pairs)
+        * command_settle_time
+    )
+
+    requirements = []
+    for commands, baselines in zip(command_pairs, baseline_times):
+        initial_restore_budget = 0
+        if _restore_command(commands) == commands[0]:
+            initial_restore_budget = (
+                relative_command_budget + command_settle_time
             )
-            for baseline in baselines
+        available_duration = max(
+            0, STRESS_DURATION - initial_restore_budget
         )
-        command_timeouts = tuple(
-            max(COMMAND_TIMEOUT, budget) for budget in command_budgets
+        adaptive_cycles = int(
+            available_duration // allowed_round_duration
         )
-        serial_cycle_duration = (
-            sum(baselines) + len(commands) * command_settle_time
-        )
-        allowed_cycle_duration = (
-            sum(command_budgets) + len(commands) * command_settle_time
-        )
-        required_cycles = min(
-            MAX_STRESS_CYCLES,
-            int(STRESS_DURATION // allowed_cycle_duration),
+        required_cycles = max(
+            MIN_STRESS_CYCLES,
+            min(MAX_STRESS_CYCLES, adaptive_cycles),
         )
         requirements.append({
             "required_cycles": required_cycles,
-            "serial_cycle_duration": serial_cycle_duration,
-            "allowed_cycle_duration": allowed_cycle_duration,
-            "command_budgets": command_budgets,
-            "command_timeouts": command_timeouts,
+            "serial_cycle_duration": (
+                sum(baselines) + len(commands) * command_settle_time
+            ),
+            "allowed_cycle_duration": allowed_round_duration,
+            "command_budgets": (relative_command_budget,) * len(commands),
+            "command_timeouts": (command_timeout,) * len(commands),
+            "initial_restore_budget": initial_restore_budget,
         })
     return requirements
-
-
-def _require_meaningful_stress_evidence(command_pairs, requirements):
-    insufficient = [
-        {
-            "commands": commands,
-            "required_cycles": requirement["required_cycles"],
-            "allowed_cycle_duration": requirement["allowed_cycle_duration"],
-        }
-        for commands, requirement in zip(command_pairs, requirements)
-        if requirement["required_cycles"] < MIN_MEANINGFUL_STRESS_CYCLES
-    ]
-    if insufficient:
-        pytest.skip(
-            "INFRASTRUCTURE_LIMITED: serial baselines predict fewer than {} "
-            "meaningful restored cycles in {} seconds: {}".format(
-                MIN_MEANINGFUL_STRESS_CYCLES,
-                STRESS_DURATION,
-                insufficient,
-            )
-        )
 
 
 def _record_stress_completion(
@@ -952,6 +952,14 @@ def _assert_stress_progress(
                 slowdown,
                 budget,
             )
+            if p95 > budget:
+                progress_failures.append(
+                    "Command {} p95 {:.2f}s exceeded the {:.2f}s "
+                    "mixed-workload budget derived from all serial "
+                    "baselines; max {:.2f}s".format(
+                        command, p95, budget, max(samples)
+                    )
+                )
 
     pytest_assert(
         not progress_failures,
@@ -1198,9 +1206,6 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
         )
         stress_requirements = _derive_stress_requirements(
             command_pairs, baseline_times, command_settle_time
-        )
-        _require_meaningful_stress_evidence(
-            command_pairs, stress_requirements
         )
 
         logging.info("Preparing synchronized SSH command workers")
