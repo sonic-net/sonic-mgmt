@@ -59,7 +59,7 @@ def _system_attributes(port_attributes_dict):
 
 
 def _link_recovery(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, port_peers, expected_pid_changes,
     reestablish_health_baseline, op_name, settle_attr, operation,
 ):
     """Run a system-wide disruption and verify all transceiver ports recover cleanly.
@@ -97,6 +97,7 @@ def _link_recovery(
         health_baseline=health_baseline,
         expected_pid_changes=expected_pid_changes,
         lport_to_first_subport_mapping=lport_to_first_subport_mapping,
+        port_peers=port_peers,
     )
 
     if result["passed"]:
@@ -114,12 +115,12 @@ def _link_recovery(
 @pytest.mark.disable_memory_utilization
 @pytest.mark.disable_loganalyzer
 def test_system_config_reload_link_recovery(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, port_peers, expected_pid_changes,
     reestablish_health_baseline,
 ):
     """Config reload the DUT and verify all transceiver ports recover cleanly."""
     _link_recovery(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, port_peers, expected_pid_changes,
         reestablish_health_baseline, "config reload", "config_reload_settle_sec",
         lambda: scenario_ops.perform_config_reload(duthost),
     )
@@ -129,8 +130,8 @@ def test_system_config_reload_link_recovery(
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("reboot_type", ["cold", "warm", "fast"])
 def test_system_reboot_link_recovery(
-    duthost, localhost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
-    reestablish_health_baseline, reboot_type,
+    duthost, localhost, port_attributes_dict, lport_to_first_subport_mapping, port_peers,
+    expected_pid_changes, reestablish_health_baseline, reboot_type,
 ):
     """Cold / warm / fast reboot the DUT and verify all transceiver ports recover cleanly."""
     # Cold reboot is always supported; warm/fast are gated by a platform attr.
@@ -141,7 +142,7 @@ def test_system_reboot_link_recovery(
 
     operation = getattr(scenario_ops, f"perform_{reboot_type}_reboot")
     _link_recovery(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, port_peers, expected_pid_changes,
         reestablish_health_baseline, f"{reboot_type} reboot", f"{reboot_type}_reboot_settle_sec",
         lambda: operation(duthost, localhost),
     )
@@ -151,7 +152,7 @@ def test_system_reboot_link_recovery(
 @pytest.mark.disable_loganalyzer
 def test_system_power_cycle_link_recovery(
     duthost, localhost, pdu_controller, port_attributes_dict,
-    lport_to_first_subport_mapping, expected_pid_changes, reestablish_health_baseline,
+    lport_to_first_subport_mapping, port_peers, expected_pid_changes, reestablish_health_baseline,
 ):
     """Power cycle the DUT via its PDU and verify all transceiver ports recover cleanly."""
     if not _system_attributes(port_attributes_dict).get("power_cycle_supported", False):
@@ -160,7 +161,7 @@ def test_system_power_cycle_link_recovery(
         pytest.skip(f"No PDU controller for {duthost.hostname} - skipping power cycle link recovery test")
 
     _link_recovery(
-        duthost, port_attributes_dict, lport_to_first_subport_mapping, expected_pid_changes,
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, port_peers, expected_pid_changes,
         reestablish_health_baseline, "power cycle", "power_cycle_settle_sec",
         lambda: scenario_ops.perform_power_cycle(duthost, localhost, pdu_controller),
     )
