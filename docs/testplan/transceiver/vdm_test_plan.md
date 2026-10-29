@@ -155,6 +155,8 @@ For every such field, the correct ordering is `LALARM < LWARN < HWARN < HALARM`.
 
 **Optional value comparison (DOM parity):** Any field may additionally declare a `_threshold_range` attribute — `{"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>}`, lane-indexed the same way as `_operational_range` (e.g. `esnr_media_inputLANE_NUM_threshold_range`), matching DOM's dual-range model. When configured, validation additionally asserts the configured values equal the live STATE_DB threshold values for each severity, on top of the hierarchy check — this catches xcvrd threshold parse/publish or EEPROM-programming errors where the ordering is internally valid but the values themselves are wrong. Skip-when-absent (the default, since these values are module-reported with no universal default — see [Attributes](#attributes)): validation then stays hierarchy-only, adding no forced authoring cost.
 
+Any configured severity may be `"N/A"` instead of a number. This expects the DUT to report `0.0` for that severity and excludes it from the hierarchy check. Use it for zero thresholds that the module does not implement; a numeric `0.0` still participates in the hierarchy.
+
 Any test case below that reads, records a baseline from, or verifies thresholds does so against this table set and these semantics, and references this section rather than restating it.
 
 ## Flag Validation
