@@ -35,6 +35,19 @@
   gather_facts: no
   tasks:
 
+  - name: Validate Generic HWSKU deployment options
+    assert:
+      that:
+        - deploy | default(false) | bool
+        - port_override_from_links | default(false) | bool
+        - enable_macsec is not defined
+        - init_cfg_profile is not defined
+        - num_asics | default(1) | int == 1
+        - not (use_ipv6_mgmt | default(false) | bool)
+        - not (buffer_breakout_enable | default(false) | bool)
+      fail_msg: "Generic HWSKU requires single-ASIC minigraph deployment with CSV PORT override, without MACsec, init_cfg_profile, IPv6 transition or buffer_breakout"
+    when: generic_hwsku_enabled | default(false) | bool
+
   - name: Validate the IPv6 address when supplied
     assert:
       that:
@@ -387,7 +400,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-V256S2']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -899,47 +912,81 @@
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
-      # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
-      # which have some interfaces disabled, apply the minigraph config first so that
-      # golden config inherits the same admin_status settings
-      # t2_single_node golden_config needs port_config from generated minigraph so
-      # that golden config does not inherit stale admin_status from old minigraph
+      - name: Extract port speeds and hwsku from lab CSV files for PORT override
+        delegate_to: localhost
+        command:
+          argv:
+            - python3
+            - -c
+            - |
+              import csv, json, sys
+              links_csv, devices_csv, hostname, generic_arg = sys.argv[1:]
+              generic_hwsku = json.loads(generic_arg)
+              port_speeds = {}
+              with open(links_csv) as f:
+                  for row in csv.DictReader(f):
+                      if row.get('StartDevice') == hostname:
+                          port, speed = row['StartPort'], row['BandWidth']
+                      elif row.get('EndDevice') == hostname:
+                          port, speed = row['EndPort'], row['BandWidth']
+                      else:
+                          continue
+                      if generic_hwsku and port in port_speeds and port_speeds[port] != speed:
+                          raise ValueError('Conflicting CSV speeds for ' + port)
+                      port_speeds[port] = speed
+              hwsku = ''
+              matching_devices = []
+              try:
+                  with open(devices_csv) as f:
+                      for row in csv.DictReader(f):
+                          if row.get('Hostname') == hostname:
+                              matching_devices.append(row)
+                              hwsku = row.get('HwSku', '')
+                              if not generic_hwsku:
+                                  break
+              except FileNotFoundError:
+                  if generic_hwsku:
+                      raise
+              if generic_hwsku:
+                  if len(matching_devices) != 1 or not hwsku.strip():
+                      raise ValueError('Generic HWSKU requires exactly one devices.csv entry with HwSku')
+                  if not port_speeds:
+                      raise ValueError('Generic HWSKU requires links.csv ports')
+              print(json.dumps({'port_speeds': port_speeds, 'hwsku': hwsku}))
+            - "{{ links_csv | default('') or ('files/sonic_' ~ (lab_name | default('')) ~ '_links.csv') }}"
+            - "{{ devices_csv | default('') or ('files/sonic_' ~ (lab_name | default('')) ~ '_devices.csv') }}"
+            - "{{ inventory_hostname }}"
+            - "{{ (generic_hwsku_enabled | default(false) | bool) | ternary('true', 'false') }}"
+        register: lab_csv_result
+        changed_when: false
+        check_mode: false
+        when: port_override_from_links | default(false) | bool
+
+      - name: Validate Generic HWSKU minigraph override
+        become: true
+        block:
+          - name: Check Generic HWSKU minigraph override support
+            command: config load_minigraph --help
+            register: generic_hwsku_cli_help
+            changed_when: false
+            check_mode: false
+
+          - name: Require Generic HWSKU minigraph override support
+            assert:
+              that:
+                - "'--override_config' in generic_hwsku_cli_help.stdout"
+              fail_msg: "Generic HWSKU deployment requires config load_minigraph --override_config"
+
+        when: generic_hwsku_enabled | default(false) | bool
+
+      # Legacy topology generators inherit admin_status from a preliminary load.
+      # Generic mode instead renders a pristine base minigraph explicitly.
       - name: Apply minigraph prior to generating golden_config_db.json
         become: true
         shell: config load_minigraph -y
-        when: "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
-
-      - name: Extract port speeds and hwsku from lab CSV files for PORT override
-        delegate_to: localhost
-        shell: |
-          python3 -c "
-          import csv, json
-          lab = '{{ lab_name }}'
-          hostname = '{{ inventory_hostname }}'
-          links_csv = '{{ links_csv | default('') }}' or 'files/sonic_' + lab + '_links.csv'
-          devices_csv = '{{ devices_csv | default('') }}' or 'files/sonic_' + lab + '_devices.csv'
-          port_speeds = {}
-          with open(links_csv) as f:
-              reader = csv.DictReader(f)
-              for row in reader:
-                  if row.get('StartDevice') == hostname:
-                      port_speeds[row['StartPort']] = row['BandWidth']
-                  elif row.get('EndDevice') == hostname:
-                      port_speeds[row['EndPort']] = row['BandWidth']
-          hwsku = ''
-          try:
-              with open(devices_csv) as f:
-                  reader = csv.DictReader(f)
-                  for row in reader:
-                      if row.get('Hostname') == hostname:
-                          hwsku = row.get('HwSku', '')
-                          break
-          except FileNotFoundError:
-              pass
-          print(json.dumps({'port_speeds': port_speeds, 'hwsku': hwsku}))
-          "
-        register: lab_csv_result
-        when: port_override_from_links | default(false) | bool
+        when:
+          - "'lt2' in topo or 'ft2' in topo or 'dualtor' in topo or 't2_single_node' in topo"
+          - not (generic_hwsku_enabled | default(false) | bool)
 
       - name: Generate golden_config_db.json
         generate_golden_config_db:
@@ -947,6 +994,8 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
           port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
+          generic_hwsku_enabled: "{{ generic_hwsku_enabled | default(false) | bool }}"
+          generic_hwsku_base: "{{ hwsku if (generic_hwsku_enabled | default(false) | bool) else omit }}"
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           prober_type: "{{ prober_type | default(omit) }}"
@@ -996,7 +1045,7 @@
           register: load_minigraph_result
           failed_when:
             - load_minigraph_result.rc != 0
-            - "'no such option: --override_config' not in load_minigraph_result.stderr"
+            - "(generic_hwsku_enabled | default(false) | bool) or 'no such option: --override_config' not in load_minigraph_result.stderr"
           # When switching to IPv6-only, the management IP changes and connection may drop
           # Use async to prevent SSH connection timeout from failing the task
           async: "{{ 300 if (use_ipv6_mgmt|default(false)|bool) else 0 }}"
@@ -1036,6 +1085,7 @@
           shell: config load_minigraph -y
           when:
             - not (use_ipv6_mgmt|default(false)|bool)
+            - not (generic_hwsku_enabled | default(false) | bool)
             - "'no such option: --override_config' in load_minigraph_result.stderr"
 
         - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration

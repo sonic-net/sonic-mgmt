@@ -44,8 +44,18 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         'Mellanox-SN5640-V256S2',
                          'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
                          "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2", "Mellanox-SN4280-O4X96"})
+
+BUFFER_TABLES = frozenset({
+    "CABLE_LENGTH", "BUFFER_POOL", "BUFFER_PROFILE", "BUFFER_PG", "BUFFER_QUEUE",
+    "BUFFER_PORT_INGRESS_PROFILE_LIST", "BUFFER_PORT_EGRESS_PROFILE_LIST",
+})
+QOS_TABLES = frozenset({
+    "TC_TO_PRIORITY_GROUP_MAP", "MAP_PFC_PRIORITY_TO_QUEUE", "TC_TO_QUEUE_MAP",
+    "DSCP_TO_TC_MAP", "TC_TO_DSCP_MAP", "SCHEDULER", "PORT_QOS_MAP", "WRED_PROFILE", "QUEUE",
+})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -77,7 +87,7 @@ def find_matching_breakout_mode(breakout_modes, num_ports, speed_mbps):
     return None, None
 
 
-def generate_port_table_from_platform(port_speeds, platform_json_path):
+def generate_port_table_from_platform(port_speeds, platform_json_path, strict=False, breakout_cfg=None):
     """Generate a PORT table from port names/speeds + platform.json.
 
     For each physical cage in platform.json, finds which ports from port_speeds
@@ -87,21 +97,29 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
     Args:
         port_speeds: dict of {port_name: speed_str} from minigraph
         platform_json_path: path to platform.json on the DUT
+        strict: require a complete, supported layout instead of legacy fallbacks
+        breakout_cfg: optional dictionary populated with the matched cage modes
 
     Returns:
         dict of PORT table entries, or None on failure
     """
     if not os.path.isfile(platform_json_path):
+        if strict:
+            raise ValueError("Generic HWSKU requires platform.json")
         return None
 
     with open(platform_json_path) as f:
         platform_data = json.load(f)
 
-    if 'interfaces' not in platform_data:
+    if not platform_data.get('interfaces'):
+        if strict:
+            raise ValueError("Generic HWSKU requires platform interfaces")
         return None
 
     plat_intfs = platform_data['interfaces']
     port_table = {}
+    used_lanes = set()
+    used_aliases = set()
 
     for cage_name in sorted(plat_intfs.keys(), key=lambda x: int(x.replace('Ethernet', ''))):
         cage_info = plat_intfs[cage_name]
@@ -110,6 +128,8 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
         lane_list = [ln.strip() for ln in lane_str.split(',') if ln.strip()]
         total_lanes = len(lane_list)
         if total_lanes == 0:
+            if strict:
+                raise ValueError("Cage {} has no lanes".format(cage_name))
             continue
 
         index_str = cage_info.get('index', '')
@@ -126,13 +146,35 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
                 ports_in_cage[pname] = int(pspeed)
 
         if not ports_in_cage:
+            if strict:
+                raise ValueError("Generic HWSKU requires CSV ports for cage {}".format(cage_name))
             continue
 
         num_ports = len(ports_in_cage)
         speed_mbps = list(ports_in_cage.values())[0]
 
         # Find matching breakout mode for alias resolution
-        _, aliases = find_matching_breakout_mode(breakout_modes, num_ports, speed_mbps)
+        mode, aliases = find_matching_breakout_mode(breakout_modes, num_ports, speed_mbps)
+        if strict:
+            if (total_lanes % num_ports or speed_mbps <= 0 or speed_mbps % 1000 or
+                    len(set(ports_in_cage.values())) != 1 or mode is None or
+                    not re.fullmatch(r'\d+x\d+G(?:\[[\dG, ]+\])?', mode) or
+                    len(aliases) != num_ports or len(index_list) not in (1, total_lanes)):
+                raise ValueError("Unsupported or incomplete breakout for cage {}".format(cage_name))
+            expected_ports = {
+                "Ethernet{}".format(cage_base + index * (total_lanes // num_ports))
+                for index in range(num_ports)
+            }
+            if set(ports_in_cage) != expected_ports:
+                raise ValueError("Port names do not match lane grouping for cage {}".format(cage_name))
+            if len(set(lane_list)) != total_lanes or used_lanes.intersection(lane_list):
+                raise ValueError("Overlapping lanes for cage {}".format(cage_name))
+            if len(set(aliases)) != num_ports or used_aliases.intersection(aliases):
+                raise ValueError("Duplicate aliases for cage {}".format(cage_name))
+            used_lanes.update(lane_list)
+            used_aliases.update(aliases)
+        if breakout_cfg is not None and mode is not None:
+            breakout_cfg[cage_name] = {"brkout_mode": mode}
 
         # Fallback alias generation
         if aliases is None:
@@ -153,6 +195,8 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
 
             alias = aliases[sub_idx] if sub_idx < len(aliases) else port_name
             index = index_list[start_lane] if start_lane < len(index_list) else '1'
+            if strict and len(index_list) == 1:
+                index = index_list[0]
 
             port_entry = {
                 'alias': alias,
@@ -167,9 +211,13 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
 
             if speed_mbps >= 200000:
                 port_entry['fec'] = 'rs'
+            if strict:
+                port_entry['subport'] = str(sub_idx + 1 if num_ports > 1 else 0)
 
             port_table[port_name] = port_entry
 
+    if strict and set(port_table) != set(port_speeds):
+        raise ValueError("Some CSV ports are outside the platform layout")
     return port_table
 
 
@@ -179,6 +227,8 @@ class GenerateGoldenConfigDBModule(object):
                                     port_index_map=dict(required=False, type='dict', default=None),
                                     port_speeds=dict(required=False, type='dict', default=None),
                                     port_override_from_links=dict(required=False, type='bool', default=False),
+                                    generic_hwsku_enabled=dict(required=False, type='bool', default=False),
+                                    generic_hwsku_base=dict(required=False, type='str', default=None),
                                     macsec_profile=dict(required=False, type='str', default=None),
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
@@ -201,10 +251,21 @@ class GenerateGoldenConfigDBModule(object):
         self.port_index_map = self.module.params['port_index_map']
         self.port_speeds = self.module.params['port_speeds']
         self.port_override_from_links = self.module.params['port_override_from_links']
+        self.generic_hwsku_enabled = self.module.params['generic_hwsku_enabled']
+        self.generic_hwsku_base = self.module.params['generic_hwsku_base']
+        self.generic_minigraph_config = None
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
         self.platform, dut_hwsku = device_info.get_platform_and_hwsku()
+        if self.generic_hwsku_enabled:
+            if (not self.port_override_from_links or not self.port_speeds or self.num_asics != 1 or
+                    multi_asic.is_multi_asic() or
+                    self.macsec_profile or any(
+                        not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', name)
+                        for name in (self.platform, self.generic_hwsku_base, self.hwsku))):
+                self.module.fail_json(msg="Generic HWSKU requires a single ASIC, CSV ports, valid base/requested "
+                                          "SKU names and platform, and no MACsec")
         # Use DUT's own hwsku as fallback only when port override is active
         if self.port_override_from_links and not self.hwsku and dut_hwsku:
             self.hwsku = dut_hwsku
@@ -1346,13 +1407,113 @@ class GenerateGoldenConfigDBModule(object):
             '/usr/share/sonic/device', self.platform, 'platform.json')
         port_speeds = {name: str(speed) for name, speed in self.port_speeds.items()}
 
-        port_table = generate_port_table_from_platform(port_speeds, platform_json_path)
+        breakout_cfg = {} if self.generic_hwsku_enabled else None
+        try:
+            port_table = generate_port_table_from_platform(
+                port_speeds, platform_json_path, strict=self.generic_hwsku_enabled, breakout_cfg=breakout_cfg)
+        except (ValueError, OSError) as error:
+            self.module.fail_json(msg="Failed to generate PORT layout: {}".format(error))
         if not port_table:
             return config
 
         config_dict = json.loads(config)
+        if self.generic_hwsku_enabled:
+            pristine = self.get_generic_minigraph_config()
+            removed_enabled = [
+                name for name, fields in pristine["PORT"].items()
+                if fields.get("admin_status") == "up" and name not in port_table
+            ]
+            if removed_enabled:
+                self.module.fail_json(msg="Generic HWSKU would remove enabled ports: {}".format(removed_enabled))
+            for name, geometry in port_table.items():
+                geometry.pop("admin_status", None)
+                fields = dict(geometry, **pristine["PORT"].get(name, {}))
+                fields.update({
+                    key: value for key, value in geometry.items()
+                    if key in {"alias", "lanes", "index", "speed", "subport", "fec"}
+                })
+                port_table[name] = fields
+            config_dict["BREAKOUT_CFG"] = breakout_cfg
         config_dict["PORT"] = port_table
         return json.dumps(config_dict, indent=4)
+
+    def get_generic_minigraph_config(self):
+        """Render pristine topology data using installed base-SKU files, not live PORT."""
+        if self.generic_minigraph_config is not None:
+            return self.generic_minigraph_config
+        port_config = device_info.get_path_to_port_config_file(hwsku=self.generic_hwsku_base)
+        if not port_config:
+            self.module.fail_json(msg="Cannot resolve installed base-SKU port configuration")
+        command = [
+            "sonic-cfggen", "-H", "-m", "-j", "/etc/sonic/init_cfg.json", "-p", port_config, "--print-data",
+        ]
+        hwsku_json = os.path.join(
+            "/usr/share/sonic/device", self.platform, self.generic_hwsku_base, "hwsku.json")
+        if os.path.isfile(hwsku_json):
+            command.extend(["-S", hwsku_json])
+        rc, output, error = self.module.run_command(command)
+        if rc:
+            self.module.fail_json(msg="Failed to render pristine base minigraph: {}".format(error))
+        try:
+            config = json.loads(output)
+        except ValueError as error:
+            self.module.fail_json(msg="Invalid pristine base minigraph JSON: {}".format(error))
+        if not isinstance(config, dict) or not isinstance(config.get("PORT"), dict) or not config["PORT"]:
+            self.module.fail_json(msg="Pristine base minigraph has no PORT table")
+        self.generic_minigraph_config = config
+        return config
+
+    def render_generic_buffer_qos(self, config):
+        """Replace whole buffer/QoS tables using the overridden PORT and metadata."""
+        config_dict = json.loads(config)
+        context = copy.deepcopy(self.get_generic_minigraph_config())
+        context.update(config_dict)
+        metadata = context.get("DEVICE_METADATA", {}).get("localhost", {})
+        if metadata.get("buffer_model") != "traditional":
+            self.module.fail_json(msg="Generic HWSKU currently requires traditional buffers")
+        base_dir = os.path.join("/usr/share/sonic/device", self.platform, self.generic_hwsku_base)
+        for filename, expected_tables in [
+            ("buffers.json.j2", BUFFER_TABLES), ("qos.json.j2", QOS_TABLES),
+        ]:
+            path = os.path.join(base_dir, filename)
+            if not os.path.isfile(path):
+                self.module.fail_json(msg="Missing base-SKU template: {}".format(path))
+            rc, output, error = self.module.run_command(
+                ["sonic-cfggen", "-j", "/dev/stdin", "-t", path], data=json.dumps(context))
+            if rc:
+                self.module.fail_json(msg="Failed to render {}: {}".format(filename, error))
+            try:
+                rendered = json.loads(output)
+            except ValueError as error:
+                self.module.fail_json(msg="Invalid {} JSON: {}".format(filename, error))
+            if (not isinstance(rendered, dict) or set(rendered) != expected_tables or
+                    any(not isinstance(rows, dict) for rows in rendered.values())):
+                self.module.fail_json(msg="Unexpected traditional buffer/QoS tables from {}".format(filename))
+            config_dict.update(rendered)
+            context.update(rendered)
+        self.validate_generic_port_references(context)
+        return json.dumps(config_dict, indent=4)
+
+    def validate_generic_port_references(self, config):
+        """Reject stale references instead of deploying a partially converted topology."""
+        ports = set(config["PORT"])
+        tables = BUFFER_TABLES | QOS_TABLES | {
+            "INTERFACE", "VLAN_MEMBER", "PORTCHANNEL_MEMBER", "DEVICE_NEIGHBOR", "PFC_WD",
+        }
+        for table in tables:
+            for key in config.get(table, {}):
+                references = [part for part in re.split(r'[|,]', key) if re.fullmatch(r'Ethernet\d+', part)]
+                if set(references) - ports:
+                    self.module.fail_json(msg="Unknown PORT reference in {}: {}".format(table, key))
+        for fields in config.get("CABLE_LENGTH", {}).values():
+            if set(fields) - ports:
+                self.module.fail_json(msg="CABLE_LENGTH references removed ports")
+        for acl in config.get("ACL_TABLE", {}).values():
+            if any(port.startswith("Ethernet") and port not in ports for port in acl.get("ports", [])):
+                self.module.fail_json(msg="ACL_TABLE references removed ports")
+        for table in ("BUFFER_PORT_INGRESS_PROFILE_LIST", "BUFFER_PORT_EGRESS_PROFILE_LIST"):
+            if set(config[table]) != ports:
+                self.module.fail_json(msg="Incomplete all-port coverage in {}".format(table))
 
     def generate_t0_f2_golden_config_db(self):
         """
@@ -1599,6 +1760,11 @@ class GenerateGoldenConfigDBModule(object):
             if not dm.get("platform") and self.platform:
                 dm["platform"] = self.platform
             config = json.dumps(config_dict, indent=4)
+
+        if self.generic_hwsku_enabled:
+            config = self.render_generic_buffer_qos(config)
+            if self.module.check_mode:
+                self.module.exit_json(changed=True, msg="Generic HWSKU configuration validated; no files written")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
