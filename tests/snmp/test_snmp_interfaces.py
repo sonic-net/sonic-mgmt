@@ -8,7 +8,9 @@ from tests.common.utilities import parse_rif_counters, wait_until
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
+    # Monit must populate management-port state before the module-scoped SNMP walk.
+    pytest.mark.sanity_check(skip_pre_sanity=False)
 ]
 
 logger = logging.getLogger(__name__)
