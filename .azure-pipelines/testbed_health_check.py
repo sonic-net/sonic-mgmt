@@ -16,6 +16,7 @@ import sys
 import json
 import yaml
 from datetime import datetime
+from typing import Any, List, Optional
 from netaddr import valid_ipv4, valid_ipv6
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,23 +41,24 @@ CONFIG_DB_CHECK_TIMEOUT_SECONDS = 30
 DUT_BASIC_FACTS_TIMEOUT_SECONDS = 120
 
 
-def get_timestamp_utcnow():
+def get_timestamp_utcnow() -> str:
     return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
 
 class ElastictestCommonResponse:
-    def __init__(self, code: int, timestamp: str = get_timestamp_utcnow(), errmsg: list = None, data: object = None):
+    def __init__(self, code: int, timestamp: Optional[str] = None, errmsg: Optional[List[Any]] = None, data: object = None):
         """
         Initialize an instance of the ElastictestCommonResponse class.
 
         Args:
             code: int. The return code. '0' indicates success, while any other value indicates failure.
-            timestamp: str. The timestamp when this response object was generated. Default is utcnow().
+            timestamp: str. The timestamp when this response object was generated. Default is utcnow()
+                       evaluated lazily at instantiation time (not at class definition time).
             errmsg: list. A list of error messages if the check failed.
             data: object. The check result.
         """
         self.code = code
-        self.timestamp = timestamp
+        self.timestamp = timestamp if timestamp is not None else get_timestamp_utcnow()
         self.errmsg = errmsg
         self.data = data
 
