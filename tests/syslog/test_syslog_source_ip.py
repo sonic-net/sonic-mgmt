@@ -11,6 +11,7 @@ from .syslog_utils import create_vrf, remove_vrf, capture_syslog_packets, \
 from tests.common.utilities import wait_until
 from tests.common.helpers.syslog_helpers import add_syslog_server, del_syslog_server, is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts  # noqa F401
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("any")
 ]
+
 
 DEFAULT_VRF_IP_ADDRESSES = {"ipv4": {"syslog_server_ip": "100.100.100.1", "syslog_server_mac": "90:90:90:90:90:01",
                                      "source_ip": "100.100.100.2/24"},
@@ -310,6 +312,11 @@ class TestSSIP:
         if syslog_config_list:
             for syslog_config in syslog_config_list:
                 del_syslog_server(self.duthost, syslog_server_ip=syslog_config["server ip"])
+
+        memory_monitor = MemoryMonitor(ansible_host=self.duthost)
+        validate_output = memory_monitor.execute_command("sudo monit validate")
+        memory_monitor.record_monit_baseline_from_validate_output(validate_output)
+        memory_monitor.read_monit_status_with_freshness_retry("sudo monit status", enable_retry=True)
 
     def configure_data_vrf_test_data(self, routed_interfaces):
         """
