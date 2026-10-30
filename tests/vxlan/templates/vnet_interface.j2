@@ -6,6 +6,7 @@
     },
     "INTERFACE": {
 {%- for intf in intf_list %}
+        "{{ intf.ifname }}": {},
         "{{ intf.ifname }}|{{ intf.ip }}": {}{{ "," if not loop.last else "" }}
 {%- endfor %}
     }

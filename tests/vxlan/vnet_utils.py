@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import defaultdict
 
 from jinja2 import Template
 from os import path
@@ -30,6 +31,31 @@ def safe_open_template(template_path):
 
     with open(template_path) as template_file:
         return Template(template_file.read())
+
+
+def start_ptf_vnet_arp_responder(ptfhost, minigraph_facts, vnet_config, config_path):
+    """Answer ARP for generated VNET neighbors before installing routes."""
+    port_indices = minigraph_facts["minigraph_port_indices"]
+    vlan_intfs = {intf["ifname"]: intf for intf in vnet_config["vlan_intf_list"]}
+    responses = defaultdict(list)
+
+    for nbr in vnet_config["vnet_nbr_list"]:
+        ifname = nbr["ifname"]
+        if ifname in vlan_intfs:
+            intf = vlan_intfs[ifname]
+            interface = "eth{}@{}".format(port_indices[intf["port"]], intf["vlan_id"])
+        else:
+            interface = "eth{}".format(port_indices[ifname])
+        responses[interface].append(nbr["ip"])
+
+    ptfhost.copy(content=json.dumps(responses), dest=config_path)
+    responder_config = safe_open_template("templates/arp_responder.conf.j2").render(
+        arp_responder_args="--conf {}".format(config_path))
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    ptfhost.copy(content=responder_config, dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread")
+    ptfhost.shell("supervisorctl update")
+    ptfhost.shell("supervisorctl start arp_responder")
 
 
 def combine_dicts(*args):
@@ -124,7 +150,7 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
                             DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
 
 
-def apply_dut_config_files(duthost, vnet_test_params, num_routes):
+def apply_dut_config_files(duthost, vnet_test_params, num_routes, vnet_config):
     """
     Applies config files that are stored on the given DUT
 
@@ -133,7 +159,7 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
     """
     if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         logger.info("Applying config files on DUT")
-        timeout = num_routes/50  # Sufficent time to configure routes
+        timeout = max(60, num_routes / 50)
         num_routes_before_add = count_routes_from_asic_db(duthost)
         logger.info("Routes number before adding: {}".format(num_routes_before_add))
         config_files = [DUT_VNET_INTF_JSON,
@@ -152,7 +178,8 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
         duthost.shell(
             "docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes_before_add, 'add'),
+        pytest_assert(wait_until(timeout, 10, 0, verify_routes_configured, duthost, num_routes_before_add, 'add',
+                                 len(vnet_config["vnet_id_list"])),
                       "Routes weren't configured successfully, test Failed.")
         routes_after = count_routes_from_asic_db(duthost)
         logger.info("Routes number after adding: {}".format(routes_after))
@@ -223,7 +250,7 @@ def cleanup_vxlan_tunnels(duthost, vnet_test_params):
         duthost.shell("redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
 
-def cleanup_vnet_routes(duthost, vnet_config, num_routes):
+def cleanup_vnet_routes(duthost, vnet_config, num_routes, route_keys=None):
     """
     Generates, pushes, and applies VNET route config to clear routes set during test
 
@@ -239,9 +266,13 @@ def cleanup_vnet_routes(duthost, vnet_config, num_routes):
     duthost.shell(
         "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    timeout = num_routes/50
-    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, current_route_num, 'clean'),
-                  "Routes weren't configured successfully, test Failed.")
+    timeout = max(60, num_routes / 50)
+    if route_keys is not None:
+        pytest_assert(wait_until(timeout, 10, 0, verify_vnet_route_keys, duthost, route_keys, False),
+                      "VNET routes were not removed from APP_DB")
+    else:
+        pytest_assert(wait_until(timeout, 10, 0, verify_routes_configured, duthost, current_route_num, 'clean'),
+                      "Routes weren't configured successfully, test Failed.")
 
 
 def count_hosts_from_conf(duthost):
@@ -254,19 +285,39 @@ def count_routes_from_conf(duthost):
     return num_routes
 
 
+def count_interface_routes_from_conf(duthost):
+    config = json.loads(duthost.shell("cat {}".format(DUT_VNET_INTF_JSON))["stdout"])
+    return 2 * sum("|" in key for key in config.get("INTERFACE", {}))
+
+
+def get_vnet_route_keys(duthost):
+    routes = json.loads(duthost.shell("cat {}".format(DUT_VNET_ROUTE_JSON))["stdout"])
+    return {key for route in routes for key in route if key != "OP"}
+
+
+def verify_vnet_route_keys(duthost, route_keys, present=True):
+    current_keys = set(duthost.shell(
+        "redis-cli -n 0 --scan --pattern 'VNET_ROUTE_*'")["stdout_lines"])
+    if present:
+        return route_keys.issubset(current_keys)
+    return route_keys.isdisjoint(current_keys)
+
+
 def count_routes_from_asic_db(duthost):
     num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
     return num_routes
 
 
-def verify_routes_configured(duthost, routes_num_before_change, action):
+def verify_routes_configured(duthost, routes_num_before_change, action, num_vnets=0):
     expected_routes_num = 0
     configured_routes_num = count_routes_from_asic_db(duthost)
     actual_routes_changed = abs(configured_routes_num - routes_num_before_change)
 
     expected_routes_num = count_routes_from_conf(duthost)
     if action == "add":
-        expected_routes_num += count_hosts_from_conf(duthost)
+        # SWSS adds one IPv6 link-local trap route for each VNET VRF.
+        # Each physical interface address adds connected and host routes.
+        expected_routes_num += count_hosts_from_conf(duthost) + num_vnets + count_interface_routes_from_conf(duthost)
 
     if not (actual_routes_changed == expected_routes_num):
         logger.warning("Vnet routes {} error, expected routes {}, configured routes {}, before change {}"
