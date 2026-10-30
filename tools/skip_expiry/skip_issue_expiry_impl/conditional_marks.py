@@ -134,8 +134,12 @@ def _build_report_entries_for_test(test_id: str, entry: Dict[str, Any], conditio
     return entries
 
 
-def collect_github_issues_from_conditional_marks(conditional_mark_dir: Path) -> Set[IssueRef]:
-    """Scan conditional mark files and return unique GitHub issue references."""
+def collect_github_issues_from_conditional_marks(conditional_mark_dir: Path, strict: bool = False) -> Set[IssueRef]:
+    """Scan conditional mark files and return unique GitHub issue references.
+
+    With `strict`, a file that fails to parse or has a non-mapping root raises ValueError instead of being skipped,
+    so a caller that acts on references being absent never mistakes an unreadable file for an empty one.
+    """
     issue_refs: Set[IssueRef] = set()
     files = []
     for pattern in CONDITIONAL_MARK_GLOB_PATTERNS:
@@ -152,11 +156,15 @@ def collect_github_issues_from_conditional_marks(conditional_mark_dir: Path) -> 
         try:
             with mark_file.open("r", encoding="utf-8") as file_obj:
                 payload = yaml.safe_load(file_obj) or {}
-        except Exception as exc:  # pragma: no cover - runtime protection
+        except Exception as exc:
+            if strict:
+                raise ValueError(f"Failed to parse {mark_file}: {exc}") from exc
             logger.exception("Failed to parse %s: %s", mark_file, exc)
             continue
 
         if not isinstance(payload, dict):
+            if strict:
+                raise ValueError(f"Non-mapping YAML root in {mark_file}")
             logger.warning("Ignoring non-dict YAML root in %s", mark_file)
             continue
 

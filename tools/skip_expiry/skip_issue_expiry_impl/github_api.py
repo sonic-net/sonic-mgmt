@@ -196,6 +196,15 @@ class GitHubApiClient:
                 names.append(branch_name.strip())
         return names
 
+    def list_open_issues_with_label(self, owner: str, repo: str, label: str) -> List[IssueRef]:
+        items = self._paginate(f"/repos/{owner}/{repo}/issues", params={"state": "open", "labels": label})
+        # The issues endpoint also returns pull requests.
+        return [
+            IssueRef(owner=owner, repo=repo, number=int(item["number"]))
+            for item in items
+            if "pull_request" not in item
+        ]
+
     def add_label(self, issue: IssueRef, label: str) -> None:
         logger.info("Adding label %s to %s", label, issue.html_url)
         self._request("POST", f"{issue.api_path}/labels", json_body={"labels": [label]})
