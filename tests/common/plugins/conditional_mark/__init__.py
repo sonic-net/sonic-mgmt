@@ -13,6 +13,7 @@ import yaml
 import glob
 import pytest
 
+from tests.common.cache import FactsCache
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 from tests.common.utilities import get_duts_from_host_pattern
@@ -189,12 +190,23 @@ def load_dut_basic_facts(inv_name, dut_name):
     return results
 
 
+def get_testbed_info(session):
+    """Reuse the same testbed cache as the tbinfo fixture."""
+    testbed_name = session.config.option.testbed
+    testbed_file = session.config.option.testbed_file
+    cache = FactsCache()
+    testbed_info = cache.read(testbed_name, 'tbinfo')
+    if testbed_info is cache.NOTEXIST:
+        testbed_info = TestbedInfo(testbed_file)
+        cache.write(testbed_name, 'tbinfo', testbed_info)
+    return testbed_info
+
+
 def get_dut_name(session):
     host_pattern = session.config.option.ansible_host_pattern
     if host_pattern == 'all':
         testbed_name = session.config.option.testbed
-        testbed_file = session.config.option.testbed_file
-        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+        tbinfo = get_testbed_info(session).testbed_topo.get(testbed_name, None)
         dut_name = tbinfo['duts'][0]
     else:
         dut_name = get_duts_from_host_pattern(host_pattern)[0]
@@ -404,13 +416,14 @@ def load_basic_facts(dut_name, session):
     testbed_name = session.config.option.testbed
     testbed_file = session.config.option.testbed_file
 
-    tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+    testbed_info = get_testbed_info(session)
+    tbinfo = testbed_info.testbed_topo.get(testbed_name, None)
 
     if tbinfo is None:
         logger.error("Testbed '{}' not found in testbed file '{}'. "
                      "Available testbeds: {}".format(
                          testbed_name, testbed_file,
-                         list(TestbedInfo(testbed_file).testbed_topo.keys())))
+                         list(testbed_info.testbed_topo.keys())))
         raise ValueError("Testbed '{}' not found in testbed file '{}'".format(
             testbed_name, testbed_file))
 
