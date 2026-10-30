@@ -1,0 +1,9 @@
+{
+    "ACL_TABLE_TYPE": {
+        "TC_L3": {
+            "MATCHES": ["SRC_IP", "DST_IP", "IP_PROTOCOL", "DST_IPV6", "NEXT_HEADER", "L4_SRC_PORT", "L4_DST_PORT"],
+            "ACTIONS": ["PACKET_ACTION", "TC_ACTION", "COUNTER"],
+            "BIND_POINTS": ["PORT", "PORTCHANNEL"]
+        }
+    }
+}
