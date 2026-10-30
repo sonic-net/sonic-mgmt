@@ -1421,6 +1421,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         elif os_type == 'ixia':
             # Skip for ixia device which has no fanout
             return None
+        elif os_type == 'snappi':
+            # Skip for snappi device which has no fanout
+            return None
         else:
             pytest.fail(f"Unsupported fanout OS type {os_type} for fanout {fanout_name}")
 
