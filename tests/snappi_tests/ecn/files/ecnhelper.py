@@ -83,6 +83,7 @@ def run_ecn_test_cisco8000(api,
         test_prio_list (list): priorities of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        snappi_ports (list): Snappi port mapping details
 
     Returns:
         N/A
