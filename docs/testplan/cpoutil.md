@@ -139,7 +139,26 @@ merged callbacks and replace topology/endpoint dependencies. Invalid-input
 checks assert no EEPROM read/write or page lookup occurs. Compilation, flake8
 and diff checks pass.
 
-The full sonic-mgmt/Ansible environment and DUT execution remain unverified.
+2026-10-30: the shared container snapshot now queries container IDs, avoiding
+Docker Go-template braces that conflict with Ansible/Jinja parsing. An empty
+container inventory returns an empty snapshot without invoking `docker inspect`
+with no arguments. Eight local transport/state-guard regressions pass through
+the Jinja parser, including container replacement, start-time/restart changes
+and PORT configuration changes. These checks are not a full Ansible/DUT run.
+
+A supplied execution summary records 473 cases as `broken`, with no traceback
+or setup error details. The template conflict is independently reproduced;
+attribution of that reported run still requires its traceback and a testbed
+rerun. No passing DUT result is claimed. To isolate the first setup error,
+start with the help subset and stop after the first failure:
+
+```sh
+./run_tests.sh -n <testbed> -d <dut> -i <inventory> \
+  -c platform_tests/cpo/test_cpoutil.py -u -l info \
+  -e '-k test_command_help -x --tb=short --setup-show'
+```
+
+Full sonic-mgmt/Ansible execution of this revision remains unverified.
 Dependency PR results are not results for this suite. Traffic, live breakout,
 multi-ASIC/ganged ports, physical removal, reboot/firmware, CPU/memory limits,
 partial multi-controller writes and actual laser wiring are outside this

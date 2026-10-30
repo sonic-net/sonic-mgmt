@@ -128,8 +128,11 @@ def probe(dut, ports):
 
 
 def service_snapshot(dut):
-    names = dut.command("docker ps --format '{{.Names}}'")["stdout"].splitlines()
-    result = dut.command("docker inspect " + " ".join(shlex.quote(name) for name in names), verbose=False)
+    # Avoid Docker Go templates: Ansible would parse their braces as Jinja.
+    container_ids = dut.command("docker ps -q", verbose=False)["stdout"].splitlines()
+    if not container_ids:
+        return {}
+    result = dut.command("docker inspect " + " ".join(shlex.quote(item) for item in container_ids), verbose=False)
     return {item["Name"]: (item["Id"], item["State"]["StartedAt"], item["RestartCount"])
             for item in json.loads(result["stdout"])}
 
