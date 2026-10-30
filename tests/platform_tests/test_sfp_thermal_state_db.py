@@ -2,6 +2,8 @@
 Verify SFP temperature in 'show platform temperature' is sourced from
 xcvrd-managed TRANSCEIVER_DOM_TEMPERATURE / TRANSCEIVER_DOM_THRESHOLD /
 TRANSCEIVER_DOM_FLAG tables in STATE_DB.
+Read DOM data from each port's owning ASIC namespace while keeping platform
+sensor checks in the host STATE_DB.
 """
 import json
 import logging
@@ -33,23 +35,23 @@ class TestSfpThermalStateDb:
     )
 
     def _get_sfp_ports_with_dom_temperature(self, duthost):
-        """Return list of port names that have TRANSCEIVER_DOM_TEMPERATURE entries."""
-        result = duthost.shell(
-            'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_DOM_TEMPERATURE|*"',
-            module_ignore_errors=True
-        )
-        if result["rc"] != 0 or not result["stdout"].strip():
-            return []
-        keys = result["stdout"].strip().split("\n")
-        return [k.split("|", 1)[1] for k in keys]
+        """Return ports with TRANSCEIVER_DOM_TEMPERATURE entries across ASICs."""
+        ports = []
+        for asic in duthost.asics:
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB KEYS "TRANSCEIVER_DOM_TEMPERATURE|*"'
+            )
+            keys = result["stdout"].strip().splitlines()
+            ports.extend(k.split("|", 1)[1] for k in keys)
+        return ports
 
     def _get_dom_temperature_data(self, duthost, port):
         """Get temperature value from TRANSCEIVER_DOM_TEMPERATURE for a port."""
-        result = duthost.shell(
-            'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_TEMPERATURE|{}" temperature'.format(port),
-            module_ignore_errors=True
+        asic = duthost.get_port_asic_instance(port)
+        result = asic.run_sonic_db_cli_cmd(
+            'STATE_DB HGET "TRANSCEIVER_DOM_TEMPERATURE|{}" temperature'.format(port)
         )
-        if result["rc"] == 0 and result["stdout"].strip():
+        if result["stdout"].strip():
             return result["stdout"].strip()
         return None
 
@@ -60,12 +62,12 @@ class TestSfpThermalStateDb:
         """
         fields = ["temphighwarning", "templowwarning", "temphighalarm", "templowalarm"]
         thresholds = {}
+        asic = duthost.get_port_asic_instance(port)
         for field in fields:
-            result = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_THRESHOLD|{}" {}'.format(port, field),
-                module_ignore_errors=True
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB HGET "TRANSCEIVER_DOM_THRESHOLD|{}" {}'.format(port, field)
             )
-            value = result["stdout"].strip() if result["rc"] == 0 else ""
+            value = result["stdout"].strip()
             if value and value.upper() != "N/A":
                 thresholds[field] = value
             else:
@@ -79,12 +81,12 @@ class TestSfpThermalStateDb:
         """
         fields = ["tempHWarn", "tempLWarn", "tempHAlarm", "tempLAlarm"]
         flags = {}
+        asic = duthost.get_port_asic_instance(port)
         for field in fields:
-            result = duthost.shell(
-                'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_FLAG|{}" {}'.format(port, field),
-                module_ignore_errors=True
+            result = asic.run_sonic_db_cli_cmd(
+                'STATE_DB HGET "TRANSCEIVER_DOM_FLAG|{}" {}'.format(port, field)
             )
-            if result["rc"] == 0 and result["stdout"].strip():
+            if result["stdout"].strip():
                 flags[field] = result["stdout"].strip()
             else:
                 flags[field] = None
