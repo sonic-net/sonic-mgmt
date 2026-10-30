@@ -6,15 +6,20 @@ import pytest
 import random
 import socket
 
+from netaddr import IPAddress, IPNetwork
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop
 from tests.arp.arp_utils import (clear_dut_arp_cache, fdb_cleanup, get_dut_mac,
                                  fdb_has_mac, get_vlan_last_ipv4, get_vlan_ipv4_for_subnet,
                                  get_vlan_ipv6)
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import (  # noqa: F401
+    setup_vlan_arp_responder, run_icmp_responder, pause_garp_service
+)
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.constants import PTF_TIMEOUT
+from tests.common.helpers.generators import generate_ips
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 
@@ -23,6 +28,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("t0")
 ]
+
+ARP_UPDATE_CYCLE_TIMEOUT = 180
 
 
 @pytest.fixture
@@ -35,6 +42,23 @@ def pause_arp_update(rand_selected_dut):
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
     rand_selected_dut.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture
+def stable_arp_update_neighbors(rand_selected_dut, setup_vlan_arp_responder):  # noqa: F811
+    """Keep neighbors reachable without flushing existing entries."""
+    dut = rand_selected_dut
+    reachable_time_key = f"net.ipv4.neigh.{setup_vlan_arp_responder.vlan}.base_reachable_time_ms"
+    original_reachable_time = dut.shell(f"sysctl -n {reachable_time_key}")["stdout"].strip()
+    dut.shell("docker exec swss supervisorctl stop arp_update")
+    try:
+        dut.shell(f"sysctl -w {reachable_time_key}={ARP_UPDATE_CYCLE_TIMEOUT * 4000}")
+        yield
+    finally:
+        dut.shell_cmds(cmds=[
+            f"sysctl -w {reachable_time_key}={original_reachable_time}",
+            "docker exec swss supervisorctl start arp_update"
+        ])
 
 
 @pytest.fixture
@@ -142,6 +166,15 @@ def ip_version_string(version):
     return f"ipv{version}"
 
 
+def arp_update_cycle_completed(dut, process_id):
+    """Check that arp_update reached the sleep after kernel MAC-mismatch recovery."""
+    processes = dut.shell("docker exec swss ps -eo ppid=,args=")["stdout_lines"]
+    return any(
+        process.split(None, 1) == [process_id, "sleep 120"]
+        for process in processes
+    )
+
+
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
     pause_arp_update,
@@ -199,6 +232,152 @@ def test_kernel_asic_mac_mismatch(
         wait_until(30, 2, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
         f"APPL_DB not re-synced to kernel MAC {target_mac} for {target_ip} on {rand_selected_dut}"
     )
+
+
+@pytest.mark.topology("t0", "dualtor")
+@pytest.mark.disable_loganalyzer
+def test_kernel_link_local_mac_mismatch(
+    request, rand_selected_dut, setup_vlan_arp_responder,  # noqa: F811
+    setup_standby_ports_on_rand_unselected_tor_unconditionally,
+    toggle_all_simulator_ports_to_rand_selected_tor, pause_garp_service  # noqa: F811
+):
+    """Skip IPv4 link-local MAC mismatches only on DualToR, retaining ordinary recovery."""
+    dut = rand_selected_dut
+    if dut.is_multi_asic:
+        pytest.skip("This test requires the single-ASIC swss container and host VLAN interface")
+
+    arp = setup_vlan_arp_responder
+    target_ip = next(
+        (
+            address
+            for addresses in arp.responder_cfg.values()
+            for address in addresses
+            if IPAddress(address).version == 4 and not IPAddress(address).is_link_local()
+        ),
+        None
+    )
+    if target_ip is None:
+        pytest.skip("An IPv4 VLAN responder is required for the ordinary-neighbor positive control")
+
+    request.getfixturevalue("stable_arp_update_neighbors")
+    vlan_name = arp.vlan
+    dut.shell(f"ping -c1 -W1 {target_ip}", module_ignore_errors=True)
+    pt_assert(
+        wait_until(10, 1, 0, neighbor_learned, dut, target_ip),
+        f"Positive-control neighbor {target_ip} was not learned on {dut.hostname}"
+    )
+    neighbor_info = dut.shell(f"ip neigh show {target_ip}")["stdout"].split()
+    pt_assert(neighbor_info[2] == vlan_name, f"Neighbor {target_ip} is not on {vlan_name}")
+    target_mac = neighbor_info[4]
+    pt_assert(
+        wait_until(5, 1, 0, appl_db_neighbor_syncd, dut, vlan_name, target_ip, target_mac),
+        f"Positive-control neighbor {target_ip} was not synchronized to APPL_DB"
+    )
+
+    link_local_subnet = IPNetwork("169.254.1.0/24")
+    occupied_ips = [
+        IPAddress(line.split()[0])
+        for line in dut.shell("ip -4 neigh show")["stdout_lines"]
+    ]
+    occupied_ips.extend(
+        IPNetwork(line.split()[3]).ip
+        for line in dut.shell("ip -4 -o addr show")["stdout_lines"]
+    )
+    occupied_ips.extend(
+        IPAddress(key.rsplit(":", 1)[1])
+        for key in dut.shell(
+            "sonic-db-cli APPL_DB keys 'NEIGH_TABLE:*:169.254.1.*'"
+        )["stdout_lines"]
+    )
+    link_local_ip = generate_ips(
+        1, str(link_local_subnet),
+        list({address for address in occupied_ips if address in link_local_subnet})
+    )[0]
+    link_local_key = f"NEIGH_TABLE:{vlan_name}:{link_local_ip}"
+    control_key = f"NEIGH_TABLE:{vlan_name}:{target_ip}"
+    subtype = dut.shell(
+        "sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' subtype"
+    )["stdout"].strip().lower()
+    is_dualtor = subtype == "dualtor"
+
+    analyzer = LogAnalyzer(ansible_host=dut, marker_prefix="arp_update_link_local_mac_mismatch")
+    control_pattern = rf".*arp_update.*MAC mismatch for {target_ip.replace('.', '[.]')} on {vlan_name} "
+    link_local_pattern = rf".*arp_update.*MAC mismatch for {link_local_ip.replace('.', '[.]')} on {vlan_name} "
+    analyzer.expect_regex = [control_pattern]
+    if is_dualtor:
+        analyzer.match_regex = [link_local_pattern]
+    else:
+        analyzer.expect_regex.append(link_local_pattern)
+
+    link_local_created = False
+    control_mac_modified = False
+    try:
+        with analyzer:
+            dut.shell(
+                f"ip neigh add {link_local_ip} lladdr {target_mac} nud reachable dev {vlan_name}"
+            )
+            link_local_created = True
+            if is_dualtor:
+                pt_assert(
+                    dut.shell(f"sonic-db-cli APPL_DB exists '{link_local_key}'")["stdout"].strip() == "0",
+                    f"DualToR link-local neighbor {link_local_ip} must not be published to APPL_DB"
+                )
+            else:
+                pt_assert(
+                    wait_until(5, 1, 0, appl_db_neighbor_syncd, dut, vlan_name, link_local_ip, target_mac),
+                    f"Link-local neighbor {link_local_ip} was not synchronized to APPL_DB"
+                )
+                dut.shell(f"sonic-db-cli APPL_DB hset '{link_local_key}' neigh '00:00:00:00:00:00'")
+
+            dut.shell(f"sonic-db-cli APPL_DB hset '{control_key}' neigh '00:00:00:00:00:00'")
+            control_mac_modified = True
+            for address in (target_ip, link_local_ip):
+                pt_assert(
+                    not appl_db_neighbor_syncd(dut, vlan_name, address, target_mac),
+                    f"Kernel/APPL_DB mismatch was not established for {address}"
+                )
+
+            dut.shell("docker exec swss supervisorctl start arp_update")
+            try:
+                process_id = dut.shell("docker exec swss supervisorctl pid arp_update")["stdout"].strip()
+                pt_assert(process_id.isdigit() and int(process_id) > 0, "arp_update is not running")
+                pt_assert(
+                    wait_until(ARP_UPDATE_CYCLE_TIMEOUT, 2, 0, arp_update_cycle_completed, dut, process_id),
+                    "arp_update did not complete its first kernel MAC-mismatch recovery cycle"
+                )
+            finally:
+                dut.shell("docker exec swss supervisorctl stop arp_update")
+
+            kernel_neighbor = dut.shell(
+                f"ip neigh show to {link_local_ip} dev {vlan_name}"
+            )["stdout"].lower()
+            pt_assert(
+                (target_mac.lower() in kernel_neighbor) == is_dualtor,
+                f"Unexpected link-local neighbor after arp_update on subtype {subtype!r}: {kernel_neighbor}"
+            )
+            if is_dualtor:
+                pt_assert(
+                    dut.shell(f"sonic-db-cli APPL_DB exists '{link_local_key}'")["stdout"].strip() == "0",
+                    f"DualToR link-local neighbor {link_local_ip} was published to APPL_DB"
+                )
+            pt_assert(
+                wait_until(10, 1, 0, appl_db_neighbor_syncd, dut, vlan_name, target_ip, target_mac),
+                f"Ordinary-neighbor MAC-mismatch recovery failed for {target_ip}"
+            )
+    finally:
+        cleanup_cmds = []
+        if link_local_created:
+            cleanup_cmds.extend([
+                f"ip neigh flush to {link_local_ip} dev {vlan_name} nud all",
+                f"sonic-db-cli APPL_DB del '{link_local_key}'"
+            ])
+        if control_mac_modified:
+            cleanup_cmds.extend([
+                f"ip neigh flush to {target_ip} dev {vlan_name} nud all",
+                f"sonic-db-cli APPL_DB del '{control_key}'"
+            ])
+        if cleanup_cmds:
+            dut.shell_cmds(cmds=cleanup_cmds)
 
 
 def test_ptf_arp_learns_mac(
