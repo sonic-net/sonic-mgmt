@@ -263,10 +263,61 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
     flap_helpers["test_bgp_multiple_session_flaps"]({
         "duthost": object(),
         "neighbors": neighbors,
+        "pre_flap_stats": [0] * 9,
     })
 
     assert received_neighbors == neighbors
     assert stopped_neighbors == neighbors
+
+
+@pytest.mark.parametrize("test_name", [
+    "test_bgp_single_session_flaps",
+    "test_bgp_multiple_session_flaps",
+])
+@pytest.mark.parametrize("spike_index,spike_value", [
+    (None, None),
+    (3, 22000000),
+    (6, 12000000),
+    (4, 400000),
+])
+def test_rib_relearning_uses_pre_flap_baseline(
+    flap_helpers, test_name, spike_index, spike_value
+):
+    pre_flap = [1.0, 1.0, 1.0, 16392000, 306960, 864, 8260480, 306960, 864]
+    depleted = pre_flap.copy()
+    depleted[3], depleted[6] = 130880, 129600
+    relearned = pre_flap.copy()
+    if spike_index is not None:
+        relearned[spike_index] = spike_value
+    samples = iter([depleted] * 6 + [relearned] * 5)
+    flap_completed = threading.Event()
+    flap_completed.set()
+    flap_helpers.update({
+        "get_cpu_stats": lambda duthost: next(samples),
+        "start_flap_worker": lambda neigh, stop_event: (
+            CapturingThread(), flap_completed
+        ),
+        "stop_flap_workers": lambda workers, stop_event, neighbors: [],
+        "time": type(
+            "NoWait", (), {"sleep": staticmethod(lambda seconds: None)}
+        ),
+    })
+    neighbor = FakeNeighbor()
+    setup = {
+        "duthost": object(),
+        "neighhost": neighbor,
+        "neighbors": [neighbor],
+        "pre_flap_stats": pre_flap,
+    }
+
+    if spike_index is None:
+        flap_helpers[test_name](setup)
+    else:
+        with pytest.raises(
+            AssertionError, match="BGP resource checks failed"
+        ) as exc_info:
+            flap_helpers[test_name](setup)
+        assert "stats[index][{}]".format(spike_index) in str(exc_info.value)
 
 
 def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
@@ -287,6 +338,7 @@ def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
         flap_helpers["test_bgp_multiple_session_flaps"]({
             "duthost": object(),
             "neighbors": neighbors,
+            "pre_flap_stats": [0] * 9,
         })
 
     message = str(exc_info.value)
