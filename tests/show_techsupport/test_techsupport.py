@@ -11,6 +11,7 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.platform_api import bmc
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
+from tests.common.plugins.conditional_mark import read_asic_name
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError, get_bughandler_instance
 from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
@@ -528,7 +529,10 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
 
     if duthost.facts["asic_type"] == "broadcom":
         if duthost.facts.get("platform_asic") == "broadcom-dnx":
-            asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
+            if read_asic_name(duthost.facts["hwsku"]) == "q3d":
+                asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx + cmds.broadcom_cmd_bcmcmd_dnx3
+            else:
+                asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx + cmds.broadcom_cmd_bcmcmd_dnx2
         else:
             asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
 
