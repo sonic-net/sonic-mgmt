@@ -81,6 +81,10 @@ class TestEgressDropProbingInstance:
         self.probe_packet_length = 64
         self.probe_cells_per_packet = 1
         self.egress_lossy_pool_size = 104000
+        self.src_dut_index = 0
+        self.src_asic_index = 0
+        self.dst_dut_index = 0
+        self.dst_asic_index = 0
 
         # Probing configuration
         self.PROBE_TARGET = "egress_drop"
@@ -136,7 +140,8 @@ class TestEgressDropProbingParameterParsing(unittest.TestCase):
 
         config = EgressDropProbing.get_probe_config(instance)
 
-        assert config.probing_port_ids == instance.probing_port_ids
+        assert config.src_port_ids == instance.probing_port_ids[:1]
+        assert config.dst_port_ids == instance.probing_port_ids[1:]
         assert config.thrift_client == instance.dst_client
         assert config.asic_type == instance.asic_type
 
