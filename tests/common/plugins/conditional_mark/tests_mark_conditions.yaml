@@ -2957,12 +2957,6 @@ gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi.py::test_on_change_updates:
-  skip:
-    reason: "Test relies on BGP neighbors; none configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."

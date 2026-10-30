@@ -367,6 +367,8 @@ def test_subscribe_closes_receiver_without_unhandled_exception(monkeypatch, stat
             return details
 
     class FakeSubscriber:
+        error = None
+
         def __init__(self):
             self._subscribe_thread = threading.Thread(target=self._receive)
             self._subscribe_thread.start()
@@ -425,6 +427,8 @@ def test_subscribe_reports_unexpected_receiver_exception(monkeypatch, error):
     unhandled = []
 
     class FakeSubscriber:
+        error = None
+
         def __init__(self):
             self._subscribe_thread = threading.Thread(target=self._receive)
             self._subscribe_thread.start()
@@ -458,3 +462,70 @@ def test_subscribe_reports_unexpected_receiver_exception(monkeypatch, error):
 
     assert len(unhandled) == 1
     assert unhandled[0] is error
+
+
+@pytest.mark.parametrize("mode", [SubscribeMode.STREAM, SubscribeMode.POLL, SubscribeMode.ONCE])
+def test_subscribe_raises_receiver_error(monkeypatch, mode):
+    """Test a Subscribe RPC the server rejects raises its error instead of ending early or timing out."""
+
+    class RejectedError(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.INVALID_ARGUMENT
+
+        def __str__(self):
+            return "SHOW does not support subscribe"
+
+    class FakeSubscriber:
+        # pygnmi's receiver thread stored the server's error and exited without queuing anything.
+        error = RejectedError()
+
+        def get_update(self, timeout):
+            raise TimeoutError()
+
+        def close(self):
+            pass
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return FakeSubscriber()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: FakeGnmiClient())
+
+    with pytest.raises(PygnmiClientCallError, match="SHOW does not support subscribe"):
+        list(_offline_client().subscribe("path", mode=mode, collect_seconds=1))
+
+
+def test_subscribe_closes_channel_before_subscriber(monkeypatch):
+    """Test the channel closes first, so pygnmi's subscriber.close() doesn't wait out its join."""
+    calls = []
+
+    class FakeSubscriber:
+        error = None
+
+        def get_update(self, timeout):
+            return {"update": {}}
+
+        def close(self):
+            calls.append("subscriber.close")
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            return FakeSubscriber()
+
+        def close(self):
+            calls.append("channel.close")
+
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: FakeGnmiClient())
+
+    list(_offline_client().subscribe("path", count=1))
+
+    assert calls[:2] == ["channel.close", "subscriber.close"]
