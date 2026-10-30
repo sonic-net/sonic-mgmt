@@ -274,13 +274,6 @@ class EverflowIPv6Tests(BaseEverflowTest):
     def acl_ip_version(self):
         return 6
 
-    @staticmethod
-    def _rule_survives_vpp_programming(rule):
-        # A rule whose every qualifier sonic-vpp ignores degenerates into match-all.
-        ignored = {"dscp"}
-        fields = {f for section in rule.get("qualifiers", {}).values() for f in section}
-        return not fields <= ignored
-
     def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
                                 everflow_direction, erspan_ip_ver):                                     # noqa F811
         """Verify that we can match on Source IPv6 addresses."""

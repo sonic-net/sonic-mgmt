@@ -1215,6 +1215,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "(dscp)": self._base_tcp_packet(ptfadapter, setup, router_mac, dscp=51, dst_ip=default_ip)
         }
 
+        if duthost.facts["asic_type"] == "vpp":
+            pkt_dict.pop("(dscp)")
+
         for description, pkt in list(pkt_dict.items()):
             logging.info("Sending packet with qualifier set %s to DUT" % description)
             self.send_and_check_mirror_packets(
