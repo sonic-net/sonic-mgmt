@@ -29,11 +29,12 @@ class SonicHosts(AnsibleHosts):
             return {}
 
 
-def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
+def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent, config_source="config_db"):
     try:
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
+            config_source=config_source,
             module_attrs={"become": True}
         )
         if is_chassis(sonichosts):
@@ -226,7 +227,12 @@ def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
         return False
 
 
-def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_used_percent=50, onie_pause_time=0):
+def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_used_percent=50, onie_pause_time=0,
+                  config_source="config_db"):
+    """Upgrade using saved configuration for SONiC; ONIE does not preserve configuration."""
+    if config_source not in ("config_db", "minigraph"):
+        logger.error("Unsupported config_source: %s", config_source)
+        return False
     if upgrade_type not in sonichosts.SUPPORTED_UPGRADE_TYPES:
         logger.error(
             "Upgrade type '{}' is not in SUPPORTED_UPGRADE_TYPES={}".format(
@@ -236,8 +242,10 @@ def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_u
         return False
 
     if upgrade_type == "sonic":
-        upgrade_result = upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent)
+        upgrade_result = upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent,
+                                          config_source=config_source)
     elif upgrade_type == "onie":
+        logger.info("config_source applies only to SONiC upgrades; ONIE reimages do not preserve saved configuration")
         upgrade_result = upgrade_by_onie(sonichosts, localhost, image_url, onie_pause_time)
     if not upgrade_result:
         return False

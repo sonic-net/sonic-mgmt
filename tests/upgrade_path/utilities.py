@@ -1,6 +1,4 @@
 import logging
-import re
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_sonic_version
 
@@ -34,26 +32,11 @@ def boot_into_base_image_t2(duthosts, localhost, base_image, tbinfo):
 
 def _install_base_image(duthost, base_image, tbinfo):
     logger.info("Installing {}".format(base_image))
-    try:
-        target_version = install_sonic(duthost, base_image, tbinfo)
-    except RunAnsibleModuleFail as err:
-        migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
-        msg = err.results['msg'].replace('\n', '')
-        if re.search(migration_err_regexp, msg):
-            logger.info(
-                "Ignore the package migration error when downgrading to base_image")
-            target_version = duthost.shell(
-                "cat /tmp/downloaded-sonic-image-version")['stdout']
-        else:
-            raise err
-    # Remove old config_db before rebooting the DUT in case it is not successfully
-    # removed in install_sonic due to migration error
-    logger.info("Remove old config_db file if exists, to load minigraph from scratch")
-    if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
-        duthost.shell("rm -f /host/old_config/config_db.json")
-        duthost.shell("rm -f /host/old_config/golden_config_db.json")
-
-    return target_version
+    # Base-image downgrade intentionally rebuilds configuration. SmartSwitch
+    # configuration cannot be reconstructed from minigraph.
+    basic_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    config_source = "config_db" if basic_facts.get("is_smartswitch", False) else "minigraph"
+    return install_sonic(duthost, base_image, tbinfo, config_source=config_source)
 
 
 def cleanup_prev_images(duthost):
