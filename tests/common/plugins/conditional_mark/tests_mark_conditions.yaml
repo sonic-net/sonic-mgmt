@@ -4755,7 +4755,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
       # GR2/GR2X (x86_64-8122*) are the supported Cisco platforms for this test
       - "asic_type in ['cisco-8000'] and not platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] + ['t1-8'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgMinThreshold:
   skip:
