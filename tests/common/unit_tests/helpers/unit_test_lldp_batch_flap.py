@@ -23,13 +23,22 @@ def test_batch_flap_preserves_platform_selection_and_management_coverage(is_mult
     namespace_id = "0" if is_multi_asic else None
     ports = ["Ethernet0", "Ethernet4"]
     baseline = {"eth0", *ports}
-    shutdown = Mock()
+    events = []
+    shutdown = Mock(side_effect=lambda *_: events.append("flap"))
     convergence = Mock()
     groups = Mock(return_value={namespace_id: ports})
+    flat_neighbors = Mock(side_effect=lambda: events.append("flat_baseline") or {})
+    per_asic_neighbors = {"asic0": {"10.0.0.1": {}}, "asic1": {"10.0.0.1": {}}}
+    per_asic_lookup = Mock(side_effect=lambda **_: events.append("per_asic_baseline") or per_asic_neighbors)
+    per_asic_check = Mock(return_value=True)
+    flat_check = Mock(return_value=True)
     duthost = SimpleNamespace(
         is_multi_asic=is_multi_asic,
-        get_bgp_neighbors=lambda: {},
-        check_bgp_session_state=Mock(return_value=True),
+        get_facts=lambda: {"modular_chassis": is_multi_asic},
+        get_bgp_neighbors=flat_neighbors,
+        get_bgp_neighbors_per_asic=per_asic_lookup,
+        check_bgp_session_state=flat_check,
+        check_bgp_session_state_all_asics=per_asic_check,
     )
     namespace = {
         "logger": Mock(),
@@ -37,6 +46,8 @@ def test_batch_flap_preserves_platform_selection_and_management_coverage(is_mult
         "_shutdown_startup_interface": shutdown,
         "wait_for_lldp_convergence": convergence,
         "LLDP_RECOVERY_NEIGHBOR_TIMEOUT": 90,
+        "BGP_CONVERGE_TIMEOUT": 300,
+        "BGP_CONVERGE_TIMEOUT_CHASSIS": 600,
         "wait_until": Mock(return_value=True),
         "pytest_assert": Mock(),
     }
@@ -51,7 +62,16 @@ def test_batch_flap_preserves_platform_selection_and_management_coverage(is_mult
     ]
     assert convergence.call_count == 2
     assert all(args.args[:3] == (duthost, database, baseline) for args in convergence.call_args_list)
-    namespace["wait_until"].assert_called_once_with(300, 10, 30, duthost.check_bgp_session_state, [])
+    if is_multi_asic:
+        assert events == ["per_asic_baseline", "flap", "flap"]
+        per_asic_lookup.assert_called_once_with(state="all")
+        flat_neighbors.assert_not_called()
+        namespace["wait_until"].assert_called_once_with(600, 10, 30, per_asic_check, per_asic_neighbors)
+    else:
+        assert events == ["flap", "flat_baseline"]
+        per_asic_lookup.assert_not_called()
+        flat_neighbors.assert_called_once_with()
+        namespace["wait_until"].assert_called_once_with(300, 10, 30, flat_check, [])
 
 
 @pytest.mark.parametrize(
