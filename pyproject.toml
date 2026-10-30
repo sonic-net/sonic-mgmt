@@ -41,6 +41,9 @@ extend-exclude = '''
 [tool.mypy]
 ignore_missing_imports = true
 strict = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
 follow_imports = "silent"
 
 [[tool.mypy.overrides]]
