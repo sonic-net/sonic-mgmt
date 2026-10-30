@@ -63,6 +63,11 @@ def get_interfaces(duthost, tbinfo):
     """
     rif_counters = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
     for interface in rif_counters:
+        # Recirculation/internal RIFs (e.g. Ethernet-Rec0) match the 'Eth' name check but do not
+        # expose the ifInDiscards/ifInErrors MIBs this test validates; skip them so a front-panel
+        # RIF or PortChannel is selected instead.
+        if interface.startswith('Ethernet-Rec') or 'Recirc' in interface:
+            continue
         if 'Eth' in interface:
             return [interface], interface
         else:
