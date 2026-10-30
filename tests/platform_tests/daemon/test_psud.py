@@ -7,11 +7,14 @@ Check daemon status inside PMON container. Each daemon status is checked under t
 This script is to cover the test case in the SONiC platform daemon and service test plan:
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/PMON-Services-Daemons-test-plan.md
 """
+import contextlib
 import logging
+import re
 import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.fixtures.duthost_utils import get_pdb_num
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import check_critical_processes
@@ -40,6 +43,26 @@ SIG_KILL = "-9"
 STATE_DB = 6
 psud_tbl_key = ""
 
+# Two psud polling intervals, long enough for every PSU to be read at least twice.
+STEADY_STATE_SCAN_SECONDS = 30
+
+# syslog lines that mean psud, the PMBus driver or the I2C bus hit an unexpected error.
+PSU_ERROR_LOG_REGEX = [
+    r'.*ERR pmon#psud.*',
+    r'.*ERR .*[Pp][Mm][Bb]us.*',
+    r'.*ERR .*i2c.*',
+]
+# Known-expected lines: an empty PSU slot and the daemon lifecycle itself.
+PSU_ERROR_LOG_IGNORE_REGEX = [
+    r'.*ERR pmon#psud(\[\d+\])?: (PSU absence warning: )?PSU \d+ is not present\..*',
+    r'.*ERR pmon#psud.*PDB.*not present.*',
+    r'.*ERR pmon#supervisord: psud .*',
+]
+# pmon container (supervisord) lines worth failing on, minus the daemon lifecycle messages
+# that the stop, terminate and kill tests cause on purpose.
+PMON_LOG_SELECT_PATTERN = re.compile(r'psud|pmbus|i2c', re.IGNORECASE)
+PMON_LOG_IGNORE_PATTERN = re.compile(r'INFO |(stopped|exited|spawned|success): .?psud')
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthosts, enum_supervisor_dut_hostname):
@@ -61,6 +84,27 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname):
     logger.info(
         "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     check_critical_processes(duthost, watch_secs=10)
+
+
+def pmon_log_errors(duthost, since):
+    """psud, PMBus or I2C error lines written to the pmon container log since the given time."""
+    output = duthost.shell(f'docker logs --since {since} pmon 2>&1', module_ignore_errors=True)['stdout_lines']
+    return [line for line in output
+            if PMON_LOG_SELECT_PATTERN.search(line) and not PMON_LOG_IGNORE_PATTERN.search(line)]
+
+
+@contextlib.contextmanager
+def psu_error_log_scan(duthost, request, marker_prefix):
+    """Fail the enclosed block if syslog or the pmon container log records a psud, PMBus or I2C error."""
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix, request=request)
+    loganalyzer.match_regex = PSU_ERROR_LOG_REGEX
+    loganalyzer.ignore_regex = PSU_ERROR_LOG_IGNORE_REGEX
+    since = duthost.shell('date -u +%Y-%m-%dT%H:%M:%S')['stdout'].strip()
+    marker = loganalyzer.init()
+    yield
+    loganalyzer.analyze(marker)
+    errors = pmon_log_errors(duthost, since)
+    pytest_assert(not errors, f"pmon log has psud/PMBus/I2C errors since {since}: {errors}")
 
 
 def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
@@ -226,6 +270,15 @@ def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_b
                           f"(expected one of {temp_threshold_alternatives})")
 
 
+def test_pmon_psud_no_error_logs(duthosts, enum_supervisor_dut_hostname, request):
+    """
+    @summary: At steady state psud polls every PSU without logging PMBus or I2C errors
+    """
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    with psu_error_log_scan(duthost, request, 'psud_steady_state'):
+        time.sleep(STEADY_STATE_SCAN_SECONDS)
+
+
 def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, data_before_restart):
     """
     @summary: This test case validates that each present PSU is in OK status
@@ -281,113 +334,116 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
 
 
 def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
-                                         enum_supervisor_dut_hostname, data_before_restart):
+                                         enum_supervisor_dut_hostname, data_before_restart, request):
     """
     @summary: This test case is to check the psud stopped and restarted status
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
-    pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
+    with psu_error_log_scan(duthost, request, 'psud_stop_start'):
+        pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
-    duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
+        duthost.stop_pmon_daemon(daemon_name, SIG_STOP_SERVICE)
 
-    time.sleep(2)
+        time.sleep(2)
 
-    wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
-    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
+        wait_until(120, 10, 0, check_pmon_daemon_id, duthost, daemon_name, -1)
+        wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_stopped_status)
 
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(daemon_status == expected_stopped_status,
-                  "{} expected stopped status is {} but is {}"
-                  .format(daemon_name, expected_stopped_status, daemon_status))
-    pytest_assert(daemon_pid == -1,
-                  "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
+        daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        pytest_assert(daemon_status == expected_stopped_status,
+                      "{} expected stopped status is {} but is {}"
+                      .format(daemon_name, expected_stopped_status, daemon_status))
+        pytest_assert(daemon_pid == -1,
+                      "{} expected pid is -1 but is {}".format(daemon_name, daemon_pid))
 
-    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['keys'] is not None),
-                  "DB data keys is not cleared on daemon stop")
+        pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['keys'] is not None),
+                      "DB data keys is not cleared on daemon stop")
 
-    pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['data'] is not None),
-                  "DB data is not cleared on daemon stop")
+        pytest_assert(wait_until(60, 10, 0, lambda: collect_data(duthost)['data'] is not None),
+                      "DB data is not cleared on daemon stop")
 
-    duthost.start_pmon_daemon(daemon_name)
+        duthost.start_pmon_daemon(daemon_name)
 
-    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
-    wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
+        wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+        wait_until(50, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
-    post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(post_daemon_status == expected_running_status,
-                  "{} expected restarted status is {} but is {}"
-                  .format(daemon_name, expected_running_status, post_daemon_status))
-    pytest_assert(post_daemon_pid != -1,
-                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
-    pytest_assert(post_daemon_pid > pre_daemon_pid,
-                  "Restarted {} pid should be bigger than {} but it is {}"
-                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
+        post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        pytest_assert(post_daemon_status == expected_running_status,
+                      "{} expected restarted status is {} but is {}"
+                      .format(daemon_name, expected_running_status, post_daemon_status))
+        pytest_assert(post_daemon_pid != -1,
+                      "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+        pytest_assert(post_daemon_pid > pre_daemon_pid,
+                      "Restarted {} pid should be bigger than {} but it is {}"
+                      .format(daemon_name, pre_daemon_pid, post_daemon_pid))
 
-    # Wait till DB PSU_INFO key values are restored
+        # Wait till DB PSU_INFO key values are restored
 
-    # For T2 it takes around 1 minute for the information to be populated in supervisor
-    is_modular_chassis = duthost.get_facts().get("modular_chassis")
-    wait_time = 90 if is_modular_chassis else 40
+        # For T2 it takes around 1 minute for the information to be populated in supervisor
+        is_modular_chassis = duthost.get_facts().get("modular_chassis")
+        wait_time = 90 if is_modular_chassis else 40
 
-    wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
+        wait_until(wait_time, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_term_and_start_status(check_daemon_status, duthosts,
-                                         enum_supervisor_dut_hostname, data_before_restart):
+                                         enum_supervisor_dut_hostname, data_before_restart, request):
     """
     @summary: This test case is to check the psud terminated and restarted status
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    with psu_error_log_scan(duthost, request, 'psud_term'):
 
-    skip_release(duthost, ["201811", "201911"])
+        skip_release(duthost, ["201811", "201911"])
 
-    pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
+        pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
-    duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
+        duthost.stop_pmon_daemon(daemon_name, SIG_TERM, pre_daemon_pid)
 
-    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
-    wait_until(50, 10, 5, check_expected_daemon_status, duthost, expected_running_status)
+        wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+        wait_until(50, 10, 5, check_expected_daemon_status, duthost, expected_running_status)
 
-    post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(post_daemon_status == expected_running_status,
-                  "{} expected restarted status is {} but is {}"
-                  .format(daemon_name, expected_running_status, post_daemon_status))
-    pytest_assert(post_daemon_pid != -1,
-                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
-    pytest_assert(post_daemon_pid > pre_daemon_pid,
-                  "Restarted {} pid should be bigger than {} but it is {}"
-                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    # Wait till DB PSU_INFO key values are restored
-    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
+        post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        pytest_assert(post_daemon_status == expected_running_status,
+                      "{} expected restarted status is {} but is {}"
+                      .format(daemon_name, expected_running_status, post_daemon_status))
+        pytest_assert(post_daemon_pid != -1,
+                      "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+        pytest_assert(post_daemon_pid > pre_daemon_pid,
+                      "Restarted {} pid should be bigger than {} but it is {}"
+                      .format(daemon_name, pre_daemon_pid, post_daemon_pid))
+        # Wait till DB PSU_INFO key values are restored
+        wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
 
 
 def test_pmon_psud_kill_and_start_status(check_daemon_status, duthosts,
-                                         enum_supervisor_dut_hostname, data_before_restart):
+                                         enum_supervisor_dut_hostname, data_before_restart, request):
     """
     @summary: This test case is to check the psud killed unexpectedly (automatically restarted) status
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    with psu_error_log_scan(duthost, request, 'psud_kill'):
 
-    skip_release(duthost, ["201811", "201911"])
+        skip_release(duthost, ["201811", "201911"])
 
-    pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
+        pre_daemon_status, pre_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        logger.info("{} daemon is {} with pid {}".format(daemon_name, pre_daemon_status, pre_daemon_pid))
 
-    duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
+        duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
-    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
-    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
+        wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
+        wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
-    post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    pytest_assert(post_daemon_status == expected_running_status,
-                  "{} expected restarted status is {} but is {}"
-                  .format(daemon_name, expected_running_status, post_daemon_status))
-    pytest_assert(post_daemon_pid != -1,
-                  "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
-    pytest_assert(post_daemon_pid > pre_daemon_pid,
-                  "Restarted {} pid should be bigger than {} but it is {}"
-                  .format(daemon_name, pre_daemon_pid, post_daemon_pid))
-    # Wait till DB PSU_INFO key values are restored
-    wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
+        post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+        pytest_assert(post_daemon_status == expected_running_status,
+                      "{} expected restarted status is {} but is {}"
+                      .format(daemon_name, expected_running_status, post_daemon_status))
+        pytest_assert(post_daemon_pid != -1,
+                      "{} expected pid is -1 but is {}".format(daemon_name, post_daemon_pid))
+        pytest_assert(post_daemon_pid > pre_daemon_pid,
+                      "Restarted {} pid should be bigger than {} but it is {}"
+                      .format(daemon_name, pre_daemon_pid, post_daemon_pid))
+        # Wait till DB PSU_INFO key values are restored
+        wait_until(40, 5, 0, get_and_verify_data, duthost, data_before_restart)
