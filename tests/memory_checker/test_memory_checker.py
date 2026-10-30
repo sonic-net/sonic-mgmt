@@ -518,9 +518,9 @@ class MemoryCheckerContainer(object):
         start_date = self.get_last_start_date()
         return start_date > self._last_start_date
 
-    def wait_restarted(self, start_date=None):
+    def wait_restarted(self, start_date=None, timeout=CONTAINER_RESTART_THRESHOLD_SECS):
         self._last_start_date = start_date or self.get_last_start_date()
-        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, 1, 0,
+        restarted = wait_until(timeout, 1, 0,
                                self.has_container_restarted)
         pytest_assert(restarted, "Failed to restart '{}' container!".format(self.name))
         self._last_start_date = None
@@ -568,10 +568,11 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
+        start_date = container.get_last_start_date()
         container.start_consume_memory()
-        # Monit reports failure only after its multi-cycle threshold is reached.
-        container.wait_monit_mem_failed()
-        logger.info("Container %s should now be restarting", container.name)
+        # Monit's failed status can clear between polls; the restart timestamp persists.
+        container.wait_restarted(start_date, timeout=MONIT_MEMORY_CHECK_TIMEOUT)
+        logger.info("Container %s has restarted", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
         # Wait until the service has started, then the loganalyzer will capture all the expected messages
         wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
