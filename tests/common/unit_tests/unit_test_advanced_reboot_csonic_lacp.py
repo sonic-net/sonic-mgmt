@@ -368,6 +368,8 @@ def load_reload_method(method_name):
 
 def make_run_test_harness(backend):
     harness = load_reload_method("runTest")
+    harness.bgp_service_restart = False
+    harness.reboot_type = "warm-reboot"
     harness.test_params = {
         "neighbor_type": "sonic",
         "ceos_neighbor_lacp_multiplier": 3,

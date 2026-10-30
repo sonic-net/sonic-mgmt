@@ -10,7 +10,7 @@ from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.dualtor_active_standby_toggle_to_enum_tor_manual_mode
 ]
 
@@ -51,7 +51,8 @@ class ServiceMatchRules:
         self.feature_data = {info['feature']: info for info in feature_info}
 
         self.ignored_services = get_ignored_services(request)
-        self.builtin_services = get_builtin_services(duthost)
+        self.builtin_services = (set() if request.config.getoption("--warm-restart-service")
+                                 else get_builtin_services(duthost))
         self.running_services = get_running_services(duthost)
 
     def is_running(self, s):
@@ -79,13 +80,18 @@ def select_services_to_warmrestart(duthost, request):
     if not_running_services:
         logging.info('skipping test for not running services: {}'.format(not_running_services))
 
+    selected_service = request.config.getoption("--warm-restart-service")
+    if selected_service:
+        all_services = [service for service in all_services if service == selected_service]
+
     all_checks = [
-        rules.is_built_in,
         rules.is_warmboot_supported,
         rules.is_not_ignored,
         rules.is_running,
         rules.is_feature_enabled
     ]
+    if not selected_service:
+        all_checks.insert(0, rules.is_built_in)
 
     def passes_all_checks(service):
         return all(rule(service) for rule in all_checks)
@@ -96,15 +102,23 @@ def select_services_to_warmrestart(duthost, request):
 def test_service_warm_restart(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               verify_dut_health_enum_frontend, get_advanced_reboot,  # noqa: F811
                               advanceboot_loganalyzer,  # noqa: F811
-                              capture_interface_counters):
+                              capture_interface_counters, tbinfo):
+    """Measure forwarding across a service restart or a distinct Docker image upgrade."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    bgp_only = request.config.getoption("--warm-restart-service") == "bgp"
+    pytest_require(tbinfo['topo']['type'] == 't0' or (bgp_only and tbinfo['topo']['type'] in ('m0', 'mx')),
+                   "Service warm restart requires T0 or --warm-restart-service=bgp on M0/MX")
+    if bgp_only:
+        pytest_require(not duthost.is_multi_asic,
+                       "Standalone BGP service qualification currently requires a single-ASIC DUT")
 
     candidate_service_list = select_services_to_warmrestart(duthost, request)
     pytest_require(candidate_service_list, 'Skip service warm restart test because candidate_service_list is empty')
 
     advancedReboot = get_advanced_reboot(rebootType='service-warm-restart',
                                          service_list=candidate_service_list,
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         bgp_service_restart=bgp_only,
+                                         advanceboot_loganalyzer=None if bgp_only else advanceboot_loganalyzer)
     try:
         advancedReboot.runRebootTestcase()
     finally:
