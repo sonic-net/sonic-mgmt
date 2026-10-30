@@ -153,7 +153,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     pfc_queue_index = 4
     pfc_frames_count = 1000000
     peer_device = peer_params['peerdevice'] if dut.facts['asic_type'] != 'vs' else ""
-    if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
+    if dut.topo_type == 't2' and dut.facts['asic_type'] != 'vs' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
     else:
@@ -430,13 +430,17 @@ class TestPfcwdAllTimer(object):
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
         try:
-            if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            if (self.dut.topo_type == 't2' and self.dut.facts['asic_type'] != 'vs'
+                    and self.storm_handle.peer_device.os == 'sonic'):
                 for i in range(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test(setup_info)
                 self.verify_pfcwd_timers_t2()
             else:
-                for i in range(1, ITERATION_NUM):
+                # Storms are not generated and timers are not verified on vs, so a single
+                # iteration is enough to exercise PFCWD setup, traffic and teardown.
+                iteration_num = 2 if self.dut.facts['asic_type'] == 'vs' else ITERATION_NUM
+                for i in range(1, iteration_num):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
 
                     cmd = "show pfc counters"
