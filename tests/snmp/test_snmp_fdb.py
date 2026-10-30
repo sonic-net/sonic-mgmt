@@ -144,6 +144,11 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
         'ansible_facts']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
     assert wait_until(60, 2, 0, is_port_channel_up, duthost, config_portchannels), "Portchannel is not up"
+
+    # Flush dataplane at the start to ensure clean state
+    # This prevents socket send errors from stale port configurations
+    ptfadapter.dataplane.flush()
+
     send_cnt = 0
     send_portchannels_cnt = 0
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
