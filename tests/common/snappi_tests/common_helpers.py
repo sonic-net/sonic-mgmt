@@ -926,6 +926,20 @@ def _set_credit_watchdog(duthost, enable, asic_value=None):
         logger.info("%s VOQ credit watchdog via APPL_DB SWITCH_TABLE credit_watchdog=%s (namespace: %s)",
                     'Enabled' if enable else 'Disabled', value, ns or 'default')
 
+    # Fallback for images without sonic-swss #4658 (where SwitchOrch reports
+    # 'Unsupported switch attribute credit_watchdog' and the APPL_DB write above
+    # is a no-op): program the Broadcom-DNX IPS credit-watchdog scan register
+    # directly. CRDT_WD_MIN_SCAN_CYCLE_PERIOD=0 disables the watchdog scan; 0x124
+    # is the hardware default, restored when re-enabling. Harmless to run
+    # alongside the SAI/APPL_DB path once the image carries #4658.
+    scan_period = "0x124" if enable else "0"
+    for unit in duthost.facts.get('asics_present', [0]):
+        duthost.shell("bcmcmd -n {} 'm IPS_CREDIT_WATCHDOG_CONFIGURATION "
+                      "CRDT_WD_MIN_SCAN_CYCLE_PERIOD={}'".format(unit, scan_period))
+        logger.info("%s VOQ credit watchdog via bcmcmd IPS_CREDIT_WATCHDOG_"
+                    "CONFIGURATION CRDT_WD_MIN_SCAN_CYCLE_PERIOD=%s (unit: %s)",
+                    'Enabled' if enable else 'Disabled', scan_period, unit)
+
 
 def disable_packet_aging(duthost, asic_value=None):
     """
