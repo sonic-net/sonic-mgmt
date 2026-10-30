@@ -510,11 +510,6 @@ platform_tests/api/test_chassis_fans.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/api/test_component.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/api/test_fan_drawer.py:
   skip:
     conditions:
@@ -541,11 +536,6 @@ platform_tests/api/test_psu_fans.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/api/test_sfp.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/api/test_thermal.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -591,16 +581,6 @@ platform_tests/daemon/test_ledd.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/daemon/test_pcied.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/daemon/test_psud.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-platform_tests/daemon/test_sensord.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name

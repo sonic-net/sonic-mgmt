@@ -284,26 +284,28 @@ class ClockUtils:
             return rand_time_str
 
     @staticmethod
-    def verify_datetime(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN):
+    def verify_datetime(expected, actual, allowed_margin=ClockConsts.TIME_MARGIN, elapsed_seconds=0):
         """
         @summary:
             Asserts a given date-time value is as expected
             * expected and actual date-time values are strings in the format "YYYY-MM-DD HH:MM:SS"
         @param expected: expected date-time value
         @param actual: actual given date-time value
-        @param allowed_margin: allowed margin between two times (in seconds)
+        @param allowed_margin: allowed clock error (in seconds)
+        @param elapsed_seconds: time spent between issuing and observing the commands
         """
         with allure.step(
-                f'Verify that diff between "{expected}" and "{actual}" (in seconds) is '
-                f'no longer than {allowed_margin}'):
-            with allure.step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
+                f'Verify that "{actual}" is within {-allowed_margin} to '
+                f'{allowed_margin + elapsed_seconds} seconds of "{expected}"'):
+            with allure.step(f'Calculate delta between "{expected}" and "{actual}" in seconds'):
                 datetime_obj1 = dt.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
                 datetime_obj2 = dt.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
 
-                diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
+                diff_seconds = (datetime_obj2 - datetime_obj1).total_seconds()
 
-            with allure.step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
-                assert diff_seconds <= allowed_margin, f'Expected: {diff_seconds} <= {allowed_margin}'
+            with allure.step(f'Verify that actual delta {diff_seconds} is within the allowed range'):
+                assert -allowed_margin <= diff_seconds <= allowed_margin + elapsed_seconds, \
+                    f'Expected: {-allowed_margin} <= {diff_seconds} <= {allowed_margin + elapsed_seconds}'
 
 
 def test_show_clock(duthosts):
@@ -403,6 +405,7 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
 
     with allure.step(f'Set new date and time "{new_datetime}"'):
         refresh_recovery()
+        command_start = time.monotonic()
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure.step('Verify command success'):
@@ -411,6 +414,7 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
     with allure.step(f'Verify date and time changed to "{new_datetime}"'):
         with allure.step('Get datetime from show clock'):
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
+            elapsed_seconds = time.monotonic() - command_start
             show_clock_dict = ClockUtils.verify_and_parse_show_clock_output(show_clock_output)
 
         with allure.step('Verify date-time'):
@@ -418,7 +422,10 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
             cur_time = show_clock_dict[ClockConsts.TIME]
             cur_datetime = f'{cur_date} {cur_time}'
 
-            ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime, allowed_margin=time_margin)
+            ClockUtils.verify_datetime(
+                expected=new_datetime, actual=cur_datetime,
+                allowed_margin=time_margin, elapsed_seconds=elapsed_seconds
+            )
 
     with allure.step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
@@ -439,6 +446,7 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
             refresh_recovery()
 
             with allure.step('Get show clock output before running the config command'):
+                command_start = time.monotonic()
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
             with allure.step(f'Try to set "{invalid_input}"'):
@@ -446,6 +454,7 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
 
             with allure.step('Get show clock output after running the config command'):
                 show_clock_output_after = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
+                elapsed_seconds = time.monotonic() - command_start
 
             with allure.step('Verify command failure'):
                 normalized_output = output.replace("'", '"')
@@ -470,5 +479,6 @@ def test_config_clock_date(duthosts, restore_time, tbinfo):
                     ClockUtils.verify_datetime(
                         expected=datetime_before,
                         actual=datetime_after,
-                        allowed_margin=time_margin
+                        allowed_margin=time_margin,
+                        elapsed_seconds=elapsed_seconds
                     )

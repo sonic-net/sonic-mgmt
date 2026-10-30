@@ -8,7 +8,8 @@
     "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
     "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"],
     "Cisco-C8220TG": ["Cisco-C8220TG-48A-O", "Cisco-C8220TG-G1S2"],
-    "Mellanox-SN6600":["Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"]
+    "Mellanox-SN6600":["Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"],
+    "NH-4210": ["NH-4210-F-O256", "NH-4210-F-P128"]
   },
   "COMMON": [
     {
@@ -434,6 +435,26 @@
           "memory_high_threshold": {
             "type": "value",
             "value": 134
+          }
+        }
+      },
+      "memory_check": "parse_frr_memory_output"
+    }
+  ],
+  "NH-4210": [
+    {
+      "name": "frr_bgp",
+      "cmd": "vtysh -c \"show memory bgp\"",
+      "memory_params": {
+        "used": {
+          "memory_increase_threshold": [
+            {"type": "percentage", "value": "50%"},
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
+          ],
+          "memory_high_threshold": {
+            "type": "value",
+            "value": 512
           }
         }
       },

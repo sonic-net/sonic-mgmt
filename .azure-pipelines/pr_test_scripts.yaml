@@ -798,6 +798,9 @@ t0-vpp:
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/test_ecmp_balance.py
   - everflow/test_everflow_ipv6.py
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
@@ -1010,6 +1013,7 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
   - dualtor/test_mux_port_iptables_entries.py

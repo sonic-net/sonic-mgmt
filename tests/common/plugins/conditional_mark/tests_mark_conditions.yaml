@@ -1002,6 +1002,14 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative[false]:
+  skip:
+    conditions_logical_operator: or
+    reason: "on AMD DPU VXLAN Source port check is always enabled. Skipping vxlan source port security check disable test"
+    conditions:
+      - "asic_type in ['pensando']"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
@@ -1748,7 +1756,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -1759,7 +1767,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -2464,7 +2472,8 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-8223_64e_mo-r0', 'x86_64-8223_64ef_mo-r0']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223_')"
   xfail:
     reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
     conditions:
@@ -2570,9 +2579,11 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos. Vxlan ipv6-ipv6 Pkt format is not supported on cisco 8122 platform'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
@@ -3988,6 +3999,15 @@ nat:
       - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
+#####             ntp             #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  skip:
+    reason: "Chrony stepping is enabled by default on switch BMCs"
+    conditions:
+      - "topo_type in ['bmc']"
+
+#######################################
 #####             ospf            #####
 #######################################
 ospf:
@@ -5239,6 +5259,14 @@ smartswitch:
     conditions:
       - *lossyTopos
 
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    conditions_logical_operator: or
+    reason: "test_data_control_mid_plane_sync: Skipping: Manual link shut/noshut is not supported for eth0-midplane for Cisco smartswitch platform"
+    conditions:
+      - "hwsku.startswith('Pensando')"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 #######################################
 #####         snappi_tests        #####
 #######################################
@@ -5331,6 +5359,14 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
+
+snappi_tests/gcu/test_gcu_port_speed_upgrade.py:
+  skip:
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
 
 snappi_tests/lacp:
   skip:

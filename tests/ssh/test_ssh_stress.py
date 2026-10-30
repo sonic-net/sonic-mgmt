@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import socket
 import threading
 import paramiko
@@ -27,6 +28,7 @@ REMOVE_PORTCHANNEL = "sudo config portchannel del PortChannel0010"
 COMMAND_TIMEOUT = 60
 VPP_COMMAND_SETTLE_TIME = 1
 HEALTH_RECOVERY_TIMEOUT = 180
+ROUTE_CHECK_RECOVERY_TIMEOUT = 900
 VPP_SETTLE_POLLS = 18
 
 done = False
@@ -58,6 +60,15 @@ def _control_plane_is_healthy(duthost, portchannels, bgp_neighbors):
         if result.get("rc", 1) != 0:
             return False
     return duthost.check_bgp_session_state_all_asics(bgp_neighbors)
+
+
+def _route_checker_is_healthy(duthost):
+    result = duthost.command("sudo route_check.py", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return False
+    # Monit can retain a churn-time failure until its next scheduled check.
+    status = duthost.get_monit_services_status()["routeCheck"]["service_status"]
+    return status.lower() in ("status ok", "ok")
 
 
 def _setup_stress(duthost, request):
@@ -114,6 +125,7 @@ def _setup_stress(duthost, request):
         "bgp_neighbors": bgp_neighbors,
         "command_pairs": command_pairs,
         "command_settle_time": command_settle_time,
+        "concurrent_baselines": is_vpp,
         "portchannels": portchannels,
         "settle_polls": settle_polls,
         "username": harness_creds["sonicadmin_user"],
@@ -140,6 +152,11 @@ def _teardown_stress(duthost, context):
         ),
         "Teamd/BGP control plane did not recover after SSH stress",
     )
+    if duthost.facts["asic_type"] == "vpp":
+        pytest_assert(
+            wait_until(ROUTE_CHECK_RECOVERY_TIMEOUT, 20, 0, _route_checker_is_healthy, duthost),
+            "Route consistency or monit routeCheck did not recover after SSH stress",
+        )
 
 
 @pytest.fixture
@@ -232,6 +249,23 @@ def _get_baseline_times(ssh, command_pairs, command_settle_time):
 
         baseline_times.append(tuple(total / 5 for total in totals))
     return baseline_times
+
+
+def _get_concurrent_baseline_times(
+    dut_mgmt_ip, command_pairs, username, password, command_settle_time,
+):
+    """Measure VPP baselines with concurrent command pairs."""
+    def measure(commands):
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        try:
+            return _get_baseline_times(ssh, [commands], command_settle_time)[0]
+        finally:
+            ssh.close()
+
+    with ThreadPoolExecutor(
+        max_workers=len(command_pairs), thread_name_prefix="ssh-baseline",
+    ) as executor:
+        return list(executor.map(measure, command_pairs))
 
 
 def work(
@@ -342,11 +376,17 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     worker_failures = queue.Queue()
 
     logging.info("Collecting baseline times for commands")
-    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
-    baseline_times = _get_baseline_times(
-        ssh, command_pairs, setup_teardown["command_settle_time"]
-    )
-    ssh.close()
+    if setup_teardown["concurrent_baselines"]:
+        baseline_times = _get_concurrent_baseline_times(
+            dut_mgmt_ip, command_pairs, username, password,
+            setup_teardown["command_settle_time"],
+        )
+    else:
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
+        baseline_times = _get_baseline_times(
+            ssh, command_pairs, setup_teardown["command_settle_time"]
+        )
+        ssh.close()
 
     logging.info("Starting system monitoring thread.")
     # Starts thread that will be monitoring cpu and memory usage

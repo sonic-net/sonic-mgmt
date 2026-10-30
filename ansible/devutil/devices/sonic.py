@@ -172,15 +172,28 @@ def patch_rsyslog(sonichosts):
 def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
     try:
         for i in range(len(sonichosts.ips)):
-            localhost.wait_for(
-                host=sonichosts.ips[i],
-                port=22,
-                state="started",
-                search_regex="OpenSSH",
-                delay=180 if i == 0 else 0,
-                timeout=600,
-                module_attrs={"changed_when": False}
-            )
+            hostname = sonichosts.hostnames[i]
+            ipv6 = sonichosts.get_host_visible_var(hostname, "ansible_hostv6")
+            # wait_for bypasses SSH's IPv6 fallback, so retry here if IPv4 is unavailable.
+            ips = [ip.strip() for ip in (sonichosts.ips[i], ipv6) if ip and ip.strip()]
+            if not ips:
+                raise RunAnsibleModuleFailed("No management address configured for {}".format(hostname))
+            for j, ip in enumerate(ips):
+                try:
+                    localhost.wait_for(
+                        host=ip,
+                        port=22,
+                        state="started",
+                        search_regex="OpenSSH",
+                        delay=180 if i == 0 and j == 0 else 0,
+                        timeout=600,
+                        module_attrs={"changed_when": False}
+                    )
+                    break
+                except RunAnsibleModuleFailed as e:
+                    if j == len(ips) - 1:
+                        raise
+                    logger.warning("SSH check failed for %s at %s; trying IPv6: %s", hostname, ip, e)
         localhost.pause(seconds=60, prompt="Wait for SONiC initialization")
 
         # NOTE: Clear Ansible cached facts to avoid using stale data
