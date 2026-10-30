@@ -30,7 +30,7 @@ parameters:
 
   - name: INCLUDE_JOBS
     type: string
-    default: "t0_job,t1_job,t2_job,t0_2vlans_job,t0_sonic_job,dualtor_job,dpu_job,t1_multi_asic_job"
+    default: "t0_job,t1_job,t2_job,t0_2vlans_job,t0_sonic_job,dualtor_job,dpu_job,t1_multi_asic_job,t0_vpp_job,t1_lag_vpp_job,dualtor_aa_vpp_job"
 
 variables:
   - group: SONiC-Elastictest

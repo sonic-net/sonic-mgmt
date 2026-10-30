@@ -271,7 +271,7 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 
 **Requirements for firmware upgrade tests:**
 
-1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition. DOM polling is re-enabled at the end of every test case to evaluate basic DOM data.
+1. **DOM polling must be disabled during CDB operations** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The operation runner performs pre-operation recovery verification before disabling polling, waits for `sleep_after_dom_disable_sec`, and disables polling only around CDB prefetch and per-port operations. Polling is restored before post-operation EEPROM/DOM/CMIS verification, which requires fresh publications. The same operation-scoped handling applies to version/abort-support checks and package firmware restoration. Cleanup runs on exceptions and interruption, restores only ports whose polling was changed, and reports re-enable failures explicitly. A port already disabled is not silently enabled to bypass pre-operation freshness checks.
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped if the `thermalctld_disabling_required` flag is set.
 3. **Firmware requirements:**
    - The firmware versions specified by the `firmware_versions` and `old_gold_firmware_version` test attributes must be available.

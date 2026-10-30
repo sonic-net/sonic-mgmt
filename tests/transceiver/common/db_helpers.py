@@ -37,6 +37,7 @@ from tests.transceiver.common.cli_parser_helper import RC_FAILURE
 logger = logging.getLogger(__name__)
 
 
+TRANSCEIVER_STATUS_TABLE = "TRANSCEIVER_STATUS"
 STATE_DB_UPDATE_TIME_FIELD = "last_update_time"
 STATE_DB_UPDATE_TIME_FUTURE_TOLERANCE_MIN = 0.1
 XCVRD_UPDATE_TIME_FORMAT = "%a %b %d %H:%M:%S %Y"
@@ -108,6 +109,20 @@ def resolve_port_namespace(duthost, port):
     if not duthost.is_multi_asic:
         return None
     return duthost.get_port_asic_instance(port).namespace
+
+
+def group_ports_by_namespace(duthost, ports, namespaces=None):
+    """Group logical ports by ASIC namespace."""
+    namespaces = namespaces or {}
+    grouped = {}
+    for port in ports:
+        namespace = (
+            namespaces[port]
+            if port in namespaces
+            else resolve_port_namespace(duthost, port)
+        )
+        grouped.setdefault(namespace, []).append(port)
+    return grouped
 
 
 def _entry_field_age_minutes(entry, now_utc):
@@ -383,6 +398,27 @@ def get_db_table(duthost, db, table, namespace=None, sep="|"):
         for full_key, entry in raw.items()
         if full_key.startswith(prefix)
     }, None
+
+
+def get_appl_db_port_table_entries(duthost, ports, namespaces=None):
+    """Read APPL_DB PORT_TABLE entries once per ASIC namespace.
+
+    Reuse the optional ``{port: namespace}`` map when already resolved.
+    Read failures are logged and returned as empty entries for affected ports.
+    """
+    entries = {}
+    for namespace, namespace_ports in group_ports_by_namespace(
+        duthost, ports, namespaces
+    ).items():
+        port_table, err = get_db_table(
+            duthost, "APPL_DB", "PORT_TABLE", namespace=namespace, sep=":"
+        )
+        if err:
+            logger.warning("Failed to read APPL_DB PORT_TABLE: %s", err)
+            port_table = {}
+        for port in namespace_ports:
+            entries[port] = port_table.get(port, {})
+    return entries
 
 
 def get_state_db_table(duthost, table, namespace=None):

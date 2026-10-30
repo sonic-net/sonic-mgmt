@@ -1,0 +1,9 @@
+speed_fec_map:
+  "100000": ["rs", "none"]
+  "400000": ["rs"]
+
+platforms:
+  x86_64-88_lc0_36fh-r0:
+    speed_lanes:
+      "100000": 4
+      "400000": 8

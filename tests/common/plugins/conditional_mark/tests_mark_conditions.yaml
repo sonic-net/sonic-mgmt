@@ -141,6 +141,14 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_src_mac_rewrite.py:
+  skip:
+    reason: "Source Mac rewrite is not supported on Cisco 8223/8122 platforms"
+    conditions_logical_operator: or
+    conditions:
+      - "platform.startswith('x86_64-8223')"
+      - "platform.startswith('x86_64-8122')"
+
 acl/test_stress_acl.py:
   skip:
     reason: "skip for IPv6-only topologies"
@@ -171,12 +179,6 @@ arp/:
     reason: 'ARP tests require data-plane, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
-
-arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
-  skip:
-    reason: "`accept_untracked_na` currently only available in 202012"
-    conditions:
-      - "release not in ['202012']"
 
 arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
   skip:
@@ -1000,6 +1002,14 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative[false]:
+  skip:
+    conditions_logical_operator: or
+    reason: "on AMD DPU VXLAN Source port check is always enabled. Skipping vxlan source port security check disable test"
+    conditions:
+      - "asic_type in ['pensando']"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
@@ -1289,12 +1299,6 @@ dhcp_relay/test_dhcpv4_relay.py:
     conditions:
       - "release < '202511'"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
-
-dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
-  skip:
-    reason: "Test skipped: We are skipping this testcase for now"
-    conditions:
-      - "True"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
@@ -1691,7 +1695,7 @@ dualtor_mgmt/test_server_failure.py::test_server_reboot:
   skip:
     reason: "KVM testbed does not have fanout hosts"
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'vpp']"
 
 dualtor_mgmt/test_toggle_mux.py:
   skip:
@@ -1752,7 +1756,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -1763,7 +1767,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -2456,7 +2460,8 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-8223_64e_mo-r0', 'x86_64-8223_64ef_mo-r0']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223_')"
   xfail:
     reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
     conditions:
@@ -2562,9 +2567,11 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos. Vxlan ipv6-ipv6 Pkt format is not supported on cisco 8122 platform'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
@@ -3543,9 +3550,9 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
 
 iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "Arista-7060X6 doesn't support speed change as it's ASIC limitation. Skipping this test."
+    reason: "Platform or hwsku doesn't support speed change. Skipping this test."
     conditions:
-      - "'Arista-7060X6' in hwsku"
+      - "'Arista-7060X6' in hwsku or platform in ['x86_64-micas_m2-w6940-128x1-fr4-r0']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
   skip:
@@ -3978,6 +3985,15 @@ nat:
     conditions:
       - "'nat' not in feature_status"
       - "asic_type in ['mellanox', 'nvidia']"
+
+#######################################
+#####             ntp             #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  skip:
+    reason: "Chrony stepping is enabled by default on switch BMCs"
+    conditions:
+      - "topo_type in ['bmc']"
 
 #######################################
 #####             ospf            #####
@@ -5231,6 +5247,14 @@ smartswitch:
     conditions:
       - *lossyTopos
 
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    conditions_logical_operator: or
+    reason: "test_data_control_mid_plane_sync: Skipping: Manual link shut/noshut is not supported for eth0-midplane for Cisco smartswitch platform"
+    conditions:
+      - "hwsku.startswith('Pensando')"
+      - "hwsku.startswith('Cisco-8102-28FH-DPU-')"
+
 #######################################
 #####         snappi_tests        #####
 #######################################
@@ -5323,6 +5347,14 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
+
+snappi_tests/gcu/test_gcu_port_speed_upgrade.py:
+  skip:
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
 
 snappi_tests/lacp:
   skip:
@@ -5576,11 +5608,10 @@ ssh/test_ssh_default_password:
       - "asic_type not in ['vpp']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
-  # This test is not stable, skip it for now.
-  # known issue: https://github.com/paramiko/paramiko/issues/1508
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
-    conditions: https://github.com/paramiko/paramiko/issues/1508
+    conditions:
+      - "asic_type not in ['vpp'] or topo_name not in ['t0', 't1-lag']"
 
 #######################################
 #####             stress          #####

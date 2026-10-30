@@ -1,3 +1,41 @@
+###########################################################
+#####   test_configurable_drop_counter_monitor.py     #####
+###########################################################
+# These tests drive the monitor by generating DIP_LINK_LOCAL drops, so they inherit the
+# same platform limitations as test_configurable_drop_counters.py::test_dip_link_local.
+drop_packets/test_configurable_drop_counter_monitor.py::test_drop_count_threshold:
+  skip:
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase / DIP_LINK_LOCAL drop reason is for IPv4 only."
+    conditions_logical_operator: or
+    conditions:
+      - "'Mellanox' in hwsku"
+      - asic_type=='cisco-8000'
+      - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
+      - "'-v6-' in topo_name"
+
+drop_packets/test_configurable_drop_counter_monitor.py::test_incident_detection_threshold:
+  skip:
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase / DIP_LINK_LOCAL drop reason is for IPv4 only."
+    conditions_logical_operator: or
+    conditions:
+      - "'Mellanox' in hwsku"
+      - asic_type=='cisco-8000'
+      - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
+      - "'-v6-' in topo_name"
+
+drop_packets/test_configurable_drop_counter_monitor.py::test_monitor_window:
+  skip:
+    reason: "M0/Mx topos doesn't support drop packets / Cisco 8000 platform and some mlx platforms does not drop DIP link local packets / KVM do not support drop reason in testcase / DIP_LINK_LOCAL drop reason is for IPv4 only."
+    conditions_logical_operator: or
+    conditions:
+      - "'Mellanox' in hwsku"
+      - asic_type=='cisco-8000'
+      - "topo_type in ['m0', 'mx']"
+      - "asic_type in ['vs']"
+      - "'-v6-' in topo_name"
+
 ####################################################
 #####     test_configurable_drop_counters.py   #####
 ####################################################

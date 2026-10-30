@@ -92,6 +92,14 @@ IPv6 service configurations are defined in:
 - `group_vars/sonic/ipv6.yml` - For lab inventory (depending on the inventory group)
 - `group_vars/vm_host/ipv6.yml` - For vm_host inventory
 
+For inventories with nested groups, set `ipv6_mgmt_config_group` to load the
+intended lab file instead of relying on group ordering:
+
+```yaml
+# group_vars/<lab>/ipv6.yml
+ipv6_mgmt_config_group: <lab>
+```
+
 ## Virtual Testbed IPv6 Addressing Scheme
 
 For virtual testbeds, we use the following IPv6 addressing:
@@ -285,6 +293,20 @@ When enabled, the test framework will:
 - Use `ansible_hostv6` as the DUT management IP instead of `ansible_host`
 - Skip IPv4 management connectivity sanity checks
 - Use `ping6` for management reachability tests
+- Use `proxy_env_ipv6` instead of `proxy_env` when an IPv6 proxy is configured
+
+Labs that require an HTTP/HTTPS proxy can define an optional
+`proxy_env_ipv6` dictionary in `ansible/group_vars/all/env.yml` or an
+inventory-specific `group_vars/<inventory>/env.yml`. IPv6 literals in proxy
+URLs must be enclosed in square brackets, for example
+`http://[2001:db8::1]:3128`. If `proxy_env_ipv6` is not defined, existing
+proxy behavior is unchanged.
+
+During `deploy-mg --ipv6-only-mgmt`, `proxy_env_ipv6` is used for the DUT
+Docker proxy configuration. During test execution, `--ipv6_only_mgmt` or `-6`
+selects it for tests that consume the shared `creds` fixtures.
+Redeploying without a configured proxy removes the playbook-managed Docker
+proxy drop-in and restores direct access.
 
 ### Important notes
 

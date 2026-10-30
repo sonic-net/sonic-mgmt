@@ -7,14 +7,30 @@ import re
 import threading
 import time
 
-from tests.common.utilities import wait_until
 from event_utils import listen_for_events
+
+from tests.common.utilities import wait_until
+
 logger = logging.getLogger(__name__)
 
 
-def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json_file,
-             filter_event_regex, tag, heartbeat=False, timeout=30, ptfadapter=None,
-             start_listen_first=False, pre_trigger_wait=3):
+def run_test(
+    duthost,
+    tbinfo,
+    gnxi_path,
+    ptfhost,
+    data_dir,
+    validate_yang,
+    trigger,
+    json_file,
+    filter_event_regex,
+    tag,
+    heartbeat=False,
+    timeout=30,
+    ptfadapter=None,
+    start_listen_first=False,
+    pre_trigger_wait=3,
+):
     op_file = os.path.join(data_dir, json_file)
     if start_listen_first and trigger is not None:
         # Start the gNMI subscriber first so it is already listening when the trigger fires.
@@ -28,8 +44,7 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
 
         def _listen():
             try:
-                listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
-                                  timeout)
+                listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout)
             except Exception as e:
                 errors.append(e)
 
@@ -51,8 +66,7 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
                 trigger(duthost, tbinfo)  # add events to cache
             else:
                 trigger(duthost, tbinfo, ptfadapter)
-        listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
-                          timeout)  # listen from cache
+        listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout)  # listen from cache
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)
@@ -67,7 +81,6 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
 
 
 def is_gnmi_cli_finished(duthost):
-    last_logs = duthost.shell("tail -n 2 /var/log/syslog",
-                              module_ignore_errors=True)["stdout"]
-    matches = re.findall('Set heartbeat_ctrl pause=1', last_logs)
+    last_logs = duthost.shell("tail -n 2 /var/log/syslog", module_ignore_errors=True)["stdout"]
+    matches = re.findall("Set heartbeat_ctrl pause=1", last_logs)
     return len(matches) > 0

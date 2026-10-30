@@ -127,7 +127,6 @@ t0:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -467,7 +466,6 @@ t1-lag:
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
   - gnmi/test_gnoi_system.py
-  - gnmi/test_gnoi_system_grpc.py
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - hash/test_generic_hash.py
@@ -685,6 +683,7 @@ t1-lag-vpp:
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - cacl/test_ebtables_application.py
+  - clock/test_clock.py
   - copp/test_copp.py
   - crm/test_crm.py
   - crm/test_crm_available.py
@@ -739,6 +738,7 @@ t1-lag-vpp:
   - ssh/test_ssh_ciphers.py
   - ssh/test_ssh_default_password.py
   - ssh/test_ssh_limit.py
+  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - sub_port_interfaces/test_show_subinterface.py
@@ -795,7 +795,13 @@ t0-vpp:
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+<<<<<<< HEAD
   - drop_packets/test_drop_counters.py
+=======
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/test_ecmp_balance.py
+>>>>>>> master
   - fdb/test_fdb_flush.py
   - fib/test_fib.py
   - fips/test_fips.py
@@ -837,6 +843,7 @@ t0-vpp:
   - pc/test_po_update.py
   - sflow/test_sflow.py
   - span/test_port_mirroring.py
+  - ssh/test_ssh_stress.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_secondary_subnet.py
@@ -1004,6 +1011,7 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
   - dualtor/test_mux_port_iptables_entries.py
@@ -1014,6 +1022,10 @@ dualtor-aa-vpp:
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
 
 specific_param:
   t0-sonic:

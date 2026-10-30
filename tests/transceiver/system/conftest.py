@@ -70,6 +70,7 @@ def _system_post_session_checks(
     duthost,
     port_attributes_dict,
     lport_to_first_subport_mapping,
+    port_peers,
 ):
     """Run the Post-Session State Restoration + Checks from
     system_test_plan.md at session teardown.
@@ -186,18 +187,33 @@ def _system_post_session_checks(
         logger.info("Post-session link check PASSED: %s", link_result["details"])
 
     # short poll budget here - LLDP should already be settled by now
-    lldp_port_timeouts = {
-        port: 30
-        for port, attrs in port_attributes_dict.items()
-        if attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get(
-            "verify_lldp_on_link_up", True
+    lldp_port_timeouts = {}
+    expected_peers = {}
+    peer_failures = []
+    for port, attrs in port_attributes_dict.items():
+        if not attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get("verify_lldp_on_link_up", True):
+            continue
+        peer, error = port_peers.get(port, (None, "missing port_peers entry"))
+        if error is not None:
+            peer_failures.append(f"{port}: {error}")
+        elif peer is None or not peer.device or not peer.port:
+            peer_failures.append(f"{port}: incomplete peer identity: {peer!r}")
+        else:
+            expected_peers[port] = peer
+            lldp_port_timeouts[port] = 30
+
+    if peer_failures:
+        logger.warning(
+            "Post-session LLDP peer resolution FAILED:\n%s",
+            "\n".join(peer_failures),
         )
-    }
-    lldp_results = check_lldp_neighbors_present(duthost, lldp_port_timeouts)
+    lldp_results = check_lldp_neighbors_present(
+        duthost, lldp_port_timeouts, expected_peers=expected_peers,
+    )
     lldp_failed = [port for port, r in lldp_results.items() if not r["passed"]]
     if lldp_failed:
         logger.warning(
             "Post-session LLDP check FAILED for: %s", ", ".join(lldp_failed)
         )
-    else:
+    elif not peer_failures:
         logger.info("Post-session LLDP check PASSED")

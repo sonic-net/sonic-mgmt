@@ -29,10 +29,9 @@
   dut:
     - vlab-01
   inv_name: veos_vtb
-  # TODO(converged-peers): csonic neighbors are non-cEOS, so the converged
-  # (multi-VRF) peer model is gated off in conftest.py / testbed-cli.sh and
-  # never runs here. Re-enable once converged peers support csonic.
-  # use_converged_peers: True
+  # Enable convergence only for the validated cSONiC T0 rollout. Other cSONiC
+  # topology entries remain disabled until their own CI qualification.
+  use_converged_peers: True
   auto_recover: 'False'
   comment: Tests cSONiC virtual switch VMs without PortChannels
 

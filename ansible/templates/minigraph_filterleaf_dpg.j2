@@ -63,6 +63,10 @@
 {% endif %}
 </LoopbackIPInterfaces>
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% set ansible_host_is_ipv6 = ansible_host | ansible.utils.ipv6 %}
+{% set effective_mgmt_ipv6 = ansible_hostv6 | default(ansible_host if ansible_host_is_ipv6 else 'FC00:2::32', true) %}
+{% set emit_ipv4 = not (use_ipv6_mgmt|default(false)|bool) and not ansible_host_is_ipv6 %}
+{% if emit_ipv4 %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
           <AttachTo>eth0</AttachTo>
@@ -71,13 +75,14 @@
           </a:Prefix>
           <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
         </a:ManagementIPInterface>
+{% endif %}
         <a:ManagementIPInterface>
-          <Name>V6HostIP</Name>
+          <Name>{% if emit_ipv4 %}V6HostIP{% else %}HostIP{% endif %}</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+            <b:IPPrefix>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+          <a:PrefixStr>{{ effective_mgmt_ipv6 }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
