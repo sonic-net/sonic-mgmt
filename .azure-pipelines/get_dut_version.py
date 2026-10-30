@@ -4,7 +4,9 @@ import argparse
 import json
 import logging
 import os
+import socket
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import yaml
 from natsort import natsorted
@@ -17,7 +19,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa: E402
+from devutil.devices.factory import init_testbed_sonichosts  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,8 @@ RC_INIT_FAILED = 1
 RC_GET_DUT_VERSION_FAILED = 2
 
 ASIC_NAME_PATH = '../ansible/group_vars/sonic/variables'
+SSH_PORT = 22
+SSH_PROBE_TIMEOUT = 3
 
 
 def read_asic_name(hwsku):
@@ -46,6 +50,58 @@ def read_asic_name(hwsku):
 
     except IOError:
         return None
+
+
+def _is_ssh_reachable(address):
+    try:
+        with socket.create_connection((address, SSH_PORT), timeout=SSH_PROBE_TIMEOUT):
+            return True
+    except (OSError, ValueError):
+        return False
+
+
+def _prefer_reachable_ipv6_hosts(sonichosts):
+    candidates = []
+    for host in sonichosts.ans_inv_hosts:
+        if "dpu" in host.name.lower():
+            continue
+
+        ipv4 = sonichosts.get_host_visible_var(host.name, "ansible_host")
+        ipv6 = sonichosts.get_host_visible_var(host.name, "ansible_hostv6")
+        if not ipv4 or not ipv6 or ipv4 == ipv6:
+            continue
+
+        candidates.append((host, str(ipv4).split("/", 1)[0], str(ipv6).split("/", 1)[0]))
+
+    if not candidates:
+        return
+
+    with ThreadPoolExecutor(max_workers=min(len(candidates), 16)) as executor:
+        ipv4_probes = {
+            host.name: executor.submit(_is_ssh_reachable, ipv4)
+            for host, ipv4, _ in candidates
+        }
+        ipv4_unreachable = [
+            candidate
+            for candidate in candidates
+            if not ipv4_probes[candidate[0].name].result()
+        ]
+        ipv6_probes = {
+            host.name: executor.submit(_is_ssh_reachable, ipv6)
+            for host, _, ipv6 in ipv4_unreachable
+        }
+
+        for host, _, ipv6 in ipv4_unreachable:
+            if not ipv6_probes[host.name].result():
+                continue
+
+            logger.info("Using IPv6 management address %s for %s", ipv6, host.name)
+            host.set_variable("ansible_host", ipv6)
+
+    sonichosts.ips = [
+        host.get_vars().get("ansible_host")
+        for host in sonichosts.ans_inv_hosts
+    ]
 
 
 def get_duts_version(sonichosts, output=None):
@@ -183,14 +239,14 @@ def main(args):
     validate_args(args)
 
     logger.info("Initializing hosts")
-    localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
     sonichosts = init_testbed_sonichosts(
         args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
     )
 
-    if not localhost or not sonichosts:
+    if not sonichosts:
         sys.exit(RC_INIT_FAILED)
 
+    _prefer_reachable_ipv6_hosts(sonichosts)
     get_duts_version(sonichosts, args.output)
 
 
