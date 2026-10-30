@@ -1,0 +1,18 @@
+{
+    "POLICER": {
+        "test_policer_meter": {
+            "meter_type": "packets",
+            "mode": "sr_tcm",
+            "cir": "100",
+            "cbs": "100",
+            "red_packet_action": "drop"
+        },
+        "test_policer_rate": {
+            "meter_type": "packets",
+            "mode": "sr_tcm",
+            "cir": "300",
+            "cbs": "100",
+            "red_packet_action": "drop"
+        }
+    }
+}
