@@ -59,23 +59,10 @@ def is_cpo_supported(duthosts, rand_one_dut_hostname):
 
 
 def get_cpo_ports(duthost):
-    """Return the set of port names in CONFIG_DB whose cage is CPO per hwsku.json.
+    """Return the set of port names whose Type is CPO per "show interface status".
 
-    hwsku.json only lists the parent port of each breakout group, so breakout
-    child ports (e.g. SN6810_LD Ethernet513 of non-CPO Ethernet512, or Ethernet9
-    of CPO Ethernet8) are missing from it. Every CONFIG_DB port is therefore
-    mapped to the hwsku.json port sharing its `index` (physical cage) and
-    inherits that port's `port_type`. Returns an empty set if hwsku.json
-    doesn't exist (no information to filter on).
+    The "show interface status" output has a Type column; ports whose Type is
+    "CPO" are CPO ports.  Returns an empty set if no CPO ports are found.
     """
-    platform = duthost.facts["platform"]
-    hwsku = duthost.facts['hwsku']
-    f_path = HWSKU_JSON_PATH.format(platform, hwsku)
-    if not duthost.stat(path=f_path)["stat"]["exists"]:
-        return set()
-    output = duthost.command(f"cat {f_path}")["stdout"]
-    hwsku_interfaces = json.loads(output).get('interfaces') or {}
-    port_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
-    cpo_indexes = {port_config[intf].get('index') for intf, intf_info in hwsku_interfaces.items()
-                   if intf in port_config and intf_info.get('port_type') == CPO_PORT_TYPE}
-    return {intf for intf, intf_info in port_config.items() if intf_info.get('index') in cpo_indexes}
+    intf_status = duthost.show_and_parse("show interface status")
+    return {row["interface"] for row in intf_status if row.get("type") == CPO_PORT_TYPE}
