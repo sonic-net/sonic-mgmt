@@ -1,0 +1,293 @@
+- name: Reject an unmatched VM host before provisioning
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  any_errors_fatal: true
+  tags: generic_host_resolution
+  vars:
+    generic_vm_candidates: >-
+      {{ groups.get(generic_testbed.server, [generic_testbed.server])
+         | intersect(groups.get('servers', []))
+         | intersect(groups.get('vm_host', [])) | sort }}
+  tasks:
+    - name: Require one eligible VM host from the selected host or group
+      assert:
+        that:
+          - generic_vm_candidates | length == 1
+        fail_msg: "The selected server must resolve to exactly one host in both servers and vm_host inventory groups."
+        success_msg: "Resolved generic VM host: {{ generic_vm_candidates | join(', ') }}"
+
+    - name: Record the uniquely resolved VM host
+      set_fact:
+        generic_vm_host: "{{ generic_vm_candidates[0] }}"
+
+- name: Bind or inspect only the selected generic PTF infrastructure
+  hosts: "{{ hostvars['localhost'].generic_vm_host | default([]) }}"
+  gather_facts: false
+  become: true
+  vars:
+    generic_group: "{{ generic_testbed['group-name'] }}"
+    generic_container: "ptf_{{ generic_group }}"
+    generic_alias: "sonic-generic:{{ generic_scenario_id }}"
+    generic_host_topology:
+      host_interfaces: "{{ range(0, generic_transport | length) | list }}"
+  pre_tasks:
+    - name: Use the existing VM role MTU when inventory omits it
+      set_fact:
+        fp_mtu_size: "{{ (lookup('file', playbook_dir ~ '/roles/vm_set/vars/main.yml') | from_yaml).fp_mtu_size }}"
+      when: fp_mtu_size is not defined
+      tags: generic_host_resolution
+
+    - name: Use existing VM host connection settings
+      set_fact:
+        ansible_user: "{{ vm_host_user }}"
+      when: vm_host_user is defined and vm_host_user != 'use_own_value'
+    - name: Use existing VM host authentication
+      set_fact:
+        ansible_password: "{{ vm_host_password }}"
+      when: vm_host_password is defined and vm_host_password != 'use_own_value'
+      no_log: true
+    - name: Use existing VM host privilege settings
+      set_fact:
+        ansible_become_password: "{{ vm_host_become_password }}"
+      when: vm_host_become_password is defined and vm_host_become_password != 'use_own_value'
+      no_log: true
+    - name: Require one physical, already prepared VM host
+      assert:
+        that:
+          - ansible_play_hosts | length == 1
+          - external_port is defined
+          - mgmt_bridge is defined
+          - mgmt_gw is defined
+          - fp_mtu_size is defined
+          - generic_group is match('^[A-Za-z0-9_-]{1,8}$')
+          - generic_transport | length > 0
+        fail_msg: "Generic add-topo requires a prepared physical VM host and a safe group name."
+  tasks:
+    - name: Inspect existing PTF ownership
+      docker_container_info:
+        name: "{{ generic_container }}"
+      register: generic_existing
+
+    - name: Never take over an old or unrelated PTF container
+      assert:
+        that:
+          - >-
+            not generic_existing.exists or
+            (generic_existing.container.Config.Labels | default({}, true)).get('sonic.generic.scenario', '') == generic_scenario_id
+          - generic_host_action != 'verify' or generic_existing.exists
+        fail_msg: "Remove the previous topology using its original definition first; this command will not steal it."
+
+    - name: Load existing PTF image registry settings
+      include_vars: vars/docker_registry.yml
+      when: generic_host_action == 'add-topo'
+
+    - name: Create the scenario-owned PTF container without neighbor VMs
+      docker_container:
+        name: "{{ generic_container }}"
+        image: "{{ public_docker_registry_host }}/{{ generic_testbed.ptf_image_name }}:{{ generic_testbed.ptf_imagetag | default('latest') }}"
+        state: started
+        pull: missing
+        network_mode: none
+        privileged: true
+        capabilities:
+          - net_admin
+        labels:
+          sonic.generic.scenario: "{{ generic_scenario_id }}"
+      when: generic_host_action == 'add-topo'
+
+    - name: Resolve the PTF namespace
+      docker_container_info:
+        name: "{{ generic_container }}"
+      register: generic_ptf
+
+    - name: Require a running scenario-owned container for add or verify
+      assert:
+        that:
+          - >-
+            not generic_ptf.exists or
+            (generic_ptf.container.Config.Labels | default({}, true)).get('sonic.generic.scenario', '') == generic_scenario_id
+          - >-
+            generic_host_action == 'remove-topo' or
+            (generic_ptf.exists and generic_ptf.container.State.Running and
+             generic_ptf.container.State.Pid | int > 1)
+
+    - name: Record whether the owned PTF namespace is available
+      set_fact:
+        generic_namespace_active: >-
+          {{ generic_ptf.exists and generic_ptf.container.State.Running and
+             generic_ptf.container.State.Pid | int > 1 }}
+
+    - name: Read PTF data-interface ownership
+      command:
+        argv: [nsenter, -t, "{{ generic_ptf.container.State.Pid | string }}", -n, ip, -j, -d, link, show]
+      register: generic_links
+      changed_when: false
+      when: generic_namespace_active
+
+    - name: Read the shared host-facing interface without altering it
+      command:
+        argv: [ip, -j, link, show, dev, "{{ external_port }}"]
+      register: generic_parent
+      changed_when: false
+
+    - name: Reject conflicting or stale PTF interfaces
+      assert:
+        that:
+          - matches | length <= 1
+          - >-
+            matches | length == 0 or
+            (matches[0].get('ifalias', '') == generic_alias and
+             matches[0].get('linkinfo', {}).get('info_kind') == 'vlan' and
+             matches[0].get('linkinfo', {}).get('info_data', {}).get('id') == item.vlan_id and
+             matches[0].get('link_index') == (generic_parent.stdout | from_json)[0].ifindex)
+          - generic_host_action != 'verify' or matches | length == 1
+      vars:
+        matches: "{{ generic_links.stdout | from_json | selectattr('ifname', 'equalto', 'eth' ~ item.ptf_index) | list }}"
+      loop: "{{ generic_transport }}"
+      when: generic_namespace_active
+
+    - name: Build the compact PTF-index to host-VLAN projection
+      set_fact:
+        generic_fp_map: "{{ generic_fp_map | default({}) | combine({item.ptf_index | string: 'gg' ~ generic_scenario_id[:6] ~ (item.ptf_index | string)}) }}"
+      loop: "{{ generic_transport }}"
+
+    - name: Require the existing shared interface to be ready
+      assert:
+        that:
+          - "'UP' in (generic_parent.stdout | from_json)[0].flags"
+          - (generic_parent.stdout | from_json)[0].mtu | int >= fp_mtu_size | int
+      when: generic_host_action != 'remove-topo'
+
+    - name: Inspect missing host VLAN endpoints
+      command:
+        argv: [ip, -j, -d, link, show, dev, "{{ generic_fp_map[item.ptf_index | string] }}"]
+      register: generic_host_links
+      changed_when: false
+      failed_when: generic_host_links.rc not in [0, 1]
+      when:
+        - generic_host_action in ['add-topo', 'remove-topo']
+        - >-
+          generic_host_action == 'remove-topo' or
+          generic_links.stdout | from_json | selectattr('ifname', 'equalto', 'eth' ~ item.ptf_index) | list | length == 0
+      loop: "{{ generic_transport }}"
+
+    - name: Never adopt an unowned host VLAN endpoint
+      assert:
+        that:
+          - (item.stdout | from_json)[0].get('ifalias', '') == generic_alias
+          - (item.stdout | from_json)[0].linkinfo.info_kind == 'vlan'
+          - (item.stdout | from_json)[0].linkinfo.info_data.id == item.item.vlan_id
+          - (item.stdout | from_json)[0].link_index == (generic_parent.stdout | from_json)[0].ifindex
+      loop: "{{ generic_host_links.results | default([]) }}"
+      when: not item.get('skipped', false) and item.rc == 0
+
+    - name: Create only missing scenario-owned VLAN endpoints
+      command:
+        argv:
+          - ip
+          - link
+          - add
+          - link
+          - "{{ external_port }}"
+          - name
+          - "{{ generic_fp_map[item.item.ptf_index | string] }}"
+          - type
+          - vlan
+          - id
+          - "{{ item.item.vlan_id | string }}"
+      loop: "{{ generic_host_links.results | default([]) }}"
+      when: generic_host_action == 'add-topo' and not item.get('skipped', false) and item.rc == 1
+
+    - name: Label newly created endpoints before binding
+      command:
+        argv: [ip, link, set, dev, "{{ generic_fp_map[item.item.ptf_index | string] }}", alias, "{{ generic_alias }}"]
+      loop: "{{ generic_host_links.results | default([]) }}"
+      when: generic_host_action == 'add-topo' and not item.get('skipped', false) and item.rc == 1
+
+    - name: Initialize PTF authentication before management binding
+      include_tasks:
+        file: "{{ playbook_dir }}/roles/vm_set/tasks/update_ptf_password.yml"
+        apply:
+          no_log: true
+      vars:
+        vm_set_name: "{{ generic_group }}"
+      when: generic_host_action == 'add-topo'
+      no_log: true
+
+    - name: Bind using the existing no-VM host topology implementation
+      vm_topology:
+        cmd: bind
+        vm_names: []
+        vm_set_name: "{{ generic_group }}"
+        topo: "{{ generic_host_topology }}"
+        ptf_mgmt_ip_addr: "{{ generic_testbed.ptf_ip }}"
+        ptf_mgmt_ipv6_addr: "{{ generic_testbed.ptf_ipv6 | default('') }}"
+        ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+        ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default('') }}"
+        ptf_extra_mgmt_ip_addr: []
+        ptf_bp_ip_addr: "{{ ptf_bp_ip | default('') }}"
+        ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 | default('') }}"
+        mgmt_bridge: "{{ mgmt_bridge }}"
+        duts_fp_ports: "{{ {generic_dut: generic_fp_map} }}"
+        duts_mgmt_port: []
+        duts_name: "{{ [generic_dut] }}"
+        fp_mtu: "{{ fp_mtu_size }}"
+        max_fp_num: "{{ generic_transport | length }}"
+      when: generic_host_action == 'add-topo'
+
+    # Container deletion returns physical VLAN links to the host even after a
+    # partial bind. Avoid unbind's requirement that every planned ethX exists.
+    - name: Remove only the verified scenario-owned PTF container
+      docker_container:
+        name: "{{ generic_container }}"
+        state: absent
+      when: generic_host_action == 'remove-topo' and generic_ptf.exists
+
+    - name: Inspect host endpoints including VLANs returned by container deletion
+      command:
+        argv: [ip, -j, -d, link, show]
+      register: generic_unbound
+      changed_when: false
+      when: generic_host_action == 'remove-topo'
+
+    - name: Verify ownership before deleting returned VLAN endpoints
+      assert:
+        that:
+          - item.get('ifalias', '') == generic_alias
+          - item.get('linkinfo', {}).get('info_kind') == 'vlan'
+          - planned | length == 1
+          - item.get('link_index') == (generic_parent.stdout | from_json)[0].ifindex
+      vars:
+        planned: "{{ generic_transport | selectattr('vlan_id', 'equalto', item.get('linkinfo', {}).get('info_data', {}).get('id')) | list }}"
+      loop: "{{ (generic_unbound.stdout | default('[]') | from_json) }}"
+      when: >-
+        generic_host_action == 'remove-topo' and
+        (item.get('ifalias', '') == generic_alias or item.ifname in generic_fp_map.values())
+
+    - name: Delete only verified scenario-owned endpoints
+      command:
+        argv: [ip, link, delete, dev, "{{ item.ifname }}"]
+      loop: "{{ (generic_unbound.stdout | default('[]') | from_json) }}"
+      when: >-
+        generic_host_action == 'remove-topo' and
+        (item.get('ifalias', '') == generic_alias or item.ifname in generic_fp_map.values())
+
+    - name: Read back bound VLAN endpoints
+      command:
+        argv: [nsenter, -t, "{{ generic_ptf.container.State.Pid | string }}", -n, ip, -j, -d, link, show]
+      register: generic_bound_links
+      changed_when: false
+      when: generic_host_action != 'remove-topo'
+
+    - name: Require each planned PTF endpoint to match the scenario
+      assert:
+        that:
+          - matches | length == 1
+          - matches[0].get('ifalias', '') == generic_alias
+          - matches[0].linkinfo.info_data.id == item.vlan_id
+          - "'UP' in matches[0].flags"
+      vars:
+        matches: "{{ generic_bound_links.stdout | from_json | selectattr('ifname', 'equalto', 'eth' ~ item.ptf_index) | list }}"
+      loop: "{{ generic_transport }}"
+      when: generic_host_action != 'remove-topo'
