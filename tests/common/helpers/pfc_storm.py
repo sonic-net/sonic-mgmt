@@ -10,13 +10,15 @@ from tests.common.devices.sonic import SonicHost
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
-                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../../ansible")))
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
 
 
 def get_chip_name_if_asic_pfc_storm_supported(fanout):
+    if not fanout:
+        return None
     hwSkuInfo = {
         "Arista DCS-7060DX5": "Tomahawk4",
         "Arista DCS-7060PX5": "Tomahawk4",
@@ -177,6 +179,9 @@ class PFCStorm(object):
             if line.startswith('HwSKU:'):
                 return line.split()[1]
 
+    def _get_sonic_pfc_chip_name(self):
+        return get_chip_name_if_asic_pfc_storm_supported(self.peer_info.get('hwsku'))
+
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
@@ -188,7 +193,7 @@ class PFCStorm(object):
             if self.peer_device.os == 'eos':
                 chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
             elif self.peer_device.os == 'sonic':
-                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
+                chip_name = self._get_sonic_pfc_chip_name()
             if self.peer_device.os in ('eos', 'sonic') and chip_name:
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
@@ -272,10 +277,17 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
+        sonic_pfc_chip = (self._get_sonic_pfc_chip_name()
+                          if self.asic_type != 'vs' and self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not sonic_pfc_chip):
+            # The t2 template drives pfc_gen via raw AF_PACKET, which the SONiC fanout's
+            # SAI/syncd CPU-port trap drops on newer images, so the storm never reaches the
+            # front panel. Only use it for fanouts whose ASIC does NOT support chip-side PFC
+            # generation; chip-capable SONiC fanouts fall through to the bcmcmd path below.
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
@@ -283,8 +295,7 @@ class PFCStorm(object):
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and
                get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+              (self.peer_device.os == 'sonic' and sonic_pfc_chip)):
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
@@ -297,10 +308,14 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
+        sonic_pfc_chip = (self._get_sonic_pfc_chip_name()
+                          if self.asic_type != 'vs' and self.peer_device.os == 'sonic' else None)
         if self.asic_type == 'vs':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
-        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        elif (self.dut.topo_type == 't2' and self.peer_device.os == 'sonic'
+              and not sonic_pfc_chip):
+            # Mirror _prepare_start_template: chip-capable SONiC fanouts use the bcmcmd path.
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
@@ -308,8 +323,7 @@ class PFCStorm(object):
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
         elif ((self.peer_device.os == 'eos' and
                get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
-              (self.peer_device.os == 'sonic' and
-               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
+              (self.peer_device.os == 'sonic' and sonic_pfc_chip)):
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
