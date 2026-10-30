@@ -13,9 +13,9 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.reboot import check_reboot_cause, get_reboot_cause,\
-    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
-    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
+from tests.common.reboot import check_reboot_cause, get_reboot_cause, \
+    check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict, \
+    wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD, \
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
 from tests.common.platform.transceiver_utils import check_transceiver_basic
 from tests.common.platform.interface_utils import check_all_interface_information, get_port_map
