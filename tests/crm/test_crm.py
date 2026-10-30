@@ -274,7 +274,7 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
     rate_limit_syntaxes = [
         (r'SysSock\.RateLimit\.Interval="([0-9]+)"',
          r'SysSock\.RateLimit\.Interval=\"{}\"', r'SysSock.RateLimit.Interval=\"{}\"'),
-        (r'^\$SystemLogRateLimitInterval ([0-9]+)',
+        (r'^\$SystemLogRateLimitInterval ([0-9]+)$',
          r'^\$SystemLogRateLimitInterval {}$', r'$SystemLogRateLimitInterval {}'),
     ]
 
@@ -287,6 +287,21 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
         interval_match = re.search(search_regex, result.get("stdout", ""), re.MULTILINE)
         if interval_match:
             break
+    if result.get("rc") == 0 and interval_match is None:
+        # Pretest on legacy branches disables rate limiting by commenting out
+        # this directive.
+        disabled_legacy_match = re.search(
+            r'^#\$SystemLogRateLimitInterval ([0-9]+)$',
+            result.get("stdout", ""),
+            re.MULTILINE
+        )
+        if disabled_legacy_match:
+            logger.info(
+                "SWSS syslog rate limit is already disabled in container %s",
+                swss_container
+            )
+            yield
+            return
     pytest_assert(
         result.get("rc") == 0 and interval_match is not None,
         "Failed to determine SWSS syslog rate-limit state"
