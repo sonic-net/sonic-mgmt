@@ -226,6 +226,25 @@ def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_h
                       "{} is not enabled".format(voq_lag.TMP_PC))
 
 
+def _lag_member_fully_reenabled(duthost, duthosts, remote_duthosts, asic, tmp_lag_id, pc_member):
+    """Non-raising check that a LAG member is back to "enabled" across app/chassis/asic DB.
+
+    verify_lag_member_status_in_*() helpers in voq_lag.py raise pytest's internal
+    Failed exception (a BaseException subclass) on mismatch, so they can't be used
+    directly as a wait_until() predicate; wrap them here and treat any failure as
+    "not yet synced".
+    """
+    try:
+        voq_lag.verify_lag_member_status_in_app_db(asic, pc_member, enabled=True)
+        voq_lag.verify_lag_member_status_in_chassis_db(duthosts, pc_member, enabled=True)
+        voq_lag.verify_lag_member_status_in_asic_db(duthost.asics, tmp_lag_id, exp_disabled=0)
+        for remote_duthost in remote_duthosts:
+            voq_lag.verify_lag_member_status_in_asic_db(remote_duthost.asics, tmp_lag_id, exp_disabled=0)
+    except BaseException:
+        return False
+    return True
+
+
 @pytest.mark.parametrize("flap_method", ["local", "remote"])
 def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    setup_teardown, fanouthosts, flap_method):
@@ -287,3 +306,13 @@ def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
         pytest_assert(wait_until(30, 5, 0, lambda: duthost.check_intf_link_state(down_pc_member)),
                       "{} is not enabled".format(down_pc_member))
+
+        # Physical link-up does not guarantee the re-enabled LAG-member state has
+        # propagated through app/chassis/asic DB yet. Without waiting for that here,
+        # the next parametrized case (e.g. flap_method="remote" run right after
+        # flap_method="local") can start while a member is still shown disabled in
+        # a DB, causing a spurious failure on its own precondition check.
+        pytest_assert(
+            wait_until(30, 5, 0, lambda: _lag_member_fully_reenabled(
+                duthost, duthosts, remote_duthosts, asic, tmp_lag_id, down_pc_member)),
+            "{} LAG member state did not sync back to enabled across all DBs".format(down_pc_member))
