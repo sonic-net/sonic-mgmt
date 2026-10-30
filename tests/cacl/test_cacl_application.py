@@ -671,6 +671,14 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     iptables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
 
+    # caclmgrd retains the BFD rules after the session leaves STATE_DB.
+    bfd_rule = ("-A INPUT ! -i eth0 -p udp -m multiport "
+                "--dports 3784,4784 -j ACCEPT")
+    cacl_host = duthost.get_asic_or_sonic_host(asic_index)
+    if bfd_rule in cacl_host.command("iptables -S")["stdout_lines"]:
+        iptables_rules.append(bfd_rule)
+        ip6tables_rules.append(bfd_rule)
+
     extra_rule_branches = ['201911', '202012', '202111']
     if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
