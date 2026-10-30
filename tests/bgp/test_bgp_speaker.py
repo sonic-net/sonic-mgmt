@@ -135,6 +135,13 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     for i in [0, 1, 2]:
         ptfhost.shell("ip -6 addr add %s dev %s:%d" % (nexthops_ipv6[i], ptf_ports[0], i))
 
+    # Wait for DAD to complete on PTF, then flush any INCOMPLETE/FAILED NDP entries
+    # on the DUT that were created when the DUT received DAD NS packets from PTF.
+    # Without this, the DUT can have a FAILED NDP entry for a nexthop address right
+    # when ping6 starts, causing an immediate "Address unreachable" failure.
+    time.sleep(3)
+    duthost.shell("ip -6 neigh flush dev %s" % vlan_if_name)
+
     # Issue a ping command to populate entry for next_hop
     for nh in nexthops_ipv6:
         duthost.shell("ping6 %s -c 3" % nh.ip)
