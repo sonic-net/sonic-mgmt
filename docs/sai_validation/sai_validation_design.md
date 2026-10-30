@@ -144,14 +144,15 @@ if __name__ == '__main__':
 
 ## Use SONiC gNMI Server
 
-This approach outlines the design of the pytest fixtures (`setup_gnmi_server`, `setup_connection`, and `gnmi_connection`) used by sonic-mgmt test cases to establish a gNMI connection for interacting with the SONiC database. The primary purpose of these fixtures is to provide a managed gNMI client for validating the ASIC database state. This design handles conditional setup based on pytest command-line options for disabling SAI validation and enabling insecure gNMI connections.
+This approach outlines the design of the pytest fixtures (`setup_gnmi_server`, `setup_connection`, and `gnmi_connection`) used by sonic-mgmt test cases to establish a gNMI connection for interacting with the SONiC database. The primary purpose of these fixtures is to provide a managed gNMI client for validating the ASIC database state. The fixtures discover the active gNMI port and TLS mode from the DUT and allow command-line overrides when required.
 
 ![SAI validation using gNMI](images/new_design.png)
 
 ### Current features
 
 * Provide pytest fixtures for easy and consistent gNMI connection setup across test sessions.
-* Support both secure (TLS) and insecure gNMI connections based on the `--gnmi_insecure` option.
+* Discover the active gNMI port and TLS mode through `GNMIEnvironment`.
+* Support `--gnmi_port` and `--gnmi_insecure` as explicit overrides.
 * Manage the creation and cleanup of gNMI certificates for secure connections.
 * Provide a session-scoped gNMI connection fixture (`gnmi_connection`) for use in test cases.
 * Ensure proper closing of the gNMI channel after the test session.
@@ -162,23 +163,23 @@ This approach outlines the design of the pytest fixtures (`setup_gnmi_server`, `
 The gNMI connection setup is managed through three pytest fixtures:
 
 * **`setup_gnmi_server` (Session-scoped):**
-    * Determines whether SAI validation is disabled based on the `--disable_sai_validation` pytest option. If disabled, it yields the `duthost` object and `None` for the certificate path.
-    * Checks the `--gnmi_insecure` option. If enabled, it logs this and yields `duthost` and `None`.
-    * If neither option is set, it proceeds with secure gNMI setup:
+    * Determines whether SAI validation is disabled based on the `--disable_sai_validation` pytest option.
+    * Uses `GNMIEnvironment` to discover the DUT's active gNMI port and whether TLS is enabled.
+    * Uses `--gnmi_port` or `--gnmi_insecure` only when an explicit override is provided.
+    * If TLS is enabled, it proceeds with secure gNMI setup:
         * Defines a temporary certificate path (`/tmp/gnmi_certificates`).
         * Calls `gnmi_setup.create_certificates` to generate necessary certificates.
         * Calls `gnmi_setup.copy_certificates_to_dut` to transfer the certificates to the Device Under Test (DUT).
         * Calls `gnmi_setup.apply_certs` on the DUT.
-        * Yields the `duthost` object and the `cert_path`.
+        * Yields the `duthost`, `cert_path`, target port, and secure-mode selection.
         * After the test session, it calls `gnmi_setup.remove_certs` to clean up the certificates on the DUT.
     * This fixture primarily manages the certificate setup on the DUT based on the test configuration.
 
 * **`setup_connection` (Session-scoped):**
-    * Receives the output of `setup_gnmi_server` (`duthost`, `cert_path`).
+    * Receives the DUT, certificate path, discovered target port, and secure-mode selection from `setup_gnmi_server`.
     * Checks the `--disable_sai_validation` option. If enabled, it yields `None`.
-    * Checks the `--gnmi_insecure` option.
-    * If `--gnmi_insecure` is set, it calls `create_gnmi_stub` (from `gnmi_client`) with `secure=False` to establish an insecure gNMI connection to the DUT's management IP and the port specified by the `--gnmi_port` option. It yields the `gnmi_connection` object.
-    * If `--gnmi_insecure` is not set (implying secure connection), it constructs the paths to the root certificate, client certificate, and client key using the `cert_path` obtained from `setup_gnmi_server`. It then calls `create_gnmi_stub` with `secure=True` and the certificate paths to establish a secure gNMI connection. It yields the `gnmi_connection` object.
+    * For an insecure DUT, it calls `create_gnmi_stub` with `secure=False`.
+    * For a TLS-enabled DUT, it constructs the root certificate, client certificate, and client key paths and calls `create_gnmi_stub` with `secure=True`.
     * After the test session, it closes the gRPC channel associated with the `gnmi_connection`.
     * This fixture is responsible for creating the actual gNMI client stub based on the configuration and certificate information.
 
@@ -211,7 +212,7 @@ def test_something(gnmi_connection):
     if gnmi_connection is None:
         pytest.skip("SAI validation is disabled")
 
-    executor = ThreadPoolExecutor(max_workers=2)
+    executor = SafeThreadPoolExecutor(max_workers=2)
     event_queue = queue.Queue()
     monitor_context = start_db_monitor(executor, gnmi_connection, "SOME_DB_PATH", event_queue)
     # ... rest of the test logic using monitor_context and gnmi_connection ...
