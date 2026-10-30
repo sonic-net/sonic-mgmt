@@ -22,6 +22,11 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
+@pytest.fixture(autouse=True)
+def number_of_tx_rx_ports():
+    yield (2, 1)
+
+
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_red_accuracy(request,
                       snappi_api,                       # noqa: F811

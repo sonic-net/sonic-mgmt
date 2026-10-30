@@ -30,6 +30,11 @@ ECN_PARAMS_BY_ASIC = {
 }
 
 
+@pytest.fixture(autouse=True)
+def number_of_tx_rx_ports():
+    yield (2, 1)
+
+
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_dequeue_ecn(request,
                      snappi_api,                    # noqa: F811
