@@ -2,6 +2,7 @@ import ast
 import logging
 import pytest
 import time
+import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import sfp
@@ -855,32 +856,244 @@ class TestSfpApi(PlatformApiTestBase):
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-        port_index_to_info_dict = {}
 
+        # Helper: build port index -> interface name
+
+        def get_intf_name(port_idx):
+            return next(
+                (
+                    intf for intf, idx in self.sfp_setup['physical_port_index_map'].items()
+                    if idx == port_idx
+                ),
+                None
+            )
+
+        # ============ SCENARIO A: reset first, then flap if needed ==============
+        logger.info(
+            "===== Run Scenario A: Reset SFP first, then flap interfaces as needed ====="
+        )
+        port_index_to_info_dict_a = {}
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
-            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+            if not self.expect(
+                info_dict is not None,
+                "Scenario A: Unable to retrieve transceiver {} info".format(i)
+            ):
                 continue
-            port_index_to_info_dict[i] = info_dict
+            port_index_to_info_dict_a[i] = info_dict
 
+        # group ports: general / cpo oe group
+        cpo_oe_groups_a = {}
+        general_ports_a = []
+        for port_idx, info_dict in port_index_to_info_dict_a.items():
+            xcvr_type = info_dict["type"]
+            if xcvr_type == "CPO Bailly":
+                oe_gid = (port_idx - 1) // 8
+                if oe_gid not in cpo_oe_groups_a:
+                    cpo_oe_groups_a[oe_gid] = []
+                cpo_oe_groups_a[oe_gid].append(port_idx)
+            else:
+                general_ports_a.append(port_idx)
+
+        # Run general ports: one by one reset
+        for i in general_ports_a:
+            info_dict = port_index_to_info_dict_a[i]
             ret = sfp.reset(platform_api_conn, i)
             if self.is_xcvr_resettable(request, info_dict):
-                self.expect(ret is True, "Failed to reset transceiver {}".format(i))
+                self.expect(ret is True, "Scenario A: Failed to reset transceiver {}".format(i))
             else:
-                self.expect(ret is False, "Resetting transceiver {} succeeded but should have failed".format(i))
+                self.expect(
+                    ret is False,
+                    "Scenario A: Resetting transceiver {} succeeded but should have failed".format(i)
+                )
+
+        # Run CPO OE groups: one reset per group, random control port
+        for oe_gid, member_ports in cpo_oe_groups_a.items():
+            control_port = random.choice(member_ports)
+            info_dict_ctrl = port_index_to_info_dict_a[control_port]
+            logger.info(
+                "Scenario A: CPO Bailly OE group {} , member ports {}, "
+                "reset via control port {}".format(oe_gid, member_ports, control_port)
+            )
+            ret = sfp.reset(platform_api_conn, control_port)
+            if self.is_xcvr_resettable(request, info_dict_ctrl):
+                self.expect(
+                    ret is True,
+                    "Scenario A: Failed to reset CPO group {} via port {}".format(
+                        oe_gid, control_port
+                    )
+                )
+            else:
+                self.expect(
+                    ret is False,
+                    "Scenario A: Reset CPO group {} via port {} succeeded "
+                    "but should have failed".format(oe_gid, control_port)
+                )
 
         # allow the I2C interface to recover post sfp reset
         time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
-        intf_list = self.get_interfaces_to_flap_after_sfp_reset(port_index_to_info_dict, duthost)
-        if intf_list:
-            logger.info("Flapping interfaces: {}".format(intf_list))
-            self._shutdown_and_no_shutdown_ports(duthost, intf_list)
-            _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intf_list))
-            if not wait_until(port_up_wait_time, 10, 0,
-                              check_interface_status_of_up_ports, duthost):
-                self.expect(False, "Not all interfaces are up after reset")
+        intf_list_a = self.get_interfaces_to_flap_after_sfp_reset(
+            port_index_to_info_dict_a, duthost
+        )
+        if intf_list_a:
+            logger.info("Scenario A: Flapping interfaces: {}".format(intf_list_a))
+            self._shutdown_and_no_shutdown_ports(duthost, intf_list_a)
         else:
-            logger.info("No interfaces to flap after SFP reset")
+            logger.info("Scenario A: No interfaces to flap after SFP reset")
+
+        # Check all test ports up for scenario A
+        all_test_intfs_a = list(port_index_to_info_dict_a.keys())
+        if all_test_intfs_a:
+            logger.info(
+                "Scenario A: Check all test interfaces are up after SFP reset: "
+                "{}".format(all_test_intfs_a)
+            )
+            _, port_up_wait_time_a = default_port_toggle_wait_time(
+                duthost, len(all_test_intfs_a)
+            )
+            if not wait_until(
+                port_up_wait_time_a, 10, 0,
+                check_interface_status_of_up_ports, duthost
+            ):
+                self.expect(
+                    False,
+                    "Scenario A: Not all test interfaces are up after reset"
+                )
+
+        # ============= SCENARIO B: shutdown -> reset -> startup ===============
+        logger.info(
+            "===== Run Scenario B: Shutdown interface first -> Reset SFP "
+            "-> Startup interface ====="
+        )
+        port_index_to_info_dict_b = {}
+        for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            if not self.expect(
+                info_dict is not None,
+                "Scenario B: Unable to retrieve transceiver {} info".format(i)
+            ):
+                continue
+            port_index_to_info_dict_b[i] = info_dict
+
+        # group ports for scenario B
+        cpo_oe_groups_b = {}
+        general_ports_b = []
+        for port_idx, info_dict in port_index_to_info_dict_b.items():
+            xcvr_type = info_dict["type"]
+            if xcvr_type == "CPO Bailly":
+                oe_gid = (port_idx - 1) // 8
+                if oe_gid not in cpo_oe_groups_b:
+                    cpo_oe_groups_b[oe_gid] = []
+                cpo_oe_groups_b[oe_gid].append(port_idx)
+            else:
+                general_ports_b.append(port_idx)
+
+        # Run general ports: one by one reset
+        for i in general_ports_b:
+            info_dict = port_index_to_info_dict_b[i]
+            intf_name = get_intf_name(i)
+            if intf_name is not None:
+                logger.info(
+                    "Scenario B: Shutdown interface {} before reset".format(intf_name)
+                )
+                duthost.shutdown_interface(intf_name)
+            else:
+                logger.warning("Cannot find interface for port index %s", i)
+            time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN)
+            ret = sfp.reset(platform_api_conn, i)
+            if self.is_xcvr_resettable(request, info_dict):
+                self.expect(
+                    ret is True,
+                    "Scenario B: Failed to reset transceiver {} when port is shutdown".format(i)
+                )
+            else:
+                self.expect(
+                    ret is False,
+                    "Scenario B: Resetting transceiver {} succeeded "
+                    "but should have failed when port is shutdown".format(i)
+                )
+
+            # allow the I2C interface to recover post sfp reset
+            time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
+            if intf_name is not None:
+                logger.info(
+                    "Scenario B: Startup interface {} after reset".format(intf_name)
+                )
+                duthost.no_shutdown_interface(intf_name)
+            else:
+                logger.warning("Cannot find interface for port index %s", i)
+
+        # Run CPO OE groups: one reset per group, random control port
+        for oe_gid, member_ports in cpo_oe_groups_b.items():
+            control_port = random.choice(member_ports)
+            info_dict_ctrl = port_index_to_info_dict_b[control_port]
+            logger.info(
+                "Scenario B: CPO Bailly OE group {} , member ports {}, "
+                "reset via control port {}".format(oe_gid, member_ports, control_port)
+            )
+
+            # Step1: shutdown ALL member interfaces of this OE group
+            for p in member_ports:
+                intf_name = get_intf_name(p)
+                if intf_name is not None:
+                    logger.info(
+                        "Scenario B: Shutdown CPO group {} interface {} "
+                        "before reset".format(oe_gid, intf_name)
+                    )
+                    duthost.shutdown_interface(intf_name)
+                else:
+                    logger.warning("Cannot find interface for port index %s", p)
+            time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN)
+
+            # Step2: reset once via random control port
+            ret = sfp.reset(platform_api_conn, control_port)
+            if self.is_xcvr_resettable(request, info_dict_ctrl):
+                self.expect(
+                    ret is True,
+                    "Scenario B: Failed to reset CPO group {} via port {} "
+                    "when ports are shutdown".format(oe_gid, control_port)
+                )
+            else:
+                self.expect(
+                    ret is False,
+                    "Scenario B: Reset CPO group {} via port {} succeeded "
+                    "but should have failed when ports are shutdown".format(
+                        oe_gid, control_port
+                    )
+                )
+            time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
+
+            # Step3: startup ALL member interfaces of this OE group
+            for p in member_ports:
+                intf_name = get_intf_name(p)
+                if intf_name is not None:
+                    logger.info(
+                        "Scenario B: Startup CPO group {} interface {} "
+                        "after reset".format(oe_gid, intf_name)
+                    )
+                    duthost.no_shutdown_interface(intf_name)
+                else:
+                    logger.warning("Cannot find interface for port index %s", p)
+
+        # Check all test ports up for scenario B
+        all_test_intfs_b = list(port_index_to_info_dict_b.keys())
+        if all_test_intfs_b:
+            logger.info(
+                "Scenario B: Check all test interfaces are up after "
+                "shutdown-reset-startup: {}".format(all_test_intfs_b)
+            )
+            _, port_up_wait_time_b = default_port_toggle_wait_time(
+                duthost, len(all_test_intfs_b)
+            )
+            if not wait_until(
+                port_up_wait_time_b, 10, 0,
+                check_interface_status_of_up_ports, duthost
+            ):
+                self.expect(
+                    False,
+                    "Scenario B: Not all test interfaces are up after shutdown-reset-startup"
+                )
+
         self.assert_expectations()
 
     def test_tx_disable(self, rand_selected_dut, localhost,
