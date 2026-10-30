@@ -8,10 +8,27 @@ in the shared flow.
 """
 import logging
 import pytest
+from tests.bgp.constants import TS_NORMAL
+from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import restore_backup_test_config, save_backup_test_config
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+
+def ensure_traffic_shift_normal(duthost):
+    """
+    Leave the DUT out of TSA. A config reload on platforms with startup-tsa-tsb.conf puts
+    every ASIC into maintenance for minutes, which would break whatever runs next.
+    """
+    if get_traffic_shift_state(duthost) == TS_NORMAL:
+        return
+    logger.info("%s: in TSA after the module teardown, running TSB", duthost.hostname)
+    duthost.shell("TSB")
+    # Plain pytest.fail: importing pytest_assert here would register it as a pytest hook.
+    if not wait_until(120, 10, 0, lambda: get_traffic_shift_state(duthost) == TS_NORMAL):
+        pytest.fail(f"{duthost.hostname} did not return to '{TS_NORMAL}' after TSB")
 
 
 @pytest.fixture(scope="module")
@@ -55,3 +72,4 @@ def setup_env(duthosts, enum_downstream_dut_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+    ensure_traffic_shift_normal(duthost)
