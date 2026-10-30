@@ -88,46 +88,43 @@ class TestDataPlane():
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
         portchannels = list(get_portchannel(duthost).values())
+        # filter to upstream portchannels
+        portchannels = [portchannel for portchannel in portchannels
+                        if portchannel["members"][0] in upstream_links]
+        if len(portchannels) <= 1:
+            pytest.skip("Not enough upstream port-channels")
+
+        def _configure_route(neigh):
+            if isinstance(neigh["host"], EosHost):
+                neigh["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
+                    neigh["peer_ipv4_addr"])], module_ignore_errors=True)
+            else:
+                neigh["host"].shell("ip route add 0.0.0.0/0 via {}".format(
+                    neigh["peer_ipv4_addr"]), module_ignore_errors=True)
+
+        def _unconfigure_route(neigh):
+            if isinstance(neigh["host"], EosHost):
+                neigh["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
+                    neigh["peer_ipv4_addr"])], module_ignore_errors=True)
+            else:
+                neigh["host"].shell("ip route del 0.0.0.0/0 via {}".format(
+                    neigh["peer_ipv4_addr"]), module_ignore_errors=True)
+
+        # Ping from 0->1, 1-> 2, ... n ->n+1, ..., len(portchannels)-1 -> 0
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
-            if portchannels[i]["members"][0] not in upstream_links:
-                continue
             requester = upstream_links[portchannels[i]["members"][0]]
-            # Set DUT as the gateway of requester
-            if isinstance(requester["host"], EosHost):
-                requester["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
-                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
+            _configure_route(requester)
+            if i == len(portchannels) - 1:  # loop back to index 0
+                j = 0
             else:
-                requester["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
-            for j in range(i + 1, len(portchannels)):
-                if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
-                    continue
-                if portchannels[j]["members"][0] not in upstream_links:
-                    continue
-                responser = upstream_links[portchannels[j]["members"][0]]
-                # Set DUT as the gateway of responser
-                if isinstance(responser["host"], EosHost):
-                    responser["host"].eos_config(lines=["ip route 0.0.0.0/0 {}".format(
-                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
-                else:
-                    responser["host"].shell("ip route add 0.0.0.0/0 via {}".format(
-                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
-                # Ping from requester to responser
-                assert not requester["host"].shell(
-                    "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
-                if isinstance(responser["host"], EosHost):
-                    responser["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
-                        responser["peer_ipv4_addr"])], module_ignore_errors=True)
-                else:
-                    responser["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                        responser["peer_ipv4_addr"]), module_ignore_errors=True)
-            if isinstance(requester["host"], EosHost):
-                requester["host"].eos_config(lines=["no ip route 0.0.0.0/0 {}".format(
-                    requester["peer_ipv4_addr"])], module_ignore_errors=True)
-            else:
-                requester["host"].shell("ip route del 0.0.0.0/0 via {}".format(
-                    requester["peer_ipv4_addr"]), module_ignore_errors=True)
+                j = i+1
+            responser = upstream_links[portchannels[j]["members"][0]]
+            _configure_route(responser)
+            assert not requester["host"].shell(
+                "ping -c 6 -v {}".format(responser["local_ipv4_addr"]))["failed"]
+            _unconfigure_route(responser)
+            _unconfigure_route(requester)
 
     def _get_counters(self, duthost, up_ports):
         egress_counters = Counter()
