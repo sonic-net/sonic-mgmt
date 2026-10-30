@@ -262,7 +262,8 @@ def verify_and_report(tor_IO, verify, delay, allowed_disruption,
 def run_test(
     duthosts, activehost, ptfhost, ptfadapter, vmhost, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
-    stop_after, cable_type=CableType.active_standby, random_dst=None     # noqa: F811
+    stop_after, cable_type=CableType.active_standby, random_dst=None,     # noqa: F811
+    server_subnet=None
 ):
     io_ready = threading.Event()
 
@@ -270,7 +271,7 @@ def run_test(
     tor_IO = DualTorIO(
         activehost, peerhost, ptfhost, ptfadapter, vmhost, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type,
-        random_dst=random_dst
+        random_dst=random_dst, server_subnet=server_subnet
     )
     tor_IO.generate_traffic(traffic_direction)
 
@@ -369,7 +370,8 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
                              stop_after=None, allow_disruption_before_traffic=False,
-                             allowed_duplication=None, merge_duplications_into_disruptions=False):
+                             allowed_duplication=None, merge_duplications_into_disruptions=False,
+                             server_subnet=None):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -390,6 +392,8 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
             send_interval (int): Sleep duration between two sent packets
             stop_after (int): Wait time after which sender/sniffer threads are terminated
                 default - None: Early termination will not be performed
+            server_subnet (str): VLAN subnet whose server addresses to target, e.g. '2001:db8:1000::1/64'.
+                default - None: use the servers' MUX_CABLE addresses
         Returns:
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
@@ -397,7 +401,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="t1_to_server", stop_after=stop_after,
-                          cable_type=cable_type)
+                          cable_type=cable_type, server_subnet=server_subnet)
 
         # If a delay is allowed but no numebr of allowed disruptions
         # is specified, default to 1 allowed disruption
@@ -438,7 +442,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def server_to_t1_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                             stop_after=None, random_dst=None):
+                             stop_after=None, random_dst=None, server_subnet=None):
         """
         Helper method for `send_server_to_t1_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -458,6 +462,8 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
             send_interval (int): Sleep duration between two sent packets
             stop_after (int): Wait time after which sender/sniffer threads are terminated
                 default - None: Early termination will not be performed
+            server_subnet (str): VLAN subnet whose server addresses to target, e.g. '192.169.0.1/22'.
+                default - None: use the servers' MUX_CABLE addresses
         Returns:
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
@@ -465,7 +471,8 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="server_to_t1", stop_after=stop_after,
-                          cable_type=cable_type, random_dst=random_dst)
+                          cable_type=cable_type, random_dst=random_dst,
+                          server_subnet=server_subnet)
 
         # If a delay is allowed but no numebr of allowed disruptions
         # is specified, default to 1 allowed disruption
@@ -570,11 +577,12 @@ def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def server_to_server_io_test(activehost, test_mux_ports, delay=0,
                                  allowed_disruption=0, action=None,
-                                 verify=False, send_interval=0.01, stop_after=None):
+                                 verify=False, send_interval=0.01, stop_after=None,
+                                 server_subnet=None):
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, test_mux_ports, send_interval,
                           traffic_direction="server_to_server", stop_after=stop_after,
-                          cable_type=cable_type)
+                          cable_type=cable_type, server_subnet=server_subnet)
 
         # If a delay is allowed but no numebr of allowed disruptions
         # is specified, default to 1 allowed disruption

@@ -173,6 +173,15 @@ def _inherit_servers_from_running(vlan_name, table, key, fallback_vlan):
     return entry.get(key, []) or []
 
 
+def _as_subnet_list(value):
+    """Topo yaml allows ``secondary_subnet`` to be a single prefix or a list of them."""
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [subnet for subnet in value if subnet]
+    return [value]
+
+
 def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name, is_dualtor):
     """Build the (sub_vlans_info, config_patch) tuple for the requested variant."""
     topo_name = tbinfo["topo"]["name"]
@@ -250,7 +259,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     for vlan_name, vparams in variant.items():
         ipv4 = vparams.get("prefix")
         ipv6 = vparams.get("prefix_v6")
-        ipv4_secondary = vparams.get("secondary_subnet")
+        secondary_subnets = _as_subnet_list(vparams.get("secondary_subnet"))
         mac = vparams.get("mac") or default_mac
         intf_indices = vparams.get("intfs", []) or []
 
@@ -274,7 +283,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         sub_vlans_info.append({
             "vlan_name": vlan_name,
             "interface_ipv4": ipv4,
-            "interface_ipv4_secondary": ipv4_secondary,
+            "interface_ipv4_secondary": secondary_subnets,
             "interface_ipv6": ipv6,
             "members_with_ptf_idx": members_with_ptf_idx,
             "vlan_plan": variant_name,
@@ -299,12 +308,12 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
             )
         if ipv4:
             config_patch += add_vlan_ip_patch(vlan_name, ipv4)
-        if ipv4_secondary:
+        for secondary_subnet in secondary_subnets:
             # Mark secondary:true so docker-dhcp-relay get_primary_addr picks
             # the primary for -pg <giaddr> (dhcrelay duplicate -iu trigger).
             config_patch.append({
                 'op': 'add',
-                'path': '/VLAN_INTERFACE/%s|%s' % (vlan_name, ipv4_secondary.replace('/', '~1')),
+                'path': '/VLAN_INTERFACE/%s|%s' % (vlan_name, secondary_subnet.replace('/', '~1')),
                 'value': {'secondary': 'true'},
             })
         if ipv6:
