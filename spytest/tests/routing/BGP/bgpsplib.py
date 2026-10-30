@@ -4020,7 +4020,7 @@ class BGPSP:
 
         for vrf in vrf_list :
             for afmly in addr_family_list:
-                nbr_list = bgp_topo[dut][vrf][afmly]['nbr'].keys()
+                nbr_list = list(bgp_topo[dut][vrf][afmly]['nbr'].keys())
 
                 loop_flag = 0
                 for iter in range(6):
@@ -4360,5 +4360,3 @@ class BGPSP:
         st.banner("BGP SP - {}uring Spine Leaf BGP session {}".format(action_str, result_str))
 
         return result
-
-
