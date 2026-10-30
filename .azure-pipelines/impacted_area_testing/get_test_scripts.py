@@ -14,7 +14,8 @@ import json
 import argparse
 import functools
 from natsort import natsorted
-from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS, CONTROL_PLANE_DEDUP_RULES
+from constant import (PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS, CONTROL_PLANE_DEDUP_RULES,
+                      PR_CHECKER_JOBS, MULTI_ASIC_T1_CHECKER)
 
 VPP_TOPOLOGY_CHECKERS = {
     "t0-vpp": "t0-vpp_checker",
@@ -174,13 +175,27 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
 
-def dedup_control_plane_tests(scripts_per_checker, location):
+def _job_enabled(job, include_jobs):
+    """Mirror RUN_BY_INCLUDE_JOBS in pr_test_template.yml (ADO eq/contains ignore case)."""
+    include_jobs = include_jobs.lower()
+    return include_jobs == "all" or job.lower() in include_jobs
+
+
+def dedup_control_plane_tests(scripts_per_checker, location, include_jobs="all"):
     """
     Remove control-plane tests from checkers based on CONTROL_PLANE_DEDUP_RULES.
 
     For each (keep_in, remove_from) rule, control-plane tests that appear in both
     checkers are removed from 'remove_from'. Data-plane tests (PTF/Scapy traffic)
     are always kept in both because forwarding behavior differs across topologies.
+
+    A rule only applies when *include_jobs* (the pipeline's INCLUDE_JOBS) enables
+    a job that runs 'keep_in', so a script is never dropped in favour of a job
+    that will not run.
+
+    The multi-asic-t1 job also reads t1_checker. If the dedup changes t1_checker,
+    its original list is kept under MULTI_ASIC_T1_CHECKER for that job, so only
+    the t1-lag job loses the deduped scripts.
 
     Rules are evaluated against a snapshot of the original checker contents so that
     rule ordering does not affect the result.
@@ -197,10 +212,17 @@ def dedup_control_plane_tests(scripts_per_checker, location):
         if keep_in == remove_from:
             logging.warning("Dedup rule has identical keep_in and remove_from '%s', skipping", keep_in)
             continue
+        if not any(_job_enabled(job, include_jobs) for job in PR_CHECKER_JOBS.get(keep_in, [])):
+            logging.info(
+                "INCLUDE_JOBS '%s' runs no job for %s, skipping dedup of %s",
+                include_jobs, keep_in, remove_from
+            )
+            continue
         validated_rules.append((keep_in, remove_from))
 
     # Snapshot original checker contents so rules are order-independent
     original_contents = {k: set(v) for k, v in scripts_per_checker.items()}
+    original_t1 = list(scripts_per_checker.get("t1_checker", []))
 
     for keep_in, remove_from in validated_rules:
         keep_scripts = original_contents.get(keep_in, set())
@@ -233,6 +255,9 @@ def dedup_control_plane_tests(scripts_per_checker, location):
             logging.debug(
                 "Dedup %s: dropping %s", remove_from, dropped
             )
+
+    if original_t1 and scripts_per_checker.get("t1_checker") != original_t1:
+        scripts_per_checker[MULTI_ASIC_T1_CHECKER] = original_t1
 
     # Remove empty checkers to avoid spawning empty PR jobs
     return {k: v for k, v in scripts_per_checker.items() if v}
@@ -393,16 +418,20 @@ def _collect_conftest_files(filepath, location):
 
     pytest discovers fixtures by walking up the directory tree; a test
     file implicitly imports fixtures from every conftest.py above it.
+
+    The conftest.py directly in *location* is skipped. It applies to every
+    test, so it cannot tell data-plane tests from control-plane ones, and
+    tests/conftest.py imports ptf, which would mark every test as data-plane.
     """
     conftests = []
     directory = os.path.dirname(os.path.abspath(filepath))
     location_abs = os.path.abspath(location) if location else ""
     while location_abs and directory.startswith(location_abs):
+        if directory == location_abs:
+            break
         conftest = os.path.join(directory, "conftest.py")
         if os.path.isfile(conftest) and conftest != os.path.abspath(filepath):
             conftests.append(conftest)
-        if directory == location_abs:
-            break
         parent = os.path.dirname(directory)
         if parent == directory:
             break
@@ -419,7 +448,7 @@ def _has_traffic_pattern(filepath, location="", depth=0):
     to avoid accidentally deduping tests we can't inspect.
 
     At depth 0 (the test file itself), also scans conftest.py files in
-    the directory chain up to *location*, since pytest fixtures defined
+    the directory chain below *location*, since pytest fixtures defined
     there are implicitly available to the test.
     """
     if depth > 2:
@@ -475,9 +504,10 @@ def _detect_data_plane_tests(script_names, location):
     return data_plane
 
 
-def main(features, location):
+def main(features, location, dedup_control_plane=False, include_jobs="all"):
     scripts_list = collect_scripts_by_topology_type(features, location)
-    scripts_list = dedup_control_plane_tests(scripts_list, location)
+    if dedup_control_plane:
+        scripts_list = dedup_control_plane_tests(scripts_list, location, include_jobs)
     print(json.dumps(scripts_list))
 
 
@@ -485,8 +515,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--features", help="Impacted area", nargs='?', const="", type=str, default="")
     parser.add_argument("--location", help="The location of folder `tests`", type=str, default="")
+    parser.add_argument("--dedup-control-plane", action="store_true",
+                        help="Apply CONTROL_PLANE_DEDUP_RULES. PR builds use this; the baseline keeps every script.")
+    parser.add_argument("--include-jobs", type=str, default="all",
+                        help="INCLUDE_JOBS of the pipeline. A dedup rule only applies when this enables a job "
+                             "that runs the rule's keep_in checker.")
     args = parser.parse_args()
 
     features = args.features
     location = args.location
-    main(features, location)
+    main(features, location, args.dedup_control_plane, args.include_jobs)

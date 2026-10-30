@@ -3,6 +3,12 @@ parameters:
     type: string
     default: ""
 
+  # TEST_SCRIPTS key to read first, for a job with its own script list.
+  # Falls back to "<TOPOLOGY>_checker"; TOPOLOGY still selects the run-time history.
+  - name: CHECKER
+    type: string
+    default: ""
+
   - name: BUILD_BRANCH
     type: string
     default: ""
@@ -26,7 +32,7 @@ steps:
     fi
     echo "TEST_SCRIPTS script count per checker:"
     jq -r 'to_entries[] | "  \(.key): \(.value | length)"' /tmp/ts.json
-    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
+    TEST_SCRIPTS=$(jq -r -c --arg checker "${{ parameters.CHECKER }}" '.[$checker] // ."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
     rm /tmp/ts.json
     if [[ -z "$TEST_SCRIPTS" ]]; then
       echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."

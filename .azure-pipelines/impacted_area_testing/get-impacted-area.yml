@@ -32,7 +32,7 @@ steps:
 
 
 - script: |
-    set -x
+    set -euo pipefail
 
     TEST_SCRIPTS='$(VerifyParams.TEST_SCRIPTS)'
     PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
@@ -40,15 +40,42 @@ steps:
       echo "Impact area was pre-defined, skip get diff step."
       exit 0
     fi
-    git fetch --all
-    DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
-    if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get diff folders fails."
-      exit 1
+    # A PR build checks out the merge commit created for the PR. Its first parent is the
+    # target branch tip, so diffing against it needs neither a fetch nor a merge-base,
+    # which can fail to resolve in the shallow checkout.
+    DIFF_BASE=""
+    if [[ "$(Build.SourceBranch)" =~ ^refs/pull/[0-9]+/merge$ ]] \
+        && [[ "$(git rev-parse HEAD)" == "$(Build.SourceVersion)" ]] \
+        && git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+      DIFF_BASE=$(git rev-parse 'HEAD^1')
+      echo "Diff base: first parent of the PR merge commit, ${DIFF_BASE}"
     else
-      echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
+      git fetch --all || echo "##vso[task.logissue type=warning]git fetch --all failed."
+      if DIFF_BASE=$(git merge-base "origin/${{ parameters.BUILD_BRANCH }}" HEAD); then
+        echo "Diff base: merge-base with origin/${{ parameters.BUILD_BRANCH }}, ${DIFF_BASE}"
+      else
+        DIFF_BASE=""
+      fi
     fi
+
+    DIFF_FOLDERS=""
+    if [[ -z "$DIFF_BASE" ]]; then
+      echo "##vso[task.logissue type=warning]Cannot determine the diff base, running all test scripts."
+    else
+      CHANGED_FILES=$(git diff --name-only "$DIFF_BASE" HEAD)
+      echo "Changed files:"
+      echo "$CHANGED_FILES"
+
+      # Paths excluded from the PR trigger in azure-pipelines.yml cannot affect test
+      # results, so they must not widen the impacted area. Keep the two lists in sync.
+      EXCLUDED_PATHS='^(\.github|docs|sdn_tests)/|^LICENSE$|\.md$'
+      IMPACT_FILES=$(grep -Ev "$EXCLUDED_PATHS" <<< "$CHANGED_FILES" || true)
+      DIFF_FOLDERS=$(printf '%s' "$IMPACT_FILES" | xargs -r -d '\n' -n1 dirname | sort -u | tr '\n' ' ')
+    fi
+
+    echo "Diff folders: ${DIFF_FOLDERS}"
+    echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
   continueOnError: false
   displayName: "Get diff folders"
 
@@ -109,10 +136,19 @@ steps:
     MAX_RETRIES=3
     RETRY_COUNT=0
 
+    # Drop control-plane tests duplicated between checkers only in PR builds,
+    # so the scheduled baseline keeps running every script on every topology.
+    # INCLUDE_JOBS tells the dedup which jobs will run, so a script is only
+    # dropped when the job that keeps it is enabled.
+    DEDUP_ARGS=()
+    if [[ "$(Build.Reason)" == "PullRequest" ]]; then
+      DEDUP_ARGS=(--dedup-control-plane --include-jobs '${{ parameters.INCLUDE_JOBS }}')
+    fi
+
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
       echo "Attempt $((RETRY_COUNT + 1)): Generating test scripts..."
 
-      TEST_SCRIPTS=$(python3 ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
+      TEST_SCRIPTS=$(python3 ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests "${DEDUP_ARGS[@]}")
 
       if [[ $? -ne 0 ]]; then
         echo "Get test scripts command failed on attempt $((RETRY_COUNT + 1))"

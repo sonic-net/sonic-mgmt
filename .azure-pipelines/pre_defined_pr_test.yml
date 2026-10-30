@@ -28,7 +28,8 @@ parameters:
   type: string
   default: " "
 
-# Keys: "dpu_checker","dualtor_checker","dualtor-aa-vpp_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t0-vpp_checker","t1-lag-vpp_checker","t1-multi-asic_checker","t1_checker","t2_checker"
+# Keys: "dpu_checker","dualtor_checker","dualtor-aa-vpp_checker","multi-asic-t1-lag_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t0-vpp_checker","t1-lag-vpp_checker","t1-multi-asic_checker","t1_checker","t2_checker"
+# "multi-asic-t1-lag_checker" is optional; the multi-asic-t1 job uses "t1_checker" without it.
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
   type: object
