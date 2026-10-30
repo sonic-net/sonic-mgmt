@@ -188,6 +188,10 @@ Verify LeakageSensorBase status attributes: `is_leak()`, `is_leak_sensor_ok()`, 
 3. For each sensor, call `is_leak_sensor_ok()` — verify boolean, consistent
 4. For each sensor, call `get_leak_severity()` — verify value in {MINOR, CRITICAL, None}
 
+Note: per-sensor `get_leak_severity()` only ever returns MINOR or CRITICAL. MAJOR is a
+system-level aggregate (MIN-N or more concurrent Minor leaks) computed by thermalctld and
+surfaced in `SYSTEM_LEAK_STATUS`, not on an individual sensor.
+
 **Expected Result**:
 - Status fields return correct types
 - Severity is one of the valid enum values
@@ -212,6 +216,29 @@ Verify `LeakSensorProfileBase` methods (`get_type()`, `get_leak_max_minor_durati
 - `get_profile_type()` returns a non-empty string for every sensor
 - `get_leak_max_minor_duration_sec()` returns a positive int/float or None
 - `get_all_profiles()` returns a list of profile objects (when supported)
+
+---
+
+#### Test Case #3a: test_liquid_cooling_major_leak_threshold
+
+**File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`
+
+**Test Objective**:
+Verify the new `LiquidCoolingBase.get_major_leak_num_min_sensors()` platform API (added in
+`sonic-platform-common`). This returns MIN-N — the system-wide minimum number of concurrent
+Minor leaks at or above which thermalctld classifies the system as `MAJOR_SYSTEM_LEAK`. A
+return value of 0 means the count-based MAJOR rule is off by default (the MAX-T escalation rule is independent of MIN-N).
+
+**Test Steps**:
+1. Skip if the platform API `get_major_leak_num_min_sensors()` is not available
+2. Call `get_major_leak_num_min_sensors()` — verify it returns an int (not a bool)
+3. If the value is 0, log that the count-based MAJOR rule is off by default on this platform
+4. Otherwise, verify the value is an integer `>= 2`
+
+**Expected Result**:
+- `get_major_leak_num_min_sensors()` returns 0 (count rule off) or an integer `>= 2`
+- The value is a system-wide default (thermalctld uses it unless overridden by
+  `system_major_leak_num_min_sensors` in `LEAK_CONTROL_POLICY`)
 
 ---
 
@@ -392,7 +419,12 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
 2. **MINOR leak (`syslog_only`)** — STATE_DB `SYSTEM_LEAK_STATUS:system device_leak_status = MINOR`
    - **Pause `thermalctld`** while the value is injected so it does not overwrite `device_leak_status` back to clear; restart it in `finally`
    - Syslog contains a `leak` entry; **no** power action (Switch-Host SSH stays up, `uptime -s` unchanged)
-   - **Check**: `/host/bmc/event.log` must NOT contain a MINOR leak entry (MINOR is syslog-only; `event.log` is reserved for CRITICAL)
+   - **Check**: `/host/bmc/event.log` must NOT contain a MINOR leak entry (MINOR is syslog-only; `event.log` is used for CRITICAL and MAJOR)
+2a. **MAJOR leak (`syslog_only`)** — STATE_DB `SYSTEM_LEAK_STATUS:system device_leak_status = MAJOR`
+   - MAJOR aggregates MIN-N or more concurrent Minor leaks; default `system_major_leak_action` is `syslog_only`
+   - **Pause `thermalctld`** while injected; restore in `finally`
+   - Syslog contains a `leak` entry; **no** power action (Switch-Host `uptime -s` unchanged)
+   - **Check**: `/host/bmc/event.log` MUST contain a `MAJOR SYSTEM LEAK detected` entry (bmcctld logs MAJOR to `event.log` like CRITICAL; only MINOR is syslog-only)
 3. **CRITICAL leak → Switch-Host power off** (disruptive):
    - Snapshot Switch-Host `uptime -s`
    - Ensure `system_critical_leak_action = power_off`
@@ -400,13 +432,14 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
    - Wait for Switch-Host SSH drop, then for `critical_services_fully_started`
    - Assert `uptime -s` advanced and `show reboot-cause` reports a BMC-initiated cause
    - `finally`: restart `thermalctld`, restore policy, and if needed `config chassis modules startup SWITCH-HOST` to recover
-4. **Rack-manager alert** — inject STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert severity = MINOR`; default action is syslog-only; no power action
+4. **Rack-manager alert** — inject STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert severity = MINOR`, then `= MAJOR`; default action for both is syslog-only; no power action (Switch-Host `uptime -s` unchanged for each); the MAJOR alert is also written to `event.log` ("MAJOR RACK MGR ALERT"), MINOR is syslog-only
 5. **Pre-flight checks** — `thermalctld` is RUNNING and `config chassis modules --help` exposes the `startup`/`shutdown` commands
 6. **Post-check** — if `/host/bmc/event.log` exists, it has fresh entries; otherwise log info
 
 **Expected Result**:
 - Each trigger produces the expected log entry
 - MINOR leak: syslog only, paired Switch-Host stays up
+- MAJOR leak: default `system_major_leak_action` is syslog_only (no power action), paired Switch-Host stays up; the detection is also written to `event.log`
 - CRITICAL leak: paired Switch-Host is powered off and reboots; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
 - Duplicate HSET with the same value is ignored (dedup)
 - All injected keys are cleaned up regardless of test outcome
@@ -432,14 +465,16 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 3. **POWER_CYCLE** — single command; assert `status = DONE`, `uptime -s` advances, reboot-cause is BMC-initiated
 4. **POWER_ON blocked by CRITICAL leak** (negative):
    - Inject `SYSTEM_LEAK_STATUS|system device_leak_status = CRITICAL`
-   - Issue `POWER_ON`; assert `status = FAILED` and the error field contains `CRITICAL_LEAK_PRESENT`
+   - Issue `POWER_ON`; assert `status = FAILED` and the error field contains `POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE`
+   - Note: with the default policy only CRITICAL blocks `POWER_ON`. If an active MAJOR or MINOR leak (or a lower severity) is configured with a power-down action, `POWER_ON` is also blocked.
 5. **Unknown command rejected** (negative, non-disruptive):
    - Issue `command = TEST_UNKNOWN_COMMAND`; assert `status = FAILED` and Switch-Host `uptime -s` unchanged
 
 **Expected Result**:
 - For each valid command (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`) the command `status` transitions to `DONE`
 - Switch-Host undergoes the requested power transition; `uptime -s` advances; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
-- `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `CRITICAL_LEAK_PRESENT`
+- `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE`
+- Only a CRITICAL leak blocks `POWER_ON`; a MAJOR or MINOR `device_leak_status` does not block it (MAJOR/MINOR default to `syslog_only`)
 - Unknown commands fail with status `FAILED` and the paired Switch-Host is not power-cycled
 - All injected keys are deleted and the Switch-Host is left powered on in `finally`
 
@@ -564,11 +599,11 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 This test will be enabled once a generic vendor-agnostic leak-injection mechanism is added to `sonic-platform-common` (tracked separately). Until then the test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
 
 **Planned Test Steps (for reference, not executed)**:
-1. Query `SYSTEM_LEAK_STATUS:system device_leak_status` — verify in {MINOR, CRITICAL, None}
+1. Query `SYSTEM_LEAK_STATUS:system device_leak_status` — verify in {MINOR, MAJOR, CRITICAL, None}
 2. For each `LIQUID_COOLING_INFO` sensor:
    - `leaking` must be `Yes | No | N/A`
    - `leak_sensor_status` must be `Good | Fault`
-   - `leak_severity` must be `MINOR | CRITICAL`
+   - `leak_severity` must be `MINOR | CRITICAL` (per-sensor; MAJOR is a system-level aggregate only)
 3. Query each `LEAK_PROFILE` entry — verify `max_minor_duration_sec > 0`
 4. When `device_leak_status = CRITICAL`, assert at least one sensor shows `leak_severity = CRITICAL`
 5. Verify CRITICAL leak propagates to `HOST_STATE:switch-host device_status`
@@ -614,26 +649,40 @@ Exercise the §2.1.5 aggregation truth table end-to-end: hardware `is_leak()` �
 
 **Aggregation truth table**:
 
+Conditions are evaluated top-down; the first matching row determines the System Leak Severity.
+Precedence is CRITICAL > MAJOR > MINOR.
+
 | # | Individual Leak Sensors                              | System Leak (expected output) |
 |---|------------------------------------------------------|-------------------------------|
 | 1 | 1 CRITICAL sensor                                    | `CRITICAL`                    |
-| 2 | 2+ sensors of any severity                           | `CRITICAL`                    |
-| 3 | 1 MINOR sensor staying for > `max_minor_duration_sec`| `CRITICAL` (escalation)       |
-| 4 | 1 MINOR sensor (< escalation threshold)              | `MINOR`                       |
+| 2 | 1 MINOR sensor staying for > `max_minor_duration_sec`| `MAJOR` (escalation)          |
+| 3 | MIN-N or more concurrent MINOR sensors               | `MAJOR`                       |
+| 4 | any CRITICAL present alongside MINOR sensors         | `CRITICAL` (precedence)       |
+| 5 | 1 MINOR sensor (< MIN-N, < escalation threshold)     | `MINOR`                       |
+
+MIN-N is the number of concurrent Minor leaks at or above which the system is classified as
+`MAJOR_SYSTEM_LEAK`. Its default comes from the platform API `get_major_leak_num_min_sensors()`
+(LiquidCoolingBase); a user can override it via `system_major_leak_num_min_sensors` in
+`LEAK_CONTROL_POLICY`. If the effective MIN-N is 0, only the count-based rule is off (the count-based MAJOR case is
+skipped); the MAX-T escalation rule is independent of MIN-N and still applies. Note:
+`CRITICAL_SYSTEM_LEAK` now results only from an actual CRITICAL sensor — a lingering single Minor
+leak escalates to MAJOR, not CRITICAL.
 
 **Planned Test Steps (for reference, not executed)**:
-1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`.
+1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`. For the count-based MAJOR case, resolve MIN-N (from `LEAK_CONTROL_POLICY|system_major_leak_num_min_sensors`, else the platform default); skip that case if MIN-N < 2 (count rule off). The escalation case does not depend on MIN-N.
 2. **Rule 1** — inject a leak on 1 sensor with leak_severity `CRITICAL`; wait ≤2 poll cycles; assert `LIQUID_COOLING_INFO|<s0>.leaking=Yes, leak_sensor_status=Good, leak_severity=CRITICAL` and `SYSTEM_LEAK_STATUS|system.device_leak_status=CRITICAL`. Clear the leak; wait for `device_leak_status` to recover.
-3. **Rule 2** — inject a leak on 2 sensors (any severity); wait ≤2 poll cycles; assert both per-sensor rows have `leaking=Yes` and `SYSTEM_LEAK_STATUS=CRITICAL` (multi-sensor bumps to CRITICAL regardless of individual severity). Recover.
-4. **Rule 3** — temporarily set `LEAK_PROFILE|<type>.max_minor_duration_sec=5`; inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles → assert `SYSTEM_LEAK_STATUS=MINOR`; wait >5s → assert escalates to `SYSTEM_LEAK_STATUS=CRITICAL` and per-sensor `leak_severity=CRITICAL`. Recover; restore profile.
-5. **Rule 4** — with the default `max_minor_duration_sec`, inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=MINOR` and per-sensor `leak_severity=MINOR`. Recover.
-6. `finally`: clear any injected leaks, restore any modified `LEAK_PROFILE` rows, and verify `device_leak_status` returns to its original value.
+3. **Rule 3 (MAJOR)** — inject a leak on MIN-N sensors, each with leak_severity `MINOR`; wait ≤2 poll cycles; assert every per-sensor row has `leaking=Yes, leak_severity=MINOR` and `SYSTEM_LEAK_STATUS=MAJOR` (aggregation of concurrent Minor leaks, no CRITICAL present). Recover.
+4. **Rule 4 (precedence)** — inject 1 MINOR + 1 CRITICAL sensor; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=CRITICAL` (a single CRITICAL wins over concurrent Minor leaks). Recover.
+5. **Rule 2 (escalation)** — temporarily set `LEAK_PROFILE|<type>.max_minor_duration_sec=5`; inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles → assert `SYSTEM_LEAK_STATUS=MINOR`; wait >5s → assert escalates to `SYSTEM_LEAK_STATUS=MAJOR`. Recover; restore profile.
+6. **Rule 5** — with the default `max_minor_duration_sec`, inject a leak on 1 sensor with leak_severity `MINOR`; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=MINOR` and per-sensor `leak_severity=MINOR`. Recover.
+7. `finally`: clear any injected leaks, restore any modified `LEAK_PROFILE` rows, and verify `device_leak_status` returns to its original value.
 
 **Expected Result**:
 - Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS=CRITICAL`
-- Rule 2: 2 sensors (any severity) → `SYSTEM_LEAK_STATUS=CRITICAL`
-- Rule 3: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `CRITICAL` after `max_minor_duration_sec`
-- Rule 4: 1 MINOR sensor (default threshold) → `SYSTEM_LEAK_STATUS=MINOR`
+- Rule 3: MIN-N MINOR sensors → `SYSTEM_LEAK_STATUS=MAJOR`
+- Rule 4: MINOR + CRITICAL sensors → `SYSTEM_LEAK_STATUS=CRITICAL` (precedence)
+- Rule 2: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `MAJOR` after `max_minor_duration_sec`
+- Rule 5: 1 MINOR sensor (default threshold, < MIN-N) → `SYSTEM_LEAK_STATUS=MINOR`
 - Every per-sensor `LIQUID_COOLING_INFO` row reflects the mocked `leaking` and `leak_severity` consistently
 - After clearing the injected leaks, `device_leak_status` clears within ≤2 poll cycles; all profile fields and original system state restored
 - syslog contains the expected thermalctld `Liquid cooling leakage sensor <name> reported leaking` / `recovered from leaking` lines for each mocked sensor
@@ -847,16 +896,21 @@ Verify `config chassis modules` commands `startup`, `shutdown`, `power-on-delay`
 #### Test Case #32: test_liquid_cool_config_commands
 
 **Test Objective**:
-Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` on liquid-cooled (LC) platforms functionally update `LEAK_CONTROL_POLICY` and the change is reflected in `show platform leak control-policy` — the test asserts behaviour, not just help text.
+Verify `config liquid-cool leak-control`, `config liquid-cool leak-action`, and
+`config liquid-cool major-leak-threshold` on liquid-cooled (LC) platforms functionally update
+`LEAK_CONTROL_POLICY` and the change is reflected in `show platform leak control-policy` — the
+test asserts behaviour, not just help text.
 
 **Test Steps**:
 1. `config liquid-cool --help` — skip on non-LC (non-zero rc)
 2. Snapshot current policy via `show platform leak control-policy`
-3. For each `(target, severity) ∈ {system, rack_mgr} × {minor, critical}`:
+3. For each `(target, severity) ∈ {system, rack_mgr} × {minor, major, critical}`:
    - Pick a different safe action from `{syslog_only, graceful_shutdown, power_off}`
    - `config liquid-cool leak-action <target> <severity> <new_action>` (rc=0); re-parse policy and assert the field updated
+   - Skip a `(target, severity)` pair whose field is absent from the snapshot (e.g. `major` when the platform doesn't expose it)
 4. For each `target ∈ {system, rack_mgr}`: toggle `leak-control` (rc=0), assert policy updated, restore immediately
-5. `finally`: restore every leak-action change recorded in step 3
+5. **major-leak-threshold (MIN-N)** — skip if the subcommand is unavailable; otherwise `config liquid-cool major-leak-threshold <N>` (N >= 2, rc=0) and assert the new value appears in the show output (`show` prints the CONFIG_DB value if set, else the platform default, or `none` when that is 0). Restore the original CONFIG_DB override, or delete the field if none was set
+6. `finally`: restore the major-leak-threshold and every leak-action change recorded in step 3
 
 **Expected Result**:
 - On LC systems: every `config liquid-cool …` command returns rc=0 and its effect is visible in `show platform leak control-policy`
@@ -879,7 +933,7 @@ Verify `show platform leak` commands produce valid output on LC platforms.
 - Each `show platform leak` command outputs the expected column headers
 - Non-LC platforms return gracefully (non-zero rc tolerated for LC-only commands)
 
-> `show platform leak control-policy` is exercised end-to-end (config write + verify) by `test_liquid_cool_config_commands`, so it is not re-checked here.
+> `show platform leak control-policy` is exercised end-to-end (config write + verify) by `test_liquid_cool_config_commands`, so it is not re-checked here. That output now also includes the MAJOR fields `system_major_leak_num_min_sensors` (`none` when neither a CONFIG_DB value nor a non-zero platform default exists), `system_major_leak_action`, and `rack_mgr_major_alert_action`, all verified by TC#32.
 
 ---
 

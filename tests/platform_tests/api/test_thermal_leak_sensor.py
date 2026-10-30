@@ -142,3 +142,32 @@ class TestLeakSensorApi(PlatformApiTestBase):
             self.expect(isinstance(all_profiles, list),
                         "liquid_cooling.get_all_profiles() should return list")
             logger.info(f"Platform exposes {len(all_profiles)} leak sensor profile type(s)")
+
+    def test_liquid_cooling_major_leak_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                                 platform_api_conn):  # noqa: F811
+        """Verify LiquidCoolingBase.get_major_leak_num_min_sensors() (MIN-N).
+
+        MIN-N is a system-wide value (not per sensor) - the minimum number of
+        concurrent Minor leaks at or above which the system is classified as
+        MAJOR_SYSTEM_LEAK. A return value of 0 means the platform provides no default, so
+        the count-based MAJOR rule is off (the MAX-T escalation rule still applies). Any
+        non-zero threshold must be an integer >= 2.
+        """
+        min_n = None
+        try:
+            min_n = liquid_cooling.get_major_leak_num_min_sensors(platform_api_conn)
+        except Exception as e:
+            pytest.skip(f"Platform API get_major_leak_num_min_sensors not available: {e}")
+        # The platform API server returns {"res": null} for an unimplemented method.
+        if min_n is None:
+            pytest.skip("Platform API get_major_leak_num_min_sensors not implemented")
+
+        self.expect(isinstance(min_n, int) and not isinstance(min_n, bool),
+                    f"get_major_leak_num_min_sensors() should return int, got {min_n!r}")
+        if isinstance(min_n, int):
+            if min_n == 0:
+                logger.info("Platform returns MIN-N=0 - count-based MAJOR rule is disabled by default")
+            else:
+                self.expect(min_n >= 2,
+                            f"get_major_leak_num_min_sensors()={min_n} must be 0 (rule off) "
+                            f"or an integer >= 2")

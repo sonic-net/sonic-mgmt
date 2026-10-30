@@ -40,6 +40,13 @@ def get_all_profiles(conn):
     return liquid_cooling_api(conn, 'get_all_profiles')
 
 
+def get_major_leak_num_min_sensors(conn):
+    """Returns MIN-N: the platform-defined minimum number of concurrent Minor leaks
+    at or above which the system is classified as MAJOR_SYSTEM_LEAK. A return value
+    of 0 means the count-based MAJOR rule is off (MAX-T escalation still applies)."""
+    return liquid_cooling_api(conn, 'get_major_leak_num_min_sensors')
+
+
 def get_profile(conn, sensor_type):
     """Returns LeakSensorProfileBase for the given sensor type (e.g., 'rope', 'spot')"""
     return liquid_cooling_api(conn, 'get_profile', [sensor_type])

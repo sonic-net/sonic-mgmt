@@ -79,7 +79,7 @@ CMD_DONE = "DONE"
 CMD_FAILED = "FAILED"
 TERMINAL_STATUSES = (CMD_DONE, CMD_FAILED)
 RESULT_SUCCESS = "SUCCESS"
-RESULT_CRITICAL = "CRITICAL_LEAK_PRESENT"
+RESULT_CRITICAL = "POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE"
 
 COMMAND_ROW_TIMEOUT = 30
 COMMAND_DONE_TIMEOUT = 60
@@ -319,7 +319,7 @@ class TestRedfishPmonInteraction:
 
         Submit a CRITICAL LeakDetected alert through SONiC.SubmitAlert. bmcweb
         still accepts the following ResetType=On, but bmcctld must fail the
-        command row with result=CRITICAL_LEAK_PRESENT and the host must stay On.
+        command row with result=POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE and the host must stay On.
         Once the alert is cleared to Normal the next ResetType=On must complete
         with DONE/SUCCESS again.
         """
