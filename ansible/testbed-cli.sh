@@ -177,7 +177,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers custom_vm_mem_size custom_vm_mem_swap_size;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -204,6 +204,8 @@ function read_yaml
   upstream_neighbor_groups=${line_arr[16]}
   downstream_neighbor_groups=${line_arr[17]}
   use_converged_peers=${line_arr[18]}
+  custom_vm_mem_size=${line_arr[19]}
+  custom_vm_mem_swap_size=${line_arr[20]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
 
@@ -541,6 +543,8 @@ function add_topo
           -e ptf_extra_mgmt_ip=\"$ptf_extra_mgmt_ip\" -e netns_mgmt_ip=\"$netns_mgmt_ip\" \
           -e upstream_neighbor_groups=\"$upstream_neighbor_groups\" -e downstream_neighbor_groups=\"$downstream_neighbor_groups\" \
 	  -e use_converged_peers=\"$use_converged_peers\" \
+          -e custom_vm_mem_size=\"$custom_vm_mem_size\" \
+          -e custom_vm_mem_swap_size=\"$custom_vm_mem_swap_size\" \
           $ansible_options ${args[*]}"
 
     if [[ "$parallel_execution" == "true" ]]; then
