@@ -488,15 +488,14 @@ def add_ptf_bond(ptfhost, port, bond_id, ip_addr):
     :param bond_id: bond id
     :param ip_addr: ip address
     """
-    try:
-        bond_port = 'bond{}'.format(bond_id)
-        ptfhost.shell("teamd -t {} -d -c '{{\"runner\": {{\"name\": \"lacp\"}}}}'".format(bond_port))
-        ptfhost.shell("ip link set {} down".format(port))
-        ptfhost.shell("ip link set {} master {}".format(port, bond_port))
-        ptfhost.shell("ip link set dev {} up".format(bond_port))
-        ptfhost.shell("ifconfig {} mtu 9216 up".format(bond_port))
-    except Exception as e:
-        logger.error("Err when add bond on ptf host: {}".format(e))
+    bond_port = 'bond{}'.format(bond_id)
+    # Cloud PTF hosts may omit the team driver; Linux bonding still provides LACP.
+    ptfhost.shell("ip link add {} type bond mode 802.3ad miimon 100 lacp_rate fast".format(bond_port))
+    ptfhost.shell("ip link set {} down".format(port))
+    ptfhost.shell("ip link set {} master {}".format(port, bond_port))
+    ptfhost.shell("ip link set {} up".format(port))
+    ptfhost.shell("ip link set dev {} up".format(bond_port))
+    ptfhost.shell("ifconfig {} mtu 9216 up".format(bond_port))
 
 
 def remove_ptf_bond(ptfhost, port, bond_id, ip_addr):
