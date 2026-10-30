@@ -11,9 +11,10 @@
 
 ### Version information
 
-| Version | Date | Description |
-| --- | --- | --- |
-| 1.0 | 2026-08-31 | Initial Snappi MACsec architecture HLD |
+| Version | Date | Author | Description |
+| --- | --- | --- | --- |
+| 1.0 | 2026-08-31 | Varun Aiyaswamy Kannan | Initial Snappi MACsec architecture HLD (first draft) |
+| 1.1 | 2026-10-29 | Amit Pawar | Reworked DUT MACsec profile handling (sections 6.3 and 14) so that two ingress ports on the same DUT can share one profile. The profile is now checked against the required configuration instead of being deleted and re-created per port: it is created only if absent, reused if identical, and the test is skipped (before any DUT is modified) if a profile with the same name but a different configuration exists. Ports bound to a different profile are re-bound to their original profile during cleanup, and only profiles created by the test are deleted. The DUT MACsec code moved to `snappi_macsec_helper.py`. The temporary egress address (`40.1.1.1`) is now removed during cleanup with the prefix it was added with (it was hard-coded to `/28`, which left `/27` on the DUT for two ingress ports), and a left-over temporary address from an earlier run is not mistaken for the original subnet. Added optional `replay_protect` and `replay_window` settings to the DUT MACsec profile (`set_macsec_profile`, `macsec_profile.json`). |
 
 ## 1. Scope
 
@@ -152,6 +153,8 @@ routed-interface, and fallback P2P setup paths and invokes
 
 The implementation is in
 [`tests/common/snappi_tests/snappi_fixtures.py`](../../common/snappi_tests/snappi_fixtures.py).
+The DUT MACsec profile and port handling (section 6.3) is implemented in
+[`tests/common/snappi_tests/snappi_macsec_helper.py`](../../common/snappi_tests/snappi_macsec_helper.py).
 
 ### 6.1 DUT port discovery
 
@@ -163,28 +166,89 @@ namespace, and addressing information.
 
 For each selected DUT interface, the function:
 
-1. Reads the existing IPv4 interface subnet.
+1. Reads the existing IPv4 interface subnet. The temporary egress address
+   (`40.1.1.1`) is ignored when other addresses exist, because it can only be
+   left behind by an earlier run; a warning is logged.
 2. Adds a temporary address if the interface has no IPv4 subnet.
 3. Uses a `/31`-style fallback for MACsec ingress links.
 4. Ensures the plain egress subnet is large enough for all virtual egress
    endpoints.
-5. Records original and applied subnets for cleanup.
+5. Records original and applied subnets for cleanup. The applied subnet is
+   the one used to remove the temporary address during cleanup.
 6. Derives the TGEN address, DUT gateway, prefix, TGEN MAC, and DUT interface
    MAC.
 
 ### 6.3 DUT MACsec configuration
 
-For every `port_id >= 1`, the function:
+The profile `256_XPN_SCI` is defined in
+[`macsec_profile.json`](../macsec_profile.json). It uses GCM-AES-XPN-256, SCI
+transmission, MKA PSK configuration, and timer-based rekeying.
 
-1. Loads `256_XPN_SCI` from
-   [`macsec_profile.json`](../macsec_profile.json).
-2. Removes stale instances of the same Snappi MACsec profile.
-3. Installs the profile once per participating DUT.
-4. Enables the profile on the ingress interface.
-5. Installs a static ARP entry for the TGEN IPv4/MAC pair.
+The profile may contain the optional keys `replay_protect` (`"true"` or
+`"false"`) and `replay_window`. `"true"` creates the profile with
+`--enable_replay_protect` (and `--replay_window` when a window is given), any
+other value uses `--disable_replay_protect`, and omitting the key leaves the CLI
+default. These values are also compared with the profile found on the DUT
+(`enable_replay_protect` in CONFIG_DB). `macsec_profile.json` currently sets
+`replay_protect` to `"false"`.
 
-The profile uses GCM-AES-XPN-256, SCI transmission, MKA PSK configuration, and
-timer-based rekeying.
+A SONiC MACsec profile lives in the DUT CONFIG_DB (in every ASIC namespace on a
+multi-ASIC DUT) and cannot be deleted while any port is bound to it. With two
+ingress ports on the same DUT, the profile must therefore be shared and must not
+be deleted and re-created per port. The DUT state is compared with the required
+profile instead of being unconditionally cleaned.
+
+#### 6.3.1 Up-front validation
+
+Before any DUT is configured, `validate_macsec_profiles()` checks every DUT
+that carries a `port_id >= 1` port. It reads
+`MACSEC_PROFILE|256_XPN_SCI` from CONFIG_DB in every namespace and compares only
+the attributes the test sets (`priority`, `cipher_suite`, `primary_cak`,
+`primary_ckn`, `policy`, `send_sci`, `rekey_period`, plus `replay_protect` and
+`replay_window` when they are specified in the profile JSON; `replay_protect` is
+stored as `enable_replay_protect` in CONFIG_DB; values compared as
+case-insensitive strings, a missing `rekey_period` is treated as `0`). The
+result for each DUT is one of:
+
+| State | Meaning | Action |
+| --- | --- | --- |
+| `absent` | Profile does not exist in any namespace | Created during port configuration |
+| `match` | Profile exists in all namespaces with the required configuration | Reused as is |
+| `conflict` | Same name, different configuration, or present only in some namespaces | Test is skipped |
+
+The check is read-only. If any DUT is in the `conflict` state the test is
+skipped before any DUT is modified, so no DUT is left with partial MACsec
+configuration.
+
+#### 6.3.2 Per-port configuration
+
+For every `port_id >= 1`, `configure_macsec_on_port()`:
+
+1. Reads the profile the DUT port is currently bound to
+   (`PORT|<port>` field `macsec` in CONFIG_DB).
+2. If the port is already bound to `256_XPN_SCI`, nothing is configured and the
+   port is not recorded for cleanup.
+3. If the port is bound to a different profile, records that profile as the
+   port's original profile and disables MACsec on the port. The other profile
+   is left in place and logged at INFO level.
+4. Creates the profile if it is absent on the DUT. The DUT is then recorded as
+   having the profile created by the test. If the profile is already present
+   with the required configuration (for example, created for the first ingress
+   port, or bound to ports that are not part of this test) it is reused.
+5. Enables the profile on the ingress interface and records the port as enabled
+   by the test.
+
+After this, the flow for each topology is:
+
+| Scenario | Result |
+| --- | --- |
+| 1 ingress + 1 egress | Profile created (or reused) for the single ingress port |
+| 2 ingress on the same DUT | First port creates the profile, the second port reuses it |
+| 2 ingress on different DUTs | Each DUT creates its own profile |
+| Profile with the same name and a different configuration on any DUT | Test skipped, nothing configured |
+
+Finally, a static ARP entry for the TGEN IPv4/MAC pair is installed for each
+port.
 
 ### 6.4 TGEN MACsec device creation
 
@@ -535,14 +599,31 @@ in another flow builder.
 
 ## 14. Cleanup
 
-MACsec cleanup is handled by `cleanup_config()` and fixture teardown:
+MACsec cleanup is handled by `cleanup_config()` and fixture teardown. Steps 3 to
+6 are implemented by `cleanup_macsec_config()` in `snappi_macsec_helper.py`:
 
 1. Remove temporary egress addressing.
-2. Restore the original egress subnet when one was replaced.
-3. Disable MACsec on every enabled ingress interface.
-4. Delete the Snappi MACsec profile from every participating DUT.
-5. Clear global bookkeeping for enabled ports and configured profiles.
-6. Remove temporary routes or destination state created by setup.
+2. Restore the original egress subnet when one was replaced. The temporary
+   address is removed with the prefix it was added with (for example `/28` for
+   one ingress and `/27` for two ingress ports), taken from the recorded
+   applied subnet. Removing an address with a different prefix is silently
+   ignored by the DUT CLI and would leave the temporary address configured.
+   The recorded state is cleared afterwards.
+3. Disable MACsec on every ingress interface the test enabled, in reverse
+   order. Ports that were already bound to `256_XPN_SCI` before the test are
+   not touched.
+4. Re-bind every port that was bound to a different profile before the test
+   back to that original profile, so the DUT configuration matches the
+   start-of-test snapshot and no configuration reload is triggered. If the port
+   is bound to something else at that point, it is not changed and a warning is
+   logged.
+5. Delete the Snappi MACsec profile only on the DUTs where the test created it.
+   A profile that was reused, or any other profile found on the DUT, is left as
+   is. If a profile created by the test has meanwhile been bound to a port that
+   does not belong to the test, the deletion fails and is ignored.
+6. Clear global bookkeeping for enabled ports, re-bound ports, and created
+   profiles.
+7. Remove temporary routes or destination state created by setup.
 
 Tests must invoke cleanup from a `finally` block so configuration is restored
 even after traffic generation or verification fails.
@@ -566,6 +647,7 @@ even after traffic generation or verification fails.
 | --- | --- |
 | [`tests/conftest.py`](../../conftest.py) | Declares `--snappi_macsec` |
 | [`tests/common/snappi_tests/snappi_fixtures.py`](../../common/snappi_tests/snappi_fixtures.py) | MACsec fixture selection, DUT/TGEN interface setup, egress endpoint creation, and cleanup |
+| [`tests/common/snappi_tests/snappi_macsec_helper.py`](../../common/snappi_tests/snappi_macsec_helper.py) | DUT MACsec profile validation, per-port configuration, and cleanup (profile reuse, port re-binding, deletion of created profiles only) |
 | [`tests/common/snappi_tests/snappi_helpers.py`](../../common/snappi_tests/snappi_helpers.py) | Prefix calculation and IxNetwork statistics helpers |
 | [`tests/common/snappi_tests/traffic_generation.py`](../../common/snappi_tests/traffic_generation.py) | Flow endpoint selection, IxNetwork runtime setup, traffic control, statistics collection, and verification |
 | [`tests/common/snappi_tests/variables.py`](../../common/snappi_tests/variables.py) | Default non-MACsec egress gateway |
