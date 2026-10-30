@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.config_reload import config_reload
 from tests.common.utilities import update_pfcwd_default_state
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled, get_pfcwd_hw_timer_limits
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,22 @@ TMP_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "testrun")
 CONFIG_TEST_EXPECT_INVALID_ACTION_RE = ".* Invalid PFC Watchdog action .*"
 CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE = ".* Failed to parse PFC Watchdog .* detection_time .*"
 CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE = ".* Failed to parse PFC Watchdog .* restoration_time .*"
+CONFIG_TEST_EXPECT_HW_DETECT_TIME_RANGE_RE = ".* Detection time .* is outside the supported range .*"
+CONFIG_TEST_EXPECT_HW_RESTORE_TIME_RANGE_RE = ".* Restoration time .* is outside the supported range .*"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,    # disable automatic fixture and invoke within each test
     pytest.mark.topology('any')
 ]
+
+
+def timer_range_error_re(duthost, field):
+    """Expected syslog for an out-of-range 'detect' or 'restore' timer in the DUT's PFCWD mode"""
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        return CONFIG_TEST_EXPECT_HW_DETECT_TIME_RANGE_RE if field == 'detect' \
+            else CONFIG_TEST_EXPECT_HW_RESTORE_TIME_RANGE_RE
+    return CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE if field == 'detect' \
+        else CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE
 
 
 def create_run_dir():
@@ -34,12 +46,13 @@ def create_run_dir():
         pytest.fail("Failed to create a temp run dir: {}".format(str(err)))
 
 
-def generate_cfg_templates(test_port):
+def generate_cfg_templates(test_port, hw_limits=None):
     """
     Build all the config templates that will be used for the config validation test
 
     Args:
         test_port (string): a random port selected from the test port list
+        hw_limits (dict): HW timer ranges, if in HW mode
 
     Returns:
         cfg_params (dict): all config templates
@@ -47,6 +60,19 @@ def generate_cfg_templates(test_port):
     create_run_dir()
     with open(os.path.join(TEMPLATES_DIR, "pfc_config_params.json"), "r") as read_file:
         cfg_params = json.load(read_file)
+
+    if hw_limits:
+        # HW mode range-checks both timers: keep them in range, push only the field under test out
+        bounds = {'pfc_wd_detection_time': (hw_limits['detection_min'], hw_limits['detection_max']),
+                  'pfc_wd_restoration_time': (hw_limits['restoration_min'], hw_limits['restoration_max'])}
+        for params in cfg_params.values():
+            for field, (low, high) in bounds.items():
+                if isinstance(params.get(field), int):
+                    params[field] = min(max(params[field], low), high)
+        cfg_params['pfc_wd_low_detect_time']['pfc_wd_detection_time'] = hw_limits['detection_min'] - 1
+        cfg_params['pfc_wd_high_detect_time']['pfc_wd_detection_time'] = hw_limits['detection_max'] + 1
+        cfg_params['pfc_wd_low_restore_time']['pfc_wd_restoration_time'] = hw_limits['restoration_min'] - 1
+        cfg_params['pfc_wd_high_restore_time']['pfc_wd_restoration_time'] = hw_limits['restoration_max'] + 1
 
     for key in cfg_params:
         write_file = key
@@ -109,8 +135,9 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
     pfc_wd_test_port = list(setup_info['test_ports'].keys())[0]
+    hw_limits = get_pfcwd_hw_timer_limits(duthost)
     logger.info("Creating json templates for all config tests")
-    cfg_params = generate_cfg_templates(pfc_wd_test_port)
+    cfg_params = generate_cfg_templates(pfc_wd_test_port, hw_limits)
     logger.info("Copying templates over to the DUT")
     copy_templates_to_dut(duthost, cfg_params)
 
@@ -255,7 +282,7 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_low_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_low_detect_time", None, [timer_range_error_re(duthost, 'detect')], True)
 
     def test_high_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -268,7 +295,7 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_high_detect_time", None, [CONFIG_TEST_EXPECT_INVALID_DETECT_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_high_detect_time", None, [timer_range_error_re(duthost, 'detect')], True)
 
     def test_invalid_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -295,7 +322,7 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_low_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_low_restore_time", None, [timer_range_error_re(duthost, 'restore')], True)
 
     def test_high_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
@@ -308,7 +335,7 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        self.execute_test(duthost, "pfc_wd_high_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
+        self.execute_test(duthost, "pfc_wd_high_restore_time", None, [timer_range_error_re(duthost, 'restore')], True)
 
 
 @pytest.mark.usefixtures('mg_cfg_setup')
@@ -335,6 +362,15 @@ class TestDefaultPfcConfig(object):
         res = duthost.command('pfcwd show config')
         for port_config in res['stdout_lines']:
             if "ethernet" in port_config.lower():
+                # HW mode must publish its timer ranges
+                if is_pfcwd_hw_recovery_enabled(duthost):
+                    hw_limits = get_pfcwd_hw_timer_limits(duthost)
+                    pytest_assert(hw_limits is not None,
+                                  "HW PFCWD timer ranges missing from STATE_DB PFC_WD_STATE_TABLE|PFC_WD")
+                    pytest_assert(0 < hw_limits['detection_min'] < hw_limits['detection_max'],
+                                  "Invalid HW detection time range: {}".format(hw_limits))
+                    pytest_assert(0 < hw_limits['restoration_min'] < hw_limits['restoration_max'],
+                                  "Invalid HW restoration time range: {}".format(hw_limits))
                 return
         # If no ethernet port existing in stdout, failed this case.
         pytest.fail("Failed to start pfcwd after load_minigraph")

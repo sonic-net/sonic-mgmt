@@ -13,6 +13,7 @@ from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import redis_hgetall
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -347,6 +348,7 @@ def set_pfc_timers():
     pfc_timers = {'pfc_wd_detect_time': 400,
                   'pfc_wd_restore_time': 400,
                   'pfc_wd_restore_time_large': 3000,
+                  'pfc_wd_restore_time_hw': 1000,
                   'pfc_wd_poll_time': 400
                   }
     return pfc_timers
@@ -381,6 +383,7 @@ def calculate_pfcwd_default_timers(duthost):
         'pfc_wd_detect_time': PFCWD_DEFAULT_DETECT_TIME * multiply,
         'pfc_wd_restore_time': PFCWD_DEFAULT_RESTORE_TIME * multiply,
         'pfc_wd_restore_time_large': 3000,
+        'pfc_wd_restore_time_hw': 1000,
         'pfc_wd_poll_time': poll_interval
     }
 
@@ -474,6 +477,25 @@ def is_pfcwd_hw_recovery_enabled(duthost):
     except Exception as e:
         logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
         return False
+
+
+def get_pfcwd_hw_timer_limits(duthost):
+    """Return the HW PFCWD timer ranges (ms) from STATE_DB, or None if not in HW mode."""
+    state = redis_hgetall(duthost, 'STATE_DB', 'PFC_WD_STATE_TABLE|PFC_WD')
+    if state.get('RECOVERY_MECHANISM', '').upper() != 'HARDWARE':
+        return None
+    try:
+        limits = {
+            'detection_min': int(state['DETECTION_TIME_MIN']),
+            'detection_max': int(state['DETECTION_TIME_MAX']),
+            'restoration_min': int(state['RESTORATION_TIME_MIN']),
+            'restoration_max': int(state['RESTORATION_TIME_MAX']),
+        }
+    except (KeyError, ValueError) as e:
+        logger.error("Failed to parse hardware PFCWD timer limits {}: {}".format(state, e))
+        return None
+    logger.info("Hardware PFCWD timer limits: {}".format(limits))
+    return limits
 
 
 @contextlib.contextmanager

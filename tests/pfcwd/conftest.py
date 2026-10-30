@@ -11,6 +11,7 @@ from tests.common.fixtures.ptfhost_utils import pause_garp_service           # n
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, check_dshell_ready
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
 from tests.common.utilities import str2bool, wait_until
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,8 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return False if (isMellanoxDevice(duthost) or
                      is_cisco_device(duthost) or
-                     "7060X6" in duthost.facts['hwsku'].upper()) \
+                     "7060X6" in duthost.facts['hwsku'].upper() or
+                     is_pfcwd_hw_recovery_enabled(duthost)) \
         else request.config.getoption('--fake-storm')
 
 
