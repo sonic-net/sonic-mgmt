@@ -213,6 +213,10 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
             __check_appl_db,
             (duthost, port_name, nbr["host"], nbr["port"], policy, cipher_suite, send_sci))
         procs.append(proc)
+    if not procs:
+        # __check_appl_db reads APPL_DB on both ends, so EOS-only topologies verify nothing here.
+        logger.warning(
+            "Check appl_db: nothing to verify, all %d neighbor(s) are EOS", len(ctrl_links))
     wait_all_complete(timeout=180)
     failed = [p.exitcode for p in procs if p.exitcode != 0]
     if failed:

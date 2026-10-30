@@ -108,10 +108,17 @@ class MacsecPlugin(object):
         return __stop_macsec_service
 
     @pytest.fixture(scope="module")
-    def macsec_feature(self, start_macsec_service, stop_macsec_service):
+    def macsec_feature(self, macsec_duthost, start_macsec_service, stop_macsec_service):
+        # macsec_setup skips its cleanup when MACsec was already configured, so unconditionally
+        # stopping the service would strand those ports bound to a profile with no MKA.
+        preexisting = macsec_duthost.shell(
+            "docker ps | grep macsec | grep -v grep", module_ignore_errors=True)["stdout_lines"]
         start_macsec_service()
         yield
-        stop_macsec_service()
+        if not preexisting:
+            stop_macsec_service()
+        else:
+            logger.info("MACsec service was running before this module, leaving it enabled")
 
     @pytest.fixture(scope="module")
     def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
