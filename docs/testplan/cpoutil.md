@@ -146,11 +146,12 @@ with no arguments. Eight local transport/state-guard regressions pass through
 the Jinja parser, including container replacement, start-time/restart changes
 and PORT configuration changes. These checks are not a full Ansible/DUT run.
 
-A supplied execution summary records 473 cases as `broken`, with no traceback
-or setup error details. The template conflict is independently reproduced;
-attribution of that reported run still requires its traceback and a testbed
-rerun. No passing DUT result is claimed. To isolate the first setup error,
-start with the help subset and stop after the first failure:
+A supplied execution summary records 473 cases as `broken`. The subsequent
+failure details confirm `RunAnsibleModuleFail` caused by the shared snapshot's
+Docker Go template: Jinja rejects it with `unexpected '.'` before the CLI
+assertion is reached. This matches the independently reproduced defect.
+The corrected revision still requires a testbed rerun; no passing DUT result
+is claimed. Start with the help subset and stop after the first failure:
 
 ```sh
 ./run_tests.sh -n <testbed> -d <dut> -i <inventory> \
