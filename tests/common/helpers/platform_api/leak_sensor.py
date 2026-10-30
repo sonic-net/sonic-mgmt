@@ -83,6 +83,11 @@ def get_leak_severity(conn, index):
     return leak_sensor_api(conn, index, 'get_leak_severity')
 
 
+def is_test_leak(conn, index):
+    """LeakageSensorBase.is_test_leak() — True if the reported leak was injected by a leak test"""
+    return leak_sensor_api(conn, index, 'is_test_leak')
+
+
 # ===== LeakSensorProfileBase methods (via sensor.get_leak_profile()) =====
 
 def get_profile_type(conn, index):

@@ -3,7 +3,7 @@
 import logging
 import pytest
 
-from tests.common.helpers.platform_api import leak_sensor, liquid_cooling
+from tests.common.helpers.platform_api import leak_sensor, leak_sensor_test, liquid_cooling
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
@@ -142,3 +142,50 @@ class TestLeakSensorApi(PlatformApiTestBase):
             self.expect(isinstance(all_profiles, list),
                         "liquid_cooling.get_all_profiles() should return list")
             logger.info(f"Platform exposes {len(all_profiles)} leak sensor profile type(s)")
+
+    @pytest.fixture(scope="function")
+    def leak_test_injection(self, platform_api_conn):  # noqa: F811
+        """Skip if leak test injection is unsupported; withdraw all injections afterwards."""
+        supported = False
+        try:
+            supported = leak_sensor_test.is_leak_test_supported(platform_api_conn)
+        except Exception as e:
+            pytest.skip(f"Leak test platform API not available: {e}")
+        if not supported:
+            pytest.skip("Platform does not support leak test injection")
+        yield
+        leak_sensor_test.clear_test_leaks(platform_api_conn)
+
+    @pytest.mark.parametrize("severity", [None, "MINOR", "CRITICAL"])
+    def test_leak_sensor_test_leak(self, platform_api_conn, leak_test_injection, severity):  # noqa: F811
+        """Inject and withdraw a test leak on every sensor; verify it is reported and flagged as a test leak."""
+        for sensor_index in range(self.num_leak_sensors):
+            name = leak_sensor.get_name(platform_api_conn, sensor_index)
+
+            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity)
+            self.expect(ret is True, f"set_test_leak({name}, True) should return True, got {ret!r}")
+            self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is True,
+                        f"is_test_leak_enabled({name}) should be True after injection")
+            self.expect(leak_sensor.is_leak(platform_api_conn, sensor_index) is True,
+                        f"is_leak() for {name} should be True while a test leak is injected")
+            self.expect(leak_sensor.is_test_leak(platform_api_conn, sensor_index) is True,
+                        f"is_test_leak() for {name} should be True while a test leak is injected")
+            self.expect(leak_sensor.get_leak_severity(platform_api_conn, sensor_index) is not None,
+                        f"get_leak_severity() for {name} should not be None while a test leak is injected")
+
+            # Idempotent injection
+            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, True, severity=severity)
+            self.expect(ret is True, f"Repeated set_test_leak({name}, True) should return True, got {ret!r}")
+
+            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, False)
+            self.expect(ret is True, f"set_test_leak({name}, False) should return True, got {ret!r}")
+            self.expect(leak_sensor_test.is_test_leak_enabled(platform_api_conn, name) is False,
+                        f"is_test_leak_enabled({name}) should be False after withdrawal")
+            self.expect(leak_sensor.is_test_leak(platform_api_conn, sensor_index) is False,
+                        f"is_test_leak() for {name} should be False after withdrawal")
+            self.expect(leak_sensor.get_leak_severity(platform_api_conn, sensor_index) is None,
+                        f"get_leak_severity() for {name} should be None after withdrawal")
+
+            # Idempotent withdrawal
+            ret = leak_sensor_test.set_test_leak(platform_api_conn, name, False)
+            self.expect(ret is True, f"Repeated set_test_leak({name}, False) should return True, got {ret!r}")
