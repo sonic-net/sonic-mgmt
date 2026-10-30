@@ -581,18 +581,39 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
 
-    # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
-                             duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
-                  f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
+    try:
+        # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
+        pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
+                                 duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
+                      f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
 
-    # Wait for the blocking scheduler configuration to take effect in ASIC_DB
-    # Expected count should increase by 1 after applying scheduler to specific queue
-    expected_count = current_count + 1
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
-                             expected_count),
-                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
-                  f"queue {queue} (expected count: {expected_count})")
+        # Wait for the blocking scheduler configuration to take effect in ASIC_DB.
+        # If the queue was already on the blocking scheduler (e.g. left blocked by
+        # an earlier call/run), re-applying the same value is a no-op in ASIC_DB -
+        # no new scheduler group binding is created - so the count should stay the
+        # same. Only expect it to increase by 1 when we are newly applying it.
+        if original_scheduler == BLOCK_DATA_PLANE_SCHEDULER_NAME:
+            expected_count = current_count
+        else:
+            expected_count = current_count + 1
+        pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
+                                 expected_count),
+                      f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
+                      f"queue {queue} (expected count: {expected_count})")
+    except (Exception, pytest.fail.Exception):
+        # We already wrote the blocking scheduler to CONFIG_DB above. If
+        # verification fails here, this function raises before returning
+        # `original_scheduler`, so the caller never learns this port needs to
+        # be restored (see ConfigTrimming.__enter__). Restore it ourselves so
+        # this function never leaves the queue stuck on the blocking
+        # scheduler. Note: pytest_assert()/pytest.fail() raise
+        # pytest.fail.Exception (aka _pytest.outcomes.Failed), which
+        # subclasses BaseException, not Exception, so it must be listed
+        # explicitly here.
+        logger.error(f"Failed to verify blocking scheduler for port {dut_port} queue {queue}, "
+                     f"restoring original scheduler '{original_scheduler}'")
+        enable_egress_data_plane(duthost, dut_port, queue, original_scheduler)
+        raise
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -1386,7 +1407,14 @@ class ConfigTrimming:
 
             return self
 
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
+            # pytest_assert()/pytest.fail() raise pytest.fail.Exception (aka
+            # _pytest.outcomes.Failed), which subclasses BaseException, not
+            # Exception, so it would silently bypass a plain `except
+            # Exception` here and skip cleanup below. Listing it explicitly
+            # (instead of a blanket `except BaseException`) still catches it
+            # while leaving KeyboardInterrupt/SystemExit/GeneratorExit
+            # unaffected.
             logger.error(f"Failed to block egress ports: {e}")
             # Try to cleanup if setup fails
             self.__exit__(None, None, None)
