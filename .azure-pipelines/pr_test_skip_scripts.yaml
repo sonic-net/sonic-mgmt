@@ -53,7 +53,6 @@ t0:
   # These test scripts are aimed to run on mellanox platform
   - platform_tests/mellanox/test_check_sfp_eeprom.py
   - platform_tests/mellanox/test_check_sfp_presence.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
   - platform_tests/mellanox/test_check_sysfs.py
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
@@ -121,7 +120,6 @@ t1-lag:
   # These test scripts are aimed to run on mellanox platform
   - platform_tests/mellanox/test_check_sfp_eeprom.py
   - platform_tests/mellanox/test_check_sfp_presence.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
   - platform_tests/mellanox/test_check_sysfs.py
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
@@ -177,7 +175,6 @@ t2:
   # These test scripts are aimed to run on mellanox platform
   - platform_tests/mellanox/test_check_sfp_eeprom.py
   - platform_tests/mellanox/test_check_sfp_presence.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
   - platform_tests/mellanox/test_check_sysfs.py
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
