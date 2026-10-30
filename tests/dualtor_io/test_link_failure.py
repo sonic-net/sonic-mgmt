@@ -84,10 +84,13 @@ def test_active_link_down_downstream_active(
     Send traffic from T1 to active ToR and shutdown the active ToR link.
     Verify switchover and disruption lasts < 1 second
     """
+    allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
+            allowed_disruption=3, allowed_duplication=allowed_duplication,
+            action=shutdown_fanout_upper_tor_intfs,
+            merge_duplications_into_disruptions=merge_duplications
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -96,7 +99,6 @@ def test_active_link_down_downstream_active(
         )
 
     if cable_type == CableType.active_active:
-        allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
         send_t1_to_server_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1, allowed_duplication=allowed_duplication,
@@ -115,15 +117,19 @@ def test_active_link_down_downstream_active(
 def test_active_link_down_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
-    shutdown_fanout_upper_tor_intfs                                     # noqa: F811
+    shutdown_fanout_upper_tor_intfs,                                    # noqa: F811
+    link_down_downstream_active_duplication_setting                     # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdown the active ToR link.
     Verify switchover and disruption lasts < 1 second
     """
+    allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=3, action=shutdown_fanout_upper_tor_intfs
+        allowed_disruption=3, allowed_duplication=allowed_duplication,
+        action=shutdown_fanout_upper_tor_intfs,
+        merge_duplications_into_disruptions=merge_duplications
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
