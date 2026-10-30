@@ -620,6 +620,10 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
         skip_containers.append("radv")
     if "202412" in duthost.os_version:
         skip_containers.append("gnmi")
+    # Skip database container for smartswitch DPUs, because we are not able to recover
+    # it via power cycle as we only have the dpu ansible host as the duthost
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+        skip_containers.append("database")
     skip_containers = skip_containers + skip_vendor_specific_container
     return skip_containers
 
