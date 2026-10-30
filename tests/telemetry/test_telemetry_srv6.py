@@ -54,7 +54,7 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
                                      setup_streaming_telemetry, gnxi_path, setup_my_sid):
     """
     Test poll mode from COUNTERS_DB and query SRv6 MY_SID counters:
-    First, query when the data does not exist,ensure no errors and present data
+    First, query when the data does not exist and verify synchronization responses.
     Second, enable counter polling and then test query again ensuring data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -65,7 +65,7 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"COUNTERS/SID:*\"",  # noqa: W605
-                              target="COUNTERS_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
+                              target="COUNTERS_DB", max_sync_count=5, update_count=-1, timeout=30, namespace=namespace)
 
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -73,8 +73,8 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
-    update_responses_match = re.findall("json_ietf_val", result)
-    pytest_assert(len(update_responses_match) > 0, "Incorrect update responses")
+    sync_responses_match = re.findall("sync_response: true", result)
+    pytest_assert(len(sync_responses_match) >= 5, "Missing synchronization responses")
 
     # Now generate some SRv6 SID counter values by adding mock data
     duthost.shell("counterpoll srv6 enable")
@@ -108,7 +108,7 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, enum_rand_one_per_
                                                     setup_streaming_telemetry, gnxi_path):
     """
     Test poll mode from COUNTERS_DB and query SRv6 MY_SID counters:
-    First, query when the data does not exist,ensure no errors and present data
+    First, query when the data does not exist and verify synchronization responses.
     Second, add data and then test query again ensuring data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -119,7 +119,7 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, enum_rand_one_per_
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"COUNTERS/SID:*\"",  # noqa: W605
-                              target="COUNTERS_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
+                              target="COUNTERS_DB", max_sync_count=5, update_count=-1, timeout=30, namespace=namespace)
 
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -127,8 +127,8 @@ def test_poll_mode_srv6_sid_counters_with_mock_data(duthosts, enum_rand_one_per_
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
-    update_responses_match = re.findall("json_ietf_val", result)
-    pytest_assert(len(update_responses_match) > 0, "Incorrect update responses")
+    sync_responses_match = re.findall("sync_response: true", result)
+    pytest_assert(len(sync_responses_match) >= 5, "Missing synchronization responses")
 
     if namespace != "":
         SONIC_DB_CLI = f"sonic-db-cli -n {namespace}"
