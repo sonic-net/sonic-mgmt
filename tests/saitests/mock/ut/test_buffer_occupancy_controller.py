@@ -132,6 +132,75 @@ class TestBufferOccupancyControllerHoldBuffer(unittest.TestCase):
 
 
 @pytest.mark.order(6030)
+class TestBufferOccupancyControllerCleanup:
+    @pytest.mark.parametrize("port_ids", [[], [5], [5, 1], [5, 1, 5]])
+    def test_drain_all_buffers_restores_actual_members(self, port_ids):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        if port_ids:
+            ctrl.hold_buffer(port_ids)
+
+        ctrl.drain_all_buffers()
+        ctrl.drain_all_buffers()
+
+        if port_ids:
+            drain_buf_fn.assert_called_once_with(
+                ctrl._thrift_client, "broadcom", sorted(set(port_ids)), last_port=True
+            )
+        else:
+            drain_buf_fn.assert_not_called()
+        assert not ctrl._tx_disabled_ports
+
+    def test_drain_all_buffers_skips_released_ports(self):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        ctrl.hold_buffer([1, 5])
+        ctrl.drain_buffer([1])
+        drain_buf_fn.reset_mock()
+
+        ctrl.drain_all_buffers()
+
+        drain_buf_fn.assert_called_once_with(ctrl._thrift_client, "broadcom", [5], last_port=True)
+        assert not ctrl._tx_disabled_ports
+
+    def test_drain_all_buffers_propagates_restore_failure(self):
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(), drain_buf_fn=MagicMock(side_effect=RuntimeError("TX restore failed")),
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+        ctrl.hold_buffer([5])
+
+        with pytest.raises(RuntimeError, match="TX restore failed"):
+            ctrl.drain_all_buffers()
+
+        assert ctrl.is_buffer_held(5)
+
+    def test_hold_buffer_tracks_ports_if_disable_fails(self):
+        drain_buf_fn = MagicMock()
+        ctrl = BufferOccupancyController(
+            hold_buf_fn=MagicMock(side_effect=RuntimeError("partial TX disable")), drain_buf_fn=drain_buf_fn,
+            stream_mgr=MagicMock(), send_packet_fn=MagicMock(),
+            ptftest_ref=MagicMock(), thrift_client=MagicMock(), asic_type="broadcom"
+        )
+
+        with pytest.raises(RuntimeError, match="partial TX disable"):
+            ctrl.hold_buffer([1, 5])
+
+        assert ctrl._tx_disabled_ports == {1, 5}
+        ctrl.drain_all_buffers()
+        drain_buf_fn.assert_called_once_with(ctrl._thrift_client, "broadcom", [1, 5], last_port=True)
+
+
+@pytest.mark.order(6030)
 class TestBufferOccupancyControllerDrainBuffer(unittest.TestCase):
     """Test drain_buffer functionality."""
 
