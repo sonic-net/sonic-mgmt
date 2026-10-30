@@ -538,6 +538,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     )
 
 
+@pytest.mark.disable_loganalyzer
 def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                       setup_standby_ports_on_rand_unselected_tor, # noqa F811
                       toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
@@ -565,6 +566,7 @@ def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, p
                           is_route_flow_counter_supported, ipv6=ipv6, config_reload_test=True)
 
 
+@pytest.mark.disable_loganalyzer
 def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                            setup_standby_ports_on_rand_unselected_tor, # noqa F811
                            toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
