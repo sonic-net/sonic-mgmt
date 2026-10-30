@@ -1,5 +1,6 @@
 import pytest
 import logging
+import re
 
 from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.helpers.assertions import pytest_assert
@@ -101,6 +102,77 @@ def stratified_lag_samples_for_syslog(sorted_pcs, max_samples=14):
     return out[:max_samples]
 
 
+TEAM_PID_RE = re.compile(r"(\d+)\s+.*\bteamd\b.*-t\s+(PortChannel\d+)\b")
+
+
+def teamd_container_name(asic_id):
+    if asic_id is None:
+        return "teamd"
+    return "teamd{}".format(asic_id)
+
+
+def collect_teamd_lag_pids(duthost):
+    """
+    Host PIDs of per-LAG teamd processes, keyed by PortChannel name.
+    """
+    pids = {}
+    for asic_id in duthost.get_asic_ids():
+        container = teamd_container_name(asic_id)
+        res = duthost.shell("docker top {} -eo pid,args".format(container), module_ignore_errors=True)
+        if res['rc'] != 0:
+            logging.info("docker top %s failed: %s", container, res.get('stderr'))
+            continue
+        for line in res['stdout'].splitlines():
+            match = TEAM_PID_RE.search(line)
+            if match:
+                pids[match.group(2)] = int(match.group(1))
+    return pids
+
+
+def pre_reload_teamd_pids_gone(duthost, old_pids):
+    """
+    True when none of the pre-reload per-LAG teamd host PIDs are still alive.
+    """
+    if not old_pids:
+        return False
+    pid_list = ",".join(str(pid) for pid in old_pids.values())
+    res = duthost.shell("ps -o pid= -p {} 2>/dev/null || true".format(pid_list), module_ignore_errors=True)
+    alive = [line.strip() for line in res['stdout'].splitlines() if line.strip()]
+    if alive:
+        logging.info("pre-reload teamd PIDs still alive: %s", alive)
+        return False
+    return True
+
+
+def all_lags_recovered(duthost, expected_names, old_pids):
+    """
+    Every configured LAG has a new teamd process and a kernel interface.
+    A reused pre-reload PID means that LAG's teamd was not replaced.
+    """
+    current = collect_teamd_lag_pids(duthost)
+    missing_teamd = [pc for pc in expected_names if pc not in current]
+    reused = [pc for pc, pid in old_pids.items() if current.get(pc) == pid]
+    if missing_teamd or reused:
+        logging.info("LAG teamd not replaced, missing=%s reused=%s", missing_teamd, reused)
+        return False
+
+    by_ns = {}
+    for pc, ns in expected_names.items():
+        by_ns.setdefault(ns or "", []).append(pc)
+    for ns, pcs in by_ns.items():
+        cmd = duthost.get_linux_ip_cmd_for_namespace("ip link show", ns)
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        if res['rc'] != 0:
+            logging.info("ip link show failed in namespace '%s'", ns)
+            return False
+        present = set(re.findall(r"PortChannel\d+", res['stdout']))
+        absent = [pc for pc in pcs if pc not in present]
+        if absent:
+            logging.info("kernel PortChannel missing in namespace '%s': %s", ns, absent)
+            return False
+    return True
+
+
 def check_kernel_po_interface_cleaned(duthost, asic_index):
     namespace = duthost.get_namespace_from_asic_id(asic_index)
     res = duthost.shell(duthost.get_linux_ip_cmd_for_namespace("ip link show | grep -c PortChannel", namespace),
@@ -130,9 +202,10 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     """
     test port channel are cleaned up correctly after config reload, with system under stress.
 
-    For large LAG counts we require a stratified subset of LAGs to
-    each log SIGTERM plus a broad pattern for any LAG; for small counts we still require
-    every LAG.
+    Syslog-based checks cannot distinguish a dropped line from a missing SIGTERM for one LAG
+    among hundreds. For large LAG counts the log check is a broad SIGTERM pattern plus a
+    stratified sample. Every LAG is covered separately: the pre-reload teamd process must be
+    gone, and each PortChannel must have a new teamd process and a kernel interface.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     host_facts = duthost.setup()['ansible_facts']
@@ -166,6 +239,14 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         logging.info(
             "test_po_cleanup_after_reload: {} port channels; loganalyzer uses broad SIGTERM "
             "pattern plus {} stratified mandatory LAGs".format(n_pc, len(sample)))
+
+    # Independent of the syslog sample: one teamd PID per configured LAG.
+    teamd_pids_before = collect_teamd_lag_pids(duthost)
+    missing_teamd = sorted(set(port_channel_intfs) - set(teamd_pids_before))
+    pytest_assert(
+        not missing_teamd,
+        "teamd process missing before reload for {}".format(missing_teamd))
+    logging.info("Snapshotted teamd PIDs for %s LAGs before reload", len(teamd_pids_before))
 
     watchdog_pid = None
     try:
@@ -221,6 +302,21 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         # Cancel the watchdog so it doesn't fire during later tests
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
+
+        # Always stop CPU stress after reload (covers small-LAG else branch; large-LAG also
+        # kills yes before BGP, then this is a no-op if already gone).
+        duthost.shell("killall yes", module_ignore_errors=True)
+
+        # All-LAG cleanup and recovery. Config reload also stops the teamd container, so a
+        # dead pre-reload PID alone does not prove cleanTeamProcesses sent SIGTERM. Requiring
+        # a new teamd process and a kernel interface for every LAG still fails a cleanup that
+        # leaves a LAG unrestored, including LAGs omitted from the syslog sample.
+        pytest_assert(
+            wait_until(180, 10, 0, pre_reload_teamd_pids_gone, duthost, teamd_pids_before),
+            "pre-reload teamd processes still running after config reload")
+        pytest_assert(
+            wait_until(300, 10, 0, all_lags_recovered, duthost, lag_facts['names'], teamd_pids_before),
+            "not all LAG teamd processes and kernel interfaces recovered after config reload")
     except Exception:
         duthost.shell("killall yes", module_ignore_errors=True)
         if watchdog_pid:
