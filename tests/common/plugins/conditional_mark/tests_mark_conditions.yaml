@@ -6249,6 +6249,36 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
     conditions:
       - "'t1-isolated' in topo_name"
 
+vxlan/test_vxlan_evpn_l2.py:
+  skip:
+    reason: "The L2 VxLAN rigs configure one DUT and read its ports; a dual-ToR testbed puts two DUTs on them."
+    conditions:
+      - "'dualtor' in topo_name"
+
+vxlan/test_vxlan_irb.py:
+  skip:
+    reason: "The L2 VxLAN rigs configure one DUT and read its ports; a dual-ToR testbed puts two DUTs on them."
+    conditions:
+      - "'dualtor' in topo_name"
+
+vxlan/test_vxlan_l2.py:
+  skip:
+    reason: "The L2 VxLAN rigs configure one DUT and read its ports; a dual-ToR testbed puts two DUTs on them."
+    conditions:
+      - "'dualtor' in topo_name"
+
+vxlan/test_vxlan_l2_churn.py:
+  skip:
+    reason: "The L2 VxLAN rigs configure one DUT and read its ports; a dual-ToR testbed puts two DUTs on them."
+    conditions:
+      - "'dualtor' in topo_name"
+
+vxlan/test_vxlan_l2_warm_reboot.py:
+  skip:
+    reason: "The warm-reboot rig configures one DUT, so a dual-ToR testbed skips. (The module itself skips Broadcom DNX and multi-ASIC DUTs.)"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vxlan_multi_tunnel.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
