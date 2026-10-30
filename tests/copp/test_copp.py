@@ -116,8 +116,10 @@ class TestCOPP(object):
         # (not forward) for UDLD.
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
+                if fanouthost.get_fanout_os() != 'sonic':
+                    continue
                 fanout_platform = fanouthost.facts["platform"]
-                if fanouthost.get_fanout_os() == 'sonic' and (
+                if (
                     fanout_platform == 'arista_7060x6_64pe'
                     or re.match(r'x86_64-nokia_ixr7220_h[56]_', fanout_platform)
                     or re.match(r'x86_64-nexthop_4210-', fanout_platform)
