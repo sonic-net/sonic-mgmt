@@ -299,10 +299,11 @@ def test_portchannel_member_remove_and_readd(
     finally:
         # Reload the last persisted configuration even when a validation fails after the
         # member has been removed. Only the reload window is hidden from the loganalyzer.
+        # exec_tsb: platforms with startup-tsa-tsb.conf stay in TSA for minutes after a reload.
         if la_entry:
             la_entry.add_start_ignore_mark()
         try:
-            config_reload(duthost, config_source="config_db", safe_reload=True)
+            config_reload(duthost, config_source="config_db", safe_reload=True, exec_tsb=True)
         finally:
             if la_entry:
                 la_entry.add_end_ignore_mark()
