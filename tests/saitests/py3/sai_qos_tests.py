@@ -6533,24 +6533,6 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             fragment = 0
             refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
 
-            def dropped_cells():
-                # On XGS a shared-pool overflow is counted as a port buffer drop.
-                src_cntrs, _ = sai_thrift_read_port_counters(
-                    self.src_client, asic_type, port_list['src'][src_port_id])
-                dst_cntrs, _ = sai_thrift_read_port_counters(
-                    self.dst_client, asic_type, port_list['dst'][dst_port_id])
-                return (src_cntrs[INGRESS_PORT_BUFFER_DROP] - recv_counters_base[INGRESS_PORT_BUFFER_DROP] +
-                        dst_cntrs[EGRESS_PORT_BUFFER_DROP] - xmit_counters_base[EGRESS_PORT_BUFFER_DROP]) \
-                    * cell_occupancy
-
-            def admitted_wm(sent_wm):
-                # Past the queue's drop point packets are dropped, not queued, and that
-                # point moves with whatever else holds the shared pool. Expect what the
-                # queue admitted: sent, less what either port dropped since the fill began.
-                if platform_asic != "broadcom":
-                    return sent_wm
-                return sent_wm - dropped_cells()
-
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
@@ -6594,7 +6576,19 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, port_list['src'][src_port_id])
                 print("Received packets: %d" %
                       (pg_cntrs[queue] - pg_cntrs_base[queue]), file=sys.stderr)
-                check_wm = admitted_wm(expected_wm)
+                # Past the queue's drop point packets are dropped, not queued, and that
+                # point moves with whatever else holds the shared pool. On Broadcom expect
+                # what the queue admitted: sent, less what either port dropped since the
+                # fill began (on XGS a shared-pool overflow is counted as a port buffer drop).
+                check_wm = expected_wm
+                if platform_asic == "broadcom":
+                    src_cntrs, _ = sai_thrift_read_port_counters(
+                        self.src_client, asic_type, port_list['src'][src_port_id])
+                    dst_cntrs, _ = sai_thrift_read_port_counters(
+                        self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                    check_wm -= (src_cntrs[INGRESS_PORT_BUFFER_DROP] - recv_counters_base[INGRESS_PORT_BUFFER_DROP] +
+                                 dst_cntrs[EGRESS_PORT_BUFFER_DROP] - xmit_counters_base[EGRESS_PORT_BUFFER_DROP]) \
+                        * cell_occupancy
                 print(
                       "lower bound: %d, actual value: %d, upper bound: %d"
                       % (
@@ -6645,7 +6639,13 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             print("Received packets: %d" %
                   (pg_cntrs[queue] - pg_cntrs_base[queue]), file=sys.stderr)
             if platform_asic == "broadcom":
-                overflow_dropped = dropped_cells()
+                src_cntrs, _ = sai_thrift_read_port_counters(
+                    self.src_client, asic_type, port_list['src'][src_port_id])
+                dst_cntrs, _ = sai_thrift_read_port_counters(
+                    self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                overflow_dropped = (src_cntrs[INGRESS_PORT_BUFFER_DROP] - recv_counters_base[INGRESS_PORT_BUFFER_DROP] +
+                                    dst_cntrs[EGRESS_PORT_BUFFER_DROP] - xmit_counters_base[EGRESS_PORT_BUFFER_DROP]) \
+                    * cell_occupancy
                 check_wm = expected_wm + pkts_num * cell_occupancy - overflow_dropped
                 print("dropped: %d cells, admitted: %d cells, %+d from the configured drop point" % (
                     overflow_dropped, check_wm, check_wm - (total_shared + 1)), file=sys.stderr)
