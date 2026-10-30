@@ -131,6 +131,7 @@ class DHCPTest(DataplaneBaseTest):
     LINK_SELECTION_SUBOPTION = 5
     SERVER_ID_OVERRIDE_SUBOPTION = 11
     VRF_NAME_SUBOPTION = 151
+    VSS_CONTROL_SUBOPTION = 152
     MAX_HOP_COUNT = 16
 
     def __init__(self):
@@ -253,13 +254,13 @@ class DHCPTest(DataplaneBaseTest):
             # It conveys the client VRF name to the DHCP server.
             # Structure:
             #  Byte 0: Suboption number, always set to 151
-            #  Byte 1: Length of VRF name + 1 (to pad with a null byte)
-            #  Bytes 2+: Null byte followed by the UTF-8 encoded VRF name
+            #  Byte 1: Length of the Type field and VRF name
+            #  Byte 2: Type 0, indicating an ASCII VPN identifier
+            #  Bytes 3+: ASCII-encoded VRF name
             if self.server_vrf:
-                vrf_data = self.client_vrf
-                vrf_bytes = '\x00' + vrf_data
+                vrf_bytes = b'\x00' + self.client_vrf.encode('ascii')
                 self.option82 += struct.pack('BB', self.VRF_NAME_SUBOPTION, len(vrf_bytes))
-                self.option82 += vrf_bytes.encode('utf-8')
+                self.option82 += vrf_bytes
 
         # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
         # It consists of the following:
@@ -275,6 +276,12 @@ class DHCPTest(DataplaneBaseTest):
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
             link_selection_added = True
+
+        self.server_response_option82 = self.option82
+        if self.relay_agent == "sonic-relay-agent" and self.server_vrf:
+            self.option82 += struct.pack('BB', self.VSS_CONTROL_SUBOPTION, 0)
+            if self.test_params.get('retain_vss_control', False):
+                self.server_response_option82 = self.option82
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -329,9 +336,9 @@ class DHCPTest(DataplaneBaseTest):
         raise AssertionError("DHCP reply has no Server Identifier option")
 
     def add_option82_to_server_reply(self, packet):
-        """Model an Option 82-aware server echoing the relay option verbatim."""
+        """Return Option 82 with VSS-Control removed or retained by the simulated server."""
         options = packet[scapy.DHCP].options
-        options.insert(options.index("end"), (82, self.option82))
+        options.insert(options.index("end"), (82, self.server_response_option82))
         return packet
 
     def pad_relayed_reply_after_option82_removal(self, packet):
@@ -618,7 +625,7 @@ class DHCPTest(DataplaneBaseTest):
                 ("server_id", siaddr),
                 ("lease_time", int(dhcp_lease)),
                 ("subnet_mask", netmask_client),
-                (82, self.option82),
+                (82, self.server_response_option82),
                 ("vendor_class_id",
                  "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                 ("end"),
