@@ -189,7 +189,7 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
                                                                                                     fanout_port))
 
         # Advertise all supported speeds in fanout port
-        success = fanout.set_speed(fanout_port, None)
+        success = fanout.set_speed(fanout_port, "all")
         pytest_require(
             success,
             'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port)
@@ -241,7 +241,7 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
         pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
 
         # Advertise all supported speeds in fanout port
-        success = fanout.set_speed(fanout_port, None)
+        success = fanout.set_speed(fanout_port, "all")
         pytest_require(success, 'Failed to advertise all speeds on fanout port {}'.format(fanout_port))
 
         duthost.shell('config interface autoneg {} enabled'.format(dut_port))
@@ -329,14 +329,31 @@ def test_force_speed(enum_speed_per_dutport_fixture):
     )
 
     FEC_FOR_SPEED = {
-        25000: 'fc',
-        50000: 'fc',
-        100000: 'rs',
-        200000: 'rs',
-        400000: 'rs'
+        10000: ['none', 'fc'],
+        25000: ['none', 'fc', 'rs'],
+        50000: ['none', 'fc', 'rs'],
+        100000: ['none', 'rs'],
+        200000: ['rs'],
+        400000: ['rs'],
+        800000: ['rs']
     }
 
-    fec_mode = FEC_FOR_SPEED.get(int(speed))
+    fec_mode_for_speed = FEC_FOR_SPEED.get(int(speed))
+    if not fec_mode_for_speed:
+        fec_mode_for_speed = ['None']
+
+    dut_current_port_fec = duthost.get_port_fec(dut_port)
+    dut_supported_fecs = duthost.get_supported_fecs(dut_port)
+    if not dut_supported_fecs:
+        dut_supported_fecs = [dut_current_port_fec]
+
+    fanout_supported_fecs = fanout.get_supported_fecs(fanout_port)
+    if not fanout_supported_fecs:
+        fanout_supported_fecs = [dut_current_port_fec]
+
+    fec_mode = list(set(dut_supported_fecs) & set(fanout_supported_fecs) & set(fec_mode_for_speed))[0]
+    if not fec_mode:
+        fec_mode = dut_current_port_fec
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
     # Disable auto negotiation on fanout port
