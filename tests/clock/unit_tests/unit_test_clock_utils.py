@@ -108,3 +108,32 @@ def test_show_clock_parser_retains_non_utc_formats(
         clock_consts.TIME: expected_time,
         clock_consts.TIMEZONE: expected_timezone,
     }
+
+
+@pytest.mark.parametrize(
+    "expected, actual",
+    [
+        ("2026-10-30 03:47:36", "2026-10-30 03:47:43"),
+        ("2026-10-30 23:59:58", "2026-10-31 00:00:05"),
+    ]
+)
+def test_verify_datetime_accounts_for_elapsed_command_time(expected, actual):
+    _, clock_utils = _load_clock_classes()
+
+    with pytest.raises(AssertionError):
+        clock_utils.verify_datetime(expected, actual, allowed_margin=6)
+
+    clock_utils.verify_datetime(expected, actual, allowed_margin=6, elapsed_seconds=1)
+
+
+@pytest.mark.parametrize(
+    "actual",
+    ["2026-10-30 03:47:44", "2026-10-30 03:47:29", "2026-10-31 03:47:43"]
+)
+def test_verify_datetime_rejects_clock_error_beyond_elapsed_time(actual):
+    _, clock_utils = _load_clock_classes()
+
+    with pytest.raises(AssertionError):
+        clock_utils.verify_datetime(
+            "2026-10-30 03:47:36", actual, allowed_margin=6, elapsed_seconds=1
+        )
