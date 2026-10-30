@@ -73,11 +73,21 @@ def capture_remote_syslog(dut, destination, vrf=None):
             "Host rsyslog did not configure UDP/514 forwarding",
         )
 
+        # Capture on the actual mgmt interface specifically rather than the
+        # "any" pseudo-interface. On platforms where the mgmt interface is
+        # layered on top of another carrier interface (e.g. "eth0@qfpgap1"
+        # on some chassis platforms), "-i any" captures the same packet
+        # twice - once per layer - leading to spurious duplicate records
+        # downstream. Resolve the interface name dynamically instead of
+        # hardcoding "eth0", since it isn't guaranteed the same on every
+        # platform (same convention as tests/common/plugins/ptfadapter).
+        mgmt_interface = dut.facts["mgmt_interface"][0]
         capture_command = (
-            "sudo timeout {} tcpdump -i any -y LINUX_SLL -nn "
+            "sudo timeout {} tcpdump -i {} -y LINUX_SLL -nn "
             "-s0 -U -w {} {}"
         ).format(
             SYSLOG_CAPTURE_SECONDS,
+            mgmt_interface,
             shlex.quote(capture_file),
             shlex.quote(
                 "udp and dst host {} and dst port 514".format(destination)
