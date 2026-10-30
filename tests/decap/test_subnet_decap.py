@@ -14,9 +14,10 @@ from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # no
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until, compose_dict_from_cli
+from tests.common.helpers.sonic_db import redis_get_keys
 from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL, \
     BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb, wait_tcp_connection
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if topo == "t0" and "Servers" in neighbor["name"]:
             downstream_port_ids.append(port_id)
-        elif topo == "t0" and "T1" in neighbor["name"]:
+        elif (topo == "t0" and "T1" in neighbor["name"]) or (topo == "t1" and "T2" in neighbor["name"]):
             upstream_port_ids.append(port_id)
 
     logger.info("ptf_src_port: {}, downstream_port_ids: {}, upstream_port_ids: {}"
@@ -548,3 +549,279 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, ptf_src_port, encapsulated_packet, count=10)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, upstream_port_ids, timeout=30)
+
+
+# Minimum expected MP2MP term scale to validate per address family on known platforms.
+# This is the target scale for this test, not the hardware maximum (which varies by ASIC).
+SUBNET_DECAP_SCALE_TARGET_BY_ASIC = {
+    "mellanox": 64,
+    "cisco-8000": 64,
+    "broadcom": 64,
+    "innovium": 64,
+    "vs": 16,
+}
+SUBNET_DECAP_SCALE_TARGET_DEFAULT = 64
+
+SCALE_V4_TERM_BASE = "10.100.0.0/24"
+SCALE_V6_TERM_BASE = "fc0a:0::/64"
+
+SCALE_V4_OUTER_SRC = "20.20.20.10"
+SCALE_V6_OUTER_SRC = "fc01::10"
+
+SCALE_V4_INNER_SRC = "1.1.1.1"
+SCALE_V4_INNER_DST = "2.2.2.2"
+SCALE_V6_INNER_SRC = "1::1"
+SCALE_V6_INNER_DST = "2::2"
+
+SCALE_V4_TUNNEL_NAME = "IPINIP_SUBNET"
+SCALE_V6_TUNNEL_NAME = "IPINIP_SUBNET_V6"
+
+SCALE_ECN_MODE = "copy_from_outer"
+ASIC_TERM_ENTRY = "ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL_TERM_TABLE_ENTRY"
+ASIC_TUNNEL_TERM_DST_ADDR_FIELD = "SAI_TUNNEL_TERM_TABLE_ENTRY_ATTR_DST_ADDR"
+SCALE_TRAFFIC_TIMEOUT_SEC = 5
+
+
+def _generate_term_prefixes(base_prefix, count):
+    net = ipaddress.ip_network(base_prefix)
+    base_addr = int(net.network_address)
+    step = 1 << (net.max_prefixlen - net.prefixlen)
+    return [str(ipaddress.ip_network((base_addr + i * step, net.prefixlen))) for i in range(count)]
+
+
+def _outer_dst_from_prefix(prefix):
+    net = ipaddress.ip_network(prefix)
+    return str(net.network_address + 1)
+
+
+def _get_subnet_decap_scale_target_per_af(duthost):
+    asic_type = (duthost.facts.get('asic_type') or '').lower()
+    return SUBNET_DECAP_SCALE_TARGET_BY_ASIC.get(asic_type, SUBNET_DECAP_SCALE_TARGET_DEFAULT)
+
+
+def _count_appl_subnet_term_entries(duthost, tunnel_name):
+    keys = redis_get_keys(
+        duthost, 'APPL_DB', 'TUNNEL_DECAP_TERM_TABLE:{}:*'.format(tunnel_name)) or []
+    return len(keys)
+
+
+def _get_subnet_decap_scale_term_counts(duthost, tbinfo):
+    topo = tbinfo["topo"]["type"]
+    asic_type = (duthost.facts.get('asic_type') or '').lower()
+    target_per_af = _get_subnet_decap_scale_target_per_af(duthost)
+    baseline_v4 = _count_appl_subnet_term_entries(duthost, SCALE_V4_TUNNEL_NAME)
+    baseline_v6 = _count_appl_subnet_term_entries(duthost, SCALE_V6_TUNNEL_NAME)
+
+    assert baseline_v4 <= target_per_af and baseline_v6 <= target_per_af, (
+        "APPL baseline exceeds scale target: v4 baseline {} / v6 baseline {} (target per AF {})".format(
+            baseline_v4, baseline_v6, target_per_af)
+    )
+
+    v4_term_count = target_per_af - baseline_v4
+    v6_term_count = target_per_af - baseline_v6
+    logger.info(
+        "Subnet decap scale term counts: asic='{}', topo='{}', target_per_af={}, "
+        "baseline_v4={}, baseline_v6={}, v4_term_count={}, v6_term_count={}".format(
+            asic_type, topo, target_per_af, baseline_v4, baseline_v6, v4_term_count, v6_term_count)
+    )
+    return {
+        'v4_term_count': v4_term_count,
+        'v6_term_count': v6_term_count,
+        'expected_total_v4_appl': target_per_af,
+        'expected_total_v6_appl': target_per_af,
+    }
+
+
+def _get_scale_term_prefixes(duthost, tbinfo):
+    term_counts = _get_subnet_decap_scale_term_counts(duthost, tbinfo)
+    return {
+        'v4': _generate_term_prefixes(SCALE_V4_TERM_BASE, term_counts['v4_term_count']),
+        'v6': _generate_term_prefixes(SCALE_V6_TERM_BASE, term_counts['v6_term_count']),
+    }
+
+
+def _classify_tunnel_term_af(attrs):
+    dst_addr = attrs.get(ASIC_TUNNEL_TERM_DST_ADDR_FIELD, '')
+    if dst_addr:
+        try:
+            return ipaddress.ip_address(dst_addr.split('/')[0]).version
+        except ValueError:
+            logger.debug("Failed to parse tunnel term dst addr '%s'", dst_addr)
+    return 6 if "::" in " ".join(attrs.values()) else 4
+
+
+def _build_scale_decap_config(term_prefixes, ttl_mode, dscp_mode, op):
+    config = []
+    tunnel_prefix_pairs = [
+        (SCALE_V4_TUNNEL_NAME, term_prefixes['v4']),
+        (SCALE_V6_TUNNEL_NAME, term_prefixes['v6']),
+    ]
+
+    if op == 'SET':
+        for tunnel_name, prefixes in tunnel_prefix_pairs:
+            config.append({
+                "TUNNEL_DECAP_TABLE:{}".format(tunnel_name): {
+                    "tunnel_type": "IPINIP",
+                    "dscp_mode": dscp_mode,
+                    "ecn_mode": SCALE_ECN_MODE,
+                    "ttl_mode": ttl_mode,
+                },
+                "OP": op,
+            })
+            for prefix in prefixes:
+                config.append({
+                    "TUNNEL_DECAP_TERM_TABLE:{}:{}".format(tunnel_name, prefix): {
+                        "term_type": "MP2MP",
+                        "subnet_type": "vlan",
+                    },
+                    "OP": op,
+                })
+    else:
+        # Only remove scale term entries. IPINIP_SUBNET tunnels are owned by the
+        # baseline subnet decap setup and must remain for later tests/cleanup.
+        for tunnel_name, prefixes in tunnel_prefix_pairs:
+            for prefix in prefixes:
+                config.append({
+                    "TUNNEL_DECAP_TERM_TABLE:{}:{}".format(tunnel_name, prefix): {},
+                    "OP": op,
+                })
+
+    return config
+
+
+def _apply_scale_decap_config(duthost, config, op):
+    """Apply scale decap config via the single swss instance (single-ASIC only)."""
+    dest = '/tmp/decap_scale_{}.json'.format(op)
+    duthost.copy(content=json.dumps(config, indent=2), dest=dest)
+    swss = 'swss'
+    cmds = [
+        'docker cp {} {}:/decap_scale_{}.json'.format(dest, swss, op),
+        'docker exec {} swssconfig /decap_scale_{}.json'.format(swss, op),
+        'docker exec {} rm /decap_scale_{}.json'.format(swss, op),
+    ]
+    duthost.shell_cmds(cmds=cmds)
+    duthost.shell('rm -f {}'.format(dest))
+
+
+def _count_asic_term_entries_by_af(duthost):
+    """Count tunnel term entries in the default ASIC_DB (single-ASIC only)."""
+    cmd = "sonic-db-cli ASIC_DB keys '{}:*'".format(ASIC_TERM_ENTRY)
+    keys = [line for line in duthost.shell(cmd, module_ignore_errors=True)['stdout_lines'] if line.strip()]
+    v4 = v6 = 0
+    for key in keys:
+        raw = duthost.shell("sonic-db-cli ASIC_DB hgetall '{}'".format(key),
+                            module_ignore_errors=True)['stdout']
+        if not raw or "NULL" in raw:
+            attrs = {}
+        else:
+            attrs = compose_dict_from_cli(raw)
+        if _classify_tunnel_term_af(attrs) == 6:
+            v6 += 1
+        else:
+            v4 += 1
+    return len(keys), v4, v6
+
+
+@pytest.fixture(scope='module')
+def scale_term_prefixes(rand_selected_dut, prepare_subnet_decap_config, tbinfo):
+    return _get_scale_term_prefixes(rand_selected_dut, tbinfo)
+
+
+@pytest.fixture(scope='module')
+def setup_scale_tunnels(request, rand_selected_dut, scale_term_prefixes, tbinfo,
+                        supported_ttl_dscp_params, prepare_subnet_decap_config):
+    duthost = rand_selected_dut
+    ttl_mode = supported_ttl_dscp_params['ttl']
+    dscp_mode = supported_ttl_dscp_params['dscp']
+    term_counts = _get_subnet_decap_scale_term_counts(duthost, tbinfo)
+    v4_terms_to_add = term_counts['v4_term_count']
+    v6_terms_to_add = term_counts['v6_term_count']
+    expected_total_v4_appl = term_counts['expected_total_v4_appl']
+    expected_total_v6_appl = term_counts['expected_total_v6_appl']
+    _, asic_baseline_v4, asic_baseline_v6 = _count_asic_term_entries_by_af(duthost)
+
+    config = _build_scale_decap_config(scale_term_prefixes, ttl_mode, dscp_mode, 'SET')
+    logger.info("Applying {} MP2MP subnet decap terms ({} IPv4 + {} IPv6)"
+                .format(v4_terms_to_add + v6_terms_to_add, v4_terms_to_add, v6_terms_to_add))
+    _apply_scale_decap_config(duthost, config, 'SET')
+
+    def _remove_scale_config():
+        logger.info("Removing scale subnet decap terms (preserving baseline tunnel objects)")
+        del_config = _build_scale_decap_config(scale_term_prefixes, ttl_mode, dscp_mode, 'DEL')
+        _apply_scale_decap_config(duthost, del_config, 'DEL')
+
+    request.addfinalizer(_remove_scale_config)
+
+    def _is_scale_programming_complete():
+        _, asic_v4, asic_v6 = _count_asic_term_entries_by_af(duthost)
+        v4_appl = _count_appl_subnet_term_entries(duthost, SCALE_V4_TUNNEL_NAME)
+        v6_appl = _count_appl_subnet_term_entries(duthost, SCALE_V6_TUNNEL_NAME)
+        return (v4_appl >= expected_total_v4_appl and v6_appl >= expected_total_v6_appl and
+                (asic_v4 - asic_baseline_v4) >= v4_terms_to_add and
+                (asic_v6 - asic_baseline_v6) >= v6_terms_to_add)
+
+    wait_until(120, 5, 0, _is_scale_programming_complete)
+
+    _, asic_v4, asic_v6 = _count_asic_term_entries_by_af(duthost)
+    v4_appl = _count_appl_subnet_term_entries(duthost, SCALE_V4_TUNNEL_NAME)
+    v6_appl = _count_appl_subnet_term_entries(duthost, SCALE_V6_TUNNEL_NAME)
+    assert (
+        v4_appl == expected_total_v4_appl and v6_appl == expected_total_v6_appl and
+        (asic_v4 - asic_baseline_v4) == v4_terms_to_add and
+        (asic_v6 - asic_baseline_v6) == v6_terms_to_add
+    ), (
+        "Scale subnet decap programming incomplete: APPL v4={} (expected {}), APPL v6={} (expected {}), "
+        "ASIC v4 +{} (expected +{}), ASIC v6 +{} (expected +{})".format(
+            v4_appl, expected_total_v4_appl,
+            v6_appl, expected_total_v6_appl,
+            asic_v4 - asic_baseline_v4, v4_terms_to_add,
+            asic_v6 - asic_baseline_v6, v6_terms_to_add)
+    )
+    logger.info("Scale programming result: APPL v4={}, v6={}, ASIC v4 +{}, v6 +{}".format(
+        v4_appl, v6_appl,
+        asic_v4 - asic_baseline_v4, asic_v6 - asic_baseline_v6))
+
+
+def _build_scale_encapsulated_packet(ptfadapter, duthost, ip_version, outer_dst):
+    eth_dst = duthost.asic_instance().get_router_mac()
+    eth_src = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
+    if isinstance(eth_src, bytes):
+        eth_src = eth_src.decode()
+
+    if ip_version == "IPv4":
+        inner = testutils.simple_ip_packet(ip_src=SCALE_V4_INNER_SRC, ip_dst=SCALE_V4_INNER_DST)[packet.IP]
+        return testutils.simple_ipv4ip_packet(
+            eth_dst=eth_dst, eth_src=eth_src,
+            ip_src=SCALE_V4_OUTER_SRC, ip_dst=outer_dst,
+            inner_frame=inner)
+    else:
+        inner = testutils.simple_tcpv6_packet(ipv6_src=SCALE_V6_INNER_SRC, ipv6_dst=SCALE_V6_INNER_DST)[packet.IPv6]
+        return testutils.simple_ipv6ip_packet(
+            eth_dst=eth_dst, eth_src=eth_src,
+            ipv6_src=SCALE_V6_OUTER_SRC, ipv6_dst=outer_dst,
+            inner_frame=inner)
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
+def test_subnet_decap_tunnel_scale(rand_selected_dut, ptfadapter, ip_version, scale_term_prefixes,
+                                   setup_scale_tunnels, prepare_vlan_subnet_test_port):
+    duthost = rand_selected_dut
+    ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
+
+    state_keys = duthost.shell(
+        'sonic-db-cli STATE_DB keys "*TUNNEL_DECAP_TABLE*IPINIP_SUBNET*"',
+        module_ignore_errors=True)['stdout_lines']
+    logger.info("STATE_DB subnet decap entries: {}".format(len(state_keys)))
+
+    term_prefixes = scale_term_prefixes['v4'] if ip_version == "IPv4" else scale_term_prefixes['v6']
+    for prefix in term_prefixes:
+        outer_dst = _outer_dst_from_prefix(prefix)
+        encapsulated_packet = _build_scale_encapsulated_packet(
+            ptfadapter, duthost, ip_version, outer_dst)
+        exp_pkt = build_expected_vlan_subnet_packet(
+            encapsulated_packet, ip_version, "positive", decrease_ttl=True)
+
+        verify_packet_with_expected(
+            ptfadapter, "positive", encapsulated_packet, exp_pkt,
+            ptf_src_port, recv_ports=upstream_port_ids, timeout=SCALE_TRAFFIC_TIMEOUT_SEC)
