@@ -46,7 +46,7 @@ Addresses above are illustrative host offsets; select valid, unused addresses wi
 
 Reuse packet helpers to perform DORA, RENEW, INIT-REBOOT and RELEASE with explicit Option 60 values. Verify address, netmask, gateway, lease time and Option 54 (the VLAN SVI); correlate ACKed leases with Kea, State DB and show output. Check Kea's running configuration and wait for convergence rather than using fixed sleeps. Isolate clients/leases between scenarios so pool exhaustion does not mask classification results.
 
-Save and restore the original configuration and feature/relay state. Remove test leases, bindings, matches, ranges and temporary VLAN/PortChannel configuration; restore PTF MAC addresses. Use bounded waits for reload and lease synchronization, and allowlist only expected diagnostic errors.
+Back up running configuration and saved `/etc/sonic/config_db.json` independently, including saved-file absence, on the test controller before changes. Restore both snapshots and the original feature/relay state even after failure; `config save` scenarios must not leave the saved test configuration behind. Do not unconditionally disable an originally enabled server or remove its container. Remove only test-created leases/configuration and restore PTF MAC addresses. Use bounded waits for reload and lease synchronization, and allowlist only expected diagnostic errors.
 
 ## Test Cases
 
@@ -79,7 +79,7 @@ Proposed module: `test_dhcp_server_match_config_change.py`.
 
 | ID | Scenario | Expected result |
 | --- | --- | --- |
-| C01 | Add, update and delete bindings; change matches and switch IP/range pools. | Kea applies each valid change without service restart; fresh allocations follow the current binding. |
+| C01 | Start with no bindings, retain match conditions and create the referenced range; add, update and delete a binding, changing matches and IP/range pools. | Kea applies each valid change without service restart; fresh allocations follow the current binding, with no fallback pool masking no-offer checks. |
 | C02 | Add a more-specific binding while a client holds a general-pool lease. | No immediate lease deletion; renewal of the now-ineligible address is NAKed, then DORA obtains the specific address. |
 | C03 | Update vendor values or the port referenced by a match condition. | All affected bindings reclassify clients using the updated value; old values stop matching. |
 | C04 | Update a referenced range. | New clients use the updated endpoints. |
@@ -88,8 +88,8 @@ Proposed module: `test_dhcp_server_match_config_change.py`.
 | C07 | Remove and restore a matched port's VLAN membership. | Affected bindings are skipped with warnings; unaffected bindings keep serving; restoration recovers without restart. |
 | C08 | Change and restore the VLAN IPv4 prefix. | Pools outside the prefix are skipped; restoring the prefix restores service. |
 | C09 | Write equal-specificity conflicts, partial pool overlap or multi-prefix MATCH pools directly to Config DB. | Compilation errors are logged; last-known-good Kea configuration keeps serving. Removing the invalid entry permits recovery without restart. |
-| C10 | Delete/restore referenced matches or ranges directly in Config DB. | Dependent bindings are skipped with warnings rather than blocking the whole configuration; restoration triggers regeneration. |
-| C11 | Save configuration, then config reload, service restart and cold reboot. | Match/binding configuration and unexpired leases persist; clients renew successfully after recovery. |
+| C10 | Delete/restore referenced matches or ranges directly in Config DB, including one range of a multi-range binding. | Missing matches skip the whole dependent binding with a warning. Missing ranges drop only their pools; remaining usable pools continue serving. Skip the binding only when no usable pool remains. Restoration triggers regeneration without restart. |
+| C11 | Use leases of at least 3600 seconds, extended to exceed the full recovery/verification budget plus margin; save configuration, then config reload, service restart and cold reboot. Check sufficient remaining lifetime before each action. | Match/binding configuration and unexpired leases persist; verify leases remain unexpired before successful renewal. Report budget overruns separately from persistence failures. |
 | C12 | Terminate each listed critical process separately. | Normal container/process recovery restores the MATCH configuration and packet service. |
 
 ### CLI Validation
@@ -114,7 +114,7 @@ Proposed module: `test_dhcp_server_lease_clear.py`. Run applicable cases in both
 | L01 | Clear one IP among several active leases. | Only that lease disappears from Kea and State DB before successful return; synchronization request is acknowledged. |
 | L02 | Clear all leases on one of two VLANs. | Target VLAN has no leases; the other VLAN is unchanged. |
 | L03 | Clear leases, then restart Kea, restart dhcp_server and reboot. | Deleted leases do not reappear from persistent storage. |
-| L04 | Replace a disconnected client on a single-address pool. | New MAC cannot allocate the occupied address before clear, and can obtain it immediately after clear. |
+| L04 | Replace a disconnected client on a single-address PORT entry or a single-address MATCH binding, with no other serving pools. | New MAC cannot allocate the occupied address before clear, and can obtain it immediately after clear. |
 | L05 | Missing lease, empty VLAN, invalid arguments/IP, unknown interface, non-root invocation or disabled feature. | Appropriate non-zero/usage error without unintended deletion. |
 | L06 | State DB contains a lease absent from Kea. | Clear reports no matching Kea lease and reconciles the stale State DB entry. |
 | L07 | Issue concurrent clear commands. | Operations serialize or one reports clear-in-progress; final Kea and State DB contents agree. |
@@ -135,4 +135,4 @@ Proposed module: `test_dhcp_server_match_stress.py`.
 | ID | Scenario | Expected result |
 | --- | --- | --- |
 | S01 | Configure a port-only binding plus four vendor bindings per available member; exercise every combination. | Correct compilation and allocation for all clients; record convergence time against the agreed scale target. |
-| S02 | Send mixed matching/nonmatching DISCOVER traffic at 100 packets/s across several ports, with adequate pool capacity. | No wrong-pool offers or offers to unmatched clients; monitor offer rate/loss and ensure server/relay remain healthy. |
+| S02 | Send mixed matching/nonmatching DISCOVER traffic at 100 packets/s for 60 seconds across several ports, with adequate capacity per matching pool. Correlate replies by client identity and transaction ID; drain the final 5-second response window. | Every matching transaction receives a correct-pool OFFER within 5 seconds (0% missing/late); unmatched transactions receive none in that window. No wrong-pool offers; record latency/rate/loss and ensure server/relay remain healthy. |
