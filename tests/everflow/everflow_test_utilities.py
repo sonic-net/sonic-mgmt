@@ -1248,7 +1248,9 @@ class BaseEverflowTest(object):
                                                 bind_namespace=getattr(inst, 'namespace', None))
 
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method, module_ignore_errors=True)
-            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
+            rule_filter = self._rule_survives_vpp_programming if duthost.facts["asic_type"] == "vpp" else None
+            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method,
+                                       rule_filter=rule_filter)
 
         yield
 
@@ -1288,15 +1290,25 @@ class BaseEverflowTest(object):
 
         duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
+    @staticmethod
+    def _rule_survives_vpp_programming(rule):
+        # A rule whose every qualifier sonic-vpp ignores degenerates into match-all.
+        ignored = {"dscp"}
+        fields = {f for section in rule.get("qualifiers", {}).values() for f in section}
+        return not fields <= ignored
+
     def apply_acl_rule_config(
             self,
             duthost,
             table_name,
             session_name,
             config_method,
-            rules=EVERFLOW_V4_RULES
+            rules=EVERFLOW_V4_RULES,
+            rule_filter=None
     ):
         rules_config = load_acl_rules_config(table_name, os.path.join(FILE_DIR, rules))
+        if rule_filter:
+            rules_config["rules"] = list(filter(rule_filter, rules_config["rules"]))
         duthost.host.options["variable_manager"].extra_vars.update(rules_config)
 
         if config_method == CONFIG_MODE_CLI:

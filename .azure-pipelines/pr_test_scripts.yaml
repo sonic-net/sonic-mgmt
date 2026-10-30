@@ -704,6 +704,9 @@ t1-lag-vpp:
   - ecmp/test_ecmp_group_members_increment.py
   - ecmp/test_ecmp_sai_value.py
   - ecmp/test_fgnhg.py
+  - everflow/test_everflow_ipv6.py
+  - everflow/test_everflow_per_interface.py
+  - everflow/test_everflow_testbed.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
@@ -798,6 +801,9 @@ t0-vpp:
   - ecmp/inner_hashing/test_inner_hashing.py
   - ecmp/inner_hashing/test_inner_hashing_lag.py
   - ecmp/test_ecmp_balance.py
+  - everflow/test_everflow_ipv6.py
+  - everflow/test_everflow_per_interface.py
+  - everflow/test_everflow_testbed.py
   - fdb/test_fdb_flush.py
   - fib/test_fib.py
   - fips/test_fips.py
