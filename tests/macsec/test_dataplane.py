@@ -141,9 +141,9 @@ class TestDataPlane():
 
         return (egress_counters, ingress_counters)
 
+    @pytest.mark.macsec_rekey(
+        enabled=False, reason="Counter increase is not guaranteed in case rekey is happening")
     def test_counters(self, duthost, ctrl_links, upstream_links, rekey_period, wait_mka_establish):
-        if rekey_period:
-            pytest.skip("Counter increase is not guaranteed in case rekey is happening")
         EGRESS_SA_COUNTERS = (
                 'SAI_MACSEC_SA_STAT_OCTETS_ENCRYPTED',
                 'SAI_MACSEC_SA_STAT_OUT_PKTS_ENCRYPTED',
@@ -197,10 +197,9 @@ class TestDataPlane():
             else:
                 assert ingress_end_counters[i] - ingress_start_counters[i] >= PKT_NUM
 
+    @pytest.mark.macsec_rekey(
+        enabled=False, reason="Counter increase is not guaranteed in case rekey is happening")
     def test_clear_counters(self, duthost, ctrl_links, upstream_links, rekey_period, wait_mka_establish):
-        if rekey_period:
-            pytest.skip("Counter increase is not guaranteed in case rekey is happening")
-
         PKT_NUM = 5
         PKT_OCTET = 1024
 
