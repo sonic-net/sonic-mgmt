@@ -261,7 +261,8 @@ def main(args):
                 localhost,
                 args.prev_image_url,
                 upgrade_type=args.upgrade_type,
-                onie_pause_time=args.onie_pause_time
+                onie_pause_time=args.onie_pause_time,
+                preserve_config_db=args.preserve_config_db
             )
 
             if not upgrade_success:
@@ -287,7 +288,8 @@ def main(args):
             localhost,
             args.image_url,
             upgrade_type=args.upgrade_type,
-            onie_pause_time=args.onie_pause_time
+            onie_pause_time=args.onie_pause_time,
+            preserve_config_db=args.preserve_config_db
         )
         if not upgrade_success:
             logger.error("Upgrade to target image {} failed".format(args.image_url))
@@ -478,6 +480,12 @@ if __name__ == "__main__":
         required=False,
         default="sonic",
         help="Upgrade type."
+    )
+
+    parser.add_argument(
+        "--preserve-config-db",
+        action="store_true",
+        help="Preserve old_config JSON backups during SONiC image installation."
     )
 
     parser.add_argument(
