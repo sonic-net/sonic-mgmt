@@ -39,7 +39,10 @@ logger = logging.getLogger(__name__)
 
 I2C_ERROR_PATTERN = r"i2c.*(error|fail|timeout|nack)|(error|fail).*i2c"
 THERMALCTLD = "thermalctld"
+# Per test plan "Firmware State Unchanged Verification": an invalid inactive
+# bank may be reported as either "N/A" or "0.0.0".
 INVALID_FIRMWARE_VERSION = "N/A"
+INVALID_FIRMWARE_VERSIONS = (INVALID_FIRMWARE_VERSION, "0.0.0")
 
 
 def select_target_version(firmware_versions, banks):
@@ -183,10 +186,15 @@ def verify_firmware_state(duthost, port, before_banks, dual_bank_supported,
             f"{after_banks.get(FW_ACTIVE)} after firmware operation"
         )
     inactive = after_banks.get(FW_INACTIVE)
-    if dual_bank_supported and inactive != expected_inactive:
-        failures.append(
-            f"inactive firmware {inactive or 'N/A'} != expected {expected_inactive}"
-        )
+    if dual_bank_supported:
+        if expected_inactive == INVALID_FIRMWARE_VERSION:
+            inactive_ok = inactive in INVALID_FIRMWARE_VERSIONS
+        else:
+            inactive_ok = inactive == expected_inactive
+        if not inactive_ok:
+            failures.append(
+                f"inactive firmware {inactive or 'N/A'} != expected {expected_inactive}"
+            )
     failures += _verify_running_committed_unchanged(after_banks, before_banks)
     return failures
 
