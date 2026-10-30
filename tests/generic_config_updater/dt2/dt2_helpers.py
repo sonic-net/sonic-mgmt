@@ -270,11 +270,13 @@ def forwarding_nexthops(route_body):
     """
     Next-hop IPs the FIB actually uses. Recursive entries (a third-party BGP next hop that is
     itself resolved through other neighbors) are skipped; their resolver entries are kept.
+    Inactive entries are skipped too: after a neighbor is removed zebra can keep its next hop
+    in the route as an inactive member that is not installed and carries no traffic.
     """
     result = set()
     for path in route_body or []:
         for nh in path.get("nexthops", []) or []:
-            if nh.get("recursive"):
+            if nh.get("recursive") or not nh.get("active"):
                 continue
             ip = nh.get("ip")
             if ip:
@@ -1533,10 +1535,12 @@ def run_remove_and_readd_cycle(
     finally:
         # Reload the last persisted configuration even when a validation fails after the
         # peer has been removed. Only the reload window is hidden from the loganalyzer.
+        # exec_tsb: platforms with startup-tsa-tsb.conf stay in TSA for minutes after a reload,
+        # which drops the cross-ASIC ECMP paths the next parametrization probes.
         if la_entry:
             la_entry.add_start_ignore_mark()
         try:
-            config_reload(duthost, config_source="config_db", safe_reload=True)
+            config_reload(duthost, config_source="config_db", safe_reload=True, exec_tsb=True)
         finally:
             if la_entry:
                 la_entry.add_end_ignore_mark()

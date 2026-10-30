@@ -10,8 +10,32 @@ import logging
 import pytest
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import restore_backup_test_config, save_backup_test_config
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+# TSC prints one "System Mode: <state>" line per ASIC (prefixed "BGP<n> : " on multi-ASIC).
+TSC_SHIFTED_STATES = ("System Mode: Maintenance", "System Mode: Not consistent")
+
+
+def traffic_shift_normal(duthost):
+    """True when no ASIC reports TSA (maintenance) or an inconsistent state in TSC."""
+    lines = duthost.shell("TSC")["stdout_lines"]
+    return not any(state in line for line in lines for state in TSC_SHIFTED_STATES)
+
+
+def ensure_traffic_shift_normal(duthost):
+    """
+    Leave the DUT out of TSA. A config reload on platforms with startup-tsa-tsb.conf puts
+    every ASIC into maintenance for minutes, which would break whatever runs next.
+    """
+    if traffic_shift_normal(duthost):
+        return
+    logger.info("%s: in TSA after the module teardown, running TSB", duthost.hostname)
+    duthost.shell("TSB")
+    # Plain pytest.fail: importing pytest_assert here would register it as a pytest hook.
+    if not wait_until(120, 10, 0, traffic_shift_normal, duthost):
+        pytest.fail(f"{duthost.hostname} is still in TSA after TSB")
 
 
 @pytest.fixture(scope="module")
@@ -55,3 +79,4 @@ def setup_env(duthosts, enum_downstream_dut_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+    ensure_traffic_shift_normal(duthost)
