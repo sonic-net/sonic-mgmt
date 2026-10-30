@@ -39,6 +39,7 @@ from tests.common.dualtor.dual_tor_common import cable_type                     
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa: F401
 from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa: F401
+from tests.common.dualtor.mux_service_utils import recover_mux_service_from_start_limit
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
@@ -1753,7 +1754,8 @@ def validate_active_active_dualtor_setup(
                 "config mux mode active all failed on device {}".format(duthost.hostname)
             )
 
-    duthosts.shell("systemctl restart mux.service")
+    for duthost in duthosts:
+        recover_mux_service_from_start_limit(duthost, action="restart")
     # verify both ToRs are active
     for duthost in duthosts:
         pt_assert(
