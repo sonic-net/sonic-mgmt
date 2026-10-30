@@ -22,6 +22,12 @@ LLDP_RECOVERY_NEIGHBOR_TIMEOUT = 300
 LLDP_DB_TIMEOUT = 90
 LLDP_POLL_INTERVAL = 5
 LLDP_STABLE_POLLS = 3
+# Modular/chassis platforms have many more iBGP/eBGP neighbors reconverging
+# in parallel across linecards after a swss restart or mass interface flap,
+# so allow more time than the default 300s before declaring a timeout.
+BGP_CONVERGE_TIMEOUT = 300
+BGP_CONVERGE_TIMEOUT_CHASSIS = 600
+
 
 # Keep lldp_syncd's case-sensitive Enum names: it lowercases only the lookup.
 # Do not add aliases or capability bits that the producer does not serialize.
@@ -467,8 +473,11 @@ def test_lldp_entry_table_after_syncd_orchagent(
     # to avoid a downstream memory-alarm false positive caused by bgpd warming up
     # in the next test case.
     bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    bgp_converge_timeout = (
+        BGP_CONVERGE_TIMEOUT_CHASSIS if duthost.get_facts().get("modular_chassis") else BGP_CONVERGE_TIMEOUT
+    )
     pytest_assert(
-        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        wait_until(bgp_converge_timeout, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
         "BGP sessions did not reach Established state after swss restart",
     )
     wait_for_lldp_convergence(
@@ -537,8 +546,11 @@ def test_lldp_entry_table_after_all_batched_flap(
     # memory before the memory_utilization fixture takes its teardown snapshot,
     # avoiding a docker:swss memory-alarm false positive from an unsettled reading.
     bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    bgp_converge_timeout = (
+        BGP_CONVERGE_TIMEOUT_CHASSIS if duthost.get_facts().get("modular_chassis") else BGP_CONVERGE_TIMEOUT
+    )
     pytest_assert(
-        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        wait_until(bgp_converge_timeout, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
         "BGP sessions did not re-establish after batched interface flap",
     )
 
