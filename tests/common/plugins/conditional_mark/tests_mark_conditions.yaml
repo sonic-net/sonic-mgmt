@@ -4559,6 +4559,8 @@ qos/test_qos_probe.py:
       # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
       # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
       - "asic_subtype in ['broadcom-dnx']"
+      # Test provides similar coverage to test_qos_sai.py so we should be skipping on topos that don't run SAI tests
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox','marvell-teralynx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
