@@ -416,6 +416,10 @@ class TestBmcctldDaemon:
             return redis_hget(self.duthost, STATE_DB,
                               f'{RACK_MANAGER_COMMAND_TABLE}|{key}', 'status')
 
+        def hget_result(key):
+            return redis_hget(self.duthost, STATE_DB,
+                              f'{RACK_MANAGER_COMMAND_TABLE}|{key}', 'result')
+
         def del_cmd(*keys):
             redis_del(self.duthost, STATE_DB,
                       *[f'{RACK_MANAGER_COMMAND_TABLE}|{k}' for k in keys])
@@ -490,6 +494,10 @@ class TestBmcctldDaemon:
                 pytest_assert(hget_status(blocked_key) == 'FAILED',
                               f"POWER_ON during CRITICAL leak should fail, got "
                               f"status={hget_status(blocked_key)!r}")
+                pytest_assert(hget_result(blocked_key) == 'POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE',
+                              f"POWER_ON during CRITICAL leak should be rejected with reason "
+                              f"POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE, got "
+                              f"result={hget_result(blocked_key)!r}")
             finally:
                 del_cmd(blocked_key)
                 redis_hset(self.duthost, STATE_DB,

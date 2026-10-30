@@ -465,7 +465,7 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 3. **POWER_CYCLE** — single command; assert `status = DONE`, `uptime -s` advances, reboot-cause is BMC-initiated
 4. **POWER_ON blocked by CRITICAL leak** (negative):
    - Inject `SYSTEM_LEAK_STATUS|system device_leak_status = CRITICAL`
-   - Issue `POWER_ON`; assert `status = FAILED` and the error field contains `CRITICAL_LEAK_PRESENT`
+   - Issue `POWER_ON`; assert `status = FAILED` and the error field contains `POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE`
    - Note: with the default policy only CRITICAL blocks `POWER_ON`. If an active MAJOR or MINOR leak (or a lower severity) is configured with a power-down action, `POWER_ON` is also blocked.
 5. **Unknown command rejected** (negative, non-disruptive):
    - Issue `command = TEST_UNKNOWN_COMMAND`; assert `status = FAILED` and Switch-Host `uptime -s` unchanged
@@ -473,7 +473,7 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 **Expected Result**:
 - For each valid command (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`) the command `status` transitions to `DONE`
 - Switch-Host undergoes the requested power transition; `uptime -s` advances; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
-- `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `CRITICAL_LEAK_PRESENT`
+- `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE`
 - Only a CRITICAL leak blocks `POWER_ON`; a MAJOR or MINOR `device_leak_status` does not block it (MAJOR/MINOR default to `syslog_only`)
 - Unknown commands fail with status `FAILED` and the paired Switch-Host is not power-cycled
 - All injected keys are deleted and the Switch-Host is left powered on in `finally`
