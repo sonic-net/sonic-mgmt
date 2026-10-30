@@ -88,7 +88,7 @@ Proposed module: `test_dhcp_server_match_config_change.py`.
 | C07 | Remove and restore a matched port's VLAN membership. | Affected bindings are skipped with warnings; unaffected bindings keep serving; restoration recovers without restart. |
 | C08 | Change and restore the VLAN IPv4 prefix. | Pools outside the prefix are skipped; restoring the prefix restores service. |
 | C09 | Write equal-specificity conflicts, partial pool overlap or multi-prefix MATCH pools directly to Config DB. | Compilation errors are logged; last-known-good Kea configuration keeps serving. Removing the invalid entry permits recovery without restart. |
-| C10 | Delete/restore referenced matches or ranges directly in Config DB. | Dependent bindings are skipped with warnings rather than blocking the whole configuration; restoration triggers regeneration. |
+| C10 | Delete/restore referenced matches or ranges directly in Config DB, including one range of a multi-range binding. | Missing matches skip the whole dependent binding with a warning. Missing ranges drop only their pools; remaining usable pools continue serving. Skip the binding only when no usable pool remains. Restoration triggers regeneration without restart. |
 | C11 | Save configuration, then config reload, service restart and cold reboot. | Match/binding configuration and unexpired leases persist; clients renew successfully after recovery. |
 | C12 | Terminate each listed critical process separately. | Normal container/process recovery restores the MATCH configuration and packet service. |
 
