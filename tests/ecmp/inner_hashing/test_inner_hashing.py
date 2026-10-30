@@ -54,7 +54,7 @@ class TestDynamicInnerHashing():
             else:
                 balancing_test_times = 20
                 balancing_range = 0.5
-                if "mellanox" in duthost.facts['asic_type'].lower():
+                if duthost.facts['asic_type'].lower() in ["mellanox", "vpp"]:
                     balancing_range = 0.7
 
             ptf_params = {"fib_info": FIB_INFO_FILE_DST,

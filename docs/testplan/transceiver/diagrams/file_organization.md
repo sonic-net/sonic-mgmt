@@ -122,6 +122,7 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute constants and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
@@ -236,8 +237,11 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field planning, namespace-batched reads, and availability checks
+│   └── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
 │
 └── pm/
     ├── __init__.py
