@@ -21,7 +21,7 @@ import pytest
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.macsec.macsec_helper import get_mka_session
+from tests.common.macsec.macsec_helper import get_macsec_sa_name, get_mka_session, load_macsec_info_for_ptf_id
 from tests.common.macsec.macsec_platform_helper import get_macsec_ifname, get_platform
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
@@ -444,6 +444,7 @@ def verify_forwarding(tbinfo, duthost_up, src_asic_index, ptfadapter, neighbor_c
     sources = sorted(idx for port, idx in ptf_indices.items() if port not in excluded and idx not in ptf_dst_ports)
     pytest_assert(sources, f"No PTF source port outside the links of neighbor {neighbor_ctx['neighbor_name']}")
     ptf_sport = sources[0]
+    refresh_macsec_send_key(duthost_up, ptf_indices, ptf_sport)
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_sport)
 
     def build(flow):
@@ -1319,20 +1320,53 @@ def apply_patch_or_assert(duthost, patch):
 # -----------------------------
 
 
+def macsec_session_state(duthost, port):
+    """
+    Whether a MACsec session is up on ``port``, plus the observed detail. Up means the
+    controlled port is enabled and an egress and an ingress SA are installed, all in APPL_DB
+    where wpa_supplicant writes them through macsecmgrd, so they follow the MKA session.
+    STATE_DB MACSEC_PORT_TABLE only says a profile is bound to the port and stays ``ok`` while
+    the port is admin down, so it cannot tell a torn-down session from a live one.
+    """
+    asic = duthost.get_port_asic_instance(port)
+    controlled_port = asic.run_sonic_db_cli_cmd(
+        f"APPL_DB HGET 'MACSEC_PORT_TABLE:{port}' enable"
+    )["stdout"].strip()
+    detail = {
+        "controlled_port": controlled_port,
+        "egress_sa": get_macsec_sa_name(asic, port, egress=True),
+        "ingress_sa": get_macsec_sa_name(asic, port, egress=False),
+    }
+    up = controlled_port == "true" and bool(detail["egress_sa"]) and bool(detail["ingress_sa"])
+    return up, detail
+
+
+def refresh_macsec_send_key(duthost, ptf_indices, ptf_port):
+    """
+    Reload the SAK macsec_helper encrypts with for frames sent from ``ptf_port`` when the DUT
+    port behind it runs MACsec. The keys are cached once per module while every config_reload
+    in this flow re-keys the links, so a later parametrization would otherwise send with a
+    stale key and the DUT would drop the probes.
+    """
+    port = next((p for p, idx in ptf_indices.items() if idx == ptf_port), None)
+    if port and macsec_session_state(duthost, port)[0]:
+        load_macsec_info_for_ptf_id(duthost, ptf_port, port, force_reload=True)
+
+
 def get_macsec_validation_context(duthost, neighbor_ctx):
     """
     Return a MACsec validation context for the selected neighbor, or None when none of its
-    DUT member ports has an established MACsec session.
+    DUT member ports has a MACsec session up.
 
-    Detection reads STATE_DB MACSEC_PORT_TABLE, so the test adapts to whatever the testbed
-    has configured (for example through --enable_macsec) without extra options. MKA session
-    inspection via ``ip macsec show`` only exists on the virtual switch, so it is enabled on
-    KVM platforms only; physical platforms are validated through the oper-state alone.
+    Detection reads the session state, so the test adapts to whatever the testbed has
+    configured (for example through --enable_macsec) without extra options. MKA session
+    inspection via ``ip macsec show`` only exists on the virtual switch, so it is added on
+    KVM platforms only.
     """
-    protected_ports = [p for p in neighbor_ctx["member_ports"] if duthost.iface_macsec_ok(p)]
+    protected_ports = [p for p in neighbor_ctx["member_ports"] if macsec_session_state(duthost, p)[0]]
     if not protected_ports:
         logger.info(
-            "Neighbor %s has no member port with MACsec established; plaintext validation only.",
+            "Neighbor %s has no member port with a MACsec session up; plaintext validation only.",
             neighbor_ctx["neighbor_name"],
         )
         return None
@@ -1349,10 +1383,15 @@ def get_macsec_validation_context(duthost, neighbor_ctx):
     return ctx
 
 
-def verify_dut_macsec_oper_state(duthost, ports, should_exist=True):
-    observed = {port: duthost.iface_macsec_ok(port) for port in ports}
-    logger.info("Observed DUT MACsec oper state: %s", observed)
-    return all(state == should_exist for state in observed.values())
+def verify_dut_macsec_session_state(duthost, ports, should_exist=True):
+    observed = {}
+    matched = True
+    for port in ports:
+        up, detail = macsec_session_state(duthost, port)
+        observed[port] = detail
+        matched = matched and up == should_exist
+    logger.info("Observed DUT MACsec session state: %s", observed)
+    return matched
 
 
 def verify_dut_mka_session_state(duthost, macsec_ifnames, should_exist=True):
@@ -1366,15 +1405,15 @@ def verify_dut_mka_session_state(duthost, macsec_ifnames, should_exist=True):
 
 def assert_macsec_state(duthost, macsec_ctx, should_exist, phase, timeout=120):
     """
-    Wait for the MACsec oper-state (and, on KVM, the MKA sessions) of the protected ports to
+    Wait for the MACsec sessions (and, on KVM, the MKA sessions) of the protected ports to
     reach the expected state and assert unconditionally. There is deliberately no platform
     or admin-status carve-out: a session that lingers after the neighbor's ports were
     removed is a teardown failure wherever it happens.
     """
     expected = "up" if should_exist else "down"
     pytest_assert(
-        wait_until(timeout, 5, 0, verify_dut_macsec_oper_state, duthost, macsec_ctx["ports"], should_exist),
-        f"DUT MACsec oper-state not {expected} {phase} on ports {macsec_ctx['ports']}",
+        wait_until(timeout, 5, 0, verify_dut_macsec_session_state, duthost, macsec_ctx["ports"], should_exist),
+        f"DUT MACsec session not {expected} {phase} on ports {macsec_ctx['ports']}",
     )
     if macsec_ctx["supports_mka_session"]:
         pytest_assert(
@@ -1447,10 +1486,11 @@ def run_remove_and_readd_cycle(
       5. ``config save`` on success; ``config_reload`` always runs in ``finally`` so a
          mid-test failure never leaves the DUT with the neighbor removed.
 
-    With ``validate_macsec`` (uplink tests), MACsec is detected on the neighbor's member
-    ports from STATE_DB. On MACsec links the PTF ports only see encrypted frames, so the
-    dataplane checks are replaced by MACsec oper-state checks (plus MKA session checks on
-    KVM): up before removal, down after the remove patch, up again after the re-add patch.
+    With ``validate_macsec`` (uplink tests), MACsec is detected from the session state on the
+    neighbor's member ports. On MACsec links the PTF ports only see encrypted frames, so the
+    dataplane checks are replaced by MACsec session checks (plus MKA session checks on KVM):
+    up before removal, down after the remove patch, up again after the re-add patch, each
+    checked before the BGP gate since BGP runs over the MACsec link.
     """
     duthost = duthosts[dut_hostname]
     dut_basic_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
@@ -1485,7 +1525,13 @@ def run_remove_and_readd_cycle(
         src_asic_on_upstream, duthost.hostname, dst_asic,
     )
 
-    # Control-plane gate first: the previous parametrization ends with a config_reload that does
+    # MACsec first: BGP runs over the MACsec link, so a session that did not come back would
+    # otherwise surface as a BGP timeout. Detection is automatic; no test option is needed.
+    macsec_ctx = get_macsec_validation_context(duthost, neighbor_ctx) if validate_macsec else None
+    if macsec_ctx:
+        assert_macsec_state(duthost, macsec_ctx, True, "before removal")
+
+    # Control-plane gate: the previous parametrization ends with a config_reload that does
     # not wait for BGP, so sessions and routes may still be converging when this test starts.
     logger.info("Waiting for BGP neighbor sessions to establish")
     pytest_assert(
@@ -1509,8 +1555,7 @@ def run_remove_and_readd_cycle(
     targets = [t for t in (target_v4, target_v6) if t]
     forwarded = [t for t in targets if t["forwards_via_neighbor"]]
     # On MACsec links the PTF ports only see encrypted frames, so the dataplane checks are
-    # replaced by MACsec session checks. Detection is automatic; no test option is needed.
-    macsec_ctx = get_macsec_validation_context(duthost, neighbor_ctx) if validate_macsec else None
+    # replaced by the MACsec session checks.
     if macsec_ctx:
         forwarded = []
     ptf_dst_ports, _ = compute_egress_ptf_ports(mg_facts, neighbor_ctx)
@@ -1537,9 +1582,6 @@ def run_remove_and_readd_cycle(
         f"[{scenario['id']}] Verify selected {neighbor_ctx['neighbor_role']} "
         f"neighbor and learned prefix before removal"
     ):
-        if macsec_ctx:
-            assert_macsec_state(duthost, macsec_ctx, True, "before removal")
-
         assert_peer_config_state(
             duthost,
             namespace,
@@ -1606,6 +1648,10 @@ def run_remove_and_readd_cycle(
                 "post-add",
             )
 
+            # MACsec before BGP: the sessions run over the MACsec link.
+            if macsec_ctx:
+                assert_macsec_state(duthost, macsec_ctx, True, "after re-adding the neighbor")
+
             # Control-plane gate: Wait for BGP sessions to establish
             logger.info("Waiting for BGP neighbor sessions to establish after re-add")
             bgp_up = wait_until(
@@ -1618,8 +1664,6 @@ def run_remove_and_readd_cycle(
                 f"BGP sessions with neighbors {neighbor_ctx['neighbor_ips']} failed to establish after re-add",
             )
             check_routes(True, 120, "after re-adding the neighbor")
-            if macsec_ctx:
-                assert_macsec_state(duthost, macsec_ctx, True, "after re-adding the neighbor")
             check_forwarding(True, timeout=120)
 
         with allure.step(f"[{scenario['id']}] Persist the restored configuration"):
