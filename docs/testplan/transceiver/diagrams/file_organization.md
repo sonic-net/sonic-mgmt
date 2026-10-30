@@ -240,8 +240,13 @@ tests/transceiver/
 │   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
 │   │                                        #   requests presence_verified, gold_fw_verified, links_verified
 │   │                                        #   from top-level conftest.py and checks DOM/VDM polling
-│   ├── vdm_helpers.py                       # VDM field planning, namespace-batched reads, and availability checks
-│   └── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
+│   ├── vdm_helpers.py                       # VDM field plans, table-specific readers, availability/range checks,
+│   │                                        #   and four-table threshold hierarchy/value validation
+│   ├── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
+│   ├── test_vdm_operational_range.py        # Basic TC 2: Inclusive operational ranges and freshness
+│   ├── test_vdm_threshold.py                # Basic TC 3: Threshold hierarchy and optional exact values
+│   └── test_vdm_consistency.py              # Basic TC 4: Owns private sampling, timestamp advancement,
+│                                            #   freshness/range, and statistic-coherence checks
 │
 └── pm/
     ├── __init__.py
