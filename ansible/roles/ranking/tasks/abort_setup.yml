@@ -1,0 +1,42 @@
+- name: Attest that the failed setup made no environment mutations
+  ansible.builtin.set_fact:
+    ranking_teardown_restored: true
+- name: Build the unmodified DUT abort request
+  ansible.builtin.set_fact:
+    ranking_teardown_dut_abort_request:
+      action: abort
+      handle: '{{ ranking_dut_handle }}'
+- name: Stage the unmodified DUT abort request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/abort-setup-dut.json'
+    content: '{{ ranking_teardown_dut_abort_request | to_json }}'
+    mode: '0600'
+- name: Release the unmodified DUT reservation
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/abort-setup-dut.json']
+  register: ranking_teardown_dut_abort
+  changed_when: true
+- name: Record the unmodified DUT release
+  ansible.builtin.set_fact:
+    ranking_teardown_released: ['{{ ranking_dut_resource }}']
+- name: Build the unmodified PTF abort request
+  ansible.builtin.set_fact:
+    ranking_teardown_ptf_abort_request:
+      action: abort
+      handle: '{{ ranking_ptf_handle }}'
+- name: Stage the unmodified PTF abort request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/abort-setup-ptf.json'
+    content: '{{ ranking_teardown_ptf_abort_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Release the unmodified PTF reservation
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/abort-setup-ptf.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_teardown_ptf_abort
+  changed_when: true
+- name: Record the unmodified environment release
+  ansible.builtin.set_fact:
+    ranking_teardown_released: ['{{ ranking_dut_resource }}', '{{ ranking_ptf_resource }}']
+    ranking_teardown_uncertain: false

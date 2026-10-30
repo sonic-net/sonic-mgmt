@@ -1,0 +1,287 @@
+- name: Bind the ranking case ownership handles
+  ansible.builtin.set_fact:
+    ranking_dut_handle:
+      resource: '{{ ranking_dut_resource }}'
+      environment_id: '{{ ranking_environment_id }}'
+      operation_id: '{{ ranking_operation_id }}'
+      created: true
+    ranking_ptf_handle:
+      resource: '{{ ranking_ptf_resource }}'
+      environment_id: '{{ ranking_environment_id }}'
+      operation_id: '{{ ranking_operation_id }}'
+      created: true
+- name: Build the previous run state request
+  ansible.builtin.set_fact:
+    ranking_case_previous_request:
+      action: read
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+- name: Stage the previous run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/read-run-state.json'
+    content: '{{ ranking_case_previous_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Read the previous ranking run state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-run-state.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_case_previous_read
+  failed_when: ranking_case_previous_read.rc != 0
+  changed_when: false
+- name: Parse the previous ranking run state envelope
+  ansible.builtin.set_fact:
+    ranking_case_previous_json: '{{ ranking_case_previous_read.stdout | from_json }}'
+- name: Bind the previous ranking run state
+  ansible.builtin.set_fact:
+    ranking_case_previous_state: '{{ ranking_case_previous_json.result }}'
+- name: Require the previous ranking run to have exited
+  ansible.builtin.fail:
+    msg: previous ranking run has not exited
+  when: ranking_case_previous_state.process_exited != true
+- name: Require the previous ranking run to be collected
+  ansible.builtin.fail:
+    msg: previous ranking run has not been collected
+  when: ranking_case_previous_state.collected != true
+- name: Build the persisted environment state request
+  ansible.builtin.set_fact:
+    ranking_case_environment_request:
+      action: read
+      handle: '{{ ranking_dut_handle }}'
+      name: environment.json
+- name: Stage the persisted environment state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/read-environment.json'
+    content: '{{ ranking_case_environment_request | to_json }}'
+    mode: '0600'
+- name: Read the persisted ranking environment state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-environment.json']
+  register: ranking_case_environment_read
+  failed_when: false
+  changed_when: false
+- name: Require the persisted ranking environment state
+  ansible.builtin.fail:
+    msg: persisted ranking environment state is missing
+  when: ranking_case_environment_read.rc != 0
+- name: Parse the persisted ranking environment state envelope
+  ansible.builtin.set_fact:
+    ranking_case_environment_json: '{{ ranking_case_environment_read.stdout | from_json }}'
+- name: Bind the persisted ranking environment state
+  ansible.builtin.set_fact:
+    ranking_case_environment_state: '{{ ranking_case_environment_json.result }}'
+- name: Inspect the current saiserver container
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_case_current_info
+  failed_when: false
+  changed_when: false
+- name: Require the current saiserver container to exist
+  ansible.builtin.fail:
+    msg: current saiserver container is missing
+  when: ranking_case_current_info.rc != 0
+- name: Parse the current saiserver container record
+  ansible.builtin.set_fact:
+    ranking_case_current_record: '{{ ranking_case_current_info.stdout | from_json }}'
+- name: Require the current saiserver container to match the persisted environment
+  ansible.builtin.fail:
+    msg: current saiserver container id does not match the persisted environment
+  when: ranking_case_current_record[0].Id != ranking_case_environment_state.current_saiserver_container_id
+- name: Inspect the local saiserver image for the case
+  ansible.builtin.command:
+    argv: [docker, image, inspect, '{{ ranking_runtime.saiserver_image }}']
+  register: ranking_case_image_info
+  failed_when: ranking_case_image_info.rc != 0
+  changed_when: false
+- name: Parse the local saiserver image record
+  ansible.builtin.set_fact:
+    ranking_case_image_record: '{{ ranking_case_image_info.stdout | from_json }}'
+- name: Bind the saiserver case stop tokens
+  ansible.builtin.set_fact:
+    ranking_case_stop_argv: '{{ ranking_runtime.stop_argv | map("replace", "{saiserver_container_id}", ranking_case_current_record[0].Id) | list }}'
+- name: Bind the saiserver case start tokens
+  ansible.builtin.set_fact:
+    ranking_case_start_argv: '{{ ranking_runtime.start_argv | map("replace", "{saiserver_image_id}", ranking_case_image_record[0].Id) | map("replace", "{saiserver_container}", ranking_runtime.saiserver_container) | list }}'
+- name: Build the saiserver case start marker request
+  ansible.builtin.set_fact:
+    ranking_case_start_marker_request:
+      action: mark_attempt
+      handle: '{{ ranking_dut_handle }}'
+      marker: 'start:saiserver'
+- name: Stage the saiserver case start marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-case-start-saiserver.json'
+    content: '{{ ranking_case_start_marker_request | to_json }}'
+    mode: '0600'
+- name: Mark the saiserver case start attempt
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-case-start-saiserver.json']
+  register: ranking_case_start_mark
+  failed_when: ranking_case_start_mark.rc != 0
+  changed_when: true
+- name: Stop the current saiserver container
+  ansible.builtin.command:
+    argv: '{{ ranking_case_stop_argv }}'
+  register: ranking_case_saiserver_stop
+  failed_when: ranking_case_saiserver_stop.rc != 0
+  changed_when: true
+- name: Inspect the stopped saiserver container
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_case_stopped_info
+  failed_when: false
+  changed_when: false
+- name: Require the stopped saiserver container record
+  ansible.builtin.fail:
+    msg: stopped saiserver container record is missing
+  when: ranking_case_stopped_info.rc != 0
+- name: Parse the stopped saiserver container record
+  ansible.builtin.set_fact:
+    ranking_case_stopped_record: '{{ ranking_case_stopped_info.stdout | from_json }}'
+- name: Require the stopped saiserver container identity
+  ansible.builtin.fail:
+    msg: stopped saiserver container id does not match the persisted environment
+  when: ranking_case_stopped_record[0].Id != ranking_case_environment_state.current_saiserver_container_id
+- name: Require the stopped saiserver container to have exited
+  ansible.builtin.fail:
+    msg: stopped saiserver container is still running
+  when: ranking_case_stopped_record[0].State.Running == true
+- name: Remove the stopped saiserver container
+  ansible.builtin.command:
+    argv: [docker, rm, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_case_saiserver_remove
+  failed_when: false
+  changed_when: true
+- name: Start the case saiserver container
+  ansible.builtin.command:
+    argv: '{{ ranking_case_start_argv }}'
+  register: ranking_case_saiserver_start
+  failed_when: ranking_case_saiserver_start.rc != 0
+  changed_when: true
+- name: Inspect the case saiserver container
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+  register: ranking_case_saiserver_info
+  failed_when: ranking_case_saiserver_info.rc != 0
+  changed_when: false
+- name: Parse the case saiserver container record
+  ansible.builtin.set_fact:
+    ranking_case_saiserver_record: '{{ ranking_case_saiserver_info.stdout | from_json }}'
+- name: Require the case saiserver container name
+  ansible.builtin.fail:
+    msg: case saiserver container name does not match the requested saiserver
+  when: ranking_case_saiserver_record[0].Name | replace("/", "") != ranking_runtime.saiserver_container
+- name: Require the case saiserver container image
+  ansible.builtin.fail:
+    msg: case saiserver container image does not match the local saiserver image
+  when: ranking_case_saiserver_record[0].Image != ranking_case_image_record[0].Id
+- name: Require the case saiserver container id
+  ansible.builtin.fail:
+    msg: case saiserver container id does not match the launcher output
+  when: ranking_case_saiserver_record[0].Id != ranking_case_saiserver_start.stdout | trim
+- name: Build the case saiserver environment request
+  ansible.builtin.set_fact:
+    ranking_case_environment_update_request:
+      action: write
+      handle: '{{ ranking_dut_handle }}'
+      name: environment.json
+      value: '{{ ranking_case_environment_state | combine({"current_saiserver_container_id": ranking_case_saiserver_record[0].Id}) }}'
+- name: Stage the case saiserver environment request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-environment-case-container.json'
+    content: '{{ ranking_case_environment_update_request | to_json }}'
+    mode: '0600'
+- name: Record the case saiserver container
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-environment-case-container.json']
+  register: ranking_case_environment_update_write
+  failed_when: ranking_case_environment_update_write.rc != 0
+  changed_when: true
+- name: Record the saiserver case reset outcome
+  ansible.builtin.set_fact:
+    ranking_case_reset_outcome:
+      reset: true
+      previous_saiserver_container_id: '{{ ranking_case_environment_state.current_saiserver_container_id }}'
+      current_saiserver_container_id: '{{ ranking_case_saiserver_record[0].Id }}'
+- name: Bind the case RPC connectivity mode
+  ansible.builtin.set_fact:
+    ranking_rpc_connectivity_only: true
+- name: Require the saiserver RPC endpoint to answer
+  ansible.builtin.wait_for:
+    host: '{{ ranking_execution.rpc_host }}'
+    port: '{{ ranking_runtime.rpc_port }}'
+    timeout: '{{ ranking_runtime.timeout_s }}'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Bind the ranking case run locations
+  ansible.builtin.set_fact:
+    ranking_case_run_dir: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runs/{{ ranking_run_id }}'
+    ranking_ptf_runner_path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runner/ptf_runner.py'
+    ranking_run_request_path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/requests/{{ ranking_run_id }}.json'
+- name: Bind attested container identities in the PTF request
+  ansible.builtin.set_fact:
+    ranking_bound_ptf_request: '{{ ranking_ptf_request | combine({"argv": ranking_ptf_request.argv | map("replace", "{ptf_container_id}", ranking_ptf_container_id) | map("replace", "{saiserver_container_id}", ranking_case_saiserver_record[0].Id) | list}) }}'
+- name: Check for an already staged case run request
+  ansible.builtin.stat:
+    path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/requests/{{ ranking_run_id }}.json'
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_case_request_existing
+- name: Refuse to overwrite the staged case run request
+  ansible.builtin.fail:
+    msg: case run request already exists
+  when: ranking_case_request_existing.stat.exists | default(false)
+- name: Stage the case run request
+  ansible.builtin.copy:
+    dest: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/requests/{{ ranking_run_id }}.json'
+    content: '{{ ranking_bound_ptf_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Build the prepared run state request
+  ansible.builtin.set_fact:
+    ranking_case_prepared_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        run_id: '{{ ranking_run_id }}'
+        phase: prepared
+        process_exited: false
+        collected: false
+        outcome_path: '{{ ranking_case_run_dir }}/outcome.json'
+- name: Stage the prepared run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-prepared.json'
+    content: '{{ ranking_case_prepared_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Record the prepared ranking run state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-prepared.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_case_prepared_write
+  failed_when: ranking_case_prepared_write.rc != 0
+  changed_when: true
+- name: Build the running run state request
+  ansible.builtin.set_fact:
+    ranking_case_running_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: run-state.json
+      value: '{{ ranking_case_prepared_request.value | combine({"phase": "running"}) }}'
+- name: Stage the running run state request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-run-state-running.json'
+    content: '{{ ranking_case_running_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Record the running ranking run state
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-running.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_case_running_write
+  failed_when: ranking_case_running_write.rc != 0
+  changed_when: true
+- name: Mark the ranking case run initiated
+  ansible.builtin.set_fact:
+    ranking_case_run_initiated: true

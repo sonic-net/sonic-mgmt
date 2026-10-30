@@ -1,0 +1,4 @@
+ranking_ownership_root: /var/tmp/ranking-ownership
+ranking_state_root: /var/tmp/ranking-state
+ranking_request_base: /var/tmp/ranking-requests
+ranking_ownership_acquired: false

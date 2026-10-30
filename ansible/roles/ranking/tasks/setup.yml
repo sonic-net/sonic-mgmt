@@ -1,0 +1,385 @@
+- name: Complete the ranking setup action
+  block:
+    - name: Read each original DUT service state
+      ansible.builtin.command:
+        argv: [systemctl, show, --property=LoadState, --property=ActiveState, --, '{{ item }}']
+      register: ranking_dut_service_states
+      changed_when: false
+      loop: '{{ ranking_runtime.services_to_stop }}'
+    - name: Inspect the original saiserver container
+      ansible.builtin.command:
+        argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+      register: ranking_saiserver_original_info
+      failed_when: ranking_saiserver_original_info.rc == 0
+      changed_when: false
+    - name: Record the original DUT service states
+      ansible.builtin.set_fact:
+        ranking_original_services: '{{ ranking_dut_service_states.results | ranking_service_states }}'
+    - name: Build the DUT snapshot request
+      ansible.builtin.set_fact:
+        ranking_dut_snapshot_request:
+          action: snapshot
+          handle: '{{ ranking_dut_handle }}'
+          identity:
+            environment_id: '{{ ranking_environment_id }}'
+            dut_id: '{{ ranking_runtime.dut_id }}'
+            image_id: '{{ ranking_dut_image_fingerprint }}'
+            profile_id: '{{ ranking_execution.profile_id }}'
+            mapping_hash: '{{ ranking_mapping_hash }}'
+          services: '{{ ranking_original_services }}'
+          paths: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+          saiserver:
+            exists: false
+            running: false
+            container_name: '{{ ranking_runtime.saiserver_container }}'
+    - name: Stage the DUT snapshot request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/snapshot-dut.json'
+        content: '{{ ranking_dut_snapshot_request | to_json }}'
+        mode: '0600'
+    - name: Capture the DUT original snapshot
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/snapshot-dut.json']
+      register: ranking_dut_snapshot
+      failed_when: ranking_dut_snapshot.rc != 0
+      changed_when: true
+    - name: Parse the DUT snapshot envelope
+      ansible.builtin.set_fact:
+        ranking_dut_snapshot_json: '{{ ranking_dut_snapshot.stdout | from_json }}'
+    - name: Bind the DUT snapshot record
+      ansible.builtin.set_fact:
+        ranking_dut_snapshot_record: '{{ ranking_dut_snapshot_json.result }}'
+    - name: Build the PTF snapshot request
+      ansible.builtin.set_fact:
+        ranking_ptf_snapshot_request:
+          action: write
+          handle: '{{ ranking_ptf_handle }}'
+          name: snapshot.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            resource: '{{ ranking_ptf_resource }}'
+            peer_resource: '{{ ranking_dut_resource }}'
+            container_id: '{{ ranking_ptf_container_id }}'
+            running: true
+            interfaces: '{{ ranking_ptf_interfaces }}'
+            staging_path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}'
+            staging_state: absent
+    - name: Stage the PTF snapshot request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/snapshot-ptf.json'
+        content: '{{ ranking_ptf_snapshot_request | to_json }}'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Write the PTF original snapshot
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/snapshot-ptf.json']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_snapshot_write
+      failed_when: ranking_ptf_snapshot_write.rc != 0
+      changed_when: true
+    # Teardown reads these PTF records, so they must exist before any DUT step can fail.
+    - name: Build the PTF ledger request
+      ansible.builtin.set_fact:
+        ranking_ptf_ledger_request:
+          action: write
+          handle: '{{ ranking_ptf_handle }}'
+          name: ledger.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            resource: '{{ ranking_ptf_resource }}'
+            attempted: []
+            completed: []
+    - name: Stage the PTF ledger request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-ptf-ledger.json'
+        content: '{{ ranking_ptf_ledger_request | to_json }}'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Write the PTF change ledger
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-ptf-ledger.json']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_ledger_write
+      failed_when: ranking_ptf_ledger_write.rc != 0
+      changed_when: true
+    - name: Build the idle PTF run state request
+      ansible.builtin.set_fact:
+        ranking_ptf_idle_run_request:
+          action: write
+          handle: '{{ ranking_ptf_handle }}'
+          name: run-state.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            run_id: idle
+            phase: collected
+            process_exited: true
+            collected: true
+            outcome_path: '{{ ranking_ptf_snapshot_request.value.staging_path }}/runs/idle/outcome.json'
+    - name: Stage the idle PTF run state request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-run-state-idle.json'
+        content: '{{ ranking_ptf_idle_run_request | to_json }}'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Record the idle PTF run state
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-run-state-idle.json']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_idle_run_write
+      failed_when: ranking_ptf_idle_run_write.rc != 0
+      changed_when: true
+    - name: Bind the DUT state directory
+      ansible.builtin.set_fact:
+        ranking_dut_state_dir: '{{ ranking_state_root }}/{{ ranking_dut_resource | hash("sha256") }}/{{ ranking_environment_id }}'
+    - name: Build the DUT ledger request
+      ansible.builtin.set_fact:
+        ranking_ledger_request:
+          action: write
+          handle: '{{ ranking_dut_handle }}'
+          name: ledger.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            resource: '{{ ranking_dut_resource }}'
+            attempted: []
+            completed: []
+    - name: Stage the DUT ledger request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-ledger.json'
+        content: '{{ ranking_ledger_request | to_json }}'
+        mode: '0600'
+    - name: Write the DUT change ledger
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-ledger.json']
+      register: ranking_ledger_write
+      failed_when: ranking_ledger_write.rc != 0
+      changed_when: true
+    - name: Build the DUT baseline request
+      ansible.builtin.set_fact:
+        ranking_baseline_request:
+          action: write
+          handle: '{{ ranking_dut_handle }}'
+          name: baseline.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            resource: '{{ ranking_dut_resource }}'
+            snapshot_identity: '{{ ranking_dut_snapshot_record.identity }}'
+            ports: '{{ ranking_dut_ports }}'
+    - name: Stage the DUT baseline request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-baseline.json'
+        content: '{{ ranking_baseline_request | to_json }}'
+        mode: '0600'
+    - name: Write the DUT port baseline
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-baseline.json']
+      register: ranking_baseline_write
+      failed_when: ranking_baseline_write.rc != 0
+      changed_when: true
+    - name: Build the initial DUT environment request
+      ansible.builtin.set_fact:
+        ranking_environment_request:
+          action: write
+          handle: '{{ ranking_dut_handle }}'
+          name: environment.json
+          value:
+            schema_version: 1
+            environment_id: '{{ ranking_environment_id }}'
+            resource: '{{ ranking_dut_resource }}'
+            backend: '{{ ranking_runtime.backend }}'
+            dut_id: '{{ ranking_runtime.dut_id }}'
+            dut_image_fingerprint: '{{ ranking_dut_image_fingerprint }}'
+            saiserver_image_id: '{{ ranking_saiserver_image_info_json[0].Id }}'
+            saiserver_container_name: '{{ ranking_runtime.saiserver_container }}'
+            current_saiserver_container_id: null
+            ptf_host_id: '{{ ranking_ptf_machine_id }}'
+            ptf_container_id: '{{ ranking_ptf_container_id }}'
+            profile_id: '{{ ranking_execution.profile_id }}'
+            profile_hash: '{{ ranking_profile_hash }}'
+            source_identity: '{{ ranking_source_identity }}'
+            source_hash: '{{ ranking_source_hash }}'
+            mapping_hash: '{{ ranking_mapping_hash }}'
+            snapshot_path: '{{ ranking_dut_state_dir }}/snapshot.json'
+            baseline_path: '{{ ranking_dut_state_dir }}/baseline.json'
+            peer_resource: '{{ ranking_ptf_resource }}'
+            snapshot_complete: false
+    - name: Stage the initial DUT environment request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-environment.json'
+        content: '{{ ranking_environment_request | to_json }}'
+        mode: '0600'
+    - name: Write the initial DUT environment record
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-environment.json']
+      register: ranking_environment_write
+      failed_when: ranking_environment_write.rc != 0
+      changed_when: true
+    - name: Build the completed DUT environment request
+      ansible.builtin.set_fact:
+        ranking_environment_complete_request:
+          action: write
+          handle: '{{ ranking_dut_handle }}'
+          name: environment.json
+          value: '{{ ranking_environment_request.value | combine({"snapshot_complete": true}) }}'
+    - name: Stage the completed DUT environment request
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/write-environment-complete.json'
+        content: '{{ ranking_environment_complete_request | to_json }}'
+        mode: '0600'
+    - name: Attest the completed ranking snapshot
+      ansible.builtin.command:
+        argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-environment-complete.json']
+      register: ranking_environment_complete_write
+      failed_when: ranking_environment_complete_write.rc != 0
+      changed_when: true
+    - name: Prepare the ranking DUT runtime
+      block:
+        - name: Stop each original active service
+          ansible.builtin.include_tasks: stop_service.yml
+          loop: '{{ ranking_original_services | dict2items | selectattr("value", "equalto", "active") | map(attribute="key") | list }}'
+        - name: Require the ASIC owner processes fully stopped
+          ansible.builtin.command:
+            argv: [pgrep, -x, '{{ item }}']
+          register: ranking_asic_owner_check
+          failed_when: ranking_asic_owner_check.rc != 1
+          changed_when: false
+          loop: '{{ ranking_runtime.asic_owner_processes }}'
+        - name: Bind the saiserver launcher tokens
+          ansible.builtin.set_fact:
+            ranking_bound_start_argv: '{{ ranking_runtime.start_argv | map("replace", "{saiserver_image_id}", ranking_saiserver_image_info_json[0].Id) | map("replace", "{saiserver_container}", ranking_runtime.saiserver_container) | list }}'
+        - name: Build the saiserver start marker request
+          ansible.builtin.set_fact:
+            ranking_start_marker_request:
+              action: mark_attempt
+              handle: '{{ ranking_dut_handle }}'
+              marker: start:saiserver
+        - name: Stage the saiserver start marker request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/mark-start-saiserver.json'
+            content: '{{ ranking_start_marker_request | to_json }}'
+            mode: '0600'
+        - name: Mark the saiserver start attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-start-saiserver.json']
+          register: ranking_saiserver_start_mark
+          failed_when: ranking_saiserver_start_mark.rc != 0
+          changed_when: true
+        - name: Start the saiserver container
+          ansible.builtin.command:
+            argv: '{{ ranking_bound_start_argv }}'
+          register: ranking_saiserver_start
+          failed_when: ranking_saiserver_start.rc != 0
+          changed_when: true
+        - name: Inspect the started saiserver container
+          ansible.builtin.command:
+            argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+          register: ranking_saiserver_started_info
+          failed_when: ranking_saiserver_started_info.rc != 0
+          changed_when: false
+        - name: Parse the started saiserver container record
+          ansible.builtin.set_fact:
+            ranking_saiserver_started_record: '{{ ranking_saiserver_started_info.stdout | from_json }}'
+        - name: Require the started saiserver container name
+          ansible.builtin.fail:
+            msg: started container name does not match the requested saiserver
+          when: ranking_saiserver_started_record[0].Name | replace("/", "") != ranking_runtime.saiserver_container
+        - name: Require the started saiserver container image
+          ansible.builtin.fail:
+            msg: started container image does not match the local saiserver image
+          when: ranking_saiserver_started_record[0].Image != ranking_saiserver_image_info_json[0].Id
+        - name: Require the started saiserver container id
+          ansible.builtin.fail:
+            msg: started container id does not match the launcher output
+          when: ranking_saiserver_started_record[0].Id != ranking_saiserver_start.stdout | trim
+        - name: Build the current saiserver environment request
+          ansible.builtin.set_fact:
+            ranking_environment_current_request:
+              action: write
+              handle: '{{ ranking_dut_handle }}'
+              name: environment.json
+              value: '{{ ranking_environment_request.value | combine({"snapshot_complete": true, "current_saiserver_container_id": ranking_saiserver_started_record[0].Id}) }}'
+        - name: Stage the current saiserver environment request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/write-environment-container.json'
+            content: '{{ ranking_environment_current_request | to_json }}'
+            mode: '0600'
+        - name: Record the current saiserver container
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-environment-container.json']
+          register: ranking_environment_current_write
+          failed_when: ranking_environment_current_write.rc != 0
+          changed_when: true
+        - name: Check the virtual SONiC start conditions
+          ansible.builtin.include_tasks: setup_vsonic.yml
+          when: ranking_runtime.backend == 'vsonic_ovs'
+      rescue:
+        - name: Mark the ranking setup rollback attempted
+          ansible.builtin.set_fact:
+            ranking_setup_rollback_attempted: true
+        - name: Build the rollback ledger request
+          ansible.builtin.set_fact:
+            ranking_rollback_request:
+              action: read
+              handle: '{{ ranking_dut_handle }}'
+              name: ledger.json
+        - name: Stage the rollback ledger request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-ledger.json'
+            content: '{{ ranking_rollback_request | to_json }}'
+            mode: '0600'
+        - name: Read the rollback ledger
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-ledger.json']
+          register: ranking_rollback_read
+          failed_when: false
+          changed_when: false
+        - name: Parse the rollback ledger envelope
+          ansible.builtin.set_fact:
+            ranking_rollback_envelope: '{{ ranking_rollback_read.stdout | from_json }}'
+          when: ranking_rollback_read.rc == 0
+        - name: Bind the rollback ledger
+          ansible.builtin.set_fact:
+            ranking_rollback_ledger: '{{ ranking_rollback_envelope.result }}'
+            ranking_rollback_order: '{{ ["start:saiserver"] + ranking_runtime.service_start_order | map("regex_replace", "^", "stop:") | list }}'
+          when: ranking_rollback_read.rc == 0
+        - name: Reverse the attempted setup mutations
+          ansible.builtin.include_tasks: rollback_marker.yml
+          loop: '{{ ranking_rollback_order | select("in", ranking_rollback_ledger.attempted | difference(ranking_rollback_ledger.completed)) | list }}'
+          when: ranking_rollback_read.rc == 0
+        - name: Report the failed ranking setup
+          ansible.builtin.fail:
+            msg: ranking setup failed; attempted mutations were reversed and ownership is retained
+  always:
+    - name: Assemble the ranking setup outcome record
+      ansible.builtin.set_fact:
+        ranking_role_outcome:
+          schema_version: 1
+          environment_id: '{{ ranking_environment_id }}'
+          action: setup
+          restored: false
+          released: []
+          kept: false
+          uncertain: '{{ ranking_setup_rollback_attempted | default(false) }}'
+          rollback_attempted: '{{ ranking_setup_rollback_attempted | default(false) }}'
+          ownership_state: retained
+          resources:
+            - resource: '{{ ranking_dut_resource }}'
+              host: '{{ ranking_dut_host }}'
+              handle: '{{ ranking_dut_handle }}'
+            - resource: '{{ ranking_ptf_resource }}'
+              host: '{{ ranking_ptf_host }}'
+              handle: '{{ ranking_ptf_handle }}'
+    - name: Stage the ranking role outcome record
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/role-outcome.json'
+        content: '{{ ranking_role_outcome | to_json }}'
+        mode: '0600'
+    - name: Fetch the ranking role outcome record
+      ansible.builtin.fetch:
+        src: '{{ ranking_request_root }}/role-outcome.json'
+        dest: '{{ ranking_artifacts_dir }}/role-outcome.json'
+        flat: true

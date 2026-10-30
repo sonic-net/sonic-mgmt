@@ -1,0 +1,526 @@
+- name: Bind the ranking teardown ownership handles
+  ansible.builtin.set_fact:
+    ranking_dut_handle:
+      resource: '{{ ranking_dut_resource }}'
+      environment_id: '{{ ranking_environment_id }}'
+      operation_id: '{{ ranking_operation_id }}'
+      created: '{{ (ranking_dut_validate.stdout | from_json).result.abortable }}'
+    ranking_ptf_handle:
+      resource: '{{ ranking_ptf_resource }}'
+      environment_id: '{{ ranking_environment_id }}'
+      operation_id: '{{ ranking_operation_id }}'
+      created: '{{ (ranking_ptf_validate.stdout | from_json).result.abortable }}'
+- name: Initialize the ranking teardown outcome facts
+  ansible.builtin.set_fact:
+    ranking_teardown_restored: false
+    ranking_teardown_released: []
+    ranking_teardown_uncertain: true
+    ranking_teardown_kept: false
+    ranking_teardown_unmodified: '{{ (ranking_dut_validate.stdout | from_json).result.abortable and not (ranking_dut_validate.stdout | from_json).result.mutated and (ranking_ptf_validate.stdout | from_json).result.abortable and not (ranking_ptf_validate.stdout | from_json).result.mutated }}'
+- name: Finalize the ranking environment action
+  block:
+    - name: Keep the ranking environment retained
+      when: ranking_action == 'keep'
+      block:
+        - name: Build the DUT keep request
+          ansible.builtin.set_fact:
+            ranking_teardown_dut_keep_request:
+              action: keep
+              handle: '{{ ranking_dut_handle }}'
+        - name: Stage the DUT keep request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/keep-dut.json'
+            content: '{{ ranking_teardown_dut_keep_request | to_json }}'
+            mode: '0600'
+        - name: Keep the DUT reservation
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/keep-dut.json']
+          register: ranking_teardown_dut_keep
+          failed_when: ranking_teardown_dut_keep.rc != 0
+          changed_when: true
+        - name: Build the PTF keep request
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_keep_request:
+              action: keep
+              handle: '{{ ranking_ptf_handle }}'
+        - name: Stage the PTF keep request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/keep-ptf.json'
+            content: '{{ ranking_teardown_ptf_keep_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Keep the PTF reservation
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/keep-ptf.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_keep
+          failed_when: ranking_teardown_ptf_keep.rc != 0
+          changed_when: true
+        - name: Mark the ranking environment kept
+          ansible.builtin.set_fact:
+            ranking_teardown_kept: true
+            ranking_teardown_uncertain: false
+    - name: Release the unmodified failed setup
+      ansible.builtin.include_tasks: abort_setup.yml
+      when: ranking_action == 'teardown' and ranking_teardown_unmodified | bool
+    - name: Restore and release the ranking environment
+      when: ranking_action == 'teardown' and not ranking_teardown_unmodified | bool
+      block:
+        - name: Build the DUT environment read request
+          ansible.builtin.set_fact:
+            ranking_teardown_environment_request:
+              action: read
+              handle: '{{ ranking_dut_handle }}'
+              name: environment.json
+        - name: Stage the DUT environment read request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-teardown-environment.json'
+            content: '{{ ranking_teardown_environment_request | to_json }}'
+            mode: '0600'
+        - name: Read the DUT environment record
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-teardown-environment.json']
+          register: ranking_teardown_environment_read
+          failed_when: ranking_teardown_environment_read.rc != 0
+          changed_when: false
+        - name: Parse the DUT environment record
+          ansible.builtin.set_fact:
+            ranking_teardown_environment_json: '{{ ranking_teardown_environment_read.stdout | from_json }}'
+        - name: Bind the DUT environment record
+          ansible.builtin.set_fact:
+            ranking_teardown_environment: '{{ ranking_teardown_environment_json.result }}'
+        - name: Build the DUT snapshot read request
+          ansible.builtin.set_fact:
+            ranking_teardown_snapshot_request:
+              action: read
+              handle: '{{ ranking_dut_handle }}'
+              name: snapshot.json
+        - name: Stage the DUT snapshot read request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-teardown-snapshot.json'
+            content: '{{ ranking_teardown_snapshot_request | to_json }}'
+            mode: '0600'
+        - name: Read the DUT snapshot record
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-teardown-snapshot.json']
+          register: ranking_teardown_snapshot_read
+          failed_when: ranking_teardown_snapshot_read.rc != 0
+          changed_when: false
+        - name: Parse the DUT snapshot record
+          ansible.builtin.set_fact:
+            ranking_teardown_snapshot_json: '{{ ranking_teardown_snapshot_read.stdout | from_json }}'
+        - name: Bind the DUT snapshot record
+          ansible.builtin.set_fact:
+            ranking_teardown_snapshot: '{{ ranking_teardown_snapshot_json.result }}'
+        - name: Build the DUT baseline read request
+          ansible.builtin.set_fact:
+            ranking_teardown_baseline_request:
+              action: read
+              handle: '{{ ranking_dut_handle }}'
+              name: baseline.json
+        - name: Stage the DUT baseline read request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-teardown-baseline.json'
+            content: '{{ ranking_teardown_baseline_request | to_json }}'
+            mode: '0600'
+        - name: Read the DUT baseline record
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-teardown-baseline.json']
+          register: ranking_teardown_baseline_read
+          failed_when: ranking_teardown_baseline_read.rc != 0
+          changed_when: false
+        - name: Parse the DUT baseline record
+          ansible.builtin.set_fact:
+            ranking_teardown_baseline_json: '{{ ranking_teardown_baseline_read.stdout | from_json }}'
+        - name: Bind the DUT baseline record
+          ansible.builtin.set_fact:
+            ranking_teardown_baseline: '{{ ranking_teardown_baseline_json.result }}'
+        - name: Build the PTF snapshot read request
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_snapshot_request:
+              action: read
+              handle: '{{ ranking_ptf_handle }}'
+              name: snapshot.json
+        - name: Stage the PTF snapshot read request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-teardown-ptf-snapshot.json'
+            content: '{{ ranking_teardown_ptf_snapshot_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Read the PTF snapshot record
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-teardown-ptf-snapshot.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_snapshot_read
+          failed_when: ranking_teardown_ptf_snapshot_read.rc != 0
+          changed_when: false
+        - name: Parse the PTF snapshot record
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_snapshot_json: '{{ ranking_teardown_ptf_snapshot_read.stdout | from_json }}'
+        - name: Bind the PTF snapshot record
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_snapshot: '{{ ranking_teardown_ptf_snapshot_json.result }}'
+        - name: Require the snapshotted PTF container identity
+          ansible.builtin.fail:
+            msg: snapshotted PTF container does not match the validated owned container
+          when: ranking_teardown_ptf_snapshot.container_id | default("") != ranking_ptf_container_id
+        - name: Build the previous run state request
+          ansible.builtin.set_fact:
+            ranking_teardown_run_state_request:
+              action: read
+              handle: '{{ ranking_ptf_handle }}'
+              name: run-state.json
+        - name: Stage the previous run state request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/read-teardown-run-state.json'
+            content: '{{ ranking_teardown_run_state_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Read the previous ranking run state
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/read-teardown-run-state.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_run_state_read
+          failed_when: ranking_teardown_run_state_read.rc != 0
+          changed_when: false
+        - name: Parse the previous ranking run state
+          ansible.builtin.set_fact:
+            ranking_teardown_run_state_json: '{{ ranking_teardown_run_state_read.stdout | from_json }}'
+        - name: Bind the previous ranking run state
+          ansible.builtin.set_fact:
+            ranking_teardown_run_state: '{{ ranking_teardown_run_state_json.result }}'
+        - name: Require the previous ranking run to have exited
+          ansible.builtin.fail:
+            msg: previous ranking run has not exited
+          when: ranking_teardown_run_state.process_exited != true
+        - name: Require the previous ranking run to be collected
+          ansible.builtin.fail:
+            msg: previous ranking run has not been collected
+          when: ranking_teardown_run_state.collected != true
+        - name: Build the PTF staging removal marker request
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_stage_request:
+              action: mark_attempt
+              handle: '{{ ranking_ptf_handle }}'
+              marker: stage:ptf
+        - name: Stage the PTF staging removal marker request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/mark-teardown-stage-ptf.json'
+            content: '{{ ranking_teardown_ptf_stage_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Mark the PTF staging removal attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-teardown-stage-ptf.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_stage_mark
+          failed_when: ranking_teardown_ptf_stage_mark.rc != 0
+          changed_when: true
+        # Teardown never needs the DUT key, so remove it before any restore step can fail. A
+        # stopped PTF container must not block the DUT restore; the staging removal reports it.
+        - name: Remove the DUT SSH secrets from the PTF host staging tree
+          ansible.builtin.file:
+            path: '{{ ranking_teardown_ptf_snapshot.staging_path }}/secrets'
+            state: absent
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Remove the DUT SSH secrets from the owned PTF container
+          ansible.builtin.command:
+            argv: [docker, exec, '{{ ranking_teardown_ptf_snapshot.container_id }}', rm, -rf, --, '{{ ranking_teardown_ptf_snapshot.staging_path }}/secrets']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_secret_container_remove
+          failed_when: false
+          changed_when: ranking_teardown_secret_container_remove.rc == 0
+        - name: Bind the ranking saiserver attestation
+          ansible.builtin.set_fact:
+            ranking_teardown_container_attested: '{{ ranking_teardown_environment.current_saiserver_container_id | default("", true) != "" }}'
+        - name: Inspect the ranking saiserver container
+          ansible.builtin.command:
+            argv: [docker, inspect, '{{ ranking_runtime.saiserver_container }}']
+          register: ranking_teardown_container_info
+          failed_when: false
+          changed_when: false
+        - name: Parse the ranking saiserver container record
+          ansible.builtin.set_fact:
+            ranking_teardown_container_record: '{{ ranking_teardown_container_info.stdout | from_json }}'
+          when: ranking_teardown_container_info.rc == 0
+        - name: Require the ranking saiserver container record
+          ansible.builtin.fail:
+            msg: ranking saiserver container record is missing
+          when: ranking_teardown_container_attested | bool and ranking_teardown_container_info.rc != 0
+        - name: Require the ranking saiserver container identity
+          ansible.builtin.fail:
+            msg: ranking saiserver container does not match the persisted environment
+          when: ranking_teardown_container_attested | bool and ranking_teardown_container_info.rc == 0 and ranking_teardown_container_record[0].Id != ranking_teardown_environment.current_saiserver_container_id
+        - name: Require the ranking saiserver container name
+          ansible.builtin.fail:
+            msg: ranking saiserver container name does not match the persisted environment
+          when: ranking_teardown_container_attested | bool and ranking_teardown_container_info.rc == 0 and ranking_teardown_container_record[0].Name | replace("/", "") != ranking_teardown_environment.saiserver_container_name
+        - name: Require the ranking saiserver container image
+          ansible.builtin.fail:
+            msg: ranking saiserver container image does not match the persisted environment
+          when: ranking_teardown_container_attested | bool and ranking_teardown_container_info.rc == 0 and ranking_teardown_container_record[0].Image != ranking_teardown_environment.saiserver_image_id
+        - name: Bind the saiserver case stop tokens
+          ansible.builtin.set_fact:
+            ranking_teardown_case_stop_tokens: '{{ ranking_runtime.stop_argv | map("replace", "{saiserver_container_id}", ranking_teardown_environment.current_saiserver_container_id) | list }}'
+          when: ranking_teardown_container_attested | bool
+        - name: Build the saiserver teardown marker request
+          ansible.builtin.set_fact:
+            ranking_teardown_start_marker_request:
+              action: mark_attempt
+              handle: '{{ ranking_dut_handle }}'
+              marker: start:saiserver
+          when: ranking_teardown_container_attested | bool
+        - name: Stage the saiserver teardown marker request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/mark-teardown-start-saiserver.json'
+            content: '{{ ranking_teardown_start_marker_request | to_json }}'
+            mode: '0600'
+          when: ranking_teardown_container_attested | bool
+        - name: Mark the saiserver teardown attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-teardown-start-saiserver.json']
+          register: ranking_teardown_start_mark
+          failed_when: ranking_teardown_start_mark.rc != 0
+          changed_when: true
+          when: ranking_teardown_container_attested | bool
+        - name: Stop the current ranking case container
+          ansible.builtin.command:
+            argv: '{{ ranking_teardown_case_stop_tokens }}'
+          register: ranking_teardown_saiserver_stop
+          failed_when: ranking_teardown_saiserver_stop.rc != 0
+          changed_when: true
+          when: ranking_teardown_container_attested | bool
+        - name: Remove the stopped ranking saiserver container
+          ansible.builtin.command:
+            argv: [docker, rm, '{{ ranking_teardown_environment.current_saiserver_container_id }}']
+          register: ranking_teardown_saiserver_remove
+          failed_when: ranking_teardown_saiserver_remove.rc != 0
+          changed_when: true
+          when: ranking_teardown_container_attested | bool
+        - name: Build the saiserver removal environment request
+          ansible.builtin.set_fact:
+            ranking_teardown_environment_clear_request:
+              action: write
+              handle: '{{ ranking_dut_handle }}'
+              name: environment.json
+              value: '{{ ranking_teardown_environment | combine({"current_saiserver_container_id": none}) }}'
+          when: ranking_teardown_container_attested | bool
+        - name: Stage the saiserver removal environment request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/write-teardown-environment-clear.json'
+            content: '{{ ranking_teardown_environment_clear_request | to_json }}'
+            mode: '0600'
+          when: ranking_teardown_container_attested | bool
+        - name: Clear the removed saiserver container record
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-teardown-environment-clear.json']
+          register: ranking_teardown_environment_clear
+          failed_when: ranking_teardown_environment_clear.rc != 0
+          changed_when: true
+          when: ranking_teardown_container_attested | bool
+        - name: Build the saiserver teardown completion request
+          ansible.builtin.set_fact:
+            ranking_teardown_start_complete_request:
+              action: complete_attempt
+              handle: '{{ ranking_dut_handle }}'
+              marker: start:saiserver
+          when: ranking_teardown_container_attested | bool
+        - name: Stage the saiserver teardown completion request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/complete-teardown-start-saiserver.json'
+            content: '{{ ranking_teardown_start_complete_request | to_json }}'
+            mode: '0600'
+          when: ranking_teardown_container_attested | bool
+        - name: Complete the saiserver teardown attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/complete-teardown-start-saiserver.json']
+          register: ranking_teardown_start_complete
+          failed_when: ranking_teardown_start_complete.rc != 0
+          changed_when: true
+          when: ranking_teardown_container_attested | bool
+        - name: Build the file restore marker request
+          ansible.builtin.set_fact:
+            ranking_teardown_restore_marker_request:
+              action: mark_attempt
+              handle: '{{ ranking_dut_handle }}'
+              marker: 'restore:{{ item }}'
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Stage the file restore marker request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/mark-restore-{{ item | replace("/", "_") }}.json'
+            content: '{{ ranking_teardown_restore_marker_request | to_json }}'
+            mode: '0600'
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Mark the file restore attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/mark-restore-{{ item | replace("/", "_") }}.json']
+          register: ranking_teardown_restore_mark
+          failed_when: ranking_teardown_restore_mark.rc != 0
+          changed_when: true
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Build the file restore request
+          ansible.builtin.set_fact:
+            ranking_teardown_restore_request:
+              action: restore_files
+              handle: '{{ ranking_dut_handle }}'
+              originals: '{{ ranking_teardown_snapshot.files }}'
+        - name: Stage the file restore request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/write-restore-files.json'
+            content: '{{ ranking_teardown_restore_request | to_json }}'
+            mode: '0600'
+        - name: Restore the original DUT files
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/write-restore-files.json']
+          register: ranking_teardown_restore_files
+          failed_when: ranking_teardown_restore_files.rc != 0
+          changed_when: true
+        - name: Build the file restore completion request
+          ansible.builtin.set_fact:
+            ranking_teardown_restore_complete_request:
+              action: complete_attempt
+              handle: '{{ ranking_dut_handle }}'
+              marker: 'restore:{{ item }}'
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Stage the file restore completion request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/complete-restore-{{ item | replace("/", "_") }}.json'
+            content: '{{ ranking_teardown_restore_complete_request | to_json }}'
+            mode: '0600'
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Complete the file restore attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/complete-restore-{{ item | replace("/", "_") }}.json']
+          register: ranking_teardown_restore_complete
+          failed_when: ranking_teardown_restore_complete.rc != 0
+          changed_when: true
+          loop: '{{ ranking_execution.dut_files | map(attribute="destination") | list }}'
+        - name: Bind the service restore order
+          ansible.builtin.set_fact:
+            ranking_teardown_service_order: '{{ ranking_runtime.service_start_order }}'
+        - name: Start each original active service
+          ansible.builtin.include_tasks: teardown_service.yml
+          loop: '{{ ranking_teardown_service_order }}'
+        - name: Read each restored DUT service state
+          ansible.builtin.command:
+            argv: [systemctl, show, --property=LoadState, --property=ActiveState, --, '{{ item }}']
+          register: ranking_teardown_service_states
+          changed_when: false
+          loop: '{{ ranking_teardown_service_order }}'
+        - name: Require each original service state to be restored
+          ansible.builtin.fail:
+            msg: 'original ranking service state was not restored: {{ ranking_teardown_service_states.results | ranking_service_states(false) }}'
+          when: (ranking_teardown_service_states.results | ranking_service_states(false)) != ranking_teardown_snapshot.services
+        - name: Wait for the original DUT port baseline
+          ansible.builtin.command:
+            argv: '{{ ranking_runtime.port_baseline.argv }}'
+          register: ranking_teardown_ports_raw
+          until: ranking_teardown_ports_raw.rc == 0 and (ranking_teardown_ports_raw.stdout | ranking_port_states(ranking_runtime.port_baseline.format, false)) == ranking_teardown_baseline.ports
+          retries: '{{ [ranking_runtime.port_baseline.timeout_s // 5, 1] | max }}'
+          delay: 5
+          failed_when: false
+          changed_when: false
+          ignore_errors: true
+          when: ranking_runtime.port_baseline is not none
+        - name: Require the original DUT port baseline
+          ansible.builtin.fail:
+            msg: 'original ranking port baseline was not restored within about {{ ranking_runtime.port_baseline.timeout_s }}s; last rc {{ ranking_teardown_ports_raw.rc }}, stderr {{ ranking_teardown_ports_raw.stderr | default("") }}, current ports: {{ ranking_teardown_ports_raw.stdout | ranking_port_states(ranking_runtime.port_baseline.format, false) }}'
+          when: ranking_runtime.port_baseline is not none and ranking_teardown_ports_raw is failed
+        - name: Mark the ranking environment restored
+          ansible.builtin.set_fact:
+            ranking_teardown_restored: true
+        - name: Remove the owned PTF container staging tree
+          ansible.builtin.command:
+            argv: [docker, exec, '{{ ranking_teardown_ptf_snapshot.container_id }}', rm, -rf, --, '{{ ranking_teardown_ptf_snapshot.staging_path }}']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_container_stage_remove
+          failed_when: ranking_teardown_ptf_container_stage_remove.rc != 0
+          changed_when: true
+        - name: Remove the owned PTF host staging tree
+          ansible.builtin.file:
+            path: '{{ ranking_teardown_ptf_snapshot.staging_path }}'
+            state: absent
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Build the PTF staging removal completion request
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_stage_complete_request:
+              action: complete_attempt
+              handle: '{{ ranking_ptf_handle }}'
+              marker: stage:ptf
+        - name: Stage the PTF staging removal completion request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/complete-teardown-stage-ptf.json'
+            content: '{{ ranking_teardown_ptf_stage_complete_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Complete the PTF staging removal attempt
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/complete-teardown-stage-ptf.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_stage_complete
+          failed_when: ranking_teardown_ptf_stage_complete.rc != 0
+          changed_when: true
+        - name: Build the DUT release request
+          ansible.builtin.set_fact:
+            ranking_teardown_dut_release_request:
+              action: release
+              handle: '{{ ranking_dut_handle }}'
+        - name: Stage the DUT release request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/release-dut.json'
+            content: '{{ ranking_teardown_dut_release_request | to_json }}'
+            mode: '0600'
+        - name: Release the restored DUT reservation
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/release-dut.json']
+          register: ranking_teardown_dut_release
+          failed_when: ranking_teardown_dut_release.rc != 0
+          changed_when: true
+        - name: Record the released DUT resource
+          ansible.builtin.set_fact:
+            ranking_teardown_released: ['{{ ranking_dut_resource }}']
+        - name: Build the PTF release request
+          ansible.builtin.set_fact:
+            ranking_teardown_ptf_release_request:
+              action: release
+              handle: '{{ ranking_ptf_handle }}'
+        - name: Stage the PTF release request
+          ansible.builtin.copy:
+            dest: '{{ ranking_request_root }}/release-ptf.json'
+            content: '{{ ranking_teardown_ptf_release_request | to_json }}'
+            mode: '0600'
+          delegate_to: '{{ ranking_ptf_host }}'
+        - name: Release the restored PTF reservation
+          ansible.builtin.command:
+            argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/release-ptf.json']
+          delegate_to: '{{ ranking_ptf_host }}'
+          register: ranking_teardown_ptf_release
+          failed_when: ranking_teardown_ptf_release.rc != 0
+          changed_when: true
+        - name: Record the released ranking resources
+          ansible.builtin.set_fact:
+            ranking_teardown_released:
+              - '{{ ranking_dut_resource }}'
+              - '{{ ranking_ptf_resource }}'
+            ranking_teardown_uncertain: false
+  always:
+    - name: Assemble the ranking role outcome record
+      ansible.builtin.set_fact:
+        ranking_role_outcome:
+          schema_version: 1
+          environment_id: '{{ ranking_environment_id }}'
+          action: '{{ ranking_action }}'
+          restored: '{{ ranking_teardown_restored | default(false) }}'
+          released: '{{ ranking_teardown_released | default([]) }}'
+          kept: '{{ ranking_teardown_kept | default(false) }}'
+          uncertain: '{{ ranking_teardown_uncertain | default(true) }}'
+    - name: Stage the ranking role outcome record
+      ansible.builtin.copy:
+        dest: '{{ ranking_request_root }}/role-outcome.json'
+        content: '{{ ranking_role_outcome | to_json }}'
+        mode: '0600'
+    - name: Fetch the ranking role outcome record
+      ansible.builtin.fetch:
+        src: '{{ ranking_request_root }}/role-outcome.json'
+        dest: '{{ ranking_artifacts_dir }}/role-outcome.json'
+        flat: true

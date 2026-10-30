@@ -1,0 +1,16 @@
+- name: Build the action guard completion request
+  ansible.builtin.set_fact:
+    ranking_end_action_request:
+      action: end_action
+      handle: '{{ item.handle }}'
+- name: Stage the action guard completion request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/end-{{ item.handle.resource | replace(":", "-") }}.json'
+    content: '{{ ranking_end_action_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ item.host }}'
+- name: Release the confirmed resource action guard
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/end-{{ item.handle.resource | replace(":", "-") }}.json']
+  delegate_to: '{{ item.host }}'
+  changed_when: true

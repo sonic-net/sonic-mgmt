@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "source_identity": {
+    "repo": "SONiC/SAI",
+    "branch": "v1.16",
+    "commit": "0fdb79347fcb63262d21d6652546102a4e5eb2d1"
+  },
+  "rpc_port": "configurable",
+  "requires_dut_credentials": false,
+  "switch_owner": "case",
+  "dataplane_validation": "after_create_switch"
+}

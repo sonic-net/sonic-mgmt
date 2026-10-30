@@ -1,0 +1,28 @@
+- name: Bind operation-specific host control paths
+  ansible.builtin.set_fact:
+    ranking_request_root: '{{ ranking_request_base }}/{{ ranking_environment_id }}/{{ ranking_operation_id }}/{{ ranking_action_id }}'
+    ranking_agent_root: '{{ ranking_request_base }}/{{ ranking_environment_id }}/{{ ranking_operation_id }}/{{ ranking_action_id }}/agent'
+- name: Validate and create the private ranking host control directories
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - '{{ lookup("file", role_path + "/../../../tests/ranking/host_bootstrap.py") }}'
+      - '{{ ranking_request_base }}'
+      - '{{ ranking_agent_root }}/ranking'
+  changed_when: true
+  delegate_to: '{{ item }}'
+  loop: '{{ [ranking_dut_host, ranking_ptf_host] | unique | list }}'
+- name: Deploy the DUT host control package
+  ansible.builtin.copy:
+    src: '{{ role_path }}/../../../tests/ranking/{{ item }}'
+    dest: '{{ ranking_agent_root }}/ranking/{{ item }}'
+    mode: '0600'
+  loop: [__init__.py, remote_agent.py, environment_ownership.py, state_store.py, snapshot_contract.py]
+- name: Deploy the PTF host control package
+  ansible.builtin.copy:
+    src: '{{ role_path }}/../../../tests/ranking/{{ item }}'
+    dest: '{{ ranking_agent_root }}/ranking/{{ item }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+  loop: [__init__.py, remote_agent.py, environment_ownership.py, state_store.py, snapshot_contract.py]

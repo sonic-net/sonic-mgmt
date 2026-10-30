@@ -1,0 +1,82 @@
+- name: Read the DUT machine identity for validation
+  ansible.builtin.slurp:
+    src: '{{ ranking_runtime.dut_identity_file }}'
+  register: ranking_dut_machine_id_raw
+- name: Bind the DUT validation key
+  ansible.builtin.set_fact:
+    ranking_dut_resource: 'dut:{{ ranking_dut_machine_id_raw.content | b64decode | ranking_dut_identity }}'
+- name: Read the PTF machine identity for validation
+  ansible.builtin.slurp:
+    src: /etc/machine-id
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_machine_id_raw
+- name: Inspect the running PTF container for validation
+  ansible.builtin.command:
+    argv: [docker, inspect, '{{ ranking_runtime.ptf_container }}']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_container_info
+  failed_when: ranking_ptf_container_info.rc != 0
+  changed_when: false
+- name: Parse the PTF container record for validation
+  ansible.builtin.set_fact:
+    ranking_ptf_container_record: '{{ ranking_ptf_container_info.stdout | from_json }}'
+- name: Bind the PTF validation keys
+  ansible.builtin.set_fact:
+    ranking_ptf_machine_id: '{{ ranking_ptf_machine_id_raw.content | b64decode | trim }}'
+    ranking_ptf_container_id: '{{ ranking_ptf_container_record[0].Id }}'
+- name: Bind the PTF validation resource key
+  ansible.builtin.set_fact:
+    ranking_ptf_resource: 'ptf:{{ ranking_ptf_machine_id }}:{{ ranking_ptf_container_id }}'
+- name: Build the DUT validation request
+  ansible.builtin.set_fact:
+    ranking_dut_validate_request:
+      action: validate
+      handle:
+        resource: '{{ ranking_dut_resource }}'
+        environment_id: '{{ ranking_environment_id }}'
+        operation_id: '{{ ranking_operation_id }}'
+        created: true
+- name: Stage the DUT validation request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/validate-dut.json'
+    content: '{{ ranking_dut_validate_request | to_json }}'
+    mode: '0600'
+- name: Validate the DUT ownership
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/validate-dut.json']
+  register: ranking_dut_validate
+  failed_when: false
+  changed_when: false
+- name: Build the PTF validation request
+  ansible.builtin.set_fact:
+    ranking_ptf_validate_request:
+      action: validate
+      handle:
+        resource: '{{ ranking_ptf_resource }}'
+        environment_id: '{{ ranking_environment_id }}'
+        operation_id: '{{ ranking_operation_id }}'
+        created: true
+- name: Stage the PTF validation request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/validate-ptf.json'
+    content: '{{ ranking_ptf_validate_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Validate the PTF ownership
+  ansible.builtin.command:
+    argv: [python3, '{{ ranking_agent_root }}/ranking/remote_agent.py', --request, '{{ ranking_request_root }}/validate-ptf.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_validate
+  failed_when: false
+  changed_when: false
+- name: Require the DUT ownership
+  ansible.builtin.fail:
+    msg: ranking environment is owned by another operation
+  when: ranking_dut_validate.rc != 0
+- name: Require the PTF ownership
+  ansible.builtin.fail:
+    msg: ranking environment is owned by another operation
+  when: ranking_ptf_validate.rc != 0
+- name: Mark ranking ownership validated
+  ansible.builtin.set_fact:
+    ranking_ownership_acquired: true

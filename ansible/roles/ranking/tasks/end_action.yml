@@ -1,0 +1,3 @@
+- name: Release each confirmed action guard
+  ansible.builtin.include_tasks: end_action_resource.yml
+  loop: '{{ ranking_action_handles | reverse | list }}'
