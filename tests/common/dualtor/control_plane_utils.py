@@ -19,6 +19,12 @@ DB_NAME_MAP = {
     CONFIG_DB: "CONFIG_DB"
 }
 
+SONIC_DB_NAME_MAP = {
+    APP_DB: "APPL_DB",
+    STATE_DB: "STATE_DB",
+    CONFIG_DB: "CONFIG_DB"
+}
+
 DB_SEPARATOR_MAP = {
     APP_DB: ":",
     STATE_DB: "|",
@@ -103,8 +109,8 @@ class DBChecker:
 
     def _dump_db(self, db, key_pattern):
         """Dump redis database matching specificied key pattern"""
-        command = "redis-dump -d {db} -k \"{key_pattern}\"".format(
-            db=db, key_pattern=key_pattern)
+        command = "sonic-db-dump -n {db_name} -k \"{key_pattern}\"".format(
+            db_name=SONIC_DB_NAME_MAP[db], key_pattern=key_pattern)
         lines = self.duthost.shell(command)["stdout_lines"]
         db_dump = json.loads(lines[0])
         logger.debug(json.dumps(db_dump, indent=4))

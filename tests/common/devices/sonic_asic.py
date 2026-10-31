@@ -542,7 +542,7 @@ class SonicAsic(object):
             Queue OID
         """
         redis_cmd = [
-            "redis-cli", "-n", "2", "HGET", "COUNTERS_QUEUE_NAME_MAP",
+            "sonic-db-cli", "COUNTERS_DB", "HGET", "COUNTERS_QUEUE_NAME_MAP",
             "{}:{}".format(port, queue_num)
         ]
         queue_oid = next(iter(self.run_redis_cmd(redis_cmd)), None)
@@ -712,9 +712,9 @@ class SonicAsic(object):
         else:
             def_rt_str = 'ROUTE_TABLE:::/0'
 
+        dump_cmd = self.sonichost.get_sonic_db_dump_command("APPL_DB", self.namespace)
         def_rt_entry = self.sonichost.shell(
-            "{} redis-dump -y -k \"{}\" --pretty".format(
-                self.ns_arg, def_rt_str))['stdout']
+            "{} -y -k \"{}\" --pretty".format(dump_cmd, def_rt_str))['stdout']
         if def_rt_entry is not None:
             def_rt_json = json.loads(def_rt_entry)
         return def_rt_json

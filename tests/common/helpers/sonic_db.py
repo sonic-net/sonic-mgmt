@@ -9,6 +9,35 @@ from tests.common.devices.sonic_asic import SonicAsic
 logger = logging.getLogger(__name__)
 
 
+def redis_cli_argv(host, database):
+    """Select a native CLI endpoint without changing its arguments or output."""
+    metadata = ["cat", "/var/run/redis/sonic-db/database_config.json"]
+    if isinstance(host, SonicAsic):
+        configuration = json.loads("\n".join(host.run_redis_cmd(argv=metadata)))
+    else:
+        configuration = json.loads(host.command(argv=metadata)["stdout"])
+    databases = configuration["DATABASES"]
+    if isinstance(database, int) or str(database).isdigit():
+        primary = databases["CONFIG_DB"]["instance"]
+        database = next((name for name, settings in databases.items()
+                         if int(settings["id"]) == int(database) and settings["instance"] == primary), None)
+        if database is None:
+            raise ValueError("Database ID is not configured in the local primary Redis instance")
+    db = databases[database]
+    instance = configuration["INSTANCES"][db["instance"]]
+    port = int(instance.get("port", 6379))
+    if port == 0:
+        endpoint = ["-s", instance["unix_socket_path"]]
+    else:
+        endpoint = ["-h", instance.get("hostname", "localhost"), "-p", str(port)]
+    return ["redis-cli"] + endpoint + ["-n", str(db["id"])]
+
+
+def redis_cli_command(host, database):
+    """Quote the configured native CLI prefix for a shell command."""
+    return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+
+
 class SonicDbCli(object):
     """Base class for interface to SonicDb using sonic-db-cli command.
 
