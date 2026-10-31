@@ -1,0 +1,2 @@
+mgmt_bridge: br1
+mgmt_gw: 172.31.100.1
