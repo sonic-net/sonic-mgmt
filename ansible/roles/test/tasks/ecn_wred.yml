@@ -41,7 +41,7 @@
 - block:
     # Test case #3(MA): Check configuration applied
     - name: Check if ASIC DB configured qos parameters
-      shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
+      shell: docker exec database sonic-db-cli -s ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
       register: grep_queue
       failed_when: grep_queue.rc != 0
 

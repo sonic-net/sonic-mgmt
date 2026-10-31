@@ -61,7 +61,7 @@
 
 - name: Get the SONiC DB key holding neighbour MAC for {{ host_ip }}
   become: true
-  shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
+  shell: docker exec database sonic-db-cli -s ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
   register: neighbour_key
   failed_when: neighbour_key.rc != 0
 
@@ -91,7 +91,7 @@
 
 - name: Get the SONiC DB key holding neighbour MAC for {{ host_ip }}
   become: true
-  shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
+  shell: docker exec database sonic-db-cli -s ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY* | grep {{ host_ip }}
   register: neighbour_key
   failed_when: neighbour_key.rc != 0
 

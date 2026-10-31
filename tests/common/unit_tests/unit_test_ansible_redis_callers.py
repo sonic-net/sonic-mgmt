@@ -67,7 +67,8 @@ def test_parallel_bgp_updates_keep_numeric_database_and_presence_formats(tmp_pat
     calls = []
     cli = tmp_path / 'sonic-db-cli'
     cli.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n'
-                   'if [ "$2" = EXISTS ]; then printf "%s\\n" "$EXISTS"; else echo OK; fi\n')
+                   'if [ "$1" != -s ]; then exit 90; fi\n'
+                   'shift\nif [ "$2" = EXISTS ]; then printf "%s\\n" "$EXISTS"; else echo OK; fi\n')
     cli.chmod(0o755)
     environment = dict(os.environ, PATH=str(tmp_path) + os.pathsep + os.environ['PATH'],
                        CALLS=str(tmp_path / 'calls'), EXISTS=exists)
@@ -91,8 +92,8 @@ def test_parallel_bgp_updates_keep_numeric_database_and_presence_formats(tmp_pat
         with pytest.raises(ValueError, match='No BGP neighbor keys were toggled'):
             function(SimpleNamespace(fail_json=fail), ['2001:db8::1'], 'down', parallelism=1, redis_db=4)
     command_calls = (tmp_path / 'calls').read_text().splitlines()
-    assert command_calls[0] == 'CONFIG_DB EXISTS BGP_NEIGHBOR|2001:db8::1'
-    expected_updates = ['CONFIG_DB HSET BGP_NEIGHBOR|2001:db8::1 admin_status down'] if exists in ('True', '1') else []
+    assert command_calls[0] == '-s CONFIG_DB EXISTS BGP_NEIGHBOR|2001:db8::1'
+    expected_updates = ['-s CONFIG_DB HSET BGP_NEIGHBOR|2001:db8::1 admin_status down'] if exists in ('True', '1') else []
     assert command_calls[1:] == expected_updates
     assert len(calls) == 1
 
@@ -100,4 +101,4 @@ def test_parallel_bgp_updates_keep_numeric_database_and_presence_formats(tmp_pat
 def test_everflow_reads_use_the_named_application_database():
     text = (TASKS / 'everflow/logic_test/logic_test.yml').read_text()
     assert 'docker exec -i swss redis-cli' not in text
-    assert text.count('sonic-db-cli APPL_DB HGET MIRROR_SESSION_TABLE:') == 5
+    assert text.count('sonic-db-cli -s APPL_DB HGET MIRROR_SESSION_TABLE:') == 5
