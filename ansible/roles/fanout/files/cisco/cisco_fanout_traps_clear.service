@@ -7,8 +7,10 @@ BindsTo=syncd.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-TimeoutStartSec=720
-ExecStart=/usr/bin/python3 /usr/local/bin/cisco_fanout_traps_clear.py
+# Longer than the script's own retry deadline (TRAPS_CLEAR_TIMEOUT, 1800 s by default).
+# No Restart=: systemd < 244 refuses Restart= on Type=oneshot units; the script retries itself.
+TimeoutStartSec=2100
+ExecStart=/usr/bin/python3 -u /usr/local/bin/cisco_fanout_traps_clear.py
 
 [Install]
 # We strictly want to be triggered by syncd.service
