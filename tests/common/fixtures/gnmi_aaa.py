@@ -10,6 +10,7 @@ import pytest
 
 from tests.common.fixtures.grpc_fixtures import _get_target_duthost, _gnmi_tls_flow
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_del, redis_hdel, redis_hset
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 PRINCIPAL = "test.client.gnmi.sonic"
@@ -93,6 +94,8 @@ class _RoleTlsOwner:
         self.expected = None
         self.mapping = None
         self.broken = False
+        self.log_request = None
+        self.log_analyzer = None
 
     def close(self):
         flow, self.flow = self.flow, None
@@ -107,6 +110,36 @@ class _RoleTlsOwner:
                 raise
             self.broken = True
             raise RuntimeError("TLS lifecycle yielded more than once")
+
+    def close_with_logs(self):
+        """Cover module teardown, after the last function analyzer has finished.
+
+        Keep the last role request (including its disable marker) and analyzer
+        for platform/test ignore patterns. Do not reuse its markers or expected
+        messages: those belong to the already-analyzed function window.
+        """
+        if self.flow is None:
+            return
+        analyzer = marker = None
+        try:
+            request = self.log_request
+            if (request is not None and not request.config.getoption("--disable_loganalyzer")
+                    and "disable_loganalyzer" not in request.keywords):
+                analyzer = LogAnalyzer(ansible_host=self.fixture.duthost,
+                                       marker_prefix="gnmi_aaa_tls_teardown", request=request)
+                analyzer.load_common_config()
+                if self.log_analyzer is not None:
+                    analyzer.ignore_regex.extend(self.log_analyzer.ignore_regex)
+                marker = analyzer.init()
+        finally:
+            # Even construction/config/init failures must not strand TLS. A
+            # nested finally also analyzes partial/failed cleanup and lets both
+            # failures appear in the chained traceback if analysis fails too.
+            try:
+                self.close()
+            finally:
+                if marker is not None:
+                    analyzer.analyze(marker)
 
     def acquire(self, duthosts, ptfhost, request):
         if self.broken:
@@ -180,7 +213,7 @@ def gnmi_aaa_tls_owner(core_dump_and_config_check):
     try:
         yield owner
     finally:
-        owner.close()
+        owner.close_with_logs()
 
 
 def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner):
@@ -193,10 +226,12 @@ def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner):
 
 
 @pytest.fixture
-def gnmi_aaa_role_tls(request, duthosts, ptfhost, gnmi_aaa_tls_owner, gnmi_aaa_case_boundary):
+def gnmi_aaa_role_tls(request, duthosts, ptfhost, gnmi_aaa_tls_owner, gnmi_aaa_case_boundary, loganalyzer):
     started = time.monotonic()
     try:
         with gnmi_aaa_tls_owner.case(duthosts, ptfhost, request) as fixture:
+            gnmi_aaa_tls_owner.log_request = request
+            gnmi_aaa_tls_owner.log_analyzer = (loganalyzer or {}).get(fixture.duthost.hostname)
             logger.info("AAA TLS case setup: %.3fs", time.monotonic() - started)
             yield fixture
     finally:

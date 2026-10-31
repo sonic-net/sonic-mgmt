@@ -66,7 +66,8 @@ AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 
 @pytest.fixture(autouse=True)
-def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner):  # noqa: F811
+def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner, loganalyzer):  # noqa: F811
+    # Start the function log window before closing shared TLS at a transition.
     # Autouse runs before other function fixtures, including fresh gnmi_tls.
     # A usefixtures mark alone does not establish that dependency ordering.
     _gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner)

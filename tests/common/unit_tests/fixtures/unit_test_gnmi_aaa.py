@@ -369,8 +369,9 @@ def test_public_fixture_scope_and_aaa_case_selection():
 
 
 @pytest.mark.parametrize("order", ["roles-first", "fresh-first", "interleaved"])
-@pytest.mark.parametrize("body_failure", [False, True])
-def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
+@pytest.mark.parametrize("failure", [None, "body", "setup", "cleanup", "module-init", "module-analyze",
+                                     "function-init", "function-analyze"])
+def test_real_pytest_scope_ordering(tmp_path, order, failure):
     """Real pytest fixtures prove nonoverlap and cleanup before config check."""
     production = _source(AAA)
     prelude = textwrap.dedent('''
@@ -380,15 +381,23 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
         import pytest
         CONFIG_DB = 'CONFIG_DB'
         events = []
+        log_events = []
+        covered = set()
+        failure = FAILURE
         state = {'DEVICE_METADATA': {'localhost': {}},
                  'GNMI_CLIENT_CERT': {'test.client.gnmi.sonic': {'role': ['admin']}}}
-        dut = SimpleNamespace(shell=lambda command, **k: {'rc': 0, 'stdout': json.dumps(
+        dut = SimpleNamespace(hostname='dut', shell=lambda command, **k: {'rc': 0, 'stdout': json.dumps(
             ['role@', 'admin'] if ' EVAL ' in command else state)})
         _get_target_duthost = lambda *args: dut
         def _gnmi_tls_flow(*args, **kwargs):
             events.append('shared-start')
-            yield SimpleNamespace(duthost=dut, pygnmi_client=SimpleNamespace(close=lambda: None))
-            events.append('shared-stop')
+            try:
+                if failure == 'setup': raise ValueError('injected-setup')
+                yield SimpleNamespace(duthost=dut, pygnmi_client=SimpleNamespace(close=lambda: None))
+            finally:
+                events.append('shared-stop')
+                log_events.append('shared-stop')
+                if failure == 'cleanup': raise ValueError('injected-cleanup')
         def redis_del(*args):
             return [{'rc': 0}]
         def redis_hset(*args, **kwargs):
@@ -397,6 +406,30 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
             return {'rc': 0}
     ''')
     fixtures = textwrap.dedent('''
+        class LogAnalyzer:
+            def __init__(self, **kwargs):
+                self.ignore_regex = []
+            def load_common_config(self): pass
+            def init(self):
+                log_events.append('module-init')
+                if failure == 'module-init': raise ValueError('injected-module-init')
+                return len(log_events)
+            def analyze(self, marker):
+                covered.update(range(marker, len(log_events)))
+                log_events.append('module-analyze')
+                if failure == 'module-analyze': raise ValueError('injected-module-analyze')
+        @pytest.fixture(autouse=True)
+        def loganalyzer(request):
+            log_events.append('function-init')
+            if failure == 'function-init' and request.node.name == 'test_fresh':
+                raise ValueError('injected-function-init')
+            marker = len(log_events)
+            yield {'dut': SimpleNamespace(ignore_regex=['platform-ignore'])}
+            covered.update(range(marker, len(log_events)))
+            log_events.append('function-analyze')
+            if failure == 'function-analyze': raise ValueError('injected-function-analyze')
+        def pytest_addoption(parser):
+            parser.addoption('--disable_loganalyzer', action='store_true')
         @pytest.fixture(scope='session')
         def duthosts(): return [dut]
         @pytest.fixture(scope='session')
@@ -407,6 +440,8 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
             yield
             events.append('config-stop')
             with open('events.json', 'w') as stream: json.dump(events, stream)
+            with open('logs.json', 'w') as stream:
+                json.dump({'events': log_events, 'covered': sorted(covered)}, stream)
         # Same local autouse wrapper as the real AAA module. The fresh fixture
         # deliberately has NO dependency on the boundary: autouse must order it.
         _boundary = gnmi_aaa_case_boundary
@@ -415,8 +450,9 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
             events.append('fresh-start')
             yield
             events.append('fresh-stop')
+            log_events.append('fresh-stop')
     ''')
-    (tmp_path / "conftest.py").write_text(prelude + production + fixtures)
+    (tmp_path / "conftest.py").write_text(prelude.replace("FAILURE", repr(failure)) + production + fixtures)
     (tmp_path / "pytest.ini").write_text("[pytest]\n")
     actual_boundary = _source(TESTS / "gnmi/test_gnmi_aaa.py", {"gnmi_aaa_case_boundary"})
     (tmp_path / "test_cases.py").write_text(
@@ -430,14 +466,27 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
     fresh = "test_cases.py::test_fresh"
     selections = {"roles-first": [role, fresh], "fresh-first": [fresh, role],
                   "interleaved": [role + "[0]", fresh, role + "[1]", role + "[2]"]}[order]
-    if body_failure:
+    if failure == "body":
         test_path = tmp_path / "test_cases.py"
         test_path.write_text(test_path.read_text().replace(
             "def test_role(gnmi_aaa_role_tls, n): pass",
             "def test_role(gnmi_aaa_role_tls, n): assert n != 1"))
     result = subprocess.run([sys.executable, "-m", "pytest", "-q", *selections],
                             cwd=tmp_path, text=True, capture_output=True)
-    assert result.returncode == (1 if body_failure else 0), result.stdout + result.stderr
+    failed = failure is not None and not (order == "roles-first" and failure in ("module-init", "module-analyze"))
+    assert result.returncode == int(failed), result.stdout + result.stderr
+    if failed:
+        assert ("assert n != 1" if failure == "body" else "injected-" + failure) in result.stdout
+    logs = json.loads((tmp_path / "logs.json").read_text())
+    for index, event in enumerate(logs["events"]):
+        if event in ("shared-stop", "fresh-stop"):
+            # Failed marker insertion cannot cover logs, but must fail visibly
+            # and still run cleanup; all other paths must cover every stop.
+            assert index in logs["covered"] or failure == "module-init", logs
+    assert logs["events"].count("function-init") == 4
+    assert logs["events"].count("function-analyze") == (3 if failure == "function-init" else 4)
+    if failure in (None, "body", "function-analyze"):
+        assert logs["events"].count("module-analyze") == (order != "roles-first")
     events = json.loads((tmp_path / "events.json").read_text())
     assert events[0] == "config-start" and events[-1] == "config-stop"
     active = None
@@ -453,7 +502,86 @@ def test_real_pytest_scope_ordering(tmp_path, order, body_failure):
     # Real pytest body failures are not thrown into yield fixtures. Sharing
     # continues only after exact per-case restoration succeeds. The failed body
     # remains a failure; cleanup/setup failures separately poison the owner.
-    assert events.count("shared-start") == (2 if order == "interleaved" else 1)
+    expected_starts = 2 if order == "interleaved" and failure not in ("setup", "cleanup", "function-init") else 1
+    assert events.count("shared-start") == expected_starts
+
+
+@pytest.mark.parametrize("disabled", [None, "option", "marker"])
+@pytest.mark.parametrize("ignore_failure", [False, True])
+@pytest.mark.parametrize("store_logs", [False, True])
+def test_module_teardown_log_policy(environment, disabled, ignore_failure, store_logs):
+    env = environment
+    env.owner.acquire(None, None, None)
+    options = {"--disable_loganalyzer": disabled == "option", "--ignore_la_failure": ignore_failure,
+               "--store_la_logs": store_logs}
+    request = SimpleNamespace(config=SimpleNamespace(getoption=options.__getitem__),
+                              keywords={"disable_loganalyzer": True} if disabled == "marker" else {})
+    env.owner.log_request = request
+    env.owner.log_analyzer = SimpleNamespace(
+        ignore_regex=["platform-ignore", "test-ignore"], expect_regex=["body-only-expectation"])
+    analyzer = Mock(ignore_regex=["common-ignore", "extended-ignore"])
+    env.ns["LogAnalyzer"] = Mock(return_value=analyzer)
+    env.owner.close_with_logs()
+    assert env.events == ["start", "stop"]
+    if disabled:
+        env.ns["LogAnalyzer"].assert_not_called()
+    else:
+        env.ns["LogAnalyzer"].assert_called_once_with(
+            ansible_host=env.dut, marker_prefix="gnmi_aaa_tls_teardown", request=request)
+        analyzer.load_common_config.assert_called_once()
+        assert analyzer.ignore_regex == ["common-ignore", "extended-ignore", "platform-ignore", "test-ignore"]
+        analyzer.analyze.assert_called_once_with(analyzer.init.return_value)
+        # The real API reads these options from request in __init__ and uses
+        # them when analyze is called without overrides.
+        tree = ast.parse((TESTS / "common/plugins/loganalyzer/loganalyzer.py").read_text())
+        cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "LogAnalyzer")
+        init = next(node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
+        ns = dict(os=SimpleNamespace(path=SimpleNamespace(join=lambda *parts: "/".join(parts))),
+                  ansible_loganalyzer=Mock(), BugHandler=Mock(), get_bughandler_instance=Mock())
+        exec(compile(ast.Module(body=[init], type_ignores=[]), "loganalyzer-init", "exec"), ns)
+        env.dut.hostname = "dut"
+        actual = SimpleNamespace()
+        ns["__init__"](actual, env.dut, "teardown", request=request)
+        assert actual.fail is not ignore_failure
+        assert actual.store_la_logs is store_logs
+        assert actual.expect_regex == []
+
+
+@pytest.mark.parametrize("failure", ["construct", "config", "init", "analyze"])
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_module_log_failure_never_prevents_cleanup(environment, failure, cleanup_fails):
+    env = environment
+    original_flow = env.ns["_gnmi_tls_flow"]
+
+    def flow(*args, **kwargs):
+        yield from original_flow(*args, **kwargs)
+        if cleanup_fails:
+            raise ValueError("cleanup-failure")
+
+    env.ns["_gnmi_tls_flow"] = flow
+    env.owner.acquire(None, None, None)
+    env.owner.log_request = SimpleNamespace(config=SimpleNamespace(getoption=lambda option: False), keywords={})
+    analyzer = Mock(ignore_regex=[])
+    factory = Mock(return_value=analyzer)
+    env.ns["LogAnalyzer"] = factory
+    method = {"config": "load_common_config"}.get(failure, failure)
+    target = factory if failure == "construct" else getattr(analyzer, method)
+    target.side_effect = ValueError("analyzer-failure")
+    with pytest.raises(ValueError) as caught:
+        env.owner.close_with_logs()
+    assert env.events == ["start", "stop"]
+    assert env.owner.flow is None
+    errors = []
+    error = caught.value
+    while error is not None:
+        errors.append(str(error))
+        error = error.__context__
+    assert "analyzer-failure" in errors
+    assert ("cleanup-failure" in errors) is cleanup_fails
+    if failure == "analyze":
+        analyzer.analyze.assert_called_once_with(analyzer.init.return_value)
+    else:
+        analyzer.analyze.assert_not_called()
 
 
 @pytest.mark.parametrize("method", ["get", "set", "capabilities"])
