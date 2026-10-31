@@ -579,7 +579,8 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
 
     # Apply blocking scheduler to the specified queue
-    cmd_block_q = f"sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
+    cmd_block_q = (f"sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler "
+                   f"{BLOCK_DATA_PLANE_SCHEDULER_NAME}")
     duthost.shell(cmd_block_q)
 
     # Wait for the blocking scheduler configuration to take effect in CONFIG_DB

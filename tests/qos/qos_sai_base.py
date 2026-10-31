@@ -79,8 +79,8 @@ class QosBase:
         if not self.buffer_model_initialized:
             self.buffer_model = dut_asic.run_redis_cmd(
                 argv=["sonic-db-cli", '-s', 'CONFIG_DB', "hget",
-                    "DEVICE_METADATA|localhost", "buffer_model"
-                ]
+                      "DEVICE_METADATA|localhost", "buffer_model"
+                      ]
             )
 
             self.buffer_model_initialized = True
@@ -341,8 +341,8 @@ class QosSaiBase(QosBase):
 
         bufferPoolVoid = six.text_type(dut_asic.run_redis_cmd(
             argv=["sonic-db-cli", '-s', 'COUNTERS_DB', "HGET",
-                "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
-            ]
+                  "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
+                  ]
         )[0])
         bufferProfile.update({"bufferPoolVoid": bufferPoolVoid})
 
@@ -488,9 +488,9 @@ class QosSaiBase(QosBase):
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                    "wred_profile"
-                ]
+                      "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                      "wred_profile"
+                      ]
             )[0]
             if six.PY2:
                 wredProfileName = out.encode("utf-8").translate(None, "[]")
@@ -499,9 +499,9 @@ class QosSaiBase(QosBase):
         else:
             wredProfileName = "WRED_PROFILE|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                    "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
-                    "wred_profile"
-                ]
+                      "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
+                      "wred_profile"
+                      ]
             )[0])
 
         result = dut_asic.run_redis_cmd(
@@ -524,8 +524,8 @@ class QosSaiBase(QosBase):
         """
         watermarkStatus = six.text_type(dut_asic.run_redis_cmd(
             argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
-            ]
+                  "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
+                  ]
         )[0])
 
         return watermarkStatus
@@ -545,8 +545,8 @@ class QosSaiBase(QosBase):
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                ]
+                      "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                      ]
             )[0]
             if six.PY2:
                 schedProfile = out.encode("utf-8").translate(None, "[]")
@@ -558,22 +558,22 @@ class QosSaiBase(QosBase):
                 if dut_asic.sonichost.is_multi_asic:
                     schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                         argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                            "QUEUE|{0}|{1}|{2}|{3}"
-                            .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
-                        ]
+                              "QUEUE|{0}|{1}|{2}|{3}"
+                              .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
+                              ]
                     )[0])
                 else:
                     schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                         argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                            "QUEUE|{0}|Asic0|{1}|{2}"
-                            .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
-                        ]
+                              "QUEUE|{0}|Asic0|{1}|{2}"
+                              .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
+                              ]
                     )[0])
             else:
                 schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                     argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
-                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                    ]
+                          "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                          ]
                 )[0])
         schedWeight = six.text_type(dut_asic.run_redis_cmd(
             argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET", schedProfile, "weight"]
@@ -2692,10 +2692,10 @@ class QosSaiBase(QosBase):
             for a_asic in get_src_dst_asic_and_duts['all_asics']:
                 a_asic.run_redis_cmd(
                     argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HSET",
-                        schedParam["profile"],
-                        "weight",
-                        schedParam["qosConfig"]
-                    ]
+                          schedParam["profile"],
+                          "weight",
+                          schedParam["qosConfig"]
+                          ]
                 )
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
@@ -3897,7 +3897,8 @@ def set_queue_pir(interface, queue, rate):
         weights_list = []
         for queue in queue_table_postfix_list:
             key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"  # noqa: E231
-            dynamic_th_res = duthost.run_redis_cmd(argv=["sonic-db-cli", '-s', 'APPL_DB', "HGET", key_str, "dynamic_th"])
+            dynamic_th_res = duthost.run_redis_cmd(
+                argv=["sonic-db-cli", '-s', 'APPL_DB', "HGET", key_str, "dynamic_th"])
             if dynamic_th_res:
                 queue_dynamic_th_map[queue] = dynamic_th_res[0]
         logging.info(f"queue_dynamic_th_map: {queue_dynamic_th_map}")

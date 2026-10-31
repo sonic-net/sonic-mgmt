@@ -159,7 +159,8 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
     pfc_asym_restored = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED"
 
-    get_asym_pfc = "docker exec -i database sonic-db-cli -s ASIC_DB HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}"
+    get_asym_pfc = ("docker exec -i database sonic-db-cli -s ASIC_DB HGET "
+                    "ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}")
     sai_asym_pfc_rx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_RX"
     sai_asym_pfc_tx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_TX"
     sai_default_asym_pfc = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL"

@@ -737,7 +737,8 @@ def check_pfc_enable(duthost, port, expected_pfc_enable_map):
                   "Port {} pfc enable check failed expected: {} got: {}".format(
                       port,
                       expected_pfc_enable_map,
-                      duthost.shell('sonic-db-cli -s CONFIG_DB hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']))
+                      duthost.shell(
+                          'sonic-db-cli -s CONFIG_DB hget "PORT_QOS_MAP|{}" pfc_enable'.format(port))['stdout']))
 
 
 def check_lossless_profile_removed(duthost, profile, sai_oid=None):

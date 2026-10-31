@@ -125,7 +125,8 @@ def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     apply_dscp_cfg_teardown(duthost, loganalyzer)
     logger.info("Recover the original QoS map configuration")
     if is_global_map_key_exist:
-        duthost.shell(f'sonic-db-cli -s CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
+        duthost.shell(
+            f'sonic-db-cli -s CONFIG_DB HSET "PORT_QOS_MAP|global" "dscp_to_tc_map" "{origin_dscp_to_tc_map}"')
     else:
         duthost.shell('sonic-db-cli -s CONFIG_DB DEL "PORT_QOS_MAP|global"')
 
