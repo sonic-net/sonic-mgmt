@@ -56,6 +56,8 @@ LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
 LOSSLESS_MTU = None
 SMALL_PACKET_PERCENTAGE = None
 
+SPECTRUM6_HEADROOM_COMPENSATION = 18 * 1024
+
 KEY_2_LOSSLESS_QUEUE = "2_lossless_queues"
 KEY_4_LOSSLESS_QUEUE = "4_lossless_queues"
 
@@ -1734,10 +1736,11 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell('config buffer shared-headroom-pool size 0')
         check_buffer_profiles_for_shp(duthost, shp_enabled=False)
     finally:
+        # The CLI removes the field on 0, which is how an unset original value is restored
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(
-            original_over_subscribe_ratio), module_ignore_errors=True)
+            original_over_subscribe_ratio or '0'), module_ignore_errors=True)
         duthost.shell('config buffer shared-headroom-pool size {}'.format(
-            original_configured_shp_size), module_ignore_errors=True)
+            original_configured_shp_size or '0'), module_ignore_errors=True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test,
                       original_cable_len), module_ignore_errors=True)
         ensure_pool_size(duthost, 60, pool_size_before_shp,
@@ -3449,7 +3452,8 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     bytes_on_cable = 2 * (float(cable_length)) * port_speed * \
         1000000000 / speed_of_light / (8 * 1000)
 
-    if get_chip_type(duthost) in ["spectrum4", "spectrum5"]:
+    chip_type = get_chip_type(duthost)
+    if chip_type in ["spectrum4", "spectrum5"]:
         kb_on_tile = port_speed / 1000 * 120 / 8
     else:
         kb_on_tile = 0
@@ -3461,6 +3465,11 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * byte_num_in_headroom_per_byte_on_cable
     xoff_value = math.ceil(xoff_value / 1024) * 1024
+
+    # Spectrum-6 requires additional headroom for ASIC packet-buffer accounting.
+    if chip_type == "spectrum6":
+        xoff_value += SPECTRUM6_HEADROOM_COMPENSATION
+
     xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
