@@ -6,6 +6,7 @@ from .args.qos_sai_args import add_qos_sai_args
 from .args.buffer_args import add_dynamic_buffer_calculation_args
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 from tests.common.config_reload import config_reload
+from tests.common.helpers.sonic_db import redis_cli_command
 
 # QoS pytest arguments
 
@@ -93,7 +94,7 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
     single_slc = None
     for intf in all_ports:
         lanes = duthost.shell(
-            'redis-cli -n 4 hget "PORT|{}" lanes'.format(intf))['stdout'].split(',')
+            'sonic-db-cli CONFIG_DB hget "PORT|{}" lanes'.format(intf))['stdout'].split(',')
         assert len(lanes) > 0, "Lanes not found for port {}".format(intf)
         slc = int(lanes[0]) >> 9
         if single_slc is None:
@@ -145,7 +146,7 @@ def is_buffer_model_dynamic(duthost):
         duthost: The DUT host fixture
     """
     buffer_model = duthost.shell(
-        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
     yield (buffer_model == 'dynamic')
 
 
@@ -158,7 +159,8 @@ def is_lossy_only_pool(duthost):
     Args:
         duthost: The DUT host fixtute
     """
-    cables_len_data = duthost.shell("redis-cli -n 4 hgetall 'CABLE_LENGTH|AZURE'")['stdout'].splitlines()
+    cables_len_data = duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+                                    " hgetall 'CABLE_LENGTH|AZURE'"))['stdout'].splitlines()
     all_zero_m = all(cables_len_data[i + 1] == "0m" for i in range(0, len(cables_len_data), 2))
     yield all_zero_m
 
@@ -182,7 +184,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
     config_changed = False
     if not is_tunnel_qos_remap_enabled(duthost) and request.config.getoption("--qos_dual_tor"):
-        duthost.shell("redis-cli -n 4 hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
+        duthost.shell("sonic-db-cli CONFIG_DB hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)
@@ -191,7 +193,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     yield
 
     if config_changed:
-        duthost.shell('redis-cli -n 4 DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
+        duthost.shell('sonic-db-cli CONFIG_DB DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)

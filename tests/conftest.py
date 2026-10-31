@@ -4117,7 +4117,7 @@ def setup_pfc_test(
 
     # set bulk counter chunk size
     logger.info("--- Setting bulk counter polling chunk size ---")
-    duthost.command('redis-cli -n 4 hset "FLEX_COUNTER_TABLE|PORT" BULK_CHUNK_SIZE 64'
+    duthost.command('sonic-db-cli CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" BULK_CHUNK_SIZE 64'
                     ' BULK_CHUNK_SIZE_PER_PREFIX "SAI_PORT_STAT_IF_OUT_QLEN:0;SAI_PORT_STAT_IF_IN_FEC:32"')
 
     logger.info("setup_info : {}".format(setup_info))

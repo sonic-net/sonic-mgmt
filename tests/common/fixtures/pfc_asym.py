@@ -153,13 +153,13 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     Enable/disable asymmetric PFC on all server interfaces
     """
     duthost = duthosts[rand_one_dut_hostname]
-    get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 " \
+    get_pfc_mode = "docker exec -i database sonic-db-cli ASIC_DB " \
                    "HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
     pfc_asym_restored = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED"
 
-    get_asym_pfc = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}"
+    get_asym_pfc = "docker exec -i database sonic-db-cli ASIC_DB HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{port} {sai_attr}"
     sai_asym_pfc_rx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_RX"
     sai_asym_pfc_tx = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_TX"
     sai_default_asym_pfc = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL"
@@ -319,13 +319,13 @@ class Setup(object):
                 "oid": None
             }
 
-            redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
+            redis_oid = self.duthost.command("docker exec -i database sonic-db-cli COUNTERS_DB HMGET \
                         COUNTERS_PORT_NAME_MAP {}".format(item))["stdout"]
             self.vars["server_ports_oids"].append(redis_oid)
 
             sai_redis_oid = int(
                 self.duthost.command(
-                    "docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid)
+                    "docker exec -i database sonic-db-cli ASIC_DB hget VIDTORID {}".format(redis_oid)
                 )["stdout"].replace("oid:", ""), 16
             )
             port_info["oid"] = sai_redis_oid
@@ -335,11 +335,11 @@ class Setup(object):
 
     def generate_non_server_ports(self):
         """ Generate list of port parameters which are connected to VMs """
-        redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
+        redis_oid = self.duthost.command("docker exec -i database sonic-db-cli COUNTERS_DB HMGET \
                                             COUNTERS_PORT_NAME_MAP {}".format(self.portchannel_member))["stdout"]
         sai_redis_oid = int(
             self.duthost.command(
-                "docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid)
+                "docker exec -i database sonic-db-cli ASIC_DB hget VIDTORID {}".format(redis_oid)
             )["stdout"].replace("oid:", ""), 16
         )
         self.vars["ptf_test_params"]["non_server_port"] = \
@@ -384,10 +384,10 @@ class Setup(object):
         lossless = []
         lossy = []
         buf_pg_keys = self.duthost.command(
-            "docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*"
+            "docker exec -i database sonic-db-cli CONFIG_DB KEYS *BUFFER_PG*"
         )["stdout"].split()
 
-        get_priority_cli = "for item in {}; do docker exec -i database redis-cli -n 4 " \
+        get_priority_cli = "for item in {}; do docker exec -i database sonic-db-cli CONFIG_DB " \
                            "HGET $item \"profile\"; done".format(
                                 " ".join(["\"{}\"".format(item) for item in buf_pg_keys])
                             )
@@ -407,15 +407,16 @@ class Setup(object):
     def generate_pfc_to_dscp_map(self):
         """ Get PFC to DSCP fields mapping """
         dscp_to_tc_key = self.duthost.command(
-            "docker exec -i database redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*"
+            "docker exec -i database sonic-db-cli CONFIG_DB KEYS *DSCP_TO_TC_MAP*"
         )["stdout"]
         dscp_to_tc_keys = self.duthost.command(
-            "docker exec -i database redis-cli --raw -n 4 HKEYS {}".format(dscp_to_tc_key)
+            "docker exec -i database sonic-db-cli CONFIG_DB HKEYS {}".format(dscp_to_tc_key)
         )["stdout"].split()
 
-        get_dscp_to_tc = "for item in {}; do docker exec -i database redis-cli -n 4 HGET \"{}\" $item; done".format(
-                            " ".join(dscp_to_tc_keys), dscp_to_tc_key
-                            )
+        get_dscp_to_tc = (
+            "for item in {}; do docker exec -i database "
+            "sonic-db-cli CONFIG_DB HGET \"{}\" $item; done").format(
+            " ".join(dscp_to_tc_keys), dscp_to_tc_key)
         dscp_to_tc = self.duthost.command(get_dscp_to_tc, _uses_shell=True)["stdout"]
         self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(
             list(zip(list(map(int, dscp_to_tc.split())), list(map(int, dscp_to_tc_keys))))

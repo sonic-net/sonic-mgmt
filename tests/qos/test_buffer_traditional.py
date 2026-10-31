@@ -4,6 +4,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import redis_cli_argv
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -80,7 +81,7 @@ def get_lossless_priorities(dut_asic, port):
         A set of ints (the lossless PGs), or None if pfc_enable isn't configured for the port
     """
     pfc_enable = dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'hget', 'PORT_QOS_MAP|{}'.format(port), 'pfc_enable'])
+        argv=["sonic-db-cli", 'CONFIG_DB', 'hget', 'PORT_QOS_MAP|{}'.format(port), 'pfc_enable'])
     if not pfc_enable or not pfc_enable[0]:
         return None
     return set(int(p.strip()) for p in pfc_enable[0].split(',') if p.strip() != '')
@@ -101,10 +102,11 @@ def get_lossless_buffer_pgs(dut_asic, port):
         (the extracted profile name, not the raw '[BUFFER_PROFILE|...]' string)
     """
     lossless = {}
+    redis_cli = redis_cli_argv(dut_asic, "CONFIG_DB")
     for key in dut_asic.run_redis_cmd(
-            argv=['redis-cli', '-n', 4, '--scan', '--pattern', 'BUFFER_PG|{}|*'.format(port)]):
+            argv=redis_cli + ['--scan', '--pattern', 'BUFFER_PG|{}|*'.format(port)]):
         pg_range = key.split('|')[-1]
-        profile = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', key, 'profile'])
+        profile = dut_asic.run_redis_cmd(argv=redis_cli + ['hget', key, 'profile'])
         if profile and profile[0] and 'pg_lossless' in profile[0]:
             lossless[pg_range] = extract_profile_name(profile[0])
     return lossless
@@ -146,8 +148,13 @@ def load_lossless_info_from_pg_profile_lookup(duthost, dut_asic):
     global DEFAULT_LOSSLESS_PROFILES
 
     # Check the threshold mode
-    threshold_mode = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', 'BUFFER_POOL|ingress_lossless_pool',
-                                                  'mode'])[0]
+    threshold_mode = dut_asic.run_redis_cmd(
+        argv=[
+            "sonic-db-cli",
+            'CONFIG_DB',
+            'hget',
+            'BUFFER_POOL|ingress_lossless_pool',
+            'mode'])[0]
     threshold_field_name = 'dynamic_th' if threshold_mode == 'dynamic' else 'static_th'
     dut_hwsku = duthost.facts["hwsku"]
     dut_platform = duthost.facts["platform"]
@@ -325,9 +332,9 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                         continue
                     buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'keys', '*{}*'.format(buffer_pg_asic_oid)])[0]
+                        argv=["sonic-db-cli", 'ASIC_DB', 'keys', '*{}*'.format(buffer_pg_asic_oid)])[0]
                     buffer_profile_oid_in_pg = dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'hget', buffer_pg_asic_key,
+                        argv=["sonic-db-cli", 'ASIC_DB', 'hget', buffer_pg_asic_key,
                               'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'])[0]
                     logging.info("Checking admin-up port {} lossless PG {} in ASIC_DB ({})".format(
                         port, pg, buffer_profile_oid_in_pg))
@@ -351,9 +358,9 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                         continue
                     buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'keys', '*{}*'.format(buffer_pg_asic_oid)])[0]
+                        argv=["sonic-db-cli", 'ASIC_DB', 'keys', '*{}*'.format(buffer_pg_asic_oid)])[0]
                     buffer_profile_oid_in_pg = dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'hget', buffer_pg_asic_key,
+                        argv=["sonic-db-cli", 'ASIC_DB', 'hget', buffer_pg_asic_key,
                               'SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'])
                     if len(buffer_profile_oid_in_pg) == 0:
                         buffer_profile_oid_in_pg = None
@@ -393,19 +400,19 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Check whether the COUNTERS_PG_NAME_MAP exists. Skip ASIC_DB checking if it isn't
     pg_name_map = make_dict_from_output_lines(dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 2, 'hgetall', 'COUNTERS_PG_NAME_MAP']))
+        argv=redis_cli_argv(dut_asic, 'COUNTERS_DB') + ['hgetall', 'COUNTERS_PG_NAME_MAP']))
     cable_length_map = make_dict_from_output_lines(dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'hgetall', 'CABLE_LENGTH|AZURE']))
+        argv=redis_cli_argv(dut_asic, 'CONFIG_DB') + ['hgetall', 'CABLE_LENGTH|AZURE']))
 
     configdb_ports = [x.split('|')[1] for x in dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'keys', 'PORT|*'])]
+        argv=["sonic-db-cli", 'CONFIG_DB', 'keys', 'PORT|*'])]
     profiles_checked = {}
     lossless_pool_oid = None
     buffer_profile_asic_info = None
     admin_up_ports = set()
     for port in configdb_ports:
         port_config = make_dict_from_output_lines(dut_asic.run_redis_cmd(
-            argv=['redis-cli', '-n', 4, 'hgetall', 'PORT|{}'.format(port)]))
+            argv=redis_cli_argv(dut_asic, 'CONFIG_DB') + ['hgetall', 'PORT|{}'.format(port)]))
         is_port_up = port_config.get('admin_status') == 'up'
 
         # Check if we should validate buffer configuration for this port
@@ -454,7 +461,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                 cable_length = cable_length_map[port]
                 speed = port_config['speed']
                 profile_info = make_dict_from_output_lines(dut_asic.run_redis_cmd(
-                    argv=['redis-cli', '-n', 4, 'hgetall', expected_profile[1:-1]]))
+                    argv=redis_cli_argv(dut_asic, 'CONFIG_DB') + ['hgetall', expected_profile[1:-1]]))
 
                 # Compare entire profile info with expected values
                 expected_profile_info = DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)]
@@ -465,9 +472,9 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                 if buffer_profile_oid:
                     # Further check the buffer profile in ASIC_DB
                     buffer_profile_key = dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'keys', '*{}*'.format(buffer_profile_oid)])[0]
+                        argv=["sonic-db-cli", 'ASIC_DB', 'keys', '*{}*'.format(buffer_profile_oid)])[0]
                     buffer_profile_asic_info = make_dict_from_output_lines(dut_asic.run_redis_cmd(
-                        argv=['redis-cli', '-n', 1, 'hgetall', buffer_profile_key]))
+                        argv=redis_cli_argv(dut_asic, 'ASIC_DB') + ['hgetall', buffer_profile_key]))
                     pytest_assert(
                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_XON_TH'] == profile_info['xon'] and
                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_XOFF_TH'] == profile_info['xoff'] and
@@ -514,7 +521,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     lossless_pg_ranges = sorted(get_lossless_buffer_pgs(dut_asic, port_to_shutdown).keys(),
                                 key=lambda r: min(parse_pg_range(r) or [99]))
     expected_profile = dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'hget',
+        argv=["sonic-db-cli", 'CONFIG_DB', 'hget',
               'BUFFER_PG|{}|{}'.format(port_to_shutdown, lossless_pg_ranges[0]), 'profile'])[0]
 
     ns = ''

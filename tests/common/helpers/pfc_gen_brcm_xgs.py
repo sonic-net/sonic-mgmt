@@ -151,7 +151,7 @@ class FanoutPfcStorm():
         if self.os == 'sonic':
             for prio in range(8):
                 self._shellCmd(f"config interface pfc priority {intf} {prio} off")
-            self._shellCmd(f"redis-cli -n 4 DEL \"PORT_QOS_MAP|{intf}\"")
+            self._shellCmd(f"sonic-db-cli CONFIG_DB DEL \"PORT_QOS_MAP|{intf}\"")
         else:
             self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control on")
             for prio in range(8):
@@ -165,7 +165,7 @@ class FanoutPfcStorm():
         mmuPort = self.intfToMmuPort[intf]
         port = self.intfToPort[intf]
         if self.os == 'sonic':
-            self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
+            self._shellCmd(f"sonic-db-cli CONFIG_DB HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
             for prio in range(8):
                 if (1 << prio) & self.priority:
                     self._shellCmd(f"config interface pfc priority {intf} {prio} on")

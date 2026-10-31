@@ -78,7 +78,7 @@ def get_ports_with_config_exceed_max_headroom(duthost):
 
 
 def change_ports_cable_len(duthost, port_cable_info):
-    cmd_get_pool_size = 'redis-cli -n 0 hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
+    cmd_get_pool_size = 'sonic-db-cli APPL_DB hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
     original_pool_size = duthost.shell(cmd_get_pool_size)['stdout']
     ports_cable_len_j2_file_name = "ports_cable_len.j2"
     with open(os.path.join(PORT_CABLE_LEN_JSON_TEMPLATE_PATH, ports_cable_len_j2_file_name)) as template_file:

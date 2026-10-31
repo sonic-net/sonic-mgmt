@@ -65,19 +65,19 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
     """Enable default PFCWD configuration on the DUT."""
     duthost = ensure_dut_readiness
     res = duthost.shell(
-        'redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+        'sonic-db-dump -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get(
         "default_pfcwd_status", "")
     if pfc_status == 'disable':
         duthost.shell(
-            'redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" '
+            'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
             'default_pfcwd_status enable')
         # apply cofig to all namespaces also for multi-asic platforms
         for asic_id in duthost.get_asic_ids():
             if asic_id:
-                duthost.asic_instance(asic_id).command(
-                    'redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" '
+                duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(
+                    'CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
                     'default_pfcwd_status enable'
                 )
     # Enable default pfcwd configuration

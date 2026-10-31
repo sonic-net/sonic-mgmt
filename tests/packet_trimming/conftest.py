@@ -39,8 +39,8 @@ def skip_if_packet_trimming_not_supported(duthost):
     logger.info(f"Checking packet trimming support for platform: {platform}")
 
     # Check if the SWITCH_TRIMMING_CAPABLE capability is true
-    trimming_capable = duthost.command('redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')[
-        'stdout'].strip()
+    trimming_capable = duthost.command(
+        'sonic-db-cli STATE_DB HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')['stdout'].strip()
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")
 
