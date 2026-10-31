@@ -1715,7 +1715,7 @@ def verify_trans_info(dut):
     To verify the transciever info is present
     :return:
     """
-    cmd = "redis-cli -n 6 keys TRANSCEIVER_DOM_SENSOR*"
+    cmd = "sonic-db-cli STATE_DB keys TRANSCEIVER_DOM_SENSOR*"
     output = st.config(dut, cmd, skip_error_check=True)
     output = remove_last_line_from_string(output)
     st.log(output)

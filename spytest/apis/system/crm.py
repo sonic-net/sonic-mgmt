@@ -765,7 +765,7 @@ def verify_crm_clear_config(dut, clear_type='all'):
     :return: Pass or Fail (True or False)
     """
 
-    cmd = "redis-dump -d 4 -k 'CRM|Config' -y"
+    cmd = "sonic-db-dump -n CONFIG_DB -k 'CRM|Config' -y"
     cfg = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
     if clear_type == 'threshold':
         return ("_threshold" not in cfg)

@@ -83,3 +83,16 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+
+## SpyTest Redis callers
+
+`unit_test_spytest_redis_cli.py` checks configured Unix sockets and positive TCP
+ports, native scans, named writes and dumps, and protected transaction commands.
+It also checks that deferred remote-DPU calls retain their existing port choices.
+The fake SpyTest interface does not execute a feature suite on a switch.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_spytest_redis_cli.py -q
+```

@@ -75,16 +75,18 @@ def client_auth(dut, **kwargs):
     if 'auth_type' in kwargs:
         show_command.append('sonic-cfggen -d -v "REST_SERVER"')
         if kwargs.get('auth_type'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "REST_SERVER|default" client_auth "{}"'.format(kwargs.get('auth_type')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "REST_SERVER|default" client_auth "{}"'.format(kwargs.get('auth_type')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "REST_SERVER|default" client_auth')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "REST_SERVER|default" client_auth')
         st.config(dut, command)
     if 'ca_crt' in kwargs:
         show_command.append(redis.build(dut, redis.CONFIG_DB, 'hgetall "DEVICE_METADATA|x509"'))
         if kwargs.get('ca_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" ca_crt {}'.format(kwargs.get('ca_crt')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "DEVICE_METADATA|x509" ca_crt {}'.format(kwargs.get('ca_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "DEVICE_METADATA|x509" ca_crt')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "DEVICE_METADATA|x509" ca_crt')
         st.config(dut, command)
     from apis.system.basic import service_operations_by_systemctl
     service_operations_by_systemctl(dut, docer_name, 'stop')
