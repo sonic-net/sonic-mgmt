@@ -69,7 +69,9 @@
   become: yes
 
 - name: Reload configuration to apply changes
-  shell: config reload -y
+  # -f as above: right after a boot, the trap-clear service started by the first reload can keep
+  # systemd "starting" for minutes, and an unforced reload then exits without reloading (poll: 0 hides it).
+  shell: config reload -y -f
   become: yes
   async: 600
   poll: 0

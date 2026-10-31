@@ -216,31 +216,23 @@ def main():
     deadline = time.time() + TIMEOUT
     log('Starting Cisco fanout trap clear: waiting for syncd, dshell_client and orchagent...')
     copp_since = None
-    copp_done = False
-    last_wait = None
+    last_msg = None
     while True:
-        wait = None
-        if not syncd_running():
-            wait = 'syncd container is not running yet'
-        else:
-            ok, why = dshell_client_running()
-            if not ok:
-                wait = why
-            elif not copp_done:
+        ready, msg = False, 'syncd container is not running yet'
+        if syncd_running():
+            ready, msg = dshell_client_running()
+            if ready:
+                # Check this before every attempt, not only until it first passes: after a syncd-only
+                # restart this service starts before swss.sh flushes ASIC_DB, so the hostif traps of
+                # the previous orchagent can still be there.
                 copp_since = copp_since or time.time()
-                copp_done, why = copp_ready(copp_since)
-                if copp_done:
-                    log(why)
-                else:
-                    wait = why
-        if wait is None:
-            last_wait = None
-            if clear_and_verify():
-                log(f'Success: Traps cleared and still cleared {SETTLE}s later.')
-                return 0
-        elif wait != last_wait:
-            log(wait)
-            last_wait = wait
+                ready, msg = copp_ready(copp_since)
+        if msg != last_msg:
+            log(msg)
+            last_msg = msg
+        if ready and clear_and_verify():
+            log(f'Success: Traps cleared and still cleared {SETTLE}s later.')
+            return 0
         if remaining() <= 0:
             log(f'Timeout: Failed to clear traps after {TIMEOUT}s.')
             return 1
