@@ -630,14 +630,32 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
-    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+    pdu_ctrl = None
 
+    # Killing the physical DUT's database makes in-band recovery impossible.
+    # Verify the complete PDU recovery path before making that destructive change.
+    if "database" not in skip_containers and not is_vs_device(duthost):
+        pdu_ctrl = get_pdu_controller(duthost)
+        if pdu_ctrl is None:
+            logger.warning(
+                "Skipping database process termination on %s because no working PDU controller is available",
+                duthost.hostname)
+            skip_containers.append("database")
+        else:
+            unreachable_psus = pdu_ctrl.get_unreachable_psus()
+            if unreachable_psus:
+                logger.warning(
+                    "Skipping database process termination on %s because PDU control is unavailable for PSUs %s",
+                    duthost.hostname, unreachable_psus)
+                skip_containers.append("database")
+
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
-    yield
+    yield skip_containers
 
     # add log to indicate end of yield
     logger.info("Test to monitor critical processes is done, starting recovery...")
@@ -674,14 +692,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             # For physical testbed, use PDU reboot
             logger.info("Physical testbed - performing power cycle via PDU...")
             try:
-                pdu_ctrl = get_pdu_controller(duthost)
                 logger.info("PDU controller obtained: {}".format(pdu_ctrl))
-
-                if pdu_ctrl is None:
-                    logger.error("No PDU controller available for {}, cannot recover from database container test"
-                                 .format(duthost.hostname))
-                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                                .format(duthost.hostname))
 
                 # Perform PDU reboot (power cycle)
                 logger.info("Starting PDU reboot...")
@@ -806,7 +817,7 @@ def test_monitoring_critical_processes(
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
 
-    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+    skip_containers = recover_critical_processes
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
