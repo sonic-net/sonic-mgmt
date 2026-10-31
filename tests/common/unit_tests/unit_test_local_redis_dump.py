@@ -62,7 +62,7 @@ def test_failure_dump_preserves_database_and_namespace(namespaces, release, supp
         commands = group.kwargs['cmds'][1:]
         assert len(commands) == len(expected_names)
         for name in expected_names:
-            expected = 'sonic-db-dump -n {}'.format(name)
+            expected = 'sonic-db-dump -t unix_socket -n {}'.format(name)
             if netns:
                 if supports_netns:
                     expected += ' --netns ' + netns
@@ -85,7 +85,7 @@ def test_default_route_dump_keeps_selected_asic(namespace, family, key, supports
                            {'json': json, 'DEFAULT_NAMESPACE': None}, 'SonicAsic')
     assert method(obj, family) == {}
     command = host.shell.call_args.args[0]
-    expected = 'sonic-db-dump -n APPL_DB'
+    expected = 'sonic-db-dump -t unix_socket -n APPL_DB'
     if namespace:
         if supports_netns:
             expected += ' --netns ' + namespace
@@ -102,7 +102,7 @@ def test_dualtor_dump_keeps_database_and_key(db, name):
                            {'json': json, 'logger': Mock(),
                             'SONIC_DB_NAME_MAP': {0: 'APPL_DB', 4: 'CONFIG_DB', 6: 'STATE_DB'}}, 'DBChecker')
     assert method(SimpleNamespace(duthost=host), db, 'MUX*') == {}
-    host.shell.assert_called_once_with('sonic-db-dump -n {} -k "MUX*"'.format(name))
+    host.shell.assert_called_once_with('sonic-db-dump -t unix_socket -n {} -k "MUX*"'.format(name))
 
 
 @pytest.mark.parametrize('db,name', [(0, 'APPL_DB'), (1, 'ASIC_DB'), (4, 'CONFIG_DB')])
@@ -113,7 +113,7 @@ def test_nat_dump_keeps_database_and_value_format(db, name):
                             'SONIC_DB_NAME_BY_ID': {0: 'APPL_DB', 1: 'ASIC_DB', 4: 'CONFIG_DB'}})
     host = Mock()
     assert method(host, db, 'NAT') == {'key': {'value': {'field': 'value'}}}
-    execute.assert_called_once_with(host, ['sonic-db-dump -n {} --pretty -k *NAT*'.format(name)])
+    execute.assert_called_once_with(host, ['sonic-db-dump -t unix_socket -n {} --pretty -k *NAT*'.format(name)])
 
 
 def test_snapshot_enum_names_map_to_named_databases(tmp_path):
@@ -131,7 +131,7 @@ def test_snapshot_enum_names_map_to_named_databases(tmp_path):
                             'os': os, 'json': json, 'dut_dump': dump}, 'SonicRedisDBSnapshotter')
     method(obj, 'before', list(DBType))
     for db, call in zip(DBType, dump.call_args_list):
-        assert call.args[0] == 'sonic-db-dump -n {}_DB --pretty'.format(db.name)
+        assert call.args[0] == 'sonic-db-dump -t unix_socket -n {}_DB --pretty'.format(db.name)
         assert call.args[3] == db.name
 
 
@@ -144,7 +144,7 @@ def test_configlet_dump_keeps_keys_and_database(tmp_path, name, keys):
     info = {'sonic_db_name': name, 'keys_to_compare': keys,
             'keys_to_skip_comp': [], 'keys_skip_val_comp': []}
     method(Mock(), 'snapshot', info, str(tmp_path), str(tmp_path))
-    expected = 'sonic-db-dump -n {} --pretty'.format(name)
+    expected = 'sonic-db-dump -t unix_socket -n {} --pretty'.format(name)
     if keys:
         expected += ' -k "TABLE*"'
     assert dump.call_args.args[0] == expected
@@ -158,7 +158,7 @@ def test_dump_builder_quotes_arguments_and_probes_only_namespaces(
     host = Mock()
     host.command.return_value = {'stdout': '--netns NAMESPACE' if supports_netns else 'dump options'}
     command = dump_builder(host, database, namespace)
-    expected = ['sonic-db-dump', '-n', database]
+    expected = ['sonic-db-dump', '-t', 'unix_socket', '-n', database]
     if namespace is not None:
         if supports_netns:
             expected += ['--netns', namespace]
@@ -204,7 +204,7 @@ def test_configlet_pfc_dump_keeps_namespace_and_filters(dump_builder, supports_n
         {'stdout': '{"PFC_WD|Ethernet0": {}}'}]
     method = load_function('common/configlet/utils.py', 'chk_for_pfc_wd', {'json': json, 'log_debug': Mock()})
     assert method(host) is True
-    expected = ['sonic-db-dump', '-n', 'CONFIG_DB']
+    expected = ['sonic-db-dump', '-t', 'unix_socket', '-n', 'CONFIG_DB']
     if namespace is not None:
         if supports_netns:
             expected += ['--netns', namespace]
@@ -233,8 +233,8 @@ def test_failure_dumps_use_each_duts_namespace_capability(dump_builder):
                             {'os': os, 'json': json, 'safe_filename': lambda value: value})
     request = SimpleNamespace(node=SimpleNamespace(nodeid='mixed-images', rep_call=SimpleNamespace(failed=True)))
     collect(request, hosts)
-    prefixes = ['sudo ip netns exec asic0 sonic-db-dump -n CONFIG_DB',
-                'sudo ip netns exec asic0 sonic-db-dump -n CONFIG_DB --netns asic0']
+    prefixes = ['sudo ip netns exec asic0 sonic-db-dump -t unix_socket -n CONFIG_DB',
+                'sudo ip netns exec asic0 sonic-db-dump -t unix_socket -n CONFIG_DB --netns asic0']
     for host, prefix in zip(hosts, prefixes):
         host.shell_cmds.assert_called_once_with(cmds=[
             'mkdir -p /tmp/db_dump/mixed-images/asic0',

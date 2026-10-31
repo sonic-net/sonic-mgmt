@@ -211,7 +211,7 @@ def match_key(key, kset):
 
 def chk_for_pfc_wd(duthost):
     ret = False
-    res = duthost.shell('sonic-db-dump -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
+    res = duthost.shell('sonic-db-dump -t unix_socket -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     log_debug("pfc_status={}".format(pfc_status))
@@ -236,12 +236,12 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
 
     db_read = {}
     if not lst_keys:
-        db_read = dut_dump("sonic-db-dump -n {} --pretty".format(sonic_db_name),
+        db_read = dut_dump("sonic-db-dump -t unix_socket -n {} --pretty".format(sonic_db_name),
                            duthost, data_dir, db_name)
     else:
         for k in lst_keys:
             fname = "{}_{}.json".format(k, db_name)
-            cmd = 'sonic-db-dump -n {} --pretty -k \"{}*\"'.format(sonic_db_name, k)
+            cmd = 'sonic-db-dump -t unix_socket -n {} --pretty -k \"{}*\"'.format(sonic_db_name, k)
             db_read.update(dut_dump(cmd, duthost, data_dir, fname))
 
     keys_skip_cmp = db_info["keys_to_skip_comp"]

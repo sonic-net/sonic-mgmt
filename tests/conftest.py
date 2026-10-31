@@ -3179,7 +3179,7 @@ def collect_db_dump_on_duts(request, duthosts):
             dump_dest_path = db_dump_path
             dump_cmds = ["mkdir -p {}".format(dump_dest_path)]
             for db_id, db_name in db_names_by_id.items():
-                dump_cmd = "sonic-db-dump -n {} -y -o {}/{}".format(
+                dump_cmd = "sonic-db-dump -t unix_socket -n {} -y -o {}/{}".format(
                     db_name, dump_dest_path, db_id)
                 dump_cmds.append(dump_cmd)
             duthosts.shell_cmds(cmds=dump_cmds)

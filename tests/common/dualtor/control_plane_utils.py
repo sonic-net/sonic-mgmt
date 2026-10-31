@@ -109,7 +109,7 @@ class DBChecker:
 
     def _dump_db(self, db, key_pattern):
         """Dump redis database matching specificied key pattern"""
-        command = "sonic-db-dump -n {db_name} -k \"{key_pattern}\"".format(
+        command = "sonic-db-dump -t unix_socket -n {db_name} -k \"{key_pattern}\"".format(
             db_name=SONIC_DB_NAME_MAP[db], key_pattern=key_pattern)
         lines = self.duthost.shell(command)["stdout_lines"]
         db_dump = json.loads(lines[0])

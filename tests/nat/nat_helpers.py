@@ -1147,7 +1147,7 @@ def get_redis_val(duthost, db, key):
         db_name = SONIC_DB_NAME_BY_ID[db]
         output = exec_command(
             duthost,
-            ["sonic-db-dump -n {} --pretty -k *{}*".format(db_name, key)]
+            ["sonic-db-dump -t unix_socket -n {} --pretty -k *{}*".format(db_name, key)]
         )
         if output["rc"]:
             raise Exception('Return code is {} not 0'.format(output["rc"]))

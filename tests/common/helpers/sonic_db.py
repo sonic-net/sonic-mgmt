@@ -46,6 +46,8 @@ class SonicDbCli(object):
             database: database number.
         """
 
+    USE_TCP = False
+
     def __init__(self, host, database='APPL_DB'):
         """Initializes base class with defaults"""
         self.host = host
@@ -68,7 +70,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.error("No command response: %s" % cmd)
@@ -91,7 +93,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.warning("No command response: %s" % cmd)
@@ -214,7 +216,7 @@ class SonicDbCli(object):
             Dictionary containing the parsed json output of the sonic-db-dump.
 
         """
-        cli = "sonic-db-dump"
+        cli = "sonic-db-dump" if self.USE_TCP else "sonic-db-dump -t unix_socket"
         cmd_str = ""
 
         cmd_str += "-n {db} -y -k *{t}*".format(db=self.database, t=table)
@@ -253,7 +255,7 @@ STATE_DB = 'STATE_DB'
 
 def _run_sonic_db_cli(duthost, command):
     """Run sonic-db-cli in the host's ASIC namespace without raising on failure"""
-    cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli'
+    cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli -s'
     return duthost.shell(
         "{} {}".format(cli, command),
         module_ignore_errors=True
@@ -640,6 +642,8 @@ class VoqDbCli(SonicDbCli):
         host: a SonicHost instance for a supervisor card.  Commands will be run on this shell.
 
     """
+    USE_TCP = True
+
     SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
     SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
     SYSTEM_NEIGHBOR_TABLE = "SYSTEM_NEIGH"
@@ -731,7 +735,7 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    cmd = 'sonic-db-cli -s {} KEYS \"{}\"'.format(db_id, pattern)
     logger.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()

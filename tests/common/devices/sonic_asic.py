@@ -47,7 +47,7 @@ class SonicAsic(object):
         self.ports = None
         self.queue_oid = set()
 
-        self.sonic_db_cli = "sonic-db-cli {}".format(self.cli_ns_option)
+        self.sonic_db_cli = "sonic-db-cli -s {}".format(self.cli_ns_option)
         self.ip_cmd = "sudo ip {}".format(self.cli_ns_option)
 
     def __str__(self):
@@ -181,8 +181,9 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
 
-    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
-        cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False):
+        cli = "sonic-db-cli {}".format(self.cli_ns_option) if use_tcp else self.sonic_db_cli
+        cmd = "{} {}".format(cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
 
     def run_redis_cli_cmd(self, redis_cmd):
@@ -542,7 +543,7 @@ class SonicAsic(object):
             Queue OID
         """
         redis_cmd = [
-            "sonic-db-cli", "COUNTERS_DB", "HGET", "COUNTERS_QUEUE_NAME_MAP",
+            "sonic-db-cli", '-s', "COUNTERS_DB", "HGET", "COUNTERS_QUEUE_NAME_MAP",
             "{}:{}".format(port, queue_num)
         ]
         queue_oid = next(iter(self.run_redis_cmd(redis_cmd)), None)
@@ -761,7 +762,7 @@ class SonicAsic(object):
         if self.sonichost.is_multi_asic:
             ns_prefix = '-n ' + str(self.namespace)
         return int(self.shell(
-            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'
+            'sonic-db-cli -s {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'
             .format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
 
@@ -769,7 +770,7 @@ class SonicAsic(object):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
             ns_prefix = '-n ' + str(self.namespace)
-        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
+        return self.shell('sonic-db-cli -s {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
                           .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
 
     def show_and_parse(self, show_cmd, **kwargs):
