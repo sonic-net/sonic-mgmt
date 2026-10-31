@@ -1,19 +1,22 @@
-"""Physical OIR operations and verification primitives.
+"""OIR operations and verification primitives.
 
-Backs the Physical OIR test cases in
+Backs the Physical OIR and Remote reseat test cases in
 ``docs/testplan/transceiver/online_insertion_removal_testplan.md``.
 
-Operations are operator driven (``oir_method`` ``manual``): each one prints a
-prompt on the terminal, blocks until the operator confirms, then waits for the
-DUT to observe the new presence state.  Verifiers return per-port failure
-strings so the caller can aggregate them into a single ``pytest.fail``, matching
-the pattern used across the transceiver suite.
+Physical OIR operations are operator driven (``oir_method`` ``manual``): each
+one prints a prompt on the terminal, blocks until the operator confirms, then
+waits for the DUT to observe the new presence state.  A remote reseat simulates
+an OIR on the DUT itself with the plan's seven-step procedure, composed from
+the shared :mod:`tests.transceiver.common.scenario_ops` operations.  Verifiers
+return per-port failure strings so the caller can aggregate them into a single
+``pytest.fail``, matching the pattern used across the transceiver suite.
 """
 import http.client
 import json
 import logging
 import select
 import sys
+import time
 from collections import defaultdict
 
 from natsort import natsorted
@@ -24,11 +27,14 @@ from tests.common.platform.interface_utils import (
     get_dut_interfaces_status,
     get_physical_to_logical_port_mapping,
     get_pport_presence_data,
+    wait_ports_oper_status,
 )
 from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     DOM_ATTRIBUTES_KEY,
     PHYSICAL_OIR_ATTRIBUTES_KEY,
+    REMOTE_RESEAT_ATTRIBUTES_KEY,
+    SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, db_helpers, dmesg_helpers
 from tests.transceiver.common.cli_parser_helper import (
@@ -41,12 +47,27 @@ from tests.transceiver.common.cli_parser_helper import (
     reduce_eeprom_status,
 )
 from tests.transceiver.common.port_selectors import select_attribute_ports
-from tests.transceiver.common.scenario_ops import poll_ports_recovered
-from tests.transceiver.common.verification import assert_no_flap_since, capture_flap_sentinels
+from tests.transceiver.common.prerequisites import DOM_POLLING_DISABLED_VALUE, build_dom_polling_failures
+from tests.transceiver.common.scenario_ops import (
+    perform_ports_shutdown,
+    perform_ports_startup,
+    perform_sfputil_reset,
+    poll_ports_recovered,
+    scale_bulk_wait,
+    verify_lpmode,
+)
+from tests.transceiver.common.verification import (
+    assert_no_flap_since,
+    capture_flap_sentinels,
+    check_lldp_neighbors_present,
+    standard_port_recovery_and_verification,
+)
 from tests.transceiver.dom.dom_helpers import (
     read_dom_sensor_data,
     verify_dom_recovered,
+    verify_dom_thresholds_after_operation,
 )
+from tests.transceiver.eeprom import recovery
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +191,57 @@ def resolve_pport_to_lports(lport_to_pport, pports):
     return {pport: natsorted(pport_to_lport.get(pport, [])) for pport in pports}
 
 
+def all_ports(pport_to_lports):
+    """Return the configured physical ports and all of their logical subports."""
+    pports = list(pport_to_lports)
+    lports = [port for ports in pport_to_lports.values() for port in ports]
+    return pports, lports
+
+
+def parents_of(lports, lport_to_first_subport_mapping):
+    """Return the first sub-ports of the modules ``lports`` belong to."""
+    return sorted({lport_to_first_subport_mapping.get(port, port) for port in lports})
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Settle budgets
+# ──────────────────────────────────────────────────────────────────────
+
+
+def bulk_waits(port_attributes_dict, lports):
+    """Return the (shutdown, startup) settle budgets scaled to an all-at-once operation.
+
+    The slowest port under test sets the budget: a bulk OIR is only settled once
+    every module has settled.
+    """
+    system_attrs = [port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}) for port in lports]
+    return (
+        scale_bulk_wait(max(attrs["port_shutdown_wait_sec"] for attrs in system_attrs), len(lports)),
+        scale_bulk_wait(max(attrs["port_startup_wait_sec"] for attrs in system_attrs), len(lports)),
+    )
+
+
+def dom_recover_wait(port_attributes_dict, lports, wait_sec):
+    """Return ``wait_sec`` plus the slowest port's DOM republish budget.
+
+    ``TRANSCEIVER_DOM_SENSOR`` / ``TRANSCEIVER_FIRMWARE_INFO`` are republished on
+    xcvrd's delayed DOM cycle, so both need the settle budget plus that cycle.
+    """
+    return recovery.dom_republish_wait(port_attributes_dict, wait_sec, lports)
+
+
+def remaining_wait(deadline):
+    """Return the non-negative time remaining before ``deadline``."""
+    return max(0, deadline - time.monotonic())
+
+
+def flap_monitor_sec(port_attributes_dict, lports, attribute_key=PHYSICAL_OIR_ATTRIBUTES_KEY):
+    """Return the longest ``link_flap_monitor_timeout_sec`` of ``lports`` in their
+    ``attribute_key`` category: a bulk operation is watched until the slowest
+    port's window has passed."""
+    return max(port_attributes_dict[port][attribute_key]["link_flap_monitor_timeout_sec"] for port in lports)
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Operator-driven OIR operations
 # ──────────────────────────────────────────────────────────────────────
@@ -245,6 +317,149 @@ def perform_oir(request, duthost, oir_attrs, pports, present, action=None):
     if err:
         return [err]
     return wait_pport_presence(duthost, pports, present)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Remote reseat operation
+# ──────────────────────────────────────────────────────────────────────
+
+# The procedure's sleep after the reset; a longer transceiver_reset_i2c_recover_sec wins.
+RESEAT_RESET_SLEEP_SEC = 5
+
+_RESEAT_STEPS = {
+    1: "disable DOM monitoring",
+    2: "port shutdown",
+    3: "transceiver reset",
+    4: "low power mode",
+    5: "high power mode",
+    6: "port startup",
+    7: "enable DOM monitoring",
+}
+
+
+def _reseat_step_failures(step, failures):
+    return [f"step {step} ({_RESEAT_STEPS[step]}): {failure}" for failure in failures]
+
+
+def set_dom_monitoring(duthost, modules, enable):
+    """Enable or disable DOM monitoring on ``modules`` (first subports) and verify
+    that CONFIG_DB ``dom_polling`` reflects it."""
+    failures = []
+    for module in modules:
+        err = cli_helpers.set_dom_polling(
+            duthost, module, enable, namespace=db_helpers.resolve_port_namespace(duthost, module))
+        if err:
+            failures.append(err)
+    if enable:
+        return failures + build_dom_polling_failures(duthost, modules)
+
+    port_table = db_helpers.get_config_db_port_table(duthost)
+    for module in modules:
+        value = (port_table.get(module) or {}).get("dom_polling")
+        if str(value).strip().lower() != DOM_POLLING_DISABLED_VALUE:
+            failures.append(f"{module} dom_polling is {value!r}, expected {DOM_POLLING_DISABLED_VALUE!r}")
+    return failures
+
+
+def _set_lpmode(duthost, modules, low_power, settle_sec):
+    """Request low (or high) power mode on ``modules``, then poll for up to
+    ``settle_sec`` until each module reports it."""
+    failures, requested = [], []
+    for module in modules:
+        elapsed, err = cli_helpers.sfputil_set_lpmode(duthost, module, low_power)
+        logger.info("Port %s: lpmode %s took %ss", module, "on" if low_power else "off", elapsed)
+        if err:
+            failures.append(err)
+        else:
+            requested.append(module)
+    return failures + poll_ports_recovered(
+        lambda: [failure for module in requested for failure in verify_lpmode(duthost, module, low_power)],
+        settle_sec, POLL_INTERVAL_SEC, "power mode")
+
+
+def _verify_lldp_present(duthost, lldp_timeouts):
+    """Return a failure for each linked-up port in ``lldp_timeouts`` (``{port:
+    lldp_neighbor_wait_sec}``) without an LLDP neighbor within its timeout."""
+    if not lldp_timeouts:
+        return []
+    up_ports = set(get_oper_up_ports(duthost, list(lldp_timeouts)))
+    results = check_lldp_neighbors_present(
+        duthost, {port: timeout for port, timeout in lldp_timeouts.items() if port in up_ports})
+    return [result["details"] for result in results.values() if not result["passed"]]
+
+
+def perform_remote_reseat(duthost, port_attributes_dict, lport_to_first_subport_mapping, lports,
+                          shutdown_wait_sec, startup_wait_sec):
+    """Remotely reseat the modules of ``lports``.
+
+    Runs the seven steps of the remote reseat procedure, each across every
+    module before the next, and checks each step's expected result:
+
+      1. DOM monitoring is disabled.
+      2. The ports are shut down and go oper down within ``shutdown_wait_sec``.
+      3. The modules reset, followed by a sleep of ``RESEAT_RESET_SLEEP_SEC`` or
+         the longer ``transceiver_reset_i2c_recover_sec``.
+      4. The modules with ``low_power_mode_supported`` report low power mode,
+      5. and then high power mode, within ``transceiver_reset_i2c_recover_sec``.
+      6. The ports start up, go oper up within ``startup_wait_sec`` and, where
+         ``verify_lldp_on_link_up`` is set, show an LLDP neighbor within
+         ``lldp_neighbor_wait_sec``.
+      7. DOM monitoring is enabled.
+
+    Steps 6 and 7 run however the earlier steps end, so no port is left down
+    or unmonitored.  The reseat must complete within the slowest port's
+    ``remote_reseat_timeout_min``, scaled to the bulk operation.
+
+    Returns:
+        tuple: ``(failures, dom_baseline)``: the per-step failures, for the
+        caller to aggregate, and the :func:`capture_dom_sensor_baseline` data
+        read just before step 7.  DOM monitoring is still disabled then, so a
+        later ``last_update_time`` can only come from the monitoring step 7
+        re-enabled.
+    """
+    modules = parents_of(lports, lport_to_first_subport_mapping)
+    system_attrs = {port: port_attributes_dict[port][SYSTEM_ATTRIBUTES_KEY] for port in lports}
+    i2c_recover_sec = max(system_attrs[module]["transceiver_reset_i2c_recover_sec"] for module in modules)
+    lpm_modules = [module for module in modules if system_attrs[module]["low_power_mode_supported"]]
+    lldp_timeouts = {
+        port: attrs["lldp_neighbor_wait_sec"]
+        for port, attrs in system_attrs.items() if attrs.get("verify_lldp_on_link_up", True)
+    }
+    timeout_sec = scale_bulk_wait(
+        60 * max(port_attributes_dict[port][REMOTE_RESEAT_ATTRIBUTES_KEY]["remote_reseat_timeout_min"]
+                 for port in lports),
+        len(lports))
+    if len(lpm_modules) < len(modules):
+        logger.info("Steps 4 and 5 skip the module(s) without low_power_mode_supported: %s",
+                    sorted(set(modules) - set(lpm_modules)))
+
+    logger.info("Remote reseat of %d module(s) across %d port(s)", len(modules), len(lports))
+    started_at = time.monotonic()
+    failures = []
+    dom_baseline = {}
+    try:
+        failures += _reseat_step_failures(1, set_dom_monitoring(duthost, modules, enable=False))
+        failures += _reseat_step_failures(2, perform_ports_shutdown(duthost, lports, shutdown_wait_sec))
+        failures += _reseat_step_failures(3, perform_sfputil_reset(
+            duthost, modules, [], 0, 0, recover_wait_sec=max(RESEAT_RESET_SLEEP_SEC, i2c_recover_sec)))
+        failures += _reseat_step_failures(4, _set_lpmode(duthost, lpm_modules, True, i2c_recover_sec))
+        failures += _reseat_step_failures(5, _set_lpmode(duthost, lpm_modules, False, i2c_recover_sec))
+    finally:
+        try:
+            startup_failures = perform_ports_startup(duthost, lports, startup_wait_sec)
+            failures += _reseat_step_failures(6, startup_failures + _verify_lldp_present(duthost, lldp_timeouts))
+            dom_baseline, errors = capture_dom_sensor_baseline(
+                duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
+            failures += [f"DOM sensor baseline before step 7: {error}" for error in errors]
+        finally:
+            failures += _reseat_step_failures(7, set_dom_monitoring(duthost, modules, enable=True))
+
+    elapsed = time.monotonic() - started_at
+    logger.info("Remote reseat of %d module(s) took %.1fs", len(modules), elapsed)
+    if elapsed > timeout_sec:
+        failures.append(
+            f"remote reseat took {elapsed:.0f}s, longer than its {timeout_sec}s timeout (remote_reseat_timeout_min)")
+    return failures, dom_baseline
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -442,6 +657,20 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
     )
 
 
+def capture_recovery_baseline(duthost, port_attributes_dict, lport_to_first_subport_mapping, lports):
+    """Snapshot seated-module STATE_DB tables and applicable DOM sensor data.
+
+    Returns ``(baseline_tables, baseline_sensor_data, failures)``, the baselines
+    :func:`verify_insertion` takes.
+    """
+    baseline_tables, errors = capture_state_tables(duthost, lports)
+    baseline_sensor_data, dom_errors = capture_dom_sensor_baseline(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping, lports)
+    failures = [f"STATE_DB baseline: {error}" for error in errors]
+    failures += [f"DOM sensor baseline: {error}" for error in dom_errors]
+    return baseline_tables, baseline_sensor_data, failures
+
+
 def _sfp_api(conn, pport, name, args=None):
     """Call Sfp API ``name`` of ``pport`` through the platform API server.
 
@@ -603,6 +832,18 @@ def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1)
     return failures
 
 
+def verify_link_peers(duthost, peers, status, wait_sec, flap_baseline, expected_increment):
+    """The peer-port results for the link ``peers`` on this DUT of the ports under OIR:
+    each one reaches oper ``status`` and, given a ``flap_baseline``, its flap count
+    moves by ``expected_increment`` (see :func:`verify_flap_count_increment`)."""
+    if not peers:
+        return []
+    failures = wait_ports_oper_status(duthost, peers, status, wait_sec)
+    if flap_baseline is not None:
+        failures += verify_flap_count_increment(duthost, peers, flap_baseline, expected_increment)
+    return [f"link peer {failure}" for failure in failures]
+
+
 def get_oper_up_ports(duthost, lports):
     """Return the ``lports`` that are oper up."""
     intf_status = get_dut_interfaces_status(duthost)
@@ -635,14 +876,15 @@ def verify_other_ports_no_flap(duthost, baseline):
     ]
 
 
-def capture_kernel_error_watermark(duthost, port_attributes_dict, lports):
+def capture_kernel_error_watermark(duthost, port_attributes_dict, lports, attribute_key=PHYSICAL_OIR_ATTRIBUTES_KEY):
     """Return ``(watermark, err)`` when any affected port enables monitoring, else ``None``.
 
+    ``monitor_kernel_errors`` is read from each port's ``attribute_key`` category.
     The capture error is preserved rather than collapsed into ``None`` so a
     requested kernel check cannot silently pass without ever running.
     """
     if not any(
-        port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]["monitor_kernel_errors"]
+        port_attributes_dict[port][attribute_key]["monitor_kernel_errors"]
         for port in lports
     ):
         return None
@@ -664,3 +906,97 @@ def verify_no_kernel_errors(duthost, capture):
     if err:
         return [err]
     return [f"kernel error(s) in dmesg during the OIR: {'; '.join(errors[:3])}"] if errors else []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Composite verification
+# ──────────────────────────────────────────────────────────────────────
+
+
+def verify_insertion(duthost, port_attributes_dict, lport_to_first_subport_mapping,
+                     lports, health_baseline, watermark, wait_sec,
+                     *, port_peers, baseline_tables=None, baseline_sensor_data=None,
+                     insert_flap_baseline=None, expected_flap_increment=1,
+                     attribute_key=PHYSICAL_OIR_ATTRIBUTES_KEY, scenario="after insertion"):
+    """Physical OIR TC2 expected results for the ports whose module was just
+    inserted, and for their link peers on this DUT.
+
+    A remote reseat simulates a removal and an insertion, so Remote reseat TC1
+    checks the same results, reading ``link_flap_monitor_timeout_sec`` from its
+    own ``attribute_key`` category and labelling the EEPROM recovery with its
+    ``scenario``.  ``insert_flap_baseline`` holds the flap counts of the ports
+    and their link peers from before the operation; each must have moved by
+    ``expected_flap_increment``.  ``baseline_tables`` / ``baseline_sensor_data``
+    come from :func:`capture_recovery_baseline`.
+    """
+    recovery_start = time.monotonic()
+    startup_deadline = recovery_start + wait_sec
+    publication_deadline = recovery_start + dom_recover_wait(
+        port_attributes_dict, lports, wait_sec)
+
+    # No link flap for link_flap_monitor_timeout_sec: the shared stability
+    # sub-check, held for that window.
+    port_recovery = standard_port_recovery_and_verification(
+        duthost, lports, {port: port_attributes_dict[port] for port in lports},
+        link_up_timeout_sec=remaining_wait(startup_deadline),
+        health_baseline=health_baseline,
+        lport_to_first_subport_mapping=lport_to_first_subport_mapping,
+        port_peers=port_peers,
+        stability_window_sec=flap_monitor_sec(port_attributes_dict, lports, attribute_key),
+    )
+    failures = []
+    if not port_recovery["passed"]:
+        failures.append(port_recovery["details"])
+
+    failures += verify_presence_clis(duthost, lports, present=True)
+    failures += verify_state_tables_present(
+        duthost,
+        lports,
+        parents_of(lports, lport_to_first_subport_mapping),
+        remaining_wait(publication_deadline),
+        baseline_tables=baseline_tables,
+    )
+
+    # The local port must come up without flapping across the operation itself,
+    # which a post-recovery sentinel alone cannot see.
+    if insert_flap_baseline is not None:
+        failures += verify_flap_count_increment(
+            duthost, lports, insert_flap_baseline, expected_increment=expected_flap_increment)
+    # The link peers on this DUT come back up, flapping as much as the ports.
+    failures += verify_link_peers(
+        duthost, list(get_link_peers(duthost, lports, port_peers).values()), "up",
+        remaining_wait(startup_deadline), insert_flap_baseline, expected_flap_increment)
+
+    failures += recovery.verify_transceiver_recovery(
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        remaining_wait(startup_deadline),
+        scenario,
+        ports=lports,
+        firmware_wait_sec=remaining_wait(publication_deadline),
+        # The module was just re-seated, so its EEPROM is physically re-read;
+        # always take the live-I2C confirmation pass even on a zero settle.
+        live_i2c_confirm=True,
+    )
+
+    failures += verify_dom_thresholds_after_operation(
+        duthost, port_attributes_dict, parents_of(lports, lport_to_first_subport_mapping),
+    )
+
+    # DOM data must be republished with valid, fresh values once the module is
+    # back (VDM / PM re-publication is covered by the STATE_DB table check
+    # above, which is driven by the pre-operation baseline).
+    dom_failures = verify_dom_data_recovered(
+        duthost,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        lports,
+        baseline_sensor_data or {},
+        remaining_wait(publication_deadline),
+    )
+    if dom_failures:
+        failures.append("DOM sensor data:\n  " + "\n  ".join(dom_failures))
+
+    failures += verify_no_kernel_errors(duthost, watermark)
+    return failures
