@@ -840,6 +840,9 @@ t0-vpp:
   - sflow/test_sflow.py
   - span/test_port_mirroring.py
   - ssh/test_ssh_stress.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - vlan/test_autostate_disabled.py
   - vlan/test_host_vlan.py
   - vlan/test_secondary_subnet.py
