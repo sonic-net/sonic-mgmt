@@ -89,9 +89,11 @@ class TestControlPlane():
         duthost.command("rm {}".format(tmp_file))
 
     @pytest.mark.disable_loganalyzer
-    def test_profile_replace(self, duthost, ctrl_links,
+    def test_profile_replace(self, duthost, ctrl_links, port_profiles,
                              profile_name, default_priority, cipher_suite,
                              primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo, wait_mka_establish):
+        if port_profiles:
+            pytest.skip("Per-interface profile replacement tested in test_per_interface_profile")
         # Only pick one controlled link for profile replace test
         ctrl_link = dict([next(iter(ctrl_links.items()))])
         port_name, nbr = list(ctrl_link.items())[0]
