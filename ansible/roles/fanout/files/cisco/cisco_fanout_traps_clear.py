@@ -222,9 +222,10 @@ def main():
         if syncd_running():
             ready, msg = dshell_client_running()
             if ready:
-                # Check this before every attempt, not only until it first passes: after a syncd-only
-                # restart this service starts before swss.sh flushes ASIC_DB, so the hostif traps of
-                # the previous orchagent can still be there.
+                # Check this before every attempt, not only until it first passes: where swss leaves a
+                # restarting syncd running (sonic-buildimage #28910, 202605+), a syncd-only restart
+                # starts this service before swss.sh flushes ASIC_DB, so the previous orchagent's
+                # hostif traps can still be there for a while.
                 copp_since = copp_since or time.time()
                 ready, msg = copp_ready(copp_since)
         if msg != last_msg:
