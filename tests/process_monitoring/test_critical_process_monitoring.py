@@ -14,8 +14,8 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.reboot import wait_for_startup
-from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
+from tests.common.reboot import wait_for_shutdown, wait_for_startup
+from tests.common.utilities import wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -42,6 +42,10 @@ LT2_CONFIG_RELOAD_WAIT_SECS = 480
 # kill so that SSH is still alive when the nohup command is issued, but the
 # kernel reboot fires shortly after the global DB container is stopped.
 MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
+
+# Maximum time (seconds) for a physical DUT to go down after 'reboot' is issued.
+# The reboot script stops services first, so allow more time than a power cut.
+REBOOT_SHUTDOWN_TIMEOUT_SEC = 300
 
 # Critical processes that are listed in the image's per-container critical_processes
 # file but are not actually runnable on BMC topology (BMC image runs a reduced set
@@ -626,7 +630,7 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
 
 @pytest.fixture(scope='function')
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
-                               get_pdu_controller, localhost):
+                               localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
@@ -642,11 +646,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # add log to indicate end of yield
     logger.info("Test to monitor critical processes is done, starting recovery...")
 
-    # Special handling for database container - use power cycle
+    # Special handling for database container - reboot the DUT
     if is_testing_database:
-        logger.info("Database container was tested - performing power cycle...")
+        logger.info("Database container was tested - rebooting the DUT...")
 
-        # Check if this is a virtual switch (KVM) testbed (no PDU available)
+        # Check if this is a virtual switch (KVM) testbed
         if is_vs_device(duthost):
             num_asics = duthost.facts.get("num_asic", 1)
             if num_asics > 1:
@@ -671,31 +675,26 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                 except Exception as e:
                     logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
         else:
-            # For physical testbed, use PDU reboot
-            logger.info("Physical testbed - performing power cycle via PDU...")
+            # Physical testbed (with or without a PDU): recover with 'reboot', which syncs
+            # filesystems and stops services before rebooting, and still works after the
+            # database container's redis has been killed.
+            logger.info("Physical testbed - recovering {} with 'reboot'...".format(duthost.hostname))
             try:
-                pdu_ctrl = get_pdu_controller(duthost)
-                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
-
-                if pdu_ctrl is None:
-                    logger.error("No PDU controller available for {}, cannot recover from database container test"
-                                 .format(duthost.hostname))
-                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                                .format(duthost.hostname))
-
-                # Perform PDU reboot (power cycle)
-                logger.info("Starting PDU reboot...")
-                if not pdu_reboot(pdu_ctrl):
-                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
-                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
-
-                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+                duthost.shell('nohup bash -c "sleep 2 && sudo reboot" > /dev/null 2>&1 &',
+                              module_ignore_errors=True)
+                logger.info("Reboot command issued successfully")
             except Exception as e:
-                logger.error("Exception during PDU reboot: {}".format(str(e)))
-                raise
+                logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
 
-        logger.info("Waiting for DUT to boot up after power cycle...")
-        # Wait for DUT to come back up after power cycle
+            # Make sure the DUT actually went down before waiting for it to come back up
+            try:
+                wait_for_shutdown(duthost, localhost, delay=0, timeout=REBOOT_SHUTDOWN_TIMEOUT_SEC)
+            except Exception as e:
+                pytest.fail("DUT {} did not go down after reboot to recover it from the "
+                            "database container test: {}".format(duthost.hostname, str(e)))
+
+        logger.info("Waiting for DUT to boot up after reboot...")
+        # Wait for DUT to come back up after reboot
         # Get timeout values based on chassis type
         timeout = 300
         wait_time = 120
@@ -707,7 +706,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
         logger.info("SSH is up, waiting for critical processes to recover...")
 
-        # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
+        # After a reboot with redis killed, /var/run/redis/sonic-db/database_config.json
         # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
         # The file appearing is necessary but NOT sufficient: it lands on tmpfs before
         # redis-server is actually accepting connections, so "config reload" (which
@@ -761,7 +760,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
-        logger.info("DUT recovered successfully after power cycle!")
+        logger.info("DUT recovered successfully after reboot!")
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
@@ -857,7 +856,7 @@ def test_monitoring_critical_processes(
     #     alive).  The fixture waits for that scheduled reboot.
     #   - Single-ASIC VS: SSH stays alive after killing global database, so
     #     the fixture issues a 2-second SysRq reboot directly.
-    #   - Physical: fixture uses PDU power-cycle.
+    #   - Physical: fixture issues 'sudo reboot' and waits for the DUT to go down.
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
 
