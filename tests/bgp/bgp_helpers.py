@@ -948,6 +948,20 @@ def operate_orchagent(duthost, action=ACTION_STOP):
     duthost.shell(cmd)
 
 
+def operate_fpmsyncd(duthost, action=ACTION_STOP):
+    """Stop or continue fpmsyncd to control route delivery to orchagent."""
+    pids = duthost.shell('pgrep -x fpmsyncd')['stdout'].split()
+    pytest_assert(pids, "No fpmsyncd process found on {}".format(duthost.hostname))
+
+    if action == ACTION_STOP:
+        logging.info('Suspend fpmsyncd process to simulate a route install delay')
+        signal = 'SIGSTOP'
+    else:
+        logging.info('Recover fpmsyncd process')
+        signal = 'SIGCONT'
+    duthost.shell('sudo kill -{} {}'.format(signal, ' '.join(pids)))
+
+
 def check_bgp_neighbor(duthost):
     """
     Validate all the bgp neighbors are established
