@@ -89,6 +89,8 @@ def apply_bgp_config(duthost, template_name):
         template_name: pathname of the bgp config on the DUT
     """
     duthost.docker_copy_to_all_asics('bgp', template_name, DEFAULT_BGP_CONFIG)
+    # Clear start-limit state left by earlier intentional test restarts.
+    duthost.reset_service("bgp")
     duthost.restart_service("bgp")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "swss"),
