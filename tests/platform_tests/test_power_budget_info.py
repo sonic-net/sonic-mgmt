@@ -25,7 +25,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
     exp_total_supp_power = 0
     exp_total_cons_power = 0
 
-    redis_out = duthost.command("redis-dump -d 6 -y -k \"*power*\"")
+    redis_out = duthost.command("sonic-db-dump -n STATE_DB -y -k \"*power*\"")
     out_dict = json.loads(redis_out['stdout'])
     power_budget = list(out_dict.keys())
 

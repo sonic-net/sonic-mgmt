@@ -124,7 +124,7 @@ function init_warm_reboot_states()
     # the current DB contents will likely mark warm reboot is done.
     # Clear these states so that the next boot up image won't get confused.
     if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
-        redis-cli -n 6 eval "
+        sonic-db-cli STATE_DB eval "
             for _, key in ipairs(redis.call('keys', 'WARM_RESTART_TABLE|*')) do
                 redis.call('hdel', key, 'state')
             end
@@ -136,11 +136,11 @@ function initialize_pre_shutdown()
 {
     debug "Initialize pre-shutdown ..."
     TABLE="WARM_RESTART_TABLE|warm-shutdown"
-    RESTORE_COUNT=`/usr/bin/redis-cli -n 6 hget "${TABLE}" restore_count`
+    RESTORE_COUNT=`sonic-db-cli STATE_DB hget "${TABLE}" restore_count`
     if [[ -z "$RESTORE_COUNT" ]]; then
-        /usr/bin/redis-cli -n 6 hset "${TABLE}" "restore_count" "0" > /dev/null
+        sonic-db-cli STATE_DB hset "${TABLE}" "restore_count" "0" > /dev/null
     fi
-    /usr/bin/redis-cli -n 6 hset "${TABLE}" "state" "requesting" > /dev/null
+    sonic-db-cli STATE_DB hset "${TABLE}" "state" "requesting" > /dev/null
 }
 
 function request_pre_shutdown()
@@ -164,7 +164,7 @@ function wait_for_pre_shutdown_complete_or_fail()
     while [[ ${waitcount} -lt 600 ]]; do
         # timeout doesn't work with -i option of "docker exec". Therefore we have
         # to invoke docker exec directly below.
-        STATE=`timeout 5s docker exec database redis-cli -n 6 hget "${TABLE}" state; if [[ $? == 124 ]]; then echo "timed out"; fi`
+        STATE=`timeout 5s docker exec database sonic-db-cli STATE_DB hget "${TABLE}" state; if [[ $? == 124 ]]; then echo "timed out"; fi`
 
         if [[ x"${STATE}" == x"timed out" ]]; then
             waitcount+=50
@@ -194,7 +194,7 @@ function backup_database()
     # Dump redis content to a file 'dump.rdb' in warmboot directory
     mkdir -p $WARM_DIR
     # Delete keys in stateDB except FDB_TABLE|*, MIRROR_SESSION_TABLE|*, WARM_RESTART_ENABLE_TABLE|*
-    redis-cli -n 6 eval "
+    sonic-db-cli STATE_DB eval "
         for _, k in ipairs(redis.call('keys', '*')) do
             if not string.match(k, 'FDB_TABLE|') and not string.match(k, 'WARM_RESTART_TABLE|') \
                                           and not string.match(k, 'MIRROR_SESSION_TABLE|') \
@@ -203,7 +203,7 @@ function backup_database()
             end
         end
     " 0 > /dev/null
-    redis-cli save > /dev/null
+    sonic-db-cli CONFIG_DB SAVE > /dev/null
     docker cp database:/var/lib/redis/$REDIS_FILE $WARM_DIR
     docker exec -i database rm /var/lib/redis/$REDIS_FILE
 }
@@ -471,9 +471,9 @@ if [[ "$REBOOT_TYPE" = "warm-reboot" || "$REBOOT_TYPE" = "fastfast-reboot" ]]; t
 
     # Warm reboot: dump state to host disk
     if [[ "$REBOOT_TYPE" = "fastfast-reboot" ]]; then
-        redis-cli -n 1 FLUSHDB > /dev/null
-        redis-cli -n 2 FLUSHDB > /dev/null
-        redis-cli -n 5 FLUSHDB > /dev/null
+        sonic-db-cli ASIC_DB FLUSHDB > /dev/null
+        sonic-db-cli COUNTERS_DB FLUSHDB > /dev/null
+        sonic-db-cli FLEX_COUNTER_DB FLUSHDB > /dev/null
     fi
 
     # TODO: backup_database preserves FDB_TABLE

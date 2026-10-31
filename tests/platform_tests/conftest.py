@@ -233,7 +233,7 @@ def suspend_and_resume_hw_tc_on_mellanox_device(duthosts, enum_rand_one_per_hwsk
 @pytest.fixture(scope="module")
 def dpu_npu_port_list(duthosts):
     dpu_npu_port_list = {}
-    cmd_get_config_db_port_key_list = 'redis-cli --raw -n 4 keys "PORT|Ethernet*"'
+    cmd_get_config_db_port_key_list = 'sonic-db-cli CONFIG_DB keys "PORT|Ethernet*"'
     cmd_dump_config_db = "sonic-db-dump -n CONFIG_DB -y"
     dpu_npu_role = 'Dpc'
     for dut in duthosts:

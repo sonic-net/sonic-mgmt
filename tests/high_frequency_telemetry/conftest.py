@@ -30,6 +30,7 @@ from tests.high_frequency_telemetry.utilities import (
     stop_influxdb,
     stop_otel_collector,
 )
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ def skip_unsupported_hft_platform(
         ).get("stdout", "")
 
     feature_result = duthost.shell(
-        "redis-cli -n 4 --raw HGETALL 'FEATURE|otel'",
+        (redis_cli_command(duthost, 'CONFIG_DB') + " --raw HGETALL 'FEATURE|otel'"),
         module_ignore_errors=False,
     )
     feature_lines = feature_result.get("stdout_lines", [])
@@ -283,14 +284,14 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
 
     def remove_extra_feature_fields():
         current_lines = duthost.shell(
-            "redis-cli -n 4 --raw HKEYS 'FEATURE|otel'",
+            "sonic-db-cli CONFIG_DB HKEYS 'FEATURE|otel'",
             module_ignore_errors=False,
         ).get("stdout_lines", [])
         extra_fields = set(current_lines) - set(original_feature)
         if extra_fields:
             fields = " ".join(f"'{field}'" for field in extra_fields)
             duthost.shell(
-                f"redis-cli -n 4 HDEL 'FEATURE|otel' {fields}",
+                f"sonic-db-cli CONFIG_DB HDEL 'FEATURE|otel' {fields}",
                 module_ignore_errors=False,
             )
 
@@ -300,7 +301,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
             for field, value in original_feature.items()
         )
         duthost.shell(
-            f"redis-cli -n 4 HSET 'FEATURE|otel' {field_values}",
+            f"sonic-db-cli CONFIG_DB HSET 'FEATURE|otel' {field_values}",
             module_ignore_errors=False,
         )
 
@@ -549,11 +550,11 @@ def cleanup_high_frequency_telemetry(
     """Remove stale profiles owned by this test suite before each test."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
+        'sonic-db-cli CONFIG_DB KEYS "HIGH_FREQUENCY_TELEMETRY_PROFILE|*"',
         module_ignore_errors=False,
     )["stdout_lines"]
     group_keys = duthost.shell(
-        'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
+        'sonic-db-cli CONFIG_DB KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|*"',
         module_ignore_errors=False,
     )["stdout_lines"]
     existing_profiles = {

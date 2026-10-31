@@ -785,7 +785,7 @@ def setup_ferret(duthost, ptfhost, tbinfo):
         logger.error("VxLan Sender IP not found, the result of ip route show type unicast: {}".format(result['stdout']))
         assert False, "VxLan Sender IP not found"
 
-    vxlan_port_out = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+    vxlan_port_out = duthost.shell('sonic-db-cli APPL_DB hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_port_out and vxlan_port_out['stdout'].isdigit():
         vxlan_port = int(vxlan_port_out['stdout'])
         ferret_args = '-f /tmp/vxlan_decap.json -s {0} -a {1} -p {2}'.format(
@@ -1615,7 +1615,7 @@ def run_show_features(duthosts, enum_dut_hostname):
     features_dict, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "failed to obtain feature status")
     for cmd_key, cmd_value in list(features_dict.items()):
-        redis_value = duthost.shell('/usr/bin/redis-cli -n 4 --raw hget "FEATURE|{}" "state"'
+        redis_value = duthost.shell('sonic-db-cli CONFIG_DB hget "FEATURE|{}" "state"'
                                     .format(cmd_key), module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))

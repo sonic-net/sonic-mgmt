@@ -187,7 +187,7 @@ def watch_system_status(dut):
     logger.info("Orchagent CPU Util: %s", orch_cpu)
 
     # Watch Redis Memory
-    redis_memory = dut.shell("redis-cli info memory | grep used_memory_human")["stdout"]
+    redis_memory = dut.shell("sonic-db-cli APPL_DB info memory | grep used_memory_human")["stdout"]
     logger.info("Redis Memory: %s", redis_memory)
 
 
@@ -350,7 +350,7 @@ def check_interfaces_and_transceivers(duthost, request):
     parsed_xcvr_info = []
 
     for asichost in duthost.asics:
-        docker_cmd = asichost.get_docker_cmd("redis-cli -n 6 keys TRANSCEIVER_INFO*", "database")
+        docker_cmd = asichost.get_docker_cmd("sonic-db-cli STATE_DB keys TRANSCEIVER_INFO*", "database")
         xcvr_info = duthost.command(docker_cmd)
         parsed_xcvr_info.extend(parse_transceiver_info(xcvr_info["stdout_lines"]))
 

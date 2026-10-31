@@ -28,10 +28,10 @@ def test_verify_redisexport(duthosts, rand_one_dut_hostname):
     """Verify procdockerstatsd is exporting values to redis.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    docker_stdout = duthost.shell('/usr/bin/redis-cli -n 6 KEYS "DOCKER_STATS|*" | wc -l',
+    docker_stdout = duthost.shell('sonic-db-cli STATE_DB KEYS "DOCKER_STATS|*" | wc -l',
                                   module_ignore_errors=False)['stdout_lines']
     docker_keys_count = get_count_fromredisout(docker_stdout)
-    process_stdout = duthost.shell('/usr/bin/redis-cli -n 6 KEYS "PROCESS_STATS|*" | wc -l',
+    process_stdout = duthost.shell('sonic-db-cli STATE_DB KEYS "PROCESS_STATS|*" | wc -l',
                                    module_ignore_errors=False)['stdout_lines']
     process_keys_count = get_count_fromredisout(process_stdout)
     # if entry for process or docker data found then daemon is upload is sucessful

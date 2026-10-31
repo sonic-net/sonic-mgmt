@@ -64,7 +64,7 @@ def get_drop_limit_from_db(duthost, required=True):
         int value, or None when absent and required is False.
     """
     result = duthost.shell(
-        "redis-cli -n 4 hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+        "sonic-db-cli CONFIG_DB hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
         module_ignore_errors=True,
     )
 
@@ -129,7 +129,7 @@ def preserve_sflow_drop_limit(duthost):
     Module-level autouse: it does not run for other test files in tests/sflow.
     """
     original = duthost.shell(
-        "redis-cli -n 4 hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+        "sonic-db-cli CONFIG_DB hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
         module_ignore_errors=True,
     )
     # A redis-cli failure must not be mistaken for an absent field.
@@ -147,14 +147,14 @@ def preserve_sflow_drop_limit(duthost):
 
     if originally_present:
         restore = duthost.shell(
-            "redis-cli -n 4 hset '{}' {} '{}'".format(
+            "sonic-db-cli CONFIG_DB hset '{}' {} '{}'".format(
                 SFLOW_TABLE, DROP_LIMIT_FIELD, original_value
             ),
             module_ignore_errors=True,
         )
     else:
         restore = duthost.shell(
-            "redis-cli -n 4 hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+            "sonic-db-cli CONFIG_DB hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
             module_ignore_errors=True,
         )
 

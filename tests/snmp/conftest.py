@@ -84,7 +84,7 @@ def extract_redis_keys(item):
 
 
 def check_redis_output(duthost, key):
-    snmp_redis_keys = duthost.shell(f"redis-cli -n 4 keys '{key}*'")
+    snmp_redis_keys = duthost.shell(f"sonic-db-cli CONFIG_DB keys '{key}*'")
     if snmp_redis_keys["stdout"] == "":
         return []
     else:

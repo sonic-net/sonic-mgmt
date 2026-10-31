@@ -115,8 +115,9 @@ class ReadMACMetadata():
 
     def check_mtu_and_interfaces(self, duthost):
         logger.info("Verify that MAC address fits template XX:XX:XX:XX:XX:XX")
-        mac = duthost.shell(r"redis-cli -n 4 hget 'DEVICE_METADATA|localhost' mac| grep -io '[0-9a-fA-F:]\{17\}'",
-                            module_ignore_errors=True)['stdout']
+        mac = duthost.shell(
+            r"sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' mac| grep -io '[0-9a-fA-F:]\{17\}'",
+            module_ignore_errors=True)['stdout']
         logger.info("DUT MAC is {}".format(mac))
 
         if not mac:

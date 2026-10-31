@@ -68,7 +68,7 @@ def test_thermal_state_db(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     if not duthost.facts['modular_chassis']:
         pytest.skip("Test skipped applicable to modular chassis only")
     num_thermals = get_expected_num_thermals(duthosts, enum_rand_one_per_hwsku_hostname)
-    thermal_out = duthost.command("redis-dump -d 6 -y -k \"TEMP*\"")
+    thermal_out = duthost.command("sonic-db-dump -n STATE_DB -y -k \"TEMP*\"")
     out_dict = json.loads(thermal_out['stdout'])
     pytest_assert(len(list(out_dict.keys())) == num_thermals,
                   "num of thermal sensors incorrect expected {} but got {}"

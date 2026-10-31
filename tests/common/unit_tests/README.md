@@ -83,3 +83,12 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## Platform Redis callers
+
+`unit_test_platform_redis_callers.py` checks the host-local module status query
+with native and named CLI reply formats. `unit_test_redis_benchmark_cleanup.py`
+executes the generated DUT Python cleanup command with mocked Redis and
+authentication modules. It checks that cleanup uses available local credentials,
+preserves unrelated routes and reports authentication or command failures. These
+checks do not run the platform or gNMI feature suites on a switch.

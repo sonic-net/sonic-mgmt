@@ -74,7 +74,7 @@ def benchmark_recovery(duthosts, enum_rand_one_per_hwsku_frontend_hostname, sani
     yield
     try:
         logger.info("gNMI benchmark pre-reload Redis memory host=%s: %s", host.hostname,
-                    host.shell("redis-cli info memory", module_ignore_errors=True))
+                    host.shell("sonic-db-cli APPL_DB info memory", module_ignore_errors=True))
     finally:
         _restore_config(host, backup)
         logger.info("gNMI benchmark recovery reload starting host=%s; reports precede recovery", host.hostname)

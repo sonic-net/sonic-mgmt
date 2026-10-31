@@ -417,7 +417,7 @@ def change_cable_length(duthost):
         there will be some log errors like: refreshPgsForPort: Update speed (400000) and cable length (300m) for port
         Ethernet0 failed, accumulative headroom size exceeds the limit.
         """
-        buffer_model = duthost.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+        buffer_model = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
         if buffer_model == "dynamic":
             autoneg_test_data = get_autoneg_tests_data()
             new_cable_length = '50m'

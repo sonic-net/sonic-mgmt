@@ -149,7 +149,7 @@ def get_avg_redis_mem_usage(duthost, interval, num_times):
             num_times: number of times to query
         """
     logger.info("Checking average redis memory usage")
-    cmd = r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'"
+    cmd = r"sonic-db-cli APPL_DB info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'"
     redis_memory = 0.0
     for i in range(num_times):
         redis_memory += float(duthost.shell(cmd)["stdout"])

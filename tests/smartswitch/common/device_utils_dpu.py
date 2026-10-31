@@ -153,8 +153,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules):   # noqa 
     for index in range(num_dpu_modules):
         dpu = module.get_name(platform_api_conn, index)
         output_config_db = duthost.command(
-                           'redis-cli -p 6379 -h 127.0.0.1 \
-                            -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
+                           'sonic-db-cli CONFIG_DB hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if output_config_db['stdout'] is None:
             logging.warning("redis cli output for chassis module state is empty")
             break

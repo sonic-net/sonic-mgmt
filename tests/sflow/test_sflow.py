@@ -427,7 +427,7 @@ def verify_show_sflow(duthost, status, **kwargs):
 
 
 def verify_sflow_config_apply(duthost):
-    sflow_sai_config_list = duthost.shell('redis-cli -n 1 keys *SAI_OBJECT_TYPE_SAMPLEPACKET*')['stdout_lines']
+    sflow_sai_config_list = duthost.shell('sonic-db-cli ASIC_DB keys *SAI_OBJECT_TYPE_SAMPLEPACKET*')['stdout_lines']
     for sflow_sai_config in sflow_sai_config_list:
         if 'SAI_OBJECT_TYPE_SAMPLEPACKET' in sflow_sai_config:
             return True
