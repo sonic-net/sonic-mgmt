@@ -93,7 +93,8 @@ def test_parallel_bgp_updates_keep_numeric_database_and_presence_formats(tmp_pat
             function(SimpleNamespace(fail_json=fail), ['2001:db8::1'], 'down', parallelism=1, redis_db=4)
     command_calls = (tmp_path / 'calls').read_text().splitlines()
     assert command_calls[0] == '-s CONFIG_DB EXISTS BGP_NEIGHBOR|2001:db8::1'
-    expected_updates = ['-s CONFIG_DB HSET BGP_NEIGHBOR|2001:db8::1 admin_status down'] if exists in ('True', '1') else []
+    expected_updates = [
+        '-s CONFIG_DB HSET BGP_NEIGHBOR|2001:db8::1 admin_status down'] if exists in ('True', '1') else []
     assert command_calls[1:] == expected_updates
     assert len(calls) == 1
 
