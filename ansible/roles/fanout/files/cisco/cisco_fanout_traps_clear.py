@@ -1,131 +1,261 @@
 #!/usr/bin/python3
+"""Clear the Silicon One SDK default packet traps on a Cisco SONiC fanout leaf.
+
+A fanout leaf must forward the DUT's control-plane frames (LACP, LLDP, ARP, DHCP, ...)
+transparently instead of punting them to its CPU. The SDK arms these traps when syncd creates
+the switch, and orchagent's CoPP can arm the LACP trap again when it programs its hostif traps.
+
+The script waits until syncd, its dshell_client, swss and orchagent's hostif traps are in place,
+clears the traps through the SDK debug shell and reads every trap back. It reads them again
+TRAPS_CLEAR_SETTLE seconds later and reports success only if they all stayed cleared;
+otherwise it clears them again, until TRAPS_CLEAR_TIMEOUT. Works on SONiC 202205 to 202511.
+"""
+import json
+import os
 import subprocess
 import sys
 import time
 
-# NOTE: This payload is formatted to avoid "IndentationError" and "EOFError" in dshell.
-# 1. No empty lines inside the code block (prevents premature execution).
-# 2. We dynamically check for SDK constants to support different image versions.
+TIMEOUT = int(os.environ.get('TRAPS_CLEAR_TIMEOUT', '1800'))
+RETRY = int(os.environ.get('TRAPS_CLEAR_RETRY', '30'))
+SETTLE = int(os.environ.get('TRAPS_CLEAR_SETTLE', '60'))
+COPP_GRACE = int(os.environ.get('TRAPS_CLEAR_COPP_GRACE', '600'))
+COPP_CFG = '/etc/sonic/copp_cfg.json'
+MARKER_OK = '--- TRAP CLEAR COMPLETE ---'
+RESULT_TAGS = ('TRAPCLR ', '--- TRAP CLEAR', 'FATAL SDK ERROR')
+
+deadline = time.time() + TIMEOUT
+
+# Default traps to clear. SDK < 1.66 names the events LA_EVENT_<name>, SDK >= 1.66 la_event_e_<name>.
+TRAP_EVENTS = [
+    "ETHERNET_L2CP0", "ETHERNET_LACP", "ETHERNET_ARP", "ETHERNET_L2CP2",
+    "ETHERNET_DHCPV4_SERVER", "ETHERNET_DHCPV4_CLIENT", "ETHERNET_DHCPV6_SERVER", "ETHERNET_DHCPV6_CLIENT",
+    "ETHERNET_CISCO_PROTOCOLS", "L3_ISIS_OVER_L3",
+]
+# Events that must exist in the SDK: while LACP is trapped, no DUT PortChannel comes up.
+REQUIRED_EVENTS = ["ETHERNET_LACP"]
+
+# Runs inside the syncd debug shell. Rules for that console: no empty lines inside the block,
+# catch BaseException (Leaba SDK exceptions are not Exception subclasses), never sys.exit().
+# On 202205 SDKs clear_trap_configuration() raises NotFound for a trap that is already clear.
+# With __CLEAR__ False the payload only reads the traps back.
 DSHELL_PAYLOAD = """
 import sdk
-import sys
 try:
     d0 = sdk.la_get_device(0)
-    # SDK Version Compatibility Note:
-    # - SDK < 1.66 uses uppercase constants (e.g., LA_EVENT_ETHERNET_LACP)
-    # - SDK >= 1.66 uses lowercase constants (e.g., la_event_e_ETHERNET_LACP)
-    # We map the old name to the new name to support both environments.
-    traps = [
-        ("LA_EVENT_ETHERNET_L2CP0", "la_event_e_ETHERNET_L2CP0"),
-        ("LA_EVENT_ETHERNET_LACP", "la_event_e_ETHERNET_LACP"),
-        ("LA_EVENT_ETHERNET_ARP", "la_event_e_ETHERNET_ARP"),
-        ("LA_EVENT_ETHERNET_L2CP2", "la_event_e_ETHERNET_L2CP2"),
-        ("LA_EVENT_ETHERNET_DHCPV4_SERVER", "la_event_e_ETHERNET_DHCPV4_SERVER"),
-        ("LA_EVENT_ETHERNET_DHCPV4_CLIENT", "la_event_e_ETHERNET_DHCPV4_CLIENT"),
-        ("LA_EVENT_ETHERNET_DHCPV6_SERVER", "la_event_e_ETHERNET_DHCPV6_SERVER"),
-        ("LA_EVENT_ETHERNET_DHCPV6_CLIENT", "la_event_e_ETHERNET_DHCPV6_CLIENT"),
-        ("LA_EVENT_ETHERNET_CISCO_PROTOCOLS", "la_event_e_ETHERNET_CISCO_PROTOCOLS"),
-        ("LA_EVENT_L3_ISIS_OVER_L3", "la_event_e_L3_ISIS_OVER_L3")
-    ]
-    print("--- STARTING TRAP CLEAR ---")
-    for old, new in traps:
-        # Try to get the constant using the new name (SDK 1.66+).
-        # If not found, fall back to the old name (SDK < 1.66).
-        event_id = getattr(sdk, new, getattr(sdk, old, None))
-        if event_id is not None:
+    bad = []
+    found = 0
+    for n in __TRAP_EVENTS__:
+        ev = getattr(sdk, "la_event_e_" + n, getattr(sdk, "LA_EVENT_" + n, None))
+        if ev is None:
+            print("TRAPCLR SKIP " + n + " (no such event in this SDK)")
+            if n in __REQUIRED_EVENTS__:
+                bad.append(n)
+            continue
+        found += 1
+        if __CLEAR__:
             try:
-                d0.clear_trap_configuration(event_id)
-                print("Cleared: " + new)
-            except Exception as e:
-                print("Error clearing " + new + ": " + str(e))
-        else:
-            print("Skipping: " + new + " (Constant not found)")
-    print("--- TRAP CLEAR COMPLETE ---")
-except Exception as e:
-    print("FATAL SDK ERROR: " + str(e))
-    sys.exit(1)
+                d0.clear_trap_configuration(ev)
+                print("TRAPCLR CLEARED " + n)
+            except BaseException as x:
+                if "NotFound" in type(x).__name__:
+                    print("TRAPCLR ABSENT " + n)
+                else:
+                    print("TRAPCLR ERROR " + n + " " + type(x).__name__ + ": " + str(x)[:160])
+                    bad.append(n)
+        try:
+            d0.get_trap_configuration(ev)
+            print("TRAPCLR STILL-SET " + n)
+            bad.append(n)
+        except BaseException as x:
+            if "NotFound" not in type(x).__name__:
+                print("TRAPCLR VERIFY-ERROR " + n + " " + type(x).__name__ + ": " + str(x)[:160])
+                bad.append(n)
+    if not found:
+        bad.append("no-known-trap-event")
+    if bad:
+        print("--- TRAP CLEAR INCOMPLETE: " + ",".join(sorted(set(bad))) + " ---")
+    else:
+        print("--- TRAP CLEAR COMPLETE ---")
+except BaseException as x:
+    print("FATAL SDK ERROR: " + type(x).__name__ + ": " + str(x)[:200])
 """
 
 
-def start_dshell_client():
-    """
-    Starts the dshell_client service inside the syncd container.
-    Exits the script if this fails.
-    """
-    print("Attempting to start dshell_client service...")
-    cmd = ["docker", "exec", "syncd", "supervisorctl", "start", "dshell_client"]
+def payload(clear):
+    code = (DSHELL_PAYLOAD.replace('__TRAP_EVENTS__', repr(TRAP_EVENTS))
+            .replace('__REQUIRED_EVENTS__', repr(REQUIRED_EVENTS))
+            .replace('__CLEAR__', repr(bool(clear))))
+    lines = [line for line in code.splitlines() if line.strip()]
+    return '\n'.join(lines) + '\n\nquit()\n\n'
 
+
+def log(msg):
+    print(msg, flush=True)
+
+
+def remaining():
+    return deadline - time.time()
+
+
+def pause(seconds):
+    time.sleep(max(0, min(seconds, remaining())))
+
+
+def run(cmd, timeout=30, **kw):
+    # Never block past the script's deadline, so the unit's TimeoutStartSec is never reached.
+    timeout = max(1, min(timeout, remaining()))
     try:
-        # Run command with a timeout to prevent hanging
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-
-        # Check return code
-        if result.returncode != 0:
-            # Check if it failed because it is already running (supervisor specific)
-            if "already started" in result.stdout or "already started" in result.stderr:
-                print("dshell_client is already running.")
-                return
-
-            print(f"CRITICAL: Failed to start dshell_client. Return Code: {result.returncode}")
-            print(f"Stdout: {result.stdout}")
-            print(f"Stderr: {result.stderr}")
-            sys.exit(1)
-        else:
-            print("dshell_client started successfully.")
-
-    except Exception as e:
-        print(f"CRITICAL: Execution error while starting dshell_client: {e}")
-        sys.exit(1)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **kw)
+    except Exception as e:  # docker CLI hung or missing
+        return subprocess.CompletedProcess(cmd, 255, '', str(e))
 
 
-def attempt_trap_clear():
-    # Strip empty lines and append quit()
-    lines = [line for line in DSHELL_PAYLOAD.splitlines() if line.strip()]
-    clean_payload = "\n".join(lines) + "\n\nquit()\n\n"
+def db(*args):
+    return run(['sonic-db-cli'] + list(args)).stdout.strip()
 
-    docker_cmd = ["docker", "exec", "-i", "syncd", "sh", "-c", "/usr/bin/dshell_client.py -i"]
 
+def syncd_running():
+    r = run(['docker', 'inspect', '-f', '{{.State.Running}}', 'syncd'])
+    return r.returncode == 0 and r.stdout.strip() == 'true'
+
+
+def swss_started():
+    """Return the start time of the running swss container, or '' if it is not running.
+
+    swss.sh start flushes ASIC_DB just before it starts this container, and a syncd restart stops
+    it. So the hostif traps in ASIC_DB belong to the running orchagent only while the container
+    runs, and a different start time after a clear means a new orchagent will program CoPP again.
+    """
+    r = run(['docker', 'inspect', '-f', '{{.State.Running}} {{.State.StartedAt}}', 'swss'])
+    running, _, started = r.stdout.strip().partition(' ')
+    return started if r.returncode == 0 and running == 'true' else ''
+
+
+def dshell_client_running():
+    r = run(['docker', 'exec', 'syncd', 'supervisorctl', 'status', 'dshell_client'])
+    if 'RUNNING' in r.stdout:
+        return True, ''
+    r = run(['docker', 'exec', 'syncd', 'supervisorctl', 'start', 'dshell_client'], timeout=60)
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode == 0 or 'already started' in out:
+        return True, ''
+    return False, f'dshell_client not started yet (rc={r.returncode}): {out[:200]}'
+
+
+def lacp_copp_expected():
+    """True if CoPP traps LACP: coppmgrd has enabled the trap, or copp_cfg.json lists it."""
+    if db('STATE_DB', 'HGET', 'COPP_TRAP_TABLE|lacp', 'state') == 'ok':
+        return True
     try:
-        process = subprocess.run(
-            docker_cmd,
-            input=clean_payload,
-            capture_output=True,
-            text=True,
-            timeout=45
-        )
+        with open(COPP_CFG) as f:
+            traps = json.load(f).get('COPP_TRAP', {})
+        return any('lacp' in [t.strip() for t in str(v.get('trap_ids', '')).split(',')] for v in traps.values())
+    except Exception:
+        return True  # unknown: wait for the CoPP LACP trap, with the grace fallback
 
-        if "--- TRAP CLEAR COMPLETE ---" in process.stdout:
-            print("Success: Traps cleared.")
-            return True
-        else:
-            # Log failure but don't exit yet
-            print(f"Attempt failed. Stderr: {process.stderr}")
-            return False
-    except Exception as e:
-        print(f"Execution error: {e}")
+
+def orchagent_traps(want_lacp):
+    """Return (switch created, CoPP LACP trap programmed), from the hostif traps in ASIC_DB.
+
+    STATE_DB COPP_TRAP_TABLE does not tell: coppmgrd writes 'state ok' from the config before
+    orchagent has created the switch, and orchagent's 'hw_status' (202505+) survives a swss
+    restart, while swss.sh flushes ASIC_DB on every cold start.
+    """
+    # CoppOrch creates its default trap right after the switch, so any trap means that orchagent
+    # has created the switch.
+    keys = db('ASIC_DB', 'KEYS', 'ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:*').split()
+    if want_lacp:
+        for key in keys:
+            if db('ASIC_DB', 'HGET', key, 'SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE') == 'SAI_HOSTIF_TRAP_TYPE_LACP':
+                return True, True
+    return bool(keys), False
+
+
+def copp_ready(since):
+    """Return (ready, message). Ready once orchagent has created the switch and, if CoPP traps
+    LACP, has programmed that trap, so that it cannot re-arm LACP after the clear."""
+    want_lacp = lacp_copp_expected()
+    switch_created, lacp_programmed = orchagent_traps(want_lacp)
+    if lacp_programmed:
+        return True, 'orchagent has programmed its CoPP LACP trap'
+    if switch_created and not want_lacp:
+        return True, 'orchagent has created the switch; CoPP does not trap LACP'
+    if time.time() - since > COPP_GRACE:
+        return True, f'orchagent CoPP not seen after {COPP_GRACE}s; clearing anyway'
+    if want_lacp:
+        return False, 'waiting for orchagent to program its CoPP LACP trap'
+    return False, 'waiting for orchagent to create the switch'
+
+
+def dshell(clear):
+    """Run the payload in the SDK debug shell. Return (all traps cleared, summary)."""
+    r = run(['docker', 'exec', '-i', 'syncd', 'sh', '-c', '/usr/bin/dshell_client.py -i'],
+            timeout=120, input=payload(clear))
+    results = []
+    for ln in r.stdout.splitlines():
+        # The console's '>>> ' and '... ' prompts can precede a result on the same line.
+        hits = [ln.find(tag) for tag in RESULT_TAGS if tag in ln]
+        if hits:
+            results.append(ln[min(hits):].strip())
+    if MARKER_OK in results:
+        return True, '; '.join(x for x in results if x.startswith('TRAPCLR'))
+    tail = [ln.strip() for ln in (r.stdout + '\n' + r.stderr).splitlines() if ln.strip()][-4:]
+    return False, ' | '.join(results[-6:] or tail)[:900]
+
+
+def clear_and_verify(swss):
+    ok, summary = dshell(clear=True)
+    if not ok:
+        log('Attempt failed: ' + summary)
         return False
+    log(summary)
+    # Read the traps again after a while, in case something re-armed one after the clear.
+    # Success needs the full interval, so do not let the deadline shorten it.
+    if remaining() < SETTLE:
+        log(f'Not enough time left to re-check the traps {SETTLE}s after the clear')
+        return False
+    pause(SETTLE)
+    if swss_started() != swss:
+        log('swss restarted after the clear; waiting for its orchagent again')
+        return False
+    ok, summary = dshell(clear=False)
+    if not ok:
+        log(f'Traps not clear {SETTLE}s later, clearing again: ' + summary)
+        return False
+    return True
 
 
 def main():
-    print("Starting Cisco 8102 Trap Clear Sequence...")
+    global deadline
+    deadline = time.time() + TIMEOUT
+    log('Starting Cisco fanout trap clear: waiting for syncd, dshell_client and orchagent...')
+    copp_since = None
+    last_msg = None
+    while True:
+        ready, msg, swss = False, 'syncd container is not running yet', ''
+        if syncd_running():
+            ready, msg = dshell_client_running()
+        if ready:
+            swss = swss_started()
+            ready, msg = bool(swss), 'swss container is not running yet'
+        if ready:
+            # Checked before every attempt, not only until it first passes: where swss leaves a
+            # restarting syncd running (sonic-buildimage #28910, 202605+), the previous orchagent's
+            # hostif traps can still be in ASIC_DB until swss restarts and flushes it.
+            copp_since = copp_since or time.time()
+            ready, msg = copp_ready(copp_since)
+        if msg != last_msg:
+            log(msg)
+            last_msg = msg
+        if ready and clear_and_verify(swss):
+            log(f'Success: Traps cleared and still cleared {SETTLE}s later.')
+            return 0
+        if remaining() <= 0:
+            log(f'Timeout: Failed to clear traps after {TIMEOUT}s.')
+            return 1
+        pause(RETRY)
 
-    # 1. Start the service ONCE. Fail if it doesn't start.
-    start_dshell_client()
 
-    # 2. Retry loop for SDK initialization (trap clearing)
-    timeout = 600
-    start_time = time.time()
-
-    while (time.time() - start_time) < timeout:
-        if attempt_trap_clear():
-            sys.exit(0)
-
-        print("SDK not ready. Retrying in 30 seconds...")
-        time.sleep(30)
-
-    print("Timeout: Failed to clear traps after 10 minutes.")
-    sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    sys.exit(main())

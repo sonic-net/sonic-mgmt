@@ -69,7 +69,9 @@
   become: yes
 
 - name: Reload configuration to apply changes
-  shell: config reload -y
+  # -f as above: this soon after the first reload, the unforced checks can still fail (swss must be
+  # up for 120 s, and 202205 also waits for the delayed services), and poll: 0 would hide it.
+  shell: config reload -y -f
   become: yes
   async: 600
   poll: 0
