@@ -5,7 +5,7 @@ A fanout leaf must forward the DUT's control-plane frames (LACP, LLDP, ARP, DHCP
 transparently instead of punting them to its CPU. The SDK arms these traps when syncd creates
 the switch, and orchagent's CoPP can arm the LACP trap again when it programs its hostif traps.
 
-The script waits until syncd, its dshell_client and orchagent's hostif traps are in place,
+The script waits until syncd, its dshell_client, swss and orchagent's hostif traps are in place,
 clears the traps through the SDK debug shell and reads every trap back. It reads them again
 TRAPS_CLEAR_SETTLE seconds later and reports success only if they all stayed cleared;
 otherwise it clears them again, until TRAPS_CLEAR_TIMEOUT. Works on SONiC 202205 to 202511.
@@ -120,6 +120,18 @@ def syncd_running():
     return r.returncode == 0 and r.stdout.strip() == 'true'
 
 
+def swss_started():
+    """Return the start time of the running swss container, or '' if it is not running.
+
+    swss.sh start flushes ASIC_DB just before it starts this container, and a syncd restart stops
+    it. So the hostif traps in ASIC_DB belong to the running orchagent only while the container
+    runs, and a different start time after a clear means a new orchagent will program CoPP again.
+    """
+    r = run(['docker', 'inspect', '-f', '{{.State.Running}} {{.State.StartedAt}}', 'swss'])
+    running, _, started = r.stdout.strip().partition(' ')
+    return started if r.returncode == 0 and running == 'true' else ''
+
+
 def dshell_client_running():
     r = run(['docker', 'exec', 'syncd', 'supervisorctl', 'status', 'dshell_client'])
     if 'RUNNING' in r.stdout:
@@ -192,7 +204,7 @@ def dshell(clear):
     return False, ' | '.join(results[-6:] or tail)[:900]
 
 
-def clear_and_verify():
+def clear_and_verify(swss):
     ok, summary = dshell(clear=True)
     if not ok:
         log('Attempt failed: ' + summary)
@@ -204,6 +216,9 @@ def clear_and_verify():
         log(f'Not enough time left to re-check the traps {SETTLE}s after the clear')
         return False
     pause(SETTLE)
+    if swss_started() != swss:
+        log('swss restarted after the clear; waiting for its orchagent again')
+        return False
     ok, summary = dshell(clear=False)
     if not ok:
         log(f'Traps not clear {SETTLE}s later, clearing again: ' + summary)
@@ -218,20 +233,22 @@ def main():
     copp_since = None
     last_msg = None
     while True:
-        ready, msg = False, 'syncd container is not running yet'
+        ready, msg, swss = False, 'syncd container is not running yet', ''
         if syncd_running():
             ready, msg = dshell_client_running()
-            if ready:
-                # Check this before every attempt, not only until it first passes: where swss leaves a
-                # restarting syncd running (sonic-buildimage #28910, 202605+), a syncd-only restart
-                # starts this service before swss.sh flushes ASIC_DB, so the previous orchagent's
-                # hostif traps can still be there for a while.
-                copp_since = copp_since or time.time()
-                ready, msg = copp_ready(copp_since)
+        if ready:
+            swss = swss_started()
+            ready, msg = bool(swss), 'swss container is not running yet'
+        if ready:
+            # Checked before every attempt, not only until it first passes: where swss leaves a
+            # restarting syncd running (sonic-buildimage #28910, 202605+), the previous orchagent's
+            # hostif traps can still be in ASIC_DB until swss restarts and flushes it.
+            copp_since = copp_since or time.time()
+            ready, msg = copp_ready(copp_since)
         if msg != last_msg:
             log(msg)
             last_msg = msg
-        if ready and clear_and_verify():
+        if ready and clear_and_verify(swss):
             log(f'Success: Traps cleared and still cleared {SETTLE}s later.')
             return 0
         if remaining() <= 0:
