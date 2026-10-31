@@ -571,7 +571,9 @@ def consumes_memory_and_checks_container_restart(duthost, container):
         start_date = container.get_last_start_date()
         container.start_consume_memory()
         # Monit's failed status can clear between polls; the restart timestamp persists.
-        container.wait_restarted(start_date, timeout=MONIT_MEMORY_CHECK_TIMEOUT)
+        # Allow both Monit detection and the existing container recovery window.
+        container.wait_restarted(start_date,
+                                 timeout=MONIT_MEMORY_CHECK_TIMEOUT + CONTAINER_RESTART_THRESHOLD_SECS)
         logger.info("Container %s has restarted", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
         # Wait until the service has started, then the loganalyzer will capture all the expected messages
