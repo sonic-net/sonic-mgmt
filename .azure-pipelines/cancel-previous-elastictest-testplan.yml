@@ -82,7 +82,7 @@ steps:
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
-      python ./.azure-pipelines/test_plan.py cancel_pr
+      python3 ./.azure-pipelines/test_plan.py cancel_pr
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
