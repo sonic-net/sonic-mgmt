@@ -365,7 +365,7 @@ def check_default_route_asic_db(duthost):
     """
     logger.info("Check if the default route exists in the asic db.")
     route_entry = duthost.shell(
-        'sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*0.0.0.0/0*"',
+        'sonic-db-cli -s ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*0.0.0.0/0*"',
         module_ignore_errors=True)["stdout"]
     if not route_entry:
         return False

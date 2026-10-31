@@ -102,7 +102,7 @@ def _check_acl_table_absent(duthost, table_name):
 
 
 def _check_acl_table_type_in_config_db(duthost, type_name):
-    result = duthost.shell(f'sonic-db-cli CONFIG_DB KEYS "ACL_TABLE_TYPE|{type_name}"')["stdout"]
+    result = duthost.shell(f'sonic-db-cli -s CONFIG_DB KEYS "ACL_TABLE_TYPE|{type_name}"')["stdout"]
     return type_name in result
 
 
@@ -123,7 +123,7 @@ def _vnet_route_state_db_key(vnet, prefix):
 
 def _check_vnet_route(duthost, vnet=VNET_PRIMARY_NAME, prefix=VNET_PRIMARY_ROUTE_PREFIX):
     result = duthost.shell(
-        "sonic-db-cli STATE_DB HGET '{}' 'state'".format(_vnet_route_state_db_key(vnet, prefix)),
+        "sonic-db-cli -s STATE_DB HGET '{}' 'state'".format(_vnet_route_state_db_key(vnet, prefix)),
         module_ignore_errors=True
     )["stdout"]
     return result.strip().lower() == "active"
@@ -144,7 +144,7 @@ def _get_vxlan_tunnel_src_ip(duthost, tunnel_name):
 
 
 def _check_vxlan_switch_config(duthost):
-    result = duthost.shell('sonic-db-cli APPL_DB KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
+    result = duthost.shell('sonic-db-cli -s APPL_DB KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
     return "SWITCH_TABLE:switch" in result.get("stdout", "")
 
 
@@ -581,7 +581,7 @@ def verify_acl_rules_installation(duthost, expected_count):
     logger.info(f"Verifying {expected_count} ACL rules are installed")
 
     # Check CONFIG_DB first
-    config_rules_cmd = f"sonic-db-cli CONFIG_DB KEYS 'ACL_RULE|{ACL_TABLE_NAME}|*'"
+    config_rules_cmd = f"sonic-db-cli -s CONFIG_DB KEYS 'ACL_RULE|{ACL_TABLE_NAME}|*'"
     config_rules = duthost.shell(config_rules_cmd)["stdout_lines"]
     config_rule_count = len([key for key in config_rules if key.strip()])
     logger.info(f"Number of rules in CONFIG_DB: {config_rule_count}")
@@ -591,7 +591,7 @@ def verify_acl_rules_installation(duthost, expected_count):
         pytest.fail(f"CONFIG_DB has {config_rule_count} rules, expected {expected_count}")
 
     # Check STATE_DB
-    state_rules_cmd = f"sonic-db-cli STATE_DB KEYS 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|*'"
+    state_rules_cmd = f"sonic-db-cli -s STATE_DB KEYS 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|*'"
     state_rules = duthost.shell(state_rules_cmd)["stdout_lines"]
     state_rule_count = len([key for key in state_rules if key.strip()])
     logger.info(f"Number of rules in STATE_DB: {state_rule_count}")

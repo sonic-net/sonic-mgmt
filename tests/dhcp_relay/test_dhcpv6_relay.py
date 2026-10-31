@@ -72,8 +72,8 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     #  'Release':'0','Decline':'0','Reconfigure':'0','Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0',
     #  'Malformed':'0'}
     #
-    cmd_new_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, dir)
-    cmd_old_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, type)
+    cmd_new_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, dir)
+    cmd_old_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, type)
     output_new = duthost.shell(cmd_new_version)['stdout']
     if len(output_new) != 0:
         counters = eval(output_new)
@@ -87,17 +87,17 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
 
 
 def init_counter(duthost, ifname, types):
-    cmd_new_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" RX'.format(ifname)
+    cmd_new_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" RX'.format(ifname)
     output_new = duthost.shell(cmd_new_version)['stdout']
     if len(output_new) != 0:
         counters_str = NEW_COUNTER_VALUE_FORMAT
-        cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
-        cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
     else:
         for type in types:
-            cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
+            cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
             duthost.shell(cmd)
 
 
@@ -120,7 +120,7 @@ def get_subtype_from_configdb(duthost):
                         ' HEXISTS "DEVICE_METADATA|localhost" "subtype"'))["stdout"])
     subtype_value = ""
     if subtype_exist:
-        subtype_value = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
+        subtype_value = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
     return subtype_exist, subtype_value
 
 

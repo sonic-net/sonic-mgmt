@@ -272,7 +272,7 @@ class TestNeighborMac:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
         duthost = duthosts[rand_one_dut_hostname]
-        result = duthost.shell(argv=["sonic-db-cli", 'ASIC_DB', "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
+        result = duthost.shell(argv=["sonic-db-cli", '-s', 'ASIC_DB', "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
         neighborKey = None
         for key in result["stdout_lines"]:
             if self.PTF_HOST_IP in key:

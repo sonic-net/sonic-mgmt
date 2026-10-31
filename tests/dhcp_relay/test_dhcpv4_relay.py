@@ -61,11 +61,11 @@ def _restore_interface_ip_entries(duthost, saved_entries):
     """
     for key, fields in saved_entries.items():
         if not fields or fields == {"NULL": "NULL"}:
-            duthost.shell('sonic-db-cli CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
+            duthost.shell('sonic-db-cli -s CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
         else:
             for field, value in fields.items():
                 duthost.shell(
-                    'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
+                    'sonic-db-cli -s CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
 
 
 pytestmark = [

@@ -191,7 +191,7 @@ def finalize_warmboot(duthost, comp_list=None, retry=30, interval=5):
     for _ in range(retry):
         for comp in comp_list:
             state = duthost.shell(
-                'sonic-db-cli STATE_DB hget "WARM_RESTART_TABLE|{}" state'.format(comp), module_ignore_errors=True
+                'sonic-db-cli -s STATE_DB hget "WARM_RESTART_TABLE|{}" state'.format(comp), module_ignore_errors=True
             )["stdout"]
             logger.info("{} : {}".format(comp, state))
             if EXP_STATE == state:
@@ -488,8 +488,8 @@ def get_dut_vlan_ptf_ports(mg_facts):
 
 
 def check_vlan_members(duthost, member1, member2, exp_count):
-    out1 = duthost.shell("sonic-db-cli STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))["stdout"]
-    out2 = duthost.shell("sonic-db-cli STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))["stdout"]
+    out1 = duthost.shell("sonic-db-cli -s STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member1))["stdout"]
+    out2 = duthost.shell("sonic-db-cli -s STATE_DB keys 'VLAN_MEMBER_TABLE|*|{}' | wc -l".format(member2))["stdout"]
     added = int(out1) + int(out2)
     if added >= exp_count * 2:
         logger.info("All vlan members added")
@@ -700,7 +700,7 @@ def disable_swss_warm_boot_flag(duthosts, rand_one_dut_hostname):
     yield
 
     duthost = duthosts[rand_one_dut_hostname]
-    swss_flag = duthost.shell("sonic-db-cli STATE_DB HGET 'WARM_RESTART_ENABLE_TABLE|swss' 'enable'")["stdout"]
+    swss_flag = duthost.shell("sonic-db-cli -s STATE_DB HGET 'WARM_RESTART_ENABLE_TABLE|swss' 'enable'")["stdout"]
     if swss_flag == "true":
         duthost.shell("config warm_restart disable swss")
 
@@ -737,7 +737,7 @@ class TestVrfCreateAndBind:
         duthost = duthosts[rand_one_dut_hostname]
         # verify vrf in app_db
         for vrf in list(cfg_facts["VRF"].keys()):
-            res = duthost.shell("sonic-db-cli APPL_DB keys VRF_TABLE:%s" % vrf)
+            res = duthost.shell("sonic-db-cli -s APPL_DB keys VRF_TABLE:%s" % vrf)
             assert vrf in res["stdout"], "%s should be added in APPL_DB!" % vrf
 
         for vrf, intfs in list(g_vars["vrf_intfs"].items()):
@@ -750,7 +750,7 @@ class TestVrfCreateAndBind:
         # verify vrf in asic_db
         # plus default virtual router
         vrf_count = len(list(cfg_facts["VRF"].keys())) + 1
-        res = duthost.shell("sonic-db-cli ASIC_DB keys *VIRTUAL_ROUTER*")
+        res = duthost.shell("sonic-db-cli -s ASIC_DB keys *VIRTUAL_ROUTER*")
         assert len(res["stdout_lines"]) == vrf_count
 
 
@@ -903,7 +903,7 @@ class TestVrfAclRedirect:
         """
         duthost = duthosts[rand_one_dut_hostname]
         acl_stage_cap = duthost.shell(
-            'sonic-db-cli STATE_DB hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')["stdout"]
+            'sonic-db-cli -s STATE_DB hget "ACL_STAGE_CAPABILITY_TABLE|INGRESS" action_list')["stdout"]
         if "REDIRECT_ACTION" not in acl_stage_cap:
             pytest.skip("Switch does not support ACL REDIRECT_ACTION, supported actions {}".format(acl_stage_cap))
 
@@ -960,10 +960,10 @@ class TestVrfAclRedirect:
         yield
 
         # -------- Teardown ----------
-        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
-        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
-        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
-        duthost.shell("sonic-db-cli CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
+        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
+        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
+        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
+        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
     def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more

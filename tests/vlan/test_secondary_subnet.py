@@ -77,7 +77,7 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is stored in Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo sonic-db-cli CONFIG_DB KEYS "{redis_key}"')
+    redis_output = duthost.command(f'sudo sonic-db-cli -s CONFIG_DB KEYS "{redis_key}"')
     pytest_assert(
         redis_key in redis_output["stdout"],
         f"Secondary IP {ip_address} not found in Redis database",
@@ -120,7 +120,7 @@ def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is removed from Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo sonic-db-cli CONFIG_DB KEYS "{redis_key}"')
+    redis_output = duthost.command(f'sudo sonic-db-cli -s CONFIG_DB KEYS "{redis_key}"')
     pytest_assert(
         redis_key not in redis_output["stdout"],
         f"Secondary IP {SECONDARY_IP} still found in Redis db after removal",

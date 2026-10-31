@@ -239,22 +239,22 @@ def fixture_setUp(duthosts,
         redis_string = "INTERFACE"
         if "PortChannel" in intf:
             redis_string = "PORTCHANNEL_INTERFACE"
-        data['duthost'].shell("sonic-db-cli CONFIG_DB hdel \"{}|{}\" "
+        data['duthost'].shell("sonic-db-cli -s CONFIG_DB hdel \"{}|{}\" "
                               "vnet_name".format(redis_string, intf))
         data['duthost'].shell(
             "for i in `{} --scan --pattern \"NEIGH|{}|*\" `; "
-            "do sonic-db-cli CONFIG_DB del $i ; done".format(config_db_cli, intf))
+            "do sonic-db-cli -s CONFIG_DB del $i ; done".format(config_db_cli, intf))
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("sonic-db-cli CONFIG_DB del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli -s CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "sonic-db-cli CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli -s CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
     ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
@@ -265,7 +265,7 @@ def is_vnet_route_configured_on_asic(duthost, dest):
         A VNET route to dest must be configured on ASIC DB before running
         PTF tests.
     '''
-    result = duthost.shell(f"sonic-db-cli ASIC_DB KEYS \
+    result = duthost.shell(f"sonic-db-cli -s ASIC_DB KEYS \
                            'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]  # noqa: E231
     return bool(result)
 

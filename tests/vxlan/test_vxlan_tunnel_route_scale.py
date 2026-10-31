@@ -183,7 +183,7 @@ def generate_routes_to_test_file(ptfhost, num_samples, num_routes, vnet, routes,
 
 def get_vxlan_router_mac(duthost):
     """Get VXLAN router MAC from SWITCH_TABLE or fall back to router_mac"""
-    res = duthost.shell("sonic-db-cli APPL_DB hget 'SWITCH_TABLE:switch' vxlan_router_mac")
+    res = duthost.shell("sonic-db-cli -s APPL_DB hget 'SWITCH_TABLE:switch' vxlan_router_mac")
     vxlan_router_mac = res["stdout"].strip()
     if not vxlan_router_mac:
         vxlan_router_mac = duthost.facts["router_mac"]

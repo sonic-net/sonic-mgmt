@@ -181,7 +181,7 @@ def remove_mirror_session(duthost, session_name):
 def get_mirror_session_config_db_field(duthost, session_name, field):
     '''Return a CONFIG_DB MIRROR_SESSION field value (empty string when unset).'''
     output = duthost.shell(
-        'sonic-db-cli CONFIG_DB hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
+        'sonic-db-cli -s CONFIG_DB hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
     return output['stdout'].strip()
 
 

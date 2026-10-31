@@ -21,7 +21,7 @@ def get_bbr_default_state(duthost):
     if bbr_config_db_exist:
         # key exist, BBR is supported
         bbr_supported = True
-        bbr_default_state = duthost.shell('sonic-db-cli CONFIG_DB HGET "BGP_BBR|all" "status"')["stdout"]
+        bbr_default_state = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "BGP_BBR|all" "status"')["stdout"]
     else:
         # Check BBR configuration from constants.yml
         constants = yaml.safe_load(duthost.shell("cat {}".format(CONSTANTS_FILE))["stdout"])
@@ -76,21 +76,21 @@ def config_bbr_by_gcu(duthost, status):
         # inconsistent state, so log at error level for post-run diagnosis.
         logger.error(
             "GCU patch for BGP_BBR failed (possible schema drift): %s. "
-            "Falling back to direct sonic-db-cli HSET — CONFIG_DB may be inconsistent.",
+            "Falling back to direct sonic-db-cli -s HSET — CONFIG_DB may be inconsistent.",
             e,
         )
         duthost.shell(
-            'sonic-db-cli CONFIG_DB HSET "BGP_BBR|all" "status" "{}"'.format(status),
+            'sonic-db-cli -s CONFIG_DB HSET "BGP_BBR|all" "status" "{}"'.format(status),
             module_ignore_errors=True,
         )
         # Allow bgpcfgd to pick up the CONFIG_DB change
         time.sleep(3)
         # Verify the fallback took effect
         actual = duthost.shell(
-            'sonic-db-cli CONFIG_DB HGET "BGP_BBR|all" "status"', module_ignore_errors=True
+            'sonic-db-cli -s CONFIG_DB HGET "BGP_BBR|all" "status"', module_ignore_errors=True
         )["stdout"].strip()
         if actual != status:
             raise RuntimeError(
-                "Failed to set BGP_BBR status to '{}' via both GCU and sonic-db-cli fallback. "
+                "Failed to set BGP_BBR status to '{}' via both GCU and sonic-db-cli -s fallback. "
                 "Current value: '{}'".format(status, actual)
             )

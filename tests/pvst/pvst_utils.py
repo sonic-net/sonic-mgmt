@@ -122,7 +122,7 @@ def verify_stp_state(duthost, vlan_id, ports, expected_state, timeout=120, inter
 
 def get_port_operational_state_from_appdb(duthost, port_name):
     """Get port operational state from APP DB"""
-    redis_cmd = f"sonic-db-cli APPL_DB HGET PORT_TABLE:{port_name} oper_status"
+    redis_cmd = f"sonic-db-cli -s APPL_DB HGET PORT_TABLE:{port_name} oper_status"
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     oper_status = result.get("stdout", "").strip()
     return oper_status
@@ -130,7 +130,7 @@ def get_port_operational_state_from_appdb(duthost, port_name):
 
 def get_port_admin_state_from_appdb(duthost, port_name):
     """Get port admin state from APP DB"""
-    redis_cmd = f"sonic-db-cli APPL_DB HGET PORT_TABLE:{port_name} admin_status"
+    redis_cmd = f"sonic-db-cli -s APPL_DB HGET PORT_TABLE:{port_name} admin_status"
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     admin_status = result.get("stdout", "").strip()
     return admin_status

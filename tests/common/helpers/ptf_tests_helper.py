@@ -314,7 +314,7 @@ def apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer):
     """
 
     default_decap_mode = duthost.shell(
-        "sonic-db-cli APPL_DB hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
+        "sonic-db-cli -s APPL_DB hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
     logger.info("Current DSCP decap mode: {}".format(default_decap_mode))
 
     if default_decap_mode == dscp_mode:
