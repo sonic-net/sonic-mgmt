@@ -199,6 +199,10 @@ def clear_and_verify():
         return False
     log(summary)
     # Read the traps again after a while, in case something re-armed one after the clear.
+    # Success needs the full interval, so do not let the deadline shorten it.
+    if remaining() < SETTLE:
+        log(f'Not enough time left to re-check the traps {SETTLE}s after the clear')
+        return False
     pause(SETTLE)
     ok, summary = dshell(clear=False)
     if not ok:
