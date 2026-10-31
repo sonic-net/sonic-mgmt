@@ -1602,7 +1602,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
 
-    get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
+    get_fdb_stats = "sonic-db-cli COUNTERS_DB HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     port_dict = dict(list(zip(list(cfg_facts['port_index_map'].values()), list(cfg_facts['port_index_map'].keys()))))

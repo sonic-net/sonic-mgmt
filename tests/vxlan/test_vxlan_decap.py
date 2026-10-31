@@ -180,9 +180,9 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     for d in cleanup_duthosts:
         for vlan in mg_facts["minigraph_vlans"]:
             d.shell(
-                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+                'docker exec -i database sonic-db-cli CONFIG_DB DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
         d.shell(
-            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
+            'docker exec -i database sonic-db-cli CONFIG_DB DEL "VXLAN_TUNNEL|tlVxlan"')
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
@@ -199,9 +199,9 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         for d in target_duthosts:
             for vlan in setup["mg_facts"]["minigraph_vlans"]:
                 d.shell(
-                    'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+                    'docker exec -i database sonic-db-cli CONFIG_DB DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
             d.shell(
-                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
+                'docker exec -i database sonic-db-cli CONFIG_DB DEL "VXLAN_TUNNEL|tlVxlan"')
         return False, request.param
     else:
         # clear FDB and arp cache on DUT(s)

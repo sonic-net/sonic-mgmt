@@ -107,14 +107,14 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
     global DUT_VLAN_INTF_MAC
     if duthost.get_facts()['asic_type'] == 'mellanox':
         DUT_VLAN_INTF_MAC = get_new_vlan_intf_mac_mellanox(dut_vlan_mac)
-    duthost.shell('redis-cli -n 4 hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], DUT_VLAN_INTF_MAC))
+    duthost.shell('sonic-db-cli CONFIG_DB hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], DUT_VLAN_INTF_MAC))
     pytest_assert(wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == DUT_VLAN_INTF_MAC),
                   "Failed to set mac address for vlan interface %s" % vlan_intf["attachto"])
 
     yield
 
     # Restore the original mac address of the vlan interface
-    duthost.shell('redis-cli -n 4 hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], dut_vlan_mac))
+    duthost.shell('sonic-db-cli CONFIG_DB hmset "VLAN|%s" mac %s' % (vlan_intf["attachto"], dut_vlan_mac))
     pytest_assert(wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == dut_vlan_mac),
                   "Failed to restore mac address for vlan interface %s" % vlan_intf["attachto"])
 

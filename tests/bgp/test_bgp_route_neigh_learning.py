@@ -145,7 +145,7 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname, ip_version):
 
 
 def _check_route_propagation(duthost, data):
-    cmd = "redis-cli -n 0 hget \"ROUTE_TABLE:{}\" 'nexthop'".format(data["afi_cfg"]["prefix"])
+    cmd = "sonic-db-cli APPL_DB hget \"ROUTE_TABLE:{}\" 'nexthop'".format(data["afi_cfg"]["prefix"])
     result = duthost.shell(cmd)
     if result['stdout'] == "":
         return None

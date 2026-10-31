@@ -254,7 +254,7 @@ class VPPPlatformHandler(ECMPHashPlatformHandler):
         pushes a new value via ``swssconfig`` so orchagent programs it.
         """
         if action == "get":
-            return 'redis-cli -n 0 hget "SWITCH_TABLE:switch" "ecmp_hash_seed"'
+            return 'sonic-db-cli APPL_DB hget "SWITCH_TABLE:switch" "ecmp_hash_seed"'
         elif action == "set" and value is not None:
             payload = json.dumps(
                 [{"SWITCH_TABLE:switch": {"ecmp_hash_seed": str(value)}, "OP": "SET"}]

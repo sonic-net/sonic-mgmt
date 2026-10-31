@@ -4,6 +4,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_ports import get_secondary_subnet
 from tests.common.helpers.dut_ports import get_vlan_interface_list
+from tests.common.helpers.sonic_db import redis_cli_command
 
 
 pytestmark = [pytest.mark.topology("t0", "m0")]
@@ -76,14 +77,14 @@ def check_secondary_subnet_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is stored in Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo redis-cli -n 4 KEYS "{redis_key}"')
+    redis_output = duthost.command(f'sudo sonic-db-cli CONFIG_DB KEYS "{redis_key}"')
     pytest_assert(
         redis_key in redis_output["stdout"],
         f"Secondary IP {ip_address} not found in Redis database",
     )
 
     # Step 5: Verify "secondary" property is set to "true" in Redis
-    redis_value = duthost.command(f'sudo redis-cli -n 4 HGETALL "{redis_key}"')
+    redis_value = duthost.command(('sudo ' + redis_cli_command(duthost, 'CONFIG_DB') + f' HGETALL "{redis_key}"'))
     pytest_assert(
         "secondary" in redis_value["stdout"],
         f"'secondary' field not found for {redis_key} in Redis",
@@ -119,7 +120,7 @@ def check_secondary_subnet_not_exist(duthost, vlan_interface, ip_address):
 
     # Step 2: Verify secondary IP is removed from Redis
     redis_key = f"VLAN_INTERFACE|{vlan_interface}|{ip_address}"
-    redis_output = duthost.command(f'sudo redis-cli -n 4 KEYS "{redis_key}"')
+    redis_output = duthost.command(f'sudo sonic-db-cli CONFIG_DB KEYS "{redis_key}"')
     pytest_assert(
         redis_key not in redis_output["stdout"],
         f"Secondary IP {SECONDARY_IP} still found in Redis db after removal",

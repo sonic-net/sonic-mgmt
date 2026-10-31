@@ -146,7 +146,7 @@ def build_fib(duthosts, rand_one_dut_hostname, ptfhost, config_facts, tbinfo):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-    duthost.shell("redis-dump -d 0 -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
+    duthost.shell("sonic-db-dump -n APPL_DB -k 'ROUTE*' -y > /tmp/fib.{}.txt".format(timestamp))
     duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 
     po = config_facts.get('PORTCHANNEL_MEMBER', {})

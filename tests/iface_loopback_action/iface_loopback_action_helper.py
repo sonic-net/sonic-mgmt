@@ -87,13 +87,14 @@ def check_neighbor(duthost, ip_address, mac_address, interface):
     :param mac_address: Neighbor mac address
     :param interface: Neighbor interface
     """
-    asic_db_output = duthost.shell("redis-cli -n 1 keys *NEIGHBOR_ENTRY* | grep {}".format(ip_address))['stdout_lines']
+    asic_db_output = duthost.shell(
+        "sonic-db-cli ASIC_DB keys *NEIGHBOR_ENTRY* | grep {}".format(ip_address))['stdout_lines']
     if len(asic_db_output) < 1:
         logger.error('No neighbor entry or extra neighbor entries of {} in ASIC db.'.format(ip_address))
         return False
 
     asic_db_neighbor_entry = asic_db_output[0]
-    mac_in_asic_db = duthost.shell("redis-cli -n 1 hget '{}' '{}'".format(
+    mac_in_asic_db = duthost.shell("sonic-db-cli ASIC_DB hget '{}' '{}'".format(
         asic_db_neighbor_entry, "SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS"))['stdout_lines']
 
     if len(mac_in_asic_db) < 1 or mac_in_asic_db[0].upper() != mac_address.upper():

@@ -53,17 +53,17 @@ def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
 @pytest.fixture
 def expected_dhcp_rules_for_standby(duthost_dualtor):
     expected_dhcp_rules = []
-    mux_cable_int_keys = duthost_dualtor.shell('/usr/bin/redis-cli -n 6  --raw keys "MUX_CABLE_TABLE*"',
+    mux_cable_int_keys = duthost_dualtor.shell('sonic-db-cli STATE_DB keys "MUX_CABLE_TABLE*"',
                                                module_ignore_errors=True)['stdout']
     mux_cable_int_keys = mux_cable_int_keys.split("\n")
     for mux_cable_int in mux_cable_int_keys:
         interface_name = mux_cable_int.split("|")[1]
-        mux_status = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "{}" "state"'
+        mux_status = duthost_dualtor.shell('sonic-db-cli STATE_DB hget "{}" "state"'
                                            .format(mux_cable_int), module_ignore_errors=False)['stdout']
         if not mux_status:
             continue
         if mux_status == 'standby':
-            mark = duthost_dualtor.shell('/usr/bin/redis-cli -n 6 --raw hget "DHCP_PACKET_MARK|{}" "mark"'
+            mark = duthost_dualtor.shell('sonic-db-cli STATE_DB hget "DHCP_PACKET_MARK|{}" "mark"'
                                          .format(interface_name), module_ignore_errors=False)['stdout']
             rule = "-A DHCP -m mark --mark {} -j DROP".format(mark)
             expected_dhcp_rules.append(rule)

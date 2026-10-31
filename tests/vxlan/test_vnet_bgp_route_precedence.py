@@ -16,6 +16,7 @@ from ptf import mask
 from scapy.all import Ether, IP, VXLAN, IPv6, UDP
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from collections import defaultdict
+from tests.common.helpers.sonic_db import redis_cli_command
 
 
 Logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ ecmp_utils = Ecmp_Utils()
 
 def _check_redis_key_gone(duthost, db_num, key):
     """Check that a redis key no longer exists."""
-    result = duthost.shell(f"redis-cli -n {db_num} EXISTS \"{key}\"", module_ignore_errors=True)
+    command = redis_cli_command(duthost, db_num) + f' EXISTS "{key}"'
+    result = duthost.shell(command, module_ignore_errors=True)
     return result['stdout'].strip() == '0'
 
 
@@ -356,13 +358,13 @@ def fixture_setUp(duthosts,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VNET|{vnet}")
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     for tunnel in list(tunnel_names.values()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VXLAN_TUNNEL|{tunnel}")
 

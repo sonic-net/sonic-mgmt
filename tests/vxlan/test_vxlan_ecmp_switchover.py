@@ -12,6 +12,7 @@ import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
+from tests.common.helpers.sonic_db import redis_cli_command
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
@@ -186,26 +187,27 @@ def fixture_setUp(duthosts,
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     payload_version = ecmp_utils.get_payload_version(encap_type)
 
+    config_db_cli = redis_cli_command(data['duthost'], 'CONFIG_DB')
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:
             redis_string = "PORTCHANNEL_INTERFACE"
-        data['duthost'].shell("redis-cli -n 4 hdel \"{}|{}\""
+        data['duthost'].shell("sonic-db-cli CONFIG_DB hdel \"{}|{}\" "
                               "vnet_name".format(redis_string, intf))
         data['duthost'].shell(
-            "for i in `redis-cli -n 4 --scan --pattern \"NEIGH|{}|*\" `; "
-            "do redis-cli -n 4 del $i ; done".format(intf))
+            "for i in `{} --scan --pattern \"NEIGH|{}|*\" `; "
+            "do sonic-db-cli CONFIG_DB del $i ; done".format(config_db_cli, intf))
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
 
 

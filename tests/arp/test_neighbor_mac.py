@@ -5,6 +5,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_cli_argv
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ class TestNeighborMac:
                 redisNeighborMac (str): Redis MAC entry of neighbor IP
         """
         duthost = duthosts[rand_one_dut_hostname]
-        result = duthost.shell(argv=["redis-cli", "-n", "1", "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
+        result = duthost.shell(argv=["sonic-db-cli", 'ASIC_DB', "KEYS", "ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*"])
         neighborKey = None
         for key in result["stdout_lines"]:
             if self.PTF_HOST_IP in key:
@@ -279,7 +280,7 @@ class TestNeighborMac:
                 break
 
         pytest_assert(neighborKey, "Neighbor key NOT found in Redis DB, Redis db Output '{0}'".format(result["stdout"]))
-        result = duthost.shell(argv=["redis-cli", "-n", "1", "HGETALL", neighborKey])
+        result = duthost.shell(argv=redis_cli_argv(duthost, 'ASIC_DB') + ["HGETALL", neighborKey])
 
         yield result["stdout_lines"][1]
 

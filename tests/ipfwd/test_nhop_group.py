@@ -18,6 +18,7 @@ from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.vs_data import is_vs_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
+from tests.common.helpers.sonic_db import redis_cli_argv
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 PTF_QUEUE_LEN = 100000
@@ -328,7 +329,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
 
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
-    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
+    asic_info = duthost.shell(f'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
                               module_ignore_errors=True)["stdout"]
     if route in asic_info:
         logger.info(f"Matched ASIC route: {asic_info}")
@@ -386,7 +387,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     asic = duthost.asic_instance()
 
     # find out MAX NHOP group count supported on the platform
-    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB') + ["HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
     switch_capability = dict(list(zip(it, it)))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
@@ -485,11 +486,11 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
-    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'STATE_DB') + ["HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
     switch_capability = dict(list(zip(it, it)))
 
-    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"])
+    result = asic.run_redis_cmd(argv=redis_cli_argv(asic, 'APPL_DB') + ["HGETALL", "SWITCH_TABLE:switch"])
 
     it = iter(result)
     switch_table = dict(list(zip(it, it)))

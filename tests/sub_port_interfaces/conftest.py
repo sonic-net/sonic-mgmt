@@ -481,7 +481,7 @@ def apply_tunnel_table_to_dut(duthost, apply_route_config):
 
     # Teardown
     for index in range(1, len(tunnel_addr_list)+1):
-        duthost.command('docker exec -i database redis-cli -n 4 -c DEL "TUNNEL|MuxTunnel{}"'.format(index))
+        duthost.command('docker exec -i database sonic-db-cli CONFIG_DB DEL "TUNNEL|MuxTunnel{}"'.format(index))
 
 
 @pytest.fixture()

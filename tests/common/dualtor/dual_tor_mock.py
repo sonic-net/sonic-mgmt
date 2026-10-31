@@ -12,6 +12,7 @@ from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_cli_command
 
 __all__ = [
     'apply_active_state_to_orchagent',
@@ -70,7 +71,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: 
     """
     def check_config_applied():
         for intf in tor_mux_intfs:
-            out = dut.shell('redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
+            out = dut.shell('sonic-db-cli APPL_DB HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
             if out['stdout_lines'][0] != state:
                 return False
         return True
@@ -344,9 +345,10 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
     def check_config_applied():
-        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines']
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') + ' HGETALL "DEVICE_METADATA|localhost"'))['stdout_lines']
         device_metadata_done = 'DualToR' in out
-        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines']
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') +
+                        ' HGETALL "PEER_SWITCH|switch_hostname"'))['stdout_lines']
         peerswitch_done = out and 'address_ipv4' in out
         return device_metadata_done and peerswitch_done
     logger.info("Applying PEER_SWITCH table")
@@ -357,7 +359,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     restart_swss = False
     if dut.get_asic_name() in ['th2', 'td3', 'gb']:
         restart_swss = True
-    cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
+    cmd = 'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)
     if ((restart_swss) and (dut.get_asic_name() != 'gb')):
         # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
@@ -366,8 +368,14 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         logger.info("Restarting swss service to regenerate config.bcm")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
-    cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
-            'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
+    cmds = [
+        'sonic-db-cli CONFIG_DB HSET "{}" "address_ipv4" "{}"'.format(
+            peer_switch_key,
+            mock_peer_switch_loopback_ip.ip),
+        'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(
+            device_meta_key,
+            'peer_switch',
+            peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
     logger.info("Wait for 120 seconds for complete update of configs after swss restart")
     pytest_assert(
@@ -398,7 +406,8 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     Adds the TUNNEL table to config DB
     '''
     def check_config_applied(tunnel_params):
-        out = dut.shell('redis-cli -n 4 HGETALL "TUNNEL|MuxTunnel0" | wc -l')['stdout_lines'][0]
+        out = dut.shell((redis_cli_command(dut, 'CONFIG_DB') +
+                        ' HGETALL "TUNNEL|MuxTunnel0" | wc -l'))['stdout_lines'][0]
 
         # *2 because each key value pair is represented with 2 rows in redis-cli
         return out == str(len(tunnel_params['TUNNEL']['MuxTunnel0'])*2)
@@ -437,7 +446,7 @@ def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
     Adds the MUX_CABLE table to config DB
     '''
     def check_config_applied(num_tor_mux_intfs):
-        out = dut.shell('redis-cli -n 4 keys "MUX_CABLE|*" | wc -l')
+        out = dut.shell('sonic-db-cli CONFIG_DB keys "MUX_CABLE|*" | wc -l')
         return out['stdout_lines'][0] == str(num_tor_mux_intfs)
     logger.info("Applying MUX_CABLE table")
     dut = rand_selected_dut

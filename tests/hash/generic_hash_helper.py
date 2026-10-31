@@ -13,6 +13,7 @@ from tests.conftest import get_testbed_metadata
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa:F401
 from tests.common.dualtor.constants import UPPER_TOR
+from tests.common.helpers.sonic_db import redis_cli_command
 
 SRC_IP_RANGE = ['8.0.0.0', '8.255.255.255']
 DST_IP_RANGE = ['9.0.0.0', '9.255.255.255']
@@ -364,11 +365,11 @@ def check_default_route_asic_db(duthost):
     """
     logger.info("Check if the default route exists in the asic db.")
     route_entry = duthost.shell(
-        'redis-cli -n 1 keys "*ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*0.0.0.0/0*"',
+        'sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*0.0.0.0/0*"',
         module_ignore_errors=True)["stdout"]
     if not route_entry:
         return False
-    route_entry_content = duthost.shell(f"redis-cli -n 1 hgetall '{route_entry}'")["stdout"]
+    route_entry_content = duthost.shell((redis_cli_command(duthost, 'ASIC_DB') + f" hgetall '{route_entry}'"))["stdout"]
     if "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID" in route_entry_content:
         return True
     else:

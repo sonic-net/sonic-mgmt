@@ -55,7 +55,7 @@ def check_image_version(duthosts, selected_dut_hostname):
 @pytest.fixture(scope='function')
 def skip_when_buffer_is_dynamic_model(duthost):
     buffer_model = duthost.shell(
-        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
     if buffer_model == 'dynamic':
         pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
 
@@ -151,7 +151,7 @@ def skip_if_packet_trimming_not_supported(duthost):
     logger.info(f"Checking packet trimming support for platform: {platform}")
 
     # Check if the SWITCH_TRIMMING_CAPABLE capability is true
-    trimming_capable = duthost.command('redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')[
-        'stdout'].strip()
+    trimming_capable = duthost.command(
+        'sonic-db-cli STATE_DB HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')['stdout'].strip()
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")

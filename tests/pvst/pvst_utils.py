@@ -1,6 +1,7 @@
 import logging
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ def get_port_state(duthost, vlan_id, port_name):
     :return: port_state (str)
     """
     port_key = f"_STP_VLAN_PORT_TABLE:Vlan{vlan_id}:{port_name}"
-    redis_cmd_port = f"redis-cli HGETALL {port_key}"
+    redis_cmd_port = (redis_cli_command(duthost, 'APPL_DB') + f" HGETALL {port_key}")
     port_output_raw = duthost.shell(redis_cmd_port, module_ignore_errors=True)
 
     redis_output_lines = port_output_raw.get("stdout_lines", [])
@@ -63,7 +64,7 @@ def get_port_state(duthost, vlan_id, port_name):
 def get_port_cost(port_name, duthost, vlan_id):
     """Get port cost from STP VLAN PORT table"""
     port_key = f"_STP_VLAN_PORT_TABLE:Vlan{vlan_id}:{port_name}"
-    redis_cmd = f"redis-cli HGETALL {port_key}"
+    redis_cmd = (redis_cli_command(duthost, 'APPL_DB') + f" HGETALL {port_key}")
     port_output_raw = duthost.shell(redis_cmd, module_ignore_errors=True)
 
     redis_output_lines = port_output_raw.get("stdout_lines", [])
@@ -77,7 +78,7 @@ def get_stp_vlan_data(duthost, vlan_id):
     """
     Fetch and parse STP_VLAN_TABLE from Redis APP_DB for the given VLAN ID.
     """
-    redis_cmd = f"redis-cli HGETALL _STP_VLAN_TABLE:Vlan{vlan_id}"
+    redis_cmd = (redis_cli_command(duthost, 'APPL_DB') + f" HGETALL _STP_VLAN_TABLE:Vlan{vlan_id}")
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     output_lines = result.get("stdout_lines", [])
     return dict(zip(output_lines[::2], output_lines[1::2]))
@@ -87,7 +88,7 @@ def get_stp_bridge_priority_data(duthost, vlan_id):
     """
     Fetch and parse STP_VLAN_TABLE from Redis APP_DB for the given VLAN ID.
     """
-    redis_cmd = f"redis-cli -n 4 HGETALL 'STP_VLAN|Vlan{vlan_id}'"
+    redis_cmd = (redis_cli_command(duthost, 'CONFIG_DB') + f" HGETALL 'STP_VLAN|Vlan{vlan_id}'")
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     output_lines = result.get("stdout_lines", [])
     bridge_priority = dict(zip(output_lines[::2], output_lines[1::2]))
@@ -121,7 +122,7 @@ def verify_stp_state(duthost, vlan_id, ports, expected_state, timeout=120, inter
 
 def get_port_operational_state_from_appdb(duthost, port_name):
     """Get port operational state from APP DB"""
-    redis_cmd = f"redis-cli -n 0 HGET PORT_TABLE:{port_name} oper_status"
+    redis_cmd = f"sonic-db-cli APPL_DB HGET PORT_TABLE:{port_name} oper_status"
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     oper_status = result.get("stdout", "").strip()
     return oper_status
@@ -129,7 +130,7 @@ def get_port_operational_state_from_appdb(duthost, port_name):
 
 def get_port_admin_state_from_appdb(duthost, port_name):
     """Get port admin state from APP DB"""
-    redis_cmd = f"redis-cli -n 0 HGET PORT_TABLE:{port_name} admin_status"
+    redis_cmd = f"sonic-db-cli APPL_DB HGET PORT_TABLE:{port_name} admin_status"
     result = duthost.shell(redis_cmd, module_ignore_errors=True)
     admin_status = result.get("stdout", "").strip()
     return admin_status

@@ -787,7 +787,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
     skip_if_no_ecmp_to_hash_over(ptfhost, fib_files, outer_ipver)
 
     # Query the default VxLAN UDP port from switch's APPL_DB
-    vxlan_dport_check = duthost.shell('redis-cli -n 0 hget "SWITCH_TABLE:switch" "vxlan_port"')
+    vxlan_dport_check = duthost.shell('sonic-db-cli APPL_DB hget "SWITCH_TABLE:switch" "vxlan_port"')
     if 'stdout' in vxlan_dport_check and vxlan_dport_check['stdout'].isdigit():
         vxlan_dest_port = int(vxlan_dport_check['stdout'])
     else:

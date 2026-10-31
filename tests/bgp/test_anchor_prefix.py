@@ -241,7 +241,7 @@ def setup_urh_anchor(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
 
     device_type = duthost.shell(
-        "redis-cli -n 4 HGET 'DEVICE_METADATA|localhost' type",
+        "sonic-db-cli CONFIG_DB HGET 'DEVICE_METADATA|localhost' type",
         module_ignore_errors=True
     )["stdout"].strip()
     pytest_assert(
