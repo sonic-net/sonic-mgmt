@@ -51,7 +51,7 @@ under the documented conditions; these skips do not establish hardware PASS.
 The byte-count option is `-s/--size`. `--length` is rejected. For each of
 `read-eeprom oe`, `read-eeprom els`, `read-eeprom interface --oe`, and
 `read-eeprom interface --els`, all six nonempty proper subsets below must
-return code 3 with `must be supplied together` (24 cases):
+return code 1 with `must be supplied together` (24 cases):
 
 | Given range options | Result |
 | --- | --- |
@@ -76,7 +76,7 @@ numbers; bank bounds and shared-page bank selection are checked.
 
 `files/cpo_faults.py` replaces initialization, lookup, page/offset resolution
 and endpoints only within its process, then calls the installed CLI's actual
-callbacks and error handlers. Simulations assert return code 3, no traceback,
+callbacks and error handlers through the installed `cli` entry. Simulations assert return code 1, no traceback,
 the expected failure category and exact read/write/control call counts.
 Only booleans and counters return to the test controller.
 
@@ -89,8 +89,12 @@ Only booleans and counters return to the test controller.
 - Multi-target Tx-disable: first target succeeds and second fails; the CLI
   must identify partial completion (1 case).
 
-The suite collects 473 integration cases; 498 local checks passed on
-2026-10-29. Full Ansible collection and DUT execution remain **unverified**.
+The suite collects 473 integration cases. Review of a subsequent testbed run
+found 150 passed, 315 failed at incorrect exit-code expectations, and 8 skipped.
+The 2026-10-31 correction distinguishes Click usage errors (2) from callback
+validation errors (1); it requires a fresh testbed run. Earlier local checks
+used the internal `main()` wrapper and did not validate the installed entry's
+exit codes. See the test plan for verification details and limits.
 This matrix establishes command coverage and the enumerated error scenarios,
 not complete branch coverage or every possible hardware failure. Physical
 removal, unavailable/restarting services, bus contention, traffic and actual

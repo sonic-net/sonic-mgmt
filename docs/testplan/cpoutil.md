@@ -20,7 +20,9 @@ indices. Interface scope provides Tx-disable only. Low-power mode and reset
 are tested at OE/ELS scope. Removed interface low-power/reset commands and
 legacy positional port arguments are negative cases. The root guard returns
 1 for an unprivileged operation, while top-level help remains available.
-Invalid commands/resources return 3.
+The installed console entry is `cpoutil.main:cli`: Click usage errors return 2,
+callback validation/I/O errors return 1, and success returns 0. The internal
+`main()` wrapper has a different error contract and is not the installed entry.
 
 ## Prerequisites
 
@@ -128,6 +130,26 @@ Use `-k 'interface_queries and (presence or dom)'` for presence/DOM only.
 Unsupported/disabled control cases are skips, not hardware PASS.
 
 ## Validation status and limits
+
+2026-10-31: all 473 details from a subsequent testbed run were reviewed:
+150 passed, 315 failed and 8 skipped. Every failure stopped at the test's
+incorrect expectation of exit code 3; the actual codes were 2 for 189 usage
+errors and 1 for 126 callback-validation errors. The argument cases now state
+their exact expected code, and fault simulations invoke `cli()` as the
+installed console does. Diagnostic-category and hardware-access assertions
+remain in place. This corrects the test contract; a fresh testbed execution
+of this correction is still required. The 8 skips include 7 gated hardware
+control/write cases and one ordinary-SFP coexistence case.
+All 499 updated local checks pass using Click's console entry behavior;
+315 recorded failure results also pass an offline replay through the corrected
+assertions. Replaying recorded data is not a new DUT execution. Isolated
+collection still yields 473 cases; flake8 and diff whitespace checks pass.
+
+The 473 report rows come from 17 test functions, including 300 argument
+combinations, 65 synthetic failures and 35 help paths. They are not 473
+independent hardware features. The reference sfputil file groups checks in
+six test functions; its count and this expanded report count are different
+granularities. The matrix and process-local simulations dominate this suite.
 
 2026-10-29: 473 parametrized integration cases collect in isolation. 498 local
 checks pass, including all 300 argument cases through the actual merged CLI

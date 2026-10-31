@@ -81,7 +81,10 @@ def simulate(request, cli_module=None):
                 stack.enter_context(patch.object(cli_module, name, value))
             stack.enter_context(patch.object(sys, "argv", ["cpoutil"] + arguments))
             try:
-                rc = cli_module.main()
+                # setup.py installs cpoutil.main:cli, which lets Click choose
+                # process exit codes. The module's main() wrapper differs.
+                cli_module.cli()
+                rc = 0
             except SystemExit as error:
                 rc = error.code
             except Exception:

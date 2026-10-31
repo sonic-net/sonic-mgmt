@@ -30,8 +30,10 @@ EEPROM_ROUTES = (
 def argument_cases():
     cases = []
 
-    def add(name, command, diagnostic, leaf):
-        cases.append((name, command, diagnostic, leaf))
+    def add(name, command, diagnostic, leaf, expected_rc=2):
+        # The installed console entry uses Click: usage errors are 2 and
+        # callback validation errors (ClickException) are 1.
+        cases.append((name, command, diagnostic, leaf, expected_rc))
 
     for leaf in LEAF_COMMANDS:
         key = leaf.replace(" ", "-")
@@ -39,25 +41,26 @@ def argument_cases():
     for name in INTERFACE_QUERIES:
         leaf = "show interface " + name
         key = leaf.replace(" ", "-")
-        add(key + "-invalid-port", leaf + " --port __invalid_cpo_port__", "invalid", leaf)
+        add(key + "-invalid-port", leaf + " --port __invalid_cpo_port__", "invalid", leaf, expected_rc=1)
         add(key + "-positional-port", leaf + " __invalid_cpo_port__", "unexpected extra argument", leaf)
         add(key + "-port-no-value", leaf + " --port", "requires an argument", leaf)
     for target in ("oe", "els"):
         for name in ENDPOINT_QUERIES:
             leaf = "show {} {}".format(target, name)
-            add(leaf.replace(" ", "-") + "-invalid-index", leaf + " __invalid_index__", "invalid", leaf)
+            add(leaf.replace(" ", "-") + "-invalid-index", leaf + " __invalid_index__", "invalid", leaf,
+                expected_rc=1)
         for name in ("lpmode", "reset"):
             leaf = "config {} {}".format(target, name)
             key = leaf.replace(" ", "-")
             suffix = " full" if name == "lpmode" else ""
-            add(key + "-invalid-index", leaf + " __invalid_index__" + suffix, "invalid", leaf)
+            add(key + "-invalid-index", leaf + " __invalid_index__" + suffix, "invalid", leaf, expected_rc=1)
             add(key + "-no-arguments", leaf, "missing argument", leaf)
             if name == "lpmode":
                 add(key + "-missing-mode", leaf + " {" + target + "}", "missing argument", leaf)
                 for mode in ("on", "FULL", "invalid"):
                     add(key + "-bad-mode-" + mode, leaf + " {" + target + "} " + mode, "invalid value", leaf)
     leaf = "config interface tx-disable"
-    add("tx-invalid-port", leaf + " -p __invalid_cpo_port__ false", "invalid", leaf)
+    add("tx-invalid-port", leaf + " -p __invalid_cpo_port__ false", "invalid", leaf, expected_rc=1)
     for suffix, arguments in (("no-arguments", ""), ("missing-port", " false"), ("missing-state", " -p {port}")):
         add("tx-" + suffix, leaf + arguments, "missing", leaf)
     for state in ("enable", "TRUE", "1"):
@@ -74,7 +77,7 @@ def argument_cases():
                 label = "-".join(option[2:] for option, _ in subset)
                 add("read-" + route + "-partial-" + label,
                     read + " " + " ".join(token for pair in subset for token in pair),
-                    "must be supplied together", read_leaf)
+                    "must be supplied together", read_leaf, expected_rc=1)
         for option, _ in read_fields:
             add("read-" + route + "-no-value-" + option[2:], read + " " + option,
                 "requires an argument", read_leaf)
@@ -92,7 +95,7 @@ def argument_cases():
             ("nonzero-page-lower-half", "--page 1 --offset 0 --size 1", "valid range: 80h-ffh"),
         )
         for label, arguments, error in boundaries:
-            add("read-" + route + "-" + label, read + " " + arguments, error, read_leaf)
+            add("read-" + route + "-" + label, read + " " + arguments, error, read_leaf, expected_rc=1)
 
         write_leaf = "write-eeprom " + ("interface" if route.startswith("interface") else suffix)
         write = "write-eeprom " + suffix
@@ -110,19 +113,19 @@ def argument_cases():
         prefix = write + " " + " ".join(selector) + " --page 0 --offset 0 --data "
         for label, data, error in (("empty", "", "data must contain at least one byte"),
                                    ("odd", "1", "hex"), ("nonhex", "gg", "hex")):
-            add("write-" + route + "-data-" + label, prefix + shlex.quote(data), error, write_leaf)
+            add("write-" + route + "-data-" + label, prefix + shlex.quote(data), error, write_leaf, expected_rc=1)
         for option in ("--page", "--offset"):
             for value in ("-1", "256", "invalid"):
                 arguments = " ".join(token for pair in fields for token in
                                      ((option, value) if pair[0] == option else pair))
                 error = "invalid value" if value == "invalid" else option[2:] + " must be between"
                 add("write-" + route + "-bad-" + option[2:] + "-" + value,
-                    write + " " + arguments, error, write_leaf)
+                    write + " " + arguments, error, write_leaf, expected_rc=2 if value == "invalid" else 1)
         for label, arguments, error in (
                 ("cross-page", "--page 0 --offset 255 --data 55aa", "crosses the cmis page boundary"),
                 ("nonzero-page-lower-half", "--page 1 --offset 0 --data ff", "valid range: 80h-ffh")):
             add("write-" + route + "-" + label,
-                write + " " + " ".join(selector) + " " + arguments, error, write_leaf)
+                write + " " + " ".join(selector) + " " + arguments, error, write_leaf, expected_rc=1)
         if not route.startswith("interface"):
             for operation, prefix in (("read-eeprom", read), ("write-eeprom", write + " " + " ".join(
                     token for pair in fields for token in pair))):
@@ -136,7 +139,8 @@ def argument_cases():
                 for value in ("-1", "256"):
                     extra = " --page 0 --offset 0 --size 1" if operation == "read-eeprom" else ""
                     add(operation + "-" + route + "-bad-bank-" + value,
-                        prefix + extra + " --bank " + value, "bank must be between", operation + " " + suffix)
+                        prefix + extra + " --bank " + value, "bank must be between", operation + " " + suffix,
+                        expected_rc=1)
                 for option in ("--index", "--bank"):
                     arguments = prefix.replace(" ".join(selector), "") if option == "--index" else prefix
                     add(operation + "-" + route + "-bad-number-" + option[2:],
@@ -146,7 +150,7 @@ def argument_cases():
             arguments = " -p {port} --page 0 --offset 0 " + (
                 "--size 1" if operation == "read-eeprom" else "--data ff")
             add(operation + "-interface-" + label, operation + " interface " + target_flags + arguments,
-                "exactly one", operation + " interface")
+                "exactly one", operation + " interface", expected_rc=1)
     assert len({case[0] for case in cases}) == len(cases), "Duplicate argument-case id"
     return tuple(cases)
 

@@ -21,7 +21,7 @@ pytestmark = [pytest.mark.topology("any"), pytest.mark.device_type("physical")]
 
 INTERFACE_SHOW = ("map", "presence", "dom", "tx-disable", "speed application", "lane-status")
 ENDPOINT_SHOW = ("status", "temperature", "lpmode")
-ERROR_RC = 3
+COMMAND_ERROR_RC = 1
 
 
 def runner_request(dut, payload):
@@ -40,7 +40,8 @@ def run(dut, arguments, rc=0, privileged=True):
     # The DUT runner projects/redacts identity data before it reaches Ansible.
     logger.info("cpoutil %s: rc=%s", shlex.split(arguments)[:3], result.get("rc"))
     if rc is not None:
-        assert result["rc"] == rc, "cpoutil failed: {}".format(result.get("stderr", ""))
+        assert result["rc"] == rc, "cpoutil returned {}, expected {}: {}".format(
+            result["rc"], rc, result.get("stderr", ""))
     assert "traceback" not in result.get("stderr", "").lower(), "CLI traceback suppressed"
     return result
 
@@ -57,7 +58,7 @@ def json_output(dut, arguments, optional=False):
 
 def is_unsupported(result):
     # Do not turn EEPROM failures, malformed JSON or missing APIs into a skip.
-    return result["rc"] == ERROR_RC and "not implemented" in result.get("stderr", "").lower()
+    return result["rc"] == COMMAND_ERROR_RC and "not implemented" in result.get("stderr", "").lower()
 
 
 def integers(value):
@@ -344,11 +345,11 @@ def test_selected_eeprom_full_dump(cpo_environment, target, access):
 @pytest.mark.parametrize("case", ARGUMENT_CASES, ids=lambda case: case[0])
 def test_argument_matrix(cpo_environment, case):
     """Exercise missing fields, bad values and invalid combinations across every leaf command."""
-    _, arguments, diagnostic, _ = case
+    _, arguments, diagnostic, _, expected_rc = case
     values = {"port": resources(cpo_environment, "interface")[0],
               "oe": int(resources(cpo_environment, "oe")[0][2:]),
               "els": int(resources(cpo_environment, "els")[0][3:])}
-    result = run(cpo_environment["dut"], arguments.format(**values), rc=ERROR_RC)
+    result = run(cpo_environment["dut"], arguments.format(**values), rc=expected_rc)
     assert diagnostic in result["stderr"], "Incorrect argument-error category"
 
 
@@ -378,7 +379,7 @@ def test_simulated_io_failures(cpo_environment, case):
     outer = cpo_environment["dut"].command(command, module_ignore_errors=True, verbose=False)
     assert outer["rc"] == 0, "Synthetic-fault helper failed; raw output suppressed"
     result = json.loads(outer["stdout"])
-    assert result["rc"] == ERROR_RC and not result["traceback"], "Fault escaped CLI error handling"
+    assert result["rc"] == COMMAND_ERROR_RC and not result["traceback"], "Fault escaped CLI error handling"
     if operation == "read-eeprom":
         assert result["reads"] == 1 and result["writes"] == result["controls"] == 0
     elif operation == "write-eeprom":
@@ -392,21 +393,21 @@ def test_simulated_io_failures(cpo_environment, case):
         assert result["partial"], "Partial completion was not identified"
 
 
-@pytest.mark.parametrize("arguments,diagnostic", (
-    ("show oe temperature -1", "-1"), ("show els temperature -1", "-1"),
-    ("read-eeprom oe -i {oe} -b 1 -n 0 -o 0 -s 1", "does not use bank selection"),
-    ("show oe input-power", "no such command"), ("show els output-power", "no such command"),
-    ("show els presence", "no such command"),
-    ("config oe tx-disable 0 true", "no such command"), ("config els tx-disable 0 true", "no such command"),
-    ("show interface lpmode", "no such command"),
-    ("config interface lpmode -p __invalid_cpo_port__ low", "no such command"),
-    ("config interface reset -p __invalid_cpo_port__", "no such command"),
+@pytest.mark.parametrize("arguments,diagnostic,expected_rc", (
+    ("show oe temperature -1", "-1", 2), ("show els temperature -1", "-1", 2),
+    ("read-eeprom oe -i {oe} -b 1 -n 0 -o 0 -s 1", "does not use bank selection", 1),
+    ("show oe input-power", "no such command", 2), ("show els output-power", "no such command", 2),
+    ("show els presence", "no such command", 2),
+    ("config oe tx-disable 0 true", "no such command", 2), ("config els tx-disable 0 true", "no such command", 2),
+    ("show interface lpmode", "no such command", 2),
+    ("config interface lpmode -p __invalid_cpo_port__ low", "no such command", 2),
+    ("config interface reset -p __invalid_cpo_port__", "no such command", 2),
 ))
-def test_invalid_arguments(cpo_environment, arguments, diagnostic):
+def test_invalid_arguments(cpo_environment, arguments, diagnostic, expected_rc):
     """Rejected inputs and removed commands must return the CLI's documented error code."""
     arguments = arguments.format(oe=int(resources(cpo_environment, "oe")[0][2:]),
                                  els=int(resources(cpo_environment, "els")[0][3:]))
-    result = run(cpo_environment["dut"], arguments, rc=ERROR_RC)
+    result = run(cpo_environment["dut"], arguments, rc=expected_rc)
     assert diagnostic in result.get("stderr", "").lower(), result
 
 
@@ -422,7 +423,7 @@ def test_undeclared_eeprom_page(cpo_environment, target, operation):
     if page is None:
         pytest.skip("Endpoint declares every possible page")
     args = "{} {} -i {} -n {} -o 128 ".format(operation, target, int(selector[len(target):]), page)
-    result = run(env["dut"], args + ("-s 1" if operation == "read-eeprom" else "-d ff"), rc=ERROR_RC)
+    result = run(env["dut"], args + ("-s 1" if operation == "read-eeprom" else "-d ff"), rc=COMMAND_ERROR_RC)
     assert "not declared" in result["stderr"], "Undeclared page must be rejected before hardware access"
 
 
@@ -444,7 +445,7 @@ def test_sfp_coexistence(cpo_environment):
     if not ordinary:
         pytest.skip("No ordinary SFP ports on this DUT")
     for port in sorted(ordinary):
-        result = run(dut, "show interface presence -p " + port, rc=ERROR_RC)
+        result = run(dut, "show interface presence -p " + port, rc=COMMAND_ERROR_RC)
         assert "sfputil" in result["stderr"], result
 
 
