@@ -30,15 +30,26 @@
   with_fileglob:
     - "{{ test_files_dir }}/*"
 
+- name: Read configured Redis endpoints
+  slurp:
+    src: /var/run/redis/sonic-db/database_config.json
+  register: ecn_redis_metadata
+
+- set_fact:
+    ecn_redis_config: "{{ ecn_redis_metadata.content | b64decode | from_json }}"
+
 - block:
     # Test case #3(MA): Check configuration applied
     - name: Check if ASIC DB configured qos parameters
-      shell: docker exec database redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
+      shell: docker exec database sonic-db-cli ASIC_DB KEYS ASIC_STATE:SAI_OBJECT_TYPE_QUEUE* | grep QUEUE
       register: grep_queue
       failed_when: grep_queue.rc != 0
 
     # Run test with different values
     - include_tasks: ecn_wred_worker.yml
+      vars:
+        ecn_asic_db: "{{ ecn_redis_config.DATABASES.ASIC_DB }}"
+        ecn_asic_redis: "{{ ecn_redis_config.INSTANCES[ecn_redis_config.DATABASES.ASIC_DB.instance] }}"
       with_items: "{{ test_wred_values }}"
 
   always:

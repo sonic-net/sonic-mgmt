@@ -480,10 +480,10 @@
 
     # Change lossy and lossless scheduler weights
     - name: Change lossy scheduler weight to {{qp.wrr_chg.lossy_weight}}
-      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight {{qp.wrr_chg.lossy_weight}}
+      command: sonic-db-cli CONFIG_DB HSET "{{lossy_sched_profile}}" weight {{qp.wrr_chg.lossy_weight}}
 
     - name: Change lossless scheduler weight to {{qp.wrr_chg.lossless_weight}}
-      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight {{qp.wrr_chg.lossless_weight}}
+      command: sonic-db-cli CONFIG_DB HSET "{{lossless_sched_profile}}" weight {{qp.wrr_chg.lossless_weight}}
 
     # WRR test
     - include_tasks: qos_sai_ptf.yml
@@ -510,10 +510,10 @@
 
     # Restore lossy and lossless scheduler weights
     - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
-      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+      command: sonic-db-cli CONFIG_DB HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
 
     - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
-      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
+      command: sonic-db-cli CONFIG_DB HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
 
   always:
     - name: Restore LLDP Daemon
@@ -544,10 +544,10 @@
       when:  watermark_status is defined and (watermark_status.stdout == "enable" or watermark_status.stdout == "disable")
 
     - name: Restore lossy scheduler weight to {{lossy_sched_weight}}
-      command: redis-cli -n 4 HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
+      command: sonic-db-cli CONFIG_DB HSET "{{lossy_sched_profile}}" weight "{{lossy_sched_weight.stdout}}"
 
     - name: Restore lossless scheduler weight to {{lossless_sched_weight}}
-      command: redis-cli -n 4 HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
+      command: sonic-db-cli CONFIG_DB HSET "{{lossless_sched_profile}}" weight "{{lossless_sched_weight.stdout}}"
 
     - name: Enable Mellanox packet aging
       shell: python /root/packets_aging.py enable

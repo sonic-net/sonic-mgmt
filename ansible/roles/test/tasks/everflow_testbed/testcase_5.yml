@@ -26,7 +26,7 @@
 - block:
   - name: Create a policer
     shell: |
-      redis-cli -n 4 hmset "POLICER|{{ policer_name }}" \
+      sonic-db-cli CONFIG_DB hmset "POLICER|{{ policer_name }}" \
       "meter_type" "{{ policer_meter_type }}" \
       "mode" "{{ policer_mode }}" \
       "cir" "{{ policer_cir }}" \
@@ -45,7 +45,7 @@
 
   - name: Create a rule with DSCP value and mask
     shell: |
-      redis-cli -n 4 hmset "ACL_RULE|{{dscp_table_name}}|RULE_1" "PRIORITY" "9999" "{{ rule_action }}" "{{policer_session_name}}" "DSCP" "8/56"
+      sonic-db-cli CONFIG_DB hmset "ACL_RULE|{{dscp_table_name}}|RULE_1" "PRIORITY" "9999" "{{ rule_action }}" "{{policer_session_name}}" "DSCP" "8/56"
     become: yes
 
   - name: Pause to sync the rule
@@ -80,7 +80,7 @@
   always:
     - name: Remove the rule with DSCP value and mask
       shell: |
-        redis-cli -n 4 del "ACL_RULE|{{dscp_table_name}}|RULE_1"
+        sonic-db-cli CONFIG_DB del "ACL_RULE|{{dscp_table_name}}|RULE_1"
       ignore_errors: yes
       become: yes
 
@@ -97,7 +97,7 @@
 
     - name: Remove policer
       shell: |
-        redis-cli -n 4 del "POLICER|{{policer_name}}"
+        sonic-db-cli CONFIG_DB del "POLICER|{{policer_name}}"
       ignore_errors: yes
       become: yes
 

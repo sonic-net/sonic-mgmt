@@ -1,7 +1,7 @@
 
 - block:
     - name: Check if Redis DB contains corresponding data.
-      shell: docker exec -i database redis-cli -n 1 KEYS \* | grep "ASIC_STATE:SAI_OBJECT_TYPE_ACL_COUNTER"
+      shell: docker exec -i database sonic-db-cli ASIC_DB KEYS \* | grep "ASIC_STATE:SAI_OBJECT_TYPE_ACL_COUNTER"
       register: grep_redis
       failed_when: (expect_data == true and grep_redis.rc != 0) or (expect_data == false and grep_redis.rc == 0)
 
@@ -10,12 +10,12 @@
         seconds: 10
 
     - name: Read counters value.
-      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name_check }}:{{ rule_name_check }}" Packets
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB HGET "COUNTERS:{{ table_name_check }}:{{ rule_name_check }}" Packets
       register: counters_value
       when: expect_data == true
 
     - name: Check if corresponding data was removed from Counters DB.
-      shell: docker exec -i database redis-cli -n 2 KEYS \* | grep {{ rule_name_check }}
+      shell: docker exec -i database sonic-db-cli COUNTERS_DB KEYS \* | grep {{ rule_name_check }}
       register: grep_counters
       failed_when: grep_counters.rc == 0
       when: expect_data == false

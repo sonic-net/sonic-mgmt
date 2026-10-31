@@ -21,7 +21,7 @@
     - debug: msg="Orchagent CPU Util {{orch_cpu.stdout|int}}"
 
     - name: watch Redis Memory
-      shell: redis-cli info memory | grep used_memory_human
+      shell: sonic-db-cli APPL_DB info memory | grep used_memory_human
       register: redis_memory
 
     - debug: msg="Redis Memory {{redis_memory.stdout}}"

@@ -2,6 +2,7 @@
 
 from ansible.module_utils.basic import AnsibleModule
 import json
+import shlex
 import time
 import logging
 import datetime
@@ -39,6 +40,13 @@ def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, r
         module.fail_json(msg="ip_addrs must be a non-empty list of neighbor name strings.")
 
     db = int(redis_db)
+    with open('/var/run/redis/sonic-db/database_config.json') as stream:
+        database_config = json.load(stream)
+    primary = database_config['DATABASES']['CONFIG_DB']['instance']
+    db_name = next((name for name, settings in database_config['DATABASES'].items()
+                    if settings['id'] == db and settings['instance'] == primary), None)
+    if db_name is None:
+        module.fail_json(msg=f"Database {db} is not configured in the CONFIG_DB Redis instance.")
     p = int(parallelism)
     ip_payload = "".join(f"{n}\n" for n in ip_addrs)
     logging.info(f"Toggling BGP neighbors in parallel mode: state={state}, parallelism={p}, db={db}, names={ip_addrs}")
@@ -48,15 +56,16 @@ def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, r
         "cat <<'EOF_NEIGHBORS' | xargs -r -n 1 -P {p} sh -c '\n"
         "ip=\"$1\"\n"
         "key=\"BGP_NEIGHBOR|$ip\"\n"
-        "if [ \"$(redis-cli -n {db} EXISTS \"$key\")\" -eq 1 ]; then\n"
-        "redis-cli -n {db} HSET \"$key\" admin_status {state} >/dev/null\n"
+        "exists=$(sonic-db-cli {db} EXISTS \"$key\")\n"
+        "if [ \"$exists\" = True ] || [ \"$exists\" = 1 ]; then\n"
+        "sonic-db-cli {db} HSET \"$key\" admin_status {state} >/dev/null\n"
         "echo \"{state} $key\"\n"
         "else\n"
         "echo \"SKIP missing $key\" 1>&2\n"
         "fi\n"
         "' sh\n"
         "{ip_payload}EOF_NEIGHBORS\n"
-    ).format(p=p, db=db, state=state, ip_payload=ip_payload)
+    ).format(p=p, db=shlex.quote(db_name), state=state, ip_payload=ip_payload)
 
     out = _execute_command_on_dut(module, cmd)
     # Validate that at least one neighbor was toggled
