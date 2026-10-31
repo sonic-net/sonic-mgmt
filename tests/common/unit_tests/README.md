@@ -83,3 +83,25 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## ICMP Responder
+
+Run the responder regressions from the repository root in a sonic-mgmt container:
+
+```bash
+python3 -m pytest --noconftest tests/common/unit_tests/fixtures/unit_test_icmp_responder.py -v
+```
+
+These tests require Scapy and libpcap, available in the SONiC test containers.
+Run in an isolated container network namespace with `NET_RAW` to exercise the
+kernel BPF filters and asynchronous responder over loopback. Those cases skip
+without raw-socket permission. Runtime tests cover both address families,
+payload/checksum integrity, destination-MAC override, and JSON FIFO pause/recovery.
+
+The responder retains its existing IPv4 source filter. IPv6 is opt-in through
+repeatable `--src_ipv6 ADDRESS` arguments, accepting only echo requests from those
+sources with ICMPv6 directly following the IPv6 header, as emitted by linkmgrd.
+Both PTF responder fixtures derive these sources from DUT Loopback2 configuration
+when a mux port selects `soc_ipv6` (active-active) or `server_ipv6` (active-standby)
+because the corresponding IPv4 field is absent. Dual-stack ports keep IPv4
+preference. IPv6-selected ports without an IPv6 Loopback2 fail fixture setup.

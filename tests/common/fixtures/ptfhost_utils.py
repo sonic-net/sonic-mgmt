@@ -379,6 +379,32 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
 icmp_responder_session_started = False
 
 
+def get_icmp_responder_ipv6_args(duthosts):
+    """Allow IPv6 probe sources only for ports selecting IPv6 over absent IPv4."""
+    sources = set()
+    for duthost in duthosts:
+        config = duthost.get_running_config_facts()
+        ipv6_selected = False
+        for mux in config.get("MUX_CABLE", {}).values():
+            endpoint = "soc" if mux.get("cable_type") == "active-active" else "server"
+            if endpoint + "_ipv4" not in mux and mux.get(endpoint + "_ipv6"):
+                ipv6_selected = True
+                break
+        if not ipv6_selected:
+            continue
+        host_sources = set()
+        for prefix in config.get("LOOPBACK_INTERFACE", {}).get("Loopback2", {}):
+            try:
+                address = ip_interface(prefix).ip
+            except ValueError:
+                continue
+            if address.version == 6 and not address.is_unspecified:
+                host_sources.add(str(address))
+        pt_assert(host_sources, "{}: IPv6 probing requires an IPv6 Loopback2 source".format(duthost.hostname))
+        sources.update(host_sources)
+    return "".join(" --src_ipv6 {}".format(source) for source in sorted(sources))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
@@ -391,6 +417,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
 
     global icmp_responder_session_started
 
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
     update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
     duthosts.shell("config save -y")
 
@@ -412,6 +439,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
@@ -444,6 +472,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         yield
         return
 
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
     update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
     duthosts.shell("config save -y")
 
@@ -460,6 +489,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
