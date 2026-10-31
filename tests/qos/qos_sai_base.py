@@ -78,7 +78,7 @@ class QosBase:
     def isBufferInApplDb(self, dut_asic):
         if not self.buffer_model_initialized:
             self.buffer_model = dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", 'CONFIG_DB', "hget",
+                argv=["sonic-db-cli", '-s', 'CONFIG_DB', "hget",
                     "DEVICE_METADATA|localhost", "buffer_model"
                 ]
             )
@@ -103,10 +103,10 @@ class QosBase:
         # update router mac
         duthost = get_src_dst_asic_and_duts['src_dut']
         dualTor = request.config.getoption("--qos_dual_tor")
-        dut_mac = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
+        dut_mac = duthost.shell('sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
         if "t0-backend" in dut_test_params_qos["topo"]:
             dut_test_params_qos["basicParams"]["router_mac"] = duthost.shell(
-                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
+                    'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
 
         elif dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
             if lossy_queue_traffic_direction in ["src_uplink_dst_downlink", "src_downlink_dst_uplink"]:
@@ -140,10 +140,10 @@ class QosBase:
             try:
                 asic = duthost.asic_instance().asic_index
                 dut_test_params_qos['basicParams']["router_mac"] = duthost.shell(
-                    'sonic-db-cli -n asic{} CONFIG_DB hget "DEVICE_METADATA|localhost" mac'.format(asic))['stdout']
+                    'sonic-db-cli -s -n asic{} CONFIG_DB hget "DEVICE_METADATA|localhost" mac'.format(asic))['stdout']
             except RunAnsibleModuleFail:
                 dut_test_params_qos['basicParams']["router_mac"] = duthost.shell(
-                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
+                    'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
 
         yield dut_test_params_qos
 
@@ -226,7 +226,7 @@ class QosSaiBase(QosBase):
             pool = keystr + bufferProfile["pool"]
         bufferSize = int(
             dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", db, "HGET", pool, "size"]
+                argv=["sonic-db-cli", '-s', db, "HGET", pool, "size"]
             )[0]
         )
         bufferScale = 2 ** float(bufferProfile["dynamic_th"])
@@ -254,21 +254,21 @@ class QosSaiBase(QosBase):
             table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
         db = "APPL_DB"
         port_profile_res = dut_asic.run_redis_cmd(
-            argv=["sonic-db-cli", db, "HGET", f"{port_table_name}: {port}", "profile_list"]
+            argv=["sonic-db-cli", '-s', db, "HGET", f"{port_table_name}: {port}", "profile_list"]
         )[0]
         port_profile_list = port_profile_res.split(",")
 
         port_dynamic_th = ''
         for port_profile in port_profile_list:
             buffer_pool_name = dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "pool"]
+                argv=["sonic-db-cli", '-s', db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "pool"]
             )[0]
             if buffer_pool_name == pg_q_buffer_profile["pool"]:
                 port_dynamic_th = dut_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
+                    argv=["sonic-db-cli", '-s', db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
                 )[0]
                 port_profile_reserved_size = dut_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
+                    argv=["sonic-db-cli", '-s', db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "size"]
                 )[0]
                 break
         if port_dynamic_th:
@@ -285,7 +285,7 @@ class QosSaiBase(QosBase):
             pool = f'BUFFER_POOL_TABLE: {pg_q_buffer_profile["pool"]}'
             buffer_size = int(
                 dut_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", db, "HGET", pool, "size"]
+                    argv=["sonic-db-cli", '-s', db, "HGET", pool, "size"]
                 )[0]
             )
 
@@ -340,14 +340,14 @@ class QosSaiBase(QosBase):
             bufferPoolName = six.text_type(bufferProfile["pool"])
 
         bufferPoolVoid = six.text_type(dut_asic.run_redis_cmd(
-            argv=["sonic-db-cli", 'COUNTERS_DB', "HGET",
+            argv=["sonic-db-cli", '-s', 'COUNTERS_DB', "HGET",
                 "COUNTERS_BUFFER_POOL_NAME_MAP", bufferPoolName
             ]
         )[0])
         bufferProfile.update({"bufferPoolVoid": bufferPoolVoid})
 
         bufferPoolRoid = six.text_type(dut_asic.run_redis_cmd(
-            argv=["sonic-db-cli", 'ASIC_DB', "HGET", "VIDTORID", bufferPoolVoid]
+            argv=["sonic-db-cli", '-s', 'ASIC_DB', "HGET", "VIDTORID", bufferPoolVoid]
         )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
@@ -383,13 +383,13 @@ class QosSaiBase(QosBase):
             bufkeystr = "BUFFER_PROFILE|"
 
         if check_qos_db_fv_reference_with_table(dut_asic):
-            out = dut_asic.run_redis_cmd(argv=["sonic-db-cli", db, "HGET", keystr, "profile"])[0]
+            out = dut_asic.run_redis_cmd(argv=["sonic-db-cli", '-s', db, "HGET", keystr, "profile"])[0]
             if six.PY2:
                 bufferProfileName = out.encode("utf-8").translate(None, "[]")
             else:
                 bufferProfileName = out.translate({ord(i): None for i in '[]'})
         else:
-            profile_content = dut_asic.run_redis_cmd(argv=["sonic-db-cli", db, "HGET", keystr, "profile"])
+            profile_content = dut_asic.run_redis_cmd(argv=["sonic-db-cli", '-s', db, "HGET", keystr, "profile"])
             if profile_content:
                 bufferProfileName = bufkeystr + profile_content[0]
             else:
@@ -487,7 +487,7 @@ class QosSaiBase(QosBase):
                 port = "{}|Asic0|{}".format(dut_asic.sonichost.hostname, port)
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                     "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                     "wred_profile"
                 ]
@@ -498,7 +498,7 @@ class QosSaiBase(QosBase):
                 wredProfileName = out.translate({ord(i): None for i in '[]'})
         else:
             wredProfileName = "WRED_PROFILE|" + six.text_type(dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                     "{0}|{1}|{2}".format(table, port, self.TARGET_QUEUE_WRED),
                     "wred_profile"
                 ]
@@ -523,7 +523,7 @@ class QosSaiBase(QosBase):
                 watermarkStatus (str): Watermark status
         """
         watermarkStatus = six.text_type(dut_asic.run_redis_cmd(
-            argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+            argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                 "FLEX_COUNTER_TABLE|QUEUE_WATERMARK", "FLEX_COUNTER_STATUS"
             ]
         )[0])
@@ -544,7 +544,7 @@ class QosSaiBase(QosBase):
         """
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
-                argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                     "QUEUE|{0}|{1}".format(port, queue), "scheduler"
                 ]
             )[0]
@@ -557,26 +557,26 @@ class QosSaiBase(QosBase):
                 # For VoQ chassis, the scheduler queues config is based on system port
                 if dut_asic.sonichost.is_multi_asic:
                     schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
-                        argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                        argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                             "QUEUE|{0}|{1}|{2}|{3}"
                             .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
                         ]
                     )[0])
                 else:
                     schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
-                        argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                        argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                             "QUEUE|{0}|Asic0|{1}|{2}"
                             .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
                         ]
                     )[0])
             else:
                 schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", 'CONFIG_DB', "HGET",
+                    argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET",
                         "QUEUE|{0}|{1}".format(port, queue), "scheduler"
                     ]
                 )[0])
         schedWeight = six.text_type(dut_asic.run_redis_cmd(
-            argv=["sonic-db-cli", 'CONFIG_DB', "HGET", schedProfile, "weight"]
+            argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HGET", schedProfile, "weight"]
         )[0])
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
@@ -2588,7 +2588,7 @@ class QosSaiBase(QosBase):
             queues = "0-1"
         else:
             if isMellanoxDevice(duthost):
-                cable_len = dut_asic.shell(f"sonic-db-cli CONFIG_DB hget 'CABLE_LENGTH|AZURE' {srcport}")['stdout']
+                cable_len = dut_asic.shell(f"sonic-db-cli -s CONFIG_DB hget 'CABLE_LENGTH|AZURE' {srcport}")['stdout']
                 if cable_len == '0m':
                     is_lossy_queue_only = True
                     logger.info(f"{srcport} has only lossy queue")
@@ -2691,7 +2691,7 @@ class QosSaiBase(QosBase):
             """
             for a_asic in get_src_dst_asic_and_duts['all_asics']:
                 a_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", 'CONFIG_DB', "HSET",
+                    argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HSET",
                         schedParam["profile"],
                         "weight",
                         schedParam["qosConfig"]
@@ -2837,7 +2837,7 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']  # noqa: F841
 
         dualtor_ports_str = get_src_dst_asic_and_duts['src_asic'].run_redis_cmd(
-            argv=["sonic-db-cli", "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
+            argv=["sonic-db-cli", '-s', "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
         if dualtor_ports_str:
             dualtor_ports_set = set(dualtor_ports_str)
         else:
@@ -3897,7 +3897,7 @@ def set_queue_pir(interface, queue, rate):
         weights_list = []
         for queue in queue_table_postfix_list:
             key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"  # noqa: E231
-            dynamic_th_res = duthost.run_redis_cmd(argv=["sonic-db-cli", 'APPL_DB', "HGET", key_str, "dynamic_th"])
+            dynamic_th_res = duthost.run_redis_cmd(argv=["sonic-db-cli", '-s', 'APPL_DB', "HGET", key_str, "dynamic_th"])
             if dynamic_th_res:
                 queue_dynamic_th_map[queue] = dynamic_th_res[0]
         logging.info(f"queue_dynamic_th_map: {queue_dynamic_th_map}")

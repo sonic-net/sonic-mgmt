@@ -90,7 +90,7 @@ def is_static_profile(asic, profile):
         table_template = BF_PROFILE
     result = asic.run_redis_cmd(
         argv=[
-            "sonic-db-cli", db, "HGET", table_template.format(profile), "static_th"
+            "sonic-db-cli", '-s', db, "HGET", table_template.format(profile), "static_th"
         ]
     )
     return bool(result) and result[0] not in (None, "")
@@ -105,7 +105,7 @@ class PfcCmd(object):
         if not PfcCmd.buffer_model_initialized:
             result = asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", "CONFIG_DB", "hget",
+                    "sonic-db-cli", '-s', "CONFIG_DB", "hget",
                     "DEVICE_METADATA|localhost", "buffer_model"
                 ]
             )
@@ -136,7 +136,7 @@ class PfcCmd(object):
         asic = dut.get_queue_oid_asic_instance(queue_oid)
         return six.text_type(asic.run_redis_cmd(
             argv=[
-                "sonic-db-cli", "COUNTERS_DB", "HGET",
+                "sonic-db-cli", '-s', "COUNTERS_DB", "HGET",
                 "COUNTERS:{}".format(queue_oid), attr
             ]
         )[0])
@@ -154,7 +154,7 @@ class PfcCmd(object):
         asic = dut.get_queue_oid_asic_instance(queue_oid)
         asic.run_redis_cmd(
             argv=[
-                "sonic-db-cli", "COUNTERS_DB", "HSET",
+                "sonic-db-cli", '-s', "COUNTERS_DB", "HSET",
                 "COUNTERS:{}".format(queue_oid),
                 "DEBUG_STORM", storm_status
             ]
@@ -184,13 +184,13 @@ class PfcCmd(object):
         if is_static_profile(asic, profile):
             asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", db, "HSET", table_template.format(profile), "static_th", static_th
+                    "sonic-db-cli", '-s', db, "HSET", table_template.format(profile), "static_th", static_th
                 ]
             )
         else:
             asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", db, "HSET", table_template.format(profile), "dynamic_th", value
+                    "sonic-db-cli", '-s', db, "HSET", table_template.format(profile), "dynamic_th", value
                 ]
             )
 
@@ -224,7 +224,7 @@ class PfcCmd(object):
 
         pg_profile = six.text_type(asic.run_redis_cmd(
             argv=[
-                "sonic-db-cli", db, "HGET",
+                "sonic-db-cli", '-s', db, "HGET",
                 pg_pattern.format(port, queue_range), "profile"
             ]
         )[0])
@@ -238,13 +238,13 @@ class PfcCmd(object):
         if is_static_profile(asic, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", db, "HGET", table_template.format(pg_profile), "static_th"
+                    "sonic-db-cli", '-s', db, "HGET", table_template.format(pg_profile), "static_th"
                 ]
             )[0])
         else:
             alpha = six.text_type(asic.run_redis_cmd(
                 argv=[
-                    "sonic-db-cli", db, "HGET", table_template.format(pg_profile), "dynamic_th"
+                    "sonic-db-cli", '-s', db, "HGET", table_template.format(pg_profile), "dynamic_th"
                 ]
             )[0])
 

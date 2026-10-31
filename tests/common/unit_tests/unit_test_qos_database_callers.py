@@ -44,9 +44,9 @@ def test_buffer_updates_keep_database_and_threshold(pfc, database, static):
     pfc['PfcCmd'].update_alpha(dut, 'Ethernet0', 'profile', '3', '4096')
     template = pfc['BF_PROFILE_TABLE'] if database == 'APPL_DB' else pfc['BF_PROFILE']
     assert asic.run_redis_cmd.call_args_list[0].kwargs['argv'] == [
-        'sonic-db-cli', database, 'HGET', template.format('profile'), 'static_th']
+        'sonic-db-cli', '-s', database, 'HGET', template.format('profile'), 'static_th']
     assert asic.run_redis_cmd.call_args.kwargs['argv'] == [
-        'sonic-db-cli', database, 'HSET', template.format('profile'),
+        'sonic-db-cli', '-s', database, 'HSET', template.format('profile'),
         'static_th' if static else 'dynamic_th', '4096' if static else '3']
 
 
@@ -69,8 +69,8 @@ def test_buffer_reads_keep_profile_separator_and_values(pfc, database, static):
     pfc['PfcCmd'].isBufferInApplDb = staticmethod(lambda _: database == 'APPL_DB')
     result = pfc['PfcCmd'].get_mmu_params(dut, 'Ethernet0', set())
     assert result == ('profile', 0 if static else '3', '4096' if static else 0)
-    assert all(argv[:2] == ['sonic-db-cli', database] for argv in calls)
-    assert all(argv[3].startswith('BUFFER_') for argv in calls)
+    assert all(argv[:3] == ['sonic-db-cli', '-s', database] for argv in calls)
+    assert all(argv[4].startswith('BUFFER_') for argv in calls)
 
 
 def test_storm_write_stays_on_queue_asic_and_counters_database(pfc):
@@ -79,7 +79,7 @@ def test_storm_write_stays_on_queue_asic_and_counters_database(pfc):
     dut.get_queue_oid_asic_instance.return_value = asic
     pfc['PfcCmd'].set_storm_status(dut, 'oid:0x123', 'enabled')
     asic.run_redis_cmd.assert_called_once_with(argv=[
-        'sonic-db-cli', 'COUNTERS_DB', 'HSET', 'COUNTERS:oid:0x123', 'DEBUG_STORM', 'enabled'])
+        'sonic-db-cli', '-s', 'COUNTERS_DB', 'HSET', 'COUNTERS:oid:0x123', 'DEBUG_STORM', 'enabled'])
 
 
 @pytest.mark.parametrize('status', ['enable', 'disable'])
@@ -108,4 +108,4 @@ def test_pfcwd_setup_uses_namespace_database_helper(status):
 def test_local_config_commands_do_not_request_cluster_mode(path):
     text = (ROOT / path).read_text()
     assert "redis-cli -n 4 -c " not in text
-    assert "sonic-db-cli CONFIG_DB " in text
+    assert "sonic-db-cli -s CONFIG_DB " in text

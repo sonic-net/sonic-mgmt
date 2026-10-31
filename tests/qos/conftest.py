@@ -94,7 +94,7 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
     single_slc = None
     for intf in all_ports:
         lanes = duthost.shell(
-            'sonic-db-cli CONFIG_DB hget "PORT|{}" lanes'.format(intf))['stdout'].split(',')
+            'sonic-db-cli -s CONFIG_DB hget "PORT|{}" lanes'.format(intf))['stdout'].split(',')
         assert len(lanes) > 0, "Lanes not found for port {}".format(intf)
         slc = int(lanes[0]) >> 9
         if single_slc is None:
@@ -146,7 +146,7 @@ def is_buffer_model_dynamic(duthost):
         duthost: The DUT host fixture
     """
     buffer_model = duthost.shell(
-        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+        'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
     yield (buffer_model == 'dynamic')
 
 
@@ -184,7 +184,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
     config_changed = False
     if not is_tunnel_qos_remap_enabled(duthost) and request.config.getoption("--qos_dual_tor"):
-        duthost.shell("sonic-db-cli CONFIG_DB hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
+        duthost.shell("sonic-db-cli -s CONFIG_DB hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)
@@ -193,7 +193,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     yield
 
     if config_changed:
-        duthost.shell('sonic-db-cli CONFIG_DB DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
+        duthost.shell('sonic-db-cli -s CONFIG_DB DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)

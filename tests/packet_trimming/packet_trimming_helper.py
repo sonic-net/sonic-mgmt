@@ -346,7 +346,7 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
     logger.info(f"Looking for scheduler with attributes: {expected_attrs}")
 
     # Get all scheduler OIDs from ASIC_DB
-    cmd_get_oids = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
+    cmd_get_oids = 'sonic-db-cli -s ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
     result = duthost.shell(cmd_get_oids)
 
     if not result["stdout"].strip():
@@ -401,7 +401,7 @@ def create_blocking_scheduler(duthost):
     logger.info(f"Creating blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
     # Check if scheduler already exists
-    cmd_check = f"sonic-db-cli CONFIG_DB exists 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
+    cmd_check = f"sonic-db-cli -s CONFIG_DB exists 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
     result = duthost.shell(cmd_check)
 
     if result["stdout"].strip() == "1":
@@ -409,7 +409,7 @@ def create_blocking_scheduler(duthost):
     else:
         # Create blocking scheduler
         cmd_create = (
-            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
+            f'sonic-db-cli -s CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
             f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "cir" {SCHEDULER_CIR}'
         )
         # meter_type is platform specific
@@ -438,7 +438,7 @@ def delete_blocking_scheduler(duthost):
     logger.info(f"Checking if blocking scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME} can be deleted")
 
     # Check if scheduler is in use
-    cmd_check = f"sonic-db-cli CONFIG_DB keys 'QUEUE|*' | grep -c '{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
+    cmd_check = f"sonic-db-cli -s CONFIG_DB keys 'QUEUE|*' | grep -c '{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
     result = duthost.shell(cmd_check, module_ignore_errors=True)
     count = int(result["stdout"].strip())
 
@@ -447,7 +447,7 @@ def delete_blocking_scheduler(duthost):
     else:
         # Delete scheduler only if it's not in use
         logger.info(f"Deleting blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
-        cmd_delete = f"sonic-db-cli CONFIG_DB del 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
+        cmd_delete = f"sonic-db-cli -s CONFIG_DB del 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
         duthost.shell(cmd_delete)
         logger.info(f"Successfully deleted blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
@@ -477,7 +477,7 @@ def validate_scheduler_configuration(duthost, dut_port, queue, expected_schedule
     Returns:
         bool: True if scheduler matches expected value, False otherwise
     """
-    cmd_verify_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
+    cmd_verify_scheduler = f"sonic-db-cli -s CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
     verify_result = duthost.shell(cmd_verify_scheduler)
     current_scheduler = verify_result["stdout"].strip()
 
@@ -564,7 +564,7 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     logger.info(f"Disabling egress data plane for port: {dut_port}, queue: {queue}")
 
     # Get original scheduler name
-    cmd_get_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
+    cmd_get_scheduler = f"sonic-db-cli -s CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
     result = duthost.shell(cmd_get_scheduler)
 
     original_scheduler = result["stdout"].strip()
@@ -579,7 +579,7 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
 
     # Apply blocking scheduler to the specified queue
-    cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
+    cmd_block_q = f"sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
 
     # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
@@ -622,12 +622,12 @@ def enable_egress_data_plane(duthost, dut_port, queue, original_scheduler=None):
 
     # Apply original or default scheduler
     if original_scheduler:
-        cmd = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {original_scheduler}"
+        cmd = f"sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {original_scheduler}"
         duthost.shell(cmd)
         logger.info(f"Restored scheduler '{original_scheduler}' for port {dut_port} queue {queue}")
     else:
         # Remove scheduler if no original or default found
-        cmd = f"sonic-db-cli CONFIG_DB hdel 'QUEUE|{dut_port}|{queue}' scheduler"
+        cmd = f"sonic-db-cli -s CONFIG_DB hdel 'QUEUE|{dut_port}|{queue}' scheduler"
         duthost.shell(cmd)
         logger.info(f"Removed scheduler for port {dut_port} queue {queue}")
 
@@ -687,7 +687,7 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
         return None
 
     # Get packet discard action
-    cmd_get = f"sonic-db-cli CONFIG_DB hget 'BUFFER_PROFILE|{buffer_profile_name}' packet_discard_action"
+    cmd_get = f"sonic-db-cli -s CONFIG_DB hget 'BUFFER_PROFILE|{buffer_profile_name}' packet_discard_action"
     result = duthost.shell(cmd_get)
     action = result["stdout"].strip()
 
@@ -1093,7 +1093,7 @@ def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
     preferring range keys; among overlapping ranges choose the largest span first.
     Falls back to exact key if no matching range exists. Looks in CONFIG_DB (db 4).
     """
-    list_cmd = f"sonic-db-cli CONFIG_DB KEYS 'BUFFER_QUEUE|{interface}|*'"
+    list_cmd = f"sonic-db-cli -s CONFIG_DB KEYS 'BUFFER_QUEUE|{interface}|*'"
     res = duthost.shell(list_cmd)
     raw = (res.get("stdout") or "").strip()
     if not raw:
@@ -1137,7 +1137,7 @@ def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
     else:
         return (None, None)
 
-    hget_cmd = f"sonic-db-cli CONFIG_DB HGET '{chosen}' profile"
+    hget_cmd = f"sonic-db-cli -s CONFIG_DB HGET '{chosen}' profile"
     res = duthost.shell(hget_cmd)
     profile_name = (res.get("stdout") or "").strip() or None
     return (profile_name, chosen)
@@ -1200,7 +1200,7 @@ def get_buffer_pool_size(duthost, pool_name):
         int: Buffer pool size in bytes, or 0 if not found
     """
     try:
-        cmd = f"sonic-db-cli CONFIG_DB HGET 'BUFFER_POOL|{pool_name}' size"
+        cmd = f"sonic-db-cli -s CONFIG_DB HGET 'BUFFER_POOL|{pool_name}' size"
         result = duthost.shell(cmd)
         pool_size = int(result["stdout"].strip())
         logger.info(f"Buffer pool '{pool_name}' size: {pool_size}")
@@ -1576,16 +1576,16 @@ def cleanup_trimming_acl(duthost):
 
     # Delete ACL rules
     logger.info("Deleting ACL rules...")
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_RULE|{ACL_TABLE_NAME}|{ACL_RULE_NAME}_ipv4'")
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_RULE|{ACL_TABLE_NAME}|{ACL_RULE_NAME}_ipv6'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_RULE|{ACL_TABLE_NAME}|{ACL_RULE_NAME}_ipv4'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_RULE|{ACL_TABLE_NAME}|{ACL_RULE_NAME}_ipv6'")
 
     # Delete ACL table
     logger.info("Deleting ACL table...")
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE|{ACL_TABLE_NAME}'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_TABLE|{ACL_TABLE_NAME}'")
 
     # Delete ACL table type
     logger.info(f"Deleting ACL table type {ACL_TABLE_TYPE_NAME}...")
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE_TYPE|{ACL_TABLE_TYPE_NAME}'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_TABLE_TYPE|{ACL_TABLE_TYPE_NAME}'")
 
     # Show ACL table and rules for verification
     duthost.shell("show acl table")
@@ -1695,11 +1695,11 @@ def cleanup_srv6_loop_break_acl(duthost):
     """
     logger.info(f"Cleaning up SRv6 loop-break ACL, table: {SRV6_LOOP_BREAK_ACL_TABLE_NAME}")
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB DEL "
+        f"sonic-db-cli -s CONFIG_DB DEL "
         f"'ACL_RULE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}'"
     )
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}'")
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_TABLE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}'")
+    duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
     logger.info("SRv6 loop-break ACL cleanup completed")
 
 
@@ -1730,7 +1730,7 @@ def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, bloc
         try:
             # Set buffer profile for the blocking queue
             block_cmd = (
-                f"sonic-db-cli CONFIG_DB hset 'BUFFER_QUEUE|{interface}|{block_queue_id}' "
+                f"sonic-db-cli -s CONFIG_DB hset 'BUFFER_QUEUE|{interface}|{block_queue_id}' "
                 f"profile {block_queue_profile}")
             duthost.shell(block_cmd)
 
@@ -1749,7 +1749,7 @@ def create_trim_queue_test_buffer_profile(duthost):
     Create the dedicated buffer profile used by the trim queue during packet trimming tests.
     """
     fields = " ".join(f"{k} {v}" for k, v in TRIM_QUEUE_PROFILE_CONFIG.items())
-    cmd = f"sonic-db-cli CONFIG_DB hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
+    cmd = f"sonic-db-cli -s CONFIG_DB hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
     duthost.shell(cmd)
     logger.info(f"Created trim queue test buffer profile '{TRIM_QUEUE_PROFILE}': {TRIM_QUEUE_PROFILE_CONFIG}")
 
@@ -1762,7 +1762,7 @@ def delete_trim_queue_test_buffer_profile(duthost):
     "config load" of the backup does not remove it. Delete it explicitly during teardown to keep
     CONFIG_DB clean and preserve test isolation.
     """
-    cmd = f"sonic-db-cli CONFIG_DB del 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}'"
+    cmd = f"sonic-db-cli -s CONFIG_DB del 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}'"
     duthost.shell(cmd)
     logger.info(f"Deleted trim queue test buffer profile '{TRIM_QUEUE_PROFILE}'")
 
@@ -1794,7 +1794,7 @@ def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, t
         try:
             # Set buffer profile for the trimming queue
             trim_cmd = (
-                f"sonic-db-cli CONFIG_DB hset 'BUFFER_QUEUE|{interface}|{trim_queue_id}' "
+                f"sonic-db-cli -s CONFIG_DB hset 'BUFFER_QUEUE|{interface}|{trim_queue_id}' "
                 f"profile {trim_queue_profile}")
             duthost.shell(trim_cmd)
 
