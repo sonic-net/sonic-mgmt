@@ -49,8 +49,8 @@ COUNTERS_DB = 2
 def _fanout_cleanup_ready(fanouthost):
     fanouthost.shell(
         (redis_cli_command(fanouthost, 'APPL_DB') + " PING | grep -qx PONG && "
-        "docker exec swss supervisorctl status neighsyncd | grep -q '^neighsyncd.*RUNNING' && "
-        "docker exec swss supervisorctl status orchagent | grep -q '^orchagent.*RUNNING' && "
+         "docker exec swss supervisorctl status neighsyncd | grep -q '^neighsyncd.*RUNNING' && "
+         "docker exec swss supervisorctl status orchagent | grep -q '^orchagent.*RUNNING' && "
          "docker exec syncd supervisorctl status syncd | grep -q '^syncd.*RUNNING'")
     )
     return True
