@@ -42,7 +42,7 @@ def test_asic_command_preserves_namespace_and_transport(use_tcp):
 
 
 @pytest.mark.parametrize('class_name,database,use_tcp', [('SonicDbCli', 'APPL_DB', False),
-                                                       ('VoqDbCli', 'CHASSIS_APP_DB', True)])
+                                                         ('VoqDbCli', 'CHASSIS_APP_DB', True)])
 def test_database_helpers_keep_chassis_on_tcp(class_name, database, use_tcp):
     source = ROOT / 'common/helpers/sonic_db.py'
     tree = ast.parse(source.read_text())
