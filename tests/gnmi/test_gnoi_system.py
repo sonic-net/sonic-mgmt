@@ -4,8 +4,10 @@ Integration tests for gNOI System and FactoryReset services.
 Tests run with TLS by default. Opt-in to dual transport (TLS + UDS)
 via the parametrize decorator on individual tests.
 """
-import pytest
+
 import logging
+
+import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
@@ -14,7 +16,7 @@ from tests.gnmi.helper import GNOI_ROLE_CASES, verify_gnoi_role_access
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
 ]
 
 

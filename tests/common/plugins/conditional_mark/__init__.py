@@ -231,9 +231,11 @@ def get_http_proxies(inv_name):
     if os.path.isfile(INV_ENV_FILE):
         try:
             with open(INV_ENV_FILE) as env_file:
-                proxy_env = yaml.safe_load(env_file)
-                if proxy_env is not None:
-                    proxy = proxy_env.get("proxy_env", {})
+                inventory_vars = yaml.safe_load(env_file)
+                # Inventory files may contain unrelated settings.
+                # Only an explicit proxy_env should override all/env.yml.
+                if inventory_vars is not None and "proxy_env" in inventory_vars:
+                    proxy = inventory_vars.get("proxy_env", {})
                     http_proxy = proxy.get('http_proxy', '')
                     proxies = {'http': http_proxy, 'https': http_proxy}
         except Exception as e:

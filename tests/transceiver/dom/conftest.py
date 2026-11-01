@@ -4,7 +4,7 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
 from tests.transceiver.common.port_selectors import select_attribute_ports
-from tests.transceiver.dom.dom_helpers import build_dom_polling_failures
+from tests.transceiver.common.prerequisites import build_dom_polling_failures
 
 logger = logging.getLogger(__name__)
 

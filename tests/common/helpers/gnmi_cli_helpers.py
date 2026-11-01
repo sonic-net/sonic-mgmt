@@ -1,4 +1,5 @@
 import json
+
 from tests.common.reboot import reboot
 
 __all__ = [

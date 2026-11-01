@@ -551,7 +551,8 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
     post_check_threshold = POST_CHECK_THRESHOLD_SECS
     if duthost.get_facts().get("modular_chassis"):
         post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2
-    if duthost.sonichost.facts['platform'] == 'x86_64-nokia_ixr7220_h6_128-r0':
+    platform = duthost.sonichost.facts['platform']
+    if platform == 'x86_64-nokia_ixr7220_h6_128-r0' or platform.startswith('x86_64-nexthop_4210'):
         post_check_threshold = POST_CHECK_THRESHOLD_SECS_TH6_128
 
     critical_proceses = wait_until(
@@ -590,6 +591,11 @@ def is_process_running(duthost, container_name, program_name):
 
 
 def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+    # Reset systemd's restart counter for all services so that cascade restarts
+    # from previous test cases don't cause start-limit-hit
+    # when testing dependent services like teamd.
+    duthost.shell("sudo systemctl reset-failed", module_ignore_errors=True)
+
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
