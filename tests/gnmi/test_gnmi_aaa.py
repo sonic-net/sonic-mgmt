@@ -1,8 +1,12 @@
 """gNMI audit, authentication, and authorization tests."""
 
 import base64
+import json
 import logging
+import shlex
 import time
+import uuid
+from contextlib import ExitStack
 
 import pytest
 from pygnmi.client import gNMIException
@@ -48,7 +52,6 @@ GENERIC_READWRITE_ROLE = "gnmi_readwrite"
 CONFIG_DB_NOACCESS_ROLE = "gnmi_config_db_noaccess"
 CONFIG_DB_READONLY_ROLE = "gnmi_config_db_readonly"
 CONFIG_DB_READWRITE_ROLE = "gnmi_config_db_readwrite"
-NO_ACCESS_ERROR = "does not have access|gnmi.*noaccess"
 UNMAPPED_CN_ERROR = "Unauthenticated|unauthenticated|Invalid cert cname|" "not a trusted|common name mapping"
 GET_METHOD = "/gnmi.gNMI/Get"
 SET_METHOD = "/gnmi.gNMI/Set"
@@ -117,7 +120,7 @@ def _set_client_cert_role(duthost, role):
     )
 
 
-def _call_auth_operation(env, operation):
+def _call_auth_operation(env, operation, metadata=None):
     """Send the selected Get/Set without pygnmi's Capabilities preflight."""
     if operation is _get_capabilities:
         return operation(env.pygnmi_client)
@@ -138,7 +141,7 @@ def _call_auth_operation(env, operation):
             "path": path,
             "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
         }]
-        return env.grpc.call_unary("gnmi.gNMI", "Set", request)
+        return env.grpc.call_unary("gnmi.gNMI", "Set", request, metadata=metadata)
     pytest_assert(operation is _get_configdb, "Unsupported authentication test operation")
     request.update({"path": [path], "type": "ALL", "encoding": "JSON_IETF"})
     return env.grpc.call_unary("gnmi.gNMI", "Get", request)
@@ -331,7 +334,7 @@ CAPABILITIES_ROLE_CASES = [
     pytest.param(
         GENERIC_NOACCESS_ROLE,
         _get_capabilities,
-        NO_ACCESS_ERROR,
+        r"does not have access.*role gnmi_noaccess\b",
         id="generic-noaccess-capabilities",
     ),
     pytest.param(
@@ -358,13 +361,13 @@ CONFIG_DB_ROLE_CASES = [
     pytest.param(
         CONFIG_DB_NOACCESS_ROLE,
         _get_configdb,
-        NO_ACCESS_ERROR,
+        r"does not have access.*role gnmi_config_db_noaccess\b",
         id="configdb-noaccess-get",
     ),
     pytest.param(
         CONFIG_DB_NOACCESS_ROLE,
         _set_configdb,
-        NO_ACCESS_ERROR,
+        r"does not have access.*role gnmi_config_db_noaccess\b",
         id="configdb-noaccess-set",
     ),
     pytest.param(
@@ -376,7 +379,7 @@ CONFIG_DB_ROLE_CASES = [
     pytest.param(
         CONFIG_DB_READONLY_ROLE,
         _set_configdb,
-        CONFIG_DB_READONLY_ROLE,
+        r"does not have access.*role gnmi_config_db_readonly\b",
         id="configdb-readonly-set",
     ),
     pytest.param(
@@ -436,3 +439,84 @@ def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
             redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == expected,
             "CONFIG_DB state does not match the Set authorization outcome",
         )
+
+
+@pytest.mark.disable_loganalyzer
+def test_mixed_auth_local_cert_role_access(gnmi_tls):  # noqa: F811
+    """Rejected password must not grant writes to a local readonly certificate identity.
+
+    Requires the role-enforcing server including sonic-gnmi #824 and #807.
+    Mixed auth uses the launcher's empty config_table_name, so certificate roles
+    come from container-local users/groups, not GNMI_CLIENT_CERT. This verifies
+    the external fallback/role contract, not an internal identity-reset hook.
+    """
+    duthost = gnmi_tls.duthost
+    gnmi_tls.grpc.configure_max_time(30)
+    password_user = "gnmi_auth_" + uuid.uuid4().hex[:12]
+    groups = [CONFIG_DB_READONLY_ROLE, CONFIG_DB_READWRITE_ROLE]
+    mounts = json.loads(duthost.command(argv=["docker", "inspect", "gnmi"])["stdout"])[0]["Mounts"]
+    protected = ("/etc/passwd", "/etc/group", "/etc/shadow", "/etc/gshadow")
+    pytest_assert(not any(
+        path == mount["Destination"].rstrip("/") or
+        path.startswith(mount["Destination"].rstrip("/") + "/")
+        for mount in mounts for path in protected
+    ), "Mixed-auth test requires container-local account files, not bind-mounted identities")
+
+    # Refuse existing identities/groups: CONFIG_DB rollback does not own these.
+    for database, names in (("passwd", [CLIENT_PRINCIPAL, password_user]), ("group", groups)):
+        for name in names:
+            result = duthost.command(
+                argv=["docker", "exec", "gnmi", "getent", database, name], module_ignore_errors=True,
+            )
+            pytest_assert(result["rc"] == 2, "Account/group already exists or lookup failed: " + name)
+    result = duthost.command(argv=["getent", "passwd", password_user], module_ignore_errors=True)
+    # getent returns 2 for an absent key (1 means invalid arguments/database).
+    pytest_assert(result["rc"] == 2, "Password probe must not name an existing host user")
+
+    def account_command(*args):
+        duthost.command(argv=["docker", "exec", "gnmi"] + list(args))
+
+    def configure_auth(mode):
+        result = redis_hset(duthost, CONFIG_DB, "GNMI|gnmi", user_auth=mode)
+        pytest_assert(result["rc"] == 0, "Failed to configure authentication mode")
+        _restart_gnoi_server(duthost)
+        output = duthost.command(argv=["docker", "exec", "gnmi", "pgrep", "-a", "-x", "telemetry"])
+        pytest_assert(len(output["stdout_lines"]) == 1, "Expected one native telemetry process")
+        argv = shlex.split(output["stdout_lines"][0])[1:]
+        pytest_assert("--client_auth" in argv and argv[argv.index("--client_auth") + 1] == mode,
+                      "Running server does not use the requested authentication mode")
+        pytest_assert(not any(arg.startswith("--config_table_name") for arg in argv),
+                      "Mixed-auth regression requires the launcher's empty config_table_name")
+
+    with ExitStack() as cleanup:
+        for group in groups:
+            account_command("groupadd", group)
+            cleanup.callback(account_command, "groupdel", group)
+        for name, group in ((password_user, CONFIG_DB_READWRITE_ROLE),
+                            (CLIENT_PRINCIPAL, CONFIG_DB_READONLY_ROLE)):
+            account_command("useradd", "-M", "-N", "-g", group, "-s", "/usr/sbin/nologin", "-p", "!", name)
+            cleanup.callback(account_command, "userdel", name)
+
+        metadata = [("username", password_user), ("password", "invalid-" + uuid.uuid4().hex)]
+        redis_hset(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", cloudtype="Private")
+        pytest_assert(redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
+                      "Failed to seed the Set authorization sentinel")
+        # Password-only control proves this identity cannot authenticate at host sshd.
+        configure_auth("password")
+        with pytest.raises(PtfGrpcError, match=r"Code: Unauthenticated\b"):
+            _call_auth_operation(gnmi_tls, _set_configdb, metadata=metadata)
+        pytest_assert(redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
+                      "Rejected password changed CONFIG_DB")
+
+        configure_auth("password,cert")
+        with pytest.raises(PtfGrpcError, match=r"(?s)Code: PermissionDenied\b.*role gnmi_config_db_readonly\b"):
+            _call_auth_operation(gnmi_tls, _set_configdb, metadata=metadata)
+        pytest_assert(redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
+                      "Readonly certificate fallback changed CONFIG_DB")
+
+        # Same identity, route, and rejected password; only our owned CN role changes.
+        account_command("usermod", "-g", CONFIG_DB_READWRITE_ROLE, CLIENT_PRINCIPAL)
+        _call_auth_operation(gnmi_tls, _set_configdb, metadata=metadata)
+        pytest_assert(redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Public",
+                      "Readwrite certificate fallback did not update CONFIG_DB")
+    # ExitStack deletes only the accounts/groups created above; gnmi_tls restores CONFIG_DB.
