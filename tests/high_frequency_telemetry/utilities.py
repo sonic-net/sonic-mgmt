@@ -616,12 +616,12 @@ def enable_otel_collector(duthost, timeout=60, check_image=True):
         pytest.skip("docker-sonic-otel is not available on this platform")
 
     exists = duthost.shell(
-        "sonic-db-cli CONFIG_DB exists 'FEATURE|otel'",
+        "sonic-db-cli -s CONFIG_DB exists 'FEATURE|otel'",
         module_ignore_errors=True,
     )
     if exists.get("stdout", "").strip() == "0":
         duthost.shell(
-            "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
+            "sonic-db-cli -s CONFIG_DB hmset 'FEATURE|otel' "
             "state enabled auto_restart enabled "
             "has_global_scope True has_per_asic_scope False",
             module_ignore_errors=False,

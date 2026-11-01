@@ -245,4 +245,4 @@ def flush_dbs(duthost):
     """
     logger.info('Flushing databases from switch')
     for db in ('APPL_DB', 'ASIC_DB', 'COUNTERS_DB', 'FLEX_COUNTER_DB', 'STATE_DB'):
-        duthost.shell('sonic-db-cli {} FLUSHDB'.format(db))
+        duthost.shell('sonic-db-cli -s {} FLUSHDB'.format(db))

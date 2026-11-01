@@ -134,7 +134,7 @@ class ICMPOrchUtil:
         try:
             import subprocess
             # Get all ICMP-related keys from APP_DB
-            result = subprocess.run(["sonic-db-cli", 'APPL_DB', 'KEYS', '*ICMP*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'APPL_DB', 'KEYS', '*ICMP*'],
                                     capture_output=True, text=True)
             if result.stdout.strip():
                 icmp_keys = result.stdout.strip().split('\n')
@@ -143,7 +143,7 @@ class ICMPOrchUtil:
                         if self.verbose:
                             print("Removing from APP_DB: {}".format(key))
                         # Delete the key directly
-                        subprocess.run(['sonic-db-cli', 'APPL_DB', 'DEL', key],
+                        subprocess.run(['sonic-db-cli', '-s', 'APPL_DB', 'DEL', key],
                                        capture_output=True, text=True)
                         app_count += 1
         except Exception as e:
@@ -156,7 +156,7 @@ class ICMPOrchUtil:
         try:
             import subprocess
             # Get all ICMP-related keys from STATE_DB
-            result = subprocess.run(["sonic-db-cli", 'STATE_DB', 'KEYS', '*ICMP*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'STATE_DB', 'KEYS', '*ICMP*'],
                                     capture_output=True, text=True)
             if result.stdout.strip():
                 icmp_keys = result.stdout.strip().split('\n')
@@ -165,7 +165,7 @@ class ICMPOrchUtil:
                         if self.verbose:
                             print("Removing from STATE_DB: {}".format(key))
                         # Delete the key directly
-                        subprocess.run(['sonic-db-cli', 'STATE_DB', 'DEL', key],
+                        subprocess.run(['sonic-db-cli', '-s', 'STATE_DB', 'DEL', key],
                                        capture_output=True, text=True)
                         state_count += 1
         except Exception as e:
@@ -270,7 +270,7 @@ if __name__ == '__main__':
         print("\n--- Manual APP_DB Check ---")
         try:
             import subprocess
-            result = subprocess.run(["sonic-db-cli", 'APPL_DB', 'KEYS', '*ICMP*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'APPL_DB', 'KEYS', '*ICMP*'],
                                     capture_output=True, text=True)
             print("ICMP-related keys in APP_DB:")
             print(result.stdout)
@@ -280,7 +280,7 @@ if __name__ == '__main__':
         print("\n--- Manual STATE_DB Check ---")
         try:
             import subprocess
-            result = subprocess.run(["sonic-db-cli", 'STATE_DB', 'KEYS', '*ICMP*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'STATE_DB', 'KEYS', '*ICMP*'],
                                     capture_output=True, text=True)
             print("ICMP-related keys in STATE_DB:")
             print(result.stdout)
@@ -290,7 +290,7 @@ if __name__ == '__main__':
         print("\n--- All APP_DB Keys Check ---")
         try:
             import subprocess
-            result = subprocess.run(["sonic-db-cli", 'APPL_DB', 'KEYS', '*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'APPL_DB', 'KEYS', '*'],
                                     capture_output=True, text=True)
             all_keys = result.stdout.strip().split('\n')
             session_keys = [key for key in all_keys
@@ -302,7 +302,7 @@ if __name__ == '__main__':
         print("\n--- All STATE_DB Keys Check ---")
         try:
             import subprocess
-            result = subprocess.run(["sonic-db-cli", 'STATE_DB', 'KEYS', '*'],
+            result = subprocess.run(["sonic-db-cli", "-s", 'STATE_DB', 'KEYS', '*'],
                                     capture_output=True, text=True)
             all_keys = result.stdout.strip().split('\n')
             session_keys = [key for key in all_keys
@@ -326,7 +326,7 @@ if __name__ == '__main__':
         # Immediate check
         print("\n--- Immediate Check ---")
         import subprocess
-        result = subprocess.run(["sonic-db-cli", 'APPL_DB', 'KEYS', '*default*'],
+        result = subprocess.run(["sonic-db-cli", "-s", 'APPL_DB', 'KEYS', '*default*'],
                                 capture_output=True, text=True)
         print("Keys with 'default' in APP_DB:")
         print(result.stdout)
@@ -351,7 +351,7 @@ if __name__ == '__main__':
         print(result.stdout)
 
         # Check STATE_DB for any updates
-        result = subprocess.run(["sonic-db-cli", 'STATE_DB', 'KEYS', '*default*'],
+        result = subprocess.run(["sonic-db-cli", "-s", 'STATE_DB', 'KEYS', '*default*'],
                                 capture_output=True, text=True)
         print("\nKeys with 'default' in STATE_DB:")
         print(result.stdout)

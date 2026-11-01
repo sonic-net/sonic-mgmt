@@ -20,8 +20,8 @@ def cleanup_function():
     return namespace['_remove_routes']
 
 
-@pytest.mark.parametrize('credentials', [None, {}, {'username': 'test-writer', 'password': 'fixture-only'}])
-def test_cleanup_uses_local_login_and_preserves_unrelated_keys(monkeypatch, credentials):
+def test_cleanup_uses_local_login_and_preserves_unrelated_keys(monkeypatch):
+    credentials = Mock(name="native_pool")
     keys = {'VNET_ROUTE_TUNNEL|Test_0|1/32', 'VNET_ROUTE_TUNNEL|Test_1|2/32',
             'VNET|Test_0', 'VXLAN_TUNNEL|TunnelTest',
             'VNET_ROUTE_TUNNEL|Other_0|1/32', 'VNET|Other_0', 'VXLAN_TUNNEL|Other'}
@@ -31,18 +31,18 @@ def test_cleanup_uses_local_login_and_preserves_unrelated_keys(monkeypatch, cred
     client.delete.side_effect = lambda *names: keys.difference_update(names)
     redis = ModuleType('redis')
     redis.Redis = Mock(return_value=client)
-    package = ModuleType('sonic_py_common')
+    package = ModuleType('swsscommon')
     package.__path__ = []
-    package.__spec__ = ModuleSpec('sonic_py_common', loader=None, is_package=True)
-    auth = ModuleType('sonic_py_common.redis_auth')
-    auth.__spec__ = ModuleSpec('sonic_py_common.redis_auth', loader=None)
-    auth.connection_kwargs = Mock(return_value=credentials)
+    package.__spec__ = ModuleSpec('swsscommon', loader=None, is_package=True)
+    auth = ModuleType('swsscommon.redis')
+    auth.__spec__ = ModuleSpec('swsscommon.redis', loader=None)
+    auth.connection_pool = Mock(return_value=credentials)
     monkeypatch.setitem(sys.modules, 'redis', redis)
-    monkeypatch.setitem(sys.modules, 'sonic_py_common', package)
+    monkeypatch.setitem(sys.modules, 'swsscommon', package)
     if credentials is None:
-        monkeypatch.delitem(sys.modules, 'sonic_py_common.redis_auth', raising=False)
+        monkeypatch.delitem(sys.modules, 'swsscommon.redis', raising=False)
     else:
-        monkeypatch.setitem(sys.modules, 'sonic_py_common.redis_auth', auth)
+        monkeypatch.setitem(sys.modules, 'swsscommon.redis', auth)
 
     def shell(command, **kwargs):
         args = shlex.split(command)
@@ -54,10 +54,10 @@ def test_cleanup_uses_local_login_and_preserves_unrelated_keys(monkeypatch, cred
     host.shell.side_effect = shell
     cleanup_function()(host, 'Test', 'TunnelTest')
     if credentials is None:
-        auth.connection_kwargs.assert_not_called()
+        auth.connection_pool.assert_not_called()
     else:
-        auth.connection_kwargs.assert_called_once_with(unix_socket_path='/var/run/redis/redis.sock')
-    redis.Redis.assert_called_once_with(unix_socket_path='/var/run/redis/redis.sock', db=4, **(credentials or {}))
+        auth.connection_pool.assert_called_once_with(unix_socket_path='/var/run/redis/redis.sock', db=4)
+    redis.Redis.assert_called_once_with(connection_pool=credentials)
     assert keys == unrelated
 
 
@@ -71,14 +71,14 @@ def test_cleanup_reports_failed_dut_command():
 def test_cleanup_does_not_ignore_errors_from_present_helper(monkeypatch):
     redis = ModuleType('redis')
     redis.Redis = Mock()
-    package = ModuleType('sonic_py_common')
+    package = ModuleType('swsscommon')
     package.__path__ = []
-    package.__spec__ = ModuleSpec('sonic_py_common', loader=None, is_package=True)
-    auth = ModuleType('sonic_py_common.redis_auth')
-    auth.__spec__ = ModuleSpec('sonic_py_common.redis_auth', loader=None)
-    auth.connection_kwargs = Mock(side_effect=RuntimeError('missing selected credential'))
-    for name, module in [('redis', redis), ('sonic_py_common', package),
-                         ('sonic_py_common.redis_auth', auth)]:
+    package.__spec__ = ModuleSpec('swsscommon', loader=None, is_package=True)
+    auth = ModuleType('swsscommon.redis')
+    auth.__spec__ = ModuleSpec('swsscommon.redis', loader=None)
+    auth.connection_pool = Mock(side_effect=RuntimeError('missing selected credential'))
+    for name, module in [('redis', redis), ('swsscommon', package),
+                         ('swsscommon.redis', auth)]:
         monkeypatch.setitem(sys.modules, name, module)
     host = Mock()
     host.shell.side_effect = lambda command, **kwargs: exec(shlex.split(command)[2], {})

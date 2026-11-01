@@ -25,4 +25,4 @@ def test_host_local_module_query_keeps_its_status_result(output, down):
     namespace = {'module': SimpleNamespace(get_name=lambda connection, index: 'DPU0'), 'logging': logging}
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), 'exec'), namespace)
     assert namespace['is_dark_mode_enabled'](SimpleNamespace(command=execute), None, 1) == down
-    assert command == ['sonic-db-cli CONFIG_DB hgetall "CHASSIS_MODULE|DPU0"']
+    assert command == ['sonic-db-cli -s CONFIG_DB hgetall "CHASSIS_MODULE|DPU0"']

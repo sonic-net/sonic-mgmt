@@ -102,14 +102,10 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
 def _remove_routes(host, name, tunnel):
     prefix = "VNET_ROUTE_TUNNEL|" + name + "_*"
     script = (
-        "import redis, importlib.util\n"
+        "import redis\n"
+        "from swsscommon.redis import connection_pool\n"
         "path='/var/run/redis/redis.sock'\n"
-        "auth={}\n"
-        "if importlib.util.find_spec('sonic_py_common') and "
-        "importlib.util.find_spec('sonic_py_common.redis_auth'):\n"
-        "    from sonic_py_common.redis_auth import connection_kwargs\n"
-        "    auth=connection_kwargs(unix_socket_path=path)\n"
-        "r=redis.Redis(unix_socket_path=path,db=4,**auth); "
+        "r=redis.Redis(connection_pool=connection_pool(unix_socket_path=path,db=4)); "
         "keys=list(r.scan_iter(match=" + repr(prefix) + ")); "
         "[r.delete(*keys[i:i+500]) for i in range(0,len(keys),500)]; "
         "assert not list(r.scan_iter(match=" + repr(prefix) + ")); "
