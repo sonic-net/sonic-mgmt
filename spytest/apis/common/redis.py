@@ -95,15 +95,15 @@ def _prefix(dut, db, suffix="cli", force_raw=False):
 
     if db_cli == "2":
         if suffix == "dump":
-            return "sonic-db-dump -n {}".format(db) if db else "sonic-db-dump"
-        return "sonic-db-{} {}".format(suffix, db or "")
+            return "sonic-db-dump -t unix_socket -n {}".format(db) if db else "sonic-db-dump"
+        return "sonic-db-cli -s {}".format(db or "")
 
     if db_cli == "1":
         if db_port_map[db] == 0:
             if not db_socket_map.get(db):
                 raise ValueError("Missing Unix socket for DB {} with TCP disabled".format(db))
             if suffix == "dump":
-                return "sonic-db-dump -n {}".format(db)
+                return "sonic-db-dump -t unix_socket -n {}".format(db)
             cmd = "redis-{} -s {}".format(suffix, shlex.quote(db_socket_map[db]))
         else:
             cmd = "redis-{} -p {}".format(suffix, db_port_map[db])
@@ -128,11 +128,11 @@ def build(dut, db, cmd):
 
 
 def build_sonic_db_cli(db, cmd):
-    return 'sonic-db-cli {} {}'.format(db, cmd)
+    return 'sonic-db-cli -s {} {}'.format(db, cmd)
 
 
 def redis_show(dut, db, cmd):
-    redis_cmd = "sonic-db-cli {} \"{}\"".format(db, cmd)
+    redis_cmd = "sonic-db-cli -s {} \"{}\"".format(db, cmd)
     dump = st.show(dut, redis_cmd, skip_tmpl=True)
     gen = (item for item in dump.split('\n'))
     result = {}
@@ -189,12 +189,10 @@ def multi(dut, db, cmd_list, skip_error_check=False):
         # Redis parses the existing inline commands on one authenticated connection.
         # The credential is read on the DUT and never passes through st.config.
         program = '''import pathlib, sys
-from redis.connection import UnixDomainSocketConnection
-from sonic_py_common.redis_auth import connection_kwargs
+from swsscommon.redis import UnixConnection
 socket_path, database, commands = sys.argv[1:]
 payload = pathlib.Path(commands).read_bytes()
-connection = UnixDomainSocketConnection(path=socket_path, db=int(database),
-                                       **connection_kwargs(unix_socket_path=socket_path))
+connection = UnixConnection(path=socket_path, db=int(database))
 def emit(reply):
     if isinstance(reply, list) and reply:
         for item in reply:

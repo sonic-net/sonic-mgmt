@@ -71,7 +71,7 @@ def test_existing_cli_preferences(client, mode):
     assert client._prefix("dut", "CONFIG_DB") == {
         "0": "redis-cli -n 4",
         "1": "redis-cli -s /run/redis/primary.sock -n 4",
-        "2": "sonic-db-cli CONFIG_DB"}[mode]
+        "2": "sonic-db-cli -s CONFIG_DB"}[mode]
 
 
 def test_positive_port_stays_explicit_tcp(client):
@@ -90,14 +90,14 @@ def test_socket_is_quoted_and_missing_socket_fails(client):
 def test_native_scan_and_named_dump_keep_filters(client):
     assert client.scan("dut", "CONFIG_DB", "PORT|*") == \
         "redis-cli -s /run/redis/primary.sock -n 4 --scan --pattern 'PORT|*'"
-    assert client.dump("dut", "CONFIG_DB", "PORT|*") == "sonic-db-dump -n CONFIG_DB -k 'PORT|*' -y"
+    assert client.dump("dut", "CONFIG_DB", "PORT|*") == "sonic-db-dump -t unix_socket -n CONFIG_DB -k 'PORT|*' -y"
 
 
 @pytest.mark.parametrize('mode', ['0', '1', '2'])
 def test_writers_use_named_cli_without_quoting_the_entire_command(client, mode):
     client.st.mode = mode
     command = 'HSET "PORT|test" field "value with spaces"'
-    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli CONFIG_DB ' + command
+    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli -s CONFIG_DB ' + command
 
 
 @pytest.mark.parametrize("mode", ["0", "1", "2"])
@@ -110,8 +110,8 @@ def test_multi_keeps_native_stdin_for_all_cli_preferences(client, mode, port):
         assert command.startswith("sudo python3 - /run/redis/primary.sock 4 ")
         assert client.st.options["sudo"] is False
         assert client.st.options["split_cmds"] is False
-        assert 'connection_kwargs(unix_socket_path=socket_path)' in command
-        assert 'UnixDomainSocketConnection(path=socket_path, db=int(database),' in command
+        assert 'from swsscommon.redis import UnixConnection' in command
+        assert 'UnixConnection(path=socket_path, db=int(database))' in command
         assert 'connection.connect()' in command
         assert 'connection.send_packed_command([payload' in command
     else:
@@ -136,4 +136,4 @@ def test_scan_always_uses_native_cli_with_configured_endpoint(client, mode):
 def test_named_dump_uses_database_option(client, mode):
     client.st.mode = mode
     assert client.dump("dut", "CONFIG_DB", "PORT|*") == \
-        "sonic-db-dump -n CONFIG_DB -k 'PORT|*' -y"
+        "sonic-db-dump -t unix_socket -n CONFIG_DB -k 'PORT|*' -y"
