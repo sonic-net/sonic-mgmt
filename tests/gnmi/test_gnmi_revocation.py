@@ -32,6 +32,11 @@ READONLY = "gnmi_config_db_readonly"
 NOACCESS = "gnmi_config_db_noaccess"
 REAUTH_BUDGET = 90
 ALLOW_OBSERVATION = 130  # Cross two of the server's 60-second checks.
+METADATA_PATH = gnmi_pb2.Path(
+    origin="sonic-db",
+    elem=[gnmi_pb2.PathElem(name=name) for name in ("CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost")],
+)
+SERVER_PID_COMMAND = "sudo -n docker exec gnmi supervisorctl pid gnmi-native"
 
 
 def _ssh_command(ssh, command):
@@ -51,32 +56,14 @@ def _db(ssh, *args):
     return _ssh_command(ssh, shlex.join(["sonic-db-cli", "CONFIG_DB"] + list(args)))
 
 
-def _server_pid(ssh):
-    pid = _ssh_command(ssh, "sudo -n docker exec gnmi supervisorctl pid gnmi-native")
-    assert pid.isdigit() and int(pid) > 0, "gnmi-native is not running"
-    return pid
-
-
 def _set_role(ssh, role):
+    """Change the fixture identity's role (None removes its CN mapping), then read back."""
     if role is None:
         assert _db(ssh, "DEL", CERT_KEY) == "1", "Certificate mapping was not removed"
         assert _db(ssh, "EXISTS", CERT_KEY) == "0", "Certificate mapping still exists"
     else:
         _db(ssh, "HSET", CERT_KEY, "role@", role)
         assert _db(ssh, "HGET", CERT_KEY, "role@") == role, "Role update did not persist"
-
-
-def _path():
-    path = gnmi_pb2.Path(origin="sonic-db")
-    for name in ("CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost"):
-        path.elem.add(name=name)
-    return path
-
-
-def _assert_fresh_read(fixture):
-    with gnmi_connection(fixture) as (_, client):
-        response = client.Get(gnmi_pb2.GetRequest(path=[_path()], encoding=gnmi_pb2.JSON_IETF), timeout=15)
-        assert any(n.update for n in response.notification), "Restored identity returned no data"
 
 
 @pytest.fixture
@@ -97,21 +84,26 @@ def subscription_control(gnmi_tls, creds):  # noqa: F811
         original_role = _db(ssh, "HGET", CERT_KEY, "role@")
         assert original_role, "Fixture certificate role is missing"
         assert _db(ssh, "HGET", "GNMI|gnmi", "user_auth") == "cert", "Test requires cert-only authentication"
-        pid = _server_pid(ssh)
+        pid = _ssh_command(ssh, SERVER_PID_COMMAND)
+        assert pid.isdigit() and int(pid) > 0, "gnmi-native is not running"
         try:
             _set_role(ssh, READWRITE)
             yield ssh
         finally:
             _set_role(ssh, original_role)
-            _assert_fresh_read(gnmi_tls)
-            assert _server_pid(ssh) == pid, "gnmi-native restarted during the test"
+            with gnmi_connection(gnmi_tls) as (_, client):
+                response = client.Get(
+                    gnmi_pb2.GetRequest(path=[METADATA_PATH], encoding=gnmi_pb2.JSON_IETF), timeout=15
+                )
+                assert any(n.update for n in response.notification), "Restored identity returned no data"
+            assert _ssh_command(ssh, SERVER_PID_COMMAND) == pid, "gnmi-native restarted during the test"
     finally:
         ssh.close()
 
 
 @contextmanager
-def _subscription(fixture, mode):
-    """Reuse the native response iterator; gRPC owns receiving and status errors."""
+def _active_subscription(fixture, mode):
+    """Yield the same RPC only after data + sync; always cancel it on exit."""
     finished = threading.Event()
     requests_started = threading.Event()
     requests_done = threading.Event()
@@ -119,7 +111,7 @@ def _subscription(fixture, mode):
         subscribe=gnmi_pb2.SubscriptionList(
             mode=mode,
             encoding=gnmi_pb2.JSON_IETF,
-            subscription=[gnmi_pb2.Subscription(path=_path(), mode=gnmi_pb2.SAMPLE, sample_interval=1000000000)],
+            subscription=[gnmi_pb2.Subscription(path=METADATA_PATH, mode=gnmi_pb2.SAMPLE, sample_interval=1000000000)],
         )
     )
 
@@ -135,6 +127,16 @@ def _subscription(fixture, mode):
     with gnmi_connection(fixture) as (_, client):
         responses = client.Subscribe(requests(), timeout=30 + max(REAUTH_BUDGET, ALLOW_OBSERVATION) + 15)
         try:
+            saw_update = False
+            with _rpc_budget(responses, 30):
+                for response in responses:
+                    assert not response.HasField("error"), "Initial Subscribe returned an in-band error"
+                    saw_update |= response.HasField("update") and bool(response.update.update)
+                    if response.sync_response:
+                        assert saw_update, "Initial Subscribe contained no data"
+                        break
+                else:
+                    pytest.fail("Subscribe ended before initial sync")
             yield responses
         finally:
             finished.set()
@@ -155,18 +157,6 @@ def _rpc_budget(responses, seconds):
         timer.join()
 
 
-def _wait_initial_sync(responses):
-    saw_update = False
-    with _rpc_budget(responses, 30):
-        for response in responses:
-            assert not response.HasField("error"), "Initial Subscribe returned an in-band error"
-            saw_update |= response.HasField("update") and bool(response.update.update)
-            if response.sync_response:
-                assert saw_update, "Initial Subscribe contained no data"
-                return
-    pytest.fail("Subscribe ended before initial sync")
-
-
 @pytest.mark.parametrize(
     "mode", [gnmi_pb2.SubscriptionList.STREAM, gnmi_pb2.SubscriptionList.POLL], ids=["stream", "poll"]
 )
@@ -177,8 +167,7 @@ def _wait_initial_sync(responses):
 )
 def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, expected_code):  # noqa: F811
     """An active STREAM or idle POLL terminates with the original auth status."""
-    with _subscription(gnmi_tls, mode) as responses:
-        _wait_initial_sync(responses)
+    with _active_subscription(gnmi_tls, mode) as responses:
         _set_role(subscription_control, role)
         changed_at = time.monotonic()
         with _rpc_budget(responses, REAUTH_BUDGET):
@@ -194,8 +183,7 @@ def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, e
 
 def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control):  # noqa: F811
     """RW-to-RO preserves the same SAMPLE stream across two reauth intervals."""
-    with _subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as responses:
-        _wait_initial_sync(responses)
+    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as responses:
         _set_role(subscription_control, READONLY)
         changed_at = time.monotonic()
         last_update = changed_at
