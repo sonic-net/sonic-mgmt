@@ -10,10 +10,12 @@ SLAs: a timeout also requires checking backend health and blocked I/O.
 """
 
 import logging
+import multiprocessing
 import shlex
 import threading
 import time
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import grpc
 import pytest
@@ -21,7 +23,6 @@ from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.gnmi_connection import gnmi_connection
-from tests.common.utilities import paramiko_ssh
 
 pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
 logger = logging.getLogger(__name__)
@@ -39,71 +40,49 @@ METADATA_PATH = gnmi_pb2.Path(
 SERVER_PID_COMMAND = "sudo -n docker exec gnmi supervisorctl pid gnmi-native"
 
 
-def _ssh_command(ssh, command):
-    """Use the already-open control connection; never fork Ansible mid-RPC."""
-    stdin, stdout, stderr = ssh.exec_command(command, timeout=15)
-    try:
-        stdin.close()
-        output = stdout.read().decode().strip()
-        error = stderr.read().decode().strip()
-        assert stdout.channel.recv_exit_status() == 0, "SSH control command failed: {}".format(error)
-        return output
-    finally:
-        stdout.channel.close()
+def _db(duthost, *args):
+    return duthost.shell(shlex.join(["sonic-db-cli", "CONFIG_DB"] + list(args)))["stdout"].strip()
 
 
-def _db(ssh, *args):
-    return _ssh_command(ssh, shlex.join(["sonic-db-cli", "CONFIG_DB"] + list(args)))
-
-
-def _set_role(ssh, role):
+def _set_role(duthost, role):
     """Change the fixture identity's role (None removes its CN mapping), then read back."""
     if role is None:
-        assert _db(ssh, "DEL", CERT_KEY) == "1", "Certificate mapping was not removed"
-        assert _db(ssh, "EXISTS", CERT_KEY) == "0", "Certificate mapping still exists"
+        assert _db(duthost, "DEL", CERT_KEY) == "1", "Certificate mapping was not removed"
+        assert _db(duthost, "EXISTS", CERT_KEY) == "0", "Certificate mapping still exists"
     else:
-        _db(ssh, "HSET", CERT_KEY, "role@", role)
-        assert _db(ssh, "HGET", CERT_KEY, "role@") == role, "Role update did not persist"
+        _db(duthost, "HSET", CERT_KEY, "role@", role)
+        assert _db(duthost, "HGET", CERT_KEY, "role@") == role, "Role update did not persist"
 
 
 @pytest.fixture
-def subscription_control(gnmi_tls, creds):  # noqa: F811
+def subscription_control(gnmi_tls):  # noqa: F811
     """Own the mapping restore; gnmi_tls owns the outer configuration rollback.
 
-    Tests cancel their RPC before this fixture restores the original mapping
-    and verifies a fresh read. Only then may gnmi_tls perform Ansible teardown.
+    The subscription process exits before restoring the mapping and checking a
+    fresh read. All configuration commands use the existing duthost environment.
     """
-    ssh = paramiko_ssh(
-        gnmi_tls.host,
-        creds["sonicadmin_user"],
-        [creds["sonicadmin_password"]] + creds.get("ansible_altpasswords", []),
-    )
+    duthost = gnmi_tls.duthost
+    assert _db(duthost, "HLEN", CERT_KEY) == "1", "Expected fixture-owned role-only certificate mapping"
+    original_role = _db(duthost, "HGET", CERT_KEY, "role@")
+    assert original_role, "Fixture certificate role is missing"
+    assert _db(duthost, "HGET", "GNMI|gnmi", "user_auth") == "cert", "Test requires cert-only authentication"
+    pid = duthost.shell(SERVER_PID_COMMAND)["stdout"].strip()
+    assert pid.isdigit() and int(pid) > 0, "gnmi-native is not running"
     try:
-        # gnmi_tls creates this mapping. Do not delete unowned extra fields.
-        assert _db(ssh, "HLEN", CERT_KEY) == "1", "Expected fixture-owned role-only certificate mapping"
-        original_role = _db(ssh, "HGET", CERT_KEY, "role@")
-        assert original_role, "Fixture certificate role is missing"
-        assert _db(ssh, "HGET", "GNMI|gnmi", "user_auth") == "cert", "Test requires cert-only authentication"
-        pid = _ssh_command(ssh, SERVER_PID_COMMAND)
-        assert pid.isdigit() and int(pid) > 0, "gnmi-native is not running"
-        try:
-            _set_role(ssh, READWRITE)
-            yield ssh
-        finally:
-            _set_role(ssh, original_role)
-            with gnmi_connection(gnmi_tls) as (_, client):
-                response = client.Get(
-                    gnmi_pb2.GetRequest(path=[METADATA_PATH], encoding=gnmi_pb2.JSON_IETF), timeout=15
-                )
-                assert any(n.update for n in response.notification), "Restored identity returned no data"
-            assert _ssh_command(ssh, SERVER_PID_COMMAND) == pid, "gnmi-native restarted during the test"
+        _set_role(duthost, READWRITE)
+        yield duthost
     finally:
-        ssh.close()
+        _set_role(duthost, original_role)
+        with gnmi_connection(gnmi_tls) as (_, client):
+            response = client.Get(gnmi_pb2.GetRequest(path=[METADATA_PATH], encoding=gnmi_pb2.JSON_IETF), timeout=15)
+            assert any(n.update for n in response.notification), "Restored identity returned no data"
+        assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
 
 
-@contextmanager
-def _active_subscription(fixture, mode):
-    """Yield the same RPC only after data + sync; always cancel it on exit."""
+def _subscribe_worker(connection, mode, result, changed, stop, observation):
+    """Own gRPC in a spawned process; report readiness and one terminal outcome."""
+    fixture = SimpleNamespace(**connection)
+    outcome = ("failure", "Subscribe ended without terminal authentication status")
     finished = threading.Event()
     requests_started = threading.Event()
     requests_done = threading.Event()
@@ -124,37 +103,97 @@ def _active_subscription(fixture, mode):
         finally:
             requests_done.set()
 
-    with gnmi_connection(fixture) as (_, client):
-        responses = client.Subscribe(requests(), timeout=30 + max(REAUTH_BUDGET, ALLOW_OBSERVATION) + 15)
-        try:
-            saw_update = False
-            with _rpc_budget(responses, 30):
+    try:
+        with gnmi_connection(fixture) as (_, client):
+            responses = client.Subscribe(requests(), timeout=200)
+
+            def cancel_on_stop():
+                stop.wait()
+                responses.cancel()
+
+            canceller = threading.Thread(target=cancel_on_stop)
+            canceller.start()
+            try:
+                saw_update = False
+                ready = False
+                observed_change = None
+                last_update = time.monotonic()
                 for response in responses:
-                    assert not response.HasField("error"), "Initial Subscribe returned an in-band error"
-                    saw_update |= response.HasField("update") and bool(response.update.update)
-                    if response.sync_response:
+                    assert not response.HasField("error"), "Subscribe returned an in-band error"
+                    has_update = response.HasField("update") and bool(response.update.update)
+                    saw_update |= has_update
+                    if response.sync_response and not ready:
                         assert saw_update, "Initial Subscribe contained no data"
-                        break
-                else:
-                    pytest.fail("Subscribe ended before initial sync")
-            yield responses
-        finally:
-            finished.set()
-            responses.cancel()
-            if requests_started.is_set():
-                assert requests_done.wait(10), "Subscribe request iterator failed to stop"
+                        ready = True
+                        result.send(("ready", None))
+                    if observation is not None and ready and changed.is_set() and has_update:
+                        now = time.monotonic()
+                        assert now - last_update <= 15, "Readonly SAMPLE stream stopped delivering data"
+                        if observed_change is None:
+                            observed_change = now
+                        if now - observed_change >= observation:
+                            outcome = ("allowed", None)
+                            return
+                    if has_update:
+                        last_update = time.monotonic()
+            finally:
+                finished.set()
+                stop.set()
+                responses.cancel()
+                canceller.join(10)
+                assert not canceller.is_alive(), "Subscribe cancellation did not finish"
+                if requests_started.is_set():
+                    assert requests_done.wait(10), "Subscribe request iterator failed to stop"
+    except grpc.RpcError as error:
+        outcome = ("error", error.code().name)
+    except Exception as error:
+        outcome = ("failure", str(error))
+    finally:
+        result.send(outcome)
+        result.close()
 
 
 @contextmanager
-def _rpc_budget(responses, seconds):
-    """Cancel a silent RPC at a phase boundary; cancellation is never auth PASS."""
-    timer = threading.Timer(seconds, responses.cancel)
-    timer.start()
+def _active_subscription(fixture, mode, observation=None):
+    """Spawn only serializable connection details, never the DUT/Ansible fixture."""
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe(duplex=False)
+    changed, stop = context.Event(), context.Event()
+    certs = fixture.pygnmi_client
+    connection = dict(
+        host=fixture.host,
+        port=fixture.port,
+        pygnmi_client=SimpleNamespace(
+            ca_cert=certs.ca_cert, client_cert=certs.client_cert, client_key=certs.client_key
+        ),
+    )
+    process = context.Process(target=_subscribe_worker, args=(connection, mode, child, changed, stop, observation))
+    started = False
     try:
-        yield
+        process.start()
+        started = True
+        child.close()
+        assert parent.poll(40), "Subscribe did not become ready"
+        ready = parent.recv()
+        assert ready == ("ready", None), "Subscribe failed before data + sync: {}".format(ready)
+        yield parent, changed
     finally:
-        timer.cancel()
-        timer.join()
+        try:
+            if started:
+                stop.set()
+                process.join(15)
+                forced = process.is_alive()
+                if forced:
+                    process.terminate()
+                    process.join(5)
+                if process.is_alive():
+                    process.kill()
+                    process.join(5)
+                assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
+        finally:
+            parent.close()
+            child.close()
+            process.close()
 
 
 @pytest.mark.parametrize(
@@ -167,34 +206,20 @@ def _rpc_budget(responses, seconds):
 )
 def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, expected_code):  # noqa: F811
     """An active STREAM or idle POLL terminates with the original auth status."""
-    with _active_subscription(gnmi_tls, mode) as responses:
+    with _active_subscription(gnmi_tls, mode) as (result, _):
         _set_role(subscription_control, role)
         changed_at = time.monotonic()
-        with _rpc_budget(responses, REAUTH_BUDGET):
-            with pytest.raises(grpc.RpcError) as error:
-                for response in responses:
-                    # Data already sent before the periodic check is allowed.
-                    assert not response.HasField("error"), "Expected terminal auth status, not an in-band error"
-        assert error.value.code() == expected_code, (
-            "Unexpected Subscribe status {}; cancellation/deadline requires checking RPC/backend health"
-        ).format(error.value.code())
+        assert result.poll(REAUTH_BUDGET), "Reauthorization timed out; inspect RPC/backend health"
+        outcome = result.recv()
+        assert outcome == ("error", expected_code.name), "Unexpected Subscribe terminal outcome: {}".format(outcome)
         logger.info("Same Subscribe RPC revoked with %s after %.1fs", expected_code, time.monotonic() - changed_at)
 
 
 def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control):  # noqa: F811
     """RW-to-RO preserves the same SAMPLE stream across two reauth intervals."""
-    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as responses:
+    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM, ALLOW_OBSERVATION) as (result, changed):
         _set_role(subscription_control, READONLY)
-        changed_at = time.monotonic()
-        last_update = changed_at
-        with _rpc_budget(responses, ALLOW_OBSERVATION + 15):
-            for response in responses:
-                assert not response.HasField("error"), "Readonly Subscribe returned an in-band error"
-                if response.HasField("update") and response.update.update:
-                    now = time.monotonic()
-                    assert now - last_update <= 15, "Readonly SAMPLE stream stopped delivering data"
-                    last_update = now
-                    if now >= changed_at + ALLOW_OBSERVATION:
-                        break
-            else:
-                pytest.fail("Readonly Subscribe ended before the observation completed")
+        changed.set()
+        assert result.poll(ALLOW_OBSERVATION + 20), "Readonly subscription stopped producing data"
+        outcome = result.recv()
+        assert outcome == ("allowed", None), "Readonly subscription failed after role change: {}".format(outcome)
