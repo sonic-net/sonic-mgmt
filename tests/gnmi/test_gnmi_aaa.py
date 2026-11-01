@@ -60,30 +60,40 @@ AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 
-def _set_configdb(client):
-    client.set(
-        update=[
-            (
-                "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype",
-                '"Public"',
-            )
-        ],
-    )
+def _set_configdb(env):
+    env.grpc.call_unary("gnmi.gNMI", "Set", {
+        "prefix": {"origin": "sonic-db"},
+        "update": [{
+            "path": {"elem": [{"name": name} for name in (
+                "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost", "cloudtype",
+            )]},
+            "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
+        }],
+    })
 
 
-def _get_configdb(client):
-    client.get("sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost")
+def _get_configdb(env):
+    env.grpc.call_unary("gnmi.gNMI", "Get", {
+        "prefix": {"origin": "sonic-db"},
+        "path": [{"elem": [{"name": name} for name in (
+            "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost",
+        )]}],
+        "type": "ALL",
+        "encoding": "JSON_IETF",
+    })
 
 
-def _get_countersdb(client):
-    client.get(
-        "COUNTERS_PORT_NAME_MAP",
-        target="COUNTERS_DB",
-    )
+def _get_countersdb(env):
+    env.grpc.call_unary("gnmi.gNMI", "Get", {
+        "prefix": {"target": "COUNTERS_DB"},
+        "path": [{"elem": [{"name": "COUNTERS_PORT_NAME_MAP"}]}],
+        "type": "ALL",
+        "encoding": "JSON_IETF",
+    })
 
 
-def _get_capabilities(client):
-    result = client.capabilities()
+def _get_capabilities(env):
+    result = env.pygnmi_client.capabilities()
     models = result.get("supported_models", [])
     encodings = result.get("supported_encodings", [])
     pytest_assert(
@@ -117,33 +127,6 @@ def _set_client_cert_role(duthost, role):
     )
 
 
-def _call_auth_operation(env, operation):
-    """Send the selected Get/Set without pygnmi's Capabilities preflight."""
-    if operation is _get_capabilities:
-        return operation(env.pygnmi_client)
-    if operation is _get_countersdb:
-        return env.grpc.call_unary("gnmi.gNMI", "Get", {
-            "prefix": {"target": "COUNTERS_DB"},
-            "path": [{"elem": [{"name": "COUNTERS_PORT_NAME_MAP"}]}],
-            "type": "ALL",
-            "encoding": "JSON_IETF",
-        })
-    path = {"elem": [{"name": name} for name in (
-        "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost",
-    )]}
-    request = {"prefix": {"origin": "sonic-db"}}
-    if operation is _set_configdb:
-        path["elem"].append({"name": "cloudtype"})
-        request["update"] = [{
-            "path": path,
-            "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
-        }]
-        return env.grpc.call_unary("gnmi.gNMI", "Set", request)
-    pytest_assert(operation is _get_configdb, "Unsupported authentication test operation")
-    request.update({"path": [path], "type": "ALL", "encoding": "JSON_IETF"})
-    return env.grpc.call_unary("gnmi.gNMI", "Get", request)
-
-
 AUDIT_ACTIVITIES = [
     pytest.param(_get_countersdb, GET_METHOD, id="get"),
     pytest.param(_set_configdb, SET_METHOD, id="set"),
@@ -155,7 +138,7 @@ def test_gnmi_audit_log(gnmi_tls, operation, method):  # noqa: F811
     duthost = gnmi_tls.duthost
     offset = get_audit_log_offset(duthost)
 
-    operation(gnmi_tls.pygnmi_client)
+    operation(gnmi_tls)
     wait_for_audit_record(duthost, offset, method, CLIENT_PRINCIPAL)
 
 
@@ -266,7 +249,7 @@ def test_gnmi_audit_log_remote_forwarding(gnmi_tls, ptfhost, operation, method):
     with capture_remote_syslog(duthost, ptfhost.mgmt_ip, vrf=syslog_vrf) as (capture_result, capture_file):
         offset = get_audit_log_offset(duthost)
         with allure.step("Generate a {} audit record".format(method)):
-            operation(gnmi_tls.pygnmi_client)
+            operation(gnmi_tls)
 
         with allure.step("Verify the remotely forwarded audit record"):
             local_records = wait_for_audit_record(duthost, offset, method, CLIENT_PRINCIPAL)
@@ -319,7 +302,7 @@ def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
         PtfGrpcError,
         match="Unauthenticated",
     ):
-        _call_auth_operation(gnmi_tls, operation)
+        operation(gnmi_tls)
     if method == SET_METHOD:
         pytest_assert(
             redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
@@ -427,9 +410,9 @@ def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
     if error_pattern:
         error_type = PygnmiClientError if operation is _get_capabilities else PtfGrpcError
         with pytest.raises(error_type, match=error_pattern):
-            _call_auth_operation(gnmi_tls, operation)
+            operation(gnmi_tls)
     else:
-        _call_auth_operation(gnmi_tls, operation)
+        operation(gnmi_tls)
     if operation is _set_configdb:
         expected = "Private" if error_pattern else "Public"
         pytest_assert(
