@@ -1,12 +1,17 @@
 """gNMI audit, authentication, and authorization tests."""
 
+import json
 import logging
+import shlex
 import time
+from contextlib import ExitStack, contextmanager
 
 import pytest
 from pygnmi.client import gNMIException
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
+    _get_target_duthost,
+    _gnmi_tls_flow,
     _restart_gnoi_server,
     gnmi_tls,
 )
@@ -32,6 +37,7 @@ from tests.common.helpers.syslog_helpers import (
     read_syslog_payloads,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
 
 pytestmark = [
@@ -56,6 +62,102 @@ CONFIG_DB_GET_PATH = "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
 AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
+
+
+@contextmanager
+def _role_tls_logs(duthost, request, phase):
+    """Short class-boundary windows; keep normal per-case analysis intact.
+
+    Class setup precedes function/platform ignore fixtures. These windows use
+    common + session extended ignores only, not a previous case's expectations
+    or case-specific ignores. Boundary logging is consequently stricter.
+    """
+    if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
+        yield
+        return
+    analyzer = LogAnalyzer(duthost, "gnmi_aaa_tls_{}".format(phase), request=request)
+    analyzer.load_common_config()
+    with analyzer:
+        yield
+
+
+def _role_state(duthost):
+    """Read only the two owned entries, retaining raw role@ and absent/empty."""
+    script = (
+        "return cjson.encode({principal=redis.call('HGETALL', KEYS[1]), "
+        "cloudtype=redis.call('HGET', KEYS[2], 'cloudtype')})"
+    )
+    result = duthost.shell(
+        "sonic-db-cli CONFIG_DB EVAL {} 2 {} {}".format(
+            shlex.quote(script),
+            shlex.quote("GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)),
+            shlex.quote("DEVICE_METADATA|localhost"),
+        ),
+        module_ignore_errors=True,
+    )
+    pytest_assert(result["rc"] == 0, "Cannot read AAA owned state")
+    state = json.loads(result["stdout"])
+    fields = state["principal"]
+    if fields == {}:  # Redis cjson encodes an empty HGETALL table as {}.
+        fields = []
+    pytest_assert(
+        isinstance(fields, list)
+        and len(fields) % 2 == 0
+        and all(isinstance(value, str) for value in fields)
+        and len(set(fields[::2])) == len(fields) // 2,
+        "Invalid raw AAA principal snapshot",
+    )
+    cloudtype = state["cloudtype"]  # Redis nil is Lua false, not an empty string.
+    pytest_assert(cloudtype is False or isinstance(cloudtype, str), "Invalid cloudtype snapshot")
+    return dict(zip(fields[::2], fields[1::2])), cloudtype
+
+
+def _restore_role_state(duthost, state):
+    mapping, cloudtype = state
+    key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
+    try:
+        pytest_assert(redis_del(duthost, CONFIG_DB, key)[0]["rc"] == 0, "Cannot restore AAA principal")
+        if mapping:
+            pytest_assert(redis_hset(duthost, CONFIG_DB, key, **mapping)["rc"] == 0, "Cannot restore AAA mapping")
+    finally:
+        key = "DEVICE_METADATA|localhost"
+        result = (
+            redis_hdel(duthost, CONFIG_DB, key, "cloudtype")
+            if cloudtype is False
+            else redis_hset(duthost, CONFIG_DB, key, cloudtype=cloudtype)
+        )
+        pytest_assert(result["rc"] == 0, "Cannot restore AAA cloudtype")
+
+
+@pytest.fixture(scope="class")
+def role_tls(request, duthosts, ptfhost, core_dump_and_config_check):
+    # Leaving the class (including an interleaved fresh case) finalizes TLS
+    # before another fixture can overwrite its checkpoint/certificates.
+    duthost = _get_target_duthost(duthosts, request)
+    with ExitStack() as cleanup:
+        try:
+            with _role_tls_logs(duthost, request, "setup"):
+                environment = cleanup.enter_context(
+                    contextmanager(_gnmi_tls_flow)(duthost, ptfhost, strict_cleanup=True)
+                )
+                baseline = _role_state(duthost)
+            yield environment, baseline
+        finally:
+            # ExitStack still closes TLS if analyzer construction/init fails.
+            with _role_tls_logs(duthost, request, "teardown"):
+                cleanup.close()
+
+
+@pytest.fixture
+def role_case_tls(role_tls, loganalyzer):
+    environment, baseline = role_tls
+    duthost = environment.duthost
+    pytest_assert(_role_state(duthost) == baseline, "AAA owned state was not restored before this case")
+    try:
+        yield environment
+    finally:
+        _restore_role_state(duthost, baseline)
+        pytest_assert(_role_state(duthost) == baseline, "AAA owned state restoration failed")
 
 
 def _set_configdb(client):
@@ -369,22 +471,17 @@ UNMAPPED_CN_ROLE_CASES = [
 ]
 
 
-@pytest.mark.parametrize(
-    "role,operation,error_pattern",
-    CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
-)
-def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
-    """Verify generic and target-specific role authorization."""
-    duthost = gnmi_tls.duthost
-    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
-    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
-    pytest_assert(original_role, "Client certificate role is not configured")
-    try:
+class TestCnRoleAccess:
+    @pytest.mark.parametrize(
+        "role,operation,error_pattern",
+        CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
+    )
+    def test_cn_role_access(self, role_case_tls, role, operation, error_pattern):
+        """Verify generic and target-specific role authorization."""
+        duthost = role_case_tls.duthost
         _set_client_cert_role(duthost, role)
         if error_pattern:
             with pytest.raises(PygnmiClientError, match=error_pattern):
-                operation(gnmi_tls.pygnmi_client)
+                operation(role_case_tls.pygnmi_client)
         else:
-            operation(gnmi_tls.pygnmi_client)
-    finally:
-        _set_client_cert_role(duthost, original_role)
+            operation(role_case_tls.pygnmi_client)
