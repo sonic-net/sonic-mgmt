@@ -41,8 +41,10 @@ def test_table_dump_preserves_endpoint_namespace_and_result(database, use_tcp, t
         selected = Asic()
         selected.namespace = 'asic3' if kind == 'asic3' else None
         selected.sonichost = host
-    method = load('common/helpers/sonic_db.py', 'dump', {'json': json, 'SonicAsic': Asic, 'DEFAULT_NAMESPACE': None}, 'SonicDbCli')
-    assert method(SimpleNamespace(host=selected, database=database, USE_TCP=use_tcp), 'TABLE:') == {'row': {'value': {'field': 'value'}}}
+    method = load('common/helpers/sonic_db.py', 'dump',
+                  {'json': json, 'SonicAsic': Asic, 'DEFAULT_NAMESPACE': None}, 'SonicDbCli')
+    assert method(SimpleNamespace(host=selected, database=database, USE_TCP=use_tcp),
+                  'TABLE:') == {'row': {'value': {'field': 'value'}}}
     argv = shlex.split(host.command.call_args.args[0])
     if kind == 'asic3':
         assert argv[:5] == ['sudo', 'ip', 'netns', 'exec', 'asic3']
@@ -75,15 +77,19 @@ else:
  print({'protocol':'bgp','weight':'1,1','nexthop':'10.0.0.1,10.0.0.2'})
 ''')
     cli.chmod(0o755)
-    result = subprocess.run(['python3', '-c', weight_source, family, namespace], env=dict(os.environ, PATH=str(tmp_path)+':'+os.environ['PATH']), capture_output=True, text=True, check=True)
+    result = subprocess.run(['python3', '-c', weight_source, family, namespace], env=dict(os.environ,
+                            PATH=str(tmp_path)+':'+os.environ['PATH']), capture_output=True, text=True, check=True)
     data = json.loads(result.stdout)
     assert data['checked'] == 1
     assert data['missing'] == data['mismatched'] == data['invalid_weights'] == []
 
 
 def test_weight_script_reports_command_failure_instead_of_empty_route_success(tmp_path, weight_source):
-    cli = tmp_path / 'sonic-db-cli';cli.write_text('#!/bin/sh\nexit 9\n');cli.chmod(0o755)
-    result = subprocess.run(['python3', '-c', weight_source, 'ipv4'], env=dict(os.environ, PATH=str(tmp_path)+':'+os.environ['PATH']), capture_output=True, text=True)
+    cli = tmp_path / 'sonic-db-cli'
+    cli.write_text('#!/bin/sh\nexit 9\n')
+    cli.chmod(0o755)
+    result = subprocess.run(['python3', '-c', weight_source, 'ipv4'], env=dict(os.environ,
+                            PATH=str(tmp_path)+':'+os.environ['PATH']), capture_output=True, text=True)
     assert result.returncode != 0
     assert 'CalledProcessError' in result.stderr
 
@@ -93,7 +99,14 @@ def test_weight_script_reports_command_failure_instead_of_empty_route_success(tm
 def test_snmp_fact_collection_retains_status_queries(namespace, port):
     host = Mock()
     host.interface_facts.return_value = {'ansible_facts': {'ansible_interface_facts': {port: {'mtu': 9100}}}}
-    host.config_facts.return_value = {'ansible_facts': {'port_name_to_alias_map': {'Ethernet0': 'fortyGigE0/0'}, 'PORT': {'Ethernet0': {'speed': '100000', 'admin_status': 'up'}}, 'PORTCHANNEL': {'PortChannel1': {'admin_status': 'up'}}, 'MGMT_PORT': {'eth0': {'admin_status': 'up'}}}}
+    host.config_facts.return_value = {
+        'ansible_facts': {
+            'port_name_to_alias_map': {'Ethernet0': 'fortyGigE0/0'},
+            'PORT': {'Ethernet0': {'speed': '100000', 'admin_status': 'up'}},
+            'PORTCHANNEL': {'PortChannel1': {'admin_status': 'up'}},
+            'MGMT_PORT': {'eth0': {'admin_status': 'up'}},
+        },
+    }
     host.shell.return_value = {'stdout': 'up'}
     method = load('snmp/test_snmp_interfaces.py', 'collect_all_facts', {})
     result = method(host, [port], namespace)
@@ -110,7 +123,8 @@ def test_fib_snapshot_preserves_namespace_key_and_fetch(namespace, function):
     asic = Mock(namespace=namespace)
     host = Mock(hostname='vlab-01', facts={'switch_type': 'switch'})
     host.asic_instance.return_value = asic
-    values = {'datetime': datetime, 'json': json, 'open': lambda *args: io.StringIO('{}'), 'logger': logging.getLogger(__name__)}
+    values = {'datetime': datetime, 'json': json,
+              'open': lambda *args: io.StringIO('{}'), 'logger': logging.getLogger(__name__)}
     method = load('common/fixtures/fib_utils.py', function, values)
     if function == 'get_fib_info':
         assert method(host, [(0, {})], {}, testname='test_decap') == {}
@@ -129,15 +143,24 @@ def test_fib_snapshot_preserves_namespace_key_and_fetch(namespace, function):
 
 
 def test_pfcwd_fixture_reads_metadata_and_retains_original_restoration():
-    method = load('generic_config_updater/test_pfcwd_status.py', 'set_default_pfcwd_config', {'json': json, 'pytest_assert': lambda condition, message: (_ for _ in ()).throw(AssertionError(message)) if not condition else None})
+    method = load('generic_config_updater/test_pfcwd_status.py',
+                  'set_default_pfcwd_config',
+                  {'json': json,
+                   'pytest_assert': lambda condition,
+                   message: (_ for _ in ()).throw(AssertionError(message)) if not condition else None})
     host = Mock()
-    host.shell.return_value = {'stdout': '{"DEVICE_METADATA|localhost":{"value":{"default_pfcwd_status":"enable"}}}', 'rc': 0}
+    host.shell.return_value = {
+        'stdout': '{"DEVICE_METADATA|localhost":{"value":{"default_pfcwd_status":"enable"}}}', 'rc': 0}
     fixture = method(host)
     next(fixture)
-    assert shlex.split(host.shell.call_args.args[0]) == ['sonic-db-dump', '-t', 'unix_socket', '-n', 'CONFIG_DB', '-y', '-k', 'DEVICE_METADATA|localhost']
+    assert shlex.split(host.shell.call_args.args[0]) == [
+        'sonic-db-dump', '-t', 'unix_socket', '-n', 'CONFIG_DB', '-y', '-k', 'DEVICE_METADATA|localhost',
+    ]
     with pytest.raises(StopIteration):
         next(fixture)
-    assert [call.args[0] for call in host.shell.call_args_list][-2:] == ['config pfcwd stop', 'config pfcwd start_default']
+    assert [call.args[0] for call in host.shell.call_args_list][-2:] == [
+        'config pfcwd stop', 'config pfcwd start_default',
+    ]
 
 
 @pytest.mark.parametrize('multi', [False, True])
@@ -148,6 +171,7 @@ def test_pfcwd_fixture_reads_metadata_and_retains_original_restoration():
 ])
 def test_route_and_srv6_configuration_commands_retain_namespace(relative, name, multi):
     import inspect
+
     class ObservedFirstCommand(Exception):
         pass
     host = Mock(is_multi_asic=multi)
@@ -175,6 +199,7 @@ def test_mtu_observation_reads_socket_and_preserves_restoration(multi, interface
     host.get_namespace_from_asic_id.return_value = 'asic3'
     host.command.return_value = {'stdout': '9100'}
     observed = []
+
     def shell(command):
         observed.append(command)
         return {'stdout': str(len(observed)) if 'sonic-db-dump -t unix_socket' in command else '0'}

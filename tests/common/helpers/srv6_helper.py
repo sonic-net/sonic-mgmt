@@ -558,7 +558,8 @@ def validate_srv6_in_asic_db(duthost, mysid_list):
         bool: True if all MySIDs are valid, False otherwise
     """
     try:
-        asic_db_keys = duthost.shell('sonic-db-cli -s ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
+        asic_db_keys = duthost.shell(
+            'sonic-db-cli -s ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
         if not asic_db_keys:
             logger.error("No SRv6 MySID entries found in ASIC_DB")
             return False
