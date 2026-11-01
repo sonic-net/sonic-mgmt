@@ -503,7 +503,7 @@ def get_scheduler_usage_count(duthost, scheduler_oid):
     """
     # Dump ASIC_DB to a temporary file for faster searching
     tmp_file = "/tmp/asic_db_scheduler_check.json"
-    dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
+    dump_cmd = f"sonic-db-dump -t unix_socket -n ASIC_DB -y > {tmp_file}"
     duthost.shell(dump_cmd)
 
     # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
