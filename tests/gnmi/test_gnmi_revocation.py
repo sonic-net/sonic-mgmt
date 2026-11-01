@@ -1,4 +1,8 @@
-"""Revalidate an established Subscribe RPC after its certificate mapping changes.
+"""gNMI revocation boundaries: credentials and authorization are distinct.
+
+These cases revoke roles/CN mappings on an active Subscribe RPC; deleting a
+CN mapping is not CRL certificate revocation. The managed CRL case is currently
+maintained in sonic-mgmt #27429 and requires its separate tls_crl fixture.
 
 Requires sonic-gnmi #789 (periodic reauthentication) and #807 (PermissionDenied
 status for role denial). Observation budgets are test limits, not revocation
