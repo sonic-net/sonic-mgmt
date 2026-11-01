@@ -59,7 +59,7 @@ def wait_all_bgp_up(duthost):
 
 def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     # new counter table
-    # sonic-db-cli STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
+    # sonic-db-cli -s STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
     # {'TX': "{'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0','Confirm':'0','Renew':'0','Rebind':'0',
     #  'Reply':'0', 'Release':'0','Decline':'0','Reconfigure':'0','Information-Request':'0','Relay-Forward':'0',
     #  'Relay-Reply':'0','Malformed':'0'}", 'RX': "{'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0',
@@ -67,7 +67,7 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     #  'Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0','Malformed':'0'}"}
     #
     # old counter table
-    # sonic-db-cli STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
+    # sonic-db-cli -s STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
     # {'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0','Confirm':'0','Renew':'0','Rebind':'0','Reply':'0',
     #  'Release':'0','Decline':'0','Reconfigure':'0','Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0',
     #  'Malformed':'0'}

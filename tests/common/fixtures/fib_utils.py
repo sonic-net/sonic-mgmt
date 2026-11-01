@@ -79,7 +79,7 @@ def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=N
             fib_info = {}
 
             netns_option = " --netns {}".format(asic.namespace) if asic.namespace else ""
-            asic.shell("sonic-db-dump{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
+            asic.shell("sonic-db-dump -t unix_socket{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
                 netns_option, route_key, timestamp))
             # change fetch to fetch_no_slurp to resolve slow fetch issue
             duthost.fetch_no_slurp(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
@@ -219,7 +219,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
         asic = duthost.asic_instance(asic_index)
 
         netns_option = " --netns {}".format(asic.namespace) if asic.namespace else ""
-        asic.shell("sonic-db-dump{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
+        asic.shell("sonic-db-dump -t unix_socket{} -n APPL_DB -k {} -y > /tmp/fib.{}.txt".format(
             netns_option, route_key, timestamp))
         duthost.fetch(src="/tmp/fib.{}.txt".format(timestamp), dest="/tmp/fib")
 

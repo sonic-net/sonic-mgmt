@@ -61,7 +61,7 @@ def get_asic_db_values(duthost, fields, cli_namespace_prefix):
     asic_db_values = {}
     for wred_object in wred_objects:
         oid = wred_object[wred_object.rfind(':') + 1:]
-        wred_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall {}'
+        wred_data = duthost.shell('sonic-db-cli -s {} ASIC_DB hgetall {}'
                                   .format(cli_namespace_prefix, wred_object))["stdout"]
         if "NULL" in wred_data:
             continue
@@ -88,7 +88,7 @@ def get_wred_objects(duthost, cli_namespace_prefix):
     Returns:
         A list of WRED profile objects in ASIC DB.
     """
-    wred_objects = duthost.shell('sonic-db-cli {} ASIC_DB keys *WRED*'.format(cli_namespace_prefix))["stdout"]
+    wred_objects = duthost.shell('sonic-db-cli -s {} ASIC_DB keys *WRED*'.format(cli_namespace_prefix))["stdout"]
     wred_objects = wred_objects.split("\n")
     return wred_objects
 
@@ -143,7 +143,7 @@ def ensure_application_of_updated_config(duthost, fields, new_values, cli_namesp
 
 
 def get_wred_profiles(duthost, cli_namespace_prefix):
-    wred_profiles = duthost.shell(f"sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
+    wred_profiles = duthost.shell(f"sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys \
                                   'WRED_PROFILE|*' | cut -d '|' -f 2")["stdout"]
     return [w for w in wred_profiles.split('\n') if w]
 
@@ -236,7 +236,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
     new_values = {}
     # Creating a JSON patch for all WRED profiles in CONFIG_DB for which 'wred_green_enable' is true.
     for wred_profile in wred_profiles:
-        ecn_data = duthost.shell("sonic-db-cli {} CONFIG_DB hgetall 'WRED_PROFILE|{}'"
+        ecn_data = duthost.shell("sonic-db-cli -s {} CONFIG_DB hgetall 'WRED_PROFILE|{}'"
                                  .format(cli_namespace_prefix, wred_profile))['stdout']
         ecn_data = ast.literal_eval(ecn_data)
         wred_green_enabled = ecn_data.get("wred_green_enable", "false").lower() == "true"

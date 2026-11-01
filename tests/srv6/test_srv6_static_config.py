@@ -19,7 +19,7 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
     else:
         cli_options = ''
 
-    sonic_db_cli = "sonic-db-cli" + cli_options
+    sonic_db_cli = "sonic-db-cli -s" + cli_options
     vtysh_shell = "vtysh" + cli_options
 
     # add a locator configuration entry
@@ -72,7 +72,7 @@ def test_uDT46_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_i
     else:
         cli_options = ''
 
-    sonic_db_cli = "sonic-db-cli" + cli_options
+    sonic_db_cli = "sonic-db-cli -s" + cli_options
     vtysh_shell = "vtysh" + cli_options
 
     # add Vrf1 config

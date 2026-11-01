@@ -109,7 +109,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         port_alias_map[port_alias_new] = item
         port_speed[port_alias_new] = port_speed_facts[port_alias_old]
 
-        # sonic-db-cli command
+        # sonic-db-cli -s command
         db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
                     item,

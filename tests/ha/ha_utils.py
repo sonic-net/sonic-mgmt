@@ -163,10 +163,10 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
 
     try:
         ids_res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_ids'
+            f'sonic-db-cli -s STATE_DB HGET "{db_key}" pending_operation_ids'
         )
         types_res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_types'
+            f'sonic-db-cli -s STATE_DB HGET "{db_key}" pending_operation_types'
         )
 
         if ids_res.get("rc", 0) != 0 or types_res.get("rc", 0) != 0:
@@ -227,7 +227,7 @@ def verify_ha_state(
         db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
         var = "local_acked_asic_ha_state" if ack else "local_ha_state"
         res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" {var}'
+            f'sonic-db-cli -s STATE_DB HGET "{db_key}" {var}'
         )
         state = res["stdout"].strip()
         return state == expected_state
@@ -419,7 +419,7 @@ def get_ha_scope_pmon_state(duthost, scope_key):
     """
     db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
     res = duthost.shell(
-        f'sonic-db-cli STATE_DB HMGET "{db_key}" '
+        f'sonic-db-cli -s STATE_DB HMGET "{db_key}" '
         f'{" ".join(HA_SCOPE_PMON_STATE_FIELDS)}',
         module_ignore_errors=True,
     )

@@ -62,7 +62,7 @@ def test_subinterface_status(duthost, subintf_expected_config):
         """Remove the created subintf from VLAN_SUB_INTERFACE table."""
         for subintf in subintf_config:
             entries = json.loads(duthost.shell(
-                "sonic-db-dump -n CONFIG_DB -k \"VLAN_SUB_INTERFACE|%s*\"" % subintf
+                "sonic-db-dump -t unix_socket -n CONFIG_DB -k \"VLAN_SUB_INTERFACE|%s*\"" % subintf
             )["stdout"])
             for entry in entries:
                 duthost.shell("sonic-db-cli -s CONFIG_DB del \"%s\"" % entry)

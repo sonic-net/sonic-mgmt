@@ -71,7 +71,7 @@ def config_bbr_by_gcu(duthost, status):
     try:
         apply_gcu_patch(duthost, json_patch)
     except Exception as e:
-        # The sonic-db-cli fallback bypasses GCU schema validation.  If the GCU
+        # The sonic-db-cli -s fallback bypasses GCU schema validation.  If the GCU
         # failure is due to a schema violation this could put CONFIG_DB into an
         # inconsistent state, so log at error level for post-run diagnosis.
         logger.error(
