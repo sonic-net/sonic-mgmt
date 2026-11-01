@@ -363,6 +363,30 @@ CONFIG_DB_ROLE_CASES = [
         None,
         id="configdb-readwrite-set",
     ),
+    pytest.param(
+        CONFIG_DB_NOACCESS_ROLE + "," + CONFIG_DB_READWRITE_ROLE,
+        _set_configdb,
+        NO_ACCESS_ERROR.format(CONFIG_DB_NOACCESS_ROLE),
+        id="configdb-noaccess-readwrite-set",
+    ),
+    pytest.param(
+        CONFIG_DB_READWRITE_ROLE + "," + CONFIG_DB_NOACCESS_ROLE,
+        _set_configdb,
+        NO_ACCESS_ERROR.format(CONFIG_DB_NOACCESS_ROLE),
+        id="configdb-readwrite-noaccess-set",
+    ),
+    pytest.param(
+        GENERIC_READWRITE_ROLE,
+        _set_configdb,
+        r"does not have write access, target gnmi_CONFIG_DB\b",
+        id="configdb-generic-readwrite-set-denied",
+    ),
+    pytest.param(
+        "",
+        _set_configdb,
+        r"does not have write access, target gnmi_CONFIG_DB\b",
+        id="configdb-empty-role-set-denied",
+    ),
 ]
 
 UNMAPPED_CN_ROLE_CASES = [
