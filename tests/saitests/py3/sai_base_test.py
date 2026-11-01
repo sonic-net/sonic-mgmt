@@ -247,8 +247,10 @@ class ThriftInterface(BaseTest):
                              cmd_set_block_data_plane_scheduler)
         for dut_port in dut_port_list:
             for q in DATA_PLANE_QUEUE_LIST:
-                cmd_block_q = \
-                    f" sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
+                cmd_block_q = (
+                    f" sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler "
+                    f"{BLOCK_DATA_PLANE_SCHEDULER_NAME}"
+                )
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'], self.test_params['dut_password'], cmd_block_q)
 
@@ -271,7 +273,9 @@ class ThriftInterface(BaseTest):
             for q in DATA_PLANE_QUEUE_LIST:
                 scheduler_name = self.original_dut_port_queue_scheduler_map[dut_port][q] if \
                     self.original_dut_port_queue_scheduler_map else DEFAULT_QUEUE_SCHEDULER_CONFIG[q]
-                cmd_set_q_scheduler = f" sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {scheduler_name}"
+                cmd_set_q_scheduler = (
+                    f" sonic-db-cli -s CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {scheduler_name}"
+                )
                 cmd_del_q_scheduler = f" sonic-db-cli -s CONFIG_DB hdel 'QUEUE|{dut_port}|{q}' scheduler "
                 cmd_recover_q_scheduler_config = cmd_set_q_scheduler if scheduler_name else cmd_del_q_scheduler
                 self.exec_cmd_on_dut(
