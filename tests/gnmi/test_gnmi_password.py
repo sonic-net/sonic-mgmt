@@ -9,6 +9,7 @@ import os
 import re
 import secrets
 import subprocess
+from contextlib import ExitStack
 
 import grpc
 import pytest
@@ -62,16 +63,19 @@ def _account_record(duthost, prefix, database, name):
     return result["stdout"].strip().split(":") if result["rc"] == 0 else None
 
 
-def _remove_owned(duthost, prefix, database, name, identity):
+def _remove_owned(duthost, prefix, database, name, owned, role=None):
     record = _account_record(duthost, prefix, database, name)
     if record is None:
         return
-    assert int(record[2]) == identity, "Owned identity changed; refusing deletion"
+    assert record[2] == owned.get((tuple(prefix), database, name)), "Identity ownership unknown; refusing deletion"
     if database == "group":
         assert not record[3], "Owned group acquired other members; refusing deletion"
     command = "userdel" if database == "passwd" else "groupdel"
     duthost.command(argv=prefix + [command, name])
     assert _account_record(duthost, prefix, database, name) is None, "Owned identity survived cleanup"
+    if role:
+        group = _account_record(duthost, prefix, "group", role)
+        assert group is None or name not in group[3].split(","), "Owned membership survived cleanup"
 
 
 def _cloudtype(duthost):
@@ -91,7 +95,7 @@ def _restore_cloudtype(duthost, original):
 
 @pytest.fixture
 def password_identity(request, gnmi_tls, role):  # noqa: F811
-    """One new username per instance; identity finalizers run before TLS rollback."""
+    """Create a temporary user on each side; clean up before TLS rollback."""
     __tracebackhide__ = True
     duthost = gnmi_tls.duthost
     container = ["docker", "exec", "gnmi"]
@@ -107,47 +111,37 @@ def password_identity(request, gnmi_tls, role):  # noqa: F811
             actual = duthost.command(argv=prefix + ["readlink", "-f", path])["stdout"].strip()
             assert actual == path, "Account file symlinks are unsupported"
     username = "gnmipw_" + secrets.token_hex(5)
-    uid = 50000 + secrets.randbelow(10000)
     for prefix in ([], container):
         assert _account_record(duthost, prefix, "passwd", username) is None, "Test name already exists"
-        assert _account_record(duthost, prefix, "passwd", uid) is None, "Test UID already exists"
-        assert _account_record(duthost, prefix, "group", username) is None, "Test group name already exists"
-        assert _account_record(duthost, prefix, "group", "nogroup") is not None, "Missing unprivileged base group"
 
     original = _cloudtype(duthost)
-    request.addfinalizer(lambda: _restore_cloudtype(duthost, original))
-    existing_group = _account_record(duthost, container, "group", role)
-    if existing_group is None:
-        gid = 60000 + secrets.randbelow(5000)
-        assert _account_record(duthost, container, "group", gid) is None, "Test GID already exists"
-        request.addfinalizer(lambda: _remove_owned(duthost, container, "group", role, gid))
-        duthost.command(argv=container + ["groupadd", "--gid", str(gid), role])
-    else:
-        def check_existing_group():
-            assert _account_record(duthost, container, "group", role) == existing_group, \
-                "Preexisting role group was not restored"
-        request.addfinalizer(check_existing_group)
+    owned = {}
+    with ExitStack() as cleanup:
+        cleanup.callback(_restore_cloudtype, duthost, original)
+        if _account_record(duthost, container, "group", role) is None:
+            cleanup.callback(_remove_owned, duthost, container, "group", role, owned)
+            duthost.command(argv=container + ["groupadd", role])
+            owned[(tuple(container), "group", role)] = _account_record(duthost, container, "group", role)[2]
+        for prefix in ([], container):
+            # A failed/ambiguous creation must not authorize deletion by name.
+            cleanup.callback(_remove_owned, duthost, prefix, "passwd", username, owned, role if prefix else None)
+            args = ["useradd", "--no-create-home", "--no-user-group", "--gid", "nogroup",
+                    "--no-log-init", "-K", "CREATE_MAIL_SPOOL=no", "--shell", "/bin/bash"]
+            if prefix:
+                args.extend(["--groups", role])
+            duthost.command(argv=prefix + args + [username])
+            owned[(tuple(prefix), "passwd", username)] = _account_record(duthost, prefix, "passwd", username)[2]
 
-    for prefix in ([], container):
-        request.addfinalizer(lambda prefix=prefix: _remove_owned(duthost, prefix, "passwd", username, uid))
-        args = ["useradd", "--uid", str(uid), "--no-create-home", "--no-user-group", "--gid", "nogroup",
-                "--no-log-init", "-K", "CREATE_MAIL_SPOOL=no", "--shell", "/bin/bash"]
-        if prefix:
-            args.extend(["--groups", role])
-        duthost.command(argv=prefix + args + [username])
-        record = _account_record(duthost, prefix, "passwd", username)
-        assert record and int(record[2]) == uid, "Owned account was not created"
-
-    password = "Gnmi!9_" + secrets.token_hex(20)
-    _set_password(request, duthost, username, password)
-    result = redis_hset(duthost, CONFIG_DB, "GNMI|gnmi", user_auth="password")
-    assert result["rc"] == 0, "Could not select password-only authentication"
-    _restart_gnoi_server(duthost)
-    cmdline = duthost.command(argv=container + ["sh", "-c", "ps -eo args | grep '^/usr/sbin/telemetry '"])["stdout"]
-    assert re.search(r"--?client_auth(?:=|\s+)password(?:\s|$)", cmdline), "Password-only mode not active"
-    assert "config_table_name" not in cmdline, "Unexpected certificate role mapping"
-    # Keep the test password out of pytest fixture-value reprs and --showlocals.
-    yield gnmi_tls, username, lambda: password
+        password = "Gnmi!9_" + secrets.token_hex(20)
+        _set_password(request, duthost, username, password)
+        result = redis_hset(duthost, CONFIG_DB, "GNMI|gnmi", user_auth="password")
+        assert result["rc"] == 0, "Could not select password-only authentication"
+        _restart_gnoi_server(duthost)
+        cmdline = duthost.command(argv=container + ["sh", "-c", "ps -eo args | grep '^/usr/sbin/telemetry '"])["stdout"]
+        assert re.search(r"--?client_auth(?:=|\s+)password(?:\s|$)", cmdline), "Password-only mode not active"
+        assert "config_table_name" not in cmdline, "Unexpected certificate role mapping"
+        # Keep the test password out of pytest fixture-value reprs and --showlocals.
+        yield gnmi_tls, username, lambda: password
 
 
 @pytest.mark.parametrize("role", ["gnmi_config_db_readonly", "gnmi_config_db_readwrite"], ids=["readonly", "readwrite"])
