@@ -6,7 +6,6 @@ SLAs: a timeout also requires checking backend health and blocked I/O.
 """
 
 import logging
-import queue
 import shlex
 import threading
 import time
@@ -80,7 +79,7 @@ def _assert_fresh_read(fixture):
 def subscription_control(gnmi_tls, creds):  # noqa: F811
     """Own the mapping restore; gnmi_tls owns the outer configuration rollback.
 
-    Tests close/join their RPC before this fixture restores the original mapping
+    Tests cancel their RPC before this fixture restores the original mapping
     and verifies a fresh read. Only then may gnmi_tls perform Ansible teardown.
     """
     ssh = paramiko_ssh(
@@ -108,11 +107,10 @@ def subscription_control(gnmi_tls, creds):  # noqa: F811
 
 @contextmanager
 def _subscription(fixture, mode):
-    """One raw RPC, no reconnect, with bounded receive and explicit shutdown."""
+    """Reuse the native response iterator; gRPC owns receiving and status errors."""
     finished = threading.Event()
     requests_started = threading.Event()
     requests_done = threading.Event()
-    received = queue.Queue()
     request = gnmi_pb2.SubscribeRequest(
         subscribe=gnmi_pb2.SubscriptionList(
             mode=mode,
@@ -131,52 +129,38 @@ def _subscription(fixture, mode):
             requests_done.set()
 
     with gnmi_connection(fixture) as (_, client):
-        responses = client.Subscribe(requests(), timeout=190)
-
-        def receive():
-            try:
-                for response in responses:
-                    received.put(response)
-            except grpc.RpcError as error:
-                received.put(error)
-            finally:
-                received.put(None)
-
-        reader = threading.Thread(target=receive, name="subscribe-authorization-reader")
-        reader.start()
+        responses = client.Subscribe(requests(), timeout=30 + max(REAUTH_BUDGET, ALLOW_OBSERVATION) + 15)
         try:
-            yield received
+            yield responses
         finally:
             finished.set()
             responses.cancel()
-            reader.join(10)
-            assert not reader.is_alive(), "Subscribe reader failed to stop"
             if requests_started.is_set():
                 assert requests_done.wait(10), "Subscribe request iterator failed to stop"
 
 
-def _receive(received, deadline):
-    remaining = deadline - time.monotonic()
-    assert remaining > 0, "Subscribe observation budget expired; inspect RPC/backend health"
+@contextmanager
+def _rpc_budget(responses, seconds):
+    """Cancel a silent RPC at a phase boundary; cancellation is never auth PASS."""
+    timer = threading.Timer(seconds, responses.cancel)
+    timer.start()
     try:
-        return received.get(timeout=remaining)
-    except queue.Empty:
-        pytest.fail("No Subscribe event within budget; inspect RPC/backend health")
+        yield
+    finally:
+        timer.cancel()
+        timer.join()
 
 
-def _wait_initial_sync(received):
-    deadline = time.monotonic() + 30
+def _wait_initial_sync(responses):
     saw_update = False
-    while True:
-        response = _receive(received, deadline)
-        assert response is not None, "Subscribe ended before initial sync"
-        if isinstance(response, grpc.RpcError):
-            pytest.fail("Initial Subscribe failed: {}".format(response.code()))
-        assert not response.HasField("error"), "Initial Subscribe returned an in-band error"
-        saw_update |= response.HasField("update") and bool(response.update.update)
-        if response.sync_response:
-            assert saw_update, "Initial Subscribe contained no data"
-            return
+    with _rpc_budget(responses, 30):
+        for response in responses:
+            assert not response.HasField("error"), "Initial Subscribe returned an in-band error"
+            saw_update |= response.HasField("update") and bool(response.update.update)
+            if response.sync_response:
+                assert saw_update, "Initial Subscribe contained no data"
+                return
+    pytest.fail("Subscribe ended before initial sync")
 
 
 @pytest.mark.parametrize(
@@ -189,39 +173,36 @@ def _wait_initial_sync(received):
 )
 def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, expected_code):  # noqa: F811
     """An active STREAM or idle POLL terminates with the original auth status."""
-    with _subscription(gnmi_tls, mode) as received:
-        _wait_initial_sync(received)
+    with _subscription(gnmi_tls, mode) as responses:
+        _wait_initial_sync(responses)
         _set_role(subscription_control, role)
         changed_at = time.monotonic()
-        while True:
-            response = _receive(received, changed_at + REAUTH_BUDGET)
-            assert response is not None, "Revoked Subscribe ended without an authentication status"
-            if isinstance(response, grpc.RpcError):
-                assert response.code() == expected_code, "Unexpected Subscribe status: {}".format(response.code())
-                logger.info(
-                    "Same Subscribe RPC revoked with %s after %.1fs", expected_code, time.monotonic() - changed_at
-                )
-                break
-            assert not response.HasField("error"), "Expected terminal auth status, not an in-band error"
-            # Data already sent or produced before the periodic check is allowed.
+        with _rpc_budget(responses, REAUTH_BUDGET):
+            with pytest.raises(grpc.RpcError) as error:
+                for response in responses:
+                    # Data already sent before the periodic check is allowed.
+                    assert not response.HasField("error"), "Expected terminal auth status, not an in-band error"
+        assert error.value.code() == expected_code, (
+            "Unexpected Subscribe status {}; cancellation/deadline requires checking RPC/backend health"
+        ).format(error.value.code())
+        logger.info("Same Subscribe RPC revoked with %s after %.1fs", expected_code, time.monotonic() - changed_at)
 
 
 def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control):  # noqa: F811
     """RW-to-RO preserves the same SAMPLE stream across two reauth intervals."""
-    with _subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as received:
-        _wait_initial_sync(received)
+    with _subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as responses:
+        _wait_initial_sync(responses)
         _set_role(subscription_control, READONLY)
         changed_at = time.monotonic()
-        while True:
-            # Require continuing data, not merely an open/idle socket.
-            response = _receive(received, min(time.monotonic() + 15, changed_at + ALLOW_OBSERVATION + 15))
-            assert response is not None, "Readonly Subscribe ended unexpectedly"
-            if isinstance(response, grpc.RpcError):
-                pytest.fail("Readonly Subscribe failed: {}".format(response.code()))
-            assert not response.HasField("error"), "Readonly Subscribe returned an in-band error"
-            if (
-                response.HasField("update")
-                and response.update.update
-                and time.monotonic() >= changed_at + ALLOW_OBSERVATION
-            ):
-                break
+        last_update = changed_at
+        with _rpc_budget(responses, ALLOW_OBSERVATION + 15):
+            for response in responses:
+                assert not response.HasField("error"), "Readonly Subscribe returned an in-band error"
+                if response.HasField("update") and response.update.update:
+                    now = time.monotonic()
+                    assert now - last_update <= 15, "Readonly SAMPLE stream stopped delivering data"
+                    last_update = now
+                    if now >= changed_at + ALLOW_OBSERVATION:
+                        break
+            else:
+                pytest.fail("Readonly Subscribe ended before the observation completed")
