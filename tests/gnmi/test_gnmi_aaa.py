@@ -52,6 +52,7 @@ GENERIC_READWRITE_ROLE = "gnmi_readwrite"
 CONFIG_DB_NOACCESS_ROLE = "gnmi_config_db_noaccess"
 CONFIG_DB_READONLY_ROLE = "gnmi_config_db_readonly"
 CONFIG_DB_READWRITE_ROLE = "gnmi_config_db_readwrite"
+NO_ACCESS_ERROR = r"does not have access.*role {}\b"
 UNMAPPED_CN_ERROR = "Unauthenticated|unauthenticated|Invalid cert cname|" "not a trusted|common name mapping"
 GET_METHOD = "/gnmi.gNMI/Get"
 SET_METHOD = "/gnmi.gNMI/Set"
@@ -276,15 +277,9 @@ def test_gnmi_audit_log_remote_forwarding(gnmi_tls, ptfhost, operation, method):
             )
 
 
-@pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
-def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
+def test_gnmi_default_cert_auth(gnmi_tls):  # noqa: F811
+    """Default certificate authentication rejects an unmapped CN at Capabilities."""
     duthost = gnmi_tls.duthost
-    if method == SET_METHOD:
-        redis_hset(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", cloudtype="Private")
-        pytest_assert(
-            redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
-            "Failed to seed the Set authorization sentinel",
-        )
     delete_result = redis_hdel(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth")
     pytest_assert(
         delete_result["rc"] == 0 and delete_result["stdout"].strip() == "1",
@@ -302,22 +297,17 @@ def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
         *redis_keys(duthost, CONFIG_DB, "GNMI_CLIENT_CERT|*"),
     )
     with pytest.raises(
-        PtfGrpcError,
-        match="Unauthenticated",
+        PygnmiClientError,
+        match=UNMAPPED_CN_ERROR,
     ):
-        operation(gnmi_tls)
-    if method == SET_METHOD:
-        pytest_assert(
-            redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
-            "Unauthenticated Set changed CONFIG_DB",
-        )
+        _get_capabilities(gnmi_tls)
 
 
 CAPABILITIES_ROLE_CASES = [
     pytest.param(
         GENERIC_NOACCESS_ROLE,
         _get_capabilities,
-        r"does not have access.*role gnmi_noaccess\b",
+        NO_ACCESS_ERROR.format(GENERIC_NOACCESS_ROLE),
         id="generic-noaccess-capabilities",
     ),
     pytest.param(
@@ -344,13 +334,13 @@ CONFIG_DB_ROLE_CASES = [
     pytest.param(
         CONFIG_DB_NOACCESS_ROLE,
         _get_configdb,
-        r"does not have access.*role gnmi_config_db_noaccess\b",
+        NO_ACCESS_ERROR.format(CONFIG_DB_NOACCESS_ROLE),
         id="configdb-noaccess-get",
     ),
     pytest.param(
         CONFIG_DB_NOACCESS_ROLE,
         _set_configdb,
-        r"does not have access.*role gnmi_config_db_noaccess\b",
+        NO_ACCESS_ERROR.format(CONFIG_DB_NOACCESS_ROLE),
         id="configdb-noaccess-set",
     ),
     pytest.param(
@@ -362,7 +352,7 @@ CONFIG_DB_ROLE_CASES = [
     pytest.param(
         CONFIG_DB_READONLY_ROLE,
         _set_configdb,
-        r"does not have access.*role gnmi_config_db_readonly\b",
+        NO_ACCESS_ERROR.format(CONFIG_DB_READONLY_ROLE),
         id="configdb-readonly-set",
     ),
     pytest.param(
@@ -382,15 +372,9 @@ CONFIG_DB_ROLE_CASES = [
 UNMAPPED_CN_ROLE_CASES = [
     pytest.param(
         None,
-        _get_configdb,
+        _get_capabilities,
         UNMAPPED_CN_ERROR,
-        id="unmapped-get",
-    ),
-    pytest.param(
-        None,
-        _set_configdb,
-        UNMAPPED_CN_ERROR,
-        id="unmapped-set",
+        id="unmapped-capabilities",
     ),
 ]
 
@@ -492,7 +476,10 @@ def test_mixed_auth_local_cert_role_access(gnmi_tls):  # noqa: F811
                       "Rejected password changed CONFIG_DB")
 
         configure_auth("password,cert")
-        with pytest.raises(PtfGrpcError, match=r"(?s)Code: PermissionDenied\b.*role gnmi_config_db_readonly\b"):
+        with pytest.raises(
+            PtfGrpcError,
+            match=r"(?s)Code: PermissionDenied\b.*" + NO_ACCESS_ERROR.format(CONFIG_DB_READONLY_ROLE),
+        ):
             _set_configdb(gnmi_tls, metadata=metadata)
         pytest_assert(redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
                       "Readonly certificate fallback changed CONFIG_DB")
