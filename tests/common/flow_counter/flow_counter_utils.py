@@ -151,7 +151,7 @@ def get_route_flow_counter_capability(dut, route_flow_counter_capability):
         bool: True if capability is successfully retrieved from STATE DB
     """
     support = dut.shell(
-        'sudo sonic-db-cli STATE_DB HGET "FLOW_COUNTER_CAPABILITY_TABLE|route" support')['stdout'].strip()
+        'sudo sonic-db-cli -s STATE_DB HGET "FLOW_COUNTER_CAPABILITY_TABLE|route" support')['stdout'].strip()
     if support == 'true':
         route_flow_counter_capability.append(True)
     elif support == 'false':
