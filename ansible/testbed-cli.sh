@@ -220,17 +220,33 @@ function converge_topo_if_needed
     topo_file="$VARS_DIR/topo_${topo}.yml"
     backup_file="${topo_file}".bak
 
+    # Keep the cSONiC path independent from the established cEOS path below.
+    if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
+        if [[ "$topo" != "t0" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+            return
+        fi
+        echo "use_converged_peers is true, converging cSONiC topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+
+        python -m csonic_topo_converger "$backup_file" "$topo_file"
+        return
+    fi
+
     if [[ "$use_converged_peers" == "True" ]]; then
-        # The converged (multi-VRF) peer model is implemented for cEOS
-        # neighbors only: a single cEOS VM hosts every merged sub-peer as a VRF,
-        # and only the cEOS startup-config templates render that VRF config.
-        # SONiC-VS / cisco / csonic neighbors have no converged render path, so
-        # reshaping the topology for them produces a DUT minigraph whose BGP
-        # neighbors the unconverged VS peers can't answer ("Not all bgp sessions
-        # established"). Gate on vm_type so non-cEOS deployments of a
-        # converged-enabled testbed behave exactly as they did historically.
+        # cSONiC T0 is handled by its dedicated branch above. This branch keeps
+        # the existing cEOS renderer strict: SONiC-VS and cisco neighbors have
+        # no equivalent render path, so reshaping their topology would make the
+        # DUT minigraph disagree with the deployed peers.
         if [[ "$vm_type" != "ceos" ]]; then
-            echo "use_converged_peers is true but vm_type='$vm_type' is not ceos; skipping converge (converged peer model is cEOS-only)."
+            echo "use_converged_peers is true but vm_type='$vm_type' is not eligible for the cEOS convergence path; skipping converge."
             return
         fi
         echo "use_converged_peers is true, converging topo..."

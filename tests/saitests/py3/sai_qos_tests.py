@@ -1722,6 +1722,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         asic_type = self.test_params.get("sonic_asic_type")
         platform_asic = self.test_params['platform_asic']
+        sai_mmu_custom_config = self.test_params.get('sai_mmu_custom_config', False)
 
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
@@ -1818,7 +1819,8 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                         else:
                             # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
                             # So for those queues the count could be more
-                            if i == 0 or i == 4:
+                            # With sai_mmu_custom_config, Broadcom XGS counts packets trapped to cpu in pg 7
+                            if i == 0 or i == 4 or (i == 7 and sai_mmu_custom_config):
                                 assert (pg_cntrs[i] >= pg_cntrs_base[i])
                             else:
                                 assert (pg_cntrs[i] == pg_cntrs_base[i])

@@ -854,7 +854,7 @@ configlet/test_add_rack.py:
 #######################################
 #####            console          #####
 #######################################
-^console/(?!test_console_(?:driver|reversessh)\.py):
+^console/(?!test_console_(?:driver|reversessh|logging)\.py):
   regex: true
   skip:
     reason: 'Only console driver and reverse SSH tests are compatible with BMC'
@@ -1756,7 +1756,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -1767,7 +1767,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
       - "branch in ['201811', '201911', '202012', '202106']"
       - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox', 'vs']"
+      - "asic_type not in ['mellanox', 'vs', 'vpp']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -2233,11 +2233,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122, 8122X, and 8223 platforms, Broadcom DNX platforms, Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b), and Nokia IXR7220-H6-128. CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0', 'x86_64-nokia_ixr7220_h6_128-r0', 'x86_64-8122x_64ef_o-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2460,7 +2460,8 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-8223_64e_mo-r0', 'x86_64-8223_64ef_mo-r0']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223_')"
   xfail:
     reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
     conditions:
@@ -2566,9 +2567,11 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos. Vxlan ipv6-ipv6 Pkt format is not supported on cisco 8122 platform'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122')"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
@@ -3522,12 +3525,18 @@ iface_loopback_action/:
       - "'bmc' in topo_type"
 
 iface_loopback_action/test_iface_loopback_action.py:
+  # Enabled on the VPP virtual platform (sonic-net/sonic-buildimage#25788). Requires:
+  #   - VPP: iface_loopback plugin drops+counts hairpin (same-RIF) routed packets
+  #     (sonic-platform-vpp iface_loopback plugin).
+  #   - libsaivs: SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION handler + RIF stats
+  #     (sonic-sairedis vslib/vpp).
+  #   - testbed: qemu virtio-net ctrl_vlan=off so VLAN-tagged sub-port traffic reaches VPP.
   skip:
-    reason: "Test only supported on Mellanox SKUs, didn't supported on dualtor topology."
+    reason: "Test supported on Mellanox SKUs and VPP virtual platform, not supported on dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vpp']"
 
 #######################################
 #####      iface_namingmode       #####
@@ -3982,6 +3991,15 @@ nat:
     conditions:
       - "'nat' not in feature_status"
       - "asic_type in ['mellanox', 'nvidia']"
+
+#######################################
+#####             ntp             #####
+#######################################
+ntp/test_ntp.py::test_ntp_long_jump_disabled:
+  skip:
+    reason: "Chrony stepping is enabled by default on switch BMCs"
+    conditions:
+      - "topo_type in ['bmc']"
 
 #######################################
 #####             ospf            #####
@@ -5336,6 +5354,14 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
 
+snappi_tests/gcu/test_gcu_port_speed_upgrade.py:
+  skip:
+    reason: "Snappi GCU port speed upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
+
 snappi_tests/lacp:
   skip:
     reason: "Skipping snappi lacp on 2025, 202605 and 202608 releases"
@@ -6231,11 +6257,9 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
 
 vxlan/test_vxlan_multi_tunnel.py:
   skip:
-    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. The test is not supported on SPC3 devices due to missing feature"
-    conditions_logical_operator: OR
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
-      - "platform in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0')"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_multiple_tunnels.py:
   skip:

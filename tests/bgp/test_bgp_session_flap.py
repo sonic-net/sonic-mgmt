@@ -1,9 +1,4 @@
-'''
-
-This script is to test BGP session flapping on SONiC and monitor
-the CPU.
-
-'''
+"""Monitor CPU and BGP memory while flapping SONiC BGP sessions."""
 
 import logging
 import sys
@@ -310,8 +305,8 @@ def setup(
 
     logger.info('Setup_info: {}'.format(setup_info))
 
-    #  get baseline BGP CPU and Memory Utilization
-    get_cpu_stats(duthost)
+    # Keep the full RIB baseline before either test withdraws routes.
+    setup_info['pre_flap_stats'] = get_cpu_stats(duthost)
 
     yield setup_info
 
@@ -355,6 +350,7 @@ def test_bgp_single_session_flaps(setup):
     # get baseline stat information
     stats = []
     stats.append(get_cpu_stats(setup['duthost']))
+    pre_flap_stats = setup['pre_flap_stats']
 
     # start threads to flap neighbor sessions
     stop_event = threading.Event()
@@ -369,10 +365,14 @@ def test_bgp_single_session_flaps(setup):
             assert stats[index][1] < (stats[0][1] + cpuSpike)
             assert stats[index][2] < (stats[0][2] + cpuSpike)
             # Memory can be zero when an address family has no neighbors.
-            assert stats[index][3] <= (stats[0][3] * memSpike)
+            assert stats[index][3] <= (
+                max(stats[0][3], pre_flap_stats[3]) * memSpike
+            )
             assert stats[index][4] <= (stats[0][4] * memSpike)
             assert stats[index][5] <= (stats[0][5] * memSpike)
-            assert stats[index][6] <= (stats[0][6] * memSpike)
+            assert stats[index][6] <= (
+                max(stats[0][6], pre_flap_stats[6]) * memSpike
+            )
             assert stats[index][7] <= (stats[0][7] * memSpike)
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
@@ -391,6 +391,7 @@ def test_bgp_multiple_session_flaps(setup):
     # get baseline stat information
     stats = []
     stats.append(get_cpu_stats(setup['duthost']))
+    pre_flap_stats = setup['pre_flap_stats']
 
     # start threads to flap neighbor sessions
     neighbors = setup['neighbors']
@@ -407,10 +408,14 @@ def test_bgp_multiple_session_flaps(setup):
             assert stats[index][1] < (stats[0][1] + cpuSpike)
             assert stats[index][2] < (stats[0][2] + cpuSpike)
             # Memory can be zero when an address family has no neighbors.
-            assert stats[index][3] <= (stats[0][3] * memSpike)
+            assert stats[index][3] <= (
+                max(stats[0][3], pre_flap_stats[3]) * memSpike
+            )
             assert stats[index][4] <= (stats[0][4] * memSpike)
             assert stats[index][5] <= (stats[0][5] * memSpike)
-            assert stats[index][6] <= (stats[0][6] * memSpike)
+            assert stats[index][6] <= (
+                max(stats[0][6], pre_flap_stats[6]) * memSpike
+            )
             assert stats[index][7] <= (stats[0][7] * memSpike)
             assert stats[index][8] <= (stats[0][8] * memSpike)
 
