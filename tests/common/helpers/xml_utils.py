@@ -2,29 +2,55 @@ import xml.etree.ElementTree as ET
 import os
 import logging
 import ipaddress
+import re
 logger = logging.getLogger(__name__)
 
 
-def _is_ip_address(text):
+def _parse_ip_address(text):
+    """Return the IP address in text (an optional /prefix is ignored), or None."""
+    if not isinstance(text, str):
+        return None
     try:
-        ipaddress.ip_address(text.split('/')[0])
-        return True
+        return ipaddress.ip_address(text.strip().split('/')[0])
     except ValueError:
-        return False
+        return None
 
 
-def _text_matches(search_text, elem_text):
-    """Match element text; use case-insensitive compare for IP addresses."""
+def _text_matches(search_text, elem_text, exact_match=False):
+    """Check whether element text matches the text we were asked to remove.
+
+    exact_match=False (default): original behaviour, plain substring match.
+
+    exact_match=True: the whole text, or a whole ';'/','-separated item of it (e.g.
+    <AttachTo>PortChannel101;PortChannel102</AttachTo>), must equal the search text,
+    so PortChannel1 does not match PortChannel10 and 10.0.0.1 does not match
+    10.0.0.10. Surrounding whitespace is ignored. IP addresses are compared as
+    addresses (case-insensitive for IPv6, an optional /prefix on either side is
+    ignored), so 10.0.0.1 matches both '10.0.0.1' and '10.0.0.1/31'.
+    """
     if not elem_text:
         return False
-    if search_text in elem_text:
-        return True
-    if _is_ip_address(search_text):
-        return search_text.lower() in elem_text.lower()
+    if not exact_match:
+        return search_text in elem_text
+    if not isinstance(search_text, str) or not isinstance(elem_text, str):
+        return False
+    search = search_text.strip()
+    if not search:
+        return False
+    search_ip = _parse_ip_address(search)
+    for item in re.split(r'[;,]', elem_text):
+        item = item.strip()
+        if not item:
+            continue
+        if item == search:
+            return True
+        if search_ip is not None and search_ip == _parse_ip_address(item):
+            return True
     return False
 
 
-def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, remove_parent_if_matched=True):
+def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, remove_parent_if_matched=True,
+                       exact_match=False):
     """
     Reads an XML file, removes entries related to a specific text, and rewrites the file.
 
@@ -38,6 +64,10 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         remove_parent_if_matched (bool, optional): If True, removes the parent element
                                                    of the matched entry. If False, removes
                                                    the matched element itself. Defaults to True.
+        exact_match (bool, optional): If False (default), an element matches when
+                                      text_to_remove is a substring of its text. If True,
+                                      the whole element text must match (IP addresses are
+                                      compared as addresses). See _text_matches().
     """
     if not os.path.exists(file_path):
         raise RuntimeError(f"Error: File not found at {file_path}")
@@ -61,7 +91,7 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         tag_matches_criteria = (element_tag_to_check is None) or (elem.tag == element_tag_to_check)
 
         # Check if the element's text contains the string to remove
-        if tag_matches_criteria and _text_matches(text_to_remove, elem.text):
+        if tag_matches_criteria and _text_matches(text_to_remove, elem.text, exact_match):
             if elem == root:
                 # Special handling for root: we can't remove the root itself from a parent.
                 # If root matches and we're not removing its parent, we'll clear its content.
@@ -158,16 +188,16 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                             element_tag_to_check=None,
                             remove_parent_if_matched=False)
 
-            for entry in minigraph_data['minigraph_neighbors']:
-                if "-BP" not in entry and entry not in interfaces_not_to_remove:
+            for neighbor in minigraph_data['minigraph_neighbors']:
+                if "-BP" not in neighbor and neighbor not in interfaces_not_to_remove:
                     remove_count += remove_xml_entries(
                         minigraph_file,
                         text_to_remove=entry,
                         element_tag_to_check=None,
                         remove_parent_if_matched=True)
 
-            for entry, value in minigraph_data['minigraph_ports'].items():
-                if "-BP" not in entry and entry not in interfaces_not_to_remove:
+            for port_name, value in minigraph_data['minigraph_ports'].items():
+                if "-BP" not in port_name and port_name not in interfaces_not_to_remove:
                     remove_count += remove_xml_entries(
                         minigraph_file,
                         text_to_remove=value['name'],
@@ -180,10 +210,13 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                         remove_parent_if_matched=True)
                     remove_count += remove_xml_entries(
                         minigraph_file,
-                        text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
+                        text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][port_name],
                         element_tag_to_check=None,
                         remove_parent_if_matched=True)
     else:
+        # On this path names and IP addresses are matched exactly (exact_match=True), so that
+        # e.g. PortChannel1 does not also remove PortChannel10..19, or 10.0.0.1 remove 10.0.0.10.
+        # Use .get() as the facts of an ASIC may not carry every section (e.g. no portchannels).
         for pc, data in minigraph_data['minigraph_portchannels'].items():
             for member in data['members']:
                 if (member in interfaces_to_remove):
@@ -191,28 +224,28 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                         minigraph_file,
                         text_to_remove=pc,
                         element_tag_to_check=None,
-                        remove_parent_if_matched=True)
+                        remove_parent_if_matched=True,
+                        exact_match=True)
 
-        bgp_peer_not_to_remove = ''
         bgp_peer_to_remove = []
         for key, value in minigraph_data['minigraph_neighbors'].items():
             if key in interfaces_to_remove:
                 logger.info('To remove BGP neighbor:{}'.format(value['name']))
                 bgp_peer_to_remove.append(value['name'])
+                # Neighbor names stay a substring match on purpose: entries such as the
+                # BGP router declarations of the neighbor are named '<neighbor>-ASIC<n>'.
                 remove_count += remove_xml_entries(
                     minigraph_file,
                     text_to_remove=value['name'],
                     element_tag_to_check=None,
                     remove_parent_if_matched=True)
             else:
-                bgp_peer_not_to_remove = value['name']
-                logger.info('BGP peer that will not be removed in test:{}'.format(bgp_peer_not_to_remove))
+                logger.info('BGP peer that will not be removed in test:{}'.format(value['name']))
 
         bgp_peers = [
             x for x in minigraph_data['minigraph_bgp']
             if (
                 ("ASIC" not in x['name'])
-                and (x['name'] != bgp_peer_not_to_remove)
                 and (x['name'] in bgp_peer_to_remove)
             )
         ]
@@ -220,8 +253,10 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
         addr_list = []
         peer_list = []
         for peer in bgp_peers:
-            addr_list.append(peer['addr'])
-            peer_list.append(peer['peer_addr'])
+            if peer.get('addr'):
+                addr_list.append(peer['addr'])
+            if peer.get('peer_addr'):
+                peer_list.append(peer['peer_addr'])
 
         addr_list = list(set(addr_list))
         peer_list = list(set(peer_list))
@@ -232,7 +267,8 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                 minigraph_file,
                 text_to_remove=addr,
                 element_tag_to_check=None,
-                remove_parent_if_matched=True)
+                remove_parent_if_matched=True,
+                exact_match=True)
 
         for peer in peer_list:
             logger.info('To remove peer addr:{} from minigraph'.format(peer))
@@ -240,6 +276,7 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                 minigraph_file,
                 text_to_remove=peer,
                 element_tag_to_check=None,
-                remove_parent_if_matched=True)
+                remove_parent_if_matched=True,
+                exact_match=True)
 
     return remove_count

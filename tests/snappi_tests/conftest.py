@@ -131,7 +131,7 @@ def convert_to_rsb(duthosts, duts_minigraph_facts, gcu_mode_enabled):
         platform_asic = node.facts.get("platform_asic")
         for entry in duts_minigraph_facts[node.hostname]:
             modified += modify_minigraph(
-                 filename, entry[1], rsb_mode, platform_asic=platform_asic)
+                filename, entry[1], rsb_mode, platform_asic=platform_asic)
         backup_config_files(node, "full_configs")
         if modified:
             copy_and_load_minigraph_to_dut(node, filename)
@@ -179,7 +179,7 @@ def copy_and_load_minigraph_to_dut(dut, path):
 
 
 def _collect_gcu_patch_files(duthost, gcu_patches):
-    """Return patch files in deterministic apply order (patches first, then interfaces)."""
+    """Return patch files in per-ASIC order: patch{N}.json, then INTERFACES_{N}.json."""
     patch_files = []
     for asic in duthost.get_asic_ids():
         for name in (f"patch{asic}.json", f"INTERFACES_{asic}.json"):
@@ -206,7 +206,11 @@ def combine_gcu_patches(duthost, gcu_patches=GCU_PATCHES_DIR):
 
 def archive_gcu_patches(duthost, gcu_patches=GCU_PATCHES_DIR,
                         archive_root=GCU_PATCHES_ARCHIVE_ROOT):
-    """Move JSON patch files into a timestamped archive directory on the DUT."""
+    """Copy JSON patch files into a timestamped archive directory on the DUT.
+
+    Copy rather than move so later modules in the same session can still apply
+    the patches from gcu_patches/.
+    """
     if not duthost.stat(path=gcu_patches)['stat']['exists']:
         return None
 
@@ -219,7 +223,7 @@ def archive_gcu_patches(duthost, gcu_patches=GCU_PATCHES_DIR,
     archive_dir = f"{archive_root}/{timestamp}"
     duthost.shell(f"mkdir -p {archive_dir}", module_ignore_errors=True)
     duthost.shell(
-        f"mv {gcu_patches}/*.json {archive_dir}/",
+        f"cp {gcu_patches}/*.json {archive_dir}/",
         module_ignore_errors=True)
     logger.info(
         'GCU: Archived {} patch file(s) from {} to {} on DUT:{}'.format(

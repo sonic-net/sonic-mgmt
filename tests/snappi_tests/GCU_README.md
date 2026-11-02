@@ -86,26 +86,26 @@ On multi-ASIC DUTs, `modify_minigraph()` is called **once per ASIC** using that 
 
 ```
 test_pretest.py (recommended)
-        │
-        ▼
+        ¦
+        ?
 pytest snappi_tests/... --test_gcu_snappi=<mode>
-        │
-        ├─► convert_to_rsb (session, autouse) — setup
-        │     • fetch /etc/sonic/minigraph.xml
-        │     • modify_minigraph() per ASIC
-        │     • backup full_configs (original config + minigraph)
-        │     • load modified minigraph → config_reload → config save  [RSB on DUT]
-        │     • backup rsb_configs (RSB config snapshot)
-        │     • prepare_gcu_patches() — jsondiff/jq only → gcu_patches/
-        │     • copy_minigraph_back() — restore original minigraph.xml on disk
-        │
-        ├─► load_gcu_config (module, autouse) — per test module
-        │     • setup: sudo config apply-patch  [test runtime config on DUT]
-        │     • teardown: archive patch JSON to gcu_patches_archive/
-        │
-        └─► convert_to_rsb finally (session teardown)
-              • config_reload from original minigraph  [restore original config]
-              • config save
+        ¦
+        +-? convert_to_rsb (session, autouse)  setup
+        ¦      fetch /etc/sonic/minigraph.xml
+        ¦      modify_minigraph() per ASIC
+        ¦      backup full_configs (original config + minigraph)
+        ¦      load modified minigraph ? config_reload ? config save  [RSB on DUT]
+        ¦      backup rsb_configs (RSB config snapshot)
+        ¦      prepare_gcu_patches()  jsondiff/jq only ? gcu_patches/
+        ¦      copy_minigraph_back()  restore original minigraph.xml on disk
+        ¦
+        +-? load_gcu_config (module, autouse)  per test module
+        ¦      setup: sudo config apply-patch  [test runtime config on DUT]
+        ¦      teardown: archive patch JSON to gcu_patches_archive/
+        ¦
+        +-? convert_to_rsb finally (session teardown)
+               config_reload from original minigraph  [restore original config]
+               config save
 ```
 
 ---
@@ -118,7 +118,7 @@ pytest snappi_tests/... --test_gcu_snappi=<mode>
 2. `modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=...)`
    edits that file in place using `remove_xml_entries()`.
 
-### Non–Broadcom-DNX platforms
+### NonBroadcom-DNX platforms
 
 Removes interface names, aliases, neighbors, portchannel members (when
 `minigraph_portchannels` is populated in facts), and related XML entries using a
@@ -128,11 +128,11 @@ broad minigraph scrubbing path.
 
 Uses a targeted path:
 
-1. **Portchannels** — For each portchannel whose member is in `interfaces_to_remove`,
+1. **Portchannels**  For each portchannel whose member is in `interfaces_to_remove`,
    remove the portchannel name from the minigraph (when `minigraph_portchannels` is
    available in minigraph facts).
-2. **BGP neighbors** — Remove neighbor names tied to removed interfaces.
-3. **BGP addresses** — Remove `addr` / `peer_addr` only for BGP peers associated with
+2. **BGP neighbors**  Remove neighbor names tied to removed interfaces.
+3. **BGP addresses**  Remove `addr` / `peer_addr` only for BGP peers associated with
    removed neighbors (not all BGP entries).
 
 Platform detection uses `node.facts.get("platform_asic")` passed from
@@ -180,7 +180,7 @@ For each ASIC ID from `duthost.get_asic_ids()`:
 | `patch{asic}.json` | Main patch (non-INTERFACE ops), e.g. `patch0.json`, `patchNone.json` |
 | `INTERFACES_{asic}.json` | INTERFACE-related ops only |
 
-On a pizza-box (single ASIC), `asic` may be `None` → filenames like `patchNone.json`.
+On a pizza-box (single ASIC), `asic` may be `None` ? filenames like `patchNone.json`.
 
 ---
 
@@ -192,7 +192,8 @@ On `platform_asic == "broadcom-dnx"`, after individual per-ASIC files are genera
 `combine_gcu_patches()`:
 
 1. Collects `patch{asic}.json` and `INTERFACES_{asic}.json` that **exist and are
-   non-empty** (in deterministic order: all `patch*` first, then all `INTERFACES_*`).
+   non-empty** (in deterministic per-ASIC order: `patch0`, `INTERFACES_0`,
+   `patch1`, `INTERFACES_1`, ).
 2. Merges them with `jq -s 'add'` into **`gcu_patches/combined_patch.json`**.
 
 ### Applying patches on DNX
@@ -219,11 +220,12 @@ Supervisor nodes are skipped for both apply and archive.
 - **Success check:** Last line of stdout must be `Patch applied successfully.`
 - **Empty files:** Skipped (`size == 0`).
 
-After the module finishes, applied patch JSON files are moved to a timestamped archive
-under `gcu_patches_archive/` so the next module does not re-apply stale patches.
+After the module finishes, applied patch JSON files are **copied** to a timestamped
+archive under `gcu_patches_archive/` for debug/history. Originals stay in `gcu_patches/`
+so later modules in the same session can still apply them.
 
 **Session teardown** (not module teardown) restores the original DUT configuration via
-`config_reload` from the original minigraph — see [Session flow](#session-flow-high-level).
+`config_reload` from the original minigraph  see [Session flow](#session-flow-high-level).
 
 ---
 
@@ -236,7 +238,7 @@ All paths are relative to the DUT user home directory (typically `admin@<dut>:~`
 | `full_configs/` | Session setup (`convert_to_rsb`) | Snapshot **before** RSB minigraph load: `config_db*.json`, `minigraph.xml` (original full config) |
 | `rsb_configs/` | Session setup, after RSB load | Snapshot **after** RSB minigraph load: RSB `config_db*.json`, modified minigraph |
 | `gcu_patches/` | `prepare_gcu_patches` | JSON patches for `config apply-patch`; cleared and regenerated each session prepare |
-| `gcu_patches_archive/<UTC-timestamp>/` | Module teardown after successful apply | Archived `*.json` from `gcu_patches/` (debug/history) |
+| `gcu_patches_archive/<UTC-timestamp>/` | Module teardown after successful apply | Copies of `*.json` from `gcu_patches/` (debug/history); originals remain for later modules |
 
 ### Example `gcu_patches/` layout (multi-ASIC, non-DNX)
 
@@ -262,7 +264,10 @@ gcu_patches/
 After module teardown:
 
 ```
-gcu_patches/                   # empty
+gcu_patches/                   # originals still present for later modules
+  combined_patch.json
+  patch0.json
+  ...
 gcu_patches_archive/
   20260721_221530/
     combined_patch.json
@@ -319,7 +324,7 @@ pytest snappi_tests/<suite>/test_<name>.py \
 | `PORTCHANNEL` in both `full_configs` and `rsb_configs` | Pretest not run; stale DUT/cache state | Run `test_pretest.py`; re-run GCU session |
 | Portchannels still in `show interface` before patch apply | RSB minigraph reload did not strip LAGs | Re-run pretest; inspect modified minigraph on test host during debug |
 | GCU apply fails / `Patch applied successfully` missing | Invalid patch, timeout, or YANG validation | Inspect patch file in `gcu_patches/` or `gcu_patches_archive/`; check `config apply-patch` manually |
-| Patches applied twice / stale behavior | Old JSON left in `gcu_patches/` | Archive logic should move files after each module; check `gcu_patches_archive/` and ensure module teardown ran |
+| Later modules skip apply / empty `gcu_patches/` | Patches were moved or deleted after the first module | Archive must **copy** (not move) so files remain in `gcu_patches/` for the session |
 | DNX apply issues with many patch files | Ordering / multiple applies | DNX uses `combined_patch.json`; confirm `platform_asic` is `broadcom-dnx` and combined file exists |
 | Supervisor node errors | GCU skipped on supervisor by design | Expected; only linecard/front-end nodes are converted |
 | Empty `minigraph_portchannels` on T2 chassis | Per-ASIC minigraph facts may not populate portchannels | RSB still works via minigraph reload + config_db diff when pretest was run; portchannel removal in XML may rely on BGP path on DNX |
@@ -357,13 +362,13 @@ Session `finally` in `convert_to_rsb` runs `config_reload` from minigraph and
 
 ## Summary
 
-- **Pretest first** — required for reliable RSB/portchannel behavior on chassis testbeds.
-- **RSB snapshot** — created temporarily by loading a modified minigraph; saved as
+- **Pretest first**  required for reliable RSB/portchannel behavior on chassis testbeds.
+- **RSB snapshot**  created temporarily by loading a modified minigraph; saved as
   `rsb_configs/` and used with `full_configs/` to **build** patch files (`jsondiff`/`jq`).
-- **Patch build ≠ patch apply** — `prepare_gcu_patches` only writes JSON files;
+- **Patch build ? patch apply**  `prepare_gcu_patches` only writes JSON files;
   `load_gcu_config` runs `sudo config apply-patch` at module start.
-- **During tests** — DUT runtime config comes from applied GCU patches.
-- **After all tests** — session teardown reloads the **original minigraph** to restore
+- **During tests**  DUT runtime config comes from applied GCU patches.
+- **After all tests**  session teardown reloads the **original minigraph** to restore
   the DUT to its original configuration.
 - **Broadcom-DNX** merges patches into `combined_patch.json` and applies it once.
 - **On-DUT folders:** `full_configs`, `rsb_configs`, `gcu_patches`, `gcu_patches_archive`.
