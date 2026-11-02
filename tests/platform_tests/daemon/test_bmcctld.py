@@ -466,7 +466,9 @@ class TestBmcctldDaemon:
         test_delay = 30
         cooling = self.duthost.shell(
             "python3 -c 'from sonic_platform.chassis import Chassis; "
-            "print(Chassis().is_liquid_cooled())'"
+            "cooling = Chassis().is_liquid_cooled(); "
+            "assert isinstance(cooling, bool), \"Chassis.is_liquid_cooled() must return bool\"; "
+            "print(cooling)'"
         )['stdout'].strip()
         pytest_assert(cooling in ('True', 'False'),
                       f"Chassis.is_liquid_cooled() must return a boolean, got {cooling!r}")
@@ -527,7 +529,12 @@ class TestBmcctldDaemon:
             finally:
                 failed_outlets = []
                 for outlet in outlets:
-                    if not pdu_ctrl.turn_on_outlet(outlet):
+                    try:
+                        restored = pdu_ctrl.turn_on_outlet(outlet)
+                    except Exception:
+                        logger.exception("Failed to restore PDU outlet %s", outlet)
+                        restored = False
+                    if not restored:
                         failed_outlets.append(outlet)
                 pytest_assert(not failed_outlets, f"Failed to power on PDU outlets {failed_outlets}")
 

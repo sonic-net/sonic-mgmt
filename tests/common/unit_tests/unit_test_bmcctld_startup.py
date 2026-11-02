@@ -5,7 +5,10 @@ import json
 import logging
 from pathlib import Path
 import re
-from unittest.mock import Mock
+import shlex
+import sys
+from types import ModuleType
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -158,3 +161,48 @@ def test_integration_does_not_mask_failures(startup_namespace, failure):
         startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
     if failure in ("pdu", "pdu-on"):
         assert pdu.turn_on_outlet.call_count == 2
+
+
+@pytest.mark.parametrize("cooling", [True, False, "True", "False", None, 0, 1, [], {}])
+def test_remote_cooling_probe_validates_type_before_printing(startup_namespace, cooling, capsys):
+    """Execute the actual remote probe so string booleans cannot masquerade as bool."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
+    command = instance.duthost.shell.call_args_list[0].args[0]
+    script = shlex.split(command)[2]
+    platform = ModuleType("sonic_platform")
+    chassis = ModuleType("sonic_platform.chassis")
+    chassis.Chassis = Mock()
+    chassis.Chassis.return_value.is_liquid_cooled.return_value = cooling
+    with patch.dict(sys.modules, {"sonic_platform": platform, "sonic_platform.chassis": chassis}):
+        if isinstance(cooling, bool):
+            exec(script, {})
+            assert capsys.readouterr().out == f"{cooling}\n"
+        else:
+            with pytest.raises(AssertionError, match=r"Chassis.is_liquid_cooled\(\) must return bool"):
+                exec(script, {})
+            assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("results", [
+    [RuntimeError("PDU connection failed"), True],
+    [True, RuntimeError("PDU connection failed")],
+    [RuntimeError("PDU connection failed"), False],
+    [RuntimeError("PDU connection failed"), RuntimeError("PDU connection failed")],
+])
+def test_pdu_restoration_attempts_all_outlets_after_exception(startup_namespace, results):
+    """Log controller exceptions and fail only after attempting every restoration."""
+    instance, _, pdu = _integration_context(startup_namespace)
+    startup_namespace["logger"] = Mock()
+    pdu.turn_on_outlet.side_effect = results
+    outlets = pdu.get_outlet_status.return_value
+    failed_outlets = [outlet for outlet, result in zip(outlets, results) if result is not True]
+    with pytest.raises(AssertionError) as failure:
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
+    assert str(failure.value).splitlines()[0] == f"Failed to power on PDU outlets {failed_outlets}"
+    assert pdu.turn_on_outlet.call_args_list == [call(outlet) for outlet in outlets]
+    assert startup_namespace["logger"].exception.call_args_list == [
+        call("Failed to restore PDU outlet %s", outlet)
+        for outlet, result in zip(outlets, results) if isinstance(result, Exception)
+    ]
+    startup_namespace["wait_critical_processes"].assert_not_called()
