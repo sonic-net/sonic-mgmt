@@ -700,6 +700,28 @@
 
       - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
+      - name: Add PTF mgmt IPv4 address to NTP servers
+        set_fact:
+            ntp_servers: "{{ ntp_servers + [testbed_facts['ptf_ip']] }}"
+        when:
+          - not sonic_mgmt_ipv6|bool
+
+      - name: Add PTF mgmt IPv6 address to NTP servers
+        set_fact:
+            ntp_servers: "{{ ntp_servers + [testbed_facts['ptf_ipv6']] }}"
+
+      - name: Add PTF inband IPv4 address to NTP servers
+        set_fact:
+            ntp_servers: "{{ ntp_servers + [hostvars[inventory_hostname]['configuration_properties']['common']['nhipv4']] }}"
+        when:
+          - hostvars[inventory_hostname]['configuration_properties']['common']['nhipv4'] is defined
+
+      - name: Add PTF inband IPv6 address to NTP servers
+        set_fact:
+            ntp_servers: "{{ ntp_servers + [hostvars[inventory_hostname]['configuration_properties']['common']['nhipv6']] }}"
+        when:
+          - hostvars[inventory_hostname]['configuration_properties']['common']['nhipv6'] is defined
+
       - name: create new minigraph file for SONiC device
         template: src=templates/minigraph_template.j2
                   dest=/etc/sonic/minigraph.xml
