@@ -10,17 +10,17 @@ SLAs: a timeout also requires checking backend health and blocked I/O.
 """
 
 import logging
+import multiprocessing
 import shlex
 import time
 
 import grpc
 import pytest
-from pygnmi.client import gNMIclient
 from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.gnmi_connection import gnmi_connection
-from tests.common.utilities import wait_until
+from tests.gnmi.subscribe_client import subscribe
 
 pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def _set_role(duthost, role):
 
 @pytest.fixture
 def active_subscription(gnmi_tls, request):  # noqa: F811
-    """Yield a ready subscribe2 handle; close it before restoring its role."""
+    """Own one subscriber process, then restore the role and check fresh access."""
     duthost = gnmi_tls.duthost
     assert _db(duthost, "HLEN", CERT_KEY) == "1", "Expected fixture-owned role-only certificate mapping"
     original_role = _db(duthost, "HGET", CERT_KEY, "role@")
@@ -62,51 +62,54 @@ def active_subscription(gnmi_tls, request):  # noqa: F811
     assert _db(duthost, "HGET", "GNMI|gnmi", "user_auth") == "cert", "Test requires cert-only authentication"
     pid = duthost.shell(SERVER_PID_COMMAND)["stdout"].strip()
     assert pid.isdigit() and int(pid) > 0, "gnmi-native is not running"
+    context = multiprocessing.get_context("spawn")
+    parent, child = context.Pipe()
+    certs = gnmi_tls.pygnmi_client
+    process = context.Process(
+        target=subscribe,
+        args=(
+            (gnmi_tls.host, gnmi_tls.port),
+            (certs.ca_cert, certs.client_cert, certs.client_key),
+            getattr(request, "param", "stream"),
+            child,
+        ),
+    )
+    started = False
     try:
         _set_role(duthost, READWRITE)
-        certs = gnmi_tls.pygnmi_client
-        with gNMIclient(
-            target=(gnmi_tls.host, gnmi_tls.port),
-            path_root=certs.ca_cert,
-            path_cert=certs.client_cert,
-            path_key=certs.client_key,
-            grpc_options=[("grpc.enable_retries", 0)],
-            gnmi_timeout=30,
-        ) as client:
-            subscription = client.subscribe2(
-                subscribe={
-                    "mode": getattr(request, "param", "stream"),
-                    "encoding": "json_ietf",
-                    "subscription": [
-                        {
-                            "path": "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost",
-                            "mode": "sample",
-                            "sample_interval": 1000000000,
-                        }
-                    ],
-                }
-            )
-            try:
-                # POLL get_update sends an initial Poll; no further Poll is
-                # requested by these tests after the role changes.
-                initial = subscription.get_update(timeout=30)
-                assert initial.get("sync_response"), "No initial sync"
-                assert initial.get("update", {}).get("update"), "No initial data"
-                assert subscription.error is None, "Subscribe failed before revocation"
-                yield subscription
-            finally:
-                # A request half-close does not stop STREAM. Close its channel
-                # before asking pygnmi to close the iterator/join the receiver.
-                try:
-                    client.close()
-                finally:
-                    subscription.close()
+        process.start()
+        started = True
+        child.close()
+        assert parent.poll(40), "Subscribe did not become ready"
+        assert parent.recv() == ("ready", None), "Subscribe failed before data + sync"
+        yield parent
     finally:
-        _set_role(duthost, original_role)
-        with gnmi_connection(gnmi_tls) as (_, client):
-            response = client.Get(gnmi_pb2.GetRequest(path=[METADATA_PATH], encoding=gnmi_pb2.JSON_IETF), timeout=15)
-            assert any(n.update for n in response.notification), "Restored identity returned no data"
-        assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
+        try:
+            if started:
+                try:
+                    parent.send(("stop", None))
+                except (BrokenPipeError, OSError):
+                    pass  # An already terminated subscriber may have closed IPC.
+                process.join(20)
+                forced = process.is_alive()
+                if forced:
+                    process.terminate()
+                    process.join(5)
+                if process.is_alive():
+                    process.kill()
+                    process.join(5)
+                assert not forced and process.exitcode == 0, "Subscriber did not exit cleanly"
+        finally:
+            parent.close()
+            child.close()
+            process.close()
+            _set_role(duthost, original_role)
+            with gnmi_connection(gnmi_tls) as (_, client):
+                response = client.Get(
+                    gnmi_pb2.GetRequest(path=[METADATA_PATH], encoding=gnmi_pb2.JSON_IETF), timeout=15
+                )
+                assert any(n.update for n in response.notification), "Restored identity returned no data"
+            assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
 
 
 @pytest.mark.parametrize("active_subscription", ["stream", "poll"], indirect=True)
@@ -115,30 +118,25 @@ def active_subscription(gnmi_tls, request):  # noqa: F811
     [(NOACCESS, grpc.StatusCode.PERMISSION_DENIED), (None, grpc.StatusCode.UNAUTHENTICATED)],
     ids=["noaccess", "unmapped"],
 )
-def test_subscribe_reauthorization(gnmi_tls, active_subscription, role, expected_code):  # noqa: F811
+def test_subscribe_reauthorization(gnmi_tls, active_subscription, role, expected_code, request):  # noqa: F811
     """An active STREAM or POLL terminates with the original auth status."""
     _set_role(gnmi_tls.duthost, role)
     changed_at = time.monotonic()
-    assert wait_until(REAUTH_BUDGET, 1, 0, lambda: active_subscription.error is not None), "Reauthorization timed out"
-    assert isinstance(active_subscription.error, grpc.RpcError), "Subscribe failed outside gRPC"
-    assert active_subscription.error.code() == expected_code, "Unexpected Subscribe terminal status"
-    logger.info("Same Subscribe RPC revoked with %s after %.1fs", expected_code, time.monotonic() - changed_at)
+    assert active_subscription.poll(REAUTH_BUDGET), "Reauthorization timed out"
+    assert active_subscription.recv() == ("error", expected_code.name), "Unexpected Subscribe terminal status"
+    logger.info(
+        "AUTHZ_VERIFIED node=%s role=%s scope=test-body status=%s elapsed=%.1fs",
+        request.node.nodeid,
+        role,
+        expected_code.name,
+        time.monotonic() - changed_at,
+    )
 
 
-def test_subscribe_readonly_remains_authorized(gnmi_tls, active_subscription):  # noqa: F811
+def test_subscribe_readonly_remains_authorized(gnmi_tls, active_subscription, request):  # noqa: F811
     """Require data after the observation window and after draining the client queue."""
     _set_role(gnmi_tls.duthost, READONLY)
-    until = time.monotonic() + ALLOW_OBSERVATION
-    while time.monotonic() < until:
-        assert active_subscription.error is None, "Readonly subscription failed after role change"
-        update = active_subscription.get_update(timeout=15)
-        assert update.get("update", {}).get("update"), "Readonly subscription returned no data"
-    # Drain the application queue after the window and require a new enqueue;
-    # this does not prove when the DUT generated it or rule out network backlog.
-    drain_deadline = time.monotonic() + 15
-    while active_subscription.peek():
-        assert time.monotonic() < drain_deadline, "Unable to drain queued subscription updates"
-        active_subscription.get_update(timeout=1)
-    update = active_subscription.get_update(timeout=15)
-    assert update.get("update", {}).get("update"), "No new data after the observation window"
-    assert active_subscription.error is None, "Readonly subscription failed after observation"
+    active_subscription.send(("observe", ALLOW_OBSERVATION))
+    assert active_subscription.poll(ALLOW_OBSERVATION + 40), "Readonly observation timed out"
+    assert active_subscription.recv() == ("observed", None), "Readonly subscription failed"
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, READONLY)
