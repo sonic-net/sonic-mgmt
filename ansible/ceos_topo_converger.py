@@ -4,8 +4,11 @@
 in the topology
 '''
 
+import argparse
 from copy import deepcopy
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_interface
+import json
+from pathlib import Path
 from typing import Dict, List, Union
 import yaml
 import sys
@@ -22,8 +25,15 @@ class ListIndentDumper(yaml.Dumper):
 
 class SonicTopoConverger:
 
-    def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
+    def __init__(self, topology: Dict[str, Union[int, str]], file_out: str,
+                 ptf_bp_addrs: List[str] = None) -> None:
         self.topo = topology
+        if ptf_bp_addrs is None:
+            defaults_file = Path(__file__).parent / "group_vars" / "vm_host" / "main.yml"
+            with defaults_file.open(encoding="utf-8") as defaults:
+                vm_host_vars = yaml.safe_load(defaults)
+            ptf_bp_addrs = [vm_host_vars[key] for key in ("ptf_bp_ip", "ptf_bp_ipv6")]
+        self.ptf_bp_addrs = {ip_interface(address).ip for address in ptf_bp_addrs if address}
         self.converged_topo = {
                 "topology": {},
                 "configuration_properties": {},
@@ -145,8 +155,8 @@ class SonicTopoConverger:
         base_v4_addr = "10.10.246.0"
         base_v6_addr = "fc0a::"
         common_config = self.topo["configuration_properties"].get("common", {})
-        reserved_bp_addrs = {
-            ip_address(common_config[key])
+        reserved_bp_addrs = self.ptf_bp_addrs | {
+            ip_interface(common_config[key]).ip
             for key in ("nhipv4", "nhipv6") if key in common_config
         }
         for prime_dev, peer_list in self.prime_device_mapping.items():
@@ -218,7 +228,7 @@ class SonicTopoConverger:
 
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
 
-                # Keep the legacy PTF next hops out of every per-VRF address pair.
+                # Neither endpoint may reuse a parent-backplane or legacy next-hop address.
                 while any(
                     ip_address(self.modify_l3_address(base, addr_offset)) in reserved_bp_addrs
                     for base in (base_v4_addr, base_v6_addr)
@@ -351,18 +361,30 @@ class SonicTopoConverger:
                       Dumper=ListIndentDumper, sort_keys=False)
 
 
-def converge_testbed(input_file: str, output_file: str) -> None:
+def converge_testbed(input_file: str, output_file: str, ptf_bp_addrs: List[str] = None) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:
         topo = yaml.safe_load(in_file)
     if topo.get("topo_is_multi_vrf", False):
         print("Topology already converged, skipping convergence.")
         return
-    converger = SonicTopoConverger(topo, output_file)
+    converger = SonicTopoConverger(topo, output_file, ptf_bp_addrs)
     converger.run()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python -m ceos_topo_converger <input_topo> <output_topo>")
-        sys.exit(1)
-    converge_testbed(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input_topo")
+    parser.add_argument("output_topo")
+    parser.add_argument("--inventory-stdin", action="store_true",
+                        help="Read effective VM-host variables from ansible-inventory JSON on stdin")
+    args = parser.parse_args()
+    ptf_bp_addrs = None
+    if args.inventory_stdin:
+        hostvars = json.load(sys.stdin)["_meta"]["hostvars"]
+        if not hostvars:
+            parser.error("No VM hosts selected for backplane address resolution")
+        ptf_bp_addrs = [
+            variables[key] for variables in hostvars.values()
+            for key in ("ptf_bp_ip", "ptf_bp_ipv6")
+        ]
+    converge_testbed(args.input_topo, args.output_topo, ptf_bp_addrs)

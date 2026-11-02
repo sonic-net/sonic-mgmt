@@ -243,7 +243,12 @@ function converge_topo_if_needed
             cp "$topo_file" "$backup_file"
         fi
 
-        python -m ceos_topo_converger "$backup_file" "$topo_file"
+        (
+            set -o pipefail
+            ansible-inventory -i "$vmfile" --list --limit "$server:&vm_host" \
+                "${convergence_inventory_args[@]}" |
+                python -m ceos_topo_converger "$backup_file" "$topo_file" --inventory-stdin
+        )
 
     fi
 }
@@ -1368,6 +1373,27 @@ function remove_vnut_topo
 
 subcmd=$1
 shift
+# Resolve backplane addresses with the same vault and overrides used for deployment.
+case "$subcmd" in
+  config-vm|gen-mg|deploy-mg|test-mg|deploy-topo-with-cache|config-y-cable|config-vs-chassis)
+    convergence_inventory_args=(--vault-password-file "$3")
+    ;;
+  *)
+    convergence_inventory_args=(--vault-password-file "$2")
+    ;;
+esac
+convergence_cli_args=("$@")
+for ((index=0; index<${#convergence_cli_args[@]}; index++)); do
+  case "${convergence_cli_args[index]}" in
+    -e|--extra-vars|-i|--inventory|--inventory-file|--vault-id|--vault-password-file|--vault-pass-file)
+      convergence_inventory_args+=("${convergence_cli_args[index]}" "${convergence_cli_args[index+1]}")
+      ((index+=1))
+      ;;
+    -e?*|-i?*|--extra-vars=*|--inventory=*|--inventory-file=*|--vault-id=*|--vault-password-file=*|--vault-pass-file=*)
+      convergence_inventory_args+=("${convergence_cli_args[index]}")
+      ;;
+  esac
+done
 case "${subcmd}" in
   start-vms)   start_vms "$@"
                ;;
