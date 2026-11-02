@@ -25,7 +25,7 @@ def load_tacacs_creds():
     return yaml.safe_load(open(creds_file_path).read())
 
 
-def setup_local_user(duthost, tacacs_creds, password_setter=None, useradd_args=()):
+def setup_local_user(duthost, tacacs_creds, useradd_args=()):
     __tracebackhide__ = True
     try:
         duthost.shell("sudo deluser {}".format(tacacs_creds['local_user']))
@@ -36,11 +36,8 @@ def setup_local_user(duthost, tacacs_creds, password_setter=None, useradd_args=(
         duthost.command(argv=["sudo", "useradd"] + list(useradd_args) + [tacacs_creds['local_user']])
     else:
         duthost.shell("sudo useradd {}".format(tacacs_creds['local_user']))
-    if password_setter is not None:
-        password_setter(duthost, tacacs_creds['local_user'], tacacs_creds['local_user_passwd'])
-    else:
-        duthost.shell('sudo echo "{}:{}" | chpasswd'.format(
-            tacacs_creds['local_user'], tacacs_creds['local_user_passwd']))
+    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(
+        tacacs_creds['local_user'], tacacs_creds['local_user_passwd']))
 
 
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
