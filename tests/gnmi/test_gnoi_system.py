@@ -22,7 +22,7 @@ pytestmark = [
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("role,error_pattern", GNOI_ROLE_CASES)
-def test_gnoi_factory_reset_authorization(gnmi_tls, role, error_pattern):  # noqa: F811
+def test_gnoi_factory_reset_authorization(gnmi_tls, role, error_pattern, request):  # noqa: F811
     """FactoryReset must deny readers and allow writers to reach the backend."""
     # Use the host service's unsupported zero-fill request, never a normal reset.
     response = verify_gnoi_role_access(
@@ -36,6 +36,7 @@ def test_gnoi_factory_reset_authorization(gnmi_tls, role, error_pattern):  # noq
     if not error_pattern:
         detail = response.get("resetError", {}).get("detail", "")
         pytest_assert("zero_fill operation is currently unsupported" in detail, response)
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)
 
 
 @pytest.mark.parametrize("gnmi_tls", ["tls", "uds"], indirect=True)

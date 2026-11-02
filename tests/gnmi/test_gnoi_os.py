@@ -22,7 +22,7 @@ pytestmark = [
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("role,error_pattern", GNOI_ROLE_CASES)
-def test_gnoi_os_install_authorization(gnmi_tls, role, error_pattern):  # noqa: F811
+def test_gnoi_os_install_authorization(gnmi_tls, role, error_pattern, request):  # noqa: F811
     """Install must deny readers and allow writers to reach request validation."""
     # No TransferRequest: validation stops before backend/image installation.
     verify_gnoi_role_access(
@@ -32,6 +32,7 @@ def test_gnoi_os_install_authorization(gnmi_tls, role, error_pattern):  # noqa: 
         error_pattern,
         validation_error="Expected TransferRequest",
     )
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)
 
 
 def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811

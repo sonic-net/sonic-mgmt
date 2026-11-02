@@ -1,5 +1,6 @@
 """Native Set bypass must allow writers and deny identities without write access."""
 
+import logging
 import uuid
 from contextlib import contextmanager
 
@@ -18,6 +19,7 @@ from tests.common.pygnmi_client import PygnmiClientError
 from tests.common.utilities import wait_until
 
 pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
+logger = logging.getLogger(__name__)
 BYPASS_METADATA = [("x-sonic-ss-bypass-validation", "true")]
 BYPASS_SKUS = ("Cisco-8101", "Cisco-8102", "Cisco-8223")
 CLIENT_KEY = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
@@ -66,7 +68,7 @@ def _expect_denial(duthost):
     ],
 )
 def test_native_set_bypass_authorization(
-    gnmi_tls, role, expectation, expected_state, prefix, target, request_args, written_state  # noqa: F811
+    gnmi_tls, role, expectation, expected_state, prefix, target, request_args, written_state, request  # noqa: F811
 ):
     """Use the same Set call with parameterized role, outcome and state assertions."""
     duthost = gnmi_tls.duthost
@@ -95,3 +97,4 @@ def test_native_set_bypass_authorization(
     pytest_assert(
         redis_hgetall(duthost, CONFIG_DB, key) == expected, "CONFIG_DB state does not match the authorization outcome"
     )
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)

@@ -65,7 +65,7 @@ def _file_remove(client, path):
     ],
 )
 def test_gnoi_file_write_authorization(
-    gnmi_tls, role, error_pattern, operation, validation_error, writer_content  # noqa: F811
+    gnmi_tls, role, error_pattern, operation, validation_error, writer_content, request  # noqa: F811
 ):
     """Run the same File RPC with write access or expect role-based denial."""
     duthost = gnmi_tls.duthost
@@ -86,6 +86,7 @@ def test_gnoi_file_write_authorization(
             pytest_assert(content == expected_content, "Unexpected sentinel content after RPC")
     finally:
         duthost.file(path=directory, state="absent")
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)
 
 
 def test_file_stat(gnmi_tls):  # noqa: F811
