@@ -38,7 +38,7 @@ def apply_acl_config(localhost, duthost, ptfhost, template_name, acl_config_info
 
 def check_tables_not_exist_in_appl_db(duthost, tables):
     for table in tables:
-        output = duthost.shell("sonic-db-cli APPL_DB keys '{}*'".format(table))
+        output = duthost.shell("sonic-db-cli -s APPL_DB keys '{}*'".format(table))
         assert output["stdout"].strip() == "", " Table {} still exists in APPL_DB".format(table)
 
 

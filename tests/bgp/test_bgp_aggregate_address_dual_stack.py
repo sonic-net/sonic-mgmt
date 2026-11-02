@@ -33,6 +33,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes
 from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
+from tests.common.helpers.sonic_db import redis_cli_command
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
     # processing aggregate-address entries, even for bbr_required=false.
     # Ensure BGP_BBR exists so bgpcfgd does not crash with KeyError.
     bbr_exists = int(duthost.shell(
-        'redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"',
+        (redis_cli_command(duthost, 'CONFIG_DB') + ' HEXISTS "BGP_BBR|all" "status"'),
         module_ignore_errors=True,
     )["stdout"])
     if not bbr_exists:

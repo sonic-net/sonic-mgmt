@@ -22,7 +22,7 @@ def apply_patch_and_verify(duthost, json_patch, tmpfile):
 
 
 def verify_asic_state(duthost, asic_id, expected_state):
-    cmds = (f'sonic-db-cli -n asic{asic_id} CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state')
+    cmds = (f'sonic-db-cli -s -n asic{asic_id} CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state')
     redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
     pytest_assert(redis_value == expected_state, f"Config IDF ISOLATION failed for asic{asic_id}")
 

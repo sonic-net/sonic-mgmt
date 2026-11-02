@@ -149,7 +149,8 @@ class TestECNMode:
             raise detail
 
     def check_ecn_mode_in_appl_db(self, duthost, exp_ecn_mode):
-        tunnel_type = duthost.shell('sonic-db-cli APPL_DB hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "ecn_mode"')["stdout"]
+        tunnel_type = duthost.shell(
+            'sonic-db-cli -s APPL_DB hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "ecn_mode"')["stdout"]
         if tunnel_type != exp_ecn_mode:
             return False
         return True

@@ -14,7 +14,7 @@ pytestmark = [
 
 def check_dut_bmp_neighbor_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
+        bmp_info = duthost.shell("sonic-db-cli -s BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP neighbor state check: {} ".format(neighbor_addr))
         logger.info("sonic-db-cli output: {} ".format(bmp_info))
@@ -35,7 +35,7 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, max_attempts=120, retr
 
 def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
+        bmp_info = duthost.shell("sonic-db-cli -s BMP_STATE_DB HGETALL 'BGP_RIB_IN_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP rib_in state check: {} ".format(neighbor_addr))
         logger.info("sonic-db-cli output: {} ".format(bmp_info))
@@ -55,7 +55,7 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_
 
 def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
-        bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
+        bmp_info = duthost.shell("sonic-db-cli -s BMP_STATE_DB HGETALL 'BGP_RIB_OUT_TABLE|*|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP rib_out state check: {} ".format(neighbor_addr))
         logger.info("sonic-db-cli output: {} ".format(bmp_info))

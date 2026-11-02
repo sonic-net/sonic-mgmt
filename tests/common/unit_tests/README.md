@@ -125,3 +125,6 @@ The fake SpyTest interface does not execute a feature suite on a switch.
 python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/unit_test_spytest_redis_cli.py -q
 ```
+## Routing and switching database callers
+
+`unit_test_network_database_callers.py` checks BGP presence-test output, VXLAN cleanup key/field arguments and local configuration commands. These isolated checks do not replace routing, forwarding or multi-ASIC testbed runs.
