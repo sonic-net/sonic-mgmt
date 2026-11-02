@@ -280,7 +280,7 @@ def test_gnmi_audit_log_remote_forwarding(gnmi_tls, ptfhost, operation, method):
             )
 
 
-def test_gnmi_default_cert_auth(gnmi_tls):  # noqa: F811
+def test_gnmi_default_cert_auth(gnmi_tls, request):  # noqa: F811
     """Default certificate authentication rejects an unmapped CN at Capabilities."""
     duthost = gnmi_tls.duthost
     delete_result = redis_hdel(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth")
@@ -304,6 +304,7 @@ def test_gnmi_default_cert_auth(gnmi_tls):  # noqa: F811
         match=UNMAPPED_CN_ERROR,
     ):
         _get_capabilities(gnmi_tls)
+    logger.info("AUTHZ_VERIFIED node=%s scope=test-body", request.node.nodeid)
 
 
 CAPABILITIES_ROLE_CASES = [
@@ -410,7 +411,7 @@ UNMAPPED_CN_ROLE_CASES = [
     "role,operation,error_pattern",
     CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
 )
-def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
+def test_cn_role_access(gnmi_tls, role, operation, error_pattern, request):  # noqa: F811
     """Verify generic and target-specific role authorization."""
     duthost = gnmi_tls.duthost
     if operation is _set_configdb:
@@ -441,3 +442,4 @@ def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
             # GCU cannot parse an empty role list during checkpoint rollback.
             # Remove this intentionally invalid test state before gnmi_tls restores CONFIG_DB.
             _set_client_cert_role(duthost, original_role)
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)
