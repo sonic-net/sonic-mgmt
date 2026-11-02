@@ -491,6 +491,23 @@ def ensure_countersyncd_daemon(duthost, container=None):
     return True
 
 
+def get_countersyncd_otel_endpoint(duthost, container):
+    """Return the OTLP endpoint the running countersyncd actually uses."""
+    result = duthost.shell(
+        f"docker exec {container} sh -c 'pid=$(supervisorctl pid countersyncd) && "
+        "xargs -0 -n1 echo < /proc/$pid/cmdline'",
+        module_ignore_errors=False,
+    )
+    args = result.get("stdout_lines", [])
+    endpoint = "http://localhost:4317"
+    for index, arg in enumerate(args):
+        if arg.startswith("--otel-endpoint="):
+            endpoint = arg.split("=", 1)[1]
+        elif arg == "--otel-endpoint" and index + 1 < len(args):
+            endpoint = args[index + 1]
+    return endpoint
+
+
 def _get_running_countersyncd_pid(duthost, container):
     status = duthost.shell(
         f"docker exec {container} supervisorctl status countersyncd",

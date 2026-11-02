@@ -24,6 +24,7 @@ from tests.high_frequency_telemetry.utilities import (
     get_configured_buffer_queue_objects,
     get_configured_queue_objects,
     get_countersyncd_container,
+    get_countersyncd_otel_endpoint,
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 HFT_CONFIG_PATH = "/etc/sonic/hft/hft.env"
+HFT_OTEL_ENDPOINT = "http://localhost:4317"
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
 INFLUXDB_BUCKET_IDS = itertools.count(1)
@@ -113,6 +115,33 @@ def _get_otel_container_running(duthost):
 
 def _is_otel_container_stopped(duthost):
     return not _get_otel_container_running(duthost)
+
+
+def _without_raw_otel_endpoint(config):
+    """Drop --otel-endpoint from HFT_COUNTERSYNCD_ARGS, which would otherwise
+    take precedence over COUNTERSYNCD_OTEL_ENDPOINT. Other options are kept."""
+    lines = []
+    for line in config.splitlines(keepends=True):
+        key, sep, value = line.partition("=")
+        if sep and key.strip().removeprefix("export ").strip() == "HFT_COUNTERSYNCD_ARGS":
+            quote = value.strip()[:1] if value.strip()[:1] in "'\"" else ""
+            tokens = value.strip().strip(quote).split()
+            kept = []
+            skip_value = False
+            for token in tokens:
+                if skip_value:
+                    skip_value = False
+                    if not token.startswith("-"):
+                        continue
+                if token == "--otel-endpoint":
+                    skip_value = True
+                    continue
+                if token.startswith("--otel-endpoint="):
+                    continue
+                kept.append(token)
+            line = f"{key}={quote}{' '.join(kept)}{quote}\n"
+        lines.append(line)
+    return "".join(lines)
 
 
 @contextmanager
@@ -191,7 +220,8 @@ def _configured_countersyncd(duthost):
         # since container environment/arguments take precedence over this file.
         duthost.copy(
             content="COUNTERSYNCD_ENABLE_OTEL=true\n"
-            "COUNTERSYNCD_OTEL_ENDPOINT=http://localhost:4317\n" + original_config,
+            f"COUNTERSYNCD_OTEL_ENDPOINT={HFT_OTEL_ENDPOINT}\n"
+            + _without_raw_otel_endpoint(original_config),
             dest=HFT_CONFIG_PATH, mode=config_stat.get("mode", "0644"),
         )
         if original_state == "disabled":
@@ -204,6 +234,9 @@ def _configured_countersyncd(duthost):
         if not wait_until(60, 2, 0, duthost.critical_processes_running, "hft"):
             pytest.fail("HFT critical processes did not start")
         ensure_countersyncd_daemon(duthost, "hft")
+        endpoint = get_countersyncd_otel_endpoint(duthost, "hft")
+        if endpoint != HFT_OTEL_ENDPOINT:
+            pytest.fail(f"countersyncd exports to {endpoint}, expected {HFT_OTEL_ENDPOINT}")
         yield
     finally:
         original_error = sys.exc_info()[1]
