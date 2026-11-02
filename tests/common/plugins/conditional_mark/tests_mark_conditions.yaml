@@ -51,7 +51,7 @@
           ( asic_type == 'mellanox' and asic_gen not in ['spc1', 'spc2', 'spc3'] ) or
           ( asic_type == 'broadcom' and asic_gen in ['th6', 'q3d'] ) or
           ( asic_type == 'broadcom' and asic_gen in ['th5'] and
-            hwsku == 'Arista-7060X6-64PE-B' and 'isolated' in topo_name and
+            'Arista-7060X6-64PE-B' in hwsku and 'isolated' in topo_name and
             topo_name not in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32'] ) )
 
 #######################################
