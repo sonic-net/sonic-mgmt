@@ -88,9 +88,9 @@ def _run_cleanup_steps(steps):
     return first_error
 
 
-def _get_otel_container_running(duthost):
+def _get_container_running(duthost, container):
     result = duthost.shell(
-        r"docker inspect -f \{\{.State.Running\}\} otel",
+        r"docker inspect -f \{\{.State.Running\}\} " + container,
         module_ignore_errors=True,
     )
     output = result.get("stdout", "").strip().lower()
@@ -104,7 +104,13 @@ def _get_otel_container_running(duthost):
     if result.get("rc") != 0 and (
             "no such object" in error or "no such container" in error):
         return False
-    raise AssertionError(f"Unable to determine OTEL container state: {result}")
+    raise AssertionError(
+        f"Unable to determine {container} container state: {result}"
+    )
+
+
+def _get_otel_container_running(duthost):
+    return _get_container_running(duthost, "otel")
 
 
 def _is_otel_container_stopped(duthost):
@@ -112,7 +118,7 @@ def _is_otel_container_stopped(duthost):
 
 
 def _is_hft_container_stopped(duthost):
-    return not duthost.is_service_fully_started("hft")
+    return not _get_container_running(duthost, "hft")
 
 
 @contextmanager
