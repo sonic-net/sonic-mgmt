@@ -385,13 +385,13 @@ CONFIG_DB_ROLE_CASES = [
     pytest.param(
         GENERIC_READWRITE_ROLE,
         _set_configdb,
-        r"does not have write access, target gnmi_CONFIG_DB\b",
+        r"does not have write access, target gnmi_config_db\b",
         id="configdb-generic-readwrite-set-denied",
     ),
     pytest.param(
         "",
         _set_configdb,
-        r"does not have write access, target gnmi_CONFIG_DB\b",
+        r"does not have write access, target gnmi_config_db\b",
         id="configdb-empty-role-set-denied",
     ),
 ]
