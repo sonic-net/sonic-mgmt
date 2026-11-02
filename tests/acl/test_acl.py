@@ -1,5 +1,6 @@
 import os
 import time
+import ipaddress
 import random
 import logging
 import pprint
@@ -156,6 +157,37 @@ DOWNSTREAM_IP_TO_BLOCK_VLAN2000 = {
     "ipv4": "192.168.0.251",
     "ipv6": "fc02:1000:0:1::7"
 }
+
+VLAN_DERIVED_IP_OFFSETS = {
+    "ipv4": (123, 122, 121),
+    "ipv6": (5, 6, 7)
+}
+
+
+def get_vlan_downstream_ips(mg_facts, vlan_name):
+    """Get the (dst, allow, block) downstream test IPs for a VLAN.
+
+    Vlan1000 and Vlan2000 use the fixed IPs above. Any other VLAN uses IPs at fixed
+    offsets from the network address of its own subnet, so they are routed into that VLAN.
+    """
+    if vlan_name == "Vlan2000":
+        return DOWNSTREAM_DST_IP_VLAN2000, DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
+    dst_ip, ip_to_allow, ip_to_block = DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN
+    if vlan_name == "Vlan1000":
+        return dst_ip, ip_to_allow, ip_to_block
+
+    dst_ip, ip_to_allow, ip_to_block = dict(dst_ip), dict(ip_to_allow), dict(ip_to_block)
+    for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
+        if vlan_intf["attachto"] != vlan_name:
+            continue
+        network = ipaddress.ip_network("{}/{}".format(vlan_intf["addr"], vlan_intf["prefixlen"]), strict=False)
+        ip_version = "ipv{}".format(network.version)
+        dst_offset, allow_offset, block_offset = VLAN_DERIVED_IP_OFFSETS[ip_version]
+        dst_ip[ip_version] = str(network.network_address + dst_offset)
+        ip_to_allow[ip_version] = str(network.network_address + allow_offset)
+        ip_to_block[ip_version] = str(network.network_address + block_offset)
+    return dst_ip, ip_to_allow, ip_to_block
+
 
 DOWNSTREAM_IP_PORT_MAP = {}
 
@@ -341,13 +373,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
     """
 
-    pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
     topo = tbinfo["topo"]["type"]
     # NOTE: We cannot use rand_unselected_dut in this case
     # ATM it's only used if 'dualtor' in tbinfo['topo']['name']
     if topo == "t2":
         rand_selected_dut = rand_selected_front_end_dut
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    pytest_assert(vlan_name == "no_vlan" or vlan_name in mg_facts["minigraph_vlans"], "Invalid vlan name.")
 
     vlan_ports = []
     vlan_mac = None
@@ -391,11 +423,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
             if vlan_config in ('one_vlan_a', 'two_vlan_a'):
                 logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
-                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
-                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
-                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+                DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK = \
+                    get_vlan_downstream_ips(mg_facts, vlan_name)
+                if vlan_name == "Vlan1000":
+                    vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
+                else:
+                    vlan2_allow_ip, vlan2_block_ip = DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
+                rand_selected_dut.host.options["variable_manager"].extra_vars.update({
+                    "vlan2_allow_ipv4": vlan2_allow_ip["ipv4"],
+                    "vlan2_block_ipv4": vlan2_block_ip["ipv4"],
+                    "vlan2_allow_ipv6": vlan2_allow_ip["ipv6"],
+                    "vlan2_block_ipv6": vlan2_block_ip["ipv6"]
+                })
         except KeyError:
             logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
     if topo in ["t0", "mx", "m0_vlan"]:

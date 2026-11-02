@@ -564,7 +564,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02:1000:0:1::6/128"
+                                        "destination-ip-address": "{{ vlan2_allow_ipv6 | default('fc02:1000:0:1::6') }}/128"
                                     }
                                 }
                             },
@@ -579,7 +579,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02:1000:0:1::7/128"
+                                        "destination-ip-address": "{{ vlan2_block_ipv6 | default('fc02:1000:0:1::7') }}/128"
                                     }
                                 }
                             },
