@@ -13,6 +13,7 @@ import pytest
 from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls, _restart_gnoi_server  # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db  # noqa: F401
 from tests.common.helpers.gnmi_connection import gnmi_connection, build_native_set_request
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_hset, redis_hdel
 from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
@@ -20,6 +21,12 @@ from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 pytestmark = [pytest.mark.topology("any")]
 DB_KEY = "DEVICE_METADATA|localhost"
 PARTS = ("CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost", "cloudtype")
+
+
+@pytest.fixture(autouse=True)
+def restore_startup_config(backup_and_restore_config_db):  # noqa: F811
+    """Back up before TLS setup and restore after TLS teardown, including failures."""
+    yield
 
 
 def _delete_user(duthost, prefix, username):
