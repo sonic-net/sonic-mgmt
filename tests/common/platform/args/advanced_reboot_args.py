@@ -74,7 +74,15 @@ def add_advanced_reboot_args(parser):
         action="store",
         type=str,
         default=None,
-        help="URL of new docker image",
+        help="Docker archive URL, or base URL containing <image-name>.gz, for a service warm upgrade",
+    )
+
+    parser.addoption(
+        "--warm-restart-service",
+        choices=["bgp"],
+        default=None,
+        help="Explicitly qualify standalone BGP warm restart/upgrade on single-ASIC T0, M0 or MX, "
+             "including built-in BGP",
     )
 
     parser.addoption(
