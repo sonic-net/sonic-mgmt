@@ -5,8 +5,6 @@ import random
 import time
 import pytest
 
-from tests.common.broadcom_data import is_broadcom_device
-from tests.common.helpers.assertions import pytest_require
 from tests.common.config_reload import config_reload
 from tests.common.constants import CounterpollConstants
 from tests.common.helpers.assertions import pytest_assert
@@ -70,28 +68,7 @@ def invalidate_port_caches():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Skip the test on non-th5 asics
-
-    Args:
-        duthosts (pytest fixture): list of Duts
-        enum_rand_one_per_hwsku_frontend_hostname (str): hostname of DUT
-
-    Returns:
-        None
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asic_type = duthost.get_asic_name()
-    supported_asics = ["th5"]
-    pytest_require((is_broadcom_device(duthost)
-                    and asic_type in supported_asics),
-                   "This test is not supported on {} asic".format(asic_type))
-
-
-@pytest.fixture(scope="module", autouse=True)
-def backup_and_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                 skip_non_th5_asics):
+def backup_and_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Restore the persistent and running configuration changed by this module."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     config_db = '/etc/sonic/config_db.json'
