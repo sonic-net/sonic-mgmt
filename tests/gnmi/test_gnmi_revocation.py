@@ -81,10 +81,6 @@ def subscription_control(gnmi_tls):  # noqa: F811
 
 def _subscribe_worker(fixture, mode, result, stop, last_update):
     """Receive one RPC: report readiness/errors and the latest data arrival time."""
-    outcome = ("failure", "Subscribe ended without terminal authentication status")
-    finished = threading.Event()
-    requests_started = threading.Event()
-    requests_done = threading.Event()
     request = gnmi_pb2.SubscribeRequest(
         subscribe=gnmi_pb2.SubscriptionList(
             mode=mode,
@@ -94,13 +90,9 @@ def _subscribe_worker(fixture, mode, result, stop, last_update):
     )
 
     def requests():
-        requests_started.set()
-        try:
-            yield request
-            # Keep POLL open after the initial snapshot, without issuing a Poll.
-            finished.wait(200)
-        finally:
-            requests_done.set()
+        yield request
+        # Keep idle POLL open; the parent joins this entire process on exit.
+        stop.wait(200)
 
     try:
         with gnmi_connection(fixture) as (_, client):
@@ -113,32 +105,27 @@ def _subscribe_worker(fixture, mode, result, stop, last_update):
             canceller = threading.Thread(target=cancel_on_stop)
             canceller.start()
             try:
-                saw_update = False
                 ready = False
                 for response in responses:
                     assert not response.HasField("error"), "Subscribe returned an in-band error"
                     has_update = response.HasField("update") and bool(response.update.update)
-                    saw_update |= has_update
                     if has_update:
                         last_update.value = time.monotonic()
                     if response.sync_response and not ready:
-                        assert saw_update, "Initial Subscribe contained no data"
+                        assert last_update.value, "Initial Subscribe contained no data"
                         ready = True
                         result.send(("ready", None))
+                raise AssertionError("Subscribe ended without terminal authentication status")
             finally:
-                finished.set()
                 stop.set()
                 responses.cancel()
                 canceller.join(10)
                 assert not canceller.is_alive(), "Subscribe cancellation did not finish"
-                if requests_started.is_set():
-                    assert requests_done.wait(10), "Subscribe request iterator failed to stop"
     except grpc.RpcError as error:
-        outcome = ("error", error.code().name)
-    except Exception as error:
-        outcome = ("failure", str(error))
+        result.send(("error", error.code().name))
+    # Python/cleanup failures deliberately escape: a nonzero process exit must
+    # fail both tests, including a positive case that already saw fresh data.
     finally:
-        result.send(outcome)
         result.close()
 
 
@@ -179,15 +166,13 @@ def _active_subscription(fixture, mode):
                     process.kill()
                     process.join(5)
                 assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
-                # Negative cases consumed their terminal result; positive cases
-                # must still check cleanup, even if the worker exited with zero.
                 if parent.poll():
                     try:
                         outcome = parent.recv()
                     except EOFError:
-                        pass  # Terminal result was already consumed.
+                        pass  # Negative case already consumed the RPC status.
                     else:
-                        assert outcome == ("error", "CANCELLED"), "Subscription cleanup failed: {}".format(outcome)
+                        assert outcome == ("error", "CANCELLED"), "Unexpected final RPC status: {}".format(outcome)
         finally:
             parent.close()
             child.close()
