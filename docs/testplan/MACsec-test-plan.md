@@ -48,7 +48,7 @@
 | Check the Data plane                                                 | Completed |                                                   |
 | Refresh SAK - timer based                                            | Completed |                                                   |
 | Refresh SAK - packet number based                                    |  Ongoing  |                                                   |
-| MACsec Key rotation, Primary/Fallback CAK                            | Not start | Feature hasn't been supported                    |
+| MACsec Key rotation, Primary/Fallback CAK                            |  Ongoing  |                                                   |
 | MACsec Counters                                                      |  Ongoing  |                                                   |
 | COPP                                                                 |  Ongoing  |                                                   |
 | Port channel with MACsec                                             | Completed |                                                   |
@@ -116,6 +116,12 @@ About the detail to set the testbed, please refer the doc: https://github.com/so
 
 ``` bash
 ./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_macsec.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
+```
+
+To run the fallback CAK cases, select a fallback profile. `--macsec_profile all` excludes them.
+
+```
+./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_fallback_cak.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic --macsec_profile=MACSEC_PROFILE_FALLBACK"
 ```
 
 ## Common Configuration
@@ -336,7 +342,50 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
 
 #### MACsec Key rotation, Primary/Fallback CAK
 
-   TODO
+Covers the [fallback CAK HLD](https://github.com/sonic-net/SONiC/pull/2495) and [MKA state HLD](https://github.com/sonic-net/SONiC/pull/2545).
+Uses two same-ASIC links to distinct neighbors, a test-owned profile with primary and fallback CAKs, and a 30-second rekey period.
+Traffic is ping between the two neighbors, through the DUT. State is read with `show macsec --mka`, `show macsec --profile` and `show macsec <port>`.
+macsecmgrd applies key updates in place and does not guarantee hitless updates. Zero-loss cases are operator-staged, with the other CA live on every link.
+
+- Operational state
+    1. Check both CKNs and the rekey period in the profile.
+    2. Check the port is secured by the primary CA, and the TX SAK is an active RX SAK.
+
+- Staged primary/fallback rotation
+    1. Ping both ways at 10 pps.
+    2. Wait for a periodic SAK refresh.
+    3. Replace the CAK on the DUT, then on both peers. For the primary, expect the fallback CA in between.
+    4. Expect the primary CA, then another periodic SAK refresh with unchanged CKNs.
+    5. Expect no packet loss. Restore the original CAK.
+
+- Primary mismatch
+    1. Ping both ways at 10 pps.
+    2. Make the peer primary CAK wrong. cEOS deletes it first.
+    3. Expect the fallback CA. Restore the peer primary CAK and expect the primary CA.
+    4. Expect no packet loss.
+
+- Primary update without a live fallback
+    1. Make one peer's fallback CAK wrong. Expect no live fallback peer on that port.
+    2. Update the DUT primary CAK. Expect the new primary and fallback participants, config in-sync, on that port. Traffic loss is allowed.
+    3. Expect the other port to move to the fallback CA.
+    4. Update both peers. Expect both ports on the new primary.
+
+- Both CAKs wrong
+    1. Route between the neighbor loopbacks through the DUT. Link addresses can disappear when MACsec goes down.
+    2. Update the peer primary, then fallback CAK, to wrong keys.
+    3. Expect the new CKNs in-sync with no live peer, the port not secured, and no ping replies. SAs may be retained.
+    4. Restore the CAKs. Expect ping replies.
+
+- Profile validation
+    1. Add a profile with half a fallback key, a duplicate CKN or an invalid CAK. Expect failure.
+    2. Update an unattached profile primary. Expect the new CKN.
+    3. Update with an unchanged, unknown, colliding or invalid key, or on a primary-only profile. Expect failure and no change.
+
+- Stress, with `--run-stress-tests`
+    1. Alternate primary and fallback rotations 10 times. Expect no packet loss.
+
+Not covered: config reload, reboot, per-interface profiles and EOS SAK inspection.
+Component tests cover WPA key remove/add order, add retry and persistent `degraded` status; there is no public stimulus for them.
 
 #### MACsec Counters
 

@@ -23,6 +23,7 @@ __all__ = [
     'get_macsec_profile',
     'wait_for_macsec_cleanup',
     'generate_macsec_profile',
+    'update_macsec_profile_key',
     'setup_macsec_multi_profile_configuration',
     'cleanup_macsec_multi_profile_configuration',
 ]
@@ -43,7 +44,8 @@ def get_macsec_profile(host):
 
 
 def set_macsec_profile(host, profile_name, priority, cipher_suite,
-                       primary_cak, primary_ckn, policy, send_sci, rekey_period=0):
+                       primary_cak, primary_ckn, policy, send_sci, rekey_period=0,
+                       fallback_cak=None, fallback_ckn=None):
     if isinstance(host, EosHost):
         eos_cipher_suite = {
             "GCM-AES-128": "aes128-gcm",
@@ -54,8 +56,10 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         lines = [
             'cipher {}'.format(eos_cipher_suite[cipher_suite]),
             'key {} 7 {}'.format(primary_ckn, primary_cak),
-            'mka key-server priority {}'.format(priority)
             ]
+        if fallback_cak:
+            lines.append('key {} 7 {} fallback'.format(fallback_ckn, fallback_cak))
+        lines.append('mka key-server priority {}'.format(priority))
         if rekey_period:
             lines.append('mka session rekey-period {}'.format(rekey_period))
         if send_sci == 'true':
@@ -74,6 +78,9 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         "send_sci" if send_sci == "true" else "no_send_sci": "",
         "rekey_period": rekey_period,
     }
+    if fallback_cak:
+        macsec_profile["fallback_cak"] = fallback_cak
+        macsec_profile["fallback_ckn"] = fallback_ckn
 
     opts = ""
     for k, v in list(macsec_profile.items()):
@@ -96,6 +103,24 @@ def set_macsec_profile(host, profile_name, priority, cipher_suite,
         # So, if send_sci = false and the neighbor device is SONiC VM,
         # LLDPd need to use the real MAC address as the source MAC address
         host.command("lldpcli configure system bond-slave-src-mac-type real")
+
+
+def update_macsec_profile_key(host, profile_name, old_cak, old_ckn, new_cak, new_ckn, is_fallback=False):
+    """Replace one primary or fallback key of a profile without unbinding its ports."""
+    if isinstance(host, EosHost):
+        suffix = " fallback" if is_fallback else ""
+        host.eos_config(
+            lines=['key {} 7 {}{}'.format(new_ckn, new_cak, suffix),
+                   'no key {} 7 {}{}'.format(old_ckn, old_cak, suffix)],
+            parents=['mac security', 'profile {}'.format(profile_name)])
+        return
+
+    opts = "--old_ckn {} --new_ckn {} --new_cak {}".format(old_ckn, new_ckn, new_cak)
+    if host.is_multi_asic:
+        for ns in host.get_asic_namespace_list():
+            host.command("config macsec -n {} profile update_cak {} {}".format(ns, profile_name, opts))
+    else:
+        host.command("config macsec profile update_cak {} {}".format(profile_name, opts))
 
 
 def is_macsec_configured(host, mac_profile, ctrl_links):
@@ -306,13 +331,14 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
-                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo):
+                               cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo,
+                               fallback_cak=None, fallback_ckn=None):
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile. The profile is host-wide (no port arg), so the
     # DUT-side set runs once outside the per-link loop.
     submit_async_task(set_macsec_profile, (duthost, profile_name, default_priority,
                       cipher_suite, primary_cak, primary_ckn, policy,
-                      send_sci, rekey_period))
+                      send_sci, rekey_period, fallback_cak, fallback_ckn))
     i = 0
     for dut_port, nbr in ctrl_links.items():
         if i % 2 == 0:
@@ -321,7 +347,8 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
             priority = default_priority + 1
         submit_async_task(set_macsec_profile,
                           (nbr["host"], profile_name, priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
+                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period,
+                           fallback_cak, fallback_ckn))
         i += 1
     wait_all_complete(timeout=180)
 

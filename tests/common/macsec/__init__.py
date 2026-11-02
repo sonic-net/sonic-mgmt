@@ -30,6 +30,9 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+# Fallback profiles are only meaningful for tests/macsec/test_fallback_cak.py.
+FALLBACK_ONLY_PROFILES = {"MACSEC_PROFILE_FALLBACK", "MACSEC_PROFILE_FALLBACK_INTEGRITY"}
+
 
 class MacsecPlugin(object):
     """
@@ -48,7 +51,7 @@ class MacsecPlugin(object):
     def _generate_macsec_profile(self, metafunc):
         value = metafunc.config.getoption("macsec_profile")
         if value == 'all':
-            return natsort.natsorted(list(self.macsec_profiles.keys()))
+            return natsort.natsorted(name for name in self.macsec_profiles if name not in FALLBACK_ONLY_PROFILES)
         return [x for x in value.split(',') if x in self.macsec_profiles]
 
     def pytest_generate_tests(self, metafunc):
@@ -150,7 +153,8 @@ class MacsecPlugin(object):
                 setup_macsec_configuration(macsec_duthost, ctrl_links,
                                            profile['name'], profile['priority'], profile['cipher_suite'],
                                            profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                           profile['send_sci'], profile['rekey_period'], tbinfo)
+                                           profile['send_sci'], profile['rekey_period'], tbinfo,
+                                           profile.get('fallback_cak'), profile.get('fallback_ckn'))
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
 

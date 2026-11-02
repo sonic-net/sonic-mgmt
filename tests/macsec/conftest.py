@@ -23,6 +23,13 @@ def pytest_collection_modifyitems(config, items):
             if item.path.name == "test_per_interface_profile.py":
                 item.add_marker(skip_per_interface)
 
+    if config.getoption("enable_macsec"):
+        skip_no_fallback = pytest.mark.skip(reason="Selected MACsec profile has no fallback CAK/CKN")
+        for item in items:
+            if item.path.name == "test_fallback_cak.py" and \
+                    not item.callspec.params["macsec_profile"].get("fallback_cak"):
+                item.add_marker(skip_no_fallback)
+
 
 @pytest.fixture(scope="module")
 def profile_name(macsec_profile):
