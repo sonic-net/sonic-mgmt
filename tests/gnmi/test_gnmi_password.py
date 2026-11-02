@@ -1,12 +1,16 @@
 """Password Get/Set tests with fixed accounts in a dedicated, serial test environment.
 
-The legacy setup helper replaces a same-named host user and sets a synthetic
-password through a shell command; that password may appear in command logs.
+The legacy setup helper replaces a same-named host user. Password initialization
+uses task-level no_log and stdin; real SSH/become pipelining must be qualified
+before device execution to avoid remote temporary plaintext files.
 """
 import json
+import os
 import re
 import secrets
+import subprocess
 from contextlib import ExitStack
+from functools import partial
 
 import grpc
 import pytest
@@ -17,6 +21,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db  # 
 from tests.common.helpers.gnmi_connection import gnmi_connection, build_native_set_request
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_hset, redis_hdel
 from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
+from tests.common.utilities import get_inventory_files
 
 pytestmark = [pytest.mark.topology("any")]
 DB_KEY = "DEVICE_METADATA|localhost"
@@ -27,6 +32,35 @@ PARTS = ("CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost", "cloudtype")
 def restore_startup_config(backup_and_restore_config_db):  # noqa: F811
     """Back up before TLS setup and restore after TLS teardown, including failures."""
     yield
+
+
+def _set_password(request, duthost, username, password):
+    """Use a no_log task; adhoc module kwargs cannot set task-level no_log."""
+    __tracebackhide__ = True
+    inventories = get_inventory_files(request)
+    assert inventories and all(os.path.isfile(path) for path in inventories), "Require actual inventory files"
+    assert re.fullmatch(r"[A-Za-z0-9_.-]+", duthost.hostname), "Require one literal DUT hostname"
+    assert not request.config.getoption("ansible_extra_inventory", default=None), "Extra inventory not supported"
+    cmd = ["ansible-playbook"]
+    for path in inventories:
+        cmd.extend(["-i", os.path.abspath(path)])
+    cmd.extend(["--limit", duthost.hostname, "/dev/stdin"])
+    play = [{
+        "hosts": duthost.hostname, "gather_facts": False, "become": True,
+        "vars": {"ansible_ssh_pipelining": True, "ansible_pipelining": True},
+        "tasks": [{"name": "Set test password", "no_log": True,
+                   "ansible.builtin.command": {"argv": ["chpasswd"], "stdin": username + ":" + password}}],
+    }]
+    env = dict(os.environ, ANSIBLE_PIPELINING="True", ANSIBLE_KEEP_REMOTE_FILES="False", ANSIBLE_DEBUG="False")
+    try:
+        result = subprocess.run(cmd, input=json.dumps(play), text=True, capture_output=True, timeout=60, env=env)
+    except subprocess.TimeoutExpired:
+        raise pytest.fail.Exception(
+            "Password initialization timed out; remote process/cleanup state unknown", pytrace=False) from None
+    except OSError:
+        raise pytest.fail.Exception("Password initialization could not start", pytrace=False) from None
+    if result.returncode:
+        pytest.fail("Password initialization failed, rc={}".format(result.returncode), pytrace=False)
 
 
 def _delete_user(duthost, prefix, username):
@@ -50,7 +84,7 @@ def _restore_cloudtype(duthost, original):
 
 
 @pytest.fixture
-def password_identity(gnmi_tls, role):  # noqa: F811
+def password_identity(request, gnmi_tls, role):  # noqa: F811
     """Reuse a fixed test name sequentially; clean up before TLS rollback."""
     __tracebackhide__ = True
     duthost = gnmi_tls.duthost
@@ -81,7 +115,7 @@ def password_identity(gnmi_tls, role):  # noqa: F811
         useradd_args = ["--no-create-home", "--no-user-group", "--gid", "nogroup", "--no-log-init",
                         "-K", "CREATE_MAIL_SPOOL=no", "--shell", "/bin/bash"]
         setup_local_user(duthost, {"local_user": username, "local_user_passwd": password},
-                         useradd_args=useradd_args)
+                         useradd_args=useradd_args, password_setter=partial(_set_password, request))
         duthost.command(argv=container + ["useradd"] + useradd_args + ["--groups", role, username])
         result = redis_hset(duthost, CONFIG_DB, "GNMI|gnmi", user_auth="password")
         assert result["rc"] == 0, "Could not select password-only authentication"
