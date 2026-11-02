@@ -93,6 +93,8 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
 def load_minigraph_with_golden_empty_input(duthost, wait_for_bgp):
     """Test Golden Config with empty input
     """
+    config_reload(duthost, config_source="minigraph", safe_reload=True,
+                  override_config=False, wait_for_bgp=wait_for_bgp)
     initial_config = get_running_config(duthost)
 
     empty_input = {}
