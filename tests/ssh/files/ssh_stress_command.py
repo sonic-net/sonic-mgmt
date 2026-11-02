@@ -175,9 +175,14 @@ def _terminate_child_process(process):
 
 
 def _terminate_owned_process(pid, start_time):
-    if not _owned_process_alive(pid, start_time):
-        if not _process_group_alive(pid):
+    current_start_time = _process_start_time(pid)
+    if current_start_time is not None:
+        if current_start_time != start_time:
+            # The original command is gone and this PID now belongs to an
+            # unrelated process. Never signal a process group we do not own.
             return
+    elif not _process_group_alive(pid):
+        return
     _terminate_process_group(pid)
 
 
@@ -194,20 +199,25 @@ def cancel_command(state_root, token):
     if owner is not None:
         wrapper_pid = owner.get("wrapper_pid")
         if wrapper_pid is not None:
-            _signal_owned_process(
+            wrapper_signalled = _signal_owned_process(
                 wrapper_pid,
                 owner["wrapper_start_time"],
                 signal.SIGTERM,
             )
-            deadline = time.monotonic() + WRAPPER_WAIT
             done_path = os.path.join(directory, "done.json")
-            while time.monotonic() < deadline:
-                if os.path.exists(done_path):
-                    break
-                time.sleep(0.05)
+            if wrapper_signalled:
+                deadline = time.monotonic() + WRAPPER_WAIT
+                while time.monotonic() < deadline:
+                    if os.path.exists(done_path):
+                        break
+                    time.sleep(0.05)
             if not os.path.exists(done_path):
-                raise RuntimeError(
-                    "Command wrapper did not confirm process-tree termination"
+                # The wrapper may exit after publishing owner.json but before
+                # acknowledging cancellation. Fence its recorded command group
+                # directly; _terminate_owned_process verifies the PID start
+                # time and retains ownership when termination cannot be proved.
+                _terminate_owned_process(
+                    owner["pid"], owner["start_time"]
                 )
         else:
             _terminate_owned_process(

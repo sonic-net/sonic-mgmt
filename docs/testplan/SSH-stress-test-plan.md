@@ -41,9 +41,10 @@ Part 1:
    all five pairs, one second of scheduling/transport margin per command, and the
    pair's normal settle delay. Require the number of those rounds that fit in 300
    seconds, with an independent minimum of three cycles and a cap of 20. This
-   intentionally converts the former fixed 20-cycle minimum into a host-normalized
-   range of 3..20 while preserving a non-negotiable evidence floor. The initial
-   no-op BGP startup is subtracted before deriving its cycle count. A final
+   adds a host-normalized 3..20 restored-cycle floor and replaces the base test's
+   per-completion timing limit with a mixed-workload p95 limit; Part 2's separate
+   20-session check is unchanged. The initial no-op BGP startup is subtracted
+   before deriving its cycle count. A final
    unmatched command does not count as an additional cycle.
    The relative per-command budget includes the slower serial direction from
    every pair plus one second per concurrent worker. Stress-command watchdogs

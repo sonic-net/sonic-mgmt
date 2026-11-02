@@ -619,6 +619,94 @@ def test_cancel_waits_for_late_mutation_before_restoration(
     assert result and result[0] != 0
 
 
+def test_owned_process_fence_ignores_reused_pid(
+    command_helper, monkeypatch
+):
+    monkeypatch.setattr(
+        command_helper, "_process_start_time", lambda _pid: "new-start"
+    )
+    monkeypatch.setattr(
+        command_helper,
+        "_process_group_alive",
+        lambda _pid: pytest.fail("reused process group was probed"),
+    )
+    monkeypatch.setattr(
+        command_helper,
+        "_terminate_process_group",
+        lambda _pid: pytest.fail("reused process group was signalled"),
+    )
+
+    command_helper._terminate_owned_process(12345, "owned-start")
+
+
+def test_cancel_falls_back_to_command_group_when_wrapper_is_gone(
+    command_helper, monkeypatch, tmp_path
+):
+    token = uuid.uuid4().hex
+    directory = tmp_path / token
+    directory.mkdir()
+    (directory / "owner.json").write_text(
+        command_helper.json.dumps({
+            "pid": 12345,
+            "start_time": "11",
+            "wrapper_pid": 23456,
+            "wrapper_start_time": "22",
+        })
+    )
+    fenced = []
+    monkeypatch.setattr(
+        command_helper, "_signal_owned_process", lambda *_args: False
+    )
+    monkeypatch.setattr(
+        command_helper,
+        "_terminate_owned_process",
+        lambda pid, start_time: fenced.append((pid, start_time)),
+    )
+
+    command_helper.cancel_command(str(tmp_path), token)
+
+    assert fenced == [(12345, "11")]
+    assert command_helper.json.loads(
+        (directory / "done.json").read_text()
+    ) == {"return_code": 124}
+    assert not (directory / "owner.json").exists()
+
+
+def test_cancel_fallback_retains_owner_when_group_fence_fails(
+    command_helper, monkeypatch, tmp_path
+):
+    token = uuid.uuid4().hex
+    directory = tmp_path / token
+    directory.mkdir()
+    owner = {
+        "pid": 12345,
+        "start_time": "11",
+        "wrapper_pid": 23456,
+        "wrapper_start_time": "22",
+    }
+    (directory / "owner.json").write_text(
+        command_helper.json.dumps(owner)
+    )
+    monkeypatch.setattr(
+        command_helper, "_signal_owned_process", lambda *_args: False
+    )
+    monkeypatch.setattr(
+        command_helper,
+        "_terminate_owned_process",
+        lambda *_args: (_ for _ in ()).throw(
+            RuntimeError("process group still alive")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="process group still alive"):
+        command_helper.cancel_command(str(tmp_path), token)
+
+    assert command_helper.json.loads(
+        (directory / "owner.json").read_text()
+    ) == owner
+    assert not (directory / "done.json").exists()
+
+
 def test_failed_group_fence_retains_owner_metadata(
     command_helper, monkeypatch, tmp_path
 ):
