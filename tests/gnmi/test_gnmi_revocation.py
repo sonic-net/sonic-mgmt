@@ -79,9 +79,8 @@ def subscription_control(gnmi_tls):  # noqa: F811
         assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
 
 
-def _subscribe_worker(connection, mode, result, changed, stop, observation):
-    """Own gRPC in a spawned process; report readiness and one terminal outcome."""
-    fixture = SimpleNamespace(**connection)
+def _subscribe_worker(fixture, mode, result, stop, last_update):
+    """Receive one RPC: report readiness/errors and the latest data arrival time."""
     outcome = ("failure", "Subscribe ended without terminal authentication status")
     finished = threading.Event()
     requests_started = threading.Event()
@@ -116,26 +115,16 @@ def _subscribe_worker(connection, mode, result, changed, stop, observation):
             try:
                 saw_update = False
                 ready = False
-                observed_change = None
-                last_update = time.monotonic()
                 for response in responses:
                     assert not response.HasField("error"), "Subscribe returned an in-band error"
                     has_update = response.HasField("update") and bool(response.update.update)
                     saw_update |= has_update
+                    if has_update:
+                        last_update.value = time.monotonic()
                     if response.sync_response and not ready:
                         assert saw_update, "Initial Subscribe contained no data"
                         ready = True
                         result.send(("ready", None))
-                    if observation is not None and ready and changed.is_set() and has_update:
-                        now = time.monotonic()
-                        assert now - last_update <= 15, "Readonly SAMPLE stream stopped delivering data"
-                        if observed_change is None:
-                            observed_change = now
-                        if now - observed_change >= observation:
-                            outcome = ("allowed", None)
-                            return
-                    if has_update:
-                        last_update = time.monotonic()
             finally:
                 finished.set()
                 stop.set()
@@ -154,20 +143,20 @@ def _subscribe_worker(connection, mode, result, changed, stop, observation):
 
 
 @contextmanager
-def _active_subscription(fixture, mode, observation=None):
+def _active_subscription(fixture, mode):
     """Spawn only serializable connection details, never the DUT/Ansible fixture."""
     context = multiprocessing.get_context("spawn")
     parent, child = context.Pipe(duplex=False)
-    changed, stop = context.Event(), context.Event()
+    stop, last_update = context.Event(), context.Value("d", 0)
     certs = fixture.pygnmi_client
-    connection = dict(
+    connection = SimpleNamespace(
         host=fixture.host,
         port=fixture.port,
         pygnmi_client=SimpleNamespace(
             ca_cert=certs.ca_cert, client_cert=certs.client_cert, client_key=certs.client_key
         ),
     )
-    process = context.Process(target=_subscribe_worker, args=(connection, mode, child, changed, stop, observation))
+    process = context.Process(target=_subscribe_worker, args=(connection, mode, child, stop, last_update))
     started = False
     try:
         process.start()
@@ -176,7 +165,7 @@ def _active_subscription(fixture, mode, observation=None):
         assert parent.poll(40), "Subscribe did not become ready"
         ready = parent.recv()
         assert ready == ("ready", None), "Subscribe failed before data + sync: {}".format(ready)
-        yield parent, changed
+        yield parent, last_update
     finally:
         try:
             if started:
@@ -190,6 +179,15 @@ def _active_subscription(fixture, mode, observation=None):
                     process.kill()
                     process.join(5)
                 assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
+                # Negative cases consumed their terminal result; positive cases
+                # must still check cleanup, even if the worker exited with zero.
+                if parent.poll():
+                    try:
+                        outcome = parent.recv()
+                    except EOFError:
+                        pass  # Terminal result was already consumed.
+                    else:
+                        assert outcome == ("error", "CANCELLED"), "Subscription cleanup failed: {}".format(outcome)
         finally:
             parent.close()
             child.close()
@@ -216,10 +214,14 @@ def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, e
 
 
 def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control):  # noqa: F811
-    """RW-to-RO preserves the same SAMPLE stream across two reauth intervals."""
-    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM, ALLOW_OBSERVATION) as (result, changed):
+    """Observe fresh SAMPLE data across two reauth intervals after RW-to-RO.
+
+    Freshness is sampled once a second, not an exhaustive inter-update gap check.
+    """
+    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as (result, last_update):
         _set_role(subscription_control, READONLY)
-        changed.set()
-        assert result.poll(ALLOW_OBSERVATION + 20), "Readonly subscription stopped producing data"
-        outcome = result.recv()
-        assert outcome == ("allowed", None), "Readonly subscription failed after role change: {}".format(outcome)
+        until = time.monotonic() + ALLOW_OBSERVATION
+        while last_update.value < until:
+            if result.poll(1):
+                pytest.fail("Readonly subscription failed after role change: {}".format(result.recv()))
+            assert time.monotonic() - last_update.value <= 15, "Readonly SAMPLE stream stopped delivering data"
