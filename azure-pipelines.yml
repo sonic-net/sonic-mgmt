@@ -41,6 +41,12 @@ resources:
       endpoint: sonic-net
 
 
+# Integration-only gate: enable after the pinned image artifact is available.
+parameters:
+- name: INTEGRATION_IMAGE_READY
+  type: boolean
+  default: false
+
 stages:
 - template: /.azure-pipelines/common2/stages/analyze-code.yml
 - template: /.azure-pipelines/probe-tests/stages/probe-tests.yml
@@ -227,7 +233,7 @@ stages:
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))
+  condition: and(${{ parameters.INTEGRATION_IMAGE_READY }}, succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'), not(startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/')))
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
@@ -238,3 +244,6 @@ stages:
 
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
+      parameters:
+        KVM_BUILD_ID: "1265418"
+        MGMT_COMMIT_HASH: $(Build.SourceVersion)
