@@ -185,10 +185,9 @@ def test_cpoutil_map(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connec
     table = run_cpoutil(duthost, "show interface map")["table"]
     assert {"Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"} <= set(table["headers"])
     assert set(connected_cpo_ports) <= set(table["resources"])
-    # Validate all connected ports in bulk, then one representative selector.
-    port = connected_cpo_ports[0]
-    assert json.loads(run_cpoutil(duthost, "show interface map -p " + port + " --json")["stdout"]) == {
-        port: records[port]}
+    for port in connected_cpo_ports:
+        assert json.loads(run_cpoutil(duthost, "show interface map -p " + port + " --json")["stdout"]) == {
+            port: records[port]}
 
 
 def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -202,9 +201,9 @@ def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, c
     table = run_cpoutil(duthost, "show interface presence")["table"]
     assert {"Interface", "ELS", "Presence"} <= set(table["headers"])
     assert set(connected_cpo_ports) <= set(table["resources"])
-    port = connected_cpo_ports[0]
-    assert json.loads(run_cpoutil(duthost, "show interface presence -p " + port + " --json")["stdout"]) == {
-        port: records[port]}
+    for port in connected_cpo_ports:
+        assert json.loads(run_cpoutil(duthost, "show interface presence -p " + port + " --json")["stdout"]) == {
+            port: records[port]}
 
 
 def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -220,10 +219,10 @@ def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connec
                 assert isinstance(record[endpoint][section], dict)
                 if section != "thresholds":
                     assert record[endpoint][section], "DOM section is empty: " + section
-    port = connected_cpo_ports[0]
-    table = run_cpoutil(duthost, "show interface dom -p " + port)["dom"]
-    assert table[port]["present"] is True
-    assert set(table[port]["sections"]) == {"oe", "els"}
+    for port in connected_cpo_ports:
+        table = run_cpoutil(duthost, "show interface dom -p " + port)["dom"]
+        assert table[port]["present"] is True
+        assert set(table[port]["sections"]) == {"oe", "els"}
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
@@ -248,8 +247,8 @@ def test_cpoutil_endpoint_status(duthosts, enum_rand_one_per_hwsku_frontend_host
         table = run_cpoutil(duthost, query)["table"]
         assert {target.upper(), heading} <= set(table["headers"])
         assert {name.upper() for name in expected} <= set(table["resources"])
-        name = sorted(expected)[0]
-        assert json.loads(run_cpoutil(duthost, query + " " + name + " --json")["stdout"]) == {name: records[name]}
+        for name in sorted(expected):
+            assert json.loads(run_cpoutil(duthost, query + " " + name + " --json")["stdout"]) == {name: records[name]}
 
 
 def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -286,17 +285,22 @@ def test_cpoutil_tx_disable_query(duthosts, enum_rand_one_per_hwsku_frontend_hos
 
 @pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_eeprom_read(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
-    """Read one selected endpoint and its interface alias; transport no raw bytes."""
+    """Read every connected interface and each associated OE/ELS once directly."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    port = connected_cpo_ports[0]
-    mapping = json.loads(run_cpoutil(duthost, "show interface map -p " + port + " --json")["stdout"])[port]
-    name = mapping[target]["id"]
-    direct = run_cpoutil(duthost, "read-eeprom {} -i {}".format(target, int(name[len(target):])))["eeprom"]
-    assert direct["headings"] == ["EEPROM hexdump for " + name]
-    assert direct["size"] > 0
-    indirect = run_cpoutil(duthost, "read-eeprom interface -p {} --{}".format(port, target))["eeprom"]
-    assert indirect["headings"] == ["EEPROM hexdump for port {} ({})".format(port, name)]
-    assert indirect["size"] > 0
+    mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
+    tested = set()
+    for port in connected_cpo_ports:
+        name = mapping[port][target]["id"]
+        # Sharing an endpoint avoids duplicate direct dumps, but each interface
+        # alias still needs its own read, including its OE bank selection.
+        if name not in tested:
+            direct = run_cpoutil(duthost, "read-eeprom {} -i {}".format(target, int(name[len(target):])))["eeprom"]
+            assert direct["headings"] == ["EEPROM hexdump for " + name]
+            assert direct["size"] > 0
+            tested.add(name)
+        indirect = run_cpoutil(duthost, "read-eeprom interface -p {} --{}".format(port, target))["eeprom"]
+        assert indirect["headings"] == ["EEPROM hexdump for port {} ({})".format(port, name)]
+        assert indirect["size"] > 0
 
 
 def test_cpoutil_basic_arguments(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -316,117 +320,164 @@ def test_cpoutil_basic_arguments(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 @pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
-    """Toggle one OE/ELS, verify readback and restore the original power mode."""
+    """Toggle each distinct connected OE/ELS, restoring it before the next one."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
-    name = mapping[connected_cpo_ports[0]][target]["id"].lower()
-    affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
-    query = "show {} lpmode {}".format(target, name)
-    original = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
-    assert isinstance(original[name], bool)
-    if original[name]:
-        pytest.skip("Restoration requires an initially full-power endpoint")
-    unsupported = False
-    with isolated_interfaces(duthost, affected):
+    names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
+    tested, skipped = [], {}
+    for name in names:
+        # Include unconnected interfaces sharing this endpoint in isolation.
+        affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
+        query = "show {} lpmode {}".format(target, name)
         try:
-            result = run_cpoutil(duthost, "config {} lpmode {} low".format(target, name), expected_rc=None)
-            unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
-            if unsupported:
-                wait_for_state(duthost, query, original)
-            else:
-                assert result["rc"] == 0, result["stderr"]
-                wait_for_state(duthost, query, {name: True})
-        finally:
-            if not unsupported:
-                run_cpoutil(duthost, "config {} lpmode {} full".format(target, name))
-                wait_for_state(duthost, query, original)
+            original = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
+        except pytest.skip.Exception as exc:
+            skipped[name] = str(exc)
+            continue
+        assert isinstance(original[name], bool)
+        if original[name]:
+            skipped[name] = "Restoration requires an initially full-power endpoint"
+            continue
+        unsupported = False
+        with isolated_interfaces(duthost, affected):
+            try:
+                result = run_cpoutil(duthost, "config {} lpmode {} low".format(target, name), expected_rc=None)
+                unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
+                if unsupported:
+                    wait_for_state(duthost, query, original)
+                else:
+                    assert result["rc"] == 0, result["stderr"]
+                    wait_for_state(duthost, query, {name: True})
+            finally:
+                if not unsupported:
+                    run_cpoutil(duthost, "config {} lpmode {} full".format(target, name))
+                    wait_for_state(duthost, query, original)
+        # Leave the isolation context before skipping this resource, so shared
+        # ports are restored even when another resource can still be tested.
         if unsupported:
-            pytest.skip("Platform explicitly does not implement the low-power setter")
-    wait_for_state(duthost, query, original)
+            skipped[name] = "Low-power setter is not implemented"
+        else:
+            wait_for_state(duthost, query, original)
+            tested.append(name)
+    logger.info("%s low-power coverage: tested=%s, skipped=%s", target, tested, skipped)
+    if not tested:
+        pytest.skip("No eligible {} low-power endpoints: {}".format(target, skipped))
 
 
 def test_cpoutil_tx_disable(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Toggle a physical port and restore TX for all of its mapped logical ports."""
+    """Toggle each connected physical port once and restore its logical siblings."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    port = connected_cpo_ports[0]
     config = read_port_config(duthost)
     mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
-    affected = sorted(name for name in mapping
-                      if set(numbers(config[name]["index"])) & set(numbers(config[port]["index"])))
-    # The setter acts on a physical port, including unconnected logical siblings.
-    originals = {}
-    for name in affected:
-        result = run_cpoutil(duthost, "show interface tx-disable -p " + name + " --json", optional=True)
-        originals[name] = json.loads(result["stdout"])
-    states = [value for name in affected for value in originals[name][name].values()]
-    if not states or any(value is not False for value in states):
-        pytest.skip("Restoration requires uniformly enabled TX on all physical-port lanes")
-    unsupported = False
-    with isolated_interfaces(duthost, affected):
+    seen, tested, skipped = set(), [], {}
+    for port in connected_cpo_ports:
+        physical_port = numbers(config[port]["index"])[0]
+        if physical_port in seen:
+            continue
+        seen.add(physical_port)
+        affected = sorted(name for name in mapping if physical_port in numbers(config[name]["index"]))
+        # The setter affects the complete physical port, including unconnected
+        # logical siblings. Save and restore all of them, not only the test port.
+        originals = {}
         try:
-            result = run_cpoutil(duthost, "config interface tx-disable -p " + port + " true", expected_rc=None)
-            unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
-            if not unsupported:
-                assert result["rc"] == 0, result["stderr"]
             for name in affected:
-                if unsupported:
-                    expected = originals[name]
-                else:
-                    expected = {name: {lane: True for lane in originals[name][name]}}
-                wait_for_state(duthost, "show interface tx-disable -p " + name, expected)
-        finally:
-            if not unsupported:
-                run_cpoutil(duthost, "config interface tx-disable -p " + port + " false")
+                result = run_cpoutil(duthost, "show interface tx-disable -p " + name + " --json", optional=True)
+                originals[name] = json.loads(result["stdout"])
+        except pytest.skip.Exception as exc:
+            skipped[physical_port] = str(exc)
+            continue
+        states = [value for name in affected for value in originals[name][name].values()]
+        if not states or any(value is not False for value in states):
+            skipped[physical_port] = "Restoration requires uniformly enabled TX on all physical-port lanes"
+            continue
+        unsupported = False
+        with isolated_interfaces(duthost, affected):
+            try:
+                result = run_cpoutil(duthost, "config interface tx-disable -p " + port + " true", expected_rc=None)
+                unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
+                if not unsupported:
+                    assert result["rc"] == 0, result["stderr"]
                 for name in affected:
-                    wait_for_state(duthost, "show interface tx-disable -p " + name, originals[name])
+                    if unsupported:
+                        expected = originals[name]
+                    else:
+                        expected = {name: {lane: True for lane in originals[name][name]}}
+                    wait_for_state(duthost, "show interface tx-disable -p " + name, expected)
+            finally:
+                if not unsupported:
+                    run_cpoutil(duthost, "config interface tx-disable -p " + port + " false")
+                    for name in affected:
+                        wait_for_state(duthost, "show interface tx-disable -p " + name, originals[name])
         if unsupported:
-            pytest.skip("Platform explicitly does not implement Tx-disable")
-    for name in affected:
-        wait_for_state(duthost, "show interface tx-disable -p " + name, originals[name])
+            skipped[physical_port] = "Tx-disable is not implemented"
+        else:
+            for name in affected:
+                wait_for_state(duthost, "show interface tx-disable -p " + name, originals[name])
+            tested.append(physical_port)
+    logger.info("Tx-disable coverage: tested=%s, skipped=%s", tested, skipped)
+    if not tested:
+        pytest.skip("No eligible physical ports for Tx-disable: {}".format(skipped))
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
-    """Reset one shared OE/ELS and check power, presence, Application and TX recovery."""
+    """Reset each distinct connected OE/ELS and verify its shared ports recover."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
-    name = mapping[connected_cpo_ports[0]][target]["id"].lower()
-    affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
-    query = "show {} lpmode {}".format(target, name)
-    original = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
-    if original[name] is not False:
-        pytest.skip("Reset recovery requires an initially full-power endpoint")
-    status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
-    if any(status[port]["admin_state"] != "up" for port in affected):
-        pytest.skip("Reset recovery requires all shared ports admin-up for reprovisioning")
-    before_presence = json.loads(run_cpoutil(duthost, "show interface presence --json")["stdout"])
-    # A shared endpoint can reset several interfaces; save each interface's state.
-    before = {}
-    for port in affected:
-        before[port] = {}
-        for command in ("speed application", "tx-disable"):
-            result = run_cpoutil(duthost, "show interface {} -p {} --json".format(command, port), optional=True)
-            before[port][command] = json.loads(result["stdout"])
-    unsupported = False
-    with isolated_interfaces(duthost, affected):
+    names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
+    tested, skipped = [], {}
+    for name in names:
+        affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
+        query = "show {} lpmode {}".format(target, name)
         try:
-            result = run_cpoutil(duthost, "config {} reset {}".format(target, name), expected_rc=None)
-            unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
-            assert unsupported or result["rc"] == 0, result["stderr"]
-        finally:
-            if not unsupported:
-                assert wait_until(60, 2, 0, lambda: run_cpoutil(
-                    duthost, query + " --json", expected_rc=None)["rc"] == 0)
-                run_cpoutil(duthost, "config {} lpmode {} full".format(target, name))
-                wait_for_state(duthost, query, original)
+            original = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
+            assert isinstance(original[name], bool)
+            if original[name] is not False:
+                skipped[name] = "Reset recovery requires an initially full-power endpoint"
+                continue
+            status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
+            if any(status[port]["admin_state"] != "up" for port in affected):
+                skipped[name] = "Reset recovery requires all shared ports admin-up for reprovisioning"
+                continue
+            before_presence = json.loads(run_cpoutil(duthost, "show interface presence --json")["stdout"])
+            before = {}
+            for port in affected:
+                before[port] = {}
+                for command in ("speed application", "tx-disable"):
+                    query_before = "show interface {} -p {} --json".format(command, port)
+                    result = run_cpoutil(duthost, query_before, optional=True)
+                    before[port][command] = json.loads(result["stdout"])
+        except pytest.skip.Exception as exc:
+            skipped[name] = str(exc)
+            continue
+        unsupported = False
+        with isolated_interfaces(duthost, affected):
+            try:
+                result = run_cpoutil(duthost, "config {} reset {}".format(target, name), expected_rc=None)
+                unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
+                assert unsupported or result["rc"] == 0, result["stderr"]
+            finally:
+                if not unsupported:
+                    assert wait_until(60, 2, 0, lambda: run_cpoutil(
+                        duthost, query + " --json", expected_rc=None)["rc"] == 0)
+                    run_cpoutil(duthost, "config {} lpmode {} full".format(target, name))
+                    wait_for_state(duthost, query, original)
+            if unsupported:
+                # Nothing was reset; the context still restores shared ports.
+                skipped[name] = "Reset is not implemented"
         if unsupported:
-            pytest.skip("Platform explicitly does not implement reset")
-    wait_for_state(duthost, query, original)
-    presence = json.loads(run_cpoutil(duthost, "show interface presence --json")["stdout"])
-    for port in affected:
-        assert presence[port] == before_presence[port]
-        for command in before[port]:
-            wait_for_state(duthost, "show interface {} -p {}".format(command, port), before[port][command], timeout=60)
+            continue
+        wait_for_state(duthost, query, original)
+        presence = json.loads(run_cpoutil(duthost, "show interface presence --json")["stdout"])
+        for port in affected:
+            assert presence[port] == before_presence[port]
+            for command in before[port]:
+                query_after = "show interface {} -p {}".format(command, port)
+                wait_for_state(duthost, query_after, before[port][command], timeout=60)
+        tested.append(name)
+    logger.info("%s reset coverage: tested=%s, skipped=%s", target, tested, skipped)
+    if not tested:
+        pytest.skip("No eligible {} reset endpoints: {}".format(target, skipped))
 
 
 def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -437,8 +488,8 @@ def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         ["Interface", "ELS", "Laser", "ELS Lane State", "Shared"],
     ]
     # Only OE datapath and ELS lane tables belong here, not ELS module status.
-    # Check connected ports in bulk, then one representative port selector.
-    for selected_port in (None, connected_cpo_ports[0]):
+    # Check connected ports in bulk, then every selected-port entry point.
+    for selected_port in [None] + list(connected_cpo_ports):
         command = "show interface lane-status"
         if selected_port is not None:
             command += " -p " + selected_port

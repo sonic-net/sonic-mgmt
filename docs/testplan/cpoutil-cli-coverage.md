@@ -9,20 +9,20 @@ There are 16 cases; this is not an exhaustive command/argument acceptance suite.
 
 | Command after cpoutil | Basic test | Output/result checks |
 | --- | --- | --- |
-| show interface map | test_cpoutil_map | Public map fields, topology association, OE bank/PORT lanes, table columns/resources, one selected port |
-| show interface presence | test_cpoutil_presence | Connected interfaces present, associated ELS, JSON/table and selected port |
-| show interface dom | test_cpoutil_dom | Presence and OE/ELS info/DOM/threshold structures; no read errors; selected text sections |
+| show interface map | test_cpoutil_map | Public map fields, topology association, OE bank/PORT lanes, table columns/resources, every connected port selector |
+| show interface presence | test_cpoutil_presence | All connected interfaces present, associated ELS, JSON/table and every connected port selector |
+| show interface dom | test_cpoutil_dom | Connected-port presence and OE/ELS info/DOM/threshold structures; no read errors; text sections for every connected port |
 | show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values and lane count, public table columns/resources |
 | show interface speed application | test_cpoutil_application | Public advertisement fields, Host/Media interface keys, control/active lane counts, table columns/resources |
-| show interface lane-status | test_cpoutil_lane_status | Exactly two tables with public headers/port rows, bulk and selected port; runs by default |
-| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty state, JSON/table and selected resource |
+| show interface lane-status | test_cpoutil_lane_status | Exactly two tables with public headers/port rows, bulk and every connected port selector |
+| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty state, JSON/table and every associated resource selector |
 | show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common temperature column |
 | show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common low-power column |
-| read-eeprom oe / read-eeprom els | test_cpoutil_eeprom_read | One selected endpoint, recognizable heading, parseable nonempty hexdump |
-| read-eeprom interface --oe / --els | test_cpoutil_eeprom_read | First connected interface, target heading and parseable nonempty hexdump |
-| config interface tx-disable | test_cpoutil_tx_disable | Physical-port siblings, toggle/readback/finally restoration |
-| config oe lpmode / config els lpmode | test_cpoutil_low_power | Shared ports, toggle/readback/finally restoration |
-| config oe reset / config els reset | test_cpoutil_reset | Shared ports, presence/Application/TX/power/link recovery |
+| read-eeprom oe / read-eeprom els | test_cpoutil_eeprom_read | Each distinct associated OE/ELS once, recognizable heading, parseable nonempty hexdump |
+| read-eeprom interface --oe / --els | test_cpoutil_eeprom_read | Every connected interface alias, target heading and parseable nonempty hexdump |
+| config interface tx-disable | test_cpoutil_tx_disable | Each eligible connected physical port once, all logical siblings, toggle/readback/finally restoration |
+| config oe lpmode / config els lpmode | test_cpoutil_low_power | Each distinct eligible endpoint once, all shared ports, toggle/readback/finally restoration |
+| config oe reset / config els reset | test_cpoutil_reset | Each distinct eligible endpoint once, shared-port presence/Application/TX/power/link recovery |
 | --help and representative missing read options | test_cpoutil_basic_arguments | Root help groups; three incomplete ranges return 1; missing option value returns 2 |
 | write-eeprom interface / oe / els | Outside basic scope | No successful hardware writes or scratch-address option in this suite |
 
@@ -42,6 +42,11 @@ count is required.
 Default: 16 functional cases, including controls and lane-status;
 unsupported operations and unmet prerequisites can cause skips.
 Skipped checks are not hardware PASS.
+Control logs identify tested objects and excluded objects with reasons. One
+ineligible object does not prevent later objects from being checked. A case
+skips when no eligible object remains; a passing case covers eligible objects,
+not the objects explicitly excluded in its log. Hardware traversal remains
+inside the 16 cases rather than adding per-port parameter rows.
 
 See [test plan](cpoutil.md) for selection, recovery, privacy, execution options
 and validation limits. A fresh real testbed run of this refactor is pending.

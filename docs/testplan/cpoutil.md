@@ -14,18 +14,18 @@ There are 12 test functions, producing 16 cases for one DUT:
 
 | Function | Cases | Checks |
 | --- | ---: | --- |
-| `test_cpoutil_map` | 1 | Public OE/ELS fields, PORT lanes, OE bank and topology association; table headers/resources; one selected port |
-| `test_cpoutil_presence` | 1 | Connected ports are present, associated ELS matches the map; table and selected-port output |
-| `test_cpoutil_dom` | 1 | Presence, OE/ELS info/DOM/threshold dictionary structure, read errors; selected-port text sections |
-| `test_cpoutil_endpoint_status` | 2 | OE/ELS module state, finite temperature, boolean low-power mode; common table headers and selected-resource output |
+| `test_cpoutil_map` | 1 | Public OE/ELS fields, PORT lanes, OE bank and topology association; table headers/resources; every connected port selector |
+| `test_cpoutil_presence` | 1 | All connected ports are present, associated ELS matches the map; bulk and every selected-port output |
+| `test_cpoutil_dom` | 1 | Connected-port OE/ELS info/DOM/threshold structure, presence and read errors; text sections for every connected port |
+| `test_cpoutil_endpoint_status` | 2 | State, finite temperature, boolean low-power, headers and selected-resource output for every associated OE/ELS |
 | `test_cpoutil_application` | 1 | Public Application fields, Host/Media interface keys and lane counts; table headers/resources |
 | `test_cpoutil_tx_disable_query` | 1 | Boolean lane values and lane count; table headers/resources |
-| `test_cpoutil_eeprom_read` | 2 | One OE/ELS endpoint and its interface alias: recognized hexdump heading and nonempty bytes |
+| `test_cpoutil_eeprom_read` | 2 | Every connected interface alias and each associated OE/ELS directly once: recognized hexdump heading and nonempty bytes |
 | `test_cpoutil_basic_arguments` | 1 | Root help and four representative incomplete read-option checks |
-| `test_cpoutil_low_power` | 2 | Toggle a representative OE/ELS, read back and restore power mode |
-| `test_cpoutil_tx_disable` | 1 | Toggle one physical port, check its logical siblings and restore TX |
-| `test_cpoutil_reset` | 2 | Reset one OE/ELS; restore power mode, presence, Application, TX and previously up links |
-| `test_cpoutil_lane_status` | 1 | Exactly two tables: OE datapath and ELS lane headers/resources, bulk and selected port |
+| `test_cpoutil_low_power` | 2 | Toggle each distinct eligible OE/ELS, read back and restore before the next endpoint |
+| `test_cpoutil_tx_disable` | 1 | Toggle each eligible connected physical port once, check all logical siblings and restore TX |
+| `test_cpoutil_reset` | 2 | Reset each distinct eligible OE/ELS; restore power, presence, Application, TX and previously up links |
+| `test_cpoutil_lane_status` | 1 | Exactly two tables: OE datapath and ELS lane headers/resources, bulk and every connected port selector |
 
 Default execution attempts all 16 functional cases, including lane-status and
 hardware controls. Unsupported platform capabilities and unmet
@@ -53,9 +53,14 @@ validate actual cabling or peer traffic.
 Requirements: physical single-ASIC, non-ganged DUT; valid CPO topology;
 installed common cpoutil and matching platform support. Missing CPO topology
 or connected CPO ports skips the module. A missing/broken CLI on an otherwise
-eligible DUT fails. Queries validate connected ports in bulk output and
-representative selected-port/resource paths, without repeating every CLI
-syntax on every port.
+eligible DUT fails. Basic queries validate every connected CPO port in bulk
+output. Map, presence, DOM and lane-status also traverse every connected-port
+selector; endpoint queries traverse every associated OE/ELS selector.
+Direct EEPROM reads are deduplicated by OE/ELS identifier, while every connected
+interface alias is read separately, preserving its OE bank path. This does not
+claim coverage of unconnected independent endpoints or all page/range options.
+The argument-parser smoke check still uses one valid OE: parser behavior is not
+repeated for each hardware endpoint.
 
 ## Output checks and privacy
 
@@ -78,7 +83,7 @@ The output filter returns:
 Text checks validate common headers/resources, not every displayed cell.
 The lane-status test expects exactly two tables: Interface/Lane/Data
 Path State and Interface/ELS/Laser/ELS Lane State/Shared. It checks connected
-port rows in each table and one selected-port query. It does not request JSON
+port rows in each table and every connected-port query. It does not request JSON
 or check ELS module status. It runs by default and skips only when the platform
 explicitly reports that the query is not implemented.
 DOM checks do not assert a vendor-specific sensor list or all threshold values.
@@ -89,9 +94,11 @@ return 1. Unsupported optional operations skip only for an explicit
 
 ## Controls and restoration
 
-Controls use the first connected port to select a representative endpoint or
-physical port. Isolation includes all mapped ports sharing that endpoint,
-including unconnected siblings. Tx-disable uses physical PORT index ownership.
+Controls traverse endpoints associated with the connected ports. Low-power and
+reset deduplicate by OE/ELS identifier; Tx-disable deduplicates by physical PORT
+index. Each object is restored before advancing to the next object. Isolation
+includes all mapped ports sharing that endpoint or physical port, including
+unconnected siblings.
 
 The explicit module marker invokes `preserve_device_state` once around
 the module, checking PORT configuration and container ID/StartedAt/RestartCount.
@@ -102,7 +109,11 @@ restore DOM/admin settings in `finally`. Previously up links must recover.
 All interface restoration commands are attempted even when an earlier
 restoration fails. Explicitly unsupported setters are skipped after cleanup.
 Low-power/TX/reset prerequisites prevent controls whose initial state cannot
-be safely restored through reprovisioning.
+be safely restored through reprovisioning. Ineligible objects are logged with
+their reasons and do not stop checks of later objects. Each control test logs
+the tested objects and excluded objects. If none can be tested, the case skips;
+otherwise it covers the eligible objects only. Real command/read failures and
+failed restoration fail the case rather than being converted into exclusions.
 
 ## Run
 
@@ -122,12 +133,16 @@ The old `--cpo-eeprom-write` option is no longer part of this suite.
 2026-11-02:
 
 - 16 integration cases collect in isolation.
-- 42 focused local checks pass, covering actual test bodies, real merged CLI
+- 69 focused local checks pass, covering actual test bodies, real merged CLI
   formatters and the follow-up lane tables, public JSON/header errors, Jinja-safe
   transport, identity filtering, connection selection and recovery/guard failure paths.
 - The lane-status body is called directly in local checks against the
   new CLI formatter. Missing/extra tables, wrong headers, missing per-table port
   rows and an unexpected selected-port row are rejected.
+- Traversal checks use five connected CPO logical ports, two OEs, two ELSs,
+  three physical ports and an unconnected shared sibling. They verify complete
+  traversal, deduplication, later-object progress after an exclusion, skip when
+  no eligible object remains, and restoration after a later endpoint fails.
 - The actual integration module runs against an explicitly synthetic testbed:
   default 16 passed, including lane-status and the five hardware-control cases.
   These are local synthetic results, not DUT PASS.
