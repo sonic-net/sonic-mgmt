@@ -451,7 +451,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_rx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_rx {}".format(pfcwd_stat_after_rx))
-        if asic_type != 'vs':
+        # Hardware recovery acts on the egress queue only: no RX counters.
+        if asic_type != 'vs' and not self.is_hw_recovery:
             # check count, drop: rx_drop_count; forward: rx_ok_count
             if self.rx_action == "drop":
                 rx_drop_count_init = int(pfcwd_stat_init[0]['rx_drop_count'])

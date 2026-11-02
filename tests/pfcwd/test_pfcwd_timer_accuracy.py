@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports  # noqa: F401
 from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -75,9 +76,15 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
-    dynamic_timers = calculate_pfcwd_default_timers(duthost)
-    logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
-    timers.update(dynamic_timers)
+    hw_pfcwd = is_pfcwd_hw_recovery_enabled(duthost)
+    if hw_pfcwd:
+        # Hardware timers are programmed in the ASIC: the port-count scaling does not
+        # apply and scaled values can be rejected.
+        logger.info(f"Hardware PFC watchdog: keeping base timers {timers}")
+    else:
+        dynamic_timers = calculate_pfcwd_default_timers(duthost)
+        logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
+        timers.update(dynamic_timers)
     # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
     # So that convert to list explicitly.
     pfc_wd_test_port = list(test_ports.keys())[0]
@@ -87,7 +94,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     fanout = fanouthosts
     peer_params = populate_peer_info(asic_type, neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
-    dut.command("pfcwd interval {}".format(timers['pfc_wd_poll_time']))
+    # 'pfcwd interval' is software-mode only; the CLI rejects it on hardware.
+    if not hw_pfcwd:
+        dut.command("pfcwd interval {}".format(timers['pfc_wd_poll_time']))
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
     # enable routing from mgmt interface to localhost

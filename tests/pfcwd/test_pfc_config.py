@@ -191,7 +191,9 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     yield
 
+    # Clear any leftover per-port action before starting the default configuration.
     logger.info("--- Start Pfcwd--")
+    duthost.command("pfcwd stop")
     duthost.command("pfcwd start_default")
 
 
