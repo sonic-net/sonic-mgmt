@@ -99,3 +99,6 @@ command checks without a DUT or chassis runtime.
 python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/unit_test_local_cli_transport.py -q
 ```
+## QoS database callers
+
+`unit_test_qos_database_callers.py` checks buffer and PFC command arguments, database selection and ASIC handling. It also checks that local QoS configuration commands use the named database CLI. Feature behavior still requires the corresponding QoS and buffer suites on a testbed.

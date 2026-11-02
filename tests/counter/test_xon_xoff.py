@@ -27,8 +27,8 @@ def read_rx_drops(duthost, iface):
     Returns int (0 if no value).
     """
     cmd = (
-        f"sonic-db-cli COUNTERS_DB HGET 'COUNTERS:{iface}' 'RX_DROPS' "
-        f"|| redis-cli -n 2 HGET 'COUNTERS:{iface}' 'RX_DROPS'"
+        f"sonic-db-cli -s COUNTERS_DB HGET 'COUNTERS:{iface}' 'RX_DROPS' "
+        f"|| sonic-db-cli -s COUNTERS_DB HGET 'COUNTERS:{iface}' 'RX_DROPS'"
     )
     res = duthost.shell(cmd, module_ignore_errors=True)
     out = res.get("stdout", "").strip()

@@ -577,9 +577,9 @@ class TestQosSai(QosSaiBase):
 
         # check if pfcwd status is enabled before running the test
         prev_state = duthost.shell(
-            'sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
+            'sonic-db-cli -s CONFIG_DB HGETALL "PFC_WD|{}"'.format(pfcwd_test_port))['stdout']
         prev_poll_interval = duthost.shell(
-            'sonic-db-cli CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL')['stdout']
+            'sonic-db-cli -s CONFIG_DB HGET "PFC_WD|GLOBAL" POLL_INTERVAL')['stdout']
 
         try:
             prev_state = json.loads(prev_state)
