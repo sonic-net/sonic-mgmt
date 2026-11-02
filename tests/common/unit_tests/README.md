@@ -128,3 +128,11 @@ python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
 ## Routing and switching database callers
 
 `unit_test_network_database_callers.py` checks BGP presence-test output, VXLAN cleanup key/field arguments and local configuration commands. These isolated checks do not replace routing, forwarding or multi-ASIC testbed runs.
+## Platform Redis callers
+
+`unit_test_platform_redis_callers.py` checks the host-local module status query
+with native and named CLI reply formats. `unit_test_redis_benchmark_cleanup.py`
+executes the generated DUT Python cleanup command with mocked Redis and
+authentication modules. It checks that cleanup uses available local credentials,
+preserves unrelated routes and reports authentication or command failures. These
+checks do not run the platform or gNMI feature suites on a switch.

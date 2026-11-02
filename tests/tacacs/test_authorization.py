@@ -325,7 +325,7 @@ def test_authorization_tacacs_only(
         "show lldp table",
         "show reboot-cause",
         "configlet --help",
-        "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
+        "sonic-db-cli -s  CONFIG_DB HGET \"FEATURE|macsec\" state"
     ]
 
     frontend_commands = [
@@ -356,7 +356,7 @@ def test_authorization_tacacs_only(
         "sudo dmesg -D",
         "sudo sonic-cfggen --print-data",
         "sudo config list-checkpoints",
-        "redis-cli -n 4 keys \\*"
+        "sonic-db-cli -s CONFIG_DB keys \\*"
     ]
 
     for subcommand in rw_commands:

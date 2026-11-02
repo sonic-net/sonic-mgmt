@@ -526,7 +526,7 @@ def check_dbmemory(duthosts):
         check_result = {"failed": False, "check_item": "dbmemory", "host": dut.hostname}
         # check the db memory on the redis instance running on each instance
         for asic in dut.asics:
-            res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
+            res = asic.run_sonic_db_cli_cmd('APPL_DB ' + redis_cmd)['stdout_lines']
             result, total_omem, non_zero_output, addrs, fds = _is_db_omem_over_threshold(res)
             check_result["total_omem"] = total_omem
             if result:
