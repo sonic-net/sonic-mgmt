@@ -223,7 +223,11 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
-    wait_until(300, 10, 10, is_ptf_nn_agent_running, dut, nn_target_namespace)
+    if not wait_until(300, 10, 10, is_ptf_nn_agent_running, dut, nn_target_namespace):
+        raise RuntimeError(
+                    "The ptf_nn_agent is not running for namespace: {}".format(
+                        nn_target_namespace)
+                        )
 
 
 def is_ptf_nn_agent_running(dut, nn_target_namespace):
