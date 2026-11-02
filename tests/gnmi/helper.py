@@ -52,8 +52,7 @@ def verify_gnoi_role_access(env, role, operation, error_pattern, validation_erro
     duthost = env.duthost
     role_key = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
     redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
-    pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == role,
-                  "Certificate role was not applied")
+    pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == role, "Certificate role was not applied")
     env.grpc.configure_max_time(30)
     if error_pattern or validation_error:
         with pytest.raises(PtfGrpcError, match=error_pattern or validation_error):

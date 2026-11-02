@@ -32,14 +32,20 @@ def _file_transfer_to_remote(client, path):
 
 
 def _file_put(client, path):
-    return client.call_client_streaming("gnoi.file.File", "Put", [
-        {"open": {"remoteFile": path, "permissions": 420}},
-        {"contents": base64.b64encode(AUTHZ_REPLACEMENT_CONTENT).decode()},
-        {"hash": {
-            "method": "MD5",
-            "hash": base64.b64encode(hashlib.md5(AUTHZ_REPLACEMENT_CONTENT).digest()).decode(),
-        }},
-    ])
+    return client.call_client_streaming(
+        "gnoi.file.File",
+        "Put",
+        [
+            {"open": {"remoteFile": path, "permissions": 420}},
+            {"contents": base64.b64encode(AUTHZ_REPLACEMENT_CONTENT).decode()},
+            {
+                "hash": {
+                    "method": "MD5",
+                    "hash": base64.b64encode(hashlib.md5(AUTHZ_REPLACEMENT_CONTENT).digest()).decode(),
+                }
+            },
+        ],
+    )
 
 
 def _file_remove(client, path):
@@ -48,12 +54,16 @@ def _file_remove(client, path):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("role,error_pattern", gnoi_helper.GNOI_ROLE_CASES)
-@pytest.mark.parametrize("operation,validation_error,writer_content", [
-    pytest.param(_file_transfer_to_remote, "remote_download cannot be nil", AUTHZ_FILE_CONTENT,
-                 id="TransferToRemote"),
-    pytest.param(_file_put, None, AUTHZ_REPLACEMENT_CONTENT, id="Put"),
-    pytest.param(_file_remove, None, None, id="Remove"),
-])
+@pytest.mark.parametrize(
+    "operation,validation_error,writer_content",
+    [
+        pytest.param(
+            _file_transfer_to_remote, "remote_download cannot be nil", AUTHZ_FILE_CONTENT, id="TransferToRemote"
+        ),
+        pytest.param(_file_put, None, AUTHZ_REPLACEMENT_CONTENT, id="Put"),
+        pytest.param(_file_remove, None, None, id="Remove"),
+    ],
+)
 def test_gnoi_file_write_authorization(
     gnmi_tls, role, error_pattern, operation, validation_error, writer_content  # noqa: F811
 ):
@@ -63,12 +73,14 @@ def test_gnoi_file_write_authorization(
     path = directory + "/sentinel"
     try:
         duthost.copy(content=AUTHZ_FILE_CONTENT.decode(), dest=path)
-        gnoi_helper.verify_gnoi_role_access(gnmi_tls, role, lambda: operation(gnmi_tls.grpc, path),
-                                            error_pattern, validation_error)
+        gnoi_helper.verify_gnoi_role_access(
+            gnmi_tls, role, lambda: operation(gnmi_tls.grpc, path), error_pattern, validation_error
+        )
         expected_content = AUTHZ_FILE_CONTENT if error_pattern else writer_content
         if expected_content is None:
-            pytest_assert(not duthost.stat(path=path)["stat"]["exists"],
-                          "Authorized Remove did not remove the sentinel")
+            pytest_assert(
+                not duthost.stat(path=path)["stat"]["exists"], "Authorized Remove did not remove the sentinel"
+            )
         else:
             content = base64.b64decode(duthost.slurp(src=path)["content"])
             pytest_assert(content == expected_content, "Unexpected sentinel content after RPC")

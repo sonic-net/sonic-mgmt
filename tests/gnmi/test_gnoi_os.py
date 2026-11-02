@@ -26,9 +26,11 @@ def test_gnoi_os_install_authorization(gnmi_tls, role, error_pattern):  # noqa: 
     """Install must deny readers and allow writers to reach request validation."""
     # No TransferRequest: validation stops before backend/image installation.
     verify_gnoi_role_access(
-        gnmi_tls, role,
+        gnmi_tls,
+        role,
         lambda: gnmi_tls.grpc.call_bidirectional_streaming("gnoi.os.OS", "Install", [{}]),
-        error_pattern, validation_error="Expected TransferRequest",
+        error_pattern,
+        validation_error="Expected TransferRequest",
     )
 
 

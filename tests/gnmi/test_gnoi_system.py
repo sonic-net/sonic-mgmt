@@ -26,9 +26,11 @@ def test_gnoi_factory_reset_authorization(gnmi_tls, role, error_pattern):  # noq
     """FactoryReset must deny readers and allow writers to reach the backend."""
     # Use the host service's unsupported zero-fill request, never a normal reset.
     response = verify_gnoi_role_access(
-        gnmi_tls, role,
-        lambda: gnmi_tls.grpc.call_unary("gnoi.factory_reset.FactoryReset", "Start",
-                                         {"factoryOs": True, "zeroFill": True}),
+        gnmi_tls,
+        role,
+        lambda: gnmi_tls.grpc.call_unary(
+            "gnoi.factory_reset.FactoryReset", "Start", {"factoryOs": True, "zeroFill": True}
+        ),
         error_pattern,
     )
     if not error_pattern:
