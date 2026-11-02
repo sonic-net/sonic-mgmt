@@ -18,6 +18,7 @@ from pygnmi.spec.v080 import gnmi_pb2
 from tests.common.fixtures.grpc_fixtures import gnmi_tls, _restart_gnoi_server  # noqa: F401
 from tests.common.helpers.gnmi_connection import gnmi_connection, build_native_set_request
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_hset, redis_hdel
+from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 from tests.common.utilities import get_inventory_files
 
 pytestmark = [pytest.mark.topology("any")]
@@ -63,19 +64,13 @@ def _account_record(duthost, prefix, database, name):
     return result["stdout"].strip().split(":") if result["rc"] == 0 else None
 
 
-def _remove_owned(duthost, prefix, database, name, owned, role=None):
-    record = _account_record(duthost, prefix, database, name)
+def _remove_user(duthost, prefix, name, uid):
+    record = _account_record(duthost, prefix, "passwd", name)
     if record is None:
         return
-    assert record[2] == owned.get((tuple(prefix), database, name)), "Identity ownership unknown; refusing deletion"
-    if database == "group":
-        assert not record[3], "Owned group acquired other members; refusing deletion"
-    command = "userdel" if database == "passwd" else "groupdel"
-    duthost.command(argv=prefix + [command, name])
-    assert _account_record(duthost, prefix, database, name) is None, "Owned identity survived cleanup"
-    if role:
-        group = _account_record(duthost, prefix, "group", role)
-        assert group is None or name not in group[3].split(","), "Owned membership survived cleanup"
+    assert record[2] == uid, "User ownership unknown; refusing deletion"
+    duthost.command(argv=prefix + ["userdel", name])
+    assert _account_record(duthost, prefix, "passwd", name) is None, "Test user survived cleanup"
 
 
 def _cloudtype(duthost):
@@ -95,7 +90,7 @@ def _restore_cloudtype(duthost, original):
 
 @pytest.fixture
 def password_identity(request, gnmi_tls, role):  # noqa: F811
-    """Create a temporary user on each side; clean up before TLS rollback."""
+    """Reuse a fixed test name sequentially; clean up before TLS rollback."""
     __tracebackhide__ = True
     duthost = gnmi_tls.duthost
     container = ["docker", "exec", "gnmi"]
@@ -110,30 +105,41 @@ def password_identity(request, gnmi_tls, role):  # noqa: F811
         for path in files:
             actual = duthost.command(argv=prefix + ["readlink", "-f", path])["stdout"].strip()
             assert actual == path, "Account file symlinks are unsupported"
-    username = "gnmipw_" + secrets.token_hex(5)
+    username = "gnmi_test_" + role.rsplit("_", 1)[1]
     for prefix in ([], container):
         assert _account_record(duthost, prefix, "passwd", username) is None, "Test name already exists"
 
     original = _cloudtype(duthost)
-    owned = {}
+    host_uid = container_uid = group_gid = None
+
+    def set_host_password(host, name, password):
+        __tracebackhide__ = True
+        nonlocal host_uid
+        host_uid = _account_record(host, [], "passwd", name)[2]
+        _set_password(request, host, name, password)
+
+    def clean_role_group():
+        group = _account_record(duthost, container, "group", role)
+        if group:
+            assert group[2] == group_gid and not group[3], "Group ownership unknown or group not empty"
+            duthost.command(argv=container + ["groupdel", role])
+            assert _account_record(duthost, container, "group", role) is None, "Test group survived cleanup"
+
     with ExitStack() as cleanup:
         cleanup.callback(_restore_cloudtype, duthost, original)
         if _account_record(duthost, container, "group", role) is None:
-            cleanup.callback(_remove_owned, duthost, container, "group", role, owned)
+            cleanup.callback(clean_role_group)
             duthost.command(argv=container + ["groupadd", role])
-            owned[(tuple(container), "group", role)] = _account_record(duthost, container, "group", role)[2]
-        for prefix in ([], container):
-            # A failed/ambiguous creation must not authorize deletion by name.
-            cleanup.callback(_remove_owned, duthost, prefix, "passwd", username, owned, role if prefix else None)
-            args = ["useradd", "--no-create-home", "--no-user-group", "--gid", "nogroup",
-                    "--no-log-init", "-K", "CREATE_MAIL_SPOOL=no", "--shell", "/bin/bash"]
-            if prefix:
-                args.extend(["--groups", role])
-            duthost.command(argv=prefix + args + [username])
-            owned[(tuple(prefix), "passwd", username)] = _account_record(duthost, prefix, "passwd", username)[2]
-
+            group_gid = _account_record(duthost, container, "group", role)[2]
+        cleanup.callback(lambda: _remove_user(duthost, [], username, host_uid))
         password = "Gnmi!9_" + secrets.token_hex(20)
-        _set_password(request, duthost, username, password)
+        useradd_args = ["--no-create-home", "--no-user-group", "--gid", "nogroup", "--no-log-init",
+                        "-K", "CREATE_MAIL_SPOOL=no", "--shell", "/bin/bash"]
+        setup_local_user(duthost, {"local_user": username, "local_user_passwd": password},
+                         password_setter=set_host_password, useradd_args=useradd_args)
+        cleanup.callback(lambda: _remove_user(duthost, container, username, container_uid))
+        duthost.command(argv=container + ["useradd"] + useradd_args + ["--groups", role, username])
+        container_uid = _account_record(duthost, container, "passwd", username)[2]
         result = redis_hset(duthost, CONFIG_DB, "GNMI|gnmi", user_auth="password")
         assert result["rc"] == 0, "Could not select password-only authentication"
         _restart_gnoi_server(duthost)
