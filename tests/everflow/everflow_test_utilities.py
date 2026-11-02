@@ -45,6 +45,8 @@ FILE_DIR = "everflow/files"
 EVERFLOW_V4_RULES = "ipv4_test_rules.yaml"
 EVERFLOW_DSCP_RULES = "dscp_test_rules.yaml"
 IP_TYPE_RULE_V6 = "test_rules_ip_type_v6.json"
+# Qualifiers an ASIC silently drops when programming an ACL rule.
+IGNORED_ACL_QUALIFIERS = {"vpp": {"dscp"}}
 
 DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
@@ -1248,9 +1250,7 @@ class BaseEverflowTest(object):
                                                 bind_namespace=getattr(inst, 'namespace', None))
 
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method, module_ignore_errors=True)
-            rule_filter = self._rule_survives_vpp_programming if duthost.facts["asic_type"] == "vpp" else None
-            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method,
-                                       rule_filter=rule_filter)
+            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
 
         yield
 
@@ -1291,11 +1291,17 @@ class BaseEverflowTest(object):
         duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
     @staticmethod
-    def _rule_survives_vpp_programming(rule):
-        # A rule whose every qualifier sonic-vpp ignores degenerates into match-all.
-        ignored = {"dscp"}
-        fields = {f for section in rule.get("qualifiers", {}).values() for f in section}
-        return not fields <= ignored
+    def _drop_unprogrammable_rules(duthost, rules):
+        """Drop rules whose every qualifier this ASIC ignores."""
+        ignored = IGNORED_ACL_QUALIFIERS.get(duthost.facts["asic_type"])
+        if not ignored:
+            return rules
+
+        kept = [r for r in rules
+                if not {f for s in r.get("qualifiers", {}).values() for f in s}.issubset(ignored)]
+        pytest_assert(kept, "Every ACL rule was dropped as unprogrammable on {}"
+                            .format(duthost.facts["asic_type"]))
+        return kept
 
     def apply_acl_rule_config(
             self,
@@ -1303,12 +1309,10 @@ class BaseEverflowTest(object):
             table_name,
             session_name,
             config_method,
-            rules=EVERFLOW_V4_RULES,
-            rule_filter=None
+            rules=EVERFLOW_V4_RULES
     ):
         rules_config = load_acl_rules_config(table_name, os.path.join(FILE_DIR, rules))
-        if rule_filter:
-            rules_config["rules"] = list(filter(rule_filter, rules_config["rules"]))
+        rules_config["rules"] = self._drop_unprogrammable_rules(duthost, rules_config["rules"])
         duthost.host.options["variable_manager"].extra_vars.update(rules_config)
 
         if config_method == CONFIG_MODE_CLI:
