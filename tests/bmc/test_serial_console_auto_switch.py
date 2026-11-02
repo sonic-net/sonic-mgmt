@@ -69,12 +69,25 @@ _SWITCH_HOST_RESTART_SCENARIOS = {
 
 
 @pytest.fixture(scope="module", autouse=True)
-def restore_switch_host(duthost, switch_host, console_mux):
+def restore_switch_host(duthost, switch_host, console_mux, request):
     original = console_mux.get_console()
+    failed_before = request.session.testsfailed
     yield
-    recover_switch_host_after_power_off(
-        duthost, switch_host, context="serial-console auto-switch teardown")
+    # Green run: host is up. recover() would wait_host_off for 180 s.
+    # A failed case may have shutdown in flight while chassis still says
+    # Online; recover waits for off, then powers on.
+    if request.session.testsfailed > failed_before:
+        recover_switch_host_after_power_off(
+            duthost, switch_host, context="serial-console auto-switch teardown")
+    else:
+        ensure_host_on(duthost, switch_host)
     console_mux.set_console(original)
+
+
+@pytest.fixture(autouse=True)
+def _ensure_switch_host_on(duthost, switch_host):
+    with allure.step("Ensure SWITCH-HOST is on"):
+        ensure_host_on(duthost, switch_host)
 
 
 @pytest.fixture(autouse=True)
@@ -98,22 +111,28 @@ def _restart(host, restart_type, wait=True):
     pytest_assert(boot_id_before, "Could not read boot_id before {}".format(restart_type.value))
     if restart_type == Restart.PANIC:
         _enable_panic_reboot(host)
-    _, async_res = host.shell(
+    pool, async_res = host.shell(
         command, module_async=True, module_ignore_errors=True)
     # Do not wait for rc==0. Success kills SSH, so there is often no rc.
     # If the job finishes here with rc!=0, the host never rebooted — skip
     # instead of waiting minutes for a new boot_id. No result in time
     # means reboot has started; continue to UART / boot_id.
-    wait_until(_RESTART_FAIL_WAIT, 0.2, 0, async_res.ready)
-    if async_res.ready():
-        try:
-            result = async_res.get()
-        except Exception:
-            result = None
-        if result is not None and result.get("rc"):
-            err = (result.get("stderr") or result.get("stdout") or "").strip()
-            pytest.skip("{} is not supported (rc={}): {}".format(
-                restart_type.value, result.get("rc"), err))
+    # Terminate the ThreadPool either way: a dropped SSH leaves the worker
+    # blocked until Ansible's timeout (see tests/common/reboot.py).
+    try:
+        wait_until(_RESTART_FAIL_WAIT, 0.2, 0, async_res.ready)
+        if async_res.ready():
+            try:
+                result = async_res.get()
+            except Exception:
+                result = None
+            if result is not None and result.get("rc"):
+                err = (result.get("stderr") or result.get("stdout") or "").strip()
+                pytest.skip("{} is not supported (rc={}): {}".format(
+                    restart_type.value, result.get("rc"), err))
+    finally:
+        pool.terminate()
+        pool.join()
     if wait:
         pytest_assert(
             wait_host_rebooted(host, boot_id_before),
@@ -160,24 +179,21 @@ def _assert_host_restart_leaves_console(switch_host, console_mux, uart, restart_
         console_mux.set_console(side)
         console_mux.assert_console(side)
         uart.drain()
-        _restart(switch_host, restart_type, wait=wait)
+        boot_id_before = _restart(switch_host, restart_type, wait=wait)
         if uart_expect == "host_boot":
             uart.expect_host_boot_log()
-            pytest_assert(
-                wait_host_on(switch_host),
-                "SWITCH-HOST did not come back after {}".format(restart_type.value))
         elif uart_expect == "panic":
             uart.expect_panic()
+        if uart_expect is not None:
             pytest_assert(
-                wait_host_on(switch_host),
+                wait_host_rebooted(switch_host, boot_id_before),
                 "SWITCH-HOST did not come back after {}".format(restart_type.value))
         console_mux.assert_console(side)
 
 
 def test_host_power_off_routes_console_to_bmc(duthost, switch_host, console_mux):
     """Power-off moves the console to BMC. Power-on leaves it there."""
-    with allure.step("Ensure SWITCH-HOST is on and console is on CPU"):
-        ensure_host_on(duthost, switch_host)
+    with allure.step("Set console on CPU"):
         console_mux.set_console(CONSOLE_CPU)
         console_mux.assert_console(CONSOLE_CPU)
 
@@ -198,8 +214,6 @@ def test_host_initiated_restart_leaves_console_unchanged(duthost, switch_host, c
     Scenarios: reboot (CPU + UART), panic, watchdog, reboot-bmc, fast-reboot.
     Select with --switch_host_restart all|random|reboot,panic,watchdog,reboot-bmc,fast-reboot.
     """
-    with allure.step("Ensure SWITCH-HOST is on"):
-        ensure_host_on(duthost, switch_host)
     restart_type, side, uart_expect = _SWITCH_HOST_RESTART_SCENARIOS[switch_host_restart]
     _assert_host_restart_leaves_console(
         switch_host, console_mux, bmc_shared_uart, restart_type, side, uart_expect)
@@ -212,8 +226,6 @@ def test_host_initiated_warm_reboot_leaves_console_unchanged(duthost, switch_hos
     TODO: Not in `_SWITCH_HOST_RESTART_SCENARIOS` because some platforms do not support
     warm-reboot yet. A dedicated case is easier to skip.
     """
-    with allure.step("Ensure SWITCH-HOST is on"):
-        ensure_host_on(duthost, switch_host)
     _assert_host_restart_leaves_console(
         switch_host, console_mux, bmc_shared_uart, Restart.WARM_REBOOT)
 
@@ -253,13 +265,11 @@ def test_bmc_power_cycle_routes_console_to_bmc(duthost, switch_host, console_mux
 
 def test_bmc_reboot_uart_shows_bmc_boot(duthost, switch_host, console_mux, bmc_shared_uart):
     """BMC reboot shows BMC boot on the console with no software console switch."""
-    with allure.step("Ensure SWITCH-HOST is on"):
-        ensure_host_on(duthost, switch_host)
     uart = bmc_shared_uart
 
     with allure.step("""
-        Initialized the console on CPU, 
-        Rebooting BMC with command `sudo reboot`, 
+        Initialized the console on CPU,
+        Rebooting BMC with command `sudo reboot`,
         expect BMC boot log,
         console back to BMC
     """):
@@ -286,9 +296,8 @@ def test_bmc_boot_host_power_and_console_default(duthost, switch_host, console_m
         _wait_bmc_up(duthost, boot_id_before, console_mux)
         console_mux.assert_console(CONSOLE_BMC)
 
-    with allure.step("Power on SWITCH-HOST, reboot BMC, and expect console on BMC"):
-        recover_switch_host_after_power_off(
-            duthost, switch_host, context="serial-console power-on")
+    with allure.step("Ensure SWITCH-HOST is on, reboot BMC, and expect console on BMC"):
+        ensure_host_on(duthost, switch_host)
         boot_id_before = _restart(duthost, Restart.REBOOT, wait=False)
         _wait_bmc_up(duthost, boot_id_before, console_mux)
         console_mux.assert_console(CONSOLE_BMC)
@@ -296,8 +305,6 @@ def test_bmc_boot_host_power_and_console_default(duthost, switch_host, console_m
 
 def test_set_console_same_side_is_noop(duthost, switch_host, console_mux, bmc_shared_uart):
     """Setting console to the side it is already on is a no-op."""
-    with allure.step("Ensure SWITCH-HOST is on"):
-        ensure_host_on(duthost, switch_host)
     uart = bmc_shared_uart
 
     with allure.step("Set console to BMC twice and expect no boot log"):
@@ -322,8 +329,7 @@ def test_set_console_same_side_is_noop(duthost, switch_host, console_mux, bmc_sh
 def test_power_action_while_console_already_on_bmc(duthost, switch_host, console_mux,
                                                    platform_api_conn):  # noqa: F811
     """From console on BMC, host power-off / power-on / reset leave the console on BMC."""
-    with allure.step("Ensure SWITCH-HOST is on and console is on BMC"):
-        ensure_host_on(duthost, switch_host)
+    with allure.step("Set console on BMC"):
         console_mux.set_console(CONSOLE_BMC)
         console_mux.assert_console(CONSOLE_BMC)
 
@@ -344,8 +350,7 @@ def test_power_action_while_console_already_on_bmc(duthost, switch_host, console
 def test_host_reset_leaves_console_unchanged(duthost, switch_host, console_mux,
                                              platform_api_conn):  # noqa: F811
     """Host reset does not move the console off CPU."""
-    with allure.step("Ensure SWITCH-HOST is on and console is on CPU"):
-        ensure_host_on(duthost, switch_host)
+    with allure.step("Set console on CPU"):
         console_mux.set_console(CONSOLE_CPU)
         console_mux.assert_console(CONSOLE_CPU)
 

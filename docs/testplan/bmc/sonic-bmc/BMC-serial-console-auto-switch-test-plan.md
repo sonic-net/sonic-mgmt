@@ -27,9 +27,8 @@
 | Host power-off         | `set_admin_state(False)`; host is powered off and the console must land on BMC                           |
 | Host power-on          | `set_admin_state(True)`; console side is unchanged                                                       |
 | Host power cycle / reset | `do_power_cycle()`; same console result as host `reboot()`. Console side is unchanged                  |
-| Host-initiated restart | Host `reboot` / kernel panic / watchdog; console side is unchanged                                       |
+| Host-initiated restart | Host `reboot` / kernel panic / watchdog / `fast-reboot`; console side is unchanged; skip watchdog and fast-reboot if unsupported |
 | Host-initiated warm reboot | Host `warm-reboot`; console side is unchanged; skip if unsupported                                      |
-| Host-initiated fast reboot | Host `fast-reboot`; console side is unchanged; skip if unsupported                                      |
 | Board power cycle      | PDU / AC cycle of the chassis (BMC + host); hardware default returns console to BMC                      |
 | Physical console       | Lab console-server session on the single shared UART                                                     |
 
@@ -134,6 +133,16 @@ Cases **set** or **observe** console on BMC or CPU through a vendor-overridable 
 
 Skip (or fail clearly) if conn-graph has no console link for the BMC DUT. Do not fall back to c0 console-switch fixtures.
 
+### 5. Host-restart selection
+
+`test_host_initiated_restart_leaves_console_unchanged` is parameterized with `--switch_host_restart`:
+
+- `all` (default): `reboot`, `panic`, `watchdog`, `reboot-bmc`, `fast-reboot`
+- `random`: one of those
+- comma-separated names: only those scenarios
+
+Each selected name reboots SWITCH-HOST. Use a subset or `random` to run fewer host restarts. Warm-reboot stays a separate case so it can be skipped on its own.
+
 ---
 
 
@@ -173,21 +182,32 @@ Host power-off puts the console on BMC, and the following power-on leaves it the
 #### Test Case #2: test_host_initiated_restart_leaves_console_unchanged
 
 **Test Objective**:
-Host software restart does not move the console. From console on CPU run `reboot` / panic / watchdog (skip watchdog if unsupported); from console on BMC run `reboot`; observe console unchanged. For panic, also capture that a panic occurred.
+Host software restart does not move the console. One pytest item per `--switch_host_restart` scenario:
+
+| Name | Restart | Console start | Extra observe |
+| --- | --- | --- | --- |
+| `reboot` | host `reboot` | CPU | UART is host boot (`GNU GRUB` or `AMI`; no `U-Boot`) |
+| `panic` | kernel panic | CPU | panic output on UART |
+| `watchdog` | watchdog expire | CPU | host comes back; skip if unsupported |
+| `reboot-bmc` | host `reboot` | BMC | console stays on BMC |
+| `fast-reboot` | host `fast-reboot` | CPU | skip if unsupported |
+
+Default is `all`. Pass scenario names, or `random`, to run fewer host restarts.
 
 **Test Steps**:
 
-1. Host powered on; set console on CPU; observe console on CPU
-2. On SWITCH-HOST run `reboot`. Keep UART capture through the reboot. Observe host boot on the console (`GNU GRUB` or `AMI`; no `U-Boot`). After host is up, observe console still on CPU
-3. Set console on CPU. On SWITCH-HOST trigger kernel panic. Capture the panic output. After host is up, observe console still on CPU
-4. Set console on CPU. On SWITCH-HOST expire watchdog. After host is up, observe console still on CPU
-5. Set console on BMC, run host `reboot` — observe console still on BMC
+1. Host powered on; set console to the scenario side; observe that side
+2. Run the scenario restart on SWITCH-HOST. Keep UART capture for `reboot` and `panic`
+3. If the command exits nonzero while the host is still up, skip
+4. After host is up, observe console still on that side
+5. `reboot` on CPU: UART is host boot. `panic`: capture panic output
 
 **Expected Result**:
 
-- Console side is unchanged after each event
+- Console side is unchanged
 - Operator on CPU is not switched to BMC
-- Panic output is captured; console still on CPU after host is up
+- Panic output is captured when that scenario runs
+- Skip, not fail, when watchdog or fast-reboot is unsupported
 
 ---
 
@@ -196,14 +216,13 @@ Host software restart does not move the console. From console on CPU run `reboot
 #### Test Case #3: test_host_initiated_warm_reboot_leaves_console_unchanged
 
 **Test Objective**:
-Warm reboot does not move the console. Skip if `warm-reboot` is absent, or if the platform does not support it.
+Warm reboot does not move the console. Skip if the platform does not support it.
 
 **Test Steps**:
 
 1. Host powered on; set console on CPU; observe console on CPU
-2. If `warm-reboot` is not available, skip
-3. On SWITCH-HOST run `warm-reboot`
-4. After host is up, observe console still on CPU
+2. On SWITCH-HOST run `warm-reboot`. If the command exits nonzero while the host is still up, skip
+3. After host is up, observe console still on CPU
 
 **Expected Result**:
 
@@ -215,29 +234,7 @@ Warm reboot does not move the console. Skip if `warm-reboot` is absent, or if th
 
 
 
-#### Test Case #4: test_host_initiated_fast_reboot_leaves_console_unchanged
-
-**Test Objective**:
-Fast reboot does not move the console. Skip if `fast-reboot` is absent, or if the platform does not support it.
-
-**Test Steps**:
-
-1. Host powered on; set console on CPU; observe console on CPU
-2. If `fast-reboot` is not available, skip
-3. On SWITCH-HOST run `fast-reboot`
-4. After host is up, observe console still on CPU
-
-**Expected Result**:
-
-- Console side is unchanged
-- Operator on CPU is not switched to BMC
-- Skip, not fail, when fast reboot is unsupported
-
----
-
-
-
-#### Test Case #5: test_bmc_power_cycle_routes_console_to_bmc
+#### Test Case #4: test_bmc_power_cycle_routes_console_to_bmc
 
 **Test Objective**:
 Board/PDU cycle returns the console to BMC (hardware default), not a restored CPU setting. Cycle from console on CPU and from console on BMC; observe BMC boot on the console. Skip if the testbed has no PDU.
@@ -262,7 +259,7 @@ Board/PDU cycle returns the console to BMC (hardware default), not a restored CP
 
 
 
-#### Test Case #6: test_bmc_reboot_uart_shows_bmc_boot
+#### Test Case #5: test_bmc_reboot_uart_shows_bmc_boot
 
 **Test Objective**:
 BMC reboot shows BMC boot on the console with no software console switch. Set console on CPU, open capture, reboot BMC; observe BMC boot.
@@ -289,7 +286,7 @@ BMC reboot shows BMC boot on the console with no software console switch. Set co
 
 
 
-#### Test Case #7: test_bmc_boot_host_power_and_console_default
+#### Test Case #6: test_bmc_boot_host_power_and_console_default
 
 **Test Objective**:
 BMC reboot never auto-switches the console to CPU, whether the host stays off or powers on. Reboot BMC with host powered off, then with host allowed to power on; observe console on BMC both times.
@@ -300,13 +297,13 @@ BMC reboot never auto-switches the console to CPU, whether the host stays off or
 2. `set_admin_state(False)`
 3. Run `reboot` on the BMC; wait until BMC is up
 4. Observe console on BMC
-5. Observe host is unpowered; console is BMC
-6. `set_admin_state(True)`, wait for host power-on, then run `reboot` on the BMC again
-7. After BMC is up, observe console still on BMC even if the host is powered
+5. `set_admin_state(True)` if the host is not already on; wait until the host is up
+6. Run `reboot` on the BMC again
+7. After BMC is up, observe console still on BMC
 
 **Expected Result**:
 
-- Host off, then BMC reboot: host unpowered, console on BMC
+- Host off, then BMC reboot: console on BMC
 - Host on, then BMC reboot: host may power on, console still on BMC
 
 ---
@@ -317,7 +314,7 @@ BMC reboot never auto-switches the console to CPU, whether the host stays off or
 
 
 
-#### Test Case #8: test_set_console_same_side_is_noop
+#### Test Case #7: test_set_console_same_side_is_noop
 
 **Test Objective**:
 Setting console to the side it is already on is a no-op. Set BMC then BMC again, CPU then CPU again; observe no switch.
@@ -338,7 +335,7 @@ Setting console to the side it is already on is a no-op. Set BMC then BMC again,
 
 
 
-#### Test Case #9: test_power_action_while_console_already_on_bmc
+#### Test Case #8: test_power_action_while_console_already_on_bmc
 
 **Test Objective**:
 From console on BMC, `set_admin_state(False)`, `set_admin_state(True)`, and `do_power_cycle()` leave the console on BMC. Power-on does not move it toward CPU.
@@ -363,7 +360,7 @@ From console on BMC, `set_admin_state(False)`, `set_admin_state(True)`, and `do_
 
 
 
-#### Test Case #10: test_host_reset_leaves_console_unchanged
+#### Test Case #9: test_host_reset_leaves_console_unchanged
 
 **Test Objective**:
 `do_power_cycle()` does not move the console off CPU. Set console on CPU, call it once; observe console still on CPU.
@@ -378,4 +375,3 @@ From console on BMC, `set_admin_state(False)`, `set_admin_state(True)`, and `do_
 
 - Console stays on CPU
 - Operator on host UART is not switched to BMC
-

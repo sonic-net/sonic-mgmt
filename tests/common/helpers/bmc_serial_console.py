@@ -5,6 +5,7 @@ Boot-side classification uses UART fingerprints, not mux-register names.
 """
 
 import logging
+import re
 import time
 
 import pexpect
@@ -12,7 +13,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import disconnect_console_client
-from tests.common.utilities import wait_until
+from tests.common.utilities import update_console_creds, wait_until
 from tests.common.helpers.platform_api import chassis, module as module_api
 from tests.common.platform.bmc_utils import (
     get_host_boot_id,
@@ -254,8 +255,9 @@ def open_bmc_shared_uart(duthost, conn_graph_facts, creds):
     password_pat = "[Pp]assword:"
     rcon_banner = "Type the hot key to suspend the connection"
     sonic_banner = "Successful connection to line [{}]".format(console_port)
-    login_pats = [password_pat, rcon_banner, sonic_banner]
+    login_pats = [password_pat, rcon_banner, re.escape(sonic_banner)]
 
+    update_console_creds(creds or {}, console_info.get("AuthType", ""))
     passwords = list(
         (creds or {}).get("console_password", {}).get("console_ssh") or [])
 
@@ -311,11 +313,6 @@ def open_bmc_shared_uart(duthost, conn_graph_facts, creds):
     return SharedUart(client, console_port, release)
 
 
-def cmd_exists(host, command):
-    result = host.shell("command -v {}".format(command), module_ignore_errors=True)
-    return result.get("rc") == 0
-
-
 def ensure_host_on(duthost, host):
     rows = duthost.show_and_parse("show chassis module status")
     online = False
@@ -325,7 +322,7 @@ def ensure_host_on(duthost, host):
             break
     if not online:
         recover_switch_host_after_power_off(duthost, host, context="ensure host on")
-    pytest_assert(wait_host_on(host), "SWITCH-HOST is not fully started")
+    pytest_assert(wait_host_on(host, delay=0), "SWITCH-HOST is not fully started")
 
 
 def find_switch_host_index(platform_api_conn):
