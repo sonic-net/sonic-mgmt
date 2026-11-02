@@ -209,6 +209,8 @@ def hft_duthost(hft_conftest, monkeypatch):
             return {"stdout_lines": ["state", duthost.original_state, "auto_restart", "enabled"]}
         if "HKEYS" in command:
             return {"stdout_lines": ["state", "auto_restart", "new_field"]}
+        if "status countersyncd" in command:
+            return {"rc": 0, "stdout": "countersyncd RUNNING pid 42"}
         if "feature state hft enabled" in command:
             duthost.running = True
         if "feature state hft disabled" in command:
@@ -314,6 +316,23 @@ def test_hft_always_disabled_skips_without_mutation(hft_conftest, hft_duthost):
 def test_hft_enabled_but_stopped_fails_without_mutation(hft_conftest, hft_duthost):
     hft_duthost.original_state = "enabled"
     with pytest.raises(pytest.fail.Exception, match="not running"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            pytest.fail("must not yield")
+    hft_duthost.copy.assert_not_called()
+
+
+def test_hft_enabled_with_stopped_daemon_fails_without_mutation(hft_conftest, hft_duthost):
+    hft_duthost.original_state = "enabled"
+    hft_duthost.running = True
+    shell = hft_duthost.shell.side_effect
+
+    def stopped_daemon(command, **kwargs):
+        if "status countersyncd" in command:
+            return {"rc": 3, "stdout": "countersyncd STOPPED"}
+        return shell(command, **kwargs)
+
+    hft_duthost.shell.side_effect = stopped_daemon
+    with pytest.raises(pytest.fail.Exception, match="countersyncd is not running"):
         with hft_conftest._configured_countersyncd(hft_duthost):
             pytest.fail("must not yield")
     hft_duthost.copy.assert_not_called()

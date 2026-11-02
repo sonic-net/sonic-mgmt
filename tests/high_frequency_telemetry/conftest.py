@@ -142,6 +142,12 @@ def _configured_countersyncd(duthost):
         pytest.fail(f"Unexpected HFT feature state: {original_state}")
     if original_state in enabled_states and not _get_container_running(duthost, "hft"):
         pytest.fail("HFT is enabled but its container is not running")
+    if original_state in enabled_states:
+        status = duthost.shell(
+            "docker exec hft supervisorctl status countersyncd", module_ignore_errors=True,
+        )
+        if status.get("rc") != 0 or status.get("stdout", "").split()[:2] != ["countersyncd", "RUNNING"]:
+            pytest.fail(f"HFT is enabled but countersyncd is not running: {status}")
 
     config_stat = duthost.stat(path=HFT_CONFIG_PATH)["stat"]
     config_existed = config_stat["exists"]
