@@ -10,18 +10,18 @@ SLAs: a timeout also requires checking backend health and blocked I/O.
 """
 
 import logging
-import multiprocessing
 import shlex
 import time
-from contextlib import ExitStack, contextmanager
-from types import SimpleNamespace
+from contextlib import contextmanager
 
 import grpc
 import pytest
+from pygnmi.client import gNMIclient
 from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.gnmi_connection import gnmi_connection
+from tests.common.utilities import wait_until
 
 pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def _set_role(duthost, role):
 def subscription_control(gnmi_tls):  # noqa: F811
     """Own the mapping restore; gnmi_tls owns the outer configuration rollback.
 
-    The subscription process exits before restoring the mapping and checking a
+    The subscription closes before restoring the mapping and checking a
     fresh read. All configuration commands use the existing duthost environment.
     """
     duthost = gnmi_tls.duthost
@@ -78,119 +78,79 @@ def subscription_control(gnmi_tls):  # noqa: F811
         assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
 
 
-def _receive_subscription(fixture, mode, result, stop, last_update):
-    """Receive one RPC: report readiness/errors and the latest data arrival time."""
-    request = gnmi_pb2.SubscribeRequest(
-        subscribe=gnmi_pb2.SubscriptionList(
-            mode=mode,
-            encoding=gnmi_pb2.JSON_IETF,
-            subscription=[gnmi_pb2.Subscription(path=METADATA_PATH, mode=gnmi_pb2.SAMPLE, sample_interval=1000000000)],
-        )
-    )
-
-    def requests():
-        yield request
-        # Keep idle POLL open. Close the channel on stop, not just the request
-        # iterator: a STREAM half-close alone does not cancel server responses.
-        stop.wait(200)
-        channel.close()
-
-    try:
-        with gnmi_connection(fixture) as (channel, client):
-            responses = client.Subscribe(requests(), timeout=200)
-            ready = False
-            for response in responses:
-                assert not response.HasField("error"), "Subscribe returned an in-band error"
-                if response.HasField("update") and response.update.update:
-                    last_update.value = time.monotonic()
-                if response.sync_response and not ready:
-                    assert last_update.value, "Initial Subscribe contained no data"
-                    ready = True
-                    result.send(("ready", None))
-            raise AssertionError("Subscribe ended without terminal authentication status")
-    except grpc.RpcError as error:
-        result.send(("error", error.code().name))
-    # Python/cleanup failures deliberately escape: a nonzero process exit must
-    # fail both tests, including a positive case that already saw fresh data.
-    finally:
-        stop.set()
-        result.close()
-
-
 @contextmanager
 def _background_subscription(fixture, mode):
-    """Start a ready subscription; stop and reap it before returning to teardown."""
-    context = multiprocessing.get_context("spawn")
-    parent, child = context.Pipe(duplex=False)
-    stop, last_update = context.Event(), context.Value("d", 0)
+    """Use pygnmi's receiver thread; expose the same subscription until cleanup."""
     certs = fixture.pygnmi_client
-    connection = SimpleNamespace(
-        host=fixture.host,
-        port=fixture.port,
-        pygnmi_client=SimpleNamespace(
-            ca_cert=certs.ca_cert, client_cert=certs.client_cert, client_key=certs.client_key
-        ),
-    )
-    process = context.Process(target=_receive_subscription, args=(connection, mode, child, stop, last_update))
-    with ExitStack() as cleanup:
-        cleanup.callback(process.close)
-        cleanup.callback(child.close)
-        cleanup.callback(parent.close)
-        process.start()
+    with gNMIclient(
+        target=(fixture.host, fixture.port),
+        path_root=certs.ca_cert,
+        path_cert=certs.client_cert,
+        path_key=certs.client_key,
+        grpc_options=[("grpc.enable_retries", 0)],
+        gnmi_timeout=30,
+    ) as client:
+        subscription = client.subscribe2(
+            subscribe={
+                "mode": mode,
+                "encoding": "json_ietf",
+                "subscription": [
+                    {
+                        "path": "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost",
+                        "mode": "sample",
+                        "sample_interval": 1000000000,
+                    }
+                ],
+            }
+        )
         try:
-            child.close()
-            assert parent.poll(40), "Subscribe did not become ready"
-            ready = parent.recv()
-            assert ready == ("ready", None), "Subscribe failed before data + sync: {}".format(ready)
-            yield parent, last_update
+            # pygnmi coalesces the initial data through sync. For POLL this
+            # requests an initial poll; no further polls are sent after revoke.
+            initial = subscription.get_update(timeout=30)
+            assert initial.get("sync_response") and initial.get("update", {}).get("update"), "No initial data + sync"
+            assert subscription.error is None, "Subscribe failed before revocation"
+            yield subscription
         finally:
-            stop.set()
-            process.join(15)
-            forced = process.is_alive()
-            if forced:
-                process.terminate()
-                process.join(5)
-            if process.is_alive():
-                process.kill()
-                process.join(5)
-            assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
-            if parent.poll():
-                try:
-                    outcome = parent.recv()
-                except EOFError:
-                    pass  # Negative case already consumed the RPC status.
-                else:
-                    assert outcome == ("error", "CANCELLED"), "Unexpected final RPC status: {}".format(outcome)
+            # A request half-close alone does not stop STREAM. Close the channel
+            # first, then let pygnmi close its iterator and join its receiver.
+            try:
+                client.close()
+            finally:
+                subscription.close()
 
 
-@pytest.mark.parametrize(
-    "mode", [gnmi_pb2.SubscriptionList.STREAM, gnmi_pb2.SubscriptionList.POLL], ids=["stream", "poll"]
-)
+@pytest.mark.parametrize("mode", ["stream", "poll"])
 @pytest.mark.parametrize(
     "role,expected_code",
     [(NOACCESS, grpc.StatusCode.PERMISSION_DENIED), (None, grpc.StatusCode.UNAUTHENTICATED)],
     ids=["noaccess", "unmapped"],
 )
 def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, expected_code):  # noqa: F811
-    """An active STREAM or idle POLL terminates with the original auth status."""
-    with _background_subscription(gnmi_tls, mode) as (result, _):
+    """An active STREAM or POLL terminates with the original auth status."""
+    with _background_subscription(gnmi_tls, mode) as subscription:
         _set_role(subscription_control, role)
         changed_at = time.monotonic()
-        assert result.poll(REAUTH_BUDGET), "Reauthorization timed out; inspect RPC/backend health"
-        outcome = result.recv()
-        assert outcome == ("error", expected_code.name), "Unexpected Subscribe terminal outcome: {}".format(outcome)
+        assert wait_until(REAUTH_BUDGET, 1, 0, lambda: subscription.error is not None), "Reauthorization timed out"
+        assert isinstance(subscription.error, grpc.RpcError), "Subscribe failed outside gRPC"
+        assert subscription.error.code() == expected_code, "Unexpected Subscribe terminal status"
         logger.info("Same Subscribe RPC revoked with %s after %.1fs", expected_code, time.monotonic() - changed_at)
 
 
 def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control):  # noqa: F811
-    """Observe fresh SAMPLE data across two reauth intervals after RW-to-RO.
-
-    Freshness is sampled once a second, not an exhaustive inter-update gap check.
-    """
-    with _background_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as (result, last_update):
+    """Require data after the observation window and after draining the client queue."""
+    with _background_subscription(gnmi_tls, "stream") as subscription:
         _set_role(subscription_control, READONLY)
         until = time.monotonic() + ALLOW_OBSERVATION
-        while last_update.value < until:
-            if result.poll(1):
-                pytest.fail("Readonly subscription failed after role change: {}".format(result.recv()))
-            assert time.monotonic() - last_update.value <= 15, "Readonly SAMPLE stream stopped delivering data"
+        while time.monotonic() < until:
+            assert subscription.error is None, "Readonly subscription failed after role change"
+            update = subscription.get_update(timeout=15)
+            assert update.get("update", {}).get("update"), "Readonly subscription returned no data"
+        # Drain the application queue after the window and require a new enqueue;
+        # this does not prove when the DUT generated it or rule out network backlog.
+        drain_deadline = time.monotonic() + 15
+        while subscription.peek():
+            assert time.monotonic() < drain_deadline, "Unable to drain queued subscription updates"
+            subscription.get_update(timeout=1)
+        update = subscription.get_update(timeout=15)
+        assert update.get("update", {}).get("update"), "No new data after the observation window"
+        assert subscription.error is None, "Readonly subscription failed after observation"
