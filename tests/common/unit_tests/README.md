@@ -83,3 +83,31 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+
+## Redis write-protection acceptance checks
+
+`unit_test_stock_cli_acceptance.py` checks that the acceptance helper requires
+write denial on protected processes and successful writes during legacy
+preflight. Connection failures and writes that changed data do not count as
+proof of protection. Scope checks also reject missing protection unless the run
+explicitly accepts matching configured TCP exceptions, and verify the expected
+TCP listener state. `unit_test_single_host_redis_census.py` checks actual
+process/socket inventory
+and rejects mismatched TCP listeners, missing/extra processes and unexpected
+sockets. The live DUT test is documented in `tests/redis/README.md`.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_stock_cli_acceptance.py \
+  tests/common/unit_tests/unit_test_single_host_redis_census.py -q
+```
+
+### Redis mode lifecycle
+
+`unit_test_redis_mode_control.py` exercises saved-setting restoration, complete
+DUT preflight, partial setup failures and retries using fake DUTs.
+`unit_test_redis_mode_runner.py` executes the runner's actual shell hooks with a
+fake pytest process, including suite failures, required skips and TERM cleanup.
+`unit_test_redis_mode_ci.py` checks paired image/source selection and preservation
+of topology arguments. These checks do not reboot a DUT or validate provider CI.
