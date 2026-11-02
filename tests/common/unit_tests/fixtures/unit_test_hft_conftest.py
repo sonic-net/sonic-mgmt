@@ -40,7 +40,6 @@ def _load_target_module():
 
     utilities = types.ModuleType("tests.high_frequency_telemetry.utilities")
     utilities.InfluxDbSink = object
-    utilities.OTEL_COLLECTOR_ENDPOINT = "http://localhost:4317"
     for name in (
         "cleanup_hft_config",
         "enable_otel_collector",

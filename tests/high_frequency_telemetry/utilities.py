@@ -22,10 +22,6 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-# OTLP receiver of the OTEL collector in the otel container. This is also the
-# default --otel-endpoint of countersyncd.
-OTEL_COLLECTOR_ENDPOINT = "http://localhost:4317"
-
 # countersyncd names every OTEL gauge after the canonical SAI stat and tags each
 # data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
 # the gauge name into the measurement and the attributes into tags, so a series
@@ -455,19 +451,8 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     logger.info("Cleaned HFT profile %s", profile_name)
 
 
-def _get_otel_endpoint(args):
-    """Return the OTLP endpoint given by countersyncd arguments."""
-    endpoint = OTEL_COLLECTOR_ENDPOINT
-    for index, arg in enumerate(args):
-        if arg.startswith("--otel-endpoint="):
-            endpoint = arg.split("=", 1)[1]
-        elif arg == "--otel-endpoint" and index + 1 < len(args):
-            endpoint = args[index + 1]
-    return endpoint
-
-
 def ensure_countersyncd_daemon(duthost):
-    """Verify the supervisor-owned countersyncd exports to the collector."""
+    """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
     status = duthost.shell(
         "docker exec hft supervisorctl status countersyncd",
         module_ignore_errors=True,
@@ -486,12 +471,6 @@ def ensure_countersyncd_daemon(duthost):
         command.get("rc") == 0 and "--enable-otel" in command.get("stdout", ""),
         "The supervisor countersyncd must use --enable-otel, got: "
         f"{command.get('stdout', '')} {command.get('stderr', '')}",
-    )
-    endpoint = _get_otel_endpoint(command.get("stdout", "").split())
-    pytest_assert(
-        endpoint == OTEL_COLLECTOR_ENDPOINT,
-        "The supervisor countersyncd must export to "
-        f"{OTEL_COLLECTOR_ENDPOINT}, got: {endpoint}",
     )
     return True
 

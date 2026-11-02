@@ -13,7 +13,6 @@ from tests.high_frequency_telemetry.counter_profiles import (
     get_support_counter_list,
 )
 from tests.high_frequency_telemetry.utilities import (
-    OTEL_COLLECTOR_ENDPOINT,
     InfluxDbSink,
     cleanup_hft_config,
     enable_otel_collector,
@@ -163,7 +162,7 @@ def _countersyncd_otel_export(duthost, original_hft_state):
                 pytest.fail("countersyncd did not start in the HFT container")
         duthost.shell(
             "docker exec hft sh -c \"printf '%s\\0' --enable-otel "
-            f"--otel-endpoint={OTEL_COLLECTOR_ENDPOINT} "
+            "--otel-endpoint=http://localhost:4317 "
             f"> {HFT_CONTAINER_ARGS_FILE}\"",
             module_ignore_errors=False,
         )
