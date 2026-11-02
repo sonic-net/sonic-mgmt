@@ -50,6 +50,13 @@ _RESTART_COMMAND = {
     Restart.PANIC: "sudo sh -c 'echo c > /proc/sysrq-trigger'",
 }
 
+# How long to wait for an unsupported restart to fail in-place.
+# A successful reboot drops SSH, so the async job never returns rc==0.
+# An unsupported command (warm/fast/watchdog) exits quickly with rc!=0
+# while the host is still up. Keep this short so UART watchers still
+# see the boot/panic banner.
+_RESTART_FAIL_WAIT = 5
+
 # CPU/BMC-side host restarts that share set → assert → restart → assert.
 # uart_expect None: prove reboot with boot_id. Otherwise watch UART then wait_host_on.
 _SWITCH_HOST_RESTART_SCENARIOS = {
@@ -62,10 +69,12 @@ _SWITCH_HOST_RESTART_SCENARIOS = {
 
 
 @pytest.fixture(scope="module", autouse=True)
-def restore_switch_host(duthost, switch_host):
+def restore_switch_host(duthost, switch_host, console_mux):
+    original = console_mux.get_console()
     yield
     recover_switch_host_after_power_off(
         duthost, switch_host, context="serial-console auto-switch teardown")
+    console_mux.set_console(original)
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +98,22 @@ def _restart(host, restart_type, wait=True):
     pytest_assert(boot_id_before, "Could not read boot_id before {}".format(restart_type.value))
     if restart_type == Restart.PANIC:
         _enable_panic_reboot(host)
-    host.shell(command, module_async=True)
+    _, async_res = host.shell(
+        command, module_async=True, module_ignore_errors=True)
+    # Do not wait for rc==0. Success kills SSH, so there is often no rc.
+    # If the job finishes here with rc!=0, the host never rebooted — skip
+    # instead of waiting minutes for a new boot_id. No result in time
+    # means reboot has started; continue to UART / boot_id.
+    wait_until(_RESTART_FAIL_WAIT, 0.2, 0, async_res.ready)
+    if async_res.ready():
+        try:
+            result = async_res.get()
+        except Exception:
+            result = None
+        if result is not None and result.get("rc"):
+            err = (result.get("stderr") or result.get("stdout") or "").strip()
+            pytest.skip("{} is not supported (rc={}): {}".format(
+                restart_type.value, result.get("rc"), err))
     if wait:
         pytest_assert(
             wait_host_rebooted(host, boot_id_before),

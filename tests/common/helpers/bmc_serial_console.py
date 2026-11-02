@@ -226,7 +226,7 @@ class SharedUart:
             pass
 
 
-def open_bmc_shared_uart(duthost, conn_graph_facts, _creds):
+def open_bmc_shared_uart(duthost, conn_graph_facts, creds):
     """Open the physical lab-con → BMC UART. Skip if the DUT has no console link."""
     hostname = duthost.hostname
     console_info = conn_graph_facts.get("device_console_info", {}).get(hostname, {})
@@ -247,31 +247,62 @@ def open_bmc_shared_uart(duthost, conn_graph_facts, _creds):
     console_user = console_port_info.get("proxy")
     pytest_assert(console_user, "No console proxy user for {}".format(hostname))
     ssh_login = "{}:{}".format(console_user, console_port)
+    ssh_cmd = (
+        "ssh -l {} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {}".format(
+            ssh_login, console_host)
+    )
+    password_pat = "[Pp]assword:"
+    rcon_banner = "Type the hot key to suspend the connection"
+    sonic_banner = "Successful connection to line [{}]".format(console_port)
+    login_pats = [password_pat, rcon_banner, sonic_banner]
+
+    passwords = list(
+        (creds or {}).get("console_password", {}).get("console_ssh") or [])
+
     client = None
     connect_error = None
     release = "ctrl-z"
+
+    def _close(ssh_client):
+        if ssh_client is None:
+            return
+        try:
+            ssh_client.close(force=True)
+        except Exception:
+            pass
+
     try:
-        client = pexpect.spawn(
-            "ssh -l {} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {}".format(
-                ssh_login, console_host),
-            echo=False,
-        )
-        index = client.expect_exact([
-            "Type the hot key to suspend the connection",
-            "Successful connection to line [{}]".format(console_port),
-        ], timeout=30)
-        if index == 1:
+        client = pexpect.spawn(ssh_cmd, echo=False)
+        index = client.expect(login_pats, timeout=30)
+        if index == 0:
+            pytest_assert(passwords,
+                          "Console SSH asked for a password, but creds has none")
+            authed = False
+            for pwd in passwords:
+                client.sendline(pwd)
+                index = client.expect(login_pats + [pexpect.EOF], timeout=30)
+                if index in (1, 2):
+                    authed = True
+                    break
+                if index == 0:
+                    continue
+                _close(client)
+                client = pexpect.spawn(ssh_cmd, echo=False)
+                index = client.expect(login_pats, timeout=30)
+                if index in (1, 2):
+                    authed = True
+                    break
+                if index != 0:
+                    break
+            pytest_assert(authed, "Console SSH password was rejected")
+        if index == 2:
             client.expect_exact("Press ^A ^X to disconnect")
             release = "sonic"
         else:
             release = "ctrl-z"
     except Exception as exc:
         connect_error = "{}: {}".format(type(exc).__name__, exc)
-        if client is not None:
-            try:
-                client.close(force=True)
-            except Exception:
-                pass
+        _close(client)
         client = None
 
     pytest_assert(client is not None,
