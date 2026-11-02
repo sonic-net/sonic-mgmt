@@ -93,13 +93,11 @@ configlet/test_add_rack.py::test_add_rack:
 #######################################
 #####           COPP              #####
 #######################################
-copp:
+copp/test_copp.py:
   skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
+    reason: "CoPP on VPP is currently validated only on the t1-lag topology"
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
 #######################################
 #####           Decap             #####

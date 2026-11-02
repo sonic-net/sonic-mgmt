@@ -63,7 +63,10 @@ def parse_eeprom_hexdump(data):
 
 
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
-    dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+    if duthost.facts.get("asic_type") == "vs":
+        dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+    else:
+        dev_conn = conn_graph_facts["device_conn"][duthost.hostname]
 
     # Get the interface pertaining to that asic
     portmap = get_port_map(duthost, asic_index)
@@ -71,7 +74,7 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 
     if asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        dev_conn = {k: v for k, v in list(portmap.items()) if k in conn_graph_facts["device_conn"][duthost.hostname]}
+        dev_conn = {k: v for k, v in list(portmap.items()) if k in dev_conn}
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn

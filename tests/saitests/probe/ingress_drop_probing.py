@@ -121,6 +121,11 @@ class IngressDropProbing(ProbingBase):
     def get_expected_threshold(self):
         """Get expected Ingress Drop threshold from test parameters."""
         value = getattr(self, 'pkts_num_trig_ingr_drp', None)
+        if value is not None:
+            if 'Arista-7060X6' in str(getattr(self, 'hwsku', '')):
+                pkts_num_egr_mem = getattr(self, 'pkts_num_egr_mem', None)
+                if pkts_num_egr_mem is not None:
+                    value += pkts_num_egr_mem
         return (value, "Ingress Drop threshold") if value is not None else None
 
     #
