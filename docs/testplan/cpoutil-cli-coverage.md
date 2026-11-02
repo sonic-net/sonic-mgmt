@@ -13,7 +13,7 @@ There are 16 cases; this is not an exhaustive command/argument acceptance suite.
 | show interface presence | test_cpoutil_presence | All connected interfaces present, associated ELS, JSON/table and every connected port selector |
 | show interface dom | test_cpoutil_dom | Connected-port presence and OE/ELS info/DOM/threshold structures; no read errors; text sections for every connected port |
 | show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values and lane count, public table columns/resources |
-| show interface speed application | test_cpoutil_application | Public advertisement fields, Host/Media interface keys, control/active lane counts, table columns/resources |
+| show interface speed application | test_cpoutil_application | Nonempty public Host/Media strings, selection display types, exact bank-local subport lane keys in JSON/text, populated configured/active cells |
 | show interface lane-status | test_cpoutil_lane_status | Exactly two tables with public headers/port rows, bulk and every connected port selector |
 | show oe status / show els status | test_cpoutil_endpoint_status | Nonempty state, JSON/table and every associated resource selector |
 | show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common temperature column |
@@ -35,7 +35,9 @@ write coverage.
 
 JSON checks use common fields and dynamically discovered ports/resources.
 Text checks validate whitelisted public headers, resource rows and DOM
-sections. They do not establish correctness of every rendered table cell or
+sections. Application also checks exact subport lane rows and cell presence,
+without comparing configured/active selections or advertisement membership.
+These checks do not establish the hardware meaning of every table cell or
 every sensor/threshold value. No vendor, model, serial number or fixed resource
 count is required.
 

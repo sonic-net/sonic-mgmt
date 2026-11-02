@@ -18,7 +18,7 @@ There are 12 test functions, producing 16 cases for one DUT:
 | `test_cpoutil_presence` | 1 | All connected ports are present, associated ELS matches the map; bulk and every selected-port output |
 | `test_cpoutil_dom` | 1 | Connected-port OE/ELS info/DOM/threshold structure, presence and read errors; text sections for every connected port |
 | `test_cpoutil_endpoint_status` | 2 | State, finite temperature, boolean low-power, headers and selected-resource output for every associated OE/ELS |
-| `test_cpoutil_application` | 1 | Public Application fields, Host/Media interface keys and lane counts; table headers/resources |
+| `test_cpoutil_application` | 1 | Nonempty Host/Media strings, selection display types and exact logical-port lane keys; text headers, lane rows and cell presence |
 | `test_cpoutil_tx_disable_query` | 1 | Boolean lane values and lane count; table headers/resources |
 | `test_cpoutil_eeprom_read` | 2 | Every connected interface alias and each associated OE/ELS directly once: recognized hexdump heading and nonempty bytes |
 | `test_cpoutil_basic_arguments` | 1 | Root help and four representative incomplete read-option checks |
@@ -75,12 +75,25 @@ Each test shows its command and corresponding assertions directly.
 The output filter returns:
 
 - redacted JSON, with DOM identity values suppressed;
-- whitelisted public table headers and resource row identifiers;
+- whitelisted public table headers and resource row identifiers; Application
+  lane numbers and cell-presence flags without raw cell text;
 - DOM presence and OE/ELS section names;
 - EEPROM headings and byte counts, without raw bytes;
 - fixed error categories, without raw platform diagnostics.
 
-Text checks validate common headers/resources, not every displayed cell.
+Text checks validate common headers/resources. Application additionally checks
+exact lane rows and that both configured/active cells are populated. It does not
+validate the hardware meaning of every displayed cell.
+Application expected lane keys are derived from the OE bank's ordered ASIC lanes
+in cpo.json and the logical port's active PORT lanes, independently of the
+Application response. This catches a breakout subport displaying a sibling's
+same-size lane set, the whole parent bank or global rather than bank-local lane
+indices, in both JSON and text. Host/Media descriptions must be nonempty strings;
+N/A is an allowed display string. Selections may be integers or the CLI's
+null/N/A placeholders. The test does not require selections to match the
+advertisement, configured to equal active, a specific interface type or speed.
+It checks breakout ports already present in the testbed; it does not create or
+change a breakout configuration.
 The lane-status test expects exactly two tables: Interface/Lane/Data
 Path State and Interface/ELS/Laser/ELS Lane State/Shared. It checks connected
 port rows in each table and every connected-port query. It does not request JSON
@@ -133,7 +146,7 @@ The old `--cpo-eeprom-write` option is no longer part of this suite.
 2026-11-02:
 
 - 16 integration cases collect in isolation.
-- 69 focused local checks pass, covering actual test bodies, real merged CLI
+- 99 focused local checks pass, covering actual test bodies, real merged CLI
   formatters and the follow-up lane tables, public JSON/header errors, Jinja-safe
   transport, identity filtering, connection selection and recovery/guard failure paths.
 - The lane-status body is called directly in local checks against the
@@ -143,6 +156,10 @@ The old `--cpo-eeprom-write` option is no longer part of this suite.
   three physical ports and an unconnected shared sibling. They verify complete
   traversal, deduplication, later-object progress after an exclusion, skip when
   no eligible object remains, and restoration after a later endpoint fails.
+- Application checks cover unsplit and bank-1 breakout fixtures, sibling/parent/
+  global lane errors, missing/duplicate text rows, empty text cells, invalid
+  field/value types, allowed placeholders and output filtering. These are local
+  synthetic display checks, not hardware breakout validation.
 - The actual integration module runs against an explicitly synthetic testbed:
   default 16 passed, including lane-status and the five hardware-control cases.
   These are local synthetic results, not DUT PASS.

@@ -252,22 +252,55 @@ def test_cpoutil_endpoint_status(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Check public Host/Media application fields and per-interface lane counts."""
+    """Check Application display fields and exact logical-port lanes, including breakout."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     ports = read_port_config(duthost)
+    path = "/usr/share/sonic/device/{}/cpo.json".format(duthost.facts["platform"])
+    topology = json.loads(duthost.command("cat " + shlex.quote(path), verbose=False)["stdout"])
+    devices = {name.upper(): device for name, device in topology["devices"].items()}
+    mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
     records = json.loads(run_cpoutil(duthost, "show interface speed application --json", optional=True)["stdout"])
+    expected_lanes_by_port = {}
     for port in connected_cpo_ports:
+        # Derive bank-local lane positions from topology and active PORT lanes,
+        # independently of the Application response. A sibling's same-size
+        # lane set, or the complete parent bank, must not pass for a subport.
+        oe = mapping[port]["oe"]
+        device = devices[oe["id"]]
+        device_lanes = numbers(device["asic_lanes"])
+        banks = int(device.get("max_banks", 1))
+        assert banks > 0 and len(device_lanes) % banks == 0
+        assert type(oe["bank"]) is int and 0 <= oe["bank"] < banks
+        width = len(device_lanes) // banks
+        bank_lanes = device_lanes[oe["bank"] * width:(oe["bank"] + 1) * width]
+        port_lanes = set(numbers(ports[port]["lanes"]))
+        assert port_lanes and port_lanes <= set(bank_lanes), "PORT lanes do not belong to the mapped OE bank"
+        expected_lanes = {index for index, lane in enumerate(bank_lanes) if lane in port_lanes}
+        expected_lanes_by_port[port] = expected_lanes
+        expected_keys = {"lane{:02d}".format(lane) for lane in expected_lanes}
         advertisements = records[port]["Application Advertisement"]
         assert isinstance(advertisements, dict) and advertisements
         for application in advertisements.values():
             assert isinstance(application, dict)
-            assert {"host_electrical_interface_id", "module_media_interface_id"} <= set(application)
+            for field in ("host_electrical_interface_id", "module_media_interface_id"):
+                assert isinstance(application.get(field), str) and application[field].strip(), \
+                    "Application Host/Media description is missing or empty"
         for field in ("Application Select Controls", "Active Application Control Set"):
-            assert isinstance(records[port][field], dict)
-            assert len(records[port][field]) == len(numbers(ports[port]["lanes"]))
-    table = run_cpoutil(duthost, "show interface speed application")["table"]
-    assert {"Interface", "Lane", "Configured Application", "Active Application"} <= set(table["headers"])
-    assert set(connected_cpo_ports) <= set(table["resources"])
+            values = records[port][field]
+            assert isinstance(values, dict) and set(values) == expected_keys, "Application lane keys do not match PORT"
+            # Validate display types only. The CLI renders null/N/A as N/A;
+            # comparing selections or checking advertisement membership is out of scope.
+            assert all(type(value) is int or value is None or value == "N/A" for value in values.values()), \
+                "Application selection has an invalid display type"
+    tables = run_cpoutil(duthost, "show interface speed application")["table"]["tables"]
+    assert len(tables) == 1
+    table = tables[0]
+    assert table["headers"] == ["Interface", "Lane", "Configured Application", "Active Application"]
+    for port in connected_cpo_ports:
+        rows = [row for row in table["lane_rows"] if row["port"] == port]
+        assert {row["lane"] for row in rows} == expected_lanes_by_port[port] \
+            and len(rows) == len(expected_lanes_by_port[port]), "Application table lanes do not match PORT"
+        assert all(row["populated"] for row in rows), "Application table has an empty configured/active cell"
 
 
 def test_cpoutil_tx_disable_query(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):

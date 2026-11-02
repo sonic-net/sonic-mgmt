@@ -49,13 +49,24 @@ def table_summary(output):
                 continue
             headers.extend(fields)
             rows = []
+            lane_rows = []
+            columns = [match.start() for match in re.finditer(r"-{2,}", line)]
+            application_table = fields == ["Interface", "Lane", "Configured Application", "Active Application"]
             for row in lines[index + 1:]:
                 if not row.strip():
                     break
                 match = re.match(r"\s*((?:Ethernet\S+|OE\d+|ELS\d+))(?=\s|$)", row, re.I)
                 if match:
                     rows.append(match[1])
-            tables.append({"headers": fields, "resources": sorted(set(rows))})
+                if application_table:
+                    lane = re.match(r"\s*(Ethernet\S+)\s+Lane (\d+)(?=\s|$)", row)
+                    if lane:
+                        # Return only public lane numbers and whether both
+                        # display cells exist; never return the raw cell text.
+                        populated = len(columns) == 4 and bool(row[columns[2]:columns[3]].strip()) \
+                            and bool(row[columns[3]:].strip())
+                        lane_rows.append({"port": lane[1], "lane": int(lane[2]) - 1, "populated": populated})
+            tables.append({"headers": fields, "resources": sorted(set(rows)), "lane_rows": lane_rows})
     resources = re.findall(r"^\s*((?:Ethernet\S+|OE\d+|ELS\d+))(?=\s|$)", output, re.M | re.I)
     return {"headers": headers, "resources": sorted(set(resources)), "tables": tables}
 
