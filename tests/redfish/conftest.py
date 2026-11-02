@@ -217,7 +217,7 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
                   STAGING_TIMEOUT, cert_status(bmc_duthost, "last_error")))
     logger.info("Certificates staged and mTLS enforced")
 
-    yield {
+    certs = {
         "cert": str(cert_dir / CLIENT_CERT_NAME),
         "key": str(cert_dir / CLIENT_KEY_NAME),
         "ca": str(cert_dir / CA_CERT_NAME),
@@ -227,3 +227,9 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         "generator": generator,
         "port": redfish_port,
     }
+
+    if request.module.__name__.endswith("test_redfish_certificates"):
+        from tests.redfish.certificate_cleanup import freeze_expected
+        certs["cleanup_expected"] = freeze_expected(
+            certs, cert_dir / "cleanup-original", snapshot["REDFISH|config", "port"])
+    yield certs
