@@ -53,7 +53,8 @@ def discover_databases():
         namespace = 'asic' + number if number else ''
         require(bool(metadata['INSTANCES']), 'Empty local database map')
         for name, instance in metadata['INSTANCES'].items():
-            require(name != 'remote_redis' and not instance.get('database_type'), 'Remote database is outside this check')
+            require(name != 'remote_redis' and not instance.get('database_type'),
+                    'Remote database is outside this check')
             require(Path(instance['unix_socket_path']).parent == path.parents[1], 'Socket belongs to another namespace')
             require(number or instance['hostname'] in ('127.0.0.1', '::1', 'localhost'), 'Nonlocal host database')
             identity = namespace + '/' + name if namespace else name
@@ -133,7 +134,8 @@ def protection_scope(local, selected, *, allow_tcp_exceptions=False, intent=None
         require(isinstance(names, list) and names and all(isinstance(name, str) for name in names),
                 'Mixed-mode validation requires explicit TCP exception names')
         exceptions = set(names)
-        require(len(exceptions) == len(names) and exceptions <= {name.split('/')[-1] for name in local}, 'Invalid TCP exceptions')
+        require(len(exceptions) == len(names) and exceptions <= {name.split('/')[-1] for name in local},
+                'Invalid TCP exceptions')
     expected = {item['unix_socket_path'] for name, item in local.items() if name.split('/')[-1] not in exceptions}
     require(expected and set(selected) == expected,
             'Prepared policy does not protect exactly the required local Redis processes')
@@ -253,7 +255,8 @@ def cli_checks(metadata, processes, controls, prefix, preflight, namespace=''):
         if not preflight and process['protected']:
             result = execute(args + ['GET', prefix], ordinary=True)
             require(result[0] == 0 and result[1].strip() == value, 'Ordinary structured CLI read failed: ' + name)
-            result = execute(['sonic-db-cli'] + ns_args + ['-s', '-j', name, 'HGETALL', prefix + ':hash'], ordinary=True)
+            result = execute(['sonic-db-cli'] + ns_args + ['-s', '-j', name, 'HGETALL', prefix + ':hash'],
+                             ordinary=True)
             require(result[0] == 0 and json.loads(result[1]) == {'field': value.decode()},
                     'Ordinary structured JSON display failed: ' + name)
             result = execute(args + ['SET', prefix, 'forbidden'], ordinary=True)
@@ -329,7 +332,8 @@ def main(preflight, allow_tcp_exceptions=False):
             require(count > 0, 'Redis reports no logical databases')
             processes[name] = dict(name=name, socket=socket, count=count, key=prefix,
                                    protected=policy is not None, host=instance['hostname'], port=instance['port'],
-                                   namespace=instance['namespace'], container=instance['container'], value=value.decode())
+                                   namespace=instance['namespace'], container=instance['container'],
+                                   value=value.decode())
             for database in range(count):
                 client.execute_command('SELECT', database)
                 client.set(prefix, value, ex=300)
@@ -359,7 +363,8 @@ def main(preflight, allow_tcp_exceptions=False):
         for name, process in processes.items():
             for database in range(process['count']):
                 controls[name].execute_command('SELECT', database)
-                require(controls[name].get(prefix) == process['value'].encode(), 'Probe value changed after denied writes')
+                require(controls[name].get(prefix) == process['value'].encode(),
+                        'Probe value changed after denied writes')
         return dict(success=True, mode='preflight' if preflight else ('mixed' if exceptions else 'enforced'),
                     security_verified=not preflight and not exceptions,
                     protected_processes_verified=not preflight,
@@ -368,7 +373,8 @@ def main(preflight, allow_tcp_exceptions=False):
                     ordinary_databases_checked=ordinary, ordinary_identity=ordinary_identity,
                     named_databases_checked=named,
                     namespaces=sorted(maps), actual_redis_processes_checked=census,
-                    processes=[dict(name=item['name'], namespace=item['namespace'], count=item['count'], protected=item['protected'])
+                    processes=[dict(name=item['name'], namespace=item['namespace'], count=item['count'],
+                                    protected=item['protected'])
                                for item in processes.values()])
     finally:
         for name, client in controls.items():

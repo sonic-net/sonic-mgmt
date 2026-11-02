@@ -23,7 +23,7 @@ def instances():
 
 
 @pytest.mark.parametrize('fault', [None, 'tcp-open', 'extra-process', 'missing-process',
-                                  'duplicate-socket', 'wrong-socket', 'missing-socket', 'extra-socket'])
+                                 'duplicate-socket', 'wrong-socket', 'missing-socket', 'extra-socket'])
 def test_census_reconciles_live_processes_and_listeners(helper, instances, monkeypatch, fault):
     rows = [{'pid': 101, 'sockets': ['/run/redis/redis.sock'], 'tcp_ports': []},
             {'pid': 102, 'sockets': ['/run/redis/redis_bmp.sock'], 'tcp_ports': []}]
@@ -53,7 +53,7 @@ def test_census_reconciles_live_processes_and_listeners(helper, instances, monke
 
 
 @pytest.mark.parametrize('ports,accepted', [([6400], True), ([6400, 6400], True),
-                                           ([], False), ([6379], False), ([6400, 6379], False)])
+                                          ([], False), ([6379], False), ([6400, 6379], False)])
 def test_configured_tcp_exception_matches_actual_listeners(helper, instances, monkeypatch, ports, accepted):
     instances['redis_bmp']['port'] = 6400
     rows = [{'pid': 101, 'sockets': ['/run/redis/redis.sock'], 'tcp_ports': []},

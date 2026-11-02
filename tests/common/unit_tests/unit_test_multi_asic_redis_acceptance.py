@@ -78,6 +78,7 @@ def test_discovery_rejects_incomplete_or_foreign_namespaces(maps, fault):
 def test_actual_census_cannot_silently_omit_servers(maps, monkeypatch, fault):
     helper, _ = maps
     _, local = helper.discover_databases()
+
     def execute(args):
         container = args[4]
         instance = next(item for item in local.values() if item['container'] == container)
@@ -108,7 +109,7 @@ def test_tcp_exceptions_apply_across_all_namespaces(maps):
         local[identity] = {'unix_socket_path': '/run/redis' + number + '/bmp.sock', 'port': 6400}
     selected = {item['unix_socket_path']: {} for name, item in local.items() if name.split('/')[-1] == 'redis'}
     assert helper.protection_scope(local, selected, allow_tcp_exceptions=True,
-        intent={'mode': 'enforce', 'tcp_exceptions': ['redis_bmp']}) == {'redis_bmp'}
+                                   intent={'mode': 'enforce', 'tcp_exceptions': ['redis_bmp']}) == {'redis_bmp'}
 
 
 def test_write_connection_errors_are_not_permission_success(helper):
@@ -138,6 +139,7 @@ def test_named_and_raw_clis_keep_the_selected_namespace(helper, monkeypatch):
     client = Mock()
     client.get.side_effect = lambda key: values.get(key)
     calls = []
+
     def execute(args, data=None, ordinary=False):
         calls.append((args, ordinary))
         if args[0] == 'sonic-db-cli':
