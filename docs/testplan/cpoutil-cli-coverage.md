@@ -2,6 +2,8 @@
 
 Contract: merged sonic-utilities #4864 at
 `f113917d357d224be51c55860c35bc0b71127696`.
+Deferred lane-status contract: sonic-utilities #5012 at
+`8383e122ba046346dd3fc1fc98dfbda364d181f6` (OE datapath and ELS lane tables only).
 Scope updated 2026-11-02 to follow the sfputil functional integration tests.
 There are 16 cases; this is not an exhaustive command/argument acceptance suite.
 
@@ -12,7 +14,7 @@ There are 16 cases; this is not an exhaustive command/argument acceptance suite.
 | show interface dom | test_cpoutil_dom | Presence and OE/ELS info/DOM/threshold structures; no read errors; selected text sections |
 | show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values and lane count, public table columns/resources |
 | show interface speed application | test_cpoutil_application | Public advertisement fields, Host/Media interface keys, control/active lane counts, table columns/resources |
-| show interface lane-status | test_cpoutil_lane_status | Explicitly skipped; no command execution |
+| show interface lane-status | test_cpoutil_lane_status | Prepared exactly two tables with public headers/port rows, bulk and selected port; still explicitly skipped |
 | show oe status / show els status | test_cpoutil_endpoint_status | Nonempty state, JSON/table and selected resource |
 | show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common temperature column |
 | show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common low-power column |

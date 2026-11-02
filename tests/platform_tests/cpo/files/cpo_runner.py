@@ -13,6 +13,7 @@ TABLE_FIELDS = {
     "Interface", "OE", "OE Lanes", "ELS", "ELS Lasers", "Presence",
     "Module State", "Temperature (C)", "Low-power Mode", "Lane",
     "Tx Disable Status", "Configured Application", "Active Application",
+    "Data Path State", "Laser", "ELS Lane State", "Shared",
 }
 DIAGNOSTICS = ("not implemented", "invalid", "failed", "traceback", "no such command", "no such option",
                "missing option", "missing argument", "requires an argument", "must be supplied together")
@@ -39,12 +40,24 @@ def redact_dom(value, in_info=False):
 def table_summary(output):
     lines = output.splitlines()
     headers = []
+    tables = []
     for index, line in enumerate(lines):
         if index and re.fullmatch(r"\s*-{2,}[-\s]*", line):
             # Return only known public column names, never arbitrary output.
-            headers.extend(field for field in re.split(r"\s{2,}", lines[index - 1].strip()) if field in TABLE_FIELDS)
+            fields = [field for field in re.split(r"\s{2,}", lines[index - 1].strip()) if field in TABLE_FIELDS]
+            if not fields:
+                continue
+            headers.extend(fields)
+            rows = []
+            for row in lines[index + 1:]:
+                if not row.strip():
+                    break
+                match = re.match(r"\s*((?:Ethernet\S+|OE\d+|ELS\d+))(?=\s|$)", row, re.I)
+                if match:
+                    rows.append(match[1])
+            tables.append({"headers": fields, "resources": sorted(set(rows))})
     resources = re.findall(r"^\s*((?:Ethernet\S+|OE\d+|ELS\d+))(?=\s|$)", output, re.M | re.I)
-    return {"headers": headers, "resources": sorted(set(resources))}
+    return {"headers": headers, "resources": sorted(set(resources)), "tables": tables}
 
 
 def dom_summary(output):

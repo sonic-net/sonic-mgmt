@@ -430,5 +430,24 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
 
 
 @pytest.mark.skip(reason="interface lane-status is deferred at the user's request")
-def test_cpoutil_lane_status():
-    """Reserved coverage entry; no lane-status command executes in this suite."""
+def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
+    """Prepared two-table checks; the skip marker keeps DUT execution deferred."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    expected_headers = [
+        ["Interface", "Lane", "Data Path State"],
+        ["Interface", "ELS", "Laser", "ELS Lane State", "Shared"],
+    ]
+    # Only OE datapath and ELS lane tables belong here, not ELS module status.
+    # Check connected ports in bulk, then one representative port selector.
+    for selected_port in (None, connected_cpo_ports[0]):
+        command = "show interface lane-status"
+        if selected_port is not None:
+            command += " -p " + selected_port
+        tables = run_cpoutil(duthost, command, optional=True)["table"]["tables"]
+        assert [table["headers"] for table in tables] == expected_headers, \
+            "Expected only the OE datapath and ELS lane tables"
+        for table in tables:
+            if selected_port is None:
+                assert set(connected_cpo_ports) <= set(table["resources"]), "Connected CPO port missing from lane table"
+            else:
+                assert set(table["resources"]) == {selected_port}, "Lane table contains an unexpected port"
