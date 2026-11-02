@@ -2,7 +2,7 @@ import base64
 import itertools
 import logging
 import os
-import shlex
+import re
 import sys
 import time
 from contextlib import contextmanager
@@ -15,6 +15,7 @@ from tests.high_frequency_telemetry.counter_profiles import (
     get_support_counter_list,
 )
 from tests.high_frequency_telemetry.utilities import (
+    OTEL_COLLECTOR_ENDPOINT,
     InfluxDbSink,
     cleanup_hft_config,
     enable_otel_collector,
@@ -24,7 +25,6 @@ from tests.high_frequency_telemetry.utilities import (
     get_configured_buffer_queue_objects,
     get_configured_queue_objects,
     get_countersyncd_container,
-    get_countersyncd_otel_endpoint,
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
@@ -39,8 +39,11 @@ from tests.high_frequency_telemetry.utilities import (
 logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
-HFT_CONFIG_PATH = "/etc/sonic/hft/hft.env"
-HFT_OTEL_ENDPOINT = "http://localhost:4317"
+HFT_SETTINGS_PATH = "/etc/sonic/hft/hft.env"
+# An HFT_COUNTERSYNCD_ARGS assignment in hft.env, as countersyncd.sh reads it.
+HFT_ARGS_SETTING = re.compile(
+    r"(\s*(?:export\s+)?HFT_COUNTERSYNCD_ARGS\s*=\s*)(.*?)(\s*)"
+)
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
 INFLUXDB_BUCKET_IDS = itertools.count(1)
@@ -90,9 +93,9 @@ def _run_cleanup_steps(steps):
     return first_error
 
 
-def _get_container_running(duthost, container):
+def _get_otel_container_running(duthost):
     result = duthost.shell(
-        r"docker inspect -f \{\{.State.Running\}\} " + container,
+        r"docker inspect -f \{\{.State.Running\}\} otel",
         module_ignore_errors=True,
     )
     output = result.get("stdout", "").strip().lower()
@@ -106,144 +109,125 @@ def _get_container_running(duthost, container):
     if result.get("rc") != 0 and (
             "no such object" in error or "no such container" in error):
         return False
-    raise AssertionError(f"Unable to determine {container} container state: {result}")
-
-
-def _get_otel_container_running(duthost):
-    return _get_container_running(duthost, "otel")
+    raise AssertionError(f"Unable to determine OTEL container state: {result}")
 
 
 def _is_otel_container_stopped(duthost):
     return not _get_otel_container_running(duthost)
 
 
-def _without_raw_otel_endpoint(config):
-    """Drop --otel-endpoint from HFT_COUNTERSYNCD_ARGS, which would otherwise
-    take precedence over COUNTERSYNCD_OTEL_ENDPOINT. Other options are kept."""
+def _is_hft_container_stopped(duthost):
+    return not duthost.is_service_fully_started("hft")
+
+
+def _without_otel_endpoint_args(settings):
+    """Remove --otel-endpoint from HFT_COUNTERSYNCD_ARGS in hft.env.
+
+    countersyncd.sh gives these arguments precedence over
+    COUNTERSYNCD_OTEL_ENDPOINT. Other arguments are kept.
+    """
     lines = []
-    for line in config.splitlines(keepends=True):
-        key, sep, value = line.partition("=")
-        if sep and key.strip().removeprefix("export ").strip() == "HFT_COUNTERSYNCD_ARGS":
-            quote = value.strip()[:1] if value.strip()[:1] in "'\"" else ""
-            tokens = value.strip().strip(quote).split()
+    for line in settings.splitlines(keepends=True):
+        match = HFT_ARGS_SETTING.fullmatch(line)
+        if match:
+            prefix, value, suffix = match.groups()
+            quote = ""
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+                quote, value = value[0], value[1:-1]
+            args = value.split()
             kept = []
-            skip_value = False
-            for token in tokens:
-                if skip_value:
-                    skip_value = False
-                    if not token.startswith("-"):
-                        continue
-                if token == "--otel-endpoint":
-                    skip_value = True
-                    continue
-                if token.startswith("--otel-endpoint="):
-                    continue
-                kept.append(token)
-            line = f"{key}={quote}{' '.join(kept)}{quote}\n"
+            while args:
+                arg = args.pop(0)
+                if arg == "--otel-endpoint":
+                    # The next argument is its value unless it is an option.
+                    if args and not re.match(r"-.", args[0]):
+                        args.pop(0)
+                elif not arg.startswith("--otel-endpoint="):
+                    kept.append(arg)
+            line = f"{prefix}{quote}{' '.join(kept)}{quote}{suffix}"
         lines.append(line)
     return "".join(lines)
 
 
 @contextmanager
-def _configured_countersyncd(duthost):
-    """Temporarily enable OTEL export in the standalone HFT container.
+def _countersyncd_otel_export(duthost, original_hft_state):
+    """Make countersyncd export to the OTEL collector, then restore it.
 
-    Legacy images already start countersyncd with --enable-otel in swss; do
-    not modify their supervisor configuration or restart swss.
+    countersyncd in swss always exports to the collector. The hft container
+    is disabled by default, and exports only when hft.env enables it.
     """
-    if get_countersyncd_container(duthost) == "swss":
-        ensure_countersyncd_daemon(duthost)
+    if original_hft_state is None:
+        ensure_countersyncd_daemon(duthost, "swss")
         yield
         return
 
-    feature_lines = duthost.shell(
-        "redis-cli -n 4 --raw HGETALL 'FEATURE|hft'",
-        module_ignore_errors=False,
-    ).get("stdout_lines", [])
-    if not feature_lines or len(feature_lines) % 2:
-        pytest.fail(f"Invalid FEATURE|hft response: {feature_lines}")
-    original_feature = dict(zip(feature_lines[0::2], feature_lines[1::2]))
-    original_state = original_feature.get("state")
-    enabled_states = {"enabled", "always_enabled"}
-    if original_state == "always_disabled":
-        pytest.skip("HFT feature is always disabled")
-    if original_state not in enabled_states | {"disabled"}:
-        pytest.fail(f"Unexpected HFT feature state: {original_state}")
-    if original_state in enabled_states and not _get_container_running(duthost, "hft"):
-        pytest.fail("HFT is enabled but its container is not running")
-    if original_state in enabled_states:
-        status = duthost.shell(
-            "docker exec hft supervisorctl status countersyncd", module_ignore_errors=True,
-        )
-        if status.get("rc") != 0 or status.get("stdout", "").split()[:2] != ["countersyncd", "RUNNING"]:
-            pytest.fail(f"HFT is enabled but countersyncd is not running: {status}")
-
-    config_stat = duthost.stat(path=HFT_CONFIG_PATH)["stat"]
-    config_existed = config_stat["exists"]
-    original_config = ""
-    if config_existed:
-        original_config = base64.b64decode(
-            duthost.slurp(src=HFT_CONFIG_PATH)["content"]
+    settings = duthost.stat(path=HFT_SETTINGS_PATH)["stat"]
+    original_settings = ""
+    if settings["exists"]:
+        original_settings = base64.b64decode(
+            duthost.slurp(src=HFT_SETTINGS_PATH)["content"]
         ).decode("utf-8")
 
-    def restore_config():
-        if config_existed:
-            duthost.copy(content=original_config, dest=HFT_CONFIG_PATH,
-                         mode=config_stat["mode"])
+    def restore_settings():
+        if settings["exists"]:
+            duthost.copy(
+                content=original_settings,
+                dest=HFT_SETTINGS_PATH,
+                mode=settings["mode"],
+            )
         else:
-            duthost.shell(f"sudo rm -f {HFT_CONFIG_PATH}", module_ignore_errors=False)
+            duthost.shell(
+                f"sudo rm -f {HFT_SETTINGS_PATH}",
+                module_ignore_errors=False,
+            )
 
-    def restore_runtime():
-        if original_state == "disabled":
-            duthost.shell("sudo config feature state hft disabled", module_ignore_errors=False)
-            if not wait_until(60, 2, 0, lambda: not _get_container_running(duthost, "hft")):
+    def restore_countersyncd():
+        if original_hft_state == "disabled":
+            duthost.shell(
+                "sudo config feature state hft disabled",
+                module_ignore_errors=False,
+            )
+            if not wait_until(60, 2, 0, _is_hft_container_stopped, duthost):
                 pytest.fail("HFT container did not stop during restoration")
         else:
-            duthost.shell("docker exec hft supervisorctl restart countersyncd",
-                          module_ignore_errors=False)
-
-    def restore_feature():
-        # Do not delete the feature entry: feature management observes this hash.
-        current_fields = duthost.shell(
-            "redis-cli -n 4 --raw HKEYS 'FEATURE|hft'", module_ignore_errors=False,
-        ).get("stdout_lines", [])
-        extra_fields = set(current_fields) - set(original_feature)
-        if extra_fields:
-            fields = " ".join(shlex.quote(field) for field in extra_fields)
-            duthost.shell(f"redis-cli -n 4 HDEL 'FEATURE|hft' {fields}", module_ignore_errors=False)
-        fields = " ".join(shlex.quote(value) for pair in original_feature.items() for value in pair)
-        duthost.shell(f"redis-cli -n 4 HSET 'FEATURE|hft' {fields}", module_ignore_errors=False)
+            # countersyncd.sh reads hft.env each time countersyncd starts.
+            duthost.shell(
+                "docker exec hft supervisorctl restart countersyncd",
+                module_ignore_errors=False,
+            )
 
     try:
-        # Prepend to preserve unrelated options. The wrapper uses the first
-        # value of a repeated setting in this file. Validate the actual process too,
-        # since container environment/arguments take precedence over this file.
+        # countersyncd.sh uses the first assignment of a variable in hft.env.
         duthost.copy(
-            content="COUNTERSYNCD_ENABLE_OTEL=true\n"
-            f"COUNTERSYNCD_OTEL_ENDPOINT={HFT_OTEL_ENDPOINT}\n"
-            + _without_raw_otel_endpoint(original_config),
-            dest=HFT_CONFIG_PATH, mode=config_stat.get("mode", "0644"),
+            content=(
+                "COUNTERSYNCD_ENABLE_OTEL=true\n"
+                f"COUNTERSYNCD_OTEL_ENDPOINT={OTEL_COLLECTOR_ENDPOINT}\n"
+                + _without_otel_endpoint_args(original_settings)
+            ),
+            dest=HFT_SETTINGS_PATH,
+            mode=settings.get("mode", "0644"),
         )
-        if original_state == "disabled":
-            duthost.shell("sudo config feature state hft enabled", module_ignore_errors=False)
-            if not wait_until(60, 2, 0, _get_container_running, duthost, "hft"):
-                pytest.fail("HFT container did not start")
+        if original_hft_state == "disabled":
+            duthost.shell(
+                "sudo config feature state hft enabled",
+                module_ignore_errors=False,
+            )
         else:
-            duthost.shell("docker exec hft supervisorctl restart countersyncd",
-                          module_ignore_errors=False)
+            duthost.shell(
+                "docker exec hft supervisorctl restart countersyncd",
+                module_ignore_errors=False,
+            )
         if not wait_until(60, 2, 0, duthost.critical_processes_running, "hft"):
-            pytest.fail("HFT critical processes did not start")
+            pytest.fail("countersyncd did not start in the HFT container")
         ensure_countersyncd_daemon(duthost, "hft")
-        endpoint = get_countersyncd_otel_endpoint(duthost, "hft")
-        if endpoint != HFT_OTEL_ENDPOINT:
-            pytest.fail(f"countersyncd exports to {endpoint}, expected {HFT_OTEL_ENDPOINT}")
         yield
     finally:
+        # Setup failures are active here; pytest reports call-phase failures
+        # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
         cleanup_error = _run_cleanup_steps([
-            ("restore HFT config", restore_config),
-            ("restore HFT runtime state", restore_runtime),
-            ("restore HFT feature fields", restore_feature),
+            ("restore hft.env", restore_settings),
+            ("restore countersyncd", restore_countersyncd),
         ])
         if cleanup_error is not None and original_error is None:
             raise cleanup_error
@@ -297,21 +281,30 @@ def skip_unsupported_hft_platform(
         original_collector_running = _collector_running_from_status(
             collector_status
         )
-    if get_countersyncd_container(duthost) == "swss":
-        ensure_countersyncd_daemon(duthost)
-    else:
-        hft_state = duthost.shell(
+
+    # Newer images run countersyncd in the hft container instead of swss.
+    original_hft_state = None
+    if get_countersyncd_container(duthost) == "hft":
+        original_hft_state = duthost.shell(
             "sonic-db-cli CONFIG_DB HGET 'FEATURE|hft' state",
             module_ignore_errors=False,
         ).get("stdout", "").strip()
-        if hft_state == "always_disabled":
+        if original_hft_state not in valid_states:
+            pytest.fail(f"Unexpected HFT feature state: {original_hft_state}")
+        if original_hft_state == "always_disabled":
             pytest.skip("HFT feature is always disabled")
+        if original_hft_state in enabled_states \
+                and not duthost.critical_processes_running("hft"):
+            pytest.fail("HFT is enabled but countersyncd is not running")
+    else:
+        ensure_countersyncd_daemon(duthost, "swss")
     return {
         "config_existed": config_existed,
         "original_config": original_config,
         "original_feature": original_feature,
         "original_state": original_state,
         "original_collector_running": original_collector_running,
+        "original_hft_state": original_hft_state,
     }
 
 
@@ -402,6 +395,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
     original_collector_running = skip_unsupported_hft_platform[
         "original_collector_running"
     ]
+    original_hft_state = skip_unsupported_hft_platform["original_hft_state"]
 
     def restore_config():
         if config_existed:
@@ -476,7 +470,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
     try:
         if original_state not in enabled_states:
             enable_otel_collector(duthost, check_image=False)
-        with _configured_countersyncd(duthost):
+        with _countersyncd_otel_export(duthost, original_hft_state):
             yield
     finally:
         # Setup failures are active here; pytest reports call-phase failures

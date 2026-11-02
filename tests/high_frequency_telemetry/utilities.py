@@ -22,6 +22,10 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
+# OTLP receiver of the OTEL collector in the otel container. This is also the
+# default --otel-endpoint of countersyncd.
+OTEL_COLLECTOR_ENDPOINT = "http://localhost:4317"
+
 # countersyncd names every OTEL gauge after the canonical SAI stat and tags each
 # data point with object_name / sai_type / sai_stat. The InfluxDB exporter turns
 # the gauge name into the measurement and the attributes into tags, so a series
@@ -452,22 +456,36 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
 
 
 def get_countersyncd_container(duthost):
-    """Use the registered HFT feature, including when it is disabled/stopped.
+    """Return the container that runs countersyncd: hft or swss.
 
-    Probing only running containers would incorrectly fall back to swss on
-    images where HFT is a separate, disabled-by-default feature.
+    The hft feature is disabled by default, so check whether it exists rather
+    than whether its container is running.
     """
     result = duthost.shell(
         "sonic-db-cli CONFIG_DB EXISTS 'FEATURE|hft'",
         module_ignore_errors=False,
     )
-    value = result.get("stdout", "").strip()
-    pytest_assert(value in {"0", "1"}, f"Invalid HFT feature probe: {result}")
-    return "hft" if value == "1" else "swss"
+    exists = result.get("stdout", "").strip()
+    pytest_assert(
+        exists in {"0", "1"},
+        f"Unable to determine whether the hft feature exists: {result}",
+    )
+    return "hft" if exists == "1" else "swss"
+
+
+def _get_otel_endpoint(args):
+    """Return the OTLP endpoint given by countersyncd arguments."""
+    endpoint = OTEL_COLLECTOR_ENDPOINT
+    for index, arg in enumerate(args):
+        if arg.startswith("--otel-endpoint="):
+            endpoint = arg.split("=", 1)[1]
+        elif arg == "--otel-endpoint" and index + 1 < len(args):
+            endpoint = args[index + 1]
+    return endpoint
 
 
 def ensure_countersyncd_daemon(duthost, container=None):
-    """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
+    """Verify the supervisor-owned countersyncd exports to the collector."""
     container = container or get_countersyncd_container(duthost)
     status = duthost.shell(
         f"docker exec {container} supervisorctl status countersyncd",
@@ -479,33 +497,23 @@ def ensure_countersyncd_daemon(duthost, container=None):
         f"{status.get('stdout', '')} {status.get('stderr', '')}",
     )
     command = duthost.shell(
-        f"docker exec {container} sh -c 'pid=$(supervisorctl pid countersyncd) && "
+        f"docker exec {container} sh -c "
+        "'pid=$(supervisorctl pid countersyncd) && "
         "xargs -0 echo < /proc/$pid/cmdline'",
         module_ignore_errors=True,
     )
     pytest_assert(
-        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", "").split(),
+        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", ""),
         "The supervisor countersyncd must use --enable-otel, got: "
         f"{command.get('stdout', '')} {command.get('stderr', '')}",
     )
-    return True
-
-
-def get_countersyncd_otel_endpoint(duthost, container):
-    """Return the OTLP endpoint the running countersyncd actually uses."""
-    result = duthost.shell(
-        f"docker exec {container} sh -c 'pid=$(supervisorctl pid countersyncd) && "
-        "xargs -0 -n1 echo < /proc/$pid/cmdline'",
-        module_ignore_errors=False,
+    endpoint = _get_otel_endpoint(command.get("stdout", "").split())
+    pytest_assert(
+        endpoint == OTEL_COLLECTOR_ENDPOINT,
+        "The supervisor countersyncd must export to "
+        f"{OTEL_COLLECTOR_ENDPOINT}, got: {endpoint}",
     )
-    args = result.get("stdout_lines", [])
-    endpoint = "http://localhost:4317"
-    for index, arg in enumerate(args):
-        if arg.startswith("--otel-endpoint="):
-            endpoint = arg.split("=", 1)[1]
-        elif arg == "--otel-endpoint" and index + 1 < len(args):
-            endpoint = args[index + 1]
-    return endpoint
+    return True
 
 
 def _get_running_countersyncd_pid(duthost, container):
