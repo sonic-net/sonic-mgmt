@@ -40,8 +40,8 @@ def test_invalid_exceptions_cannot_hide_missing_protection(exceptions):
 
 
 @pytest.mark.parametrize('ports,selected', [((6379, 6400), ['/run/redis.sock']),
-    ((0, 0), ['/run/redis.sock']), ((0, 6400), ['/run/bmp.sock']),
-    ((0, 6400), ['/run/redis.sock', '/run/bmp.sock']), ((0, 6400), [])])
+                                         ((0, 0), ['/run/redis.sock']), ((0, 6400), ['/run/bmp.sock']),
+                                         ((0, 6400), ['/run/redis.sock', '/run/bmp.sock']), ((0, 6400), [])])
 def test_mixed_scope_rejects_inconsistent_listeners_or_policy(ports, selected):
     local = {'redis': {'unix_socket_path': '/run/redis.sock', 'port': ports[0]},
              'redis_bmp': {'unix_socket_path': '/run/bmp.sock', 'port': ports[1]}}
