@@ -24,7 +24,6 @@ from tests.high_frequency_telemetry.utilities import (
     get_configured_buffer_pools,
     get_configured_buffer_queue_objects,
     get_configured_queue_objects,
-    get_countersyncd_container,
     install_otel_collector_config,
     is_otel_image_available,
     render_otel_collector_config,
@@ -153,14 +152,9 @@ def _without_otel_endpoint_args(settings):
 def _countersyncd_otel_export(duthost, original_hft_state):
     """Make countersyncd export to the OTEL collector, then restore it.
 
-    countersyncd in swss always exports to the collector. The hft container
-    is disabled by default, and exports only when hft.env enables it.
+    The hft feature is disabled by default, and countersyncd exports only when
+    hft.env enables it.
     """
-    if original_hft_state is None:
-        ensure_countersyncd_daemon(duthost, "swss")
-        yield
-        return
-
     settings = duthost.stat(path=HFT_SETTINGS_PATH)["stat"]
     original_settings = ""
     if settings["exists"]:
@@ -219,7 +213,7 @@ def _countersyncd_otel_export(duthost, original_hft_state):
             )
         if not wait_until(60, 2, 0, duthost.critical_processes_running, "hft"):
             pytest.fail("countersyncd did not start in the HFT container")
-        ensure_countersyncd_daemon(duthost, "hft")
+        ensure_countersyncd_daemon(duthost)
         yield
     finally:
         # Setup failures are active here; pytest reports call-phase failures
@@ -282,22 +276,19 @@ def skip_unsupported_hft_platform(
             collector_status
         )
 
-    # Newer images run countersyncd in the hft container instead of swss.
-    original_hft_state = None
-    if get_countersyncd_container(duthost) == "hft":
-        original_hft_state = duthost.shell(
-            "sonic-db-cli CONFIG_DB HGET 'FEATURE|hft' state",
-            module_ignore_errors=False,
-        ).get("stdout", "").strip()
-        if original_hft_state not in valid_states:
-            pytest.fail(f"Unexpected HFT feature state: {original_hft_state}")
-        if original_hft_state == "always_disabled":
-            pytest.skip("HFT feature is always disabled")
-        if original_hft_state in enabled_states \
-                and not duthost.critical_processes_running("hft"):
-            pytest.fail("HFT is enabled but countersyncd is not running")
-    else:
-        ensure_countersyncd_daemon(duthost, "swss")
+    original_hft_state = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'FEATURE|hft' state",
+        module_ignore_errors=False,
+    ).get("stdout", "").strip()
+    if not original_hft_state:
+        pytest.skip("HFT feature is not available on this platform")
+    if original_hft_state not in valid_states:
+        pytest.fail(f"Unexpected HFT feature state: {original_hft_state}")
+    if original_hft_state == "always_disabled":
+        pytest.skip("HFT feature is always disabled")
+    if original_hft_state in enabled_states \
+            and not duthost.critical_processes_running("hft"):
+        pytest.fail("HFT is enabled but countersyncd is not running")
     return {
         "config_existed": config_existed,
         "original_config": original_config,

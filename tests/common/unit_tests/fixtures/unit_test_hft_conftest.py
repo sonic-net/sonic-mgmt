@@ -49,7 +49,6 @@ def _load_target_module():
         "get_configured_buffer_pools",
         "get_configured_buffer_queue_objects",
         "get_configured_queue_objects",
-        "get_countersyncd_container",
         "install_otel_collector_config",
         "is_otel_image_available",
         "render_otel_collector_config",
