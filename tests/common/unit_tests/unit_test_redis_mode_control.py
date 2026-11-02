@@ -1,6 +1,9 @@
 """Exercise mode changes and recovery without using a lab DUT."""
 import base64
 import json
+import os
+import subprocess
+import sys
 import pytest
 
 from tests.common.plugins.redis_protection import control
@@ -169,3 +172,38 @@ def test_reject_mismatched_restore_inventory_and_existing_record(tmp_path):
 def test_reject_empty_or_duplicate_inventory(tmp_path, duts):
     with pytest.raises(ValueError, match='distinct'):
         control.prepare(duts, lambda d: d.reboot(), tmp_path / 'state.json', 'enforce')
+
+
+@pytest.mark.parametrize('supported', [True, False])
+def test_preflight_imports_the_installed_startup_script(tmp_path, monkeypatch, supported):
+    installed = tmp_path / 'bin'
+    installed.mkdir()
+    (installed / 'redis_auth_prepare.py').write_text('READY = True\n')
+    marker = tmp_path / 'preflight-ran'
+    startup = installed / 'redis_auth_startup.py'
+    startup.write_text(
+        'from redis_auth_prepare import READY\n'
+        'from pathlib import Path\n'
+        'def check_topology():\n'
+        '    assert READY and ' + repr(supported) + '\n'
+        'def configured_instances():\n'
+        '    Path(' + repr(str(marker)) + ').write_text("checked")\n')
+    monkeypatch.setattr(control, 'STARTUP', str(startup))
+
+    class InstalledDut(Dut):
+        def command(self, argv, **kwargs):
+            if argv[:2] != ['python3', '-c']:
+                return super().command(argv, **kwargs)
+            env = {key: value for key, value in os.environ.items() if key != 'PYTHONPATH'}
+            result = subprocess.run([sys.executable, *argv[1:]], cwd=tmp_path, env=env,
+                                    capture_output=True, text=True, timeout=10)
+            return dict(rc=result.returncode, stdout=result.stdout)
+
+    dut = InstalledDut('dut')
+    if supported:
+        control.prepare([dut], lambda d: d.reboot(), tmp_path / 'state.json', 'enforce')
+        assert marker.read_text() == 'checked'
+    else:
+        with pytest.raises(RuntimeError):
+            control.prepare([dut], lambda d: d.reboot(), tmp_path / 'state.json', 'enforce')
+        assert dut.content is None and not (tmp_path / 'state.json').exists()

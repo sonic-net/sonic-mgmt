@@ -70,7 +70,8 @@ def prepare(duts, reboot, path, mode, allow_tcp_exceptions=False):
             if intent.get('tcp_exceptions') and not allow_tcp_exceptions:
                 raise ValueError('TCP exceptions require an explicitly scoped acceptance run')
             checked(dut, ['python3', '-c',
-                          'import redis_auth_startup as s; s.check_topology(); s.configured_instances()'])
+                          'import sys; sys.path.insert(0, {!r}); import redis_auth_startup as s; '
+                          's.check_topology(); s.configured_instances()'.format(str(Path(STARTUP).parent))])
         state['hosts'][dut.hostname] = {
             'original': original, 'original_mode': original_mode,
             'permissions': info.get('mode'), 'uid': info.get('uid'), 'gid': info.get('gid'),
