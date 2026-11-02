@@ -362,6 +362,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         POLICY_ROUTE_TABLE_BASE = 100
         while any((POLICY_ROUTE_TABLE_BASE + i) in used_table_ids for i in range(peer_count)):
             POLICY_ROUTE_TABLE_BASE += peer_count
+        original_arp_ignore = None
+        orig_arp_sysctls = {}
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
@@ -385,8 +387,29 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     }
                 )
 
+            if not is_v6_topo:
+                original_arp_ignore = int(ptfhost.command(
+                    "sysctl -n net.ipv4.conf.all.arp_ignore"
+                )['stdout'].strip())
+                # VLAN broadcasts reach every PTF port. Restrict kernel ARP
+                # replies to the port owning the IP, including replies on ports
+                # not selected for BGP; source routing alone does not do this.
+                ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
+
             ptfhost.remove_ip_addresses()
             _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo)
+
+            if not is_v6_topo:
+                arp_keys = ["net.ipv4.conf.{}.{}".format(conn["neighbor_intf"], param)
+                            for conn in connections for param in ("arp_ignore", "arp_announce")]
+                arp_values = ptfhost.shell("sysctl -n {}".format(" ".join(arp_keys)))["stdout_lines"]
+                orig_arp_sysctls = dict(zip(arp_keys, arp_values))
+                ptfhost.shell("sysctl -w {}".format(" ".join(
+                    "{}={}".format(key, 1 if key.endswith("arp_ignore") else 2) for key in arp_keys)))
+                # Drop existing neighbor entries that may still point to another port's MAC
+                flush_cmd = "; ".join("sudo ip neigh flush to {}".format(conn["neighbor_addr"].split("/")[0])
+                                      for conn in connections)
+                duthosts.shell(flush_cmd, module_ignore_errors=True)
 
             for conn in connections:
                 ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
@@ -409,17 +432,27 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             yield connections
 
         finally:
-            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
-            ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
-                          module_ignore_errors=True)
-            for i, conn in enumerate(connections):
-                table_id = POLICY_ROUTE_TABLE_BASE + i
-                neighbor_ip = conn["neighbor_addr"].split("/")[0]
-                ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+            try:
+                ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+                ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
                               module_ignore_errors=True)
-                ptfhost.shell("ip route flush table %d" % table_id,
-                              module_ignore_errors=True)
-                ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+                for i, conn in enumerate(connections):
+                    table_id = POLICY_ROUTE_TABLE_BASE + i
+                    neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                    ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip route flush table %d" % table_id,
+                                  module_ignore_errors=True)
+                    ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
+            finally:
+                try:
+                    if orig_arp_sysctls:
+                        ptfhost.shell("sysctl -w {}".format(" ".join(
+                            "{}={}".format(key, value) for key, value in orig_arp_sysctls.items())),
+                            module_ignore_errors=True)
+                finally:
+                    if original_arp_ignore is not None:
+                        ptfhost.command("sysctl -w net.ipv4.conf.all.arp_ignore=%d" % original_arp_ignore)
 
     @contextlib.contextmanager
     def _setup_interfaces_t0_or_mx(mg_facts, peer_count):

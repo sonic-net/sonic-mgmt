@@ -341,6 +341,7 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "relay_agent": relay_agent,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
@@ -605,6 +606,7 @@ def test_dhcp_relay_with_non_default_vrf(
                                "kvm_support": True,
                                "link_selection": link_selection,
                                "source_interface": source_intf,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'] if source_intf else None,
                                "server_id_override": server_id_override,
                                "vrf_selection": True,
                                "relay_agent": relay_agent,
@@ -813,6 +815,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                # the OFFER never matches any IP2ME entry on platforms that
                                # enforce strict per-VRF IP2ME (e.g. Broadcom Helix4).
                                "source_interface": True,
+                               "source_interface_ip": dhcp_relay['switch_loopback_ip'],
                                "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},

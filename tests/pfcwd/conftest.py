@@ -8,6 +8,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service           # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, check_dshell_ready
 from tests.common.utilities import str2bool, wait_until
@@ -36,6 +37,8 @@ def pytest_addoption(parser):
                      help='Fake storm for most ports instead of using pfc gen')
     parser.addoption('--two-queues', action='store_true', default=True,
                      help='Run test with sending traffic to both queues [3, 4]')
+    parser.addoption('--save-timer-results', action='store_true', default=False,
+                     help='Save results of pfc timer accuracy test to file')
 
 
 @pytest.fixture(scope="module")
@@ -81,6 +84,21 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                      is_cisco_device(duthost) or
                      "7060X6" in duthost.facts['hwsku'].upper()) \
         else request.config.getoption('--fake-storm')
+
+
+@pytest.fixture(scope="module")
+def save_timer_results(request):
+    """
+    Save pfcwd_timer_accuracy test results to file.
+    By default, the test results will not be persisted.
+
+    Args:
+        request: pytest request object
+
+    Returns:
+        save_timer_results: True/False
+    """
+    return request.config.getoption('--save-timer-results')
 
 
 @pytest.fixture(scope="module")
@@ -302,3 +320,11 @@ def cleanup(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
     yield
     ptfhost.remove_ip_addresses()
     duthost.command("sonic-clear arp")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def create_ptf_test_port_map(
+    ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts
+):
+    ptf_test_port_map(
+        ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts)

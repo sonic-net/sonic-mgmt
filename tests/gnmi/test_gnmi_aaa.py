@@ -34,7 +34,6 @@ from tests.common.helpers.syslog_helpers import (
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
 
-
 pytestmark = [
     pytest.mark.topology("any"),
 ]
@@ -48,17 +47,12 @@ CONFIG_DB_NOACCESS_ROLE = "gnmi_config_db_noaccess"
 CONFIG_DB_READONLY_ROLE = "gnmi_config_db_readonly"
 CONFIG_DB_READWRITE_ROLE = "gnmi_config_db_readwrite"
 NO_ACCESS_ERROR = "does not have access|gnmi.*noaccess"
-UNMAPPED_CN_ERROR = (
-    "Unauthenticated|unauthenticated|Invalid cert cname|"
-    "not a trusted|common name mapping"
-)
+UNMAPPED_CN_ERROR = "Unauthenticated|unauthenticated|Invalid cert cname|" "not a trusted|common name mapping"
 GET_METHOD = "/gnmi.gNMI/Get"
 SET_METHOD = "/gnmi.gNMI/Set"
 RATE_LIMIT_BURST = 60
 RATE_LIMIT_REFILL_SECONDS = 60
-CONFIG_DB_GET_PATH = (
-    "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
-)
+CONFIG_DB_GET_PATH = "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
 AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
@@ -66,17 +60,17 @@ AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 def _set_configdb(client):
     client.set(
-        update=[(
-            "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype",
-            '"Public"',
-        )],
+        update=[
+            (
+                "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/cloudtype",
+                '"Public"',
+            )
+        ],
     )
 
 
 def _get_configdb(client):
-    client.get(
-        "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
-    )
+    client.get("sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost")
 
 
 def _get_countersdb(client):
@@ -152,8 +146,7 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
         get_burst_seconds = time.monotonic() - burst_started
         pytest_assert(
             get_burst_seconds < RATE_LIMIT_REFILL_SECONDS,
-            "Get burst took {:.1f}s; requests crossed the 60s refill "
-            "boundary".format(get_burst_seconds),
+            "Get burst took {:.1f}s; requests crossed the 60s refill " "boundary".format(get_burst_seconds),
         )
 
         with pytest.raises(gNMIException, match="unsupported request type"):
@@ -194,9 +187,7 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
     _set_client_cert_role(duthost, CONFIG_DB_READONLY_ROLE)
     with gnmi_tls.pygnmi_client._build_client() as client:
         for _ in range(RATE_LIMIT_BURST + 1):
-            with pytest.raises(
-                gNMIException, match=CONFIG_DB_READONLY_ROLE
-            ):
+            with pytest.raises(gNMIException, match=CONFIG_DB_READONLY_ROLE):
                 client.set(
                     update=[(CONFIG_DB_SET_PATH, '"Public"')],
                     encoding="json_ietf",
@@ -234,43 +225,31 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
     )
     pytest_assert(
         get_records[-1]["suppressed"] == 1,
-        "First refilled Get record did not report one suppressed request: {}"
-        .format(get_records[-1]),
+        "First refilled Get record did not report one suppressed request: {}".format(get_records[-1]),
     )
 
 
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
-def test_gnmi_audit_log_remote_forwarding(
-    gnmi_tls, ptfhost, operation, method  # noqa: F811
-):
+def test_gnmi_audit_log_remote_forwarding(gnmi_tls, ptfhost, operation, method):  # noqa: F811
     duthost = gnmi_tls.duthost
     syslog_vrf = "mgmt" if is_mgmt_vrf_enabled(duthost) else None
 
-    with capture_remote_syslog(
-        duthost, ptfhost.mgmt_ip, vrf=syslog_vrf
-    ) as (capture_result, capture_file):
+    with capture_remote_syslog(duthost, ptfhost.mgmt_ip, vrf=syslog_vrf) as (capture_result, capture_file):
         offset = get_audit_log_offset(duthost)
         with allure.step("Generate a {} audit record".format(method)):
             operation(gnmi_tls.pygnmi_client)
 
         with allure.step("Verify the remotely forwarded audit record"):
-            local_records = wait_for_audit_record(
-                duthost, offset, method, CLIENT_PRINCIPAL
-            )
-            forwarded_payloads = read_syslog_payloads(
-                duthost, capture_result, capture_file
-            )
+            local_records = wait_for_audit_record(duthost, offset, method, CLIENT_PRINCIPAL)
+            forwarded_payloads = read_syslog_payloads(duthost, capture_result, capture_file)
             pytest_assert(
-                any(RPC_COMPLETION_PREFIX in payload
-                    for payload in forwarded_payloads),
+                any(RPC_COMPLETION_PREFIX in payload for payload in forwarded_payloads),
                 "No RPC_COMPLETION marker found in forwarded UDP packets",
             )
             streamed_records = [
                 record
                 for payload in forwarded_payloads
-                for record in parse_audit_records(
-                    payload, method, CLIENT_PRINCIPAL
-                )
+                for record in parse_audit_records(payload, method, CLIENT_PRINCIPAL)
             ]
             pytest_assert(
                 streamed_records == local_records,
@@ -285,12 +264,9 @@ def test_gnmi_audit_log_remote_forwarding(
 @pytest.mark.parametrize("operation,method", AUDIT_ACTIVITIES)
 def test_gnmi_default_cert_auth(gnmi_tls, operation, method):  # noqa: F811
     duthost = gnmi_tls.duthost
-    delete_result = redis_hdel(
-        duthost, CONFIG_DB, "GNMI|gnmi", "user_auth"
-    )
+    delete_result = redis_hdel(duthost, CONFIG_DB, "GNMI|gnmi", "user_auth")
     pytest_assert(
-        delete_result["rc"] == 0
-        and delete_result["stdout"].strip() == "1",
+        delete_result["rc"] == 0 and delete_result["stdout"].strip() == "1",
         "Failed to delete GNMI|gnmi.user_auth: {}".format(delete_result),
     )
     pytest_assert(
@@ -397,9 +373,7 @@ UNMAPPED_CN_ROLE_CASES = [
     "role,operation,error_pattern",
     CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
 )
-def test_cn_role_access(
-    gnmi_tls, role, operation, error_pattern  # noqa: F811
-):
+def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
     """Verify generic and target-specific role authorization."""
     duthost = gnmi_tls.duthost
     role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
