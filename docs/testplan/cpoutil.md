@@ -24,9 +24,9 @@ There are 12 test functions, producing 16 cases for one DUT:
 | `test_cpoutil_reset` | 2 | Reset one OE/ELS; restore power mode, presence, Application, TX and previously up links |
 | `test_cpoutil_lane_status` | 1 | Explicitly skipped at the user's request; no lane-status command executes |
 
-Default execution has 10 applicable checks and 6 planned skips: five controls
-need the explicit control option, and lane-status is deferred. Additional
-platform/connection prerequisites can also cause skips.
+Default execution attempts 15 functional cases, including hardware controls;
+lane-status is the only deliberately deferred case. Unsupported platform
+capabilities and unmet connection/restoration prerequisites can cause extra skips.
 
 The former exhaustive argument/help/permission matrix, synthetic I/O fault
 matrix, concurrency checks, whole-inventory EEPROM dumps and successful
@@ -105,8 +105,8 @@ From the sonic-mgmt `tests` directory:
   -c platform_tests/cpo/test_cpoutil.py -u -l info
 ```
 
-For low-power, Tx-disable and reset, add `-e '--cpo-disruptive'`.
-These operations can interrupt all ports sharing the selected controller.
+Low-power, Tx-disable and reset execute by default when their prerequisites
+are met. They can interrupt all ports sharing the selected controller.
 The old `--cpo-eeprom-write` option is no longer part of this suite.
 
 ## Validation
@@ -118,8 +118,8 @@ The old `--cpo-eeprom-write` option is no longer part of this suite.
   table formatters, public JSON/header errors, Jinja-safe transport, identity
   filtering, connection selection and recovery/guard failure paths.
 - The actual integration module runs against an explicitly synthetic testbed:
-  default 10 passed/6 skipped; with controls 15 passed/1 skipped. Lane-status
-  remains skipped. These are local synthetic results, not DUT PASS.
+  default 15 passed/1 skipped, including the five hardware-control cases.
+  Lane-status remains skipped. These are local synthetic results, not DUT PASS.
 - The previous exhaustive local matrix remains in the separate work package;
   all 499 checks still pass against its pinned CLI/test snapshot. Those checks
   are not added back to this hardware suite and do not validate this refactor.

@@ -18,9 +18,9 @@ There are 16 cases; this is not an exhaustive command/argument acceptance suite.
 | show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common low-power column |
 | read-eeprom oe / read-eeprom els | test_cpoutil_eeprom_read | One selected endpoint, recognizable heading, parseable nonempty hexdump |
 | read-eeprom interface --oe / --els | test_cpoutil_eeprom_read | First connected interface, target heading and parseable nonempty hexdump |
-| config interface tx-disable | test_cpoutil_tx_disable | Explicit control option, physical-port siblings, toggle/readback/finally restoration |
-| config oe lpmode / config els lpmode | test_cpoutil_low_power | Explicit control option, shared ports, toggle/readback/finally restoration |
-| config oe reset / config els reset | test_cpoutil_reset | Explicit control option, shared ports, presence/Application/TX/power/link recovery |
+| config interface tx-disable | test_cpoutil_tx_disable | Physical-port siblings, toggle/readback/finally restoration |
+| config oe lpmode / config els lpmode | test_cpoutil_low_power | Shared ports, toggle/readback/finally restoration |
+| config oe reset / config els reset | test_cpoutil_reset | Shared ports, presence/Application/TX/power/link recovery |
 | --help and representative missing read options | test_cpoutil_basic_arguments | Root help groups; three incomplete ranges return 1; missing option value returns 2 |
 | write-eeprom interface / oe / els | Outside basic scope | No successful hardware writes or scratch-address option in this suite |
 
@@ -37,8 +37,7 @@ sections. They do not establish correctness of every rendered table cell or
 every sensor/threshold value. No vendor, model, serial number or fixed resource
 count is required.
 
-Default: 10 checks plus five gated control skips and one lane-status skip.
-With controls enabled: at most 15 applicable cases plus the lane-status skip;
+Default: 15 functional cases, including controls, plus the lane-status skip;
 unsupported operations and unmet prerequisites can cause additional skips.
 Skipped checks are not hardware PASS.
 

@@ -315,10 +315,8 @@ def test_cpoutil_basic_arguments(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
-def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, request, target):
+def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
     """Toggle one OE/ELS, verify readback and restore the original power mode."""
-    if not request.config.getoption("--cpo-disruptive"):
-        pytest.skip("Use --cpo-disruptive for hardware controls")
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
     name = mapping[connected_cpo_ports[0]][target]["id"].lower()
@@ -347,10 +345,8 @@ def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     wait_for_state(duthost, query, original)
 
 
-def test_cpoutil_tx_disable(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, request):
+def test_cpoutil_tx_disable(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
     """Toggle a physical port and restore TX for all of its mapped logical ports."""
-    if not request.config.getoption("--cpo-disruptive"):
-        pytest.skip("Use --cpo-disruptive for hardware controls")
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     port = connected_cpo_ports[0]
     config = read_port_config(duthost)
@@ -390,10 +386,8 @@ def test_cpoutil_tx_disable(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
-def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, request, target):
+def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
     """Reset one shared OE/ELS and check power, presence, Application and TX recovery."""
-    if not request.config.getoption("--cpo-disruptive"):
-        pytest.skip("Use --cpo-disruptive for hardware controls")
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
     name = mapping[connected_cpo_ports[0]][target]["id"].lower()
