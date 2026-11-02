@@ -6,6 +6,7 @@ Run with::
         tests/common/unit_tests/fixtures/unit_test_hft_conftest.py -v
 """
 
+import base64
 import importlib.util
 import sys
 import types
@@ -48,6 +49,7 @@ def _load_target_module():
         "get_configured_buffer_pools",
         "get_configured_buffer_queue_objects",
         "get_configured_queue_objects",
+        "get_countersyncd_container",
         "install_otel_collector_config",
         "is_otel_image_available",
         "render_otel_collector_config",
@@ -190,3 +192,140 @@ def test_cleanup_runner_captures_pytest_failures(
 
     assert calls == ["failing", "final"]
     assert isinstance(result, OutcomeException)
+
+
+@pytest.fixture
+def hft_duthost(hft_conftest, monkeypatch):
+    duthost = MagicMock()
+    duthost.original_state = "disabled"
+    duthost.running = False
+    duthost.stat.return_value = {"stat": {"exists": True, "mode": "0640"}}
+    duthost.slurp.return_value = {
+        "content": base64.b64encode(b"# original\nCOUNTERSYNCD_LOG_LEVEL=debug\n").decode(),
+    }
+
+    def shell(command, **kwargs):
+        if "HGETALL" in command:
+            return {"stdout_lines": ["state", duthost.original_state, "auto_restart", "enabled"]}
+        if "HKEYS" in command:
+            return {"stdout_lines": ["state", "auto_restart", "new_field"]}
+        if "feature state hft enabled" in command:
+            duthost.running = True
+        if "feature state hft disabled" in command:
+            duthost.running = False
+        return {"rc": 0, "stdout": ""}
+
+    duthost.shell.side_effect = shell
+    monkeypatch.setattr(hft_conftest, "get_countersyncd_container", lambda dut: "hft")
+    monkeypatch.setattr(hft_conftest, "_get_container_running", lambda dut, name: dut.running)
+    monkeypatch.setattr(hft_conftest, "ensure_countersyncd_daemon", MagicMock(return_value=True))
+    monkeypatch.setattr(hft_conftest, "wait_until", lambda timeout, interval, delay, func, *args: func(*args))
+    return duthost
+
+
+@pytest.mark.parametrize("state", ["disabled", "enabled", "always_enabled"])
+def test_standalone_hft_config_and_state_restored(hft_conftest, hft_duthost, state):
+    dut = hft_duthost
+    dut.original_state = state
+    dut.running = state != "disabled"
+    with hft_conftest._configured_countersyncd(dut):
+        content = dut.copy.call_args.kwargs["content"]
+        assert "COUNTERSYNCD_LOG_LEVEL=debug" in content
+        assert "COUNTERSYNCD_ENABLE_OTEL=true" in content
+        assert "COUNTERSYNCD_OTEL_ENDPOINT=http://localhost:4317" in content
+        assert dut.running
+
+    assert dut.copy.call_args.kwargs == {
+        "content": "# original\nCOUNTERSYNCD_LOG_LEVEL=debug\n",
+        "dest": hft_conftest.HFT_CONFIG_PATH, "mode": "0640",
+    }
+    assert dut.running == (state != "disabled")
+    commands = [call.args[0] for call in dut.shell.call_args_list]
+    assert "redis-cli -n 4 HDEL 'FEATURE|hft' new_field" in commands
+    assert f"redis-cli -n 4 HSET 'FEATURE|hft' state {state} auto_restart enabled" in commands
+    assert not any("docker exec swss" in command for command in commands)
+
+
+def test_hft_restored_after_setup_failure(hft_conftest, hft_duthost, monkeypatch):
+    monkeypatch.setattr(hft_conftest, "ensure_countersyncd_daemon",
+                        MagicMock(side_effect=RuntimeError("export not enabled")))
+    with pytest.raises(RuntimeError, match="export not enabled"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            pytest.fail("must not yield")
+    assert not hft_duthost.running
+    assert hft_duthost.copy.call_args.kwargs["content"].startswith("# original\n")
+
+
+def test_hft_restored_after_test_failure(hft_conftest, hft_duthost):
+    with pytest.raises(RuntimeError, match="test failed"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            raise RuntimeError("test failed")
+    assert not hft_duthost.running
+    assert hft_duthost.copy.call_args.kwargs["content"] == "# original\nCOUNTERSYNCD_LOG_LEVEL=debug\n"
+
+
+def test_hft_cleanup_continues_if_config_restore_fails(hft_conftest, hft_duthost, monkeypatch):
+    hft_duthost.copy.side_effect = [None, RuntimeError("restore failed")]
+    monkeypatch.setattr(hft_conftest.logger, "exception", MagicMock())
+    with pytest.raises(RuntimeError, match="restore failed"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            pass
+    assert not hft_duthost.running
+    assert "HSET 'FEATURE|hft'" in hft_duthost.shell.call_args.args[0]
+
+
+def test_hft_cleanup_does_not_mask_active_failure(hft_conftest, hft_duthost, monkeypatch):
+    hft_duthost.copy.side_effect = [None, RuntimeError("restore failed")]
+    monkeypatch.setattr(hft_conftest.logger, "exception", MagicMock())
+    with pytest.raises(RuntimeError, match="test failed"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            raise RuntimeError("test failed")
+    assert not hft_duthost.running
+
+
+def test_hft_created_config_removed(hft_conftest, hft_duthost):
+    hft_duthost.stat.return_value = {"stat": {"exists": False}}
+    with hft_conftest._configured_countersyncd(hft_duthost):
+        pass
+    hft_duthost.shell.assert_any_call(
+        f"sudo rm -f {hft_conftest.HFT_CONFIG_PATH}", module_ignore_errors=False,
+    )
+
+
+def test_hft_test_settings_precede_existing_disabled_settings(hft_conftest, hft_duthost):
+    original = "COUNTERSYNCD_ENABLE_OTEL=false\nCOUNTERSYNCD_OTEL_ENDPOINT=http://other:4317\n"
+    hft_duthost.slurp.return_value = {"content": base64.b64encode(original.encode()).decode()}
+    with hft_conftest._configured_countersyncd(hft_duthost):
+        content = hft_duthost.copy.call_args.kwargs["content"]
+        assert content.startswith("COUNTERSYNCD_ENABLE_OTEL=true\n"
+                                  "COUNTERSYNCD_OTEL_ENDPOINT=http://localhost:4317\n")
+        assert content.endswith(original)
+    assert hft_duthost.copy.call_args.kwargs["content"] == original
+
+
+def test_hft_always_disabled_skips_without_mutation(hft_conftest, hft_duthost):
+    hft_duthost.original_state = "always_disabled"
+    with pytest.raises(pytest.skip.Exception):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            pytest.fail("must not yield")
+    hft_duthost.copy.assert_not_called()
+
+
+def test_hft_enabled_but_stopped_fails_without_mutation(hft_conftest, hft_duthost):
+    hft_duthost.original_state = "enabled"
+    with pytest.raises(pytest.fail.Exception, match="not running"):
+        with hft_conftest._configured_countersyncd(hft_duthost):
+            pytest.fail("must not yield")
+    hft_duthost.copy.assert_not_called()
+
+
+def test_legacy_countersyncd_is_not_reconfigured(hft_conftest, monkeypatch):
+    dut = MagicMock()
+    verify = MagicMock()
+    monkeypatch.setattr(hft_conftest, "get_countersyncd_container", lambda dut: "swss")
+    monkeypatch.setattr(hft_conftest, "ensure_countersyncd_daemon", verify)
+    with hft_conftest._configured_countersyncd(dut):
+        pass
+    verify.assert_called_once_with(dut)
+    dut.shell.assert_not_called()
+    dut.copy.assert_not_called()

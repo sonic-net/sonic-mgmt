@@ -451,10 +451,26 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     logger.info("Cleaned HFT profile %s", profile_name)
 
 
-def ensure_countersyncd_daemon(duthost):
+def get_countersyncd_container(duthost):
+    """Use the registered HFT feature, including when it is disabled/stopped.
+
+    Probing only running containers would incorrectly fall back to swss on
+    images where HFT is a separate, disabled-by-default feature.
+    """
+    result = duthost.shell(
+        "sonic-db-cli CONFIG_DB EXISTS 'FEATURE|hft'",
+        module_ignore_errors=False,
+    )
+    value = result.get("stdout", "").strip()
+    pytest_assert(value in {"0", "1"}, f"Invalid HFT feature probe: {result}")
+    return "hft" if value == "1" else "swss"
+
+
+def ensure_countersyncd_daemon(duthost, container=None):
     """Verify the supervisor-owned countersyncd daemon is OTEL-enabled."""
+    container = container or get_countersyncd_container(duthost)
     status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
+        f"docker exec {container} supervisorctl status countersyncd",
         module_ignore_errors=True,
     )
     pytest_assert(
@@ -463,21 +479,21 @@ def ensure_countersyncd_daemon(duthost):
         f"{status.get('stdout', '')} {status.get('stderr', '')}",
     )
     command = duthost.shell(
-        "docker exec swss sh -c 'pid=$(supervisorctl pid countersyncd) && "
+        f"docker exec {container} sh -c 'pid=$(supervisorctl pid countersyncd) && "
         "xargs -0 echo < /proc/$pid/cmdline'",
         module_ignore_errors=True,
     )
     pytest_assert(
-        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", ""),
+        command.get("rc") == 0 and "--enable-otel" in command.get("stdout", "").split(),
         "The supervisor countersyncd must use --enable-otel, got: "
         f"{command.get('stdout', '')} {command.get('stderr', '')}",
     )
     return True
 
 
-def _get_running_countersyncd_pid(duthost):
+def _get_running_countersyncd_pid(duthost, container):
     status = duthost.shell(
-        "docker exec swss supervisorctl status countersyncd",
+        f"docker exec {container} supervisorctl status countersyncd",
         module_ignore_errors=True,
     )
     fields = status.get("stdout", "").split()
@@ -485,7 +501,7 @@ def _get_running_countersyncd_pid(duthost):
             or fields[0] != "countersyncd" or fields[1] != "RUNNING":
         return None
     pid = duthost.shell(
-        "docker exec swss supervisorctl pid countersyncd",
+        f"docker exec {container} supervisorctl pid countersyncd",
         module_ignore_errors=True,
     )
     try:
@@ -497,13 +513,14 @@ def _get_running_countersyncd_pid(duthost):
 
 def restart_countersyncd_daemon(duthost, timeout=30):
     """Restart only countersyncd and verify its supervisor-owned process."""
-    old_pid = _get_running_countersyncd_pid(duthost)
+    container = get_countersyncd_container(duthost)
+    old_pid = _get_running_countersyncd_pid(duthost, container)
     pytest_assert(
         old_pid is not None,
         "Unable to determine the running countersyncd PID before restart",
     )
     result = duthost.shell(
-        "docker exec swss supervisorctl restart countersyncd",
+        f"docker exec {container} supervisorctl restart countersyncd",
         module_ignore_errors=True,
     )
     pytest_assert(
@@ -512,15 +529,15 @@ def restart_countersyncd_daemon(duthost, timeout=30):
     )
 
     def restarted():
-        pid = _get_running_countersyncd_pid(duthost)
+        pid = _get_running_countersyncd_pid(duthost, container)
         return pid is not None and pid != old_pid
 
     pytest_assert(
         wait_until(timeout, 1, 0, restarted),
         f"countersyncd did not restart from PID {old_pid}",
     )
-    new_pid = _get_running_countersyncd_pid(duthost)
-    ensure_countersyncd_daemon(duthost)
+    new_pid = _get_running_countersyncd_pid(duthost, container)
+    ensure_countersyncd_daemon(duthost, container)
     logger.info("Restarted countersyncd from PID %d to PID %d", old_pid, new_pid)
     return old_pid, new_pid
 
