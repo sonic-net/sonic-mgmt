@@ -1,17 +1,19 @@
 """gNMI audit, authentication, and authorization tests."""
 
-import base64
 import logging
 import time
 
+import grpc
 import pytest
 from pygnmi.client import gNMIException
+from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     _restart_gnoi_server,
     gnmi_tls,
 )
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.gnmi_connection import gnmi_connection
 from tests.common.helpers.gnmi_audit import (
     RPC_COMPLETION_PREFIX,
     get_audit_log_offset,
@@ -33,7 +35,6 @@ from tests.common.helpers.syslog_helpers import (
     read_syslog_payloads,
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.pygnmi_client import GetDataType, PygnmiClientError
 
 pytestmark = [
@@ -61,35 +62,41 @@ AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 
 def _set_configdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Set", {
-        "prefix": {"origin": "sonic-db"},
-        "update": [{
-            "path": {"elem": [{"name": name} for name in (
+    request = gnmi_pb2.SetRequest(
+        prefix=gnmi_pb2.Path(origin="sonic-db"),
+        update=[gnmi_pb2.Update(
+            path=gnmi_pb2.Path(elem=[gnmi_pb2.PathElem(name=name) for name in (
                 "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost", "cloudtype",
-            )]},
-            "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
-        }],
-    })
+            )]),
+            val=gnmi_pb2.TypedValue(json_ietf_val=b'"Public"'),
+        )],
+    )
+    with gnmi_connection(env) as (_, client):
+        client.Set(request, timeout=30)
 
 
 def _get_configdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Get", {
-        "prefix": {"origin": "sonic-db"},
-        "path": [{"elem": [{"name": name} for name in (
+    request = gnmi_pb2.GetRequest(
+        prefix=gnmi_pb2.Path(origin="sonic-db"),
+        path=[gnmi_pb2.Path(elem=[gnmi_pb2.PathElem(name=name) for name in (
             "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost",
-        )]}],
-        "type": "ALL",
-        "encoding": "JSON_IETF",
-    })
+        )])],
+        type=gnmi_pb2.GetRequest.ALL,
+        encoding=gnmi_pb2.JSON_IETF,
+    )
+    with gnmi_connection(env) as (_, client):
+        client.Get(request, timeout=30)
 
 
 def _get_countersdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Get", {
-        "prefix": {"target": "COUNTERS_DB"},
-        "path": [{"elem": [{"name": "COUNTERS_PORT_NAME_MAP"}]}],
-        "type": "ALL",
-        "encoding": "JSON_IETF",
-    })
+    request = gnmi_pb2.GetRequest(
+        prefix=gnmi_pb2.Path(target="COUNTERS_DB"),
+        path=[gnmi_pb2.Path(elem=[gnmi_pb2.PathElem(name="COUNTERS_PORT_NAME_MAP")])],
+        type=gnmi_pb2.GetRequest.ALL,
+        encoding=gnmi_pb2.JSON_IETF,
+    )
+    with gnmi_connection(env) as (_, client):
+        client.Get(request, timeout=30)
 
 
 def _get_capabilities(env):
@@ -412,17 +419,25 @@ def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
             redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
             "Failed to seed the Set authorization sentinel",
         )
-    # gnmi_tls owns restoration of both the mapping and the sentinel.
-    _set_client_cert_role(duthost, role)
-    if error_pattern:
-        error_type = PygnmiClientError if operation is _get_capabilities else PtfGrpcError
-        with pytest.raises(error_type, match=error_pattern):
+    if role == "":
+        original_role = redis_hget(duthost, CONFIG_DB, "GNMI_CLIENT_CERT|" + CLIENT_PRINCIPAL, "role@")
+        pytest_assert(original_role, "Empty-role test requires a valid fixture role to restore")
+    try:
+        _set_client_cert_role(duthost, role)
+        if error_pattern:
+            error_type = PygnmiClientError if operation is _get_capabilities else grpc.RpcError
+            with pytest.raises(error_type, match=error_pattern):
+                operation(gnmi_tls)
+        else:
             operation(gnmi_tls)
-    else:
-        operation(gnmi_tls)
-    if operation is _set_configdb:
-        expected = "Private" if error_pattern else "Public"
-        pytest_assert(
-            redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == expected,
-            "CONFIG_DB state does not match the Set authorization outcome",
-        )
+        if operation is _set_configdb:
+            expected = "Private" if error_pattern else "Public"
+            pytest_assert(
+                redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == expected,
+                "CONFIG_DB state does not match the Set authorization outcome",
+            )
+    finally:
+        if role == "":
+            # GCU cannot parse an empty role list during checkpoint rollback.
+            # Remove this intentionally invalid test state before gnmi_tls restores CONFIG_DB.
+            _set_client_cert_role(duthost, original_role)
