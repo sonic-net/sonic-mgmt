@@ -10,6 +10,10 @@ import json
 import time
 import six
 import itertools
+import hashlib
+import secrets
+import struct
+import sys
 
 from collections.abc import Iterable
 from collections import defaultdict
@@ -58,6 +62,7 @@ class HashTest(BaseTest):
         '''
         BaseTest.__init__(self)
         self.test_params = test_params_get()
+        self.rng = random
         self.check_required_params()
 
     def check_required_params(self):
@@ -67,7 +72,7 @@ class HashTest(BaseTest):
 
     def generate_random_sport(self):
         while True:
-            port = random.randint(0, 65535)
+            port = self.rng.randint(0, 65535)
             if port != 53:
                 return port
 
@@ -99,6 +104,8 @@ class HashTest(BaseTest):
         self.hash_keys = self.test_params.get(
             'hash_keys', ['src-ip', 'dst-ip', 'src-port', 'dst-port'])
         self.src_ports = [int(port) for port in self.ptf_test_port_map.keys()]
+        if self.rng is not random:
+            self.src_ports.sort()
         self.balancing_range = self.test_params.get(
             'balancing_range', self.DEFAULT_BALANCING_RANGE)
         self.balancing_test_times = self.test_params.get(
@@ -117,8 +124,10 @@ class HashTest(BaseTest):
 
         self.topo_type = self.test_params.get('topo_type', '')
         # set the base mac here to make it persistent across calls of check_ip_route
-        self.base_mac = self.dataplane.get_mac(
-            *random.choice(list(self.dataplane.ports.keys())))
+        dataplane_ports = list(self.dataplane.ports.keys())
+        if self.rng is not random:
+            dataplane_ports.sort()
+        self.base_mac = self.dataplane.get_mac(*self.rng.choice(dataplane_ports))
         self.vxlan_dest_port = int(self.test_params.get('vxlan_dest_port', 0))
 
     def _get_nexthops(self, src_port, dst_ip):
@@ -132,7 +141,7 @@ class HashTest(BaseTest):
 
     def get_src_and_exp_ports(self, dst_ip):
         while True:
-            src_port = int(random.choice(self.src_ports))
+            src_port = int(self.rng.choice(self.src_ports))
             next_hops = self._get_nexthops(src_port, dst_ip)
             exp_port_lists = [next_hop.get_next_hop_list()
                               for next_hop in next_hops]
@@ -154,7 +163,7 @@ class HashTest(BaseTest):
                         for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
                             if ptf_port_info['target_dut'][0] != 0:
                                 ptf_non_upstream_ports.append(ptf_port)
-                        src_port = int(random.choice(ptf_non_upstream_ports))
+                        src_port = int(self.rng.choice(ptf_non_upstream_ports))
                 break
         return src_port, exp_port_lists, next_hops
 
@@ -293,7 +302,7 @@ class HashTest(BaseTest):
             # next-header 255 on BRCM causes 4 bytes to be stripped (CS00012366805)
             skip_protos.append(255)
         while True:
-            ip_proto = random.randint(0, 255)
+            ip_proto = self.rng.randint(0, 255)
             if ip_proto not in skip_protos:
                 return ip_proto
 
@@ -436,20 +445,20 @@ class HashTest(BaseTest):
                      so the identical packet can be sent from several ingress ports.
         '''
         ip_src = self.src_ip_interval.get_random_ip(
-        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+            self.rng) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
-        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
-        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
-        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+            self.rng) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = self.rng.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = self.rng.randint(0, 65535) if hash_key == 'dst-port' else 80
         if flow:
             ip_src, ip_dst, sport, dport = flow['ip_src'], flow['ip_dst'], flow['sport'], flow['dport']
         outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
-        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+        src_mac = (self.base_mac[:-5] + "%02x" % self.rng.randint(0, 255) + ":" + "%02x" % self.rng.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
-        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+        dst_mac = (self.base_mac[:-5] + "%02x" % self.rng.randint(0, 255) + ":" + "%02x" % self.rng.randint(0, 255)) \
             if hash_key == 'dst-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        vlan_id = self.rng.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else None
         pkt, exp_pkt, inner_pkt = self.create_pkt(
             vlan_id=vlan_id,
@@ -504,20 +513,20 @@ class HashTest(BaseTest):
                      so the identical packet can be sent from several ingress ports.
         '''
         ip_src = self.src_ip_interval.get_random_ip(
-        ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
+            self.rng) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
-        ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
-        sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
-        dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
+            self.rng) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
+        sport = self.rng.randint(0, 65535) if hash_key == 'src-port' else 1234
+        dport = self.rng.randint(0, 65535) if hash_key == 'dst-port' else 80
         if flow:
             ip_src, ip_dst, sport, dport = flow['ip_src'], flow['ip_dst'], flow['sport'], flow['dport']
         outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
-        src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+        src_mac = (self.base_mac[:-5] + "%02x" % self.rng.randint(0, 255) + ":" + "%02x" % self.rng.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
-        dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
+        dst_mac = (self.base_mac[:-5] + "%02x" % self.rng.randint(0, 255) + ":" + "%02x" % self.rng.randint(0, 255)) \
             if hash_key == 'dst-mac' else self.base_mac
         router_mac = self.ptf_test_port_map[str(src_port)]['target_dest_mac']
-        vlan_id = random.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
+        vlan_id = self.rng.choice(self.vlan_ids) if hash_key == 'vlan-id' else 0
         ip_proto = self._get_ip_proto(
             ipv6=True) if hash_key == "ip-proto" else None
         pkt, exp_pkt, inner_pkt = self.create_pkt(
@@ -693,12 +702,39 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def __init__(self):
+        super().__init__()
+        self.hash_seed = self.test_params.get('hash_seed')
+        if self.hash_seed is None:
+            self.hash_seed = secrets.randbits(64)
+        if not isinstance(self.hash_seed, int):
+            raise ValueError("hash_seed must be an integer")
+        self.hash_debug = self.test_params.get('hash_debug', False)
+        self.rng = random.Random(self.hash_seed)
+        logging.info("IPinIP hash seed=%s python=%s", self.hash_seed, sys.version.split()[0])
+
+    def get_ingress_ports(self, exp_port_lists, dst_ip):
+        return sorted(super().get_ingress_ports(exp_port_lists, dst_ip))
+
     def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
         """
         @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
         """
-        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
-                                               logs=logs)
+        packet_bytes = bytes(pkt)
+        self._input_digest.update(struct.pack("!II", src_port, len(packet_bytes)))
+        self._input_digest.update(packet_bytes)
+        self._sent_packets += 1
+        protocol = None
+        if self.hash_debug and self._hash_key == 'ip-proto':
+            outer_version = 'IPv6' if self.is_v6_topo else 'IP'
+            inner_packet = pkt[outer_version].payload
+            protocol = inner_packet.proto if self.ipver == 'ipv4' else inner_packet.nh
+            self._protocol_sent[protocol] += 1
+        result = super().send_and_verify_packets(
+            src_port, packet_bytes, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=logs)
+        if protocol is not None:
+            self._protocol_received[protocol][result[0]] += 1
+        return result
 
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
@@ -745,7 +781,7 @@ class IPinIPHashTest(HashTest):
             outer_src_ip=None, outer_dst_ip=None, vlan_id=None, outer_src_ipv6=None,
             outer_dst_ipv6=None, outer_sport=None, hash_key=None
     ):
-        inner_pkt_len = random.randrange(
+        inner_pkt_len = self.rng.randrange(
             100, 1024) if hash_key == 'inner_length' else 100
         if version == 'IP':
             pkt = simple_tcp_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
@@ -812,6 +848,24 @@ class IPinIPHashTest(HashTest):
         return (matched_port, received)
 
     def check_hash(self, hash_key):
+        self.rng.seed("{}:{}:{}".format(self.hash_seed, self.ipver, hash_key))
+        self._hash_key = hash_key
+        self._input_digest = hashlib.sha256()
+        self._sent_packets = 0
+        self._protocol_sent = defaultdict(int)
+        self._protocol_received = defaultdict(lambda: defaultdict(int))
+        try:
+            self._check_hash(hash_key)
+        finally:
+            logging.info("Hash replay ipver=%s key=%s seed=%s packets=%s input_sha256=%s base_mac=%s",
+                         self.ipver, hash_key, self.hash_seed, self._sent_packets,
+                         self._input_digest.hexdigest(), self.base_mac)
+            if self.hash_debug and hash_key == 'ip-proto':
+                logging.info("Hash debug protocol_sent=%s protocol_received=%s",
+                             json.dumps(self._protocol_sent, sort_keys=True),
+                             json.dumps(self._protocol_received, sort_keys=True))
+
+    def _check_hash(self, hash_key):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
         # The outer_src_ip and outer_dst_ip are fixed
