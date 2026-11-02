@@ -1,3 +1,4 @@
+import base64
 import itertools
 import logging
 import os
@@ -35,9 +36,13 @@ from tests.high_frequency_telemetry.utilities import (
 logger = logging.getLogger(__name__)
 
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
-# docker_init.sh saves the arguments of the hft container in this file, and
-# countersyncd.sh passes them to countersyncd over the hft.env settings.
-HFT_CONTAINER_ARGS_FILE = "/var/run/hft/container_args"
+HFT_SETTINGS_PATH = "/etc/sonic/hft/hft.env"
+# countersyncd.sh uses the first assignment of a variable in hft.env, and the
+# options in HFT_COUNTERSYNCD_ARGS over the COUNTERSYNCD_<NAME> variables.
+HFT_OTEL_SETTINGS = (
+    "HFT_COUNTERSYNCD_ARGS="
+    "--enable-otel --otel-endpoint=http://localhost:4317\n"
+)
 INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET_PREFIX = "hft_test"
 INFLUXDB_BUCKET_IDS = itertools.count(1)
@@ -125,11 +130,29 @@ def _countersyncd_otel_export(duthost, original_hft_state):
     """Run countersyncd in hft with OTEL export, then restore hft.
 
     The hft feature is disabled by default, and countersyncd exports only when
-    configured to. Pass the export options as container arguments, which take
-    precedence over hft.env and are discarded when hft restarts.
+    configured to. countersyncd.sh reads hft.env each time countersyncd starts.
     """
+    settings = duthost.stat(path=HFT_SETTINGS_PATH)["stat"]
+    original_settings = ""
+    if settings["exists"]:
+        original_settings = base64.b64decode(
+            duthost.slurp(src=HFT_SETTINGS_PATH)["content"]
+        ).decode("utf-8")
 
-    def restore_hft():
+    def restore_settings():
+        if settings["exists"]:
+            duthost.copy(
+                content=original_settings,
+                dest=HFT_SETTINGS_PATH,
+                mode=settings["mode"],
+            )
+        else:
+            duthost.shell(
+                f"sudo rm -f {HFT_SETTINGS_PATH}",
+                module_ignore_errors=False,
+            )
+
+    def restore_countersyncd():
         if original_hft_state == "disabled":
             duthost.shell(
                 "sudo config feature state hft disabled",
@@ -138,45 +161,39 @@ def _countersyncd_otel_export(duthost, original_hft_state):
             if not wait_until(60, 2, 0, _is_hft_container_stopped, duthost):
                 pytest.fail("HFT container did not stop during restoration")
         else:
-            # docker_init.sh saves the original arguments when hft starts.
             duthost.shell(
-                "sudo systemctl reset-failed hft && "
-                "sudo systemctl restart hft",
+                "docker exec hft supervisorctl restart countersyncd",
                 module_ignore_errors=False,
             )
-            if not wait_until(
-                60, 2, 0, duthost.critical_processes_running, "hft"
-            ):
-                pytest.fail("HFT did not restart during restoration")
 
     try:
+        duthost.copy(
+            content=HFT_OTEL_SETTINGS + original_settings,
+            dest=HFT_SETTINGS_PATH,
+            mode=settings.get("mode", "0644"),
+        )
         if original_hft_state == "disabled":
             duthost.shell(
                 "sudo config feature state hft enabled",
                 module_ignore_errors=False,
             )
-            # Write the arguments only after docker_init.sh has saved its own.
-            if not wait_until(
-                60, 2, 0, duthost.critical_processes_running, "hft"
-            ):
-                pytest.fail("countersyncd did not start in the HFT container")
-        duthost.shell(
-            "docker exec hft sh -c \"printf '%s\\0' --enable-otel "
-            "--otel-endpoint=http://localhost:4317 "
-            f"> {HFT_CONTAINER_ARGS_FILE}\"",
-            module_ignore_errors=False,
-        )
-        duthost.shell(
-            "docker exec hft supervisorctl restart countersyncd",
-            module_ignore_errors=False,
-        )
+        else:
+            duthost.shell(
+                "docker exec hft supervisorctl restart countersyncd",
+                module_ignore_errors=False,
+            )
+        if not wait_until(60, 2, 0, duthost.critical_processes_running, "hft"):
+            pytest.fail("countersyncd did not start in the HFT container")
         ensure_countersyncd_daemon(duthost)
         yield
     finally:
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_error = _run_cleanup_steps([("restore hft", restore_hft)])
+        cleanup_error = _run_cleanup_steps([
+            ("restore hft.env", restore_settings),
+            ("restore countersyncd", restore_countersyncd),
+        ])
         if cleanup_error is not None and original_error is None:
             raise cleanup_error
 
