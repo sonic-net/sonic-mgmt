@@ -1063,6 +1063,20 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def update_ntp_config(self, config):
+        # Generate global ntp configuration
+        ori_config_db = json.loads(config)
+        ori_config_db["NTP"] = {
+                "global": {
+                    "admin_state": "enabled",
+                    "authentication": "disabled",
+                    "dhcp": "enabled",
+                    "server_role": "disabled",
+                    "vrf": "default"
+                }
+        }
+        return json.dumps(ori_config_db, indent=4)
+
     def set_switch_host_admin_up_config(self, config):
         """Set switch-host admin_up by default"""
         ori_config_db = json.loads(config)
@@ -1537,6 +1551,9 @@ class GenerateGoldenConfigDBModule(object):
 
         # update dns config
         config = self.update_dns_config(config)
+
+        # set ntp config defaults
+        config = self.update_ntp_config(config)
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
