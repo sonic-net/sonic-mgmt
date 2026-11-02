@@ -4,7 +4,7 @@ Updated 2026-11-02. This suite follows the functional integration scope of
 [sfputil tests](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/sfp/test_sfputil.py).
 The CLI contract is merged sonic-utilities #4864 at
 `f113917d357d224be51c55860c35bc0b71127696`.
-The deferred lane-status assertions follow the two-table output in
+The lane-status assertions follow the two-table output in
 [sonic-utilities #5012](https://github.com/sonic-net/sonic-utilities/pull/5012)
 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
 
@@ -25,11 +25,11 @@ There are 12 test functions, producing 16 cases for one DUT:
 | `test_cpoutil_low_power` | 2 | Toggle a representative OE/ELS, read back and restore power mode |
 | `test_cpoutil_tx_disable` | 1 | Toggle one physical port, check its logical siblings and restore TX |
 | `test_cpoutil_reset` | 2 | Reset one OE/ELS; restore power mode, presence, Application, TX and previously up links |
-| `test_cpoutil_lane_status` | 1 | Prepared OE datapath and ELS lane table headers/resources, bulk and selected port; explicitly skipped, so no command executes |
+| `test_cpoutil_lane_status` | 1 | Exactly two tables: OE datapath and ELS lane headers/resources, bulk and selected port |
 
-Default execution attempts 15 functional cases, including hardware controls;
-lane-status is the only deliberately deferred case. Unsupported platform
-capabilities and unmet connection/restoration prerequisites can cause extra skips.
+Default execution attempts all 16 functional cases, including lane-status and
+hardware controls. Unsupported platform capabilities and unmet
+connection/restoration prerequisites can cause skips.
 
 The former exhaustive argument/help/permission matrix, synthetic I/O fault
 matrix, concurrency checks, whole-inventory EEPROM dumps and successful
@@ -76,10 +76,11 @@ The output filter returns:
 - fixed error categories, without raw platform diagnostics.
 
 Text checks validate common headers/resources, not every displayed cell.
-The deferred lane-status test expects exactly two tables: Interface/Lane/Data
+The lane-status test expects exactly two tables: Interface/Lane/Data
 Path State and Interface/ELS/Laser/ELS Lane State/Shared. It checks connected
 port rows in each table and one selected-port query. It does not request JSON
-or check ELS module status. Its explicit skip marker remains in place.
+or check ELS module status. It runs by default and skips only when the platform
+explicitly reports that the query is not implemented.
 DOM checks do not assert a vendor-specific sensor list or all threshold values.
 EEPROM checks establish readable, parseable output, not byte-for-byte hardware
 correctness. Installed Click usage errors return 2; callback validation errors
@@ -124,13 +125,12 @@ The old `--cpo-eeprom-write` option is no longer part of this suite.
 - 42 focused local checks pass, covering actual test bodies, real merged CLI
   formatters and the follow-up lane tables, public JSON/header errors, Jinja-safe
   transport, identity filtering, connection selection and recovery/guard failure paths.
-- The prepared lane-status body is called directly in local checks against the
+- The lane-status body is called directly in local checks against the
   new CLI formatter. Missing/extra tables, wrong headers, missing per-table port
-  rows and an unexpected selected-port row are rejected. This does not enable
-  the skipped hardware case.
+  rows and an unexpected selected-port row are rejected.
 - The actual integration module runs against an explicitly synthetic testbed:
-  default 15 passed/1 skipped, including the five hardware-control cases.
-  Lane-status remains skipped. These are local synthetic results, not DUT PASS.
+  default 16 passed, including lane-status and the five hardware-control cases.
+  These are local synthetic results, not DUT PASS.
 - The previous exhaustive local matrix remains in the separate work package;
   all 499 checks still pass against its pinned CLI/test snapshot. Those checks
   are not added back to this hardware suite and do not validate this refactor.

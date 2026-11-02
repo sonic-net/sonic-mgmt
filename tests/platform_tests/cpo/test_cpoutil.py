@@ -429,9 +429,8 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
             wait_for_state(duthost, "show interface {} -p {}".format(command, port), before[port][command], timeout=60)
 
 
-@pytest.mark.skip(reason="interface lane-status is deferred at the user's request")
 def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Prepared two-table checks; the skip marker keeps DUT execution deferred."""
+    """Check the OE datapath and ELS lane tables for connected CPO interfaces."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     expected_headers = [
         ["Interface", "Lane", "Data Path State"],
