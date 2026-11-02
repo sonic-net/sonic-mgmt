@@ -12,9 +12,8 @@ SLAs: a timeout also requires checking backend health and blocked I/O.
 import logging
 import multiprocessing
 import shlex
-import threading
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from types import SimpleNamespace
 
 import grpc
@@ -79,7 +78,7 @@ def subscription_control(gnmi_tls):  # noqa: F811
         assert duthost.shell(SERVER_PID_COMMAND)["stdout"].strip() == pid, "gnmi-native restarted during the test"
 
 
-def _subscribe_worker(fixture, mode, result, stop, last_update):
+def _receive_subscription(fixture, mode, result, stop, last_update):
     """Receive one RPC: report readiness/errors and the latest data arrival time."""
     request = gnmi_pb2.SubscribeRequest(
         subscribe=gnmi_pb2.SubscriptionList(
@@ -91,47 +90,36 @@ def _subscribe_worker(fixture, mode, result, stop, last_update):
 
     def requests():
         yield request
-        # Keep idle POLL open; the parent joins this entire process on exit.
+        # Keep idle POLL open. Close the channel on stop, not just the request
+        # iterator: a STREAM half-close alone does not cancel server responses.
         stop.wait(200)
+        channel.close()
 
     try:
-        with gnmi_connection(fixture) as (_, client):
+        with gnmi_connection(fixture) as (channel, client):
             responses = client.Subscribe(requests(), timeout=200)
-
-            def cancel_on_stop():
-                stop.wait()
-                responses.cancel()
-
-            canceller = threading.Thread(target=cancel_on_stop)
-            canceller.start()
-            try:
-                ready = False
-                for response in responses:
-                    assert not response.HasField("error"), "Subscribe returned an in-band error"
-                    has_update = response.HasField("update") and bool(response.update.update)
-                    if has_update:
-                        last_update.value = time.monotonic()
-                    if response.sync_response and not ready:
-                        assert last_update.value, "Initial Subscribe contained no data"
-                        ready = True
-                        result.send(("ready", None))
-                raise AssertionError("Subscribe ended without terminal authentication status")
-            finally:
-                stop.set()
-                responses.cancel()
-                canceller.join(10)
-                assert not canceller.is_alive(), "Subscribe cancellation did not finish"
+            ready = False
+            for response in responses:
+                assert not response.HasField("error"), "Subscribe returned an in-band error"
+                if response.HasField("update") and response.update.update:
+                    last_update.value = time.monotonic()
+                if response.sync_response and not ready:
+                    assert last_update.value, "Initial Subscribe contained no data"
+                    ready = True
+                    result.send(("ready", None))
+            raise AssertionError("Subscribe ended without terminal authentication status")
     except grpc.RpcError as error:
         result.send(("error", error.code().name))
     # Python/cleanup failures deliberately escape: a nonzero process exit must
     # fail both tests, including a positive case that already saw fresh data.
     finally:
+        stop.set()
         result.close()
 
 
 @contextmanager
-def _active_subscription(fixture, mode):
-    """Spawn only serializable connection details, never the DUT/Ansible fixture."""
+def _background_subscription(fixture, mode):
+    """Start a ready subscription; stop and reap it before returning to teardown."""
     context = multiprocessing.get_context("spawn")
     parent, child = context.Pipe(duplex=False)
     stop, last_update = context.Event(), context.Value("d", 0)
@@ -143,40 +131,36 @@ def _active_subscription(fixture, mode):
             ca_cert=certs.ca_cert, client_cert=certs.client_cert, client_key=certs.client_key
         ),
     )
-    process = context.Process(target=_subscribe_worker, args=(connection, mode, child, stop, last_update))
-    started = False
-    try:
+    process = context.Process(target=_receive_subscription, args=(connection, mode, child, stop, last_update))
+    with ExitStack() as cleanup:
+        cleanup.callback(process.close)
+        cleanup.callback(child.close)
+        cleanup.callback(parent.close)
         process.start()
-        started = True
-        child.close()
-        assert parent.poll(40), "Subscribe did not become ready"
-        ready = parent.recv()
-        assert ready == ("ready", None), "Subscribe failed before data + sync: {}".format(ready)
-        yield parent, last_update
-    finally:
         try:
-            if started:
-                stop.set()
-                process.join(15)
-                forced = process.is_alive()
-                if forced:
-                    process.terminate()
-                    process.join(5)
-                if process.is_alive():
-                    process.kill()
-                    process.join(5)
-                assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
-                if parent.poll():
-                    try:
-                        outcome = parent.recv()
-                    except EOFError:
-                        pass  # Negative case already consumed the RPC status.
-                    else:
-                        assert outcome == ("error", "CANCELLED"), "Unexpected final RPC status: {}".format(outcome)
-        finally:
-            parent.close()
             child.close()
-            process.close()
+            assert parent.poll(40), "Subscribe did not become ready"
+            ready = parent.recv()
+            assert ready == ("ready", None), "Subscribe failed before data + sync: {}".format(ready)
+            yield parent, last_update
+        finally:
+            stop.set()
+            process.join(15)
+            forced = process.is_alive()
+            if forced:
+                process.terminate()
+                process.join(5)
+            if process.is_alive():
+                process.kill()
+                process.join(5)
+            assert not forced and process.exitcode == 0, "Subscription worker did not exit cleanly"
+            if parent.poll():
+                try:
+                    outcome = parent.recv()
+                except EOFError:
+                    pass  # Negative case already consumed the RPC status.
+                else:
+                    assert outcome == ("error", "CANCELLED"), "Unexpected final RPC status: {}".format(outcome)
 
 
 @pytest.mark.parametrize(
@@ -189,7 +173,7 @@ def _active_subscription(fixture, mode):
 )
 def test_subscribe_reauthorization(gnmi_tls, subscription_control, mode, role, expected_code):  # noqa: F811
     """An active STREAM or idle POLL terminates with the original auth status."""
-    with _active_subscription(gnmi_tls, mode) as (result, _):
+    with _background_subscription(gnmi_tls, mode) as (result, _):
         _set_role(subscription_control, role)
         changed_at = time.monotonic()
         assert result.poll(REAUTH_BUDGET), "Reauthorization timed out; inspect RPC/backend health"
@@ -203,7 +187,7 @@ def test_subscribe_readonly_remains_authorized(gnmi_tls, subscription_control): 
 
     Freshness is sampled once a second, not an exhaustive inter-update gap check.
     """
-    with _active_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as (result, last_update):
+    with _background_subscription(gnmi_tls, gnmi_pb2.SubscriptionList.STREAM) as (result, last_update):
         _set_role(subscription_control, READONLY)
         until = time.monotonic() + ALLOW_OBSERVATION
         while last_update.value < until:
