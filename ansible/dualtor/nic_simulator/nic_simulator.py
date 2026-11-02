@@ -579,7 +579,13 @@ class OVSBridge(object):
         if len(tor_ports) != 2:
             raise ValueError("Unhealthy bridge: %s, could not parse existing ports: %s"
                              % (self.bridge_name, self.ports))
-        tor_ports.sort()
+        # Sort interface names naturally so VLAN subinterfaces are ordered by
+        # their numeric VLAN IDs (for example, .4 before .36). A plain string
+        # sort reverses some upper/lower ToR pairs and misroutes gRPC replies.
+        tor_ports.sort(key=lambda port: tuple(
+            int(part) if part.isdigit() else part
+            for part in re.split(r"(\d+)", port)
+        ))
         self.upper_tor_port = tor_ports[0]
         self.lower_tor_port = tor_ports[1]
         logging.info(
