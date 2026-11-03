@@ -176,10 +176,11 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
 
 
 # Maps a TestQosSai parameter set (select_src_dst_dut_and_asic value) to the
-# nodeid of a seed test whose fixture failed during setup, so downstream cases
-# in that set xfail instead of re-erroring on the same root cause. Per-worker
-# under xdist: only suppresses when seed and derivatives share a worker (serial
-# or --dist loadscope/loadgroup); plain --dist load falls back to per-case ERROR.
+# nodeid of a seed test whose shared (class/module/session) fixture errored in
+# setup, so downstream cases in that set xfail instead of re-erroring on the
+# same cached exception. Per-worker under xdist: only suppresses when seed and
+# derivatives share a worker (serial or --dist loadscope/loadgroup); plain
+# --dist load falls back to per-case ERROR.
 _qos_sai_fixture_failures = {}
 
 
@@ -200,11 +201,28 @@ def _qos_sai_param_set(item):
     return 'default'
 
 
+def _qos_sai_shared_fixture_failed(item):
+    """Return True if a non-function-scoped fixture of item holds a cached setup exception."""
+    # pytest re-raises a cached higher-scope fixture error for every later test; function-scoped
+    # fixtures re-run per test, so their failures don't cascade.
+    for fixturedefs in item._fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedefs[-1]
+        cached = fixturedef.cached_result
+        if fixturedef.scope != "function" and cached is not None and cached[2] is not None:
+            return True
+    return False
+
+
 def pytest_runtest_makereport(item, call):
-    """Record a seed (testParameter) setup failure to suppress cascades in the same parameter set."""
+    """Record a seed (testParameter) shared-fixture setup error to suppress cascades in its parameter set."""
     if not _is_qos_sai_item(item) or 'fixture_seed' not in item.keywords:
         return
-    if call.when == "setup" and call.excinfo is not None:
+    if call.when != "setup" or call.excinfo is None:
+        return
+    # Intentional skip/xfail in setup is not a failure; derivatives must evaluate their own exclusions.
+    if call.excinfo.errisinstance((pytest.skip.Exception, pytest.xfail.Exception)):
+        return
+    if _qos_sai_shared_fixture_failed(item):
         _qos_sai_fixture_failures[_qos_sai_param_set(item)] = item.nodeid
 
 
