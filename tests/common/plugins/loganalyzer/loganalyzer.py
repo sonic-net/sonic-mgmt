@@ -157,7 +157,7 @@ class LogAnalyzerError(Exception):
 class LogAnalyzer:
     def __init__(self, ansible_host, marker_prefix, request=None, dut_run_dir="/tmp", start_marker=None,
                  additional_files={},
-                 bughandler: BugHandler = get_bughandler_instance({"type": "noop"})):
+                 bughandler: BugHandler = get_bughandler_instance({"type": "noop"}), logs_dir=None):
         self.ansible_host = ansible_host
         ansible_host.loganalyzer = self
         self.dut_run_dir = dut_run_dir
@@ -183,7 +183,9 @@ class LogAnalyzer:
             self.fail = not (self.request.config.getoption("--ignore_la_failure"))
             self.store_la_logs = self.request.config.getoption("--store_la_logs")
 
-        self._la_logs_dir = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
+        # Optional per-window destination; default callers retain their path.
+        self._la_logs_dir = (logs_dir if logs_dir is not None
+                             else "/tmp/loganalyzer/{}".format(self.ansible_host.hostname))
         self.bughandler = bughandler
 
     def _add_end_marker(self, marker):

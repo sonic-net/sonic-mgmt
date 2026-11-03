@@ -262,7 +262,11 @@ def gnmi_tls(request, duthosts, ptfhost):
         yield from _gnmi_uds_flow(duthost)
         return
 
-    # --- existing TLS flow below (unchanged) ---
+    yield from _gnmi_tls_flow(duthost, ptfhost)
+
+
+def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
+    """Single TLS lifecycle; class reuse opts into visible cleanup failures."""
     checkpoint_name = "gnoi_tls_setup"
     cert_dir = "/tmp/gnoi_certs"
 
@@ -328,11 +332,13 @@ def gnmi_tls(request, duthosts, ptfhost):
     finally:
         # 6. Cleanup: close the reused gNMI channel, then rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
+        cleanup_errors = []
         if pygnmi_client is not None:
             try:
                 pygnmi_client.close()
             except Exception as e:
                 logger.error("Failed to close PygnmiClient: %s", e)
+                cleanup_errors.append(str(e))
 
         try:
             output = rollback(duthost, checkpoint_name)
@@ -340,10 +346,12 @@ def gnmi_tls(request, duthosts, ptfhost):
             if output.get('rc') or "Config rolled back successfully" not in stdout:
                 error_msg = output.get('stdout', output.get('msg', 'unknown error'))
                 logger.error("Configuration rollback failed: %s", error_msg)
+                cleanup_errors.append(error_msg)
             else:
                 logger.info("Configuration rollback completed")
         except Exception as e:
             logger.error("Configuration rollback failed with exception: %s", e)
+            cleanup_errors.append(str(e))
 
         try:
             logger.info("Waiting for critical processes to be healthy after rollback")
@@ -351,12 +359,25 @@ def gnmi_tls(request, duthosts, ptfhost):
             logger.info("All critical processes are healthy")
         except Exception as e:
             logger.error("Waiting for critical processes failed with exception: %s", e)
+            cleanup_errors.append(str(e))
+        finally:
+            # A pytest health failure derives from BaseException. Reuse must
+            # still remove local certificates, without changing public cleanup.
+            if strict_cleanup:
+                try:
+                    _delete_gnoi_certs(cert_dir, strict=True)
+                except Exception as e:
+                    cleanup_errors.append(str(e))
 
-        try:
-            _delete_gnoi_certs(cert_dir)
-            logger.info("Certificate cleanup completed")
-        except Exception as e:
-            logger.error(f"Failed to cleanup certificates: {e}")
+        if strict_cleanup:
+            if cleanup_errors:
+                raise RuntimeError("gNMI TLS cleanup failed: {}".format("; ".join(cleanup_errors)))
+        else:
+            try:
+                _delete_gnoi_certs(cert_dir)
+                logger.info("Certificate cleanup completed")
+            except Exception as e:
+                logger.error(f"Failed to cleanup certificates: {e}")
 
 
 @pytest.fixture(scope="function")
@@ -693,14 +714,14 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("TLS connectivity verification completed successfully")
 
 
-def _delete_gnoi_certs(cert_dir):
+def _delete_gnoi_certs(cert_dir, strict=False):
     """Clean up generated certificate files."""
 
     logger.info("Cleaning up certificate files")
 
     # Remove the entire certificate directory
     if os.path.exists(cert_dir):
-        shutil.rmtree(cert_dir, ignore_errors=True)
+        shutil.rmtree(cert_dir, ignore_errors=not strict)
 
 
 def reprovision_gnoi_tls(duthost, ptfhost, cert_dir="/tmp/gnoi_certs"):
