@@ -125,21 +125,19 @@ The three link-disruption cases also recognize one expected VPP hostif message:
 netlink listener sees Linux-CP TAP names outside its lane map during link churn.
 Following the existing VXLAN-underlay test's precedent, the hash tests register
 that exact message only for ports selected for disruption, only on VPP `t1-lag`,
-and only in that test's function-scoped analyzer. The nexthop-flap case also
-opts into this exact-port handling on VPP `t0`; the two member-disruption cases
-keep their existing t0 log handling. Other ports and other errors
+and only in that test's function-scoped analyzer. T0 and other topologies keep
+their existing log handling. Other ports and other errors
 remain visible. Route-path, forwarding, member, and recovery checks still run;
 this is not a general log-analyzer disable or a claim of a dataplane fix.
 
-On VPP `t0` and `t1-lag`, nexthop-flap readiness checks the packet's IP family and requires
+On VPP `t1-lag` only, nexthop-flap readiness checks the packet's IP family and requires
 exactly the expected number of distinct resolved nexthops in VPP's forwarding
 buckets before traffic, after withdrawal, and after recovery. Repeated buckets
 do not count as additional nexthops; drop or unresolved forwarding is not ready.
 The `len` printed beside `path-list` belongs to the uRPF interface list, not the
-forwarding bucket set. Other topologies retain the existing readiness check.
-For t0, this deliberately tightens only nexthop readiness and the exact-port
-log handling above: IPv4 readiness cannot establish IPv6 convergence.
-Packet assertions, balance limits, xfail marks, metadata and recovery are unchanged.
+forwarding bucket set. Other topologies, including VPP `t0`, retain the existing
+readiness check. T0 packet assertions, balance limits, xfail marks, metadata,
+options, recovery and log handling are unchanged.
 
 On VPP `t1-lag`, member deletion attempts restoration even when the delete
 command raises after applying its change. Interface flaps require an initially

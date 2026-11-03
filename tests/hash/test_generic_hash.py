@@ -423,8 +423,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         origin_ptf_expected_port_groups = ptf_params['expected_port_groups']
         _, ptf_params['expected_port_groups'] = get_ptf_port_indices(
             mg_facts, downlink_interfaces=[], uplink_interfaces=remaining_uplink_interfaces)
-        ignore_expected_vpp_link_churn(
-            rand_selected_dut, tbinfo, loganalyzer, uplink_interfaces[interface], include_t0=True)
+        ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, uplink_interfaces[interface])
         shutdown_interface(rand_selected_dut, interface, tbinfo=tbinfo)
     if rand_selected_dut.facts['asic_type'] == 'vpp':
         expected_path_count = len(ptf_params['expected_port_groups'])

@@ -487,17 +487,16 @@ def test_flap_propagates_recovery_scope_when_shutdown_fails(helper, topology, tr
     assert helper.namespace["interfaces_to_startup"] == tracked
 
 
-@pytest.mark.parametrize("asic,topology,include_t0,enabled", [
-    ("vpp", "t1-lag", False, True), ("vpp", "t0", False, False), ("mellanox", "t1-lag", False, False),
-    ("vpp", "t0", True, True), ("vpp", "t1", True, False), ("mellanox", "t0", True, False),
+@pytest.mark.parametrize("asic,topology,enabled", [
+    ("vpp", "t1-lag", True), ("vpp", "t0", False), ("mellanox", "t1-lag", False),
+    ("vpp", "t1", False), ("vpp", "t2", False), ("mellanox", "t0", False),
 ])
-def test_expected_churn_is_limited_to_target_platform_and_selected_ports(
-        helper, asic, topology, include_t0, enabled):
+def test_expected_churn_is_limited_to_target_platform_and_selected_ports(helper, asic, topology, enabled):
     dut = SimpleNamespace(hostname="dut", facts={"asic_type": asic})
     helper.tbinfo["topo"]["name"] = topology
     analyzer = SimpleNamespace(ignore_regex=[])
     helper.namespace["ignore_expected_vpp_link_churn"](
-        dut, helper.tbinfo, {"dut": analyzer}, ["Ethernet56"], include_t0=include_t0)
+        dut, helper.tbinfo, {"dut": analyzer}, ["Ethernet56"])
     assert bool(analyzer.ignore_regex) == enabled
     if enabled:
         pattern = analyzer.ignore_regex[0]
@@ -531,10 +530,8 @@ def forwarding_output(ip_version, count, extra_buckets=()):
 
 
 @pytest.mark.parametrize("ip_version,cli,prefix", [("ipv4", "ip", "0.0.0.0/0"), ("ipv6", "ip6", "::/0")])
-@pytest.mark.parametrize("topology", ["t0", "t1-lag"])
-def test_nexthop_readiness_checks_packet_family_and_exact_forwarding_count(helper, ip_version, cli, prefix, topology):
+def test_nexthop_readiness_checks_packet_family_and_exact_forwarding_count(helper, ip_version, cli, prefix):
     dut = Mock(facts={"asic_type": "vpp"})
-    helper.tbinfo["topo"]["name"] = topology
     check = helper.namespace["check_vpp_nexthop_paths"]
     for actual, expected, ready in [
             (4, 3, False), (3, 3, True), (3, 4, False),
@@ -555,9 +552,8 @@ def test_repeated_forwarding_buckets_are_not_extra_nexthops(helper):
 
 
 @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
-@pytest.mark.parametrize("topology,path_count", [("t1-lag", 7), ("t0", 3)])
-def test_collapsed_bucket_ranges_count_distinct_nexthops(helper, ip_version, topology, path_count):
-    helper.tbinfo["topo"]["name"] = topology
+@pytest.mark.parametrize("path_count", [3, 7])
+def test_collapsed_bucket_ranges_count_distinct_nexthops(helper, ip_version, path_count):
     output = forwarding_output(ip_version, path_count)
     ranges = [(0, 1), (2, 2), (3, 3)] if path_count == 3 else [
         (0, 9), (10, 18), (19, 27), (28, 36), (37, 45), (46, 54), (55, 63)]
@@ -586,19 +582,27 @@ def test_unready_or_ambiguous_forwarding_cannot_pass(helper, output, rc):
     assert not helper.namespace["check_vpp_nexthop_paths"](dut, helper.tbinfo, 7, "ipv6")
 
 
-@pytest.mark.parametrize("topology", ["t1", "t2"])
-def test_non_target_nexthop_check_keeps_legacy_ipv4_urpf_minimum(helper, topology):
-    dut = Mock(facts={"asic_type": "vpp"})
+@pytest.mark.parametrize("asic,topology", [
+    ("vpp", "t0"), ("vpp", "t1"), ("vpp", "t2"), ("mellanox", "t1-lag"),
+])
+@pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
+def test_non_target_nexthop_check_keeps_legacy_ipv4_urpf_minimum(helper, asic, topology, ip_version):
+    dut = Mock(facts={"asic_type": asic})
     helper.tbinfo["topo"]["name"] = topology
-    dut.shell.return_value = {"stdout": "path-list:[388] uPRF-list:306 len:8 itfs:[]"}
-    assert helper.namespace["check_vpp_nexthop_paths"](dut, helper.tbinfo, 7, "ipv6")
-    dut.shell.assert_called_once_with("docker exec syncd vppctl show ip fib 0.0.0.0/0", module_ignore_errors=True)
+    dut.shell.return_value = {"rc": 0, "stdout": forwarding_output("ipv4", 3)}
+    assert helper.namespace["check_vpp_nexthop_paths"](dut, helper.tbinfo, 7, ip_version)
+    assert not helper.namespace["check_vpp_nexthop_paths"](dut, helper.tbinfo, 9, ip_version)
+    assert [call.args[0] for call in dut.shell.call_args_list] == [
+        "docker exec syncd vppctl show ip fib 0.0.0.0/0",
+        "docker exec syncd vppctl show ip fib 0.0.0.0/0",
+    ]
+    assert all(call.kwargs == {"module_ignore_errors": True} for call in dut.shell.call_args_list)
 
 
 @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
 @pytest.mark.parametrize("withdraw_ready", [True, False])
 @pytest.mark.parametrize("topology", ["t0", "t1-lag"])
-def test_nexthop_case_gates_traffic_on_family_specific_convergence(helper, ip_version, withdraw_ready, topology):
+def test_nexthop_case_preserves_topology_scoped_readiness_and_logs(helper, ip_version, withdraw_ready, topology):
     helper.tbinfo["topo"]["name"] = topology
     path = Path(__file__).resolve().parents[1] / "test_generic_hash.py"
     function = next(node for node in ast.parse(path.read_text()).body
@@ -606,9 +610,10 @@ def test_nexthop_case_gates_traffic_on_family_specific_convergence(helper, ip_ve
     namespace = helper.namespace.copy()
     for name in ("skip_unsupported_field_for_ecmp_test", "config_all_hash_fields", "get_diff_hash_algorithm",
                  "config_all_hash_algorithm", "check_global_hash_config", "check_global_hash_algorithm",
-                 "shutdown_interface", "startup_interface", "flap_interfaces", "ignore_expected_vpp_link_churn",
+                 "shutdown_interface", "startup_interface", "flap_interfaces",
                  "is_bgp_session_established", "ptf_runner"):
         namespace[name] = Mock()
+    namespace["ignore_expected_vpp_link_churn"] = Mock(wraps=namespace["ignore_expected_vpp_link_churn"])
     uplinks = {"PortChannel1": ["Ethernet0"], "PortChannel2": ["Ethernet4"]}
     namespace.update(
         allure=SimpleNamespace(step=lambda _: nullcontext()),
@@ -625,22 +630,34 @@ def test_nexthop_case_gates_traffic_on_family_specific_convergence(helper, ip_ve
     def wait_until(_timeout, _interval, _delay, predicate, *args):
         if predicate is check:
             readiness_calls.append(args)
-            return withdraw_ready if args[2] == 1 else True
+            expected = args[2]
+            ready = expected != 1 or withdraw_ready
+            output = forwarding_output(ip_version, expected if ready else 0)
+            urpf_count = expected + 1 if ready else 0
+            dut.shell.return_value = {"rc": 0, "stdout": output.replace("len:8", f"len:{urpf_count}")}
+            return predicate(*args)
         return True
 
     namespace["wait_until"] = wait_until
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), "exec"), namespace)
-    dut = Mock(facts={"asic_type": "vpp"})
+    dut = Mock(hostname="dut", facts={"asic_type": "vpp"})
     dut.show_and_parse.return_value = [{"interface": "PortChannel1", "neighbor ip": "10.0.0.1"}]
+    analyzer = SimpleNamespace(ignore_regex=["existing-ignore"])
+    loganalyzer = {"dut": analyzer}
     with nullcontext() if withdraw_ready else pytest.raises(pytest.fail.Exception, match="expected 1 paths"):
         namespace["test_nexthop_flap"](
             dut, helper.tbinfo, Mock(), f"CRC-DST_IP-{ip_version}-None-None", {}, None,
-            None, {"ecmp": [], "lag": []}, ["CRC"], None, dut, None)
+            None, {"ecmp": [], "lag": []}, ["CRC"], None, dut, loganalyzer)
     counts = [2, 1, 2] if withdraw_ready else [2, 1]
     assert readiness_calls == [(dut, helper.tbinfo, count, ip_version) for count in counts]
     assert namespace["ptf_runner"].call_count == (3 if withdraw_ready else 1)
+    cli, prefix = ("ip6", "::/0") if topology == "t1-lag" and ip_version == "ipv6" else ("ip", "0.0.0.0/0")
+    assert [call.args[0] for call in dut.shell.call_args_list] == [
+        f"docker exec syncd vppctl show {cli} fib {prefix}" for _ in counts]
     namespace["ignore_expected_vpp_link_churn"].assert_called_once_with(
-        dut, helper.tbinfo, None, ["Ethernet0"], include_t0=True)
+        dut, helper.tbinfo, loganalyzer, ["Ethernet0"])
+    assert analyzer.ignore_regex[0] == "existing-ignore"
+    assert len(analyzer.ignore_regex) == (2 if topology == "t1-lag" else 1)
 
 
 @pytest.fixture

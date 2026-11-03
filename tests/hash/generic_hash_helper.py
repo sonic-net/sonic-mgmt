@@ -469,7 +469,7 @@ def check_vpp_fib_paths(duthost, expected_path_count, destination='0.0.0.0/0'):
 
 def check_vpp_nexthop_paths(duthost, tbinfo, expected_path_count, ip_version):
     """Check resolved forwarding paths, not the uRPF list, around a nexthop flap."""
-    if duthost.facts['asic_type'] != 'vpp' or tbinfo['topo']['name'] not in ('t0', 't1-lag'):
+    if duthost.facts['asic_type'] != 'vpp' or tbinfo['topo']['name'] != 't1-lag':
         return check_vpp_fib_paths(duthost, expected_path_count)
     pytest_assert(ip_version in ('ipv4', 'ipv6'), f"Unsupported VPP hash IP version: {ip_version}")
     cli, destination = ('ip6', '::/0') if ip_version == 'ipv6' else ('ip', '0.0.0.0/0')
@@ -517,11 +517,8 @@ def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     return sending_ports, expected_port_groups
 
 
-def ignore_expected_vpp_link_churn(duthost, tbinfo, loganalyzer, interfaces, include_t0=False):
-    if not loganalyzer or duthost.facts['asic_type'] != 'vpp':
-        return
-    topology = tbinfo['topo']['name']
-    if topology != 't1-lag' and not (include_t0 and topology == 't0'):
+def ignore_expected_vpp_link_churn(duthost, tbinfo, loganalyzer, interfaces):
+    if not loganalyzer or duthost.facts['asic_type'] != 'vpp' or tbinfo['topo']['name'] != 't1-lag':
         return
     # The shared VS netlink listener sees Linux-CP TAP names outside its lane map.
     # Match only this known message for ports deliberately disrupted by this test.
