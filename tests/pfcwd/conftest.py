@@ -8,7 +8,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service           # noqa: F401
-from tests.common.fixtures.ptfhost_utils import ptf_test_port_map
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, check_dshell_ready
 from tests.common.utilities import str2bool, wait_until
@@ -324,7 +324,9 @@ def cleanup(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
 
 @pytest.fixture(scope="module", autouse=True)
 def create_ptf_test_port_map(
-    ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts
+    ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts,
+    mux_status_from_nic_simulator
 ):
-    ptf_test_port_map(
-        ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts)
+    ptf_test_port_map_active_active(
+        ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts,
+        mux_status_from_nic_simulator())
