@@ -1,0 +1,112 @@
+# Three SONiC bridges in a triangle, for the layer 2 cases that need more than
+# one bridge to be meaningful.
+#
+#                      dut 0
+#                   (under test)
+#                   /           \
+#            link 1               link 2
+#                 /               \
+#            dut 1 ----- link 3 ----- dut 2
+#
+# Why a triangle rather than a line. A spanning tree over three bridges has two
+# edges, so exactly one of the three legs has to be given up. That is the
+# smallest shape in which "a port blocked because another bridge won the
+# election" is a real event rather than something a test asserted into being.
+# Two bridges cannot produce it: with one leg there is nothing to give up.
+#
+# Why all three are DUTs rather than neighbour VMs. The cases this topology
+# exists for are agreement cases: two independent bridges electing the same
+# root, a leg blocking at exactly one end, a topology change propagating and
+# flushing an FDB three hops away. Every one of those needs to read the other
+# bridges' state, so every bridge has to be something the framework can talk
+# to. A neighbour VM is reachable but is not a DUT, and `duthosts` is what the
+# test needs.
+#
+# Each bridge also keeps host interfaces onto the PTF, which is how data plane
+# claims are checked: inject a broadcast at one bridge's PTF port and see which
+# of the others receive it. That is the check that the tree which was elected
+# is the tree traffic actually follows, and it is not answerable from state
+# tables on any single switch.
+#
+# Port and PTF numbering. `dut.port@ptf`, with a block of 32 PTF indices per
+# DUT so that adding a port to one bridge never renumbers another. Ports 0 and
+# 1 face the PTF, ports 2 and 3 are the legs of the triangle.
+#
+# The interconnect ports arrive routed, as any non host interface does. The
+# tests put them into a VLAN themselves rather than depending on the minigraph
+# to do it, because enrolling a port and watching the daemon pick it up is one
+# of the things under test.
+
+topology:
+  dut_num: 3
+
+  # Empty rather than absent. vm_topology treats a multi-DUT topology with no
+  # VMs key as a dual ToR cable topology and expects paired host interfaces.
+  VMs: {}
+
+  host_interfaces:
+    # dut 0, the switch under test
+    - 0.0@0
+    - 0.1@1
+    # dut 1
+    - 1.0@32
+    - 1.1@33
+    # dut 2
+    - 2.0@64
+    - 2.1@65
+
+  devices_interconnect_interfaces:
+    # link 1: dut 0 <-> dut 1
+    1:
+      - 0.2@2
+      - 1.2@34
+    # link 2: dut 0 <-> dut 2
+    2:
+      - 0.3@3
+      - 2.2@66
+    # link 3: dut 1 <-> dut 2, the leg the triangle is expected to give up
+    3:
+      - 1.3@35
+      - 2.3@67
+
+  # The minigraph VLAN holds only the PTF facing ports 0 and 1. The tests add
+  # the legs, ports 2 and 3, themselves.
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+        - 10.1.0.34/32
+      ipv6:
+        - FC00:1::32/128
+        - FC00:1::33/128
+        - FC00:1::34/128
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [0, 1]
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+    # No neighbours, so there are no routes to announce from the PTF.
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: false
