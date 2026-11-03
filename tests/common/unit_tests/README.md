@@ -83,3 +83,83 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## Redis database access and dumps
+
+`unit_test_native_reader_endpoint.py` checks configured native reader arguments for host and ASIC contexts, including numeric database IDs and socket quoting. `unit_test_local_redis_dump.py` checks database names, namespaces, filters and output paths used by the common dump and snapshot helpers. These component checks do not qualify installed images or hardware.
+
+## Local socket and chassis transport regression
+
+`unit_test_local_cli_transport.py` exercises the actual host/ASIC command builders
+and local/chassis database helpers. It checks explicit socket selection, retained
+ASIC namespaces and the explicit TCP path used by chassis helpers. These are
+command checks without a DUT or chassis runtime.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_local_cli_transport.py -q
+```
+## QoS database callers
+
+`unit_test_qos_database_callers.py` checks buffer and PFC command arguments, database selection and ASIC handling. It also checks that local QoS configuration commands use the named database CLI. Feature behavior still requires the corresponding QoS and buffer suites on a testbed.
+
+## Ansible Redis callers
+
+`unit_test_ansible_redis_callers.py` checks the configured native endpoints used
+by neighbour and ECN tasks and the named commands used for parallel BGP updates.
+It renders the changed task snippets and runs the BGP shell command with a fake
+CLI. These checks do not run the affected playbooks on a switch.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_ansible_redis_callers.py -q
+
+## SpyTest Redis callers
+
+`unit_test_spytest_redis_cli.py` checks configured Unix sockets and positive TCP
+ports, native scans, named writes and dumps, and protected transaction commands.
+It also checks that deferred remote-DPU calls retain their existing port choices.
+The fake SpyTest interface does not execute a feature suite on a switch.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_spytest_redis_cli.py -q
+```
+## Routing and switching database callers
+
+`unit_test_network_database_callers.py` checks BGP presence-test output, VXLAN cleanup key/field arguments and local configuration commands. These isolated checks do not replace routing, forwarding or multi-ASIC testbed runs.
+## Platform Redis callers
+
+`unit_test_platform_redis_callers.py` checks the host-local module status query
+with native and named CLI reply formats. `unit_test_redis_benchmark_cleanup.py`
+executes the generated DUT Python cleanup command with mocked Redis and
+authentication modules. It checks that cleanup uses available local credentials,
+preserves unrelated routes and reports authentication or command failures. These
+checks do not run the platform or gNMI feature suites on a switch.
+
+## Redis write-protection acceptance checks
+
+`unit_test_stock_cli_acceptance.py` checks that the acceptance helper requires
+write denial on protected processes and successful writes during legacy
+preflight. Connection failures and writes that changed data do not count as
+proof of protection. Scope checks also reject missing protection unless the run
+explicitly accepts matching configured TCP exceptions, and verify the expected
+TCP listener state. `unit_test_single_host_redis_census.py` checks actual
+process/socket inventory
+and rejects mismatched TCP listeners, missing/extra processes and unexpected
+sockets. The live DUT test is documented in `tests/redis/README.md`.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_stock_cli_acceptance.py \
+  tests/common/unit_tests/unit_test_single_host_redis_census.py -q
+```
+
+### Redis mode lifecycle
+
+`unit_test_redis_mode_control.py` exercises saved-setting restoration, complete
+DUT preflight, partial setup failures and retries using fake DUTs.
+`unit_test_redis_mode_runner.py` executes the runner's actual shell hooks with a
+fake pytest process, including suite failures, required skips and TERM cleanup.
+`unit_test_redis_mode_ci.py` checks paired image/source selection and preservation
+of topology arguments. These checks do not reboot a DUT or validate provider CI.

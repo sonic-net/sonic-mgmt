@@ -38,6 +38,7 @@ function show_help_and_exit()
     echo ""
     echo "    environment variables:"
     echo "    ANSIBLE_PARENT_DIR_OVERRIDE : root holding the 'ansible' directory (default: repo root)"
+    echo "    Pass --redis-protection-mode=legacy|enforce in -e to prepare and restore Redis around this run."
 
     exit $1
 }
@@ -349,6 +350,55 @@ function cleanup_dut()
     ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} "${PYTEST_FILTER_OPTS[@]}" ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
+function redis_mode_stage()
+{
+    local action=$1
+    local testcase=$2
+    local lifecycle_options=()
+    if [[ ${action} == prepare || ${action} == restore ]]; then
+        lifecycle_options=(--skip_sanity --disable_loganalyzer)
+    fi
+    SONIC_REDIS_MODE_ACTION=${action} ${PYTEST_EXEC} "${SCRIPT_PATH}/${testcase}" \
+        ${PYTEST_COMMON_OPTS} ${EXTRA_PARAMETERS} \
+        "${lifecycle_options[@]}" \
+        --topology any \
+        --junitxml="${LOG_PATH}/redis-mode-${action}.xml" \
+        --log-file="${LOG_PATH}/redis-mode-${action}.log" || return $?
+    # An explicitly required gate must execute, not succeed through a skip.
+    python3 - "${LOG_PATH}/redis-mode-${action}.xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+cases = list(root.iter('testcase'))
+assert cases and not any(case.find(tag) is not None
+                         for case in cases for tag in ('skipped', 'failure', 'error')), 'Redis mode gate did not pass'
+PY
+}
+
+function redis_mode_acceptance()
+{
+    local action=$1
+    if [[ ${REDIS_PROTECTION_MODE} == legacy ]]; then
+        redis_mode_stage "${action}" redis/test_redis_modes.py::test_redis_legacy_mode
+    else
+        redis_mode_stage "${action}" redis/test_redis_write_protection.py::test_redis_enforce_mode
+    fi
+}
+
+function finish_redis_mode()
+{
+    local result=$?
+    trap - EXIT INT TERM
+    if [[ -f ${SONIC_REDIS_MODE_STATE} ]]; then
+        if [[ ${REDIS_MODE_PREPARED} == True ]]; then
+            redis_mode_acceptance after || result=70
+        fi
+        redis_mode_stage restore redis/test_redis_modes.py::test_restore_redis_mode || result=70
+        cp "${SONIC_REDIS_MODE_STATE}" "${LOG_PATH}/redis-mode-state.json" || result=70
+    fi
+    exit "${result}"
+}
+
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
@@ -607,6 +657,27 @@ if [[ x"${TEST_METHOD}" != x"debug" ]]; then
     validate_parameters
 fi
 setup_test_options
+
+REDIS_PROTECTION_MODE=$(python3 "${SCRIPT_PATH}/common/plugins/redis_protection/options.py" ${EXTRA_PARAMETERS}) || exit 64
+if [[ -n ${REDIS_PROTECTION_MODE} ]]; then
+    if [[ ${TEST_METHOD} == debug ]]; then
+        echo "Redis mode setup requires a normal test run, not debug mode."
+        exit 64
+    fi
+    mkdir -p "${LOG_PATH}"
+    # Keep recovery state outside the log directory cleared by a later run.
+    REDIS_MODE_DIRECTORY=$(mktemp -d "${LOG_PATH%/}.redis-mode.XXXXXX") || exit 64
+    export SONIC_REDIS_MODE_STATE="$(realpath "${REDIS_MODE_DIRECTORY}")/state.json"
+    echo "Redis restoration record: ${SONIC_REDIS_MODE_STATE}"
+    REDIS_MODE_PREPARED=False
+    trap finish_redis_mode EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    redis_mode_stage prepare redis/test_redis_modes.py::test_prepare_redis_mode || exit 65
+    [[ -f ${SONIC_REDIS_MODE_STATE} ]] || exit 65
+    REDIS_MODE_PREPARED=True
+    redis_mode_acceptance before || exit 65
+fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     RESULT=0

@@ -66,9 +66,9 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, snmp_psu_module
 
     for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
-            "redis-cli -n 6 hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
+            "sonic-db-cli -s STATE_DB hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
         get_status = duthost.shell(
-            "redis-cli -n 6 hget '{}' status".format(psu_keys[int(psu_indx)-1]))
+            "sonic-db-cli -s STATE_DB hget '{}' status".format(psu_keys[int(psu_indx)-1]))
         status = get_status['stdout'] == 'true'
         presence = get_presence['stdout'] == 'true'
 
@@ -95,7 +95,7 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    cmd = 'sonic-db-cli -s {} KEYS \"{}\"'.format(db_id, pattern)
     logging.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()

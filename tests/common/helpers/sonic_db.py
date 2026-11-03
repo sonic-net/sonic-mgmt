@@ -9,13 +9,44 @@ from tests.common.devices.sonic_asic import SonicAsic
 logger = logging.getLogger(__name__)
 
 
+def redis_cli_argv(host, database):
+    """Select a native CLI endpoint without changing its arguments or output."""
+    metadata = ["cat", "/var/run/redis/sonic-db/database_config.json"]
+    if isinstance(host, SonicAsic):
+        configuration = json.loads("\n".join(host.run_redis_cmd(argv=metadata)))
+    else:
+        configuration = json.loads(host.command(argv=metadata)["stdout"])
+    databases = configuration["DATABASES"]
+    if isinstance(database, int) or str(database).isdigit():
+        primary = databases["CONFIG_DB"]["instance"]
+        database = next((name for name, settings in databases.items()
+                         if int(settings["id"]) == int(database) and settings["instance"] == primary), None)
+        if database is None:
+            raise ValueError("Database ID is not configured in the local primary Redis instance")
+    db = databases[database]
+    instance = configuration["INSTANCES"][db["instance"]]
+    port = int(instance.get("port", 6379))
+    if port == 0:
+        endpoint = ["-s", instance["unix_socket_path"]]
+    else:
+        endpoint = ["-h", instance.get("hostname", "localhost"), "-p", str(port)]
+    return ["redis-cli"] + endpoint + ["-n", str(db["id"])]
+
+
+def redis_cli_command(host, database):
+    """Quote the configured native CLI prefix for a shell command."""
+    return " ".join(shlex.quote(argument) for argument in redis_cli_argv(host, database))
+
+
 class SonicDbCli(object):
-    """Base class for interface to SonicDb using sonic-db-cli command.
+    """Base class for interface to SonicDb using sonic-db-cli -s command.
 
         Attributes:
             host: a SonicHost or SonicAsic.  Commands will be run on this shell.
             database: database number.
         """
+
+    USE_TCP = False
 
     def __init__(self, host, database='APPL_DB'):
         """Initializes base class with defaults"""
@@ -23,7 +54,7 @@ class SonicDbCli(object):
         self.database = database
 
     def _cli_prefix(self):
-        """Builds opening of sonic-db-cli command for other methods."""
+        """Builds opening of sonic-db-cli -s command for other methods."""
         return " {db} ".format(db=self.database)
 
     def _run_and_check(self, cmd):
@@ -39,7 +70,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.error("No command response: %s" % cmd)
@@ -62,7 +93,7 @@ class SonicDbCli(object):
 
         """
         logger.debug("SONIC-DB-CLI: %s", cmd)
-        result = self.host.run_sonic_db_cli_cmd(cmd)
+        result = self.host.run_sonic_db_cli_cmd(cmd, use_tcp=self.USE_TCP)
 
         if len(result["stdout_lines"]) == 0:
             logger.warning("No command response: %s" % cmd)
@@ -72,7 +103,7 @@ class SonicDbCli(object):
 
     def hget_key_value(self, key, field):
         """
-        Executes a sonic-db-cli hget command.
+        Executes a sonic-db-cli -s hget command.
 
         Args:
             key: full name of the key to get.
@@ -97,7 +128,7 @@ class SonicDbCli(object):
 
     def hget_all(self, key):
         """
-        Executes a sonic-db-cli HGETALL command.
+        Executes a sonic-db-cli -s HGETALL command.
         Args:
             key: full name of the key to get.
         Returns:
@@ -188,7 +219,8 @@ class SonicDbCli(object):
         cli = "sonic-db-dump"
         cmd_str = ""
 
-        cmd_str += "-n {db} -y -k *{t}*".format(db=self.database, t=table)
+        transport = 'tcp' if self.USE_TCP else 'unix_socket'
+        cmd_str += "-t {transport} -n {db} -y -k *{t}*".format(transport=transport, db=self.database, t=table)
 
         # We are on an asic, it could be single asic card, or multiasic and need a namespace.
         if isinstance(self.host, SonicAsic):
@@ -209,22 +241,26 @@ class SonicDbCli(object):
 
 
 # ---------------------------------------------------------------------------
-# Functional sonic-db-cli helpers
+# Functional sonic-db-cli -s helpers
 # ---------------------------------------------------------------------------
 # Lightweight `sonic-db-cli` wrappers for callers that need miss-tolerant
 # semantics (return '' / {} / [] instead of raising) and direct HSET / DEL /
 # KEYS access without instantiating a SonicDbCli object.
 # ---------------------------------------------------------------------------
 
-# sonic-db-cli database name constants
+# sonic-db-cli -s database name constants
 APPL_DB = 'APPL_DB'
 CONFIG_DB = 'CONFIG_DB'
 STATE_DB = 'STATE_DB'
 
 
 def _run_sonic_db_cli(duthost, command):
-    """Run sonic-db-cli in the host's ASIC namespace without raising on failure"""
-    cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli'
+    """Run local DBs on their ASIC socket and chassis DBs over TCP"""
+    database = command.split(None, 1)[0]
+    if database in ('CHASSIS_APP_DB', 'CHASSIS_STATE_DB'):
+        cli = 'sonic-db-cli'
+    else:
+        cli = duthost.sonic_db_cli if isinstance(duthost, SonicAsic) else 'sonic-db-cli -s'
     return duthost.shell(
         "{} {}".format(cli, command),
         module_ignore_errors=True
@@ -249,7 +285,7 @@ def redis_hgetall(duthost, db, key):
     out = (r.get('stdout', '') or '').strip()
     if not out:
         return {}
-    # sonic-db-cli HGETALL returns Python-dict repr; fall back to line pairs
+    # sonic-db-cli -s HGETALL returns Python-dict repr; fall back to line pairs
     # for back-compat with raw redis-cli style output.
     if out.startswith('{') and out.endswith('}'):
         try:
@@ -611,6 +647,8 @@ class VoqDbCli(SonicDbCli):
         host: a SonicHost instance for a supervisor card.  Commands will be run on this shell.
 
     """
+    USE_TCP = True
+
     SYSTEM_LAG_TABLE = "SYSTEM_LAG_TABLE"
     SYSTEM_LAG_MEMBER_TABLE = "SYSTEM_LAG_MEMBER_TABLE"
     SYSTEM_NEIGHBOR_TABLE = "SYSTEM_NEIGH"
@@ -689,7 +727,7 @@ class SonicDbKeyNotFound(KeyError):
 
 class SonicDbNoCommandOutput(Exception):
     """
-    Raised when no output is generated by the sonic-db-cli command.
+    Raised when no output is generated by the sonic-db-cli -s command.
     """
     pass
 
@@ -702,7 +740,7 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    cmd = 'sonic-db-cli -s {} KEYS \"{}\"'.format(db_id, pattern)
     logger.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()

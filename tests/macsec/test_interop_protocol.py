@@ -127,7 +127,7 @@ class TestInteropProtocol():
         BGP_TIMEOUT = 90
 
         def check_bgp_established(ctrl_port, up_link):
-            command = ("sonic-db-cli {} STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'"
+            command = ("sonic-db-cli -s {} STATE_DB HGETALL 'NEIGH_STATE_TABLE|{}'"
                        .format(getns_prefix(duthost, ctrl_port), up_link["local_ipv4_addr"]))
             fact = sonic_db_cli(duthost, command)
             logger.info("bgp state {}".format(fact))

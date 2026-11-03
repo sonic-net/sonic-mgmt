@@ -78,7 +78,7 @@ def set_sonic_db_cli(duthost, enum_frontend_asic_index):
     else:
         cli_options = ""
     global sonic_db_cli
-    sonic_db_cli = f"sonic-db-cli {cli_options}"
+    sonic_db_cli = f"sonic-db-cli -s {cli_options}"
 
 
 def count_keys(duthost, db, pattern):

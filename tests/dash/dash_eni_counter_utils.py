@@ -12,7 +12,7 @@ CT_AGING_TEST_INTERVAL = 1  # 1 second aging interval for ENI counter test
 
 
 def get_eni_counter_status(dpuhost):
-    cmd_get_eni_counter_status = "sonic-db-cli FLEX_COUNTER_DB HGETALL FLEX_COUNTER_GROUP_TABLE:ENI_STAT_COUNTER"
+    cmd_get_eni_counter_status = "sonic-db-cli -s FLEX_COUNTER_DB HGETALL FLEX_COUNTER_GROUP_TABLE:ENI_STAT_COUNTER"
 
     eni_counter_status = ast.literal_eval(dpuhost.shell(cmd_get_eni_counter_status)['stdout'])
     logger.info(f"counter eni name map: {eni_counter_status} ")
@@ -31,7 +31,7 @@ def set_eni_counter_interval(dpuhost, interval):
 
 def get_eni_counter_oid(dpuhost, eni):
 
-    cmd_get_counter_eni_name_map = "sonic-db-cli COUNTERS_DB HGETALL 'COUNTERS_ENI_NAME_MAP'"
+    cmd_get_counter_eni_name_map = "sonic-db-cli -s COUNTERS_DB HGETALL 'COUNTERS_ENI_NAME_MAP'"
 
     counter_eni_name_map = dpuhost.shell(cmd_get_counter_eni_name_map)['stdout']
     counter_eni_name_map = ast.literal_eval(counter_eni_name_map)
@@ -40,7 +40,7 @@ def get_eni_counter_oid(dpuhost, eni):
 
 
 def get_eni_counters(dpuhost, eni_counter_oid):
-    cmd_get_eni_counter = "sonic-db-cli COUNTERS_DB hgetall COUNTERS:{}".format(eni_counter_oid)
+    cmd_get_eni_counter = "sonic-db-cli -s COUNTERS_DB hgetall COUNTERS:{}".format(eni_counter_oid)
     dash_counter_dict = dpuhost.shell(cmd_get_eni_counter)['stdout']
     dash_counter_dict = ast.literal_eval(dash_counter_dict)
     return dash_counter_dict
@@ -149,7 +149,7 @@ def eni_counter_setup(dpuhost):
 def get_eni_meter_counters(dpuhost):
     _sai_meter_counters_dict = {}
 
-    cmd_get_counter_meter_name_map = 'sonic-db-cli COUNTERS_DB KEYS "*"'
+    cmd_get_counter_meter_name_map = 'sonic-db-cli -s COUNTERS_DB KEYS "*"'
     _counter_map = dpuhost.shell(cmd_get_counter_meter_name_map)['stdout']
 
     counter_eni_name_map = []
@@ -160,7 +160,7 @@ def get_eni_meter_counters(dpuhost):
     for eachkey in counter_eni_name_map:
         if re.search('COUNTERS:', eachkey):
             # Get Meter Class counter stats
-            cmd_get_counter_meter = f"sonic-db-cli COUNTERS_DB hgetall \'{eachkey}\'"
+            cmd_get_counter_meter = f"sonic-db-cli -s COUNTERS_DB hgetall \'{eachkey}\'"
             counter_meter_class = dpuhost.shell(cmd_get_counter_meter)['stdout']
             _meter_stats = ast.literal_eval(counter_meter_class)
 

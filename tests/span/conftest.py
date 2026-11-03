@@ -462,22 +462,22 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
 
     def _session_ready():
         status = duthost.shell(
-            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' status".format(ERSPAN_SESSION_NAME),
+            "sonic-db-cli -s STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' status".format(ERSPAN_SESSION_NAME),
             module_ignore_errors=True
         )['stdout'].strip()
         monitor = duthost.shell(
-            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' monitor_port".format(ERSPAN_SESSION_NAME),
+            "sonic-db-cli -s STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' monitor_port".format(ERSPAN_SESSION_NAME),
             module_ignore_errors=True
         )['stdout'].strip()
         return status == 'active' and monitor == expected_monitor
 
     ready = wait_until(30, 2, 0, _session_ready)
     state_dump = duthost.shell(
-        "sonic-db-cli STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
+        "sonic-db-cli -s STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
         module_ignore_errors=True
     )['stdout']
     config_dump = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGETALL 'MIRROR_SESSION|{}'".format(ERSPAN_SESSION_NAME),
+        "sonic-db-cli -s CONFIG_DB HGETALL 'MIRROR_SESSION|{}'".format(ERSPAN_SESSION_NAME),
         module_ignore_errors=True
     )['stdout']
     logger.info("STATE_DB MIRROR_SESSION_TABLE|%s \n%s", ERSPAN_SESSION_NAME, state_dump)

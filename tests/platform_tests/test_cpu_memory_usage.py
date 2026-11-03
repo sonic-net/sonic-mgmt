@@ -126,7 +126,7 @@ def disable_pfcwd(rand_selected_dut):
     """
     duthost = rand_selected_dut
     pfcwd_status = duthost.shell(
-        "sonic-db-cli CONFIG_DB hget \'DEVICE_METADATA|localhost\' \'default_pfcwd_status\'")['stdout']
+        "sonic-db-cli -s CONFIG_DB hget \'DEVICE_METADATA|localhost\' \'default_pfcwd_status\'")['stdout']
     if pfcwd_status != 'enable':
         yield
         return
