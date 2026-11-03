@@ -55,6 +55,9 @@ class Common_vars:
     # A dict containing all DUT ingress/egress stats to trace SRv6 path
     dut_stats = {}
     total_tgen_ports = 0
+    # Set to 0 if you want to test for 0% packet loss.
+    # Set to 0.01 if you want to allow for 1% packet loss.
+    loss_pct_threshold = 0
 
 
 @pytest.fixture(scope="session")
