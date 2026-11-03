@@ -12,7 +12,18 @@
 {% set logical_peers = convergence_data['convergence_mapping'][hostname] %}
 {% set vrf_names = convergence_data['vrf_name_mapping'] %}
 {% set ptf_bp_addrs = convergence_data['ptf_backplane_addrs'] %}
-{% set lane_map = {1: '25,26,27,28', 2: '29,30,31,32', 3: '33,34,35,36', 4: '37,38,39,40', 5: '45,46,47,48'} %}
+{# Canonical SONiC-VM ethN -> lane mapping. A prime can consume up to 31 #}
+{# front-panel links and reserves eth32 for its backplane. #}
+{% set lane_map = {
+    1: '25,26,27,28', 2: '29,30,31,32', 3: '33,34,35,36', 4: '37,38,39,40',
+    5: '45,46,47,48', 6: '41,42,43,44', 7: '1,2,3,4', 8: '5,6,7,8',
+    9: '13,14,15,16', 10: '9,10,11,12', 11: '17,18,19,20', 12: '21,22,23,24',
+    13: '53,54,55,56', 14: '49,50,51,52', 15: '57,58,59,60', 16: '61,62,63,64',
+    17: '69,70,71,72', 18: '65,66,67,68', 19: '73,74,75,76', 20: '77,78,79,80',
+    21: '109,110,111,112', 22: '105,106,107,108', 23: '113,114,115,116', 24: '117,118,119,120',
+    25: '125,126,127,128', 26: '121,122,123,124', 27: '81,82,83,84', 28: '85,86,87,88',
+    29: '93,94,95,96', 30: '89,90,91,92', 31: '101,102,103,104', 32: '97,98,99,100'
+} %}
 {% set role_type_map = {'leaf': 'LeafRouter', 'spine': 'SpineRouter', 'tor': 'ToRRouter', 'core': 'SpineRouter'} %}
 {% set device_type = role_type_map.get(props.swrole | default('leaf'), 'LeafRouter') %}
 {% set fp_eths = [] %}

@@ -62,3 +62,62 @@ def test_prime_allocation_reserves_the_32nd_injected_port_for_backplane(tmp_path
     assert len(converger.prime_devices) == 2
     assert [len(converger.prime_device_mapping[prime])
             for prime in converger.prime_devices] == [31, 1]
+
+
+def test_prime_allocation_counts_front_panel_links_not_logical_peers(tmp_path):
+    configuration = {}
+    vms = {}
+    for index in range(16):
+        name = "ARISTA{:02d}T2".format(index + 1)
+        configuration[name] = {
+            "properties": ["spine"],
+            "bgp": {"asn": 65200, "peers": {}},
+            "interfaces": {},
+            "bp_interface": {},
+        }
+        vms[name] = {"vlans": [index * 2, index * 2 + 1],
+                     "vm_offset": index}
+
+    topology = {
+        "configuration_properties": {"spine": {"swrole": "spine"}},
+        "configuration": configuration,
+        "topology": {"VMs": vms},
+    }
+    converger = CONVERGER.CsonicTopoConverger(
+        topology, str(tmp_path / "converged.yml"))
+    converger.parse_properties()
+
+    assert len(converger.prime_devices) == 2
+    assert [len(converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [15, 1]
+    assert [sum(len(vms[peer]["vlans"])
+                for peer in converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [30, 2]
+
+
+def test_stock_t1_lag_converges_to_two_16_link_role_primes(tmp_path):
+    topo_path = REPO_ROOT / "ansible" / "vars" / "topo_t1-lag.yml"
+    topology = CONVERGER.yaml.safe_load(topo_path.read_text())
+    converger = CONVERGER.CsonicTopoConverger(
+        topology, str(tmp_path / "converged.yml"))
+    converger.parse_properties()
+    converger.converge_topo()
+
+    result = converger.converged_topo
+    assert converger.prime_devices == ["ARISTA01T2", "ARISTA01T0"]
+    assert [len(converger.prime_device_mapping[prime])
+            for prime in converger.prime_devices] == [8, 16]
+    assert [len(result["topology"]["VMs"][prime]["vlans"])
+            for prime in converger.prime_devices] == [16, 16]
+    assert result["max_fp_num_provided"] == 16
+
+    spine = result["convergence_data"]["converged_peers"]["ARISTA01T2"]
+    for index, peer in enumerate(
+            result["convergence_data"]["convergence_mapping"]["ARISTA01T2"], 1):
+        vrf = spine["vrf"][peer]
+        portchannel = "Port-Channel{}".format(index)
+        members = [data for name, data in vrf.items()
+                   if name.startswith("Ethernet")]
+        assert portchannel in vrf
+        assert len(members) == 2
+        assert {member["lacp"] for member in members} == {index}

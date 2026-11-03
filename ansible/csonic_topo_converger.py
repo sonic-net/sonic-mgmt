@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''Converts SONiC T0 topologies to use fewer cSONiC peers.
+'''Converts supported SONiC topologies to use fewer cSONiC peers.
 
 This is intentionally separate from ceos_topo_converger.py so cSONiC can
 evolve without changing the established cEOS converged path.
@@ -77,31 +77,38 @@ class CsonicTopoConverger:
         # downstream link to PTF/exabgp instance/other test infrastructure, and an
         # upstream link the DUT.  This is achieved by creating a backplane interface
         # on each primary peer that is a trunk interface, with each VRF
-        # containing a backplane SVI.  So, if the pre-converged peer topology
-        # requires more than 31 peers in a single BGP AS, we distribute them across
-        # multiple primary peers.
+        # containing a backplane SVI. If one role needs more than 31
+        # front-panel links, distribute its logical peers across multiple primary
+        # peers. Count links rather than peers because a T1-LAG spine peer consumes
+        # two injected interfaces.
         config = self.topo["configuration"]
+        topology_vms = self.topo["topology"]["VMs"]
         cur_prime_devs = {}
-        dev_count = 0
+        fp_links_by_label = {}
         for device in config:
-            create_new_prime = False
             device_properties = config[device]["properties"]
-
-            dev_count += 1
-
-            if dev_count > CSONIC_INTF_LIMIT:
-                create_new_prime = True
-                dev_count = 1
+            device_fp_links = len(topology_vms[device]["vlans"])
+            if device_fp_links > CSONIC_INTF_LIMIT:
+                raise ValueError(
+                    "cSONiC peer {} needs {} front-panel links; maximum is {}"
+                    .format(device, device_fp_links, CSONIC_INTF_LIMIT))
 
             for label in device_properties:
                 if label in labels:
-                    if label not in cur_prime_devs or create_new_prime:
+                    allocated_links = fp_links_by_label.get(label, 0)
+                    create_new_prime = (
+                        label not in cur_prime_devs
+                        or allocated_links + device_fp_links > CSONIC_INTF_LIMIT
+                    )
+                    if create_new_prime:
                         cur_prime_devs[label] = device
                         self.prime_devices.append(device)
+                        fp_links_by_label[label] = 0
                     prime = cur_prime_devs[label]
                     if prime not in self.prime_device_mapping:
                         self.prime_device_mapping[prime] = []
                     self.prime_device_mapping[prime].append(device)
+                    fp_links_by_label[label] += device_fp_links
 
     def converge_vms(self) -> Dict[str, Union[int, str]]:
         '''
@@ -349,7 +356,11 @@ class CsonicTopoConverger:
             (len(vm.get("vlans", [])) for vm in new_topo["topology"]["VMs"].values()),
             default=0,
         )
-        required_fp_num = max(DEFAULT_MAX_FP_NUM, min(max_prime_vlans, CSONIC_INTF_LIMIT))
+        if max_prime_vlans > CSONIC_INTF_LIMIT:
+            raise ValueError(
+                "Converged cSONiC prime needs {} front-panel links; maximum is {}"
+                .format(max_prime_vlans, CSONIC_INTF_LIMIT))
+        required_fp_num = max(DEFAULT_MAX_FP_NUM, max_prime_vlans)
         if required_fp_num > DEFAULT_MAX_FP_NUM:
             self.converged_topo["max_fp_num_provided"] = required_fp_num
 
