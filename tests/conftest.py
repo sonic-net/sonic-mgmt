@@ -503,7 +503,7 @@ def converge_topo_if_needed(config):
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
 
-        # cSONiC has a separate T0-only converger. Keep the cEOS path below
+        # cSONiC has a separate converger for its qualified topologies. Keep the cEOS path below
         # unchanged; the pytest option defaults to eos, so infer cSONiC from the
         # testbed only when the command line did not explicitly select a backend.
         requested_neighbor_type = config.getoption("--neighbor_type")
@@ -516,10 +516,10 @@ def converge_topo_if_needed(config):
         )
         if is_csonic:
             topo_name = tb_config.get('topo', '').strip()
-            if topo_name != "t0":
+            if topo_name not in ("t0", "t1-lag"):
                 logger.info(
-                    "cSONiC converged peers currently support topo=t0 only; "
-                    f"skipping topo='{topo_name}'")
+                    "cSONiC converged peers currently support topo=t0 and "
+                    f"t1-lag only; skipping topo='{topo_name}'")
                 return
 
             logger.info(
