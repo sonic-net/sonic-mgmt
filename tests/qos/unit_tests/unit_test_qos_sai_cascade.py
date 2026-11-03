@@ -28,8 +28,10 @@ def _item(name, param_set="single_asic", seed=False, fixturedefs=()):
 
 
 def _setup_call(exc):
-    with pytest.raises(type(exc)) as excinfo:
+    try:
         raise exc
+    except BaseException:
+        excinfo = pytest.ExceptionInfo.from_current()
     return SimpleNamespace(when="setup", excinfo=excinfo)
 
 
