@@ -117,8 +117,9 @@ def _restart(host, restart_type, wait=True):
     # If the job finishes here with rc!=0, the host never rebooted — skip
     # instead of waiting minutes for a new boot_id. No result in time
     # means reboot has started; continue to UART / boot_id.
-    # Terminate the ThreadPool either way: a dropped SSH leaves the worker
-    # blocked until Ansible's timeout (see tests/common/reboot.py).
+    # Terminate the ThreadPool either way. Do not join: a dropped SSH
+    # leaves the worker blocked until Ansible's timeout, and join would
+    # delay UART / boot_id watch (see tests/common/reboot.py).
     try:
         wait_until(_RESTART_FAIL_WAIT, 0.2, 0, async_res.ready)
         if async_res.ready():
@@ -132,7 +133,6 @@ def _restart(host, restart_type, wait=True):
                     restart_type.value, result.get("rc"), err))
     finally:
         pool.terminate()
-        pool.join()
     if wait:
         pytest_assert(
             wait_host_rebooted(host, boot_id_before),
