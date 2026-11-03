@@ -1066,14 +1066,17 @@ class GenerateGoldenConfigDBModule(object):
     def update_ntp_config(self, config):
         # Generate global ntp configuration
         ori_config_db = json.loads(config)
-        ori_config_db["NTP"] = {
-                "global": {
-                    "admin_state": "enabled",
-                    "authentication": "disabled",
-                    "dhcp": "enabled",
-                    "server_role": "disabled",
-                    "vrf": "default"
-                }
+        ntp_config_db = ori_config_db
+        if multi_asic.is_multi_asic():
+            ntp_config_db = ori_config_db.setdefault("localhost", {})
+        ntp_config_db["NTP"] = {
+            "global": {
+                "admin_state": "enabled",
+                "authentication": "disabled",
+                "dhcp": "enabled",
+                "server_role": "disabled",
+                "vrf": "default"
+            }
         }
         return json.dumps(ori_config_db, indent=4)
 
