@@ -94,6 +94,8 @@ zebra runs without --kernel-mac-ext-learn once the mode is "fpm".
 On a DUT with an external PHY (gbsyncd), the swss warm restart case fails if orchagent latches a failed gearbox port
 re-create at the warm start, which happens until gbsyncd supports a warm start of swss (sonic-net/sonic-swss#3465 and
 sonic-net/sonic-sairedis#1499); its message says whether the EVPN checks passed before that.
+
+The module skips when the switch's SAI refuses the VLAN tunnel map types (vxlan_l2_helpers.vlan_tunnel_maps_refusal).
 """
 
 import ast

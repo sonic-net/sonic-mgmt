@@ -83,6 +83,8 @@ state and fail at the end, naming it.
 The leaves run the stock FRR image (vxlan_evpn_l2_helpers.DEFAULT_LEAF_IMAGES; VXLAN_EVPN_LEAF_IMAGE replaces the list).
 The module skips when the test server has none of them and cannot pull one, and the VRF variant skips when the test
 server's kernel cannot make a VRF device (the leaves' L3 VNI needs one).
+
+The module skips when the switch's SAI refuses the VLAN tunnel map types (vxlan_l2_helpers.vlan_tunnel_maps_refusal).
 """
 import contextlib
 import itertools

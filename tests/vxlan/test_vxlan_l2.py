@@ -40,6 +40,8 @@ access ports have no `tpid: 0x9100` classifies the DUT's 802.1Q tag as its own V
 a plain broadcast in Vlan2000 before the VNI map: when the DUT transmits the tagged copies (port TX counters) but the
 PTF does not see them, every reading of the tagged members H1/H2 comes from the DUT's port TX counters instead, and a
 tag check reads "the DUT transmitted the copy and the PTF saw no untagged one" (a stripped tag passes the fanout).
+
+The module skips when the switch's SAI refuses the VLAN tunnel map types (vxlan_l2_helpers.vlan_tunnel_maps_refusal).
 """
 import contextlib
 import logging

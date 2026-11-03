@@ -61,6 +61,9 @@ check that every PTF frame reaches the DUT once is not run (no fanout between th
 
 The leaves run the stock FRR image (vxlan_evpn_l2_helpers.DEFAULT_LEAF_IMAGES; VXLAN_EVPN_LEAF_IMAGE replaces the list).
 The module skips when the test server has none of them and cannot pull one.
+
+The cases skip when the switch's SAI refuses the VLAN tunnel map types (vxlan_l2_helpers.vlan_tunnel_maps_refusal): the
+first VNI map shows it, and the cases after it skip before they configure anything.
 """
 
 import json
@@ -117,6 +120,7 @@ from tests.vxlan.vxlan_l2_helpers import (
     sh,
     summarize,
     unicast_counts,
+    vlan_tunnel_maps_refusal,
     vxlan_frame,
     vxlan_to,
     vxlan_tunnels_to,
@@ -380,6 +384,7 @@ def churn(duthost, tbinfo, ptfadapter, vmhost, ansible_adhoc, request):
         p1=idx[h1], borrowed=acc.borrowed, dut_vtep=pick.lo, router_mac=duthost.facts["router_mac"], t0=t0, lv=lv,
         l1=leaves[0], l2=leaves[1], vteps=(VTEP_A, VTEP_B), vs=vs,
         leaf_macs={},     # {mac: leaf} a leaf advertises now; vni_vlan_down withdraws them
+        no_vlan_maps=None,  # skip reason from the first VNI map: the SAI refuses VLAN tunnel maps; '' = it makes them
         acl={})           # ACL table bindings taken off H1 by the member churn's LAG arm
     lv.install()
     try:
@@ -460,6 +465,8 @@ class VniVlan(object):
 
     def up(self):
         d, r = self.r.duthost, self.r
+        if r.no_vlan_maps:
+            pytest.skip(r.no_vlan_maps)
         sh(d, "sudo config vlan add {}".format(VLAN_ID))
         for h in (r.h0, r.h1):
             sh(d, "sudo config vlan member add -u {} {}".format(VLAN_ID, h))
@@ -468,6 +475,11 @@ class VniVlan(object):
         sh(d, "sudo config vxlan map add {} {} {}".format(VTEP_NAME, VLAN_ID, VNI))
         mkey = "VXLAN_TUNNEL_MAP_TABLE:{}:map_{}_{}".format(VTEP_NAME, VNI, VLAN)
         wait_for(60, 2, lambda: bool(db_keys(d, "APPL_DB", mkey)), "APPL_DB " + mkey)
+        # only the first map is read: a refusal once the SAI made the maps is a regression for the gates below
+        if r.no_vlan_maps is None:
+            r.no_vlan_maps = vlan_tunnel_maps_refusal(d, r.dut_vtep)
+            if r.no_vlan_maps:
+                pytest.skip(r.no_vlan_maps)
         wait_for(60, 2, lambda: kernel_vxlan_netdev(d, VNI) is not None,
                  "the kernel VxLAN netdev of VNI {}".format(VNI))
         self.kvx = kernel_vxlan_netdev(d, VNI)

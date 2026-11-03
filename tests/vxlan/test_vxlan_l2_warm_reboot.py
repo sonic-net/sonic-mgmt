@@ -84,6 +84,8 @@ so syncd stops and orchagent aborts on its first request.
 The warm boot's finalizer runs `config save`, so the module copies config_db.json before it touches anything and puts
 the copy back once the finalizer is done (and again at teardown). The rig is then undone in reverse, and
 tests/vxlan/conftest.py's config reload loads the copy.
+
+The module skips when the switch's SAI refuses the VLAN tunnel map types (vxlan_l2_helpers.vlan_tunnel_maps_refusal).
 """
 import json
 import logging
@@ -418,7 +420,8 @@ class WarmRig(RigBuild):
 
 
 def wb_add_vxlan(duthost, dut_vtep):
-    add_vxlan(duthost, dut_vtep, [(VLAN_ID, VNI)])
+    # the rig's build already showed the SAI makes the VLAN maps
+    add_vxlan(duthost, dut_vtep, [(VLAN_ID, VNI)], probe=False)
     wait_for(60, 2, lambda: asic_snapshot(duthost)[1][""] >= 1, "the P2MP source tunnel in ASIC_DB")
 
 

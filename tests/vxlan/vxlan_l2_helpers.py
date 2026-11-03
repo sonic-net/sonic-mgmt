@@ -897,8 +897,10 @@ def remote_fdb_dip(duthost, mac, vid):
 # --------------------------------------------------------------------------------------------------------------------
 # DUT side: VxLAN config
 # --------------------------------------------------------------------------------------------------------------------
-def add_vxlan(duthost, dut_vtep, vlans_vnis):
-    """VTEP vtep1 on dut_vtep, EVPN NVO nvo1, and a VNI map per (vlan id, vni), once vxlanmgr has the maps."""
+def add_vxlan(duthost, dut_vtep, vlans_vnis, probe=True):
+    """VTEP vtep1 on dut_vtep, EVPN NVO nvo1, and a VNI map per (vlan id, vni), once vxlanmgr has the maps. With maps
+    and probe, pytest.skip when the switch's SAI refuses the VLAN tunnel map types (vlan_tunnel_maps_refusal). A
+    module probes at its first map only: a refusal after a map was programmed is a regression for its gates to fail."""
     sh(duthost, "sudo config vxlan add {} {}".format(VTEP_NAME, dut_vtep))
     sh(duthost, "sudo config vxlan evpn_nvo add {} {}".format(NVO_NAME, VTEP_NAME))
     for vid, vni in vlans_vnis:
@@ -906,6 +908,60 @@ def add_vxlan(duthost, dut_vtep, vlans_vnis):
     for vid, vni in vlans_vnis:
         key = "VXLAN_TUNNEL_MAP_TABLE:{}:map_{}_Vlan{}".format(VTEP_NAME, vni, vid)
         wait_for(60, 2, lambda: bool(db_keys(duthost, "APPL_DB", key)), "APPL_DB " + key)
+    if vlans_vnis and probe:
+        refused = vlan_tunnel_maps_refusal(duthost, dut_vtep)
+        if refused:
+            pytest.skip(refused)
+
+
+VLAN_TUNNEL_MAP_TYPES = ("SAI_TUNNEL_MAP_TYPE_VNI_TO_VLAN_ID", "SAI_TUNNEL_MAP_TYPE_VLAN_ID_TO_VNI")
+NO_VLAN_TUNNEL_MAPS = "the switch's SAI does not support VLAN-VNI tunnel maps"
+
+
+def _oid_list(value):
+    """The OIDs of an ASIC_DB object list value ('2:oid:0x1,oid:0x2'; '0:null' holds none)."""
+    return [o for o in value.partition(":")[2].split(",") if o.startswith("oid:")]
+
+
+def vtep_tunnel_map_types(duthost, dut_vtep):
+    """Sorted map types of the encap and decap mappers of the ASIC_DB VxLAN tunnels from dut_vtep; None while there is
+    no such tunnel with a mapper, or a mapper is not in ASIC_DB yet."""
+    view = AsicView(duthost, ("TUNNEL", "TUNNEL_MAP"))
+    types = []
+    for a in view.objs["TUNNEL"].values():
+        if a.get("SAI_TUNNEL_ATTR_TYPE") != "SAI_TUNNEL_TYPE_VXLAN" or \
+                a.get("SAI_TUNNEL_ATTR_ENCAP_SRC_IP") != dut_vtep:
+            continue
+        for attr in ("SAI_TUNNEL_ATTR_DECAP_MAPPERS", "SAI_TUNNEL_ATTR_ENCAP_MAPPERS"):
+            types += [view.attrs("TUNNEL_MAP", oid).get("SAI_TUNNEL_MAP_ATTR_TYPE", "")
+                      for oid in _oid_list(a.get(attr, ""))]
+    if not types or "" in types:
+        return None
+    return sorted(types)
+
+
+def vlan_tunnel_maps_refusal(duthost, dut_vtep, timeout=60):
+    """The skip reason when the switch's SAI refused the VLAN tunnel map types of the VTEP on dut_vtep (a VLAN is
+    mapped to a VNI), else ''.
+
+    orchagent creates a VTEP's tunnel maps before its tunnel, and the tunnel's mapper lists hold only the maps the SAI
+    created; when the SAI refuses the VLAN map types (sonic-net/sonic-swss#4999) the tunnel is still created, with
+    the VRF maps. So the refusal is a tunnel from dut_vtep whose mappers include no VLAN map type. Without such a
+    tunnel within timeout seconds there is no refusal to read, and '' leaves the verdict to the caller's own gates.
+    The vs SAI creates every map type, so a virtual switch is never read as refusing."""
+    if duthost.facts.get("asic_type") == "vs":
+        return ""
+    seen = []
+
+    def decided():
+        seen.append(vtep_tunnel_map_types(duthost, dut_vtep))
+        return seen[-1] is not None
+    wait_until(timeout, 2, 0, decided)
+    types = seen[-1] if seen else None
+    if types is None or set(types) & set(VLAN_TUNNEL_MAP_TYPES):
+        return ""
+    return "{}: the ASIC_DB VxLAN tunnel of VTEP {} has tunnel maps {} and none of type {}".format(
+        NO_VLAN_TUNNEL_MAPS, dut_vtep, types, " or ".join(VLAN_TUNNEL_MAP_TYPES))
 
 
 def map_entries_of(duthost, vnis):
