@@ -117,6 +117,7 @@ class GenericHashTest(BaseTest):
         self.ecmp_hash = self.test_params['ecmp_hash']
         self.lag_hash = self.test_params['lag_hash']
         self.protocol_domain_validation = self.test_params.get('protocol_domain_validation', False)
+        self.require_all_expected_ports = self.test_params.get('require_all_expected_ports', False)
         self.vlan_range = self.test_params.get('vlan_range', [1032, 1060])
         self.flow_lable_range = self.test_params.get('flow_label_range', [0, 1048575])
         self.ethertype_range = self.test_params.get('ethertype_range', [0x0801, 0x0900])
@@ -516,6 +517,9 @@ class GenericHashTest(BaseTest):
 
         def _check_ecmp_and_lag_hash_balancing():
             logging.info('Checking there is ecmp and lag hash')
+            if self.require_all_expected_ports:
+                missing_ports = [port for port in self.expected_port_list if hit_count_map.get(port, 0) <= 0]
+                assert not missing_ports, f"Traffic was not received on expected ports: {missing_ports}."
             expected_hit_cnt_per_port = self.balancing_test_times
             assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
 

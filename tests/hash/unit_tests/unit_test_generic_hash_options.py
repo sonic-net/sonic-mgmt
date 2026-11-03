@@ -25,7 +25,8 @@ def helper():
         "get_asic_type", "validate_vpp_hash_metadata", "get_hash_fields_from_option",
         "get_hash_algorithm_from_option", "get_reboot_type_from_option",
         "get_ip_version_from_option", "get_encap_type_from_option",
-        "preserve_hash_config", "restore_hash_config", "restore_init_hash_config",
+        "preserve_hash_config", "restore_hash_config", "restore_init_hash_config", "restore_interfaces",
+        "track_hash_interface", "check_hash_interfaces",
         "running_config_matches", "get_hash_balance_expectations", "generate_test_params",
         "remove_add_portchannel_member", "shutdown_interface", "startup_interface",
         "flap_interfaces", "ignore_expected_vpp_link_churn",
@@ -47,7 +48,7 @@ def helper():
     tbinfo = {"duts": ["dut"], "topo": {"name": "t1-lag"}}
     facts = {"asic_type": "vpp"}
     request = SimpleNamespace(config=SimpleNamespace(cache=SimpleNamespace(get=Mock(return_value=facts))),
-                              fixturenames=[])
+                              fixturenames=[], node=SimpleNamespace())
     namespace = {
         "pytest": pytest,
         "get_testbed_metadata": Mock(return_value=metadata),
@@ -421,6 +422,181 @@ def test_unrestored_config_is_an_error_not_success(helper, recovery):
     assert recovery.shell.call_args.args[0].startswith("cp -p ")
 
 
+@pytest.fixture
+def disruption(helper, recovery):
+    recovery.facts = {"asic_type": "vpp"}
+    config = {
+        "PORT": {"Ethernet0": {"admin_status": "up"}},
+        "PORTCHANNEL": {"PortChannel1": {"admin_status": "up"}},
+        "PORTCHANNEL_MEMBER": {"PortChannel1": {"Ethernet0": {}, "Ethernet4": {}}},
+    }
+    recovery.get_running_config_facts.return_value = config
+    recovery.is_interface_status_up.return_value = True
+    ports = {port: {"link": {"up": True}, "runner": {"selected": True}}
+             for port in ("Ethernet0", "Ethernet4")}
+    recovery.get_port_channel_status.return_value = {"ports": ports}
+
+    def shell(command):
+        if command == "config portchannel member del PortChannel1 Ethernet0":
+            del config["PORTCHANNEL_MEMBER"]["PortChannel1"]["Ethernet0"]
+        elif command == "config portchannel member add PortChannel1 Ethernet0":
+            config["PORTCHANNEL_MEMBER"]["PortChannel1"]["Ethernet0"] = {}
+        return {"stdout": "/host/generic-hash.unit", "rc": 0}
+
+    def reload(*args, **kwargs):
+        recovery.is_interface_status_up.return_value = True
+        ports["Ethernet0"] = {"link": {"up": True}, "runner": {"selected": True}}
+
+    recovery.shell.side_effect = shell
+    helper.namespace["running_config_matches"] = Mock(return_value=True)
+    helper.namespace["config_reload"].side_effect = reload
+    helper.namespace["wait_until"] = lambda timeout, interval, delay, predicate, *args: bool(predicate(*args))
+    return recovery
+
+
+@pytest.mark.parametrize("interface", ["Ethernet0", "PortChannel1"])
+def test_post_startup_failure_reloads_even_when_config_matches(helper, disruption, interface):
+    """Keep operational failure visible after startup empties the administrative cleanup list."""
+    disruption.is_interface_status_up.return_value = False
+    with pytest.raises(pytest.fail.Exception, match="not up after the flapping"):
+        with helper.namespace["preserve_hash_config"](disruption) as state:
+            helper.namespace["flap_interfaces"](
+                disruption, [interface], times=1, tbinfo=helper.tbinfo, recovery=state)
+    assert helper.namespace["interfaces_to_startup"] == []
+    assert interface in state["interfaces"]
+    helper.namespace["config_reload"].assert_called_once()
+    disruption.get_port_channel_status.assert_called_with("PortChannel1")
+    assert disruption.shell.call_args.args[0].startswith("rm ")
+
+
+@pytest.mark.parametrize("fault", ["absent", "unselected", "link_down"])
+def test_aggregate_up_cannot_hide_a_missing_active_member(helper, disruption, fault):
+    """Require the selected member, not only its surviving PortChannel, before proceeding."""
+    ports = disruption.get_port_channel_status.return_value["ports"]
+    if fault == "absent":
+        del ports["Ethernet0"]
+    elif fault == "unselected":
+        ports["Ethernet0"]["runner"]["selected"] = False
+    else:
+        ports["Ethernet0"]["link"]["up"] = False
+    with pytest.raises(pytest.fail.Exception, match="Ethernet0 is not up and selected"):
+        with helper.namespace["preserve_hash_config"](disruption) as state:
+            helper.namespace["remove_add_portchannel_member"](
+                disruption, "Ethernet0", "PortChannel1", tbinfo=helper.tbinfo, recovery=state)
+    assert disruption.is_interface_status_up.return_value
+    helper.namespace["config_reload"].assert_called_once()
+
+
+def test_member_readiness_waits_for_selection_without_unnecessary_reload(helper, disruption):
+    """A member that rejoins during the wait is ready without a recovery reload."""
+    port = disruption.get_port_channel_status.return_value["ports"]["Ethernet0"]
+    port["runner"]["selected"] = False
+    observed = []
+
+    def wait(timeout, interval, delay, predicate, *args):
+        ready = bool(predicate(*args))
+        if predicate is helper.namespace["check_hash_interfaces"] and not ready:
+            observed.append(ready)
+            port["runner"]["selected"] = True
+            ready = bool(predicate(*args))
+            observed.append(ready)
+        return ready
+
+    helper.namespace["wait_until"] = wait
+    with helper.namespace["preserve_hash_config"](disruption) as state:
+        helper.namespace["remove_add_portchannel_member"](
+            disruption, "Ethernet0", "PortChannel1", tbinfo=helper.tbinfo, recovery=state)
+    assert observed == [False, True]
+    helper.namespace["config_reload"].assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["delete", "add", "membership_read"])
+def test_member_cleanup_errors_force_recovery_with_equal_config(helper, disruption, failure):
+    """Retain the disrupted member even when mutation or membership inspection raises."""
+    shell = disruption.shell.side_effect
+
+    def fail_command(command):
+        result = shell(command)
+        if command.startswith(f"config portchannel member {'del' if failure == 'delete' else 'add'} "):
+            raise RuntimeError(f"{failure} response lost")
+        return result
+
+    if failure == "membership_read":
+        config = disruption.get_running_config_facts.return_value
+        disruption.get_running_config_facts.side_effect = [config, RuntimeError("membership_read response lost")]
+    else:
+        disruption.shell.side_effect = fail_command
+    with pytest.raises(RuntimeError, match=f"{failure} response lost"):
+        with helper.namespace["preserve_hash_config"](disruption) as state:
+            helper.namespace["remove_add_portchannel_member"](
+                disruption, "Ethernet0", "PortChannel1", tbinfo=helper.tbinfo, recovery=state)
+    assert ("PortChannel1", "Ethernet0") in state["members"]
+    helper.namespace["config_reload"].assert_called_once()
+
+
+@pytest.mark.parametrize("recovery_succeeds", [True, False])
+def test_teardown_checks_operational_health_and_retains_failed_snapshots(helper, disruption, recovery_succeeds):
+    """A matching configuration never hides operational damage at teardown."""
+    if not recovery_succeeds:
+        helper.namespace["config_reload"].side_effect = None
+    with nullcontext() if recovery_succeeds else pytest.raises(pytest.fail.Exception, match="snapshots remain"):
+        with helper.namespace["preserve_hash_config"](disruption) as state:
+            helper.namespace["shutdown_interface"](
+                disruption, "Ethernet0", tbinfo=helper.tbinfo, recovery=state)
+            helper.namespace["startup_interface"](disruption, "Ethernet0")
+            disruption.is_interface_status_up.return_value = False
+    helper.namespace["config_reload"].assert_called_once()
+    commands = [call.args[0] for call in disruption.shell.call_args_list]
+    assert any(command.startswith("cp -p /host/generic-hash.unit/config_db.json") for command in commands)
+    assert any(command.startswith("rm ") for command in commands) == recovery_succeeds
+    with helper.namespace["preserve_hash_config"](disruption) as next_state:
+        assert not next_state["interfaces"] and not next_state["members"] and not next_state["failed"]
+
+
+@pytest.mark.parametrize("failure", ["oper_up", "later_convergence"])
+def test_actual_fixture_teardown_recovers_failed_disruption(helper, disruption, pytester, monkeypatch, failure):
+    """Use pytest call reports and real finalizers, which do not receive the test exception."""
+    monkeypatch.setenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD", "1")
+    if failure == "oper_up":
+        disruption.is_interface_status_up.return_value = False
+    events = []
+    helper.namespace["logger"].info.side_effect = lambda message, *args: events.append(message)
+    reload = helper.namespace["config_reload"].side_effect
+
+    def recover(*args, **kwargs):
+        events.append("reload")
+        reload(*args, **kwargs)
+
+    @pytest.hookimpl(hookwrapper=True)
+    def report(item, call):
+        outcome = yield
+        result = outcome.get_result()
+        setattr(item, "rep_" + result.when, result)
+
+    helper.namespace["config_reload"].side_effect = recover
+    plugin = ModuleType("hash_disruption_recovery")
+    plugin.__dict__.update(
+        restore_init_hash_config=helper.namespace["restore_init_hash_config"],
+        restore_interfaces=helper.namespace["restore_interfaces"],
+        rand_selected_dut=pytest.fixture(name="rand_selected_dut")(lambda: disruption),
+        loganalyzer=pytest.fixture(name="loganalyzer")(lambda: None),
+        tbinfo=pytest.fixture(name="tbinfo")(lambda: helper.tbinfo),
+        helpers=pytest.fixture(name="helpers")(lambda: helper.namespace),
+        pytest_runtest_makereport=report,
+    )
+    module = pytester.makepyfile("""
+        def test_disruption(rand_selected_dut, tbinfo, helpers, restore_interfaces, restore_init_hash_config):
+            helpers["flap_interfaces"](
+                rand_selected_dut, ["Ethernet0"], times=1, tbinfo=tbinfo, recovery=restore_init_hash_config)
+            raise RuntimeError("later convergence failed")
+    """)
+    result = pytester.runpytest_inprocess(str(module), "--noconftest", "-p", "no:cacheprovider", "-q", plugins=[plugin])
+    result.assert_outcomes(failed=1)
+    helper.namespace["config_reload"].assert_called_once()
+    assert events.index("Startup the interfaces which were shutdown during the test") < events.index("reload")
+    disruption.get_port_channel_status.assert_called_with("PortChannel1")
+
+
 def test_member_is_added_back_if_delete_applies_then_raises(helper):
     dut = Mock(facts={"asic_type": "vpp"})
     dut.get_running_config_facts.side_effect = [
@@ -648,7 +824,7 @@ def test_nexthop_case_preserves_topology_scoped_readiness_and_logs(helper, ip_ve
     with nullcontext() if withdraw_ready else pytest.raises(pytest.fail.Exception, match="expected 1 paths"):
         namespace["test_nexthop_flap"](
             dut, helper.tbinfo, Mock(), f"CRC-DST_IP-{ip_version}-None-None", {}, None,
-            None, {"ecmp": [], "lag": []}, ["CRC"], None, dut, loganalyzer)
+            None, {"ecmp": [], "lag": []}, ["CRC"], None, dut, loganalyzer, None)
     counts = [2, 1, 2] if withdraw_ready else [2, 1]
     assert readiness_calls == [(dut, helper.tbinfo, count, ip_version) for count in counts]
     assert namespace["ptf_runner"].call_count == (3 if withdraw_ready else 1)
@@ -679,6 +855,7 @@ def protocol_test():
     test.ecmp_hash = True
     test.lag_hash = False
     test.protocol_domain_validation = True
+    test.require_all_expected_ports = False
     test.expected_port_groups = [[2 * index, 2 * index + 1] for index in range(8)]
     test.expected_port_list = sum(test.expected_port_groups, [])
     test.sending_ports = [20]
@@ -692,10 +869,44 @@ def protocol_test():
                            transport=namespace["testutils"])
 
 
+@pytest.mark.parametrize("asic,topology", [("vpp", "t1-lag"), ("vpp", "t0"), ("mellanox", "t1-lag")])
+@pytest.mark.parametrize("field", ["SRC_IP", "DST_IP", "L4_SRC_PORT", "L4_DST_PORT", "IP_PROTOCOL"])
+def test_all_port_requirement_is_limited_to_target_address_port_cases(helper, asic, topology, field):
+    """Enable completeness only for the target without changing entropy expectations or tolerances."""
+    helper.tbinfo["topo"]["name"] = topology
+    params = helper.namespace["generate_test_params"](
+        SimpleNamespace(facts={"asic_type": asic, "router_mac": "00:11:22:33:44:55"}),
+        helper.tbinfo, {}, field, "ipv4", "None", "None", {}, {}, True, True)
+    assert params.get("require_all_expected_ports", False) == (
+        asic == "vpp" and topology == "t1-lag" and field != "IP_PROTOCOL")
+    assert params["balancing_range"] == 0.3 and params["balancing_test_times"] == 480
+
+
+@pytest.mark.parametrize("require_all", [False, True])
+@pytest.mark.parametrize("counts", [
+    {port: 512 for port in range(15)},
+    {**{port: 512 for port in range(15)}, 15: 0},
+    {port: 480 for port in range(16)},
+    {**{port: 480 for port in range(14)}, 14: 960},
+])
+def test_combined_balance_rejects_missing_members_without_changing_tolerance(protocol_test, counts, require_all):
+    """Reject the in-tolerance synthetic missing-member map only when opted in."""
+    test = protocol_test.test
+    test.ecmp_hash = test.lag_hash = True
+    test.require_all_expected_ports = require_all
+    test.balancing_test_times = 480
+    test.balancing_range = 0.3
+    missing = any(counts.get(port, 0) <= 0 for port in test.expected_port_list)
+    outside_tolerance = any(not 480 * 0.7 <= count <= 480 * 1.3 for count in counts.values())
+    with pytest.raises(AssertionError) if (require_all and missing) or outside_tolerance else nullcontext():
+        test.check_balancing(counts)
+
+
 @pytest.mark.parametrize("family", ["ipv4", "ipv6"])
 def test_complete_domain_is_sent_three_times_with_fixed_other_fields(protocol_test, family):
     test = protocol_test.test
     test.ipver = family
+    test.require_all_expected_ports = True  # Protocol mode must not require both members even if passed this option.
     test.runTest()
     domain = test.get_ip_protocol_domain()
     protocols = [call.args[4] for call in test.generate_pkt.call_args_list]

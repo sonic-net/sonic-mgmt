@@ -359,7 +359,8 @@ def is_bgp_session_established(duthost, neighbor_ip):
 
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor, duthost, loganalyzer):                 # noqa:F811
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost, loganalyzer,                  # noqa:F811
+                      restore_init_hash_config):                                                    # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -424,7 +425,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         _, ptf_params['expected_port_groups'] = get_ptf_port_indices(
             mg_facts, downlink_interfaces=[], uplink_interfaces=remaining_uplink_interfaces)
         ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, uplink_interfaces[interface])
-        shutdown_interface(rand_selected_dut, interface, tbinfo=tbinfo)
+        shutdown_interface(rand_selected_dut, interface, tbinfo=tbinfo, recovery=restore_init_hash_config)
     if rand_selected_dut.facts['asic_type'] == 'vpp':
         expected_path_count = len(ptf_params['expected_port_groups'])
         pytest_assert(wait_until(120, 10, 0, check_vpp_nexthop_paths,
@@ -444,7 +445,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         )
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(rand_selected_dut, interface)
-        flap_interfaces(rand_selected_dut, [interface], times=3, tbinfo=tbinfo)
+        flap_interfaces(rand_selected_dut, [interface], times=3, tbinfo=tbinfo, recovery=restore_init_hash_config)
         ip_intfs = duthost.show_and_parse('show ip interface')
         ip_intf = next((intf for intf in ip_intfs if intf['interface'] == interface), None)
         neighbor_ip = ip_intf['neighbor ip']
@@ -473,7 +474,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
 def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
                          restore_interfaces, global_hash_capabilities, restore_vxlan_port,                  # noqa:F811
                          get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor,            # noqa:F811
-                         loganalyzer):
+                         loganalyzer, restore_init_hash_config):                                            # noqa:F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -555,7 +556,8 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
             interfaces.append(interface)
         # Flap the members 3 more times
         ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, interfaces)
-        flap_interfaces(rand_selected_dut, interfaces, uplink_interfaces.keys(), times=3, tbinfo=tbinfo)
+        flap_interfaces(rand_selected_dut, interfaces, uplink_interfaces.keys(), times=3, tbinfo=tbinfo,
+                        recovery=restore_init_hash_config)
 
     if not is_l2_test:
         with allure.step('Wait for the default route to recover'):
@@ -583,7 +585,7 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
                                restore_configuration, restore_interfaces,                                 # noqa:F811
                                global_hash_capabilities, restore_vxlan_port,                              # noqa:F811
                                get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor,    # noqa:F811
-                               loganalyzer):
+                               loganalyzer, restore_init_hash_config):                                    # noqa:F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -663,7 +665,8 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
         for portchannel in uplink_interfaces:
             interface = random.choice(uplink_interfaces[portchannel])
             ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, [interface])
-            remove_add_portchannel_member(rand_selected_dut, interface, portchannel, tbinfo=tbinfo)
+            remove_add_portchannel_member(rand_selected_dut, interface, portchannel, tbinfo=tbinfo,
+                                          recovery=restore_init_hash_config)
 
     if not is_l2_test:
         with allure.step('Wait for the default route to recover'):

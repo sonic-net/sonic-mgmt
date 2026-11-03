@@ -115,7 +115,11 @@ IP/VLAN configuration, routes/BGP, and VXLAN settings afterward. The function
 fixture snapshots running and saved configuration in a private directory on
 the DUT's `/host` for VPP `t1-lag` only; t0 and other ASICs keep the existing
 hash-value-only restoration. It restores initially present hash values using the existing
-setters, then reloads the original running snapshot if configuration differs.
+setters, then reloads the original running snapshot if configuration differs,
+a disruptive invocation failed, or affected interfaces/members are not operationally
+ready. Per-invocation recovery tracking survives `no_shutdown` and member re-add;
+CONFIG_DB equality alone does not establish operational recovery. After reload,
+affected interfaces must be up and affected LAG members linked and selected.
 This also restores initially absent fields and failed interface/member cleanup.
 The original saved file is restored byte-for-byte even if reload fails, and
 failed cleanup retains the snapshots for recovery.
@@ -146,7 +150,12 @@ options, recovery and log handling are unchanged.
 
 On VPP `t1-lag`, member deletion attempts restoration even when the delete
 command raises after applying its change. Interface flaps require an initially
-admin-up interface and register recovery before shutdown. The new safeguards
+admin-up interface and register recovery before shutdown. Member flaps and
+remove/add wait for the affected member's link and teamd selection, not just
+aggregate PortChannel oper-up. Combined ECMP/LAG address/port checks require
+positive observations on every expected port before applying the unchanged
+30% balancing bound. This opt-in does not apply to protocol-domain validation,
+which still expects exactly one stable receiving member per LAG. The new safeguards
 do not change the legacy helpers' behavior on other topologies.
 Fixture cleanup handles test/setup failures;
 it is not a watchdog for a killed runner or unreachable DUT. Unattended
