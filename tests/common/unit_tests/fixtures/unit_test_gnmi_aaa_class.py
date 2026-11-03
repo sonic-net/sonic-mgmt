@@ -6,10 +6,15 @@ import ast
 from contextlib import contextmanager
 import json
 import os
+import pprint
+import re
+import shutil
 from pathlib import Path
 import subprocess
 import sys
 import textwrap
+import tempfile
+import time
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -77,14 +82,15 @@ def test_cleanup_contract(strict, failure):
 
 @pytest.mark.parametrize("disabled", [None, "option", "marker"])
 @pytest.mark.parametrize("ignore_failure", [False, True])
-def test_log_window_uses_existing_policy(disabled, ignore_failure):
+def test_log_window_uses_existing_policy(tmp_path, monkeypatch, disabled, ignore_failure):
     # Real LogAnalyzer policy/context methods; fake only its transport/config IO.
     path = TESTS / "common/plugins/loganalyzer/loganalyzer.py"
     tree = ast.parse(path.read_text())
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "LogAnalyzer")
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef)
                 and node.name in {"__init__", "__enter__", "__exit__", "load_common_config"}]
-    ns = dict(contextmanager=contextmanager, os=os, join=lambda *parts: "/".join(parts),
+    monkeypatch.chdir(tmp_path)
+    ns = dict(contextmanager=contextmanager, os=os, tempfile=tempfile, join=lambda *parts: "/".join(parts),
               COMMON_MATCH="match", COMMON_IGNORE="ignore", COMMON_EXPECT="expect", logging=Mock(),
               BugHandler=Mock(), get_bughandler_instance=Mock(),
               ansible_loganalyzer=Mock(return_value=Mock(
@@ -111,6 +117,76 @@ def test_log_window_uses_existing_policy(disabled, ignore_failure):
         assert dut.loganalyzer.store_la_logs
         assert dut.loganalyzer.ignore_regex == ["ignore", "extended"]
         assert dut.loganalyzer.expect_regex == ["expect"]  # Common config only, no per-case patterns.
+
+
+def test_boundary_analysis_preserves_other_saved_logs(tmp_path, monkeypatch):
+    """Use real analyze/save code: a clean final window must not erase errors."""
+    monkeypatch.chdir(tmp_path)
+    path = TESTS / "common/plugins/loganalyzer/loganalyzer.py"
+    tree = ast.parse(path.read_text())
+    cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "LogAnalyzer")
+    cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef)
+                and node.name in {"__init__", "__enter__", "__exit__", "load_common_config", "analyze",
+                                  "save_matching_errors", "write_errors_to_file", "_verify_log"}]
+    parser = Mock(create_msg_regex=lambda paths: (None, []))
+    parser.analyze_file_list.return_value = {"syslog": (["setup error"], [])}
+    ns = dict(contextmanager=contextmanager, os=os, tempfile=tempfile, json=json, re=re, shutil=shutil,
+              time=time, pprint=pprint, logging=Mock(), join=os.path.join, split=os.path.split,
+              SYSLOG_TMP_FOLDER=str(tmp_path / "extracted"), COMMON_MATCH="match", COMMON_IGNORE="ignore",
+              COMMON_EXPECT="expect", BugHandler=type("BugHandler", (), {}),
+              get_bughandler_instance=Mock(), LogAnalyzerError=RuntimeError,
+              ansible_loganalyzer=Mock(return_value=parser),
+              DisableLogrotateCronContext=lambda host: contextmanager(lambda: iter([None]))())
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(path), "exec"), ns)
+    analyzer_class = ns["LogAnalyzer"]
+    analyzer_class.init = Mock(return_value="marker")
+    analyzer_class._add_end_marker = Mock()
+    analyzer_class._results_repr = lambda self, result: "injected-log-match"
+    analyzer_class.save_extracted_log = lambda self, dest: Path(dest).write_text("syslog")
+    exec(source(AAA, {"_role_tls_logs"}), ns)
+    request = SimpleNamespace(config=SimpleNamespace(getoption=lambda option: option == "--store_la_logs"),
+                              keywords={}, session=SimpleNamespace(config=SimpleNamespace(
+                                  cache=SimpleNamespace(get=lambda *args: []))))
+    dut = SimpleNamespace(hostname="dut", extract_log=Mock())
+    function_dir = tmp_path / "function"
+    function_dir.mkdir()
+    function_error = function_dir / "error.json"
+    function_error.write_text("role error")
+    # Default construction still uses exactly the legacy location.
+    legacy = analyzer_class(dut, "function", request=request)
+    assert legacy._la_logs_dir == "/tmp/loganalyzer/dut"
+    legacy._la_logs_dir = str(function_dir)  # Test sandbox; production uses public logs_dir.
+    with pytest.raises(RuntimeError, match="injected-log-match"):
+        with ns["_role_tls_logs"](dut, request, "setup"):
+            pass
+    setup_dir = Path(dut.loganalyzer._la_logs_dir)
+    assert list(setup_dir.glob("*.json"))
+    parser.analyze_file_list.return_value = {"syslog": ([], [])}
+    with ns["_role_tls_logs"](dut, request, "teardown"):
+        pass
+    assert function_error.read_text() == "role error"
+    assert list(setup_dir.glob("*.json"))
+    # A subsequent function analysis also cannot erase saved boundary errors.
+    legacy.analyze("function")
+    assert list(setup_dir.glob("*.json"))
+
+
+def test_unrelated_drift_fails_before_reuse_and_rollback(tmp_path):
+    result, events = run_cases(tmp_path, False, {"role@": "admin"}, "together", "drift")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Unrelated configuration drift in AAA case" in result.stdout
+    assert "Unexpected configuration before shared AAA case" in result.stdout
+    assert events.count("body") == 1  # Second case never consumes contaminated state.
+    assert events.count("tls-stop") == 1
+    assert events[-1] == "config-stop"
+
+
+def test_drift_after_function_cleanup_is_checked_before_rollback(tmp_path):
+    result, events = run_cases(tmp_path, False, {"role@": "admin"}, "together", "late-drift")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Unexpected configuration before AAA TLS rollback" in result.stdout
+    assert events.count("tls-stop") == 1
+    assert events[-1] == "config-stop"
 
 
 @pytest.mark.parametrize("cloudtype", [False, "", "Private"])
@@ -160,7 +236,7 @@ def run_cases(tmp_path, cloudtype, mapping, order, failure=None):
     # under pytest. Only device commands, TLS flow and log transport are fakes.
     prelude = textwrap.dedent('''
         from contextlib import ExitStack, contextmanager
-        import json, shlex, pytest
+        import json, shlex, pytest, os, tempfile
         from types import SimpleNamespace
         events = []
         CLIENT_PRINCIPAL = "test.client.gnmi.sonic"
@@ -172,6 +248,8 @@ def run_cases(tmp_path, cloudtype, mapping, order, failure=None):
         def pytest_assert(value, message):
             assert value, message
         def read(command, **kwargs):
+            if command == "sonic-cfggen -d --print-data":
+                return {"rc": 0, "stdout": json.dumps(state)}
             fields = [x for pair in state["mapping"].items() for x in pair]
             return {"rc": 0, "stdout": json.dumps({"principal": fields or {}, "cloudtype": state["cloudtype"]})}
         dut = SimpleNamespace(shell=read)
@@ -197,10 +275,11 @@ def run_cases(tmp_path, cloudtype, mapping, order, failure=None):
                 yield SimpleNamespace(duthost=dut)
             finally:
                 events.append("tls-stop")
+                state.clear()
                 state.update(json.loads(json.dumps(original)))
                 if failure == "final": raise ValueError("injected-final")
         class LogAnalyzer:
-            def __init__(self, host, prefix, request):
+            def __init__(self, host, prefix, request, logs_dir=None):
                 self.phase = "setup" if prefix.endswith("setup") else "final"
                 self.expect_regex = []
             def load_common_config(self): pass
@@ -230,8 +309,10 @@ def run_cases(tmp_path, cloudtype, mapping, order, failure=None):
             yield
             if state == original: events.append("restore")
             events.append("function-log-stop")
+            if failure == "late-drift": state["unrelated"] = "late leak"
     ''').replace("INITIAL", repr({"mapping": mapping, "cloudtype": cloudtype})).replace("FAILURE", repr(failure))
-    fixtures = source(AAA, {"_role_tls_logs", "_role_state", "_restore_role_state", "role_tls", "role_case_tls"})
+    fixtures = source(AAA, {"_role_tls_logs", "_running_config", "_role_state", "_restore_role_state",
+                            "role_tls", "role_case_tls"})
     plugin = (TESTS / "common/plugins/parallel_fixture/__init__.py").read_text()
     (tmp_path / "conftest.py").write_text(plugin + "\n" + prelude + fixtures)
     (tmp_path / "pytest.ini").write_text("[pytest]\n")
@@ -241,8 +322,10 @@ def run_cases(tmp_path, cloudtype, mapping, order, failure=None):
         class TestCnRoleAccess:
             @pytest.mark.parametrize("role", ["", None], ids=["empty", "unmapped"])
             def test_cn_role_access(self, role_case_tls, role):
+                events.append("body")
                 state["mapping"] = {} if role is None else {"role@": role}
                 state["cloudtype"] = "Public"
+                if failure == "drift": state["unrelated"] = "leak"
                 if failure == "body": raise ValueError("injected-body")
         def test_fresh():
             events.append("fresh")

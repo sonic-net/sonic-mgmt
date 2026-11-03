@@ -2,7 +2,9 @@
 
 import json
 import logging
+import os
 import shlex
+import tempfile
 import time
 from contextlib import ExitStack, contextmanager
 
@@ -75,10 +77,23 @@ def _role_tls_logs(duthost, request, phase):
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         yield
         return
-    analyzer = LogAnalyzer(duthost, "gnmi_aaa_tls_{}".format(phase), request=request)
+    # Each boundary has a separate artifact directory: analyze() clears its
+    # destination even on success. Never erase a function window's diagnostics.
+    log_root = os.path.join("logs", "gnmi_aaa_tls")
+    os.makedirs(log_root, exist_ok=True)
+    logs_dir = tempfile.mkdtemp(prefix="{}_".format(phase), dir=log_root)
+    analyzer = LogAnalyzer(duthost, "gnmi_aaa_tls_{}".format(phase), request=request, logs_dir=logs_dir)
     analyzer.load_common_config()
     with analyzer:
         yield
+
+
+def _running_config(duthost):
+    result = duthost.shell("sonic-cfggen -d --print-data", module_ignore_errors=True, verbose=False)
+    pytest_assert(result["rc"] == 0, "Cannot read AAA running configuration")
+    config = json.loads(result["stdout"])
+    pytest_assert(isinstance(config, dict), "Invalid running configuration snapshot")
+    return config
 
 
 def _role_state(duthost):
@@ -134,6 +149,7 @@ def role_tls(request, duthosts, ptfhost, core_dump_and_config_check):
     # Leaving the class (including an interleaved fresh case) finalizes TLS
     # before another fixture can overwrite its checkpoint/certificates.
     duthost = _get_target_duthost(duthosts, request)
+    config_baseline = None
     with ExitStack() as cleanup:
         try:
             with _role_tls_logs(duthost, request, "setup"):
@@ -141,23 +157,35 @@ def role_tls(request, duthosts, ptfhost, core_dump_and_config_check):
                     contextmanager(_gnmi_tls_flow)(duthost, ptfhost, strict_cleanup=True)
                 )
                 baseline = _role_state(duthost)
-            yield environment, baseline
+                config_baseline = _running_config(duthost)
+            yield environment, baseline, config_baseline
         finally:
             # ExitStack still closes TLS if analyzer construction/init fails.
             with _role_tls_logs(duthost, request, "teardown"):
-                cleanup.close()
+                try:
+                    if config_baseline is not None:
+                        pytest_assert(
+                            _running_config(duthost) == config_baseline,
+                            "Unexpected configuration before AAA TLS rollback",
+                        )
+                finally:
+                    cleanup.close()
 
 
 @pytest.fixture
 def role_case_tls(role_tls, loganalyzer):
-    environment, baseline = role_tls
+    environment, baseline, config_baseline = role_tls
     duthost = environment.duthost
     pytest_assert(_role_state(duthost) == baseline, "AAA owned state was not restored before this case")
+    pytest_assert(_running_config(duthost) == config_baseline, "Unexpected configuration before shared AAA case")
     try:
         yield environment
     finally:
         _restore_role_state(duthost, baseline)
         pytest_assert(_role_state(duthost) == baseline, "AAA owned state restoration failed")
+        # Detect leaks before final TLS rollback can hide them. This is a
+        # read-only check, not an additional whole-configuration restore owner.
+        pytest_assert(_running_config(duthost) == config_baseline, "Unrelated configuration drift in AAA case")
 
 
 def _set_configdb(client):
