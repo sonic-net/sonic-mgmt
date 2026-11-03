@@ -757,6 +757,7 @@ t1-lag-vpp:
   - vxlan/test_vxlan_route_advertisement.py
   - vxlan/test_vxlan_multiple_tunnels.py
   - vxlan/test_vxlan_bfd_tsa.py
+  - iface_loopback_action/test_iface_loopback_action.py
 
 
 t0-vpp:
@@ -795,6 +796,9 @@ t0-vpp:
   - dhcp_relay/test_dhcp_relay_stress.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/test_ecmp_balance.py
   - fdb/test_fdb_flush.py
   - fib/test_fib.py
   - fips/test_fips.py
@@ -1004,6 +1008,7 @@ onboarding_t1_multi_asic:
   - pfcwd/test_pfcwd_timer_accuracy.py
 
 dualtor-aa-vpp:
+  - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
   - dualtor/test_mux_port_iptables_entries.py

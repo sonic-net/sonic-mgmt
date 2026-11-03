@@ -122,6 +122,16 @@ drop_packets/test_configurable_drop_counters.py:
       - "asic_type in ['vpp']"
 
 #######################################
+#####          Dualtor            #####
+#######################################
+dualtor_io/test_normal_op.py::test_upstream_standby_rx_drop_check:
+  xfail:
+    reason: "VPP counts ACL drops, including the standby mux port ingress drop ACL, in RX_DRP.
+             See https://github.com/sonic-net/sonic-buildimage/issues/29335"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/29335 and asic_type in ['vpp']"
+
+#######################################
 #####          DUT Console        #####
 #######################################
 dut_console/test_console_baud_rate.py:
