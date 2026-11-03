@@ -100,6 +100,13 @@
   name: Jing Zhang
   organization: MSFT
 - available_to_review: true
+  emails:
+  - rimunagala@microsoft.com
+  github_id: 260759373
+  github_login: rimunagala
+  name: Rithvick Reddy Munagala
+  organization: MSFT
+- available_to_review: true
   commit_count: 22
   emails:
   - nikolay.a.mirin@gmail.com
