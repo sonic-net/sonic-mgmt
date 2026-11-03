@@ -416,15 +416,22 @@ class TestSfpApi(PlatformApiTestBase):
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type):
             return False
 
-        # Temporarily add this logic to skip lpmode test for some transceivers with known issue
+        return True
+
+    def is_xcvr_in_lpmode_skip_list(self, xcvr_info_dict):
+        """Returns True if the lpmode test must skip the transceiver due to a known set_lpmode issue.
+
+        Only test_lpmode uses this list. These transceivers still support low power mode, e.g. they
+        come back in low power mode after a reset, so is_xcvr_support_lpmode() does not check it.
+        """
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
                     xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
                 logger.info("Temporarily skipping {} - {} due to known issue".format(
                     xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
-                return False
+                return True
 
-        return True
+        return False
 
     def is_xcvr_support_power_override(self, xcvr_info_dict):
         """Returns True if transceiver supports power override, False if not supported"""
@@ -981,6 +988,10 @@ class TestSfpApi(PlatformApiTestBase):
                 logger.warning(
                     "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))
+                continue
+
+            # Temporarily skip transceivers with a known set_lpmode issue
+            if self.is_xcvr_in_lpmode_skip_list(info_dict):
                 continue
 
             lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, i)

@@ -99,3 +99,18 @@ command checks without a DUT or chassis runtime.
 python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
   tests/common/unit_tests/unit_test_local_cli_transport.py -q
 ```
+
+## gNMI AAA TLS reuse
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/fixtures/unit_test_gnmi_aaa.py -q
+```
+
+These offline regressions extract production helpers to avoid testbed imports.
+They independently model raw Redis hashes and cfggen-decoded role lists, including
+empty fields and NULL sentinels. They exercise exact metadata restoration,
+setup/body/cleanup failures, configuration-leak detection, strict certificate
+cleanup, fresh public RPC channels, and real pytest fixture
+ordering with mocked devices. They do not establish device authorization,
+audit/rate-limit behavior, or a hardware performance improvement.
