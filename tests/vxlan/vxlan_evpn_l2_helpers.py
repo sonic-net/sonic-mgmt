@@ -41,6 +41,7 @@ from tests.vxlan.vxlan_l2_helpers import (
     log_clean,
     loopback0_ipv4,
     native_on,
+    pid_of,
     port_counters,
     probe_frame,
     remove_vxlan,
@@ -325,6 +326,54 @@ def received_mac_mobility(duthost, mac, vtep):
         m = re.search(r"MM:(\d+)(, sticky MAC)?", p.get("extendedCommunity", {}).get("string", ""))
         mm.append((int(m.group(1)), bool(m.group(2))) if m else (0, False))
     return mm
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# DUT side: MAC sync mode (CONFIG_DB FDB_SYNC|global mac_sync_mode, read by zebra and fpmsyncd when bgp starts)
+# --------------------------------------------------------------------------------------------------------------------
+MAC_SYNC_KEY, MAC_SYNC_FIELD = "FDB_SYNC|global", "mac_sync_mode"
+# zebra's option for the "fpm" mode: it then takes local MACs from fpmsyncd instead of the kernel
+ZEBRA_FPM_MAC_OPTION = "--kernel-mac-ext-learn"
+
+
+def bgp_ready(duthost, asn):
+    """bgpd answers vtysh and holds the DUT's own `router bgp` (its startup config is in)."""
+    out = sh(duthost, "sudo vtysh -c 'show running-config' 2>/dev/null; true", check=False)
+    return re.search(r"^router bgp {}\b".format(asn), out, re.M) is not None
+
+
+def published_mac_sync_mode(duthost):
+    """The mode fpmsyncd runs, as it publishes it in STATE_DB at its start ('' from an fpmsyncd without the modes)."""
+    return db_hget(duthost, "STATE_DB", MAC_SYNC_KEY, MAC_SYNC_FIELD)
+
+
+def zebra_cmdline(duthost):
+    return sh(duthost, "pgrep -a -x zebra; true", check=False).strip()
+
+
+def bgp_config_in(duthost, bgp_add):
+    """Apply the vtysh-only BGP config bgp_add; True once bgpd's running config holds each of its neighbors (bgpcfgd
+    may still hold the config session right after a bgp start, so a poll condition)."""
+    vtysh(duthost, bgp_add, check=False)
+    out = sh(duthost, "sudo vtysh -c 'show running-config' 2>/dev/null; true", check=False)
+    return all(re.search(r"^\s*{}$".format(re.escape(c)), out, re.M)
+               for c in bgp_add if c.startswith("neighbor ") and " remote-as " in c)
+
+
+def restart_bgp(duthost, asn, bgp_add, want):
+    """Restart the bgp container, so that zebra and fpmsyncd take CONFIG_DB's mac_sync_mode, and put the vtysh-only
+    BGP config bgp_add back. Returns (the mode in STATE_DB once the new fpmsyncd published want, or 60 s after it
+    started; zebra's command line, '' when zebra is not running)."""
+    old = pid_of(duthost, "fpmsyncd")
+    sh(duthost, "sudo systemctl reset-failed bgp; sudo systemctl restart bgp")
+    wait_for(300, 5, lambda: bgp_ready(duthost, asn), "bgpd to run with `router bgp {}` after the bgp restart".format(
+        asn))
+    wait_for(120, 5, lambda: bgp_config_in(duthost, bgp_add), "bgpd to take the rig's BGP config after the bgp restart")
+    wait_for(60, 2, lambda: pid_of(duthost, "fpmsyncd") not in ("", old) and pid_of(duthost, "zebra"),
+             "a new fpmsyncd and zebra to run after the bgp restart")
+    # fpmsyncd publishes its mode once, at its start
+    wait_until(60, 2, 0, lambda: published_mac_sync_mode(duthost) == want)
+    return published_mac_sync_mode(duthost), zebra_cmdline(duthost)
 
 
 # --------------------------------------------------------------------------------------------------------------------

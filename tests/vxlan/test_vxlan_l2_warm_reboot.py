@@ -148,6 +148,7 @@ from tests.vxlan.vxlan_evpn_l2_helpers import (
     appl_remote_mac_vtep,
     appl_remote_vnis,
     assert_clean_start as assert_evpn_clean_start,
+    bgp_ready,
     check_ingress_once,
     check_leaf_vteps_unrouted,
     dut_bgp_add_commands,
@@ -291,12 +292,6 @@ def expected_kernel(r):
 
 def fdbsyncd_state(duthost):
     return db_hget(duthost, "STATE_DB", "WARM_RESTART_TABLE|fdbsyncd", "state")
-
-
-def bgp_ready(duthost, asn):
-    """bgpd answers vtysh and holds the DUT's own `router bgp` (its startup config is in)."""
-    out = sh(duthost, "sudo vtysh -c 'show running-config' 2>/dev/null; true", check=False)
-    return re.search(r"^router bgp {}\b".format(asn), out, re.M) is not None
 
 
 def sessions_up(r):

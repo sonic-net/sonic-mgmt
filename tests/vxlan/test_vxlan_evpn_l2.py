@@ -29,7 +29,8 @@ Cases:
                                      a MAC a leaf advertises as static (sticky) stays on the leaf's tunnel when H0
                                      sources frames from it
   test_remote_mac_replaced_by_local  a remote MAC that H0 then sources moves to H0 (MAC mobility: the leaf takes the
-                                     DUT's route), is forwarded there only, and behaves as a dynamic local MAC
+                                     DUT's route), is forwarded there only, and behaves as a dynamic local MAC (on
+                                     hardware with MAC sync over FPM, see below)
   test_local_mac_replaced_by_remote[dynamic|sticky]
                                      a MAC learned on H0 that a leaf then learns (or adds static) moves to the leaf's
                                      tunnel with the same FDB attributes as any remote MAC of the leaf, is encapsulated
@@ -82,6 +83,13 @@ has, else the first it can pull; VXLAN_EVPN_LEAF_IMAGE replaces the list). The m
 none of them and cannot pull one. FRR bgpd without https://github.com/FRRouting/frr/pull/23629 advertises a sticky MAC
 without the sticky flag once its MAC Mobility sequence number is above 0, so test_local_mac_replaced_by_remote[sticky]
 fails with a leaf that lacks that fix, and says so.
+
+On hardware, test_remote_mac_replaced_by_local runs with MAC sync over FPM (CONFIG_DB FDB_SYNC|global mac_sync_mode
+"fpm"): the SAI reports the move of a remote MAC to a local port, which reaches zebra over FPM, not through the kernel.
+zebra and fpmsyncd read the mode when the bgp container starts, so the case sets it, restarts bgp, and puts the DUT's
+own mode back with another bgp restart afterwards; the rig's BGP config is re-applied and converged after each restart.
+The case skips when the image has no MAC sync over FPM: fpmsyncd publishes no mode in STATE_DB FDB_SYNC|global, or
+zebra runs without --kernel-mac-ext-learn once the mode is "fpm".
 
 On a DUT with an external PHY (gbsyncd), the swss warm restart case fails if orchagent latches a failed gearbox port
 re-create at the warm start, which happens until gbsyncd supports a warm start of swss (sonic-net/sonic-swss#3465 and
@@ -137,6 +145,7 @@ from tests.vxlan.vxlan_l2_helpers import (
     native_on,
     orch_health,
     parse_copy,
+    pid_of,
     port_counters,
     probe_frame,
     probe_tagged_path,
@@ -155,7 +164,10 @@ from tests.vxlan.vxlan_l2_helpers import (
     wait_state,
 )
 from tests.vxlan.vxlan_evpn_l2_helpers import (
+    MAC_SYNC_FIELD,
+    MAC_SYNC_KEY,
     STICKY_SEQ_FIX,
+    ZEBRA_FPM_MAC_OPTION,
     Leaf,
     Leaves,
     RigBuild,
@@ -170,8 +182,10 @@ from tests.vxlan.vxlan_evpn_l2_helpers import (
     dut_has_advertise_all_vni,
     evpn_peer_established,
     pick_rig_ports,
+    published_mac_sync_mode,
     received_mac_mobility,
     resolve_leaf_image,
+    restart_bgp,
     rig_preflight,
     tunnel_bridge_port_learning,
     vtysh,
@@ -777,7 +791,69 @@ def test_sticky_remote_mac_not_displaced_by_local_learn(evpn_rig, ptfadapter):
     restore.finish()
 
 
-def test_remote_mac_replaced_by_local(evpn_rig, ptfadapter):
+NO_FPM_MAC_SYNC = "this image has no MAC sync over FPM, which the MAC move needs on hardware"
+
+
+def rig_converged_after_bgp_restart(r):
+    r.rb.converge(CONVERGE)
+    wait_flood(r, r.expect_flood, CONVERGE, "after the bgp restart")
+
+
+@pytest.fixture
+def fpm_mac_sync(evpn_rig):
+    """The case runs with MAC sync over FPM on hardware; the DUT's own mode and the rig's BGP are back after it."""
+    r = evpn_rig
+    d = r.duthost
+    # the vs SAI reports no move of an existing FDB entry; there the kernel bridge takes the MAC over, which zebra
+    # learns in the default (kernel) mode
+    if r.vs:
+        yield
+        return
+    if not pid_of(d, "fpmsyncd"):
+        pytest.fail("fpmsyncd is not running, so its MAC sync mode cannot be read")
+    running = published_mac_sync_mode(d)
+    if not running:
+        pytest.skip("{}: fpmsyncd publishes no {} in STATE_DB {}".format(NO_FPM_MAC_SYNC, MAC_SYNC_FIELD,
+                                                                         MAC_SYNC_KEY))
+    if running == "fpm":
+        yield
+        return
+    own = db_hget(d, "CONFIG_DB", MAC_SYNC_KEY, MAC_SYNC_FIELD)
+    want_back = "fpm" if own == "fpm" else "kernel"
+    bgp_add = dut_bgp_add_commands(r.dut_asn, r.all_leaves, RT_ASN, (VNI_A, VNI_B), r.added_aav)
+    logger.info("MAC sync mode: fpmsyncd runs %s, CONFIG_DB holds '%s'; the case runs with fpm", running, own)
+    report = False   # whether a failed restore is the verdict (not when the setup failed: that one is)
+    try:
+        sh(d, "sonic-db-cli CONFIG_DB HSET '{}' {} fpm".format(MAC_SYNC_KEY, MAC_SYNC_FIELD))
+        mode, zebra = restart_bgp(d, r.dut_asn, bgp_add, "fpm")
+        if not zebra:
+            pytest.fail("zebra is not running after the bgp restart with {} {} fpm".format(
+                MAC_SYNC_KEY, MAC_SYNC_FIELD))
+        if ZEBRA_FPM_MAC_OPTION not in zebra.split():
+            report = True
+            pytest.skip("{}: with {} {} fpm, zebra runs without {} ({})".format(
+                NO_FPM_MAC_SYNC, MAC_SYNC_KEY, MAC_SYNC_FIELD, ZEBRA_FPM_MAC_OPTION, zebra))
+        assert mode == "fpm", ("with {} {} fpm and the bgp container restarted, fpmsyncd runs '{}' (STATE_DB) and "
+                               "zebra `{}`".format(MAC_SYNC_KEY, MAC_SYNC_FIELD, mode, zebra))
+        rig_converged_after_bgp_restart(r)
+        report = True
+        yield
+    finally:
+        restore = Steps("putting the DUT's MAC sync mode back")
+        if own:
+            restore("CONFIG_DB", lambda: sh(d, "sonic-db-cli CONFIG_DB HSET '{}' {} {}".format(
+                MAC_SYNC_KEY, MAC_SYNC_FIELD, own)))
+        else:
+            restore("CONFIG_DB", lambda: sh(d, "sonic-db-cli CONFIG_DB HDEL '{}' {}".format(
+                MAC_SYNC_KEY, MAC_SYNC_FIELD)))
+        back = restore("bgp restart", lambda: restart_bgp(d, r.dut_asn, bgp_add, want_back))
+        if back and back[0] != want_back:
+            restore.errors.append("fpmsyncd runs '{}' after the restore, not '{}'".format(back[0], want_back))
+        restore("rig converged", lambda: rig_converged_after_bgp_restart(r))
+        restore.finish(report=report)
+
+
+def test_remote_mac_replaced_by_local(evpn_rig, ptfadapter, fpm_mac_sync):
     """A MAC behind l1 that H0 then sources moves to H0, is forwarded there only, and is a dynamic local MAC.
 
     l1 advertises the MAC. Control: unicast from H1 to it is encapsulated to l1. H0 sources it; then:
