@@ -5693,6 +5693,40 @@ ssh/test_ssh_stress.py::test_ssh_stress:
       - "asic_type not in ['vpp'] or topo_name not in ['t0', 't1-lag']"
 
 #######################################
+#####             stp             #####
+#######################################
+stp/test_mstp.py:
+  skip:
+    reason: "MSTP BPDU and dataplane checks need a real ASIC. On a KVM DUT the software datapath
+             forwards nothing between two forwarding VLAN member ports, so the L2 checks fail
+             without telling anything about the product."
+    conditions:
+      - "asic_type in ['vs']"
+
+stp/test_mstp.py::TestMstp::test_mstp_bpdu_guard_shutdown_survives_feature_restart:
+  skip:
+    reason: "CIST re-enrolment after an stp feature disable and enable is not qualified on a
+             virtual DUT: a KVM DUT does not model the SAI STP port state the check reads back."
+    conditions:
+      - "asic_type in ['vs']"
+
+stp/test_mstp_config.py:
+  skip:
+    reason: "MSTP CIST enrolment after a feature start or a VLAN membership bounce is not
+             qualified on a virtual DUT: a KVM DUT does not model the SAI STP port state the
+             enrolment checks read back."
+    conditions:
+      - "asic_type in ['vs']"
+
+stp/test_stp_pvst.py:
+  skip:
+    reason: "PVST BPDU and dataplane checks need a real ASIC. On a KVM DUT the software datapath
+             forwards nothing between two forwarding VLAN member ports. The CONFIG_DB checks in
+             stp/test_pvst_config.py still run on KVM."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####             stress          #####
 #######################################
 stress/test_stress_routes.py:
