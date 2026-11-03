@@ -3,6 +3,7 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.monit import is_route_checker_healthy
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
@@ -56,6 +57,8 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, lo_intf):
     """
     Setup/teardown fixture for each loopback interface test.
     rollback to check if it goes back to starting config without vrf set
+    On VPP, wait for live route consistency and Monit's routeCheck recovery
+    before releasing the DUT.
 
     Args:
         duthosts: list of DUTs.
@@ -89,6 +92,12 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, lo_intf):
                 "Default routes not recovered after restart bgp, restoring with `config_reload`"
             )
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
+
+        if duthost.facts["asic_type"] == "vpp":
+            pytest_assert(
+                wait_until(900, 20, 0, is_route_checker_healthy, duthost),
+                "Route consistency or monit routeCheck did not recover after loopback changes",
+            )
 
     finally:
         delete_checkpoint(duthost)

@@ -7,6 +7,7 @@ import pytest
 import logging
 import queue
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.monit import is_route_checker_healthy as _route_checker_is_healthy
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -60,15 +61,6 @@ def _control_plane_is_healthy(duthost, portchannels, bgp_neighbors):
         if result.get("rc", 1) != 0:
             return False
     return duthost.check_bgp_session_state_all_asics(bgp_neighbors)
-
-
-def _route_checker_is_healthy(duthost):
-    result = duthost.command("sudo route_check.py", module_ignore_errors=True)
-    if result["rc"] != 0:
-        return False
-    # Monit can retain a churn-time failure until its next scheduled check.
-    status = duthost.get_monit_services_status()["routeCheck"]["service_status"]
-    return status.lower() in ("status ok", "ok")
 
 
 def _setup_stress(duthost, request):
