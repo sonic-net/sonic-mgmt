@@ -184,9 +184,9 @@ def test_get_admin_up_dpu_indices_skips_admin_down_dpus():
     assert admin_up == [0, 2]
     assert skipped == [1]
     assert upgrade.module.commands == [
-        'sonic-db-cli CONFIG_DB HGET "CHASSIS_MODULE|DPU0" admin_status',
-        'sonic-db-cli CONFIG_DB HGET "CHASSIS_MODULE|DPU1" admin_status',
-        'sonic-db-cli CONFIG_DB HGET "CHASSIS_MODULE|DPU2" admin_status',
+        'sonic-db-cli -s CONFIG_DB HGET "CHASSIS_MODULE|DPU0" admin_status',
+        'sonic-db-cli -s CONFIG_DB HGET "CHASSIS_MODULE|DPU1" admin_status',
+        'sonic-db-cli -s CONFIG_DB HGET "CHASSIS_MODULE|DPU2" admin_status',
     ]
 
 
