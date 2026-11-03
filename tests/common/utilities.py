@@ -52,6 +52,7 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 FILE_CHANGE_TIMEOUT = 300
 DEFAULT_VRF_NAME = "default"
 MGMT_VRF_NAME = "mgmt"
+ARP_RESPONDER_READY_FILE = "/tmp/arp_responder.ready"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
@@ -203,6 +204,45 @@ def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
         return False
 
     return True
+
+
+def wait_for_arp_responder_ready(ptfhost, timeout=60):
+    """Wait until arp_responder is ready to handle ARP/NDP requests.
+
+    arp_responder creates a readiness file once all pcap L2 sockets are open,
+    just before entering the scapy.sniff() loop. The caller must remove any
+    stale readiness file before starting the responder.
+    """
+    def _ready():
+        return ptfhost.shell(
+            'test -f {}'.format(ARP_RESPONDER_READY_FILE),
+            module_ignore_errors=True
+        )['rc'] == 0
+
+    if not wait_until(timeout, 1, 0, _ready):
+        raise RuntimeError(
+            "arp_responder did not become ready within {}s".format(timeout)
+        )
+    ts = ptfhost.shell(
+        'ls --full-time {}'.format(ARP_RESPONDER_READY_FILE), module_ignore_errors=True
+    )['stdout'].strip()
+    logger.info("arp_responder is ready: %s", ts)
+
+
+def restart_arp_responder(ptfhost, timeout=60):
+    """Restart arp_responder and wait until it is ready to handle ARP/NDP requests.
+
+    arp_responder reads its IP/MAC config from a JSON file and opens one pcap
+    L2 socket per interface at startup — it never reloads either dynamically.
+    A restart is therefore required whenever the test changes which IP addresses
+    PTF should respond to (e.g. after writing a new arp_responder config and
+    running 'supervisorctl reread && update').
+    """
+    ptfhost.shell('supervisorctl stop arp_responder')
+    # Clear the old readiness marker after the old process has stopped.
+    ptfhost.shell('rm -f {}'.format(ARP_RESPONDER_READY_FILE))
+    ptfhost.shell('supervisorctl start arp_responder')
+    wait_for_arp_responder_ready(ptfhost, timeout=timeout)
 
 
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
