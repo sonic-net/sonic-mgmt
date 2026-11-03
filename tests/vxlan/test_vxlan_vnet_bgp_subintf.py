@@ -25,8 +25,8 @@ pytestmark = [
 ]
 
 CONFIG_DB_PATH = '/etc/sonic/config_db.json'
-EXABGP_CONFIG_PATH = "/etc/exabgp/exabgp_vnet_bgp.conf"
-EXABGP_PORT = 5100
+GOBGP_CONFIG_PATH = "/tmp/gobgp_vnet_bgp.toml"
+GOBGP_API_PORT = 5100
 
 PORTCHANNEL_NAMES = ["PortChannel1031", "PortChannel1032"]
 VXLAN_PORT = 4789
@@ -300,23 +300,15 @@ def cleanup(duthost, ptfhost, localhost, wl_portchannel_info, subintfs_info):
         except Exception as e:
             logger.error(f"Error occurred while cleaning up bond interfaces: {e}")
 
-    kill_exabgp = f"""
-MAIN_PID=$(pgrep -f "exabgp {EXABGP_CONFIG_PATH}")
+    kill_gobgp = f"""
+MAIN_PID=$(pgrep -f "^[^ ]*gobgpd -f {GOBGP_CONFIG_PATH}")
 if [ -n "$MAIN_PID" ]; then
-    echo "Killing test ExaBGP instance PID=$MAIN_PID"
-    kill -9 $MAIN_PID 2>/dev/null
+    echo "Stopping test GoBGP instance PID=$MAIN_PID"
+    kill $MAIN_PID 2>/dev/null
 fi
 """
-    ptfhost.shell(kill_exabgp, module_ignore_errors=True)
-
-    kill_http_api = f"""
-API_PID=$(pgrep -f "/usr/share/exabgp/http_api.py {EXABGP_PORT}")
-if [ -n "$API_PID" ]; then
-    echo "Killing test http_api.py PID=$API_PID"
-    kill -9 $API_PID 2>/dev/null
-fi
-"""
-    ptfhost.shell(kill_http_api, module_ignore_errors=True)
+    ptfhost.shell(kill_gobgp, module_ignore_errors=True)
+    ptfhost.file(path=GOBGP_CONFIG_PATH, state="absent")
 
     kill_ra_send = """
 RA_SEND_PIDS=$(pgrep -f "/tmp/ra_send.py")
@@ -612,9 +604,9 @@ def setup_ra_sender(ptfhost, subintfs_info):
 
 
 def setup_bgp(duthost, ptfhost, vnet_vnis, subint_info,
-              subnet_ip, bgp_port, gnmi_tls):     # noqa: F811
+              subnet_ip, gnmi_tls):     # noqa: F811
     """
-    Setup MP-BGP peer range WLPARTNER_PASSIVE_V4 per VNET for dual-stack decap testing.
+    Configure DUT interface peers and GoBGP link-local MP-BGP sessions on PTF.
     """
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     dut_asn = config_facts['DEVICE_METADATA']['localhost']['bgp_asn']
@@ -644,43 +636,48 @@ def setup_bgp(duthost, ptfhost, vnet_vnis, subint_info,
         "prefix_lists"
     )
 
-    exabgp_config = f"""
-process api-vnets {{
-    run /usr/bin/python /usr/share/exabgp/http_api.py {bgp_port};
-    encoder json;
-}}
+    gobgp_config = f"""
+[global.config]
+    as = {peer_asn}
+    router-id = "10.10.10.10"
+    port = 179
 """
 
-    # MP-BGP neighbors: IPv4 session advertising both IPv4 WL subnet and IPv6 decap route.
-    # The IPv6 route uses the PTF subinterface IPv6 address as next-hop (RFC 4760).
+    # Each session carries IPv4 and IPv6 unicast over scoped IPv6 link-local transport.
     for subint, value in subint_info.items():
-        dut_ipv6 = value["dut_ipv6"]
-        ptf_ipv6 = value["ptf_ipv6"]
-        exabgp_config += f"""
-neighbor {dut_ipv6.split('/')[0]}%{value['bond_name']} {{
-    router-id 10.10.10.10;
-    local-address {ptf_ipv6.split('/')[0]}%{value['bond_name']};
-    local-as {peer_asn};
-    peer-as {dut_asn};
-    api {{
-        processes [api-vnets];
-    }}
-    family {{
-        ipv4 unicast;
-        ipv6 unicast;
-    }}
-    static {{
-        route {subnet_ip} next-hop {ptf_ipv6.split('/')[0]};
-        route {BGP_V6_DECAP_ROUTE} next-hop {ptf_ipv6.split('/')[0]};
-    }}
-}}
+        dut_ipv6 = value["dut_ipv6"].split('/')[0]
+        ptf_ipv6 = value["ptf_ipv6"].split('/')[0]
+        gobgp_config += f"""
+[[neighbors]]
+    [neighbors.config]
+        neighbor-address = "{dut_ipv6}%{value['bond_name']}"
+        peer-as = {dut_asn}
+    [neighbors.transport.config]
+        local-address = "{ptf_ipv6}%{value['bond_name']}"
+        passive-mode = false
+        remote-port = 179
+    [neighbors.timers.config]
+        connect-retry = 5
+    [[neighbors.afi-safis]]
+        [neighbors.afi-safis.config]
+            afi-safi-name = "ipv4-unicast"
+            enabled = true
+    [[neighbors.afi-safis]]
+        [neighbors.afi-safis.config]
+            afi-safi-name = "ipv6-unicast"
+            enabled = true
+    [neighbors.apply-policy.config]
+        default-export-policy = "accept-route"
 """
 
-    with open('/tmp/exabgp_update.conf', "w") as f:
-        f.write(exabgp_config)
+    ptfhost.copy(content=gobgp_config, dest=GOBGP_CONFIG_PATH)
+    ptfhost.shell(
+        f"nohup gobgpd -f {GOBGP_CONFIG_PATH} "
+        "> /var/log/gobgp_all_vnets.log 2>&1 < /dev/null &")
 
-    ptfhost.copy(src='/tmp/exabgp_update.conf', dest=EXABGP_CONFIG_PATH)
-    ptfhost.shell(f"nohup exabgp {EXABGP_CONFIG_PATH} > /var/log/exabgp_all_vnets.log 2>&1 &")
+    # Unspecified next hops are replaced with each session's local link-local address on export.
+    ptfhost.shell(f"gobgp global rib add {subnet_ip} -a ipv4")
+    ptfhost.shell(f"gobgp global rib add {BGP_V6_DECAP_ROUTE} -a ipv6")
 
 
 def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info,
@@ -923,7 +920,6 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
                   vnet_vnis,
                   subintfs_info,
                   subnet_ip=subnet_ip,
-                  bgp_port=EXABGP_PORT,
                   gnmi_tls=gnmi_tls)
 
         # Start IPv6 RA sender on subinterfaces for peer NDP discovery
