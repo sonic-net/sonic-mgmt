@@ -214,7 +214,7 @@ def test_gnmi_audit_rate_limit(gnmi_tls):  # noqa: F811
         SET_METHOD,
         CLIENT_PRINCIPAL,
         expected_count=RATE_LIMIT_BURST + 1,
-        code="Unknown",
+        code="PermissionDenied",
         path=AUDIT_SET_PATH,
     )
     pytest_assert(
