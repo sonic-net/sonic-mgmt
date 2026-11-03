@@ -1,134 +1,86 @@
-# Basic cpoutil platform tests
+# Basic cpoutil hardware tests
 
-Updated 2026-11-02. This suite follows the functional integration scope of
-[sfputil tests](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/sfp/test_sfputil.py).
-The CLI contract is merged sonic-utilities #4864 at
-`f113917d357d224be51c55860c35bc0b71127696`.
-The lane-status assertions follow the two-table output in
-[sonic-utilities #5012](https://github.com/sonic-net/sonic-utilities/pull/5012)
-at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
+The suite follows the basic functional scope of
+[test_sfputil.py](../../tests/platform_tests/sfp/test_sfputil.py).
+The CLI contract is merged sonic-utilities #4864; lane-status requires the
+two-table output in sonic-utilities #5012 at
+`8383e122ba046346dd3fc1fc98dfbda364d181f6`.
 
-## Scope
+## Selection and checks
 
-There are 12 test functions, producing 16 cases for one DUT:
+There are 10 test functions / 13 collected cases. Hardware traversal stays
+inside each case. DUT selection is explicit; `connected_cpo_ports` intersects
+connection-graph ports, current PORT lanes and cpo.json optical-engine lanes.
+The scope is physical single-ASIC, non-ganged CPO devices.
 
-| Function | Cases | Checks |
-| --- | ---: | --- |
-| `test_cpoutil_map` | 1 | Public OE/ELS fields, PORT lanes, OE bank and topology association; table headers/resources; every connected port selector |
-| `test_cpoutil_presence` | 1 | All connected ports are present, associated ELS matches the map; bulk and every selected-port output |
-| `test_cpoutil_dom` | 1 | Connected-port OE/ELS info/DOM/threshold structure, presence and read errors; text sections for every connected port |
-| `test_cpoutil_endpoint_status` | 2 | State, finite temperature, boolean low-power, headers and selected-resource output for every associated OE/ELS |
-| `test_cpoutil_application` | 1 | Nonempty Host/Media strings, selection display types and exact logical-port lane keys; text headers, lane rows and cell presence |
-| `test_cpoutil_tx_disable_query` | 1 | Boolean lane values and lane count; table headers/resources |
-| `test_cpoutil_eeprom_read` | 2 | Every connected interface alias and each associated OE/ELS directly once: recognized hexdump heading and nonempty bytes |
-| `test_cpoutil_basic_arguments` | 1 | Root help and four representative incomplete read-option checks |
-| `test_cpoutil_low_power` | 2 | Toggle each distinct eligible OE/ELS, read back and restore before the next endpoint |
-| `test_cpoutil_tx_disable` | 1 | Toggle each eligible connected physical port once, check all logical siblings and restore TX |
-| `test_cpoutil_reset` | 2 | Reset each distinct eligible OE/ELS; restore power, presence, Application, TX and previously up links |
-| `test_cpoutil_lane_status` | 1 | Exactly two tables: OE datapath and ELS lane headers/resources, bulk and every connected port selector |
+Only the mapping case executes `show interface map`. Other cases derive
+OE/ELS ownership and shared banks directly from cpo.json and PORT. Parent
+interface names in cpo.json need not match current breakout subport names:
+the current PORT lanes select the declared OE bank.
 
-Default execution attempts all 16 functional cases, including lane-status and
-hardware controls. Unsupported platform capabilities and unmet
-connection/restoration prerequisites can cause skips.
+JSON is a structured input/readback format, not an independent option test.
+The suite does not compare bulk output with per-port `-p` output or exercise
+an option matrix. A required selector in a config command still identifies
+the object being changed.
 
-The former exhaustive argument/help/permission matrix, synthetic I/O fault
-matrix, concurrency checks, whole-inventory EEPROM dumps and successful
-EEPROM scratch writes are outside this basic hardware suite. Complete
-scratch-write coverage and all-command acceptance are not claimed.
+| Cases | Checks |
+| --- | --- |
+| Map | Public fields, configured OE/ELS association, OE bank/PORT lanes and common text columns |
+| Presence | Every connected CPO port must be present; absence fails |
+| DOM | Present, no read errors, nonempty OE/ELS info/DOM dictionaries and public text sections |
+| OE / ELS status | Nonempty state, finite temperature and boolean low-power mode; public columns/resources |
+| Application | Public Host/Media display fields, integer/null/N/A selections, exact bank-local subport lanes and populated text cells |
+| TX query | Boolean lane values, PORT lane count and public text columns |
+| OE / ELS low-power | Snapshot all associated endpoints, invert all supported modes, verify, restore and verify |
+| TX control | Snapshot all associated OE banks and their siblings, invert supported/restorable banks, verify, restore and verify |
+| OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
+| Lane status | Exactly the OE datapath and ELS lane tables, public headers and connected-port rows |
 
-## DUT and ports
-
-Each test selects its DUT directly from `duthosts` and
-`enum_rand_one_per_hwsku_frontend_hostname`. The named
-`connected_cpo_ports` fixture intersects:
-
-- the DUT's `conn_graph_facts.device_conn` entries;
-- configured PORT entries and their ASIC lanes;
-- Optical Engine lane ownership from the platform's `cpo.json`.
-
-This selects connected CPO ports, excluding ordinary SFP ports. Connection
-graph metadata supplies the test ports; the suite does not independently
-validate actual cabling or peer traffic.
-
-Requirements: physical single-ASIC, non-ganged DUT; valid CPO topology;
-installed common cpoutil and matching platform support. Missing CPO topology
-or connected CPO ports skips the module. A missing/broken CLI on an otherwise
-eligible DUT fails. Basic queries validate every connected CPO port in bulk
-output. Map, presence, DOM and lane-status also traverse every connected-port
-selector; endpoint queries traverse every associated OE/ELS selector.
-Direct EEPROM reads are deduplicated by OE/ELS identifier, while every connected
-interface alias is read separately, preserving its OE bank path. This does not
-claim coverage of unconnected independent endpoints or all page/range options.
-The argument-parser smoke check still uses one valid OE: parser behavior is not
-repeated for each hardware endpoint.
-
-## Output checks and privacy
-
-Assertions use public cpoutil fields and types, never a required vendor,
-model, serial number, port count or resource count. Resource IDs and lane
-counts come from PORT/topology or the mapping query. Map checks independently
-cross-check topology/PORT ownership; other basic checks use the public CLI
-contract, not a second platform API probe.
-
-Each test shows its command and corresponding assertions directly.
-`run_cpoutil` has one transport step into the DUT output filter.
-The output filter returns:
-
-- redacted JSON, with DOM identity values suppressed;
-- whitelisted public table headers and resource row identifiers; Application
-  lane numbers and cell-presence flags without raw cell text;
-- DOM presence and OE/ELS section names;
-- EEPROM headings and byte counts, without raw bytes;
-- fixed error categories, without raw platform diagnostics.
-
-Text checks validate common headers/resources. Application additionally checks
-exact lane rows and that both configured/active cells are populated. It does not
-validate the hardware meaning of every displayed cell.
-Application expected lane keys are derived from the OE bank's ordered ASIC lanes
-in cpo.json and the logical port's active PORT lanes, independently of the
-Application response. This catches a breakout subport displaying a sibling's
-same-size lane set, the whole parent bank or global rather than bank-local lane
-indices, in both JSON and text. Host/Media descriptions must be nonempty strings;
-N/A is an allowed display string. Selections may be integers or the CLI's
-null/N/A placeholders. The test does not require selections to match the
-advertisement, configured to equal active, a specific interface type or speed.
-It checks breakout ports already present in the testbed; it does not create or
-change a breakout configuration.
-The lane-status test expects exactly two tables: Interface/Lane/Data
-Path State and Interface/ELS/Laser/ELS Lane State/Shared. It checks connected
-port rows in each table and every connected-port query. It does not request JSON
-or check ELS module status. It runs by default and skips only when the platform
-explicitly reports that the query is not implemented.
-DOM checks do not assert a vendor-specific sensor list or all threshold values.
-EEPROM checks establish readable, parseable output, not byte-for-byte hardware
-correctness. Installed Click usage errors return 2; callback validation errors
-return 1. Unsupported optional operations skip only for an explicit
-`not implemented` diagnostic, not general read/I/O failures.
+Application checks current breakout configuration without creating breakout.
+It does not compare configured/active AppSel equality, advertisement membership,
+specific interface types or actual link speed. There are no EEPROM read/write,
+EEPROM argument or help smoke cases.
 
 ## Controls and restoration
 
-Controls traverse endpoints associated with the connected ports. Low-power and
-reset deduplicate by OE/ELS identifier; Tx-disable deduplicates by physical PORT
-index. Each object is restored before advancing to the next object. Isolation
-includes all mapped ports sharing that endpoint or physical port, including
-unconnected siblings.
+Low-power and TX cases first read all initial states before any mutation.
+They disable DOM polling and shut down all affected shared interfaces,
+including unconnected siblings. They then write all inverted values before
+checking readback. `finally` attempts restoration of every attempted object,
+even after a later write or an earlier restoration fails. Each restored value
+is checked; DOM/admin configuration and previously up shared links are restored.
+After interface restoration, the control state is checked again, followed by
+connected-port presence and recovery of connected links which were up before
+the test. An initially down port is not required to become up.
 
-The explicit module marker invokes `preserve_device_state` once around
-the module, checking PORT configuration and container ID/StartedAt/RestartCount.
-There is no autouse environment fixture or per-case platform probe.
+Low-power starts from either boolean value. TX deduplicates by (OE, bank),
+because the setter affects that bank, including all breakout siblings; it
+does not deduplicate by physical PORT index. Uniform true or false states are
+supported. A bank with mixed lane states is excluded before writing because
+the boolean bank-wide setter cannot restore a mixed lane mask exactly.
 
-Controls save state, disable DOM polling, shut down affected interfaces and
-restore DOM/admin settings in `finally`. Previously up links must recover.
-All interface restoration commands are attempted even when an earlier
-restoration fails. Explicitly unsupported setters are skipped after cleanup.
-Low-power/TX/reset prerequisites prevent controls whose initial state cannot
-be safely restored through reprovisioning. Ineligible objects are logged with
-their reasons and do not stop checks of later objects. Each control test logs
-the tested objects and excluded objects. If none can be tested, the case skips;
-otherwise it covers the eligible objects only. Real command/read failures and
-failed restoration fail the case rather than being converted into exclusions.
+An explicitly unsupported setter is recorded after checking that its state
+remains unchanged; later objects are still exercised. A case skips if no
+supported/restorable objects remain. General I/O, command, readback, presence
+and recovery errors fail. Exclusions are logged and are not hardware PASS.
 
-## Run
+Reset follows sfputil's command/presence/recovery approach, once per distinct
+associated OE/ELS. It waits up to 60 seconds for a nonempty, non-N/A module
+status and for presence. DOM/admin restoration runs even on reset failure.
+It does not require initial full power or all shared ports admin-up, compare
+Application/TX snapshots, force a generic low-power transition, require a
+specific module state or require an observable link-down edge. Unlike sfputil's
+admin-up link check, only previously oper-up links must recover, so an existing
+down link is not attributed to reset. These checks establish CLI success and
+recovery; they do not independently prove an electrical reset pulse occurred.
+
+An explicit module marker invokes `preserve_device_state` around the suite,
+checking PORT configuration and container identity/start/restart state.
+The DUT output filter suppresses DOM identities and incidental diagnostics
+before Ansible receives output; public assertions do not require a vendor,
+model or serial number.
+
+## Run and validation
 
 From the sonic-mgmt `tests` directory:
 
@@ -137,35 +89,12 @@ From the sonic-mgmt `tests` directory:
   -c platform_tests/cpo/test_cpoutil.py -u -l info
 ```
 
-Low-power, Tx-disable and reset execute by default when their prerequisites
-are met. They can interrupt all ports sharing the selected controller.
-The old `--cpo-eeprom-write` option is no longer part of this suite.
+Controls run by default and can interrupt all interfaces sharing the selected
+OE/ELS or OE bank. There is no separate disruptive-control switch.
 
-## Validation
-
-2026-11-02:
-
-- 16 integration cases collect in isolation.
-- 99 focused local checks pass, covering actual test bodies, real merged CLI
-  formatters and the follow-up lane tables, public JSON/header errors, Jinja-safe
-  transport, identity filtering, connection selection and recovery/guard failure paths.
-- The lane-status body is called directly in local checks against the
-  new CLI formatter. Missing/extra tables, wrong headers, missing per-table port
-  rows and an unexpected selected-port row are rejected.
-- Traversal checks use five connected CPO logical ports, two OEs, two ELSs,
-  three physical ports and an unconnected shared sibling. They verify complete
-  traversal, deduplication, later-object progress after an exclusion, skip when
-  no eligible object remains, and restoration after a later endpoint fails.
-- Application checks cover unsplit and bank-1 breakout fixtures, sibling/parent/
-  global lane errors, missing/duplicate text rows, empty text cells, invalid
-  field/value types, allowed placeholders and output filtering. These are local
-  synthetic display checks, not hardware breakout validation.
-- The actual integration module runs against an explicitly synthetic testbed:
-  default 16 passed, including lane-status and the five hardware-control cases.
-  These are local synthetic results, not DUT PASS.
-- The previous exhaustive local matrix remains in the separate work package;
-  all 499 checks still pass against its pinned CLI/test snapshot. Those checks
-  are not added back to this hardware suite and do not validate this refactor.
-- Python lint and diff checks are required before submission.
-- A fresh sonic-mgmt/Ansible testbed run of this refactor is pending. Prior
-  473-case runs are historical results, not results for these 16 cases.
+2026-11-03: local synthetic checks exercise all 13 retained case bodies,
+batch inversion/restoration, initial true states, shared-bank deduplication,
+partial failures, unsupported setters, absent modules and topology-based
+breakout selection. Collection, lint and whitespace checks are also required.
+These local checks are not hardware results. A fresh Ansible/DUT run of this
+revision remains pending; the PR stays draft.

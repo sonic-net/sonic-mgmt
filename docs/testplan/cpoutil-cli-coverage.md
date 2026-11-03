@@ -1,54 +1,42 @@
 # cpoutil basic command coverage
 
-Contract: merged sonic-utilities #4864 at
-`f113917d357d224be51c55860c35bc0b71127696`.
-Lane-status contract: sonic-utilities #5012 at
-`8383e122ba046346dd3fc1fc98dfbda364d181f6` (OE datapath and ELS lane tables only).
-Scope updated 2026-11-02 to follow the sfputil functional integration tests.
-There are 16 cases; this is not an exhaustive command/argument acceptance suite.
+Updated 2026-11-03. Contract: merged sonic-utilities #4864; lane-status uses
+sonic-utilities #5012 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
+There are 13 cases; this is not exhaustive command/argument acceptance.
 
 | Command after cpoutil | Basic test | Output/result checks |
 | --- | --- | --- |
-| show interface map | test_cpoutil_map | Public map fields, topology association, OE bank/PORT lanes, table columns/resources, every connected port selector |
-| show interface presence | test_cpoutil_presence | All connected interfaces present, associated ELS, JSON/table and every connected port selector |
-| show interface dom | test_cpoutil_dom | Connected-port presence and OE/ELS info/DOM/threshold structures; no read errors; text sections for every connected port |
-| show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values and lane count, public table columns/resources |
-| show interface speed application | test_cpoutil_application | Nonempty public Host/Media strings, selection display types, exact bank-local subport lane keys in JSON/text, populated configured/active cells |
-| show interface lane-status | test_cpoutil_lane_status | Exactly two tables with public headers/port rows, bulk and every connected port selector |
-| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty state, JSON/table and every associated resource selector |
-| show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common temperature column |
-| show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common low-power column |
-| read-eeprom oe / read-eeprom els | test_cpoutil_eeprom_read | Each distinct associated OE/ELS once, recognizable heading, parseable nonempty hexdump |
-| read-eeprom interface --oe / --els | test_cpoutil_eeprom_read | Every connected interface alias, target heading and parseable nonempty hexdump |
-| config interface tx-disable | test_cpoutil_tx_disable | Each eligible connected physical port once, all logical siblings, toggle/readback/finally restoration |
-| config oe lpmode / config els lpmode | test_cpoutil_low_power | Each distinct eligible endpoint once, all shared ports, toggle/readback/finally restoration |
-| config oe reset / config els reset | test_cpoutil_reset | Each distinct eligible endpoint once, shared-port presence/Application/TX/power/link recovery |
-| --help and representative missing read options | test_cpoutil_basic_arguments | Root help groups; three incomplete ranges return 1; missing option value returns 2 |
-| write-eeprom interface / oe / els | Outside basic scope | No successful hardware writes or scratch-address option in this suite |
+| show interface map | test_cpoutil_map | Public fields, association and OE-bank/PORT lanes against cpo.json, common table columns/resources |
+| show interface presence | test_cpoutil_presence | Every connected CPO interface present; absent means failure |
+| show interface dom | test_cpoutil_dom | Present, no read errors, OE/ELS info/DOM/threshold dictionaries and text sections |
+| show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values, PORT lane count and common columns/resources |
+| show interface speed application | test_cpoutil_application | Host/Media display fields, selection types, exact subport lanes and populated configured/active cells |
+| show interface lane-status | test_cpoutil_lane_status | Exactly two public tables, headers and connected-port rows |
+| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty non-N/A state and common columns/resources |
+| show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common column |
+| show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common column |
+| config interface tx-disable | test_cpoutil_tx_disable | All associated restorable OE banks: save all, invert all, verify, restore all, verify, presence/link recovery |
+| config oe lpmode / config els lpmode | test_cpoutil_low_power | All associated supported endpoints: save all, invert all, verify, restore all, verify, presence/link recovery |
+| config oe reset / config els reset | test_cpoutil_reset | Deduplicated endpoints: rc=0, readable module, present interfaces and environment/link recovery |
+| read-eeprom / write-eeprom and their options | Excluded | No EEPROM or EEPROM parser cases |
 
-All 20 read/control leaf commands have a functional check.
-The three write leaves are outside scope.
-The root combined EEPROM dump, all help subtrees, non-root permission matrix,
-all malformed argument combinations, simulated faults and traffic are also
-outside this basic suite. Root help listing write-eeprom does not establish
-write coverage.
+Only the map case calls CLI map. Other cases obtain resource associations
+directly from cpo.json and current PORT lanes, including breakout children.
+JSON is used to parse/read back functional state, with no independent JSON
+option test or bulk-versus-`-p` comparison. Required config selectors remain.
 
-JSON checks use common fields and dynamically discovered ports/resources.
-Text checks validate whitelisted public headers, resource rows and DOM
-sections. Application also checks exact subport lane rows and cell presence,
-without comparing configured/active selections or advertisement membership.
-These checks do not establish the hardware meaning of every table cell or
-every sensor/threshold value. No vendor, model, serial number or fixed resource
-count is required.
+Controls restore DOM/admin settings and require previously up links to recover.
+Low-power supports either initial boolean. TX controls an entire OE bank:
+uniform true or false can be inverted/restored; mixed lane states are excluded
+because the setter has no per-lane mask. Unsupported setters are logged;
+general failures fail. No supported/restorable objects means a case skip.
 
-Default: 16 functional cases, including controls and lane-status;
-unsupported operations and unmet prerequisites can cause skips.
-Skipped checks are not hardware PASS.
-Control logs identify tested objects and excluded objects with reasons. One
-ineligible object does not prevent later objects from being checked. A case
-skips when no eligible object remains; a passing case covers eligible objects,
-not the objects explicitly excluded in its log. Hardware traversal remains
-inside the 16 cases rather than adding per-port parameter rows.
+Reset uses the sfputil command/presence/recovery model without requiring
+Application/TX snapshot equality or initial full-power/admin-up prerequisites.
+Only previously oper-up links are required up afterward. CLI recovery is not
+independent proof of a hardware reset pulse.
 
-See [test plan](cpoutil.md) for selection, recovery, privacy, execution options
-and validation limits. A fresh real testbed run of this refactor is pending.
+No test asserts vendor/model/serial identities, complete sensor semantics,
+physical cabling or traffic. EEPROM, option matrices, fault matrices and live
+breakout are excluded. See [test plan](cpoutil.md) for restoration and limits.
+A fresh real testbed run of this revision is pending.

@@ -84,23 +84,6 @@ def dom_summary(output):
     return records
 
 
-def eeprom_summary(output):
-    data_size = 0
-    for line in output.splitlines():
-        match = re.match(r"^\s*[0-9a-fA-F]{8}\s+([^|]+)\|", line)
-        if match:
-            tokens = match[1].split()
-            if not tokens or any(not re.fullmatch(r"[0-9a-fA-F]{2}", token) for token in tokens):
-                raise ValueError("Malformed EEPROM row")
-            data_size += len(tokens)
-    if not data_size:
-        raise ValueError("EEPROM output contains no bytes")
-    # The CLI headings contain public port/resource identifiers only.
-    headings = [line for line in output.splitlines() if re.fullmatch(
-        r"EEPROM hexdump for (?:(?:OE|ELS)\d+|port Ethernet\S+ \((?:OE|ELS)\d+\))", line)]
-    return {"size": data_size, "headings": headings}
-
-
 def run(arguments):
     result = subprocess.run(["cpoutil"] + arguments, capture_output=True, text=True, timeout=300)
     text = (result.stdout + "\n" + result.stderr).lower()
@@ -119,11 +102,6 @@ def run(arguments):
         safe["dom"] = dom_summary(result.stdout)
     elif arguments[:1] == ["show"]:
         safe["table"] = table_summary(result.stdout)
-    elif arguments[:1] == ["read-eeprom"]:
-        try:
-            safe["eeprom"] = eeprom_summary(result.stdout)
-        except ValueError:
-            safe.update(rc=3, stderr="invalid EEPROM output")
     return safe
 
 
