@@ -64,10 +64,9 @@ def _read_pddf_device_json(duthost):
     if res['rc'] != 0:
         pytest.skip("{} not found on DUT, PDDF is required".format(PDDF_DEVICE_JSON_PATH))
     try:
-        data = json.loads(res['stdout'])
+        return json.loads(res['stdout'])
     except ValueError as e:
-        pytest.fail("Failed to parse {}: {}".format(PDDF_DEVICE_JSON_PATH, e))
-    return data
+        raise AssertionError("Failed to parse {}: {}".format(PDDF_DEVICE_JSON_PATH, e)) from e
 
 
 def _pddfparse_subtree(duthost, action, node):
@@ -81,10 +80,9 @@ def _get_psu_status(duthost):
     """{psu name: entry} from `show platform psu --json`."""
     output = duthost.shell("show platform psu --json")['stdout']
     try:
-        status = {psu['name']: psu for psu in json.loads(output)}
+        return {psu['name']: psu for psu in json.loads(output)}
     except (ValueError, KeyError, TypeError) as e:
-        pytest.fail("Failed to parse 'show platform psu --json': {}\n{}".format(e, output))
-    return status
+        raise AssertionError("Failed to parse 'show platform psu --json': {}\n{}".format(e, output)) from e
 
 
 def _get_pddf_psu_pmbus_topology(pddf_device_data):
