@@ -24,7 +24,7 @@ LOOP_TIMES_LEVEL_MAP = {
     'diagnose': 200
 }
 
-# Storm sender (PTF-side script) constants
+#  Storm sender (PTF-side script) constants
 STORM_SENDER_SCRIPT = "fdb_mac_move_storm.py"
 STORM_SENDER_LOCAL_PATH = os.path.join(os.path.dirname(__file__), "files", STORM_SENDER_SCRIPT)
 STORM_SENDER_REMOTE_PATH = "/tmp/" + STORM_SENDER_SCRIPT
