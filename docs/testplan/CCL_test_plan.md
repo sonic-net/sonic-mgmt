@@ -12,7 +12,7 @@ This test plan validates Collective Communication Library (CCL) performance on d
 | IB MTU | 4096 B **and** 8192 B |
 | RDMA Message Size | 128 KB, 1 MB, 1024 MB |
 | QPs per rank pair | 1, 4, 8 |
-| Congestion control | PFC + ECN (DCQCN) – always enabled |
+| Congestion control (CC) mode | **PFC** and **PFC + DCQCN** (both tested; see Congestion Control Modes) |
 | DSCP – data traffic | 3 (lossless queue 3) |
 | DSCP – ACK / NAK | 3 |
 | DSCP – CNP | 48 (queue 6) |
@@ -28,12 +28,12 @@ This test plan validates Collective Communication Library (CCL) performance on d
 | JCT | Time from first packet sent to last ACK received for the collective |
 | Algorithm Bandwidth | Collective Size / JCT |
 | Bus Bandwidth | Algorithm BW × per-algorithm compensation factor* |
-| Packet loss | Must be zero |
+| Packet loss | Must be zero in all CC modes |
 | Reorder count | Out-of-order packets |
 | NAK count | NAK frames sent |
 | PFC count | PFC PAUSE frames received by sender ports |
-| ECN-CE count | ECN-CE marked packets received by receiver ports |
-| CNP count | CNP frames received by sender ports |
+| ECN-CE count | ECN-CE marked packets received by receiver ports (N/A in PFC mode) |
+| CNP count | CNP frames received by sender ports (N/A in PFC mode) |
 
 \* Compensation factors: AllReduce Ring / HDA: `2(n−1)/n`; AlltoAll: `1`.
 
@@ -43,7 +43,7 @@ This test plan validates Collective Communication Library (CCL) performance on d
 
 - **One Leaf switch (DUT)** with 8 downlink ports connected to the tester at 400 GE or 800 GE.
 - All 8 ranks (Rank 0–7) connect directly to the single DUT; no Spine layer is required.
-- Lossless queue 3 (DSCP 3) with PFC and ECN enabled on all switch ports.
+- Queue 3 (DSCP 3) configured per the active CC mode (PFC and/or ECN marking enabled on all switch ports; see Congestion Control Modes).
 - DUT load-balancing is configured per test step as either ECMP (5-tuple hash) or Packet Spray (applies to intra-switch forwarding paths).
 
 ```
@@ -60,7 +60,7 @@ This test plan validates Collective Communication Library (CCL) performance on d
 - **Two Leaf switches** (Leaf-1 and Leaf-2) and **one Spine switch** (Spine).
 - Each Leaf provides **8 × 400 GE or 800 GE downlinks** to the tester and connects to the Spine via uplinks.
 - **Ranks 0–7**: Leaf-1 · **Ranks 8–15**: Leaf-2.
-- Lossless queue 3 (DSCP 3) with PFC and ECN enabled on all switch ports.
+- Queue 3 (DSCP 3) configured per the active CC mode (PFC and/or ECN marking enabled on all switch ports; see Congestion Control Modes).
 
 ```
             Spine
@@ -73,9 +73,22 @@ This test plan validates Collective Communication Library (CCL) performance on d
 
 ---
 
+## Congestion Control Modes
+
+Every test case is executed under each of the following two CC modes. The CC mode is set on the DUT and on the tester ports before each run.
+
+| CC Mode | DUT (queue 3) | Tester ports | Expected counters | Loss expectation |
+|---|---|---|---|---|
+| **PFC** | PFC enabled; ECN marking disabled | DCQCN rate control disabled (no CNP) | PFC count; ECN-CE and CNP N/A | Zero loss required |
+| **PFC + DCQCN** | PFC and ECN marking both enabled | DCQCN enabled (CNP DSCP 48) | PFC, ECN-CE and CNP counts | Zero loss required |
+
+Each test case therefore runs 36 parameter combinations × 2 CC modes = 72 runs. Zero-loss, zero-NAK and zero-sequence-error criteria apply to both CC modes. Counters that belong to a disabled mechanism (ECN-CE and CNP in PFC mode) are reported as N/A.
+
+---
+
 ## Parameter Matrix
 
-Every test case iterates the following 36 combinations unless otherwise noted. Higher QP counts (4, 8) increase flow entropy and typically improve traffic distribution uniformity across ECMP paths; this effect is most visible for small RDMA message sizes.
+Every test case iterates the following 36 combinations, in each of the 2 CC modes, unless otherwise noted. Higher QP counts (4, 8) increase flow entropy and typically improve traffic distribution uniformity across ECMP paths; this effect is most visible for small RDMA message sizes.
 
 | ID | IB MTU | Message Size | LB Mode | QPs per rank pair |
 |---|---|---|---|---|
@@ -124,7 +137,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 - Validate JCT, Algorithm Bandwidth, and Bus Bandwidth for the **AllReduce Uni-direction Ring** algorithm using 8 ranks on a single-Leaf DUT.
 - Compare performance across IB MTU sizes, RDMA message sizes, and DUT load-balancing modes (ECMP vs. Packet Spray).
-- Verify zero packet loss and zero NAK under PFC + ECN congestion control; record reorder count.
+- Verify zero packet loss and zero NAK under PFC and PFC + DCQCN congestion control; record reorder count and compare the two CC modes.
 
 ### Topology
 
@@ -132,25 +145,25 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Test Steps
 
-1. Configure the DUT with lossless queue 3 mapped to DSCP 3, queue 6 mapped to DSCP 48; enable PFC and ECN marking on all ports.
+1. Configure the DUT with lossless queue 3 mapped to DSCP 3, queue 6 mapped to DSCP 48; configure PFC and/or ECN marking on all ports according to the active CC mode (PFC or PFC + DCQCN).
 2. Configure 8 tester ports (Ranks 0–7) with RoCEv2:
    - DSCP data: 3; DSCP ACK/NAK: 3; DSCP CNP: 48.
    - QPs per rank pair as specified (1, 4, or 8); ECN-CE bit 01 or 10.
 3. Configure **AllReduce Uni-direction Ring** over all 8 ranks (ring order: Rank 0 → 1 → … → 7 → 0). The algorithm executes `n−1` Reduce-Scatter steps followed by `n−1` All-Gather steps; each step transfers one chunk of size `CollectiveSize / (n−1)`.
-4. For each of the 36 parameter combinations (P01–P36):
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing to the specified LB Mode.
    b. Set IB MTU and RDMA message size on all tester ports.
    c. Start the AllReduce Ring collective and run to completion.
    d. Record JCT, Algorithm Bandwidth, Bus Bandwidth, packet loss, reorder count, NAK count, PFC count, ECN-CE count, CNP count.
-5. Repeat Step 4 until all 36 combinations are measured.
+5. Repeat Step 4 until all 36 combinations are measured in both CC modes.
 
 ### Expected Results
 
-1. All collective passes complete successfully for all 36 parameter combinations.
+1. All collective passes complete successfully for all 36 parameter combinations in both CC modes.
    - No packet loss observed on the tester.
    - No NAK and no sequence error on the tester.
    - Reorder count must be zero for ECMP sub-cases. For Packet Spray sub-cases, reorder is expected; record reorder depth.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. Bus Bandwidth = Algorithm Bandwidth × `2(n−1)/n` (n = 8 → factor = 1.75) is recorded per combination. Values should be stable and approach link saturation for large message sizes.
 3. **IB MTU comparison:** Bus Bandwidth at 8192 B MTU should be equal to or higher than at 4096 B MTU, particularly for small message sizes (reduced header overhead per byte).
 4. **LB mode comparison:** Record and compare Algorithm Bandwidth for ECMP vs. Packet Spray across all message sizes.
@@ -175,18 +188,18 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 1. Configure the DUT as in Test Case 1, Step 1.
 2. Configure 8 tester ports as in Test Case 1, Step 2.
 3. Configure **AllReduce Halving Doubling** over all 8 ranks (log₂(8) = 3 rounds; communication partners double in distance each round).
-4. For each of the 36 parameter combinations (P01–P36):
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start HDA collective and run to completion.
    c. Record all metrics as in Test Case 1, Step 4d.
-5. Repeat until all 36 combinations are measured.
+5. Repeat until all 36 combinations are measured in both CC modes.
 
 ### Expected Results
 
 1. All collective passes complete successfully.
    - No packet loss, no NAK, no sequence error.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. Bus Bandwidth = Algorithm Bandwidth × `2(n−1)/n` (factor = 1.75, n = 8) recorded per combination.
 3. **Algorithm comparison (vs. Test Case 1):**
    - For small message sizes (128 KB), HDA should achieve lower JCT than Ring due to fewer synchronization steps (3 rounds vs. 14 steps).
@@ -201,7 +214,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 ### Objective
 
 - Validate JCT, Algorithm Bandwidth, and Bus Bandwidth for **symmetric AlltoAll** where all M = 8 ranks exchange equal-sized chunks with every other rank.
-- AlltoAll generates full-mesh traffic within the single Leaf DUT, the most demanding pattern for switch buffer management and ECN/PFC response.
+- AlltoAll generates full-mesh traffic within the single Leaf DUT, the most demanding pattern for switch buffer management and PFC/ECN/DCQCN response.
 
 ### Topology
 
@@ -212,11 +225,11 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 1. Configure the DUT as in Test Case 1, Step 1.
 2. Configure 8 tester ports as in Test Case 1, Step 2.
 3. Configure **AlltoAll MtoM** (M = 8): each rank sends one equal chunk of `CollectiveSize / n` to each of the other 7 ranks simultaneously.
-4. For each of the 36 parameter combinations (P01–P36):
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start AlltoAll and run to completion.
    c. Record all metrics.
-5. Repeat until all 36 combinations are measured.
+5. Repeat until all 36 combinations are measured in both CC modes.
 
 ### Expected Results
 
@@ -224,7 +237,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
    - No packet loss on the tester.
    - No NAK, no sequence error.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. Algorithm Bandwidth and Bus Bandwidth (Bus BW ≈ Algorithm BW × 1 for AlltoAll) recorded per combination.
 3. All DUT egress ports toward receiver ranks should show balanced utilization; deviation across ports < 10%.
 4. **LB mode comparison:** Record Algorithm Bandwidth for ECMP vs. Packet Spray and compare across message sizes.
@@ -238,34 +251,38 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 - Test the switch's congestion handling capability under **asymmetric bidirectional AlltoAll (M ≠ N)**. Group A (M ranks) and Group B (N ranks) exchange traffic with each other simultaneously.
 - Because M > N, each rank in Group B receives from M sources while each rank in Group A receives from only N sources — creating incast congestion at Group B and triggering PFC/ECN/DCQCN.
-- Verify that the switch correctly applies congestion control to stabilize throughput and maximize bandwidth — with zero packet loss.
+- Verify that the switch correctly applies congestion control to stabilize throughput and maximize bandwidth under each CC mode (PFC, PFC + DCQCN) — with zero packet loss in both modes.
+- Compare the congestion response of the two CC modes.
 
 ### Topology
 
 - Uses **Test Topology A** (8 ports, single Leaf DUT).
-- **Group A**: Ranks 0–5 (M = 6). **Group B**: Ranks 6–7 (N = 2).
-- Both groups send to and receive from each other. Each Group B rank receives from 6 Group A ranks (3:1 incast); each Group A rank receives from 2 Group B ranks (no congestion).
+- **Group A**: Ranks 0–6 (M = 7). **Group B**: Rank 7 (N = 1).
+- Both groups send to and receive from each other. The Group B rank receives from 7 Group A ranks (7:1 incast); each Group A rank receives from 1 Group B rank (no congestion).
 
 ### Test Steps
 
 1. Configure the DUT as in Test Case 1, Step 1.
 2. Configure all 8 tester ports for bidirectional RoCEv2 traffic (each rank both sends and receives).
-3. Configure **AlltoAll MtoN** (M = 6, N = 2): each rank in Group A sends one chunk to every rank in Group B, and each rank in Group B sends one chunk to every rank in Group A.
-4. For each of the 36 parameter combinations (P01–P36):
+3. Configure **AlltoAll MtoN** (M = 7, N = 1): each rank in Group A sends one chunk to every rank in Group B, and each rank in Group B sends one chunk to every rank in Group A.
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start the collective and run to completion.
-   c. Record all metrics; note Rx rate on Group B ports (Ranks 6–7) and observe rate stabilization over time.
+   c. Record all metrics; note Rx rate on the Group B port (Rank 7) and observe rate stabilization over time.
 5. Optionally repeat with other M:N ratios (e.g., M = 5, N = 3) to characterize congestion response at different incast levels.
 
 ### Expected Results
 
-1. All passes complete successfully with no packet loss.
+1. All passes complete successfully with no packet loss in any CC mode.
    - No NAK, no sequence error.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
-   - Congestion at Group B: ECN-CE marking received by Group B ports (Ranks 6–7); PFC PAUSE and CNP received by Group A ports (Ranks 0–5). Verify DCQCN causes Group A send rates to stabilize.
+   - Congestion at Group B, by CC mode:
+     - **PFC**: PFC PAUSE received by Group A ports (Ranks 0–6); no ECN-CE or CNP. Group A throughput is throttled by PAUSE; record head-of-line blocking effects and rate oscillation.
+     - **PFC + DCQCN**: ECN-CE at Rank 7; PFC PAUSE and CNP at Ranks 0–6. Verify DCQCN stabilizes Group A rates and PFC is triggered less than in PFC mode.
 2. Group B Rx rate stabilizes and approaches line rate after congestion control converges; Group A Rx rate (from Group B) should be uncongested.
-3. DUT egress toward Group B should be balanced; both Group B ports receive approximately equal traffic volume.
+3. DUT egress toward the Group B port (Rank 7) should sustain near line rate after congestion control converges; DUT egress toward Group A ports should be balanced, with each port receiving approximately equal traffic volume.
 4. **LB mode comparison:** Record and compare Algorithm Bandwidth for ECMP vs. Packet Spray.
+5. **CC mode comparison:** Record and compare Algorithm Bandwidth, JCT, PFC count and loss between PFC and PFC + DCQCN.
 
 
 ---
@@ -291,7 +308,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
    - DSCP: 3 (same lossless queue as AllReduce, creating realistic contention).
    - Rate: 10% of line rate per port, constant and non-bursty.
    - P2P traffic starts before the AllReduce and continues throughout.
-5. For each of the 36 parameter combinations (P01–P36):
+5. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start P2P background traffic, then start AllReduce Ring; run AllReduce to completion.
    c. Record AllReduce JCT, Algorithm BW, Bus BW, and all counters. Record P2P Rx loss separately.
@@ -299,12 +316,12 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. AllReduce Ring passes complete successfully for all 36 combinations.
+1. AllReduce Ring passes complete successfully for all 36 combinations in both CC modes.
    - No packet loss on AllReduce QPs.
    - No NAK, no sequence error on AllReduce QPs.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
    - No packet loss on P2P streams.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. AllReduce JCT degradation relative to Test Case 1 is recorded per combination. Expected degradation proportional to 10% P2P load; JCT increase should be < 15%.
 3. P2P Rx rate remains stable throughout the AllReduce pass with no P2P loss.
 4. **LB mode comparison:** Record and compare JCT degradation for ECMP vs. Packet Spray.
@@ -329,7 +346,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 2. Configure 8 tester ports as in Test Case 1, Step 2.
 3. Configure **AllReduce Halving Doubling** over all 8 ranks (same as Test Case 2).
 4. Configure the same continuous P2P background traffic as Test Case 5, Step 4 (10% line rate, DSCP 3, bidirectional cross-rank pairs).
-5. For each of the 36 parameter combinations (P01–P36):
+5. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start P2P, then start HDA; run HDA to completion.
    c. Record HDA JCT, all bandwidth metrics, and all counters.
@@ -342,7 +359,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
    - No NAK, no sequence error.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
    - No packet loss on P2P streams.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. HDA JCT degradation vs. Test Case 2 baseline recorded; expected < 15% for 10% P2P load.
 3. **Cross-case comparison:** Compare TC-5 (Ring + P2P) vs. TC-6 (HDA + P2P) JCT degradation. HDA non-contiguous patterns may experience different buffer pressure within the single DUT.
 4. **LB mode comparison:** Record and compare JCT degradation for ECMP vs. Packet Spray.
@@ -355,7 +372,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 ### Objective
 
 - Measure the impact of concurrent continuous P2P background traffic on **AlltoAll MtoM** JCT and bandwidth.
-- AlltoAll already drives full-mesh intra-switch traffic; P2P adds further contention and stresses ECN/PFC mechanisms within the single Leaf DUT.
+- AlltoAll already drives full-mesh intra-switch traffic; P2P adds further contention and stresses the PFC/ECN/DCQCN mechanisms within the single Leaf DUT.
 
 ### Topology
 
@@ -367,7 +384,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 2. Configure 8 tester ports as in Test Case 1, Step 2.
 3. Configure **AlltoAll MtoM** over all 8 ranks (same as Test Case 3).
 4. Configure the same continuous P2P background traffic as Test Case 5, Step 4.
-5. For each of the 36 parameter combinations (P01–P36):
+5. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size.
    b. Start P2P, then start AlltoAll; run AlltoAll to completion.
    c. Record AlltoAll JCT, bandwidth metrics, and all counters. Record P2P loss separately.
@@ -375,13 +392,13 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. AlltoAll passes complete successfully for all 36 combinations.
+1. AlltoAll passes complete successfully for all 36 combinations in both CC modes.
    - No packet loss on AlltoAll or P2P streams.
    - No NAK, no sequence error on AlltoAll QPs.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. AlltoAll JCT degradation vs. Test Case 3 recorded; expected < 15% for 10% P2P load.
-3. Under combined AlltoAll + P2P load, verify no loss occurs on either traffic type. PFC may be triggered if P2P traffic causes queue buildup; record PFC count.
+3. Under combined AlltoAll + P2P load, verify no loss occurs on either traffic type. PFC (both modes) or ECN-CE/CNP (PFC + DCQCN mode only) may be triggered if P2P traffic causes queue buildup; record the applicable counts.
 4. **LB mode comparison:** Record and compare JCT degradation for ECMP vs. Packet Spray.
 
 
@@ -402,13 +419,13 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Test Steps
 
-1. Configure all DUTs (2 Leaf + 1 Spine) with lossless queue 3 (DSCP 3), queue 6 (DSCP 48); enable PFC and ECN on all ports. Verify all Leaf-to-Spine uplinks are active.
+1. Configure all DUTs (2 Leaf + 1 Spine) with lossless queue 3 (DSCP 3), queue 6 (DSCP 48); configure PFC and/or ECN on all ports according to the active CC mode (PFC or PFC + DCQCN). Verify all Leaf-to-Spine uplinks are active.
 2. Configure 16 tester ports:
    - Ranks 0–7: RoCEv2, DSCP 3 data, DSCP 48 CNP, QPs per rank pair as specified (1, 4, or 8), ECN-CE bit 01 or 10.
    - Ranks 8–15: identical configuration with independent QP identifiers.
 3. Configure **Group A**: AllReduce Uni-direction Ring over Ranks 0–7.
 4. Configure **Group B**: AlltoAll MtoM over Ranks 8–15.
-5. For each of the 36 parameter combinations (P01–P36):
+5. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and RDMA message size for both groups.
    b. Start Group A and Group B **simultaneously**.
    c. Record per-group JCT and all per-group counters independently.
@@ -417,10 +434,10 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. Both collectives complete successfully for all 36 combinations.
+1. Both collectives complete successfully for all 36 combinations in both CC modes.
    - No packet loss, no NAK, no sequence error in either group.
    - Reorder: zero for ECMP; expected and recorded per group for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero in both groups (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero in both groups (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. **Group A** JCT degradation vs. Test Case 1 is < 20% (shared Spine capacity between both Leaf pairs).
 3. **Group B** JCT degradation vs. Test Case 3 is < 20%.
 4. Spine egress traffic should be distributed across uplinks; verify total inter-Leaf load; deviation < 10%.
@@ -447,7 +464,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 2. Configure 16 tester ports as in Test Case 8, Step 2.
 3. Configure **Group A**: AllReduce Halving Doubling over Ranks 0–7.
 4. Configure **Group B**: AlltoAll MtoM over Ranks 8–15.
-5. For each of the 36 parameter combinations (P01–P36):
+5. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and message size for both groups.
    b. Start both groups simultaneously.
    c. Record per-group JCT, all counters.
@@ -456,10 +473,10 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. Both collectives complete successfully for all 36 combinations.
+1. Both collectives complete successfully for all 36 combinations in both CC modes.
    - No packet loss, no NAK, no sequence error in either group.
    - Reorder: zero for ECMP; expected and recorded per group for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero per group (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero per group (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. Group A JCT degradation vs. Test Case 2 is < 20%.
 3. Group B JCT degradation vs. Test Case 3 is < 20%.
 4. Spine uplinks carry balanced inter-Leaf load; deviation < 10%.
@@ -487,7 +504,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 3. Define a two-phase iteration:
    - **Phase 1**: AlltoAll MtoM over all 8 ranks – run to completion of all messages.
    - **Phase 2**: AllReduce Uni-direction Ring over all 8 ranks – triggered immediately upon Phase 1 completion.
-4. For each of the 36 parameter combinations (P01–P36):
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and message size.
    b. Run 10 consecutive Phase 1 → Phase 2 iterations.
    c. For each iteration record: Phase 1 JCT, Phase 2 JCT, and all per-phase counters.
@@ -495,10 +512,10 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. All phases complete successfully across all 10 iterations and 36 combinations.
+1. All phases complete successfully across all 10 iterations and 36 combinations in both CC modes.
    - No packet loss, no NAK, no sequence error in either phase.
    - Reorder: zero for ECMP; expected and recorded per phase for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero per phase (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero per phase (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. **Phase 1 (AlltoAll)** JCT stable across 10 iterations; CV < 5% per combination.
 3. **Phase 2 (AllReduce Ring)** JCT stable across 10 iterations; CV < 5% per combination.
 4. **LB mode comparison:** ECMP may exhibit higher JCT variance iteration-to-iteration due to flow-hash re-establishment after phase transitions. Packet Spray should provide more consistent per-iteration results.
@@ -524,7 +541,7 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 3. Define a two-phase iteration:
    - **Phase 1**: AlltoAll MtoM over all 8 ranks – run to completion.
    - **Phase 2**: AllReduce Halving Doubling over all 8 ranks – triggered immediately upon Phase 1 completion.
-4. For each of the 36 parameter combinations (P01–P36):
+4. For each CC mode (PFC, PFC + DCQCN) and each of the 36 parameter combinations (P01–P36):
    a. Set DUT load-balancing, IB MTU, and message size.
    b. Run 10 consecutive Phase 1 → Phase 2 iterations.
    c. Record per-iteration: Phase 1 JCT, Phase 2 JCT, and all per-phase counters.
@@ -532,12 +549,11 @@ Every test case iterates the following 36 combinations unless otherwise noted. H
 
 ### Expected Results
 
-1. All phases complete successfully across all 10 iterations and 36 combinations.
+1. All phases complete successfully across all 10 iterations and 36 combinations in both CC modes.
    - No packet loss, no NAK, no sequence error.
    - Reorder: zero for ECMP; expected and recorded for Packet Spray.
-   - PFC count, ECN-CE count, and CNP count should be zero per phase (no incast congestion expected).
+   - PFC count, ECN-CE count, and CNP count should be zero per phase (no incast congestion expected; ECN-CE and CNP counts are N/A in PFC mode).
 2. Phase 1 (AlltoAll) JCT stable; CV < 5% per combination.
 3. Phase 2 (HDA) JCT stable; CV < 5% per combination.
 4. **Cross-case comparison (TC-10 vs. TC-11):** The Phase 2 JCT difference between TC-10 (Ring) and TC-11 (HDA) should match the TC-1 vs. TC-2 standalone delta. A significantly larger gap indicates that HDA's non-contiguous traffic pattern amplifies residual AlltoAll congestion. Record and compare.
 5. **LB mode comparison:** Packet Spray should provide more consistent per-iteration Phase 2 results compared to ECMP.
-
