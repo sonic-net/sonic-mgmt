@@ -853,7 +853,6 @@ t0-vpp:
   - vxlan/test_vxlan_decap.py
   - vxlan/test_vxlan_decap_ttl.py
 
-
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
