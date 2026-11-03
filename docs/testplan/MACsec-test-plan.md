@@ -511,3 +511,7 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+#### Port channel load distribution ####
+- Send traffic from PTF over port channels
+- Check traffic (traffic load on links) to ensure the load is balanced between all links
