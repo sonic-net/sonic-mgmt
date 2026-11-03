@@ -1,6 +1,7 @@
 """Hardware-independent coverage for generic hash prerequisites and recovery."""
 
 import ast
+from collections import deque
 from contextlib import contextmanager, nullcontext
 import logging
 import math
@@ -670,6 +671,7 @@ def protocol_test():
     exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), "exec"), namespace)
     cls = namespace["GenericHashTest"]
     test = cls.__new__(cls)
+    test.dataplane = SimpleNamespace(PollFailure=type("PollFailure", (), {}))
     test.ipver = "ipv4"
     test.hash_field = "IP_PROTOCOL"
     test.inner_ipver = None
@@ -685,6 +687,7 @@ def protocol_test():
     test.generate_pkt = Mock(side_effect=lambda *args: (args[4], args[4], str(args[4])))
     namespace["testutils"].verify_packet_any_port.side_effect = lambda _, protocol, ports, timeout: (
         2 * (protocol % 8), b"received")
+    namespace["testutils"].dp_poll.return_value = test.dataplane.PollFailure()
     return SimpleNamespace(test=test, validate=namespace["validate_protocol_distribution"],
                            transport=namespace["testutils"])
 
@@ -717,6 +720,44 @@ def test_domain_runner_fails_without_retransmission(protocol_test, failure):
     with pytest.raises(AssertionError, match="missing packet|changed receiving port"):
         test.runTest()
     assert protocol_test.transport.send_packet.call_count == expected_sends
+
+
+@pytest.mark.parametrize("family", ["ipv4", "ipv6"])
+@pytest.mark.parametrize("duplicate", [None, "same_member", "other_member", "other_path", "unexpected_port"])
+def test_protocol_transport_detects_duplicates_before_next_send(protocol_test, family, duplicate):
+    test = protocol_test.test
+    test.ipver = family
+    pending = deque()
+
+    def send(_test, _port, protocol):
+        port = test.expected_port_list[2 * (protocol % 8)]
+        pending.extend([(port, protocol), (test.sending_ports[0], -1)])
+        if duplicate and protocol_test.transport.send_packet.call_count == 1:
+            extra_port = {"same_member": port, "other_member": port + 1,
+                          "other_path": (port + 2) % 16, "unexpected_port": 99}[duplicate]
+            pending.append((extra_port, protocol))
+
+    def poll(_test, device_number=0, port_number=None, timeout=None, exp_pkt=None):
+        assert device_number == 0 and port_number is None
+        while pending:
+            port, protocol = pending.popleft()
+            if protocol == exp_pkt:
+                return SimpleNamespace(port=port, packet=protocol, format=lambda: f"packet on port {port}")
+        return test.dataplane.PollFailure()
+
+    def receive(_test, protocol, ports, timeout):
+        result = protocol_test.transport.dp_poll(_test, exp_pkt=protocol, timeout=timeout)
+        assert not isinstance(result, test.dataplane.PollFailure)
+        return ports.index(result.port), b"received"
+
+    protocol_test.transport.send_packet.side_effect = send
+    protocol_test.transport.verify_packet_any_port.side_effect = receive
+    protocol_test.transport.dp_poll.side_effect = poll
+    with pytest.raises(AssertionError, match="duplicated") if duplicate else nullcontext():
+        test.runTest()
+    expected_sends = 1 if duplicate else 3 * len(test.get_ip_protocol_domain())
+    assert protocol_test.transport.send_packet.call_count == expected_sends
+    assert all(protocol == -1 for _, protocol in pending)
 
 
 def protocol_observations(domain, groups, counts):

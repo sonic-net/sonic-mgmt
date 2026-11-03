@@ -77,7 +77,11 @@ Those exclusions preserve the existing packet/parser constraints; this is not
 a claim about all 256 protocol values. Source/destination addresses, payload,
 transport bytes and ingress port stay fixed. Three complete passes, alternating
 forward/reverse order, must deliver every packet without retransmission and
-keep every protocol on the same receiving port.
+keep every protocol on the same receiving port. After each expected packet,
+a 100 ms packet-specific negative check rejects additional matching copies on
+any PTF port before sending the next protocol. This check remains active under
+`ptf_runner`'s `--relax` mode and ignores unrelated background packets. It adds
+about 74 seconds per complete IPv4 or IPv6 protocol-domain invocation.
 
 Every eligible ECMP path must receive traffic, with exactly one receiving
 member per LAG. Distribution is measured using **distinct protocols**, not
@@ -95,7 +99,8 @@ fields retain their existing 30% checks on this topology; t0, other ASICs,
 legacy FIB hashing and PBH tests retain their existing packet checks. No unmerged
 PBH/parameter-filter PR, seed change, tuple tuning or 70% tolerance is required.
 Regression controls reject ignored protocol hashing, missing paths, severe
-bias, unstable flows, missing protocols/repeats, loss and unexpected LAG entropy.
+bias, unstable flows, missing protocols/repeats, loss, duplicate copies and
+unexpected LAG entropy.
 
 `hash/test_generic_hash.py` is included in the `t1-lag-vpp` allowlist in
 `.azure-pipelines/pr_test_scripts.yaml`. Preserve the supported normal-CI

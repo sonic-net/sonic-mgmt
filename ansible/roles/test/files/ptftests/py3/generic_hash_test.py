@@ -67,6 +67,7 @@ class GenericHashTest(BaseTest):
     L4_SRC_PORT = 1234
     L4_DST_PORT = 80
     PROTOCOL_DOMAIN_REPEATS = 3
+    PROTOCOL_DUPLICATE_TIMEOUT = 0.1
 
     _required_params = [
         'sending_ports',
@@ -642,12 +643,18 @@ class GenericHashTest(BaseTest):
                 port_index, received = testutils.verify_packet_any_port(
                     self, expected, self.expected_port_list, timeout=1)
                 assert received is not None, f"Protocol {protocol} packet was not received."
+                # --relax disables the implicit check; reject matching copies on any port.
+                extra = testutils.dp_poll(
+                    self, device_number=0, timeout=self.PROTOCOL_DUPLICATE_TIMEOUT, exp_pkt=expected)
+                assert isinstance(extra, self.dataplane.PollFailure), \
+                    f"Protocol {protocol} was duplicated: {extra.format()}"
                 port = self.expected_port_list[port_index]
                 observations[protocol].append(port)
                 assert port == observations[protocol][0], f"Protocol {protocol} changed receiving port."
         logging.info("Protocol-domain observations: %s", observations)
         validate_protocol_distribution(
             observations, protocol_domain, self.expected_port_groups, self.PROTOCOL_DOMAIN_REPEATS)
-        logging.info("Protocol-domain packets: sent=%s, received=%s, retries=0",
+        logging.info("Protocol-domain packets: sent=%s, received=%s, retries=0, duplicates=0, "
+                     "duplicate_check_seconds=%s",
                      len(protocol_domain) * self.PROTOCOL_DOMAIN_REPEATS,
-                     sum(len(ports) for ports in observations.values()))
+                     sum(len(ports) for ports in observations.values()), self.PROTOCOL_DUPLICATE_TIMEOUT)
