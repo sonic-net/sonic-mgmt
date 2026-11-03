@@ -81,6 +81,15 @@ def capture_qos_rows(duthost, namespace, member_ports):
     }
     referenced.discard(None)
     captured["SCHEDULER"] = {k: copy.deepcopy(v) for k, v in scheduler.items() if k in referenced}
+    # Whatever the key format, a row's port is one of its fields. A member-port row the
+    # positional parse missed would silently shrink the baseline, so fail on it instead.
+    missed = [
+        f"{table}/{key}"
+        for table, rows in (("PORT_QOS_MAP", port_qos_map), ("QUEUE", queue))
+        for key in rows
+        if key not in captured[table] and members.intersection(key.split("|"))
+    ]
+    pytest_assert(not missed, f"QoS rows of member ports {sorted(members)} not captured: {missed}")
     return captured
 
 
@@ -189,10 +198,11 @@ def test_neighbor_remove_and_readd_scheduler(
     finally:
         # Reload the last persisted configuration even when a validation fails after the
         # peer has been removed. Only the reload window is hidden from the loganalyzer.
+        # exec_tsb: platforms with startup-tsa-tsb.conf stay in TSA for minutes after a reload.
         if la_entry:
             la_entry.add_start_ignore_mark()
         try:
-            config_reload(duthost, config_source="config_db", safe_reload=True)
+            config_reload(duthost, config_source="config_db", safe_reload=True, exec_tsb=True)
         finally:
             if la_entry:
                 la_entry.add_end_ignore_mark()
