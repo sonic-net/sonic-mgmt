@@ -25,8 +25,7 @@ agent Bfd shutdown
 !
 hostname {{ hostname }}
 !
-vrf definition MGMT
- rd 1:1
+vrf instance MGMT
 !
 spanning-tree mode mstp
 !
@@ -128,6 +127,9 @@ interface {{ bp_ifname }}
  no shutdown
 !
 router bgp {{ host['bgp']['asn'] }}
+ vrf MGMT
+  rd 1:1
+ exit
  router-id {{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
  graceful-restart restart-time {{ bgp_gr_timer }}

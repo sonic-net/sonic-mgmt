@@ -70,6 +70,7 @@ function usage
   echo "To deploy topology for specified testbed on a server: $0 add-topo 'testbed-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
+  echo "        -e ptf_bgp_speaker=gobgp # Run GoBGP in the PTF container instead of ExaBGP (default: the speaker already installed, otherwise exabgp)"
   echo "        --parallel               # Deploy topology on multiple servers in parallel"
   echo "To deploy topology with the help of the last cached deployed topology for the specified testbed on a server:"
   echo "        $0 deploy-topo-with-cache 'testbed-name' 'inventory' ~/.password"
@@ -83,6 +84,8 @@ function usage
   echo "To refresh DUT of specified testbed: $0 refresh-dut 'testbed-name' ~/.password"
   echo "To configure VMs for specified testbed on a server: $0 config-vm 'testbed-name' 'vm-name' ~/.password"
   echo "To announce routes to DUT for specified testbed: $0 announce-routes 'testbed-name' ~/.password"
+  echo "    Optional argument for announce-routes:"
+  echo "        -e ptf_bgp_speaker=gobgp # Run GoBGP in the PTF container instead of ExaBGP (default: the speaker already installed, otherwise exabgp)"
   echo "To generate minigraph for DUT in specified testbed: $0 gen-mg 'testbed-name' 'inventory' ~/.password"
   echo "To deploy minigraph to DUT in specified testbed: $0 deploy-mg 'testbed-name' 'inventory' ~/.password"
   echo "    gen-mg, deploy-mg, test-mg supports enabling/disabling data ACL with parameter"
@@ -217,17 +220,33 @@ function converge_topo_if_needed
     topo_file="$VARS_DIR/topo_${topo}.yml"
     backup_file="${topo_file}".bak
 
+    # Keep the cSONiC path independent from the established cEOS path below.
+    if [[ "$use_converged_peers" == "True" && "$vm_type" == "csonic" ]]; then
+        if [[ "$topo" != "t0" ]]; then
+            echo "cSONiC converged peers currently support topo=t0 only; skipping topo '$topo'."
+            return
+        fi
+        echo "use_converged_peers is true, converging cSONiC topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+
+        python -m csonic_topo_converger "$backup_file" "$topo_file"
+        return
+    fi
+
     if [[ "$use_converged_peers" == "True" ]]; then
-        # The converged (multi-VRF) peer model is implemented for cEOS
-        # neighbors only: a single cEOS VM hosts every merged sub-peer as a VRF,
-        # and only the cEOS startup-config templates render that VRF config.
-        # SONiC-VS / cisco / csonic neighbors have no converged render path, so
-        # reshaping the topology for them produces a DUT minigraph whose BGP
-        # neighbors the unconverged VS peers can't answer ("Not all bgp sessions
-        # established"). Gate on vm_type so non-cEOS deployments of a
-        # converged-enabled testbed behave exactly as they did historically.
+        # cSONiC T0 is handled by its dedicated branch above. This branch keeps
+        # the existing cEOS renderer strict: SONiC-VS and cisco neighbors have
+        # no equivalent render path, so reshaping their topology would make the
+        # DUT minigraph disagree with the deployed peers.
         if [[ "$vm_type" != "ceos" ]]; then
-            echo "use_converged_peers is true but vm_type='$vm_type' is not ceos; skipping converge (converged peer model is cEOS-only)."
+            echo "use_converged_peers is true but vm_type='$vm_type' is not eligible for the cEOS convergence path; skipping converge."
             return
         fi
         echo "use_converged_peers is true, converging topo..."

@@ -14,6 +14,7 @@ from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, create_gnmi_certs, \
     delete_gnmi_certs
+from tests.common.helpers.ntp_helper import setup_ntp_context, check_ntp_sync_status
 
 ecmp_utils = Ecmp_Utils()
 
@@ -639,7 +640,14 @@ def setup_gnmi_server(duthost, localhost, ptfhost):
         "Test was not supported on devices which do not support GNMI!")
 
     create_gnmi_certs(duthost, localhost, ptfhost)
-    apply_cert_config(duthost)
+
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0' or check_ntp_sync_status(duthost):
+        apply_cert_config(duthost)
+    else:
+        duthost_mgmt_info = duthost.get_mgmt_ip()
+        use_v6 = duthost_mgmt_info["version"] == "v6"
+        with setup_ntp_context(ptfhost, duthost, use_v6):
+            apply_cert_config(duthost)
 
 
 @pytest.fixture(scope="module")

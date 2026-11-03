@@ -22,15 +22,13 @@ REDIS_CLI_TRANSCEIVER_TYPE = 'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{}" "
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list,  # noqa: F811
+def sfp_test_intfs_to_dom_map(rand_selected_dut, conn_graph_facts, xcvr_skip_list,  # noqa: F811
                               get_sw_control_ports, port_list_with_flat_memory):  # noqa: F811
     '''
     This fixture is to get map sfp test intfs to dom
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-
     sfp_test_intf_list = list(
-        conn_graph_facts["device_conn"][duthost.hostname].keys())
+        conn_graph_facts["device_conn"][rand_selected_dut.hostname].keys())
 
     if get_sw_control_ports:
         # Exclude get_sw_control_ports from sfp_test_intf_list
@@ -39,15 +37,15 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
     sfp_test_intfs_to_dom_map_dict = {}
 
     for intf in sfp_test_intf_list:
-        if intf not in xcvr_skip_list[duthost.hostname]:
-            inft_support_dom = False if intf in port_list_with_flat_memory[duthost.hostname] else True
+        if intf not in xcvr_skip_list[rand_selected_dut.hostname]:
+            inft_support_dom = False if intf in port_list_with_flat_memory[rand_selected_dut.hostname] else True
             sfp_test_intfs_to_dom_map_dict[intf] = inft_support_dom
     logging.info(f"sfp_test_intfs_to_dom_map_dict: {sfp_test_intfs_to_dom_map_dict}")
     return sfp_test_intfs_to_dom_map_dict
 
 
 @pytest.mark.parametrize("show_eeprom_cmd", SHOW_EEPOMR_CMDS)
-def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map,
+def test_check_sfp_eeprom_with_option_dom(rand_selected_dut, show_eeprom_cmd, sfp_test_intfs_to_dom_map,
                                           port_list_with_flat_memory, is_cpo_supported):
     """This test case is to check result of  transceiver eeprom with option -d is correct or not for every interface .
     It will do below checks for every available interface
@@ -55,13 +53,11 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
         2. When cable support dom, check the corresponding keys related to monitor exist,
            and the the corresponding value has correct format
     """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, rand_selected_dut),
                   "Pmon docker is not ready for test")
 
     with allure.step("Run: {} to get transceiver eeprom info".format(show_eeprom_cmd)):
-        check_eeprom_dom_output = duthost.command(show_eeprom_cmd)
+        check_eeprom_dom_output = rand_selected_dut.command(show_eeprom_cmd)
         sfp_info_dict = parse_sfp_eeprom_infos(
             check_eeprom_dom_output["stdout"])
         assert sfp_info_dict, "No SFP EEPROM info found"
@@ -69,7 +65,7 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
     with allure.step("Check results for {}".format(show_eeprom_cmd)):
         if is_cpo_supported:
             with allure.step("Run: {} to get interface status".format(SHOW_INTF_STATUS_CMDS)):
-                intf_status = duthost.show_and_parse(SHOW_INTF_STATUS_CMDS)
+                intf_status = rand_selected_dut.show_and_parse(SHOW_INTF_STATUS_CMDS)
                 assert intf_status["rc"] == 0, "Failed to read interface status"
                 intf_status_dict = {row["interface"]: row for row in intf_status}
 
@@ -79,14 +75,14 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     if sfp_info_dict[intf] == "SFP EEPROM Not detected":
                         allure.step("{}: SFP EEPROM Not detected".format(intf))
                         continue
-                    is_flat_memory = True if intf in port_list_with_flat_memory[duthost.hostname] else False
+                    is_flat_memory = True if intf in port_list_with_flat_memory[rand_selected_dut.hostname] else False
                     check_sfp_eeprom_info(
-                        duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)
+                        rand_selected_dut, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)
 
                 if is_cpo_supported:
                     with allure.step("Check {} identifier type".format(intf)):
                         cmd = f'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{intf}" "type"'.format(intf)
-                        transceiver_type = duthost.command(cmd)["stdout"]
+                        transceiver_type = rand_selected_dut.command(cmd)["stdout"]
                         assert transceiver_type == CPO_PORT_TYPE, f"Transceiver type in state DBis not {CPO_PORT_TYPE}"
                         assert intf_status_dict[intf]["type"] == CPO_PORT_TYPE, \
                             f"Interface type in show interface status is not {CPO_PORT_TYPE}"

@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 import json
 
@@ -8,7 +9,8 @@ from tests.common.errors import MissingInputError
 from tests.common.devices.sonic import SonicHost
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
-ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))
+ANSIBLE_ROOT = pathlib.Path(os.getenv("ANSIBLE_CONFIG",
+                                      pathlib.Path(__file__).resolve().parent.joinpath("../../ansible")))
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,7 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "Arista-7260QX3": "Tomahawk2",
         "M2-W6940-64X1-FR4": "Tomahawk5",
         "Nokia-IXR7220": "Tomahawk6",
+        "NH-4210-F-O256": "Tomahawk6",
         }
 
     for sku, chip in hwSkuInfo.items():

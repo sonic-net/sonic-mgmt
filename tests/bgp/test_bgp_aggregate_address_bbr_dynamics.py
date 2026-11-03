@@ -41,7 +41,7 @@ from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 pytestmark = [
-    pytest.mark.topology("m1"),
+    pytest.mark.topology("m1", "uma", "lma"),
 ]
 
 # ---- Test data ----

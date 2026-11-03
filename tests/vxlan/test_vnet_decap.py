@@ -82,8 +82,8 @@ def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, ou
     """
     duthost = duthosts[rand_one_dut_hostname]
     asic_type = duthost.facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox"]:
-        pytest.skip("The VNET decap test will only run on Cisco-8000 and Mellanox ASICs.")
+    if asic_type not in ["cisco-8000", "mellanox", "vpp"]:
+        pytest.skip("The VNET decap test will only run on Cisco-8000, Mellanox, and VPP ASICs.")
     platform = duthost.facts["platform"]
     if platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']:
         pytest.skip("Mellanox msn2700 switches do not support VNET decapsulation.")

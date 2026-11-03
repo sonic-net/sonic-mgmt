@@ -44,6 +44,8 @@ validators:
       - vlab-07.*
       - .*snappi-sonic.* # vms-snappi-sonic ptf, snappi-sonic-api-serv, etc.
       - sonic-s6100-dut2
+      - keysight-.*-dpu.*  # SmartSwitch DPUs share the NPU mgmt IP via NAT port-forward (ssh 5021/5022)
+      - ptf_keysight-.*    # placeholder ptf hosts on docker bridge 172.17.0.1 (test sends no traffic)
 - name: vlan
   enabled: true
   config:
@@ -59,6 +61,7 @@ validators:
       - sonic-s6100-dut1   # E3002 Device has no console connection
       - sonic-s6100-dut2   # E3002 Device has no console connection
       - vnut-.*            # E3002 Virtual devices have no console connection
+      - keysight-.*-dpu.*  # SmartSwitch DPUs are on-board the NPU; no independent console
 - name: pdu
   enabled: true
   config:
@@ -66,4 +69,5 @@ validators:
       - sonic-s6100-dut1   # E4002 Device has no PDU connection
       - sonic-s6100-dut2   # E4002 Device has no PDU connection
       - vnut-.*            # E4002 Virtual devices have no PDU connection
+      - keysight-.*-dpu.*  # SmartSwitch DPUs are on-board the NPU; no independent PDU
 issue_severities: {}

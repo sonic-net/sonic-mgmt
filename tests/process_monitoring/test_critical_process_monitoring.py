@@ -6,6 +6,7 @@ from collections import defaultdict
 import re
 import time
 import logging
+import os
 
 import pytest
 
@@ -14,8 +15,8 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.reboot import wait_for_startup
-from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
+from tests.common.reboot import REBOOT_TYPE_POWEROFF, reboot_ctrl_dict, wait_for_startup
+from tests.common.utilities import get_plt_reboot_ctrl, pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -33,6 +34,9 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+# config_reload adds 120 seconds to these values for its BGP convergence check.
+CONFIG_RELOAD_WAIT_SECS = 120
+LT2_CONFIG_RELOAD_WAIT_SECS = 480
 
 # Delay (seconds) between issuing the SysRq kernel reboot and when it fires.
 # Used on multi-ASIC VS: the reboot is scheduled just before the global DB
@@ -48,6 +52,33 @@ MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
 BMC_UNSUPPORTED_CRITICAL_PROCESSES = {
     "lldp": ["lldp-syncd"],
 }
+
+
+# Critical processes whose container supervisord.conf sets `autorestart=true`.
+# When killed, supervisord restarts them immediately, so they never stay down
+# long enough for the supervisor-proc-exit-listener to emit a
+# "Process '<name>' is not running" alert into syslog. They are still killed to
+# exercise the kill/restart path, but must be excluded from the expected
+# alerting messages. Keyed by container name:
+#   - otel: the 'otel' process autorestarts
+#   - redfish: 'bmcweb' / 'sonic-dbus-bridge' autorestart (BMC platforms only)
+AUTORESTART_CRITICAL_PROCESSES = {
+    "otel": ["otel"],
+    "redfish": ["sonic-dbus-bridge", "bmcweb"],
+}
+
+
+def _is_autorestart_process(container_name, critical_process):
+    """Return True if the given critical process is configured with
+    autorestart=true and therefore never emits a "not running" alert when killed.
+
+    Matches against the base container name, tolerating a namespace/ASIC suffix
+    (e.g. 'otel0') that may be appended for multi-ASIC platforms.
+    """
+    for base_container, processes in AUTORESTART_CRITICAL_PROCESSES.items():
+        if container_name.startswith(base_container) and critical_process in processes:
+            return True
+    return False
 
 
 def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
@@ -68,11 +99,16 @@ def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
     return filtered
 
 
+def get_config_reload_wait(tbinfo):
+    return LT2_CONFIG_RELOAD_WAIT_SECS if tbinfo["topo"]["type"] == "lt2" else CONFIG_RELOAD_WAIT_SECS
+
+
 @pytest.fixture(autouse=True, scope='module')
-def config_reload_after_tests(duthosts, rand_one_dut_hostname):
+def config_reload_after_tests(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                  wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -360,8 +396,13 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
-                # Skip 'otel' process since it would autorestart
-                if "otel" in container_name_in_namespace and critical_process == "otel":
+                # Skip processes configured with autorestart=true (e.g. 'otel', and
+                # the redfish container's 'bmcweb' / 'sonic-dbus-bridge'). They are
+                # restarted immediately when killed, so they never emit a
+                # "not running" alert into syslog.
+                if _is_autorestart_process(container_name_in_namespace, critical_process):
+                    logger.info("Skipping autorestart process '{}' in container '{}' from expected alerts"
+                                .format(critical_process, container_name_in_namespace))
                     continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
@@ -371,6 +412,10 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
+                    if _is_autorestart_process(container_name_in_namespace, program_name):
+                        logger.info("Skipping autorestart process '{}' in container '{}' from expected alerts"
+                                    .format(program_name, container_name_in_namespace))
+                        continue
                     logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                                 .format(program_name, container_name_in_namespace))
                     expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*"
@@ -651,9 +696,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                 raise
 
         logger.info("Waiting for DUT to boot up after power cycle...")
-        # Wait for DUT to come back up after power cycle
-        # Get timeout values based on chassis type
-        timeout = 300
+        # Wait for DUT to come back up after power cycle. Like tests.common.reboot.reboot(), use the
+        # power-off reboot timeout and its platform override (plt_reboot_dict) from the inventory.
+        tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_POWEROFF)
+        timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_POWEROFF]["timeout"])
         wait_time = 120
         if duthost.facts.get("modular_chassis"):
             wait_time = max(wait_time, 600)
@@ -712,7 +759,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                         % db_config_timeout)
 
         logger.info("Database config ready, performing config reload for clean recovery...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                      wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
@@ -720,7 +768,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                      wait=get_config_reload_wait(tbinfo), wait_for_bgp=True)
         logger.info("Executing the config reload was done!")
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)

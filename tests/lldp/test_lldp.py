@@ -1,4 +1,5 @@
 import contextlib
+import ipaddress
 import logging
 import re
 import pytest
@@ -11,9 +12,23 @@ from tests.common.helpers.dut_utils import is_virtual_platform
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'uma', 'lma', 'c0'),
     pytest.mark.device_type('vs')
 ]
+
+
+def _is_csonic_neighbor(request, tbinfo):
+    neighbor_type = request.config.getoption("--neighbor_type")
+    overridden = any(
+        arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+        for arg in request.config.invocation_params.args
+    )
+    return neighbor_type == 'csonic' or (
+        not overridden
+        and tbinfo.get('vm_type') == 'csonic'
+        and tbinfo.get('topo', {}).get('properties', {}).get(
+            'topo_is_multi_vrf', False)
+    )
 
 
 @pytest.fixture(scope="module", autouse="True")
@@ -102,7 +117,10 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
             primary = rev_vrf_map[vrf]
             new_intf = convergence_info['converged_peers'][primary]['intf_mapping'][vrf]['orig_intf_map'][exp_intf]
             assert v['chassis']['name'] == primary
-            assert v['port']['ifname'] == new_intf
+            if _is_csonic_neighbor(request, duthosts.tbinfo):
+                assert v['port']['descr'] == new_intf
+            else:
+                assert v['port']['ifname'] == new_intf
         else:
             # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
             assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
@@ -130,17 +148,20 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 )
 
 
-def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface):
-    """Return True if the neighbor's LLDP table contains the expected interface."""
+def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface,
+                             dut_hostname, dut_port_alias):
+    """Return True if the neighbor's LLDP table has an entry for the DUT link."""
     nei_lldp_facts = localhost.lldp_facts(
         host=hostip, version='v2c', community=snmp_community)['ansible_facts']
     return neighbor_interface in nei_lldp_facts.get('ansible_lldp_facts', {})
 
 
-def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_rand_one_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
     asic = enum_rand_one_frontend_asic_index
+    is_csonic = _is_csonic_neighbor(request, tbinfo)
 
     res = duthost.shell(
         "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(
@@ -173,17 +194,66 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
-        if request.config.getoption("--neighbor_type") == 'eos':
+        # The lldp_facts SNMP module only supports IPv4 UDP transport. A SONiC
+        # neighbor may advertise an IPv6 management address via LLDP, which the
+        # module cannot query ([Errno -9] Address family for hostname not
+        # supported). When the advertised mgmt-ip is not usable for IPv4 SNMP,
+        # fall back to the IPv4 mgmt_addr from DEVICE_NEIGHBOR_METADATA.
+        def _is_ipv4(addr):
+            try:
+                return isinstance(ipaddress.ip_address(str(addr)), ipaddress.IPv4Address)
+            except ValueError:
+                return False
+
+        if not _is_ipv4(hostip):
+            nei_name = v['chassis'].get('name')
+            fallback = nei_meta.get(nei_name, {}).get('mgmt_addr')
+            if _is_ipv4(fallback):
+                logger.info(
+                    "Neighbor {} advertised non-IPv4 LLDP mgmt-ip '{}'; using IPv4 "
+                    "mgmt_addr '{}' from DEVICE_NEIGHBOR_METADATA for SNMP".format(
+                        nei_name, hostip, fallback))
+                hostip = fallback
+            else:
+                pytest.fail(
+                    "Neighbor {} has no IPv4 management address usable for SNMP: "
+                    "LLDP mgmt-ip='{}', DEVICE_NEIGHBOR_METADATA mgmt_addr='{}'".format(
+                        nei_name, hostip, fallback))
+
+        if request.config.getoption("--neighbor_type") == 'eos' and not is_csonic:
             neighbor_interface = v['port']['ifname']
             snmp_community = eos['snmp_rocommunity']
         else:
-            neighbor_interface = v['port']['local']
-            snmp_community = sonic['snmp_rocommunity']
+            # A SONiC (cSONiC/docker-sonic-vs) neighbor advertises its LLDP
+            # port-id with the MAC subtype, so the DUT-side lldpctl 'port' dict
+            # carries neither 'local' (EOS ifname subtype) nor 'ifname'. In that
+            # case the neighbor's own local interface name is exposed via the
+            # port description ('descr', e.g. 'Ethernet1'), which is what indexes
+            # its SNMP LLDP local-port table below. Fall back local -> ifname ->
+            # descr so both EOS-style and MAC-subtype (cSONiC) neighbors resolve.
+            port = v['port']
+            neighbor_interface = (
+                port.get('local') or port.get('ifname') or port.get('descr')
+            )
+            if not neighbor_interface:
+                pytest.fail(
+                    "Neighbor LLDP 'port' dict for DUT iface '{}' exposes no "
+                    "local/ifname/descr port identifier: keys={}".format(
+                        k, sorted(port.keys())))
+            neighbor_name = v['chassis'].get('name')
+            snmp_community = sonic(
+                nbrhosts, neighbor_name)['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
         # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
+        dut_port_alias = config_facts.get('PORT', {}).get(k, {}).get('alias')
+        if (request.config.getoption("--neighbor_type") != 'eos' or is_csonic) and not dut_port_alias:
+            pytest.fail(
+                "DUT iface '{}' has no PORT alias in CONFIG_DB; cannot resolve SONiC "
+                "neighbor SNMP LLDP local-port key".format(k))
         assert wait_until(30, 5, 0, _neighbor_has_lldp_entry,
-                          localhost, hostip, snmp_community, neighbor_interface), \
+                          localhost, hostip, snmp_community, neighbor_interface,
+                          duthost.hostname, dut_port_alias), \
             "Neighbor {} did not learn LLDP on interface '{}' within 30s".format(
                 hostip, neighbor_interface)
 
@@ -201,7 +271,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
         )
 
         # Verify the published DUT chassis id field is not empty
-        if request.config.getoption("--neighbor_type") == 'eos':
+        if request.config.getoption("--neighbor_type") == 'eos' and not is_csonic:
             assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
                 "0x%s" % (switch_mac.replace(':', '')), (
                 "LLDP neighbor chassis ID mismatch for interface '{}'. "
@@ -258,8 +328,10 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             )
 
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                       localhost, nbrhosts, eos, sonic,
+                       collect_techsupport_all_duts, loganalyzer,
+                       enum_frontend_asic_index, tbinfo, request):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     if loganalyzer:
@@ -270,16 +342,19 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
             ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was \
                 not sent since it contain invalid OIDs, bug.*",
         ])
-    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+    check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
 
 
 @pytest.mark.disable_loganalyzer
-def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                                        sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
-                                        tbinfo, request, restart_swss_container):
+def test_lldp_neighbor_post_swss_reboot(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+        nbrhosts, eos, sonic, collect_techsupport_all_duts,
+        enum_frontend_asic_index, tbinfo, request, restart_swss_container):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+    check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
+                        collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
 
 
@@ -353,7 +428,9 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     # Filter intf_status_output: exclude PortChannel interfaces and admin down interfaces
     intf_status_filtered_for_lldp = {
         intf['interface'] for intf in intf_status_output
-        if not intf['interface'].startswith('PortChannel') and intf['admin'].lower() == 'up'
+        if not intf['interface'].startswith('PortChannel') and
+        not intf['alias'].startswith('Recirc') and
+        intf['admin'].lower() == 'up'
     }
 
     missing_in_lldp_table = intf_status_filtered_for_lldp - lldp_table_interfaces_no_eth0
@@ -436,12 +513,15 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
             asic.asic_index, len(asic_ports)))
         intf_status_filtered_for_lldpcli = {
             intf['interface'] for intf in intf_status_output
-            if not intf['interface'].startswith('PortChannel') and intf['interface'] in asic_ports
+            if not intf['interface'].startswith('PortChannel') and
+            not intf['alias'].startswith('Recirc') and
+            intf['interface'] in asic_ports
         }
     else:
         intf_status_filtered_for_lldpcli = {
             intf['interface'] for intf in intf_status_output
-            if not intf['interface'].startswith('PortChannel')
+            if not intf['interface'].startswith('PortChannel') and
+            not intf['alias'].startswith('Recirc')
         }
 
     missing_in_lldpcli = intf_status_filtered_for_lldpcli - lldpcli_interfaces_no_eth0
@@ -507,7 +587,9 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
     # Compare intf_status_output with lldpctl_facts interfaces (exclude PortChannels and admin down from intf_status)
     intf_status_filtered_for_lldpctl = {
         intf['interface'] for intf in intf_status_output
-        if not intf['interface'].startswith('PortChannel') and intf['admin'].lower() == 'up'
+        if not intf['interface'].startswith('PortChannel') and
+        not intf['alias'].startswith('Recirc') and
+        intf['admin'].lower() == 'up'
     }
 
     missing_in_lldpctl_facts = intf_status_filtered_for_lldpctl - lldpctl_facts_interfaces
