@@ -18,7 +18,8 @@ from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
-from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
+from tests.common.dualtor.dual_tor_common import (ActiveActivePortID, active_active_ports,  # noqa: F401
+                                                  active_standby_ports)
 from tests.common.dualtor.dual_tor_utils import (upper_tor_host,  # noqa: F401
                                                  lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled)
 from tests.common.dualtor.mux_simulator_control import (toggle_all_simulator_ports,  # noqa: F401
@@ -1755,13 +1756,15 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class')
     def disable_mux_for_qos(
         self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
-        toggle_all_simulator_ports, active_standby_ports  # noqa: F811
+        toggle_all_simulator_ports, active_active_ports, active_standby_ports,  # noqa: F811
+        mux_status_from_nic_simulator  # noqa: F811
     ):
         """Keep dual-ToR mux ports stable during QoS tests.
 
-        Active-standby ports retain the existing QoS setup and are moved to the
-        lower ToR first. The mux service and write_standby.py remain untouched;
-        manual muxcable mode prevents linkmgrd from changing the port state
+        Active-standby ports are moved to the lower ToR, which is the DUT used
+        by dual-ToR QoS tests. Active-active ports are made active on both ToRs.
+        The mux service and write_standby.py remain untouched; manual muxcable
+        mode prevents linkmgrd from changing the established forwarding state
         while the test is running.
         """
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
@@ -1780,9 +1783,35 @@ class QosSaiBase(QosBase):
                     120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
                 validate_check_result(check_result, duthosts, get_mux_status)
 
+            if active_active_ports:
+                # QoS uses the lower ToR on dual-ToR testbeds. Ensure that its
+                # SAI/PTF port map contains every active-active server port,
+                # while retaining normal active-active forwarding on the upper
+                # ToR as well.
+                active_commands = [
+                    'sudo config muxcable mode active {}'.format(port)
+                    for port in active_active_ports
+                ]
+                for tor_host in (upper_tor_host, lower_tor_host):
+                    tor_host.shell_cmds(cmds=active_commands)
+
+                def active_active_ports_forward_on_both_tors():
+                    mux_status = mux_status_from_nic_simulator()
+                    if len(mux_status) != len(active_active_ports):
+                        return False
+                    return all(
+                        port_status.get(ActiveActivePortID.UPPER_TOR, False)
+                        and port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                        for port_status in mux_status.values()
+                    )
+
+                pytest_assert(
+                    wait_until(60, 5, 0, active_active_ports_forward_on_both_tors),
+                    "Active-active mux ports did not become active on both ToRs")
+
             # Do not stop mux or modify write_standby.py. Manual mode prevents
-            # automatic linkmgrd/heartbeat changes and preserves existing
-            # active-active state on mixed dual-ToR topologies.
+            # automatic linkmgrd/heartbeat changes after the required active-
+            # standby and active-active forwarding states are established.
             duthosts.shell('sudo config muxcable mode manual all')
             logger.info("Set mux ports to manual mode for dual-ToR QoS tests")
 
