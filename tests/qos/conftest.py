@@ -175,17 +175,13 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
         pytest.skip("Skip test for lossy only pool")
 
 
-# Maps a TestQosSai parameter set (select_src_dst_dut_and_asic value) to the
-# nodeid of a seed test whose shared (class/module/session) fixture errored in
-# setup, so downstream cases in that set xfail instead of re-erroring on the
-# same cached exception. Per-worker under xdist: only suppresses when seed and
-# derivatives share a worker (serial or --dist loadscope/loadgroup); plain
-# --dist load falls back to per-case ERROR.
+# Parameter set -> nodeid of the seed test whose shared fixture failed.
+# Per xdist worker, so it only helps when the seed and its tests share a worker.
 _qos_sai_fixture_failures = {}
 
 
 def pytest_sessionstart(session):
-    """Reset tracking so stale entries can't leak across reused pytest-xdist workers."""
+    """Clear failures left over from a previous session on a reused xdist worker."""
     _qos_sai_fixture_failures.clear()
 
 
@@ -202,9 +198,8 @@ def _qos_sai_param_set(item):
 
 
 def _qos_sai_shared_fixture_failed(item):
-    """Return True if a non-function-scoped fixture of item holds a cached setup exception."""
-    # pytest re-raises a cached higher-scope fixture error for every later test; function-scoped
-    # fixtures re-run per test, so their failures don't cascade.
+    """Return True if a class/module/session fixture of item failed in setup."""
+    # Only these failures cascade: pytest caches them and re-raises them for every later test.
     for fixturedefs in item._fixtureinfo.name2fixturedefs.values():
         fixturedef = fixturedefs[-1]
         cached = fixturedef.cached_result
@@ -214,12 +209,12 @@ def _qos_sai_shared_fixture_failed(item):
 
 
 def pytest_runtest_makereport(item, call):
-    """Record a seed (testParameter) shared-fixture setup error to suppress cascades in its parameter set."""
+    """Record a shared-fixture failure on the seed test for its parameter set."""
     if not _is_qos_sai_item(item) or 'fixture_seed' not in item.keywords:
         return
     if call.when != "setup" or call.excinfo is None:
         return
-    # Intentional skip/xfail in setup is not a failure; derivatives must evaluate their own exclusions.
+    # A skip or xfail in setup is intentional, not a failure.
     if call.excinfo.errisinstance((pytest.skip.Exception, pytest.xfail.Exception)):
         return
     if _qos_sai_shared_fixture_failed(item):
@@ -227,7 +222,7 @@ def pytest_runtest_makereport(item, call):
 
 
 def pytest_runtest_setup(item):
-    """xfail downstream TestQosSai cases whose parameter set already failed its seed fixture."""
+    """xfail TestQosSai tests whose parameter set already has a recorded seed failure."""
     if not _is_qos_sai_item(item):
         return
 
