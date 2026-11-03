@@ -252,6 +252,66 @@ export -f sonic-db-cli
     assert caplog.text.count("SAI_TEST_ATTR") == 3
 
 
+@pytest.mark.parametrize("rc,failed", [(0, False), (1, True), (124, False)])
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_dut_snapshot_bounds_stdout_and_stderr_at_debug_level(diagnostic_namespace, caplog, rc, failed, stream):
+    caplog.set_level(logging.DEBUG)
+    result = {"rc": rc, "failed": failed, "stdout": "", "stderr": "",
+              "stdout_lines": ["DUPLICATE_RESULT"], "stderr_lines": ["DUPLICATE_RESULT"]}
+    result[stream] = "SNAPSHOT_HEAD" + "x" * 65536 + "SNAPSHOT_TAIL"
+    dut = Mock(hostname="dut")
+    dut.get_asic_namespace_list.return_value = [""]
+    dut.shell.return_value = result
+
+    diagnostic_namespace["log_hash_state"]([dut], "before")
+
+    assert all(call.kwargs.get("verbose", True) is False for call in dut.shell.call_args_list)
+    messages = [record.getMessage() for record in caplog.records
+                if record.getMessage().startswith("Hash debug ASIC_DB")]
+    assert len(messages) == 4
+    status = "rc={} failed={}".format(rc, failed or rc != 0)
+    assert all(status in message for message in messages)
+    assert all("SNAPSHOT_HEAD" in message for message in messages)
+    assert all(len(message.split("\n", 1)[1]) <= 65536 for message in messages)
+    assert "SNAPSHOT_TAIL" not in caplog.text
+    assert "DUPLICATE_RESULT" not in caplog.text
+    assert caplog.text.count("Hash debug output truncated") == 4
+
+
+@pytest.mark.parametrize("has_results", [False, True])
+def test_dut_snapshot_bounds_exceptions_and_preserves_original_failure(diagnostic_namespace, caplog, has_results):
+    caplog.set_level(logging.DEBUG)
+    error = diagnostic_namespace["RunAnsibleModuleFail"]("ERROR_HEAD" + "x" * 65536 + "EXCEPTION_TAIL")
+    error.results = {"rc": 124, "msg": "remote timeout", "stderr": "ERROR_HEAD" + "x" * 65536 + "STDERR_TAIL",
+                     "stdout_lines": ["DUPLICATE_RESULT"]} if has_results else None
+    dut = Mock(hostname="dut")
+    dut.get_asic_namespace_list.return_value = [""]
+    dut.shell.side_effect = error
+    request = Mock()
+    request.config.getoption.return_value = True
+    request.getfixturevalue.return_value = [dut]
+    generator = diagnostic_namespace["hash_debug_snapshot"].__wrapped__(request, None)
+
+    next(generator)
+    with pytest.raises(AssertionError, match="original failure"):
+        generator.throw(AssertionError("original failure"))
+
+    assert dut.shell.call_count == 8
+    assert all(call.kwargs.get("verbose", True) is False for call in dut.shell.call_args_list)
+    records = [record for record in caplog.records
+               if record.getMessage().startswith("Hash debug ASIC_DB")]
+    assert len(records) == 8
+    status = "rc={} failed=True".format(124 if has_results else None)
+    assert all(status in record.getMessage() for record in records)
+    assert all(record.exc_info is None for record in records)
+    assert all(len(record.getMessage().split("\n", 1)[1]) <= 65536 for record in records)
+    assert "ERROR_HEAD" in caplog.text
+    assert "EXCEPTION_TAIL" not in caplog.text
+    assert "STDERR_TAIL" not in caplog.text
+    assert "DUPLICATE_RESULT" not in caplog.text
+    assert caplog.text.count("Hash debug output truncated") == 8
+
+
 def test_seed_and_debug_are_forwarded(diagnostic_namespace):
     request = Mock()
     request.config.getoption.side_effect = lambda option: {"--hash-seed": 0, "--hash-debug": True}[option]

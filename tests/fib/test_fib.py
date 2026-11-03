@@ -67,6 +67,7 @@ def hash_replay_params(request):
 
 
 def log_hash_state(duthosts, phase):
+    output_limit = 65536
     for dut in duthosts:
         for namespace in dut.get_asic_namespace_list():
             cli = "sonic-db-cli {} ASIC_DB".format("-n {}".format(shlex.quote(namespace)) if namespace else "")
@@ -77,20 +78,20 @@ def log_hash_state(duthosts, phase):
                           '{} HGETALL "$key"; done').format(cli, shlex.quote(pattern), cli)
                 command = "timeout 10 bash -o pipefail -ec {}".format(shlex.quote(script))
                 try:
-                    result = dut.shell(command, module_ignore_errors=True)
-                except RunAnsibleModuleFail:
-                    logger.exception("Hash debug ASIC_DB query failed: dut=%s namespace=%s phase=%s type=%s",
-                                     dut.hostname, namespace, phase, object_type)
-                    continue
-                if result.get('failed') or result.get('rc') != 0:
-                    logger.warning("Hash debug ASIC_DB query failed: dut=%s namespace=%s phase=%s type=%s result=%s",
-                                   dut.hostname, namespace, phase, object_type, result)
-                    continue
-                output = result['stdout']
-                logger.info("Hash debug ASIC_DB SAI objects: dut=%s namespace=%s phase=%s type=%s\n%s",
-                            dut.hostname, namespace, phase, object_type, output[:65536])
-                if len(output) > 65536:
-                    logger.warning("Hash debug output truncated: type=%s total_chars=%s", object_type, len(output))
+                    result = dut.shell(command, module_ignore_errors=True, verbose=False)
+                except RunAnsibleModuleFail as error:
+                    result = dict(error.results or {}, failed=True)
+                    result.setdefault('msg', error.args[0] if error.args else type(error).__name__)
+                failed = bool(result.get('failed')) or result.get('rc') != 0
+                output = "msg:\n{}\nstderr:\n{}\nstdout:\n{}".format(
+                    result.get('msg', ''), result.get('stderr', ''), result.get('stdout', ''))
+                log_result = logger.warning if failed else logger.info
+                log_result("Hash debug ASIC_DB %s: dut=%s namespace=%s phase=%s type=%s rc=%s failed=%s\n%s",
+                           "query failed" if failed else "SAI objects", dut.hostname, namespace, phase, object_type,
+                           result.get('rc'), failed, output[:output_limit])
+                if len(output) > output_limit:
+                    logger.warning("Hash debug output truncated: dut=%s namespace=%s phase=%s type=%s total_chars=%s",
+                                   dut.hostname, namespace, phase, object_type, len(output))
 
 
 @pytest.fixture
