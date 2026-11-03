@@ -9,20 +9,23 @@ DUT to observe the new presence state.  Verifiers return per-port failure
 strings so the caller can aggregate them into a single ``pytest.fail``, matching
 the pattern used across the transceiver suite.
 """
+import http.client
+import json
 import logging
 import select
 import sys
-import time
 from collections import defaultdict
 
 from natsort import natsorted
 
+from tests.common.helpers.platform_api import sfp
 from tests.common.helpers.sonic_db import SonicDbCli
 from tests.common.platform.interface_utils import (
     get_dut_interfaces_status,
     get_physical_to_logical_port_mapping,
     get_pport_presence_data,
 )
+from tests.common.utilities import wait_until
 from tests.transceiver.attribute_parser.attribute_keys import (
     DOM_ATTRIBUTES_KEY,
     PHYSICAL_OIR_ATTRIBUTES_KEY,
@@ -57,10 +60,65 @@ KERNEL_ERROR_PATTERN = r"i2c|sfp|xcvr|transceiver|eeprom|optoe"
 PRESENCE_SETTLE_SEC = 30
 POLL_INTERVAL_SEC = 2
 
+# Bounds each platform API call.  The server is single threaded, so a call stuck
+# in pmon (e.g. on a hung I2C bus) would otherwise block every later call too,
+# the hot-swap restoration's included.
+PLATFORM_API_TIMEOUT_SEC = 60
+
+# Run with the DUT's python3 by probe_missing_xcvr_api(), as sfputil reads
+# modules.  It cannot go through the platform API server, whose JSON encoder
+# fails on the bytearray read_eeprom() returns.  The synthetic reader serves the
+# module's identifier byte and zeros for every other read, so the platform's
+# XcvrApi factory then decides on the identifier alone; it never writes the
+# module.  The factory prints, and returns no XcvrApi, when building one
+# raises, so its output is captured to tell that from an unsupported identifier.
+_XCVR_API_PROBE_PREFIX = "OIR_XCVR_API_PROBE "
+_XCVR_API_PROBE = r'''
+import contextlib
+import io
+import json
+import sys
+
+result = {"identifier": None, "xcvr_api": None, "output": "",
+          "factory_api": None, "factory_output": "", "error": None}
+output = io.StringIO()
+factory_output = io.StringIO()
+try:
+    with contextlib.redirect_stdout(output):
+        import sonic_platform.platform
+        sfp = sonic_platform.platform.Platform().get_chassis().get_sfp(int(sys.argv[1]))
+        raw = sfp.read_eeprom(0, 1)
+        if raw is None or len(raw) != 1:
+            raise ValueError("identifier read returned {!r}".format(raw))
+        identifier = raw[0]
+        result["identifier"] = identifier
+        api = sfp.get_xcvr_api()
+        result["xcvr_api"] = type(api).__name__ if api is not None else None
+
+    def read_synthetic(offset, num_bytes):
+        data = bytearray(num_bytes)
+        if offset == 0 and num_bytes:
+            data[0] = identifier
+        return data
+
+    with contextlib.redirect_stdout(factory_output):
+        factory = type(sfp._xcvr_api_factory)(read_synthetic, lambda offset, num_bytes, write_buffer: True)
+        api = factory.create_xcvr_api(**({"bank": sfp.bank} if hasattr(sfp, "bank") else {}))
+    result["factory_api"] = type(api).__name__ if api is not None else None
+except Exception as exc:
+    result["error"] = repr(exc)
+result["output"] = output.getvalue()[-1000:]
+result["factory_output"] = factory_output.getvalue()[-1000:]
+print("OIR_XCVR_API_PROBE " + json.dumps(result))
+'''
+
 TRANSCEIVER_STATUS_SW = "TRANSCEIVER_STATUS_SW"
 # The only transceiver state table that survives a removal.
 STATUS_SW_REMOVED = {"cmis_state": "REMOVED", "status": "0", "error": "N/A"}
 STATUS_SW_READY = {"cmis_state": "READY", "status": "1", "error": "N/A"}
+# xcvrd's write on an insertion event, whatever the CMIS state machine then does.
+# The table outlives a removal, so this, not its presence, shows a new module.
+STATUS_SW_INSERTED = {"status": "1", "error": "N/A"}
 # Published by every module.  DOM / PM / VDM and the flag tables are module
 # dependent (a non-DOM DAC publishes none of them), so they are required only
 # when the pre-removal baseline shows the module published them.
@@ -86,6 +144,23 @@ _STATUS_CLIS = (
      reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None),
     ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
      reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None),
+)
+
+# The _STATUS_CLIS entries plus whether each must report the module present, for
+# a seated module the platform builds no XcvrApi for (TC6).  The sfputil CLIs
+# read the module itself and see it; the show CLIs report xcvrd's
+# TRANSCEIVER_INFO, which such a module never gets.  DOM needs an XcvrApi, so
+# the EEPROM dump is taken without it: ``-d`` exits ERROR_NOT_IMPLEMENTED on
+# platforms whose get_transceiver_info() needs no XcvrApi.
+_UNSUPPORTED_MODULE_CLIS = (
+    ("sfputil show presence", cli_helpers.sfputil_show_presence_cmd,
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, True),
+    ("show interfaces transceiver presence", cli_helpers.show_interfaces_transceiver_presence_cmd,
+     parse_presence, PRESENCE_ABSENT, PRESENCE_PRESENT, False),
+    ("sfputil show eeprom", cli_helpers.sfputil_show_eeprom_cmd,
+     reduce_eeprom_status, ABSENT_MSG_SFPUTIL, None, True),
+    ("show interfaces transceiver info", cli_helpers.show_interfaces_transceiver_info_cmd,
+     reduce_eeprom_status, ABSENT_MSG_CLI_INFO, None, False),
 )
 
 
@@ -177,15 +252,14 @@ def perform_oir(request, duthost, oir_attrs, pports, present, action=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def verify_presence_clis(duthost, lports, present):
-    """Verify the presence / EEPROM / DOM CLIs all agree with the expected seated state.
+def _verify_cli_statuses(duthost, lports, clis):
+    """Run each ``(label, command builder, reducer, empty-cage status, seated status,
+    expect present)`` CLI without a port argument and match every port's status line.
 
-    Each CLI is run without a port argument (whole-switch dump) and must exit 0;
-    the unqualified commands return all frontend ASICs. The per-port status line
-    is then matched against the expected token.
+    Each CLI must exit 0; the unqualified commands return all frontend ASICs.
     """
     failures = []
-    for label, build_cmd, reduce_output, absent_status, present_status in _STATUS_CLIS:
+    for label, build_cmd, reduce_output, absent_status, present_status, expect_present in clis:
         result = duthost.command(build_cmd(), module_ignore_errors=True)
         if result.get("rc", RC_FAILURE) != 0:
             failures.append(
@@ -194,7 +268,7 @@ def verify_presence_clis(duthost, lports, present):
         status_by_port = reduce_output(result.get("stdout_lines", []))
         for port in lports:
             actual = status_by_port.get(port)
-            if not present:
+            if not expect_present:
                 if actual != absent_status:
                     failures.append(f"{port} [{label}]: expected '{absent_status}', got {actual!r}")
             elif present_status is not None:
@@ -203,6 +277,26 @@ def verify_presence_clis(duthost, lports, present):
             elif not actual or actual == absent_status:
                 failures.append(f"{port} [{label}]: EEPROM not readable, got {actual!r}")
     return failures
+
+
+def verify_presence_clis(duthost, lports, present):
+    """Verify the presence / EEPROM / DOM CLIs all agree with the expected seated state.
+
+    Each CLI is run without a port argument (whole-switch dump) and must exit 0;
+    the unqualified commands return all frontend ASICs. The per-port status line
+    is then matched against the expected token.
+    """
+    return _verify_cli_statuses(duthost, lports, [cli + (present,) for cli in _STATUS_CLIS])
+
+
+def verify_unsupported_module_clis(duthost, lports):
+    """Verify the CLIs of a seated module the platform builds no XcvrApi for (TC6).
+
+    The ``sfputil`` presence and EEPROM (without DOM) CLIs must report the
+    module present, and the ``show`` CLIs must report the cage empty; see
+    :data:`_UNSUPPORTED_MODULE_CLIS`.
+    """
+    return _verify_cli_statuses(duthost, lports, _UNSUPPORTED_MODULE_CLIS)
 
 
 def _transceiver_state_tables(duthost, lports):
@@ -228,11 +322,19 @@ def _transceiver_state_tables(duthost, lports):
     return tables_by_port, errors
 
 
-def _check_status_sw(duthost, port, expected):
-    entry = db_helpers.hgetall_dict(
-        duthost, "STATE_DB", f"{TRANSCEIVER_STATUS_SW}|{port}",
-        namespace=db_helpers.resolve_port_namespace(duthost, port),
-    )
+def _status_sw_entries(duthost, lports):
+    """Return ``({port: TRANSCEIVER_STATUS_SW entry}, errors)``, one STATE_DB read per ASIC namespace."""
+    entries, errors = {}, []
+    for namespace, ports in db_helpers.group_ports_by_namespace(duthost, lports).items():
+        table, err = db_helpers.get_state_db_table(duthost, TRANSCEIVER_STATUS_SW, namespace=namespace)
+        if err:
+            errors.append(f"{TRANSCEIVER_STATUS_SW} read failed: {err}")
+            continue
+        entries.update((port, table.get(port, {})) for port in ports)
+    return entries, errors
+
+
+def _check_status_sw(port, entry, expected):
     mismatches = [
         f"{field}={entry.get(field)!r} (expected {value!r})"
         for field, value in expected.items() if entry.get(field) != value
@@ -250,23 +352,28 @@ def capture_state_tables(duthost, lports):
     return _transceiver_state_tables(duthost, lports)
 
 
-def verify_state_tables_removed(duthost, lports, wait_sec):
+def verify_state_tables_removed(duthost, lports, wait_sec, status_sw=STATUS_SW_REMOVED):
     """Every ``TRANSCEIVER_*`` table is deleted bar ``TRANSCEIVER_STATUS_SW``, which
-    must report the REMOVED state."""
+    must match ``status_sw``: the REMOVED state, or xcvrd's insertion write for a
+    seated module it cannot build an XcvrApi for."""
     def _check():
         tables_by_port, failures = _transceiver_state_tables(duthost, lports)
+        status_sw_entries, status_sw_errors = _status_sw_entries(duthost, lports)
+        failures += status_sw_errors
         for port in lports:
             stale = natsorted(tables_by_port.get(port, set()) - {TRANSCEIVER_STATUS_SW})
             if stale:
                 failures.append(f"{port}: STATE_DB table(s) not deleted after removal: {', '.join(stale)}")
-            failures += _check_status_sw(duthost, port, STATUS_SW_REMOVED)
+            if port in status_sw_entries:
+                failures += _check_status_sw(port, status_sw_entries[port], status_sw)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB removal")
 
 
-def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tables=None):
-    """The per-module tables are republished and ``TRANSCEIVER_STATUS_SW`` is READY.
+def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tables=None, ready=True):
+    """The per-module tables are republished and ``TRANSCEIVER_STATUS_SW`` shows the
+    module inserted and, if ``ready``, READY.
 
     ``parents`` are the first sub-ports of the modules under test — the keys the
     per-module tables are published under.  ``baseline_tables`` is the
@@ -277,6 +384,8 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
 
     def _check():
         tables_by_port, failures = _transceiver_state_tables(duthost, lports)
+        status_sw_entries, status_sw_errors = _status_sw_entries(duthost, lports)
+        failures += status_sw_errors
         for port in lports:
             expected = set(baseline_tables.get(port, set()))
             if port in parents:
@@ -286,7 +395,9 @@ def verify_state_tables_present(duthost, lports, parents, wait_sec, baseline_tab
                 failures.append(
                     f"{port}: STATE_DB table(s) not republished after insertion: {', '.join(missing)}"
                 )
-            failures += _check_status_sw(duthost, port, STATUS_SW_READY)
+            if port in status_sw_entries:
+                failures += _check_status_sw(
+                    port, status_sw_entries[port], STATUS_SW_READY if ready else STATUS_SW_INSERTED)
         return failures
 
     return poll_ports_recovered(_check, wait_sec, POLL_INTERVAL_SEC, "STATE_DB insertion")
@@ -331,56 +442,196 @@ def verify_dom_data_recovered(duthost, port_attributes_dict, lport_to_first_subp
     )
 
 
+def _sfp_api(conn, pport, name, args=None):
+    """Call Sfp API ``name`` of ``pport`` through the platform API server.
+
+    After a timeout or a refused connection, ``http.client`` rejects every later
+    request on ``conn`` (``CannotSendRequest``) until it is closed, so a failed
+    call resets it.  The server answers in HTTP/1.0, so every call opens a new
+    TCP connection anyway.
+    """
+    try:
+        return sfp.sfp_api(conn, pport, name, args)
+    except (OSError, http.client.HTTPException):
+        conn.close()
+        raise
+
+
+def read_xcvr_api(conn, pport, wait_sec=0):
+    """Return ``(xcvr_api, serial)`` of the module in ``pport`` via the platform API server.
+
+    ``xcvr_api`` is the server's ``{"__class__", "object_id", ...}`` view of the
+    XcvrApi of its long-lived Sfp object, or ``None`` if the platform builds none
+    within ``wait_sec``.  xcvrd drops its cached XcvrApi on every removal event;
+    the server's Sfp objects never see those events, so the XcvrApi is rebuilt
+    here for the module now in the cage.
+    """
+    _sfp_api(conn, pport, "refresh_xcvr_api")
+    wait_until(wait_sec, POLL_INTERVAL_SEC, 0, lambda: _sfp_api(conn, pport, "get_xcvr_api") is not None)
+    return _sfp_api(conn, pport, "get_xcvr_api"), _sfp_api(conn, pport, "get_serial")
+
+
+def read_serial(conn, pport, wait_sec=0):
+    """Return the serial number of the module in ``pport``, or ``None`` if it cannot be read.
+
+    For cleanup paths: it never raises, and it reconnects first in case an
+    exception left ``conn`` in the middle of a request.
+    """
+    conn.close()
+    try:
+        return read_xcvr_api(conn, pport, wait_sec)[1]
+    except Exception as exc:
+        logger.warning("Physical port %s: cannot read the serial number: %r", pport, exc)
+        return None
+
+
+def wait_module_presence(conn, pport, present=True):
+    """Poll the platform's presence signal until it reports ``present`` for ``pport``.
+
+    The ``show`` presence CLI reflects xcvrd's ``TRANSCEIVER_INFO``, which a
+    module without an XcvrApi never gets; this signal needs no XcvrApi.  The
+    platform API server returns ``None`` when the call raised.
+    """
+    def _check():
+        presence = _sfp_api(conn, pport, "get_presence")
+        if presence is None:
+            return [f"physical port {pport}: platform presence unreadable (platform API returned None)"]
+        if bool(presence) is not present:
+            return [f"physical port {pport}: platform presence {presence}, expected {present}"]
+        return []
+
+    return poll_ports_recovered(_check, PRESENCE_SETTLE_SEC, POLL_INTERVAL_SEC, "platform presence")
+
+
+def probe_missing_xcvr_api(duthost, pport):
+    """Return the evidence for why the platform builds no XcvrApi for the module in ``pport``.
+
+    Runs :data:`_XCVR_API_PROBE` with the DUT's ``python3``, as ``sfputil``
+    reads modules: it reads the identifier byte, retries the XcvrApi in a fresh
+    process, and asks the platform's XcvrApi factory whether it builds one for
+    that identifier when every other EEPROM read succeeds.  Returns the probe's
+    ``{"identifier", "xcvr_api", "output", "factory_api", "factory_output",
+    "error"}`` result.
+    """
+    result = duthost.command(argv=["python3", "-c", _XCVR_API_PROBE, str(pport)], module_ignore_errors=True)
+    for line in reversed(result.get("stdout_lines", [])):
+        if line.startswith(_XCVR_API_PROBE_PREFIX):
+            return json.loads(line[len(_XCVR_API_PROBE_PREFIX):])
+    return {"error": f"XcvrApi probe exited rc={result.get('rc')} without a result: "
+                     f"{(result.get('stderr') or '')[-500:]}"}
+
+
+def missing_xcvr_api_failure(probe):
+    """Return why ``probe`` is no evidence that the module is unsupported, or ``None`` if it is.
+
+    Only an identifier the platform's factory builds no XcvrApi for, without
+    error, even with every other EEPROM read succeeding, shows that the module
+    is unsupported.  The factory also returns no XcvrApi when building one
+    raises, e.g. on a failed EEPROM read: an error, not an unsupported module.
+    """
+    if probe.get("error"):
+        return f"cannot tell why the swapped-in module has no XcvrApi: {probe['error']}"
+    identifier = f"0x{probe['identifier']:02x}"
+    if probe.get("xcvr_api"):
+        return (f"no XcvrApi for the swapped-in module (identifier {identifier}), "
+                f"yet a retry built {probe['xcvr_api']}")
+    if probe.get("factory_api"):
+        output = (probe.get("output") or "").strip()
+        return (f"no XcvrApi for the swapped-in module although the platform builds {probe['factory_api']} "
+                f"for its identifier {identifier}: a read or construction error, not an unsupported module"
+                + (f" ({output})" if output else ""))
+    factory_output = (probe.get("factory_output") or "").strip()
+    if factory_output:
+        return (f"no XcvrApi for the swapped-in module (identifier {identifier}), and building one from "
+                f"identifier {identifier} alone reported: {factory_output}; cannot tell an unsupported "
+                "module from a construction error")
+    return None
+
+
 def get_flap_counts(duthost, lports):
     """Return ``{port: flap_count}`` (raw APPL_DB strings) for ``lports``."""
     return {port: sentinel[0] for port, sentinel in capture_flap_sentinels(duthost, lports).items()}
 
 
+def get_link_peers(duthost, lports, port_peers):
+    """Return ``{port: link peer}`` for the ``lports`` cabled to another port of this DUT.
+
+    Such a peer loses and regains its link along with the port.  ``port_peers``
+    (the fixture of the same name) holds the peers of LLDP-verified ports only,
+    so the peer of any other port goes unnoticed.  A peer in ``lports`` is left
+    out, being under OIR itself.
+    """
+    link_peers = {}
+    for port in lports:
+        peer, _ = port_peers.get(port, (None, None))
+        if peer is not None and peer.device == duthost.hostname and peer.port not in lports:
+            link_peers[port] = peer.port
+    return link_peers
+
+
+def with_link_peers(duthost, lports, port_peers):
+    """Return ``lports`` followed by their :func:`get_link_peers` link peers."""
+    return lports + list(get_link_peers(duthost, lports, port_peers).values())
+
+
+def _other_ports(duthost, port_attributes_dict, affected_lports, port_peers):
+    """Return the inventory ports neither under OIR nor the link peer of a port that is.
+
+    A peer :func:`get_link_peers` misses stays among these ports, where it can
+    only cause a reported failure, never hide one.
+    """
+    return natsorted(set(port_attributes_dict) - set(with_link_peers(duthost, affected_lports, port_peers)))
+
+
+def get_other_ports_flap_sentinels(duthost, port_attributes_dict, affected_lports, port_peers):
+    """Return :func:`capture_flap_sentinels` for every inventory port unrelated to the OIR."""
+    return capture_flap_sentinels(duthost, _other_ports(duthost, port_attributes_dict, affected_lports, port_peers))
+
+
 def verify_flap_count_increment(duthost, lports, baseline, expected_increment=1):
-    """Verify each port's APPL_DB ``flap_count`` moved by ``expected_increment``."""
+    """Verify each port's APPL_DB ``flap_count`` moved by ``expected_increment``,
+    one increment for every port or a ``{port: increment}`` mapping."""
     failures = []
     current = get_flap_counts(duthost, lports)
     for port in lports:
+        expected = expected_increment[port] if isinstance(expected_increment, dict) else expected_increment
         before, after = baseline.get(port), current.get(port)
         if before is None or after is None:
             failures.append(f"{port}: flap_count not published (before={before!r}, after={after!r})")
-        elif int(after) - int(before) != expected_increment:
-            failures.append(f"{port}: flap_count {before}->{after}, expected +{expected_increment}")
+        elif int(after) - int(before) != expected:
+            failures.append(f"{port}: flap_count {before}->{after}, expected +{expected}")
     return failures
 
 
-def verify_no_link_flap(duthost, port_attributes_dict, lports,
-                        sentinels=None, observation_start=None):
-    """Verify each port stays stable for its configured observation window."""
-    lports_by_timeout = defaultdict(list)
-    for port in lports:
-        attrs = port_attributes_dict[port][PHYSICAL_OIR_ATTRIBUTES_KEY]
-        lports_by_timeout[attrs["link_flap_monitor_timeout_sec"]].append(port)
-
-    if sentinels is None:
-        sentinels = capture_flap_sentinels(duthost, lports)
-    if observation_start is None:
-        observation_start = time.monotonic()
-
-    failures = []
-    for monitor_sec in sorted(lports_by_timeout):
-        elapsed_sec = time.monotonic() - observation_start
-        time.sleep(max(0, monitor_sec - elapsed_sec))
-        monitored_lports = lports_by_timeout[monitor_sec]
-        results = assert_no_flap_since(
-            duthost, monitored_lports, sentinels, elapsed_sec=monitor_sec)
-        failures += [result["details"] for result in results.values() if not result["passed"]]
-    return failures
+def get_oper_up_ports(duthost, lports):
+    """Return the ``lports`` that are oper up."""
+    intf_status = get_dut_interfaces_status(duthost)
+    return [port for port in lports if (intf_status.get(port) or {}).get("oper") == "up"]
 
 
-def verify_other_ports_up(duthost, port_attributes_dict, affected_lports):
-    """Verify every inventory port not under OIR stayed oper up."""
+def verify_other_ports_up(duthost, port_attributes_dict, affected_lports, port_peers):
+    """Verify every inventory port unrelated to the OIR stayed oper up."""
     intf_status = get_dut_interfaces_status(duthost)
     return [
         f"{port}: oper {(intf_status.get(port) or {}).get('oper', 'missing')}, expected up "
         "while another port's transceiver was out of its cage"
-        for port in natsorted(set(port_attributes_dict) - set(affected_lports))
+        for port in _other_ports(duthost, port_attributes_dict, affected_lports, port_peers)
         if (intf_status.get(port) or {}).get("oper") != "up"
+    ]
+
+
+def verify_other_ports_no_flap(duthost, baseline):
+    """Verify no port in ``baseline`` flapped since it was captured.
+
+    ``baseline`` is :func:`get_other_ports_flap_sentinels`.  Those ports keep
+    their module seated and their link peer untouched throughout, so any change
+    of their ``flap_count``, ``last_up_time`` or ``last_down_time`` means
+    another port's OIR disturbed their link.
+    """
+    return [
+        f"{result['details']} while another port's transceiver was inserted/removed"
+        for result in assert_no_flap_since(duthost, list(baseline), baseline).values()
+        if not result["passed"]
     ]
 
 

@@ -49,6 +49,20 @@ imports Linux-only testbed utilities.
 - `pytest`
 - `unittest.mock` (built into Python standard library)
 
+## PTF daily TACACS provisioning regression
+
+`helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and
+evaluates its conditions for Docker networking enabled, disabled, and unset.
+It covers both `add-topo` and `renumber-topo`, preserves the PTF-only scope and
+MAC-change guard, and checks delegation to the PTF management address.
+These isolated checks require `PyYAML` and `Jinja2`; they do not start a daemon
+or replace a live testbed run.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_ptf_tacacs_provisioning.py -q
+```
+
 ## Host-failure lifecycle regressions
 
 Run the classifier unit tests and the real pytest lifecycle regressions together:
@@ -69,3 +83,18 @@ coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
 unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
 Mixed-group coverage also checks independent same-scope finalizers and errors
 raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## gNMI AAA TLS reuse
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/fixtures/unit_test_gnmi_aaa.py -q
+```
+
+These offline regressions extract production helpers to avoid testbed imports.
+They independently model raw Redis hashes and cfggen-decoded role lists, including
+empty fields and NULL sentinels. They exercise exact metadata restoration,
+setup/body/cleanup failures, configuration-leak detection, strict certificate
+cleanup, fresh public RPC channels, and real pytest fixture
+ordering with mocked devices. They do not establish device authorization,
+audit/rate-limit behavior, or a hardware performance improvement.

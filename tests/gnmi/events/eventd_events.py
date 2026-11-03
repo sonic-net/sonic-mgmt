@@ -10,5 +10,16 @@ tag = "sonic-events-eventd"
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test eventd heartbeat")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
-             "heartbeat.json", "sonic-events-eventd:heartbeat", tag, True)
+    run_test(
+        duthost,
+        tbinfo,
+        gnxi_path,
+        ptfhost,
+        data_dir,
+        validate_yang,
+        None,
+        "heartbeat.json",
+        "sonic-events-eventd:heartbeat",
+        tag,
+        True,
+    )

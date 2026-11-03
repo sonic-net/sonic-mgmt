@@ -37,12 +37,13 @@
     <topology sockets='1' dies='1' cores='3' threads='1'/>
   </cpu>
 {% elif asic_type == 'vpp' %}
+{% set vpp_vcpus = 6 if ansible_processor_vcpus | int == 16 and duts_name.split(',') | length == 2 else 10 %}
   <memory unit='GiB'>8</memory>
   <currentMemory unit='GiB'>8</currentMemory>
-  <vcpu placement='static'>10</vcpu>
+  <vcpu placement='static'>{{ vpp_vcpus }}</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
-    <topology sockets='1' dies='1' cores='10' threads='1'/>
+    <topology sockets='1' dies='1' cores='{{ vpp_vcpus }}' threads='1'/>
   </cpu>
 {% else %}
   <memory unit='GiB'>6</memory>
@@ -133,4 +134,18 @@
 {% endif %}
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'/>
+{% if asic_type == 'vpp' %}
+  {#
+    Disable the virtio-net control-VQ VLAN filter for VPP DUTs. VPP/DPDK drives the
+    NIC directly and never registers VLANs with the virtio control plane, so with the
+    qemu default (ctrl_vlan=on) qemu silently drops every VLAN-tagged frame before it
+    reaches VPP. That breaks any VLAN sub-interface / L3 sub-port dataplane test (e.g.
+    iface_loopback_action) while leaving untagged traffic working. libvirt has no
+    attribute for this control, so it is set via a qemu -global override.
+  #}
+  <qemu:commandline>
+    <qemu:arg value='-global'/>
+    <qemu:arg value='virtio-net-pci.ctrl_vlan=off'/>
+  </qemu:commandline>
+{% endif %}
 </domain>
