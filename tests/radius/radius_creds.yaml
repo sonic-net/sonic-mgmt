@@ -1,0 +1,10 @@
+---
+radius_rw_user: radius_rwuser
+radius_rw_user_passwd: 'sonic123456'
+radius_ro_user: radius_rouser
+radius_ro_user_passwd: 'network123456'
+local_user: localuser
+local_user_passwd: '!23local123456'
+invalid_user: shouldnotwork
+invalid_user_passwd: "dontletmein!"
+radius_secret: "radiustesting1234567891011"
