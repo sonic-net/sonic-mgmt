@@ -54,7 +54,6 @@ from tests.transceiver.common.scenario_ops import (
     perform_sfputil_reset,
     poll_ports_recovered,
     scale_bulk_wait,
-    verify_lpmode,
 )
 from tests.transceiver.common.verification import (
     assert_no_flap_since,
@@ -363,7 +362,12 @@ def set_dom_monitoring(duthost, modules, enable):
 
 def _set_lpmode(duthost, modules, low_power, settle_sec):
     """Request low (or high) power mode on ``modules``, then poll for up to
-    ``settle_sec`` until each module reports it."""
+    ``settle_sec`` until each module reports it.
+
+    Each poll reads every port's power mode with a single ``sfputil show
+    lpmode``, so a poll costs the same however many modules are under test.
+    """
+    expected = "On" if low_power else "Off"
     failures, requested = [], []
     for module in modules:
         elapsed, err = cli_helpers.sfputil_set_lpmode(duthost, module, low_power)
@@ -372,9 +376,20 @@ def _set_lpmode(duthost, modules, low_power, settle_sec):
             failures.append(err)
         else:
             requested.append(module)
-    return failures + poll_ports_recovered(
-        lambda: [failure for module in requested for failure in verify_lpmode(duthost, module, low_power)],
-        settle_sec, POLL_INTERVAL_SEC, "power mode")
+    if not requested:
+        return failures
+
+    def _check():
+        lpmode, err = cli_helpers.sfputil_show_lpmode(duthost)
+        if err:
+            return [err]
+        logger.info("Low-power mode (expected %s): %s", expected, {module: lpmode.get(module) for module in requested})
+        return [
+            f"port {module} low-power mode is {lpmode.get(module) or 'unknown'}, expected {expected}"
+            for module in requested if lpmode.get(module) != expected
+        ]
+
+    return failures + poll_ports_recovered(_check, settle_sec, POLL_INTERVAL_SEC, "power mode")
 
 
 def _verify_lldp_present(duthost, lldp_timeouts):
