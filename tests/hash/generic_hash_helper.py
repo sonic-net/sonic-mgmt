@@ -34,6 +34,7 @@ MARVELL_TERALYNX_HASH_ALGORITHM = ['CRC', 'XOR']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 VPP_SUPPORTED_REBOOT_TYPES = ['cold', 'reload']
 DEFAULT_SUPPORTED_REBOOT_TYPES = ['cold', 'warm', 'fast', 'reload']
+MELLANOX_SPC4_PLUS_SUPPORTED_REBOOT_TYPES = ['cold', 'warm', 'reload']
 
 MELLANOX_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
@@ -872,8 +873,11 @@ def get_reboot_type_from_option(request, reboot_option):
         the list of reboot types
     """
     asic_type = get_asic_type(request)
+    asic_gen = get_asic_gen(request)
     if asic_type == 'vpp':
         supported_reboot_types = VPP_SUPPORTED_REBOOT_TYPES
+    elif 'spc' in asic_gen and int(re.match(r'spc(\d+)', asic_gen).group(1)) >= 4:
+        supported_reboot_types = MELLANOX_SPC4_PLUS_SUPPORTED_REBOOT_TYPES
     else:
         supported_reboot_types = DEFAULT_SUPPORTED_REBOOT_TYPES
 
