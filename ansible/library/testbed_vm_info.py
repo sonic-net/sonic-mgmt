@@ -56,6 +56,11 @@ returns:
             neighbor_eosvm_mgmt:
                 description: Mapping of neighbor device logical names to VM management IPs.
                 type: dict
+            neighbor_vm_name:
+                description:
+                    - Mapping of neighbor device logical names (ARISTA01T2) to VM inventory names (VM0100).
+                    - Needed by callers that address a neighbor by something other than its management IP.
+                type: dict
             topoall:
                 description: Raw topology YAML content loaded from topology definition file.
                 type: dict
@@ -189,7 +194,7 @@ def main():
     m_args = module.params
     topo_type = m_args['topo']
     if 'ptf' in topo_type:
-        module.exit_json(ansible_facts={'neighbor_eosvm_mgmt': {}})
+        module.exit_json(ansible_facts={'neighbor_eosvm_mgmt': {}, 'neighbor_vm_name': {}})
 
     vm_mgmt_ip = {}
     try:
@@ -210,7 +215,9 @@ def main():
                           "for the topology you are using."
                 module.fail_json(msg=err_msg.format(vm_name, vm_facts.vm_file))
         module.exit_json(
-            ansible_facts={'neighbor_eosvm_mgmt': vm_mgmt_ip, 'topoall': vm_facts.topoall})
+            ansible_facts={'neighbor_eosvm_mgmt': vm_mgmt_ip,
+                           'neighbor_vm_name': neighbor_eos,
+                           'topoall': vm_facts.topoall})
     except (IOError, OSError):
         module.fail_json(msg='Can not find VM file {} or {}'.format(
             m_args['vm_file'], VM_INV_FILE))
