@@ -1025,11 +1025,22 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
     neighbor_name, neighbor_interface = neighbor_name['name'], neighbor_name['port']
     neighbor = nbrhosts[neighbor_name]
     lacp_num = neighbor['conf']['interfaces'][neighbor_interface].get('lacp')
+    netns_prefix = ''
+    # For converged peers, translate the original interface to the actual interface on the prime device.
+    # The interface is placed in the per-VRF Linux namespace ns-<vrf>, where IPv6 is enabled; in the
+    # default namespace IPv6 is disabled, so commands must run inside the VRF namespace.
+    # Ex. sudo ip netns exec ns-ARISTA01T0 ip addr add 2001::1/64 dev eth1
+    if neighbor.get('is_multi_vrf_peer') and neighbor.get('multi_vrf_data'):
+        multi_vrf_data = neighbor['multi_vrf_data']
+        orig_intf_map = multi_vrf_data.get('orig_intf_map', {})
+        neighbor_interface = orig_intf_map.get(neighbor_interface, neighbor_interface)
+        if vrf := multi_vrf_data.get('vrf'):
+            netns_prefix = f'sudo ip netns exec ns-{vrf} '
     if lacp_num:
         neighbor_interface = f'po{lacp_num}'
     elif neighbor_interface.startswith('Ethernet'):
         neighbor_interface = f"eth{neighbor_interface.removeprefix('Ethernet')}"
-    return neighbor['host'], neighbor_interface
+    return neighbor['host'], neighbor_interface, netns_prefix
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
@@ -1064,9 +1075,10 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         nexthop_del_cmd = f"config route del prefix {route_prefix}/{mask} nexthop {nexthop}"
 
         if duthost.facts["asic_type"] == "mellanox":
-            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
-            vmhost.shell(f"ip addr add {nexthop}/{mask} dev {vm_interface}")
-            vmhost.shell(f"ip link set {vm_interface} up")
+            vmhost, vm_interface, vm_netns = _get_interface_neighbor_and_port(
+                duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"{vm_netns}ip addr add {nexthop}/{mask} dev {vm_interface}")
+            vmhost.shell(f"{vm_netns}ip link set {vm_interface} up")
         else:
             ptfhost.add_ip_to_dev('eth1', nexthop + '/' + mask)
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
@@ -1103,8 +1115,9 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
         asichost.shell(ip_remove_cmd)
         if duthost.facts["asic_type"] == "mellanox":
-            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
-            vmhost.shell(f"ip addr del {nexthop}/{mask} dev {vm_interface}")
+            vmhost, vm_interface, vm_netns = _get_interface_neighbor_and_port(
+                duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"{vm_netns}ip addr del {nexthop}/{mask} dev {vm_interface}")
         else:
             asichost.sonichost.add_member_to_vlan(1000, dut_interface, is_tagged=False)
             ptfhost.remove_ip_addresses()
