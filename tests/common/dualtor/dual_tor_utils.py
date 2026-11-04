@@ -1555,25 +1555,29 @@ def remove_static_routes(duthost, route_dst):
     duthost.shell('ip route del {}/{}'.format(str(route_dst), subnet_mask_len), module_ignore_errors=True)
 
 
-def recover_linkmgrd_probe_interval(duthosts, tbinfo):
+def recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=False):
     '''
-    Recover the linkmgrd probe interval to default value
+    Recover IPv4 and, when selected, IPv6 probe intervals to their defaults
     '''
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
+    if ipv6 and 'dualtor' in tbinfo['topo']['name']:
+        duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v6" "1000"')
     duthosts.shell('sonic-db-cli CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
-def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
+def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms, ipv6=False):
     '''
-    Update the linkmgrd probe interval
+    Update the IPv4 probe interval and IPv6 interval when selected
     '''
     if 'dualtor' not in tbinfo['topo']['name']:
         return
 
     logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    duthosts.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
-                   .format(probe_interval_ms))
+    command = 'sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms)
+    if ipv6:
+        command += ' "interval_v6" "{}"'.format(probe_interval_ms)
+    duthosts.shell(command)
 
 
 @pytest.fixture(scope='module')

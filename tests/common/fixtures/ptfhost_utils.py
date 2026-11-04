@@ -418,7 +418,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     global icmp_responder_session_started
 
     ipv6_args = get_icmp_responder_ipv6_args(duthosts)
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[0]
@@ -473,7 +473,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         return
 
     ipv6_args = get_icmp_responder_ipv6_args(duthosts)
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -502,7 +502,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     logger.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
     logger.info("Recover linkmgrd probe interval")
-    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
 

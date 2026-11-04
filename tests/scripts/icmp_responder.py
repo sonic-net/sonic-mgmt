@@ -11,8 +11,6 @@ import struct
 from collections.abc import Mapping
 from ipaddress import IPv6Address
 from scapy.all import Ether, ICMP, IP, IPv6, ICMPv6EchoRequest, ICMPv6EchoReply
-from scapy.arch.common import compile_filter
-from scapy.libs.winpcapy import pcap_freecode
 
 
 # As defined in asm/socket.h
@@ -104,6 +102,9 @@ def create_socket(interface, ipv6_sources=()):
     try:
         sock.setblocking(False)
         if sources:
+            from scapy.arch.common import compile_filter
+            from scapy.libs.winpcapy import pcap_freecode
+
             source_filter = " or ".join("src host {}".format(source) for source in sources)
             expression = "(icmp[icmptype] == 8 and src host 10.1.0.36) or "
             expression += "(ip6 and ip6[6] == 58 and ip6[40] == 128 and ({}))".format(source_filter)
