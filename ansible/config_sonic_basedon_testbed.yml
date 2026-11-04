@@ -710,7 +710,7 @@
         set_fact:
             ntp_servers: "{{ ntp_servers + [testbed_facts['ptf_ipv6']] }}"
         when:
-          - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
+          - testbed_facts.get['ptf_ipv6'] | default('', true) != ''
 
       - name: Add PTF inband IPv4 address to NTP servers
         set_fact:
