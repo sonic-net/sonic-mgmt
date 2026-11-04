@@ -10,7 +10,7 @@ import pytest
 
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset
+from tests.common.helpers.sonic_db import CONFIG_DB, STATE_DB, redis_hget, redis_hgetall, redis_hset
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -283,6 +283,65 @@ def get_system_leak_status(duthost):
 def set_system_leak_status(duthost, status):
     """HSET SYSTEM_LEAK_STATUS|system device_leak_status."""
     redis_hset(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', device_leak_status=status)
+
+
+def get_platform_major_leak_num_min_sensors(duthost, default=0):
+    """Return the platform-defined MIN-N from LiquidCoolingBase.get_major_leak_num_min_sensors().
+
+    This is the system-wide default used by thermalctld when there is no user override.
+    A value of 0 means the count-based MAJOR rule is off (the MAX-T escalation rule is
+    independent of MIN-N). Returns `default` if the API is unavailable on this platform.
+    """
+    out = duthost.shell(
+        "python3 -c 'from sonic_platform.chassis import Chassis; "
+        "print(Chassis().get_liquid_cooling().get_major_leak_num_min_sensors())'",
+        module_ignore_errors=True)
+    try:
+        return int((out.get('stdout') or '').strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def is_major_leak_supported(duthost):
+    """True if the image supports MAJOR system leak (read-only probe of the major-leak-threshold CLI)."""
+    out = duthost.shell("config liquid-cool major-leak-threshold --help 2>&1", module_ignore_errors=True)
+    return out['rc'] == 0
+
+
+def power_down_action_configured(duthost, action_field):
+    """True if the effective policy action in `action_field` (for example system_major_leak_action)
+    is a power-down action (power_off or graceful_shutdown), so an injected event would really
+    shut the Switch-Host down. Read-only; LEAK_CONTROL_POLICY is not modified. Unset means the
+    syslog_only default."""
+    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
+    return action in ('power_off', 'graceful_shutdown')
+
+
+def get_major_leak_min_sensors(duthost, default=None):
+    """Return the effective MIN-N: the number of concurrent Minor leaks at or above
+    which thermalctld classifies the system as MAJOR_SYSTEM_LEAK.
+
+    Resolution order (mirrors thermalctld):
+      1. User override LEAK_CONTROL_POLICY|policy system_major_leak_num_min_sensors in CONFIG_DB (>= 2)
+      2. Platform API LiquidCoolingBase.get_major_leak_num_min_sensors()
+      3. `default` (None) if neither is available; a missing value is not a configured threshold
+
+    A value of 0 means the count-based MAJOR rule is off; the MAX-T escalation rule is
+    independent of MIN-N.
+    """
+    # LEAK_CONTROL_POLICY is a single-row table; the CLI writes key "policy".
+    # redis_hget returns '' for a missing field, which int() rejects below.
+    val = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy',
+                     'system_major_leak_num_min_sensors')
+    try:
+        override = int(val)
+    except (TypeError, ValueError):
+        override = None
+    # thermalctld ignores an override below 2 and falls back to the platform value.
+    if override is not None and override >= 2:
+        return override
+    platform_val = get_platform_major_leak_num_min_sensors(duthost, default=None)
+    return platform_val if platform_val is not None else default
 
 
 # --- Switch-Host power-cycle verification ---------------------------------
