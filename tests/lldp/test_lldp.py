@@ -293,39 +293,39 @@ def check_lldp_neighbor(duthost, localhost, nbrhosts, eos, sonic,
             )
 
         # Verify the published DUT system description field is correct
-            assert (
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
-                == dut_system_description
-            ), (
-                "LLDP neighbor system description mismatch for interface '{}'. "
-                "Expected system description: '{}', but got: '{}'."
-            ).format(
-                neighbor_interface,
-                dut_system_description,
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
-            )
+        assert (
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+            == dut_system_description
+        ), (
+            "LLDP neighbor system description mismatch for interface '{}'. "
+            "Expected system description: '{}', but got: '{}'."
+        ).format(
+            neighbor_interface,
+            dut_system_description,
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+        )
 
         # Verify the published DUT port id field is correct
-            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
-                config_facts['PORT'][k]['alias'], (
-                "LLDP neighbor port ID mismatch for interface '{}'. "
-                "Expected port ID (alias) from config_facts: '{}', but got from LLDP: '{}'."
-            ).format(
-                neighbor_interface,
-                config_facts['PORT'][k]['alias'],
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id']
-            )
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
+            config_facts['PORT'][k]['alias'], (
+            "LLDP neighbor port ID mismatch for interface '{}'. "
+            "Expected port ID (alias) from config_facts: '{}', but got from LLDP: '{}'."
+        ).format(
+            neighbor_interface,
+            config_facts['PORT'][k]['alias'],
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id']
+        )
 
         # Verify the published DUT port description field is correct
-            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
-                config_facts['PORT'][k]['description'], (
-                "LLDP neighbor port description mismatch for interface '{}'. "
-                "Expected port description from config_facts: '{}', but got from LLDP: '{}'."
-            ).format(
-                neighbor_interface,
-                config_facts['PORT'][k]['description'],
-                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc']
-            )
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
+            config_facts['PORT'][k]['description'], (
+            "LLDP neighbor port description mismatch for interface '{}'. "
+            "Expected port description from config_facts: '{}', but got from LLDP: '{}'."
+        ).format(
+            neighbor_interface,
+            config_facts['PORT'][k]['description'],
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc']
+        )
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
