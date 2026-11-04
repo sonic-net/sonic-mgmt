@@ -86,11 +86,8 @@ def lag_member_disabled(duthost, port_name):
     return read_lag_member_disable(duthost, ns, key)
 
 
-def teamd_member_view(duthost, pc_name, port_name):
-    """Return (selected, lacp_state, link_up) for one teamd member, or None.
-
-    lacp_state stays "current" and link_up stays true while macsec_gate holds the
-    member out. A link flap or an LACP timeout would show up here.
+def teamd_member_state(duthost, pc_name, port_name):
+    """Return teamd's state-dump entry for one member of `pc_name`, or None.
 
     Uses the per-ASIC teamd docker (`teamd` or `teamdN`) so multi-ASIC platforms work;
     the shared SonicHost.get_port_channel_status helper hardcodes the `teamd` container.
@@ -100,11 +97,24 @@ def teamd_member_view(duthost, pc_name, port_name):
         teamd = asic.get_docker_name("teamd")
         output = duthost.command(
             "docker exec -i {} teamdctl {} state dump".format(teamd, pc_name))
-        port = json.loads(output["stdout"])["ports"][port_name]
-        runner = port["runner"]
-        return runner["selected"], runner["state"], bool(port["link"]["up"])
+        return json.loads(output["stdout"])["ports"][port_name]
     except Exception as e:
         logger.debug("teamdctl read for %s/%s failed: %s", pc_name, port_name, e)
+        return None
+
+
+def teamd_member_view(duthost, pc_name, port_name):
+    """Return (selected, lacp_state, link_up) for one teamd member, or None.
+
+    lacp_state stays "current" and link_up stays true while macsec_gate holds the
+    member out. A link flap or an LACP timeout would show up here.
+    """
+    port = teamd_member_state(duthost, pc_name, port_name)
+    try:
+        runner = port["runner"]
+        return runner["selected"], runner["state"], bool(port["link"]["up"])
+    except (TypeError, KeyError) as e:
+        logger.debug("teamd state for %s/%s incomplete: %s", pc_name, port_name, e)
         return None
 
 
@@ -199,6 +209,54 @@ def pick_ctrl_lag_port(ctrl_links, portchannels, want_single, duthost=None):
                     and teamd_member_selected(duthost, pc_name, p)):
                 return p, pc_name, candidates
     return candidates[0][0], candidates[0][1], candidates
+
+
+@pytest.fixture(scope="module")
+def require_macsec_gate(duthost, ctrl_links, wait_mka_establish):
+    """Skip unless teamd on the DUT exposes the per-member runner.macsec_gate state item.
+
+    `teamdctl <lag> state dump` lists every per-port state item teamd has. With the
+    libteam patch from sonic-buildimage#29698 a member's `runner` section carries
+    `macsec_gate`; an older teamd has no such item. teammgrd (sonic-swss#4918) drives
+    that item, and the two ship in the same image.
+
+    Depends on wait_mka_establish: teammgrd keeps a MACsec member out of teamd until
+    its session is up, on any image, so the dump has no member to inspect before that.
+    The answer comes from the first control-link member teamd reports. If teamd reports
+    none of them, the fixture does not skip, so the test's own preconditions report
+    the broken LAG instead of hiding it behind a skip.
+    """
+    portchannels = get_portchannel(duthost)
+    members = []
+    for port in ctrl_links:
+        pc = find_portchannel_from_member(port, portchannels)
+        if pc:
+            members.append((pc["name"], port))
+    if not members:
+        return
+
+    found = {}
+
+    def member_in_teamd():
+        for pc_name, port in members:
+            state = teamd_member_state(duthost, pc_name, port)
+            if state is not None:
+                found.update(pc_name=pc_name, port=port, state=state)
+                return True
+        return False
+
+    if not wait_until(30, 3, 0, member_in_teamd):
+        logger.warning("teamd reports none of the MACsec control-link LAG members %s; "
+                       "not skipping, so the test preconditions report the broken LAG.", members)
+        return
+
+    if "macsec_gate" not in found["state"].get("runner", {}):
+        pytest.skip("teamd does not expose runner.macsec_gate for {}/{} (needs "
+                    "sonic-buildimage#29698 and sonic-swss#4918). runner keys: {}".format(
+                        found["pc_name"], found["port"],
+                        sorted(found["state"].get("runner", {}).keys())))
+    logger.info("teamd exposes runner.macsec_gate (%s/%s = %s)", found["pc_name"],
+                found["port"], found["state"]["runner"]["macsec_gate"])
 
 
 class TestFaultHandling():
@@ -325,6 +383,7 @@ class TestFaultHandling():
         )
 
     @pytest.mark.disable_loganalyzer
+    @pytest.mark.usefixtures("require_macsec_gate")
     @pytest.mark.parametrize("lag_kind", ["single_member", "multi_member"])
     def test_macsec_down_disables_lag_member(self, duthost, ctrl_links,
                                              upstream_links, lag_kind, wait_mka_establish):
@@ -577,6 +636,7 @@ class TestFaultHandling():
                 "BGP over {} is not Established after recovery.".format(pc_name))
 
     @pytest.mark.disable_loganalyzer
+    @pytest.mark.usefixtures("require_macsec_gate")
     def test_macsec_rekey_keeps_lag_member_up(self, duthost, ctrl_links,
                                               upstream_links, rekey_period, wait_mka_establish):
         """A MACsec rekey rotates the SAs (new SA installed, then the old SA removed) while
