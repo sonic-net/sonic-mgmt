@@ -212,10 +212,9 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
             time.sleep(interval)
             elapsed_time = time.time() - start_time
 
-    if elapsed_time >= timeout:
-        print("{} is still False after {} seconds, exit with False".format(
-            condition.__name__, timeout), file=sys.stderr)
-        return False
+    print("{} is still False after {} seconds, exit with False".format(
+        condition.__name__, timeout), file=sys.stderr)
+    return False
 
 
 def check_orchagent_ready(test_case):
@@ -8011,7 +8010,7 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if not wait_until(420, 10, 5, check_orchagent_ready, self):
                 print("Warning: orchagent_restart_check did not succeed within timeout", file=sys.stderr)
-                
+
             sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
             sai_base_test.ThriftInterfaceDataPlane.setUp(self)
             time.sleep(1)

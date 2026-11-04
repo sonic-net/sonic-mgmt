@@ -128,7 +128,7 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
         ptf_adapter.dataplane.flush()
     except Exception as e:
         logger.warning("Could not ping dst_ip for ARP population: {}".format(e))
-        
+
     # Get PortChannel members
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     portchannels = mg_facts.get('minigraph_portchannels', {})
@@ -148,7 +148,7 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
         return None, None
 
     # Try each member port
-    num_test_packets = 100000
+    num_test_packets = 100
     timeout = 10.0
 
     for member_name, member_ptf_port in member_ptf_ports:
@@ -178,8 +178,6 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
             ptf_adapter.dataplane.flush()
             return member_name, member_ptf_port
 
-    import time 
-    time.sleep(30)
     # No working member found
     ptf_adapter.dataplane.flush()
     return None, None
