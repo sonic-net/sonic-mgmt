@@ -57,6 +57,7 @@ CHASSIS_MODULE_INFO_TABLE = 'CHASSIS_MODULE_INFO'
 SYSTEM_LEAK_STATUS_TABLE = 'SYSTEM_LEAK_STATUS'
 RACK_MANAGER_COMMAND_TABLE = 'RACK_MANAGER_COMMAND'
 RACK_MANAGER_ALERT_TABLE = 'RACK_MANAGER_ALERT'
+RACK_MANAGER_DATA_TABLE = 'RACK_MANAGER_DATA'
 HOST_STATE_KEY = 'switch-host'
 
 
@@ -525,6 +526,78 @@ class TestBmcctldDaemon:
                           f"pre={pre_boot!r} post={post_boot!r}")
         finally:
             del_cmd(unknown_key)
+
+    def test_bmcctld_rack_manager_alert_cleared_by_telemetry(self):
+        """Verify NORMAL Rack Manager telemetry clears only the matching RACK_MANAGER_ALERT.
+
+        Rack Manager never writes NORMAL to RACK_MANAGER_ALERT, so bmcctld clears an alert
+        when RACK_MANAGER_DATA|<key> reports NORMAL (severity field, or leak field for
+        Rack_level_leak). Uses MINOR alerts so no power action is taken.
+        Checks: non-NORMAL telemetry and a telemetry row with no severity/leak field leave
+        the alert in place; NORMAL deletes only the matching key; NORMAL telemetry with no
+        active alert does not create one.
+        """
+        if power_down_action_configured(self.duthost, 'rack_mgr_minor_alert_action'):
+            pytest.skip("rack_mgr_minor_alert_action is a power-down action; "
+                        "injected MINOR alert would power off the Switch-Host")
+
+        pressure_key, leak_key = 'Inlet_liquid_pressure', 'Rack_level_leak'
+        alert = lambda key: f'{RACK_MANAGER_ALERT_TABLE}|{key}'  # noqa: E731
+        data = lambda key: f'{RACK_MANAGER_DATA_TABLE}|{key}'  # noqa: E731
+        keys = (pressure_key, leak_key)
+        saved_alerts = {k: redis_hgetall(self.duthost, STATE_DB, alert(k)) for k in keys}
+        saved_data = {k: redis_hgetall(self.duthost, STATE_DB, data(k)) for k in keys}
+
+        def alert_present(key):
+            return bool(redis_hgetall(self.duthost, STATE_DB, alert(key)))
+
+        def settle_and_check_present(key, msg):
+            # Negative check: give bmcctld time to process the telemetry event.
+            time.sleep(10)
+            pytest_assert(alert_present(key), msg)
+
+        try:
+            redis_del(self.duthost, STATE_DB, *[alert(k) for k in keys], *[data(k) for k in keys])
+
+            redis_hset(self.duthost, STATE_DB, alert(pressure_key), severity='MINOR')
+            redis_hset(self.duthost, STATE_DB, alert(leak_key), leak='MINOR')
+            pytest_assert(alert_present(pressure_key) and alert_present(leak_key),
+                          "Failed to seed RACK_MANAGER_ALERT rows")
+
+            # Non-NORMAL telemetry is informational only.
+            redis_hset(self.duthost, STATE_DB, data(pressure_key), severity='MINOR')
+            settle_and_check_present(pressure_key, "MINOR telemetry must not clear the alert")
+
+            # A row without severity/leak must not be treated as NORMAL.
+            redis_del(self.duthost, STATE_DB, data(pressure_key))
+            redis_hset(self.duthost, STATE_DB, data(pressure_key), value='1.0')
+            settle_and_check_present(pressure_key, "Telemetry without severity/leak must not clear the alert")
+
+            # NORMAL telemetry clears only the matching key.
+            redis_del(self.duthost, STATE_DB, data(pressure_key))
+            redis_hset(self.duthost, STATE_DB, data(pressure_key), severity='NORMAL')
+            pytest_assert(wait_until(30, 2, 0, lambda: not alert_present(pressure_key)),
+                          f"{pressure_key} alert not cleared by NORMAL telemetry")
+            pytest_assert(alert_present(leak_key),
+                          f"NORMAL telemetry for {pressure_key} must not clear the {leak_key} alert")
+
+            # Rack_level_leak telemetry uses the leak field.
+            redis_hset(self.duthost, STATE_DB, data(leak_key), leak='NORMAL')
+            pytest_assert(wait_until(30, 2, 0, lambda: not alert_present(leak_key)),
+                          f"{leak_key} alert not cleared by NORMAL leak telemetry")
+
+            # NORMAL telemetry with no active alert must not create one.
+            redis_hset(self.duthost, STATE_DB, data(pressure_key), severity='NORMAL')
+            time.sleep(10)
+            pytest_assert(not alert_present(pressure_key),
+                          "NORMAL telemetry must not create a RACK_MANAGER_ALERT row")
+        finally:
+            redis_del(self.duthost, STATE_DB, *[alert(k) for k in keys], *[data(k) for k in keys])
+            for k in keys:
+                if saved_alerts[k]:
+                    redis_hset(self.duthost, STATE_DB, alert(k), **saved_alerts[k])
+                if saved_data[k]:
+                    redis_hset(self.duthost, STATE_DB, data(k), **saved_data[k])
 
     def test_bmcctld_power_on_delay(self, localhost, get_pdu_controller):
         """Verify bmcctld startup dispatch after BMC power loss.

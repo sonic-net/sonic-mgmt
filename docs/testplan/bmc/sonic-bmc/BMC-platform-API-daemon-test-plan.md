@@ -480,6 +480,30 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 
 ---
 
+#### Test Case #12a: test_bmcctld_rack_manager_alert_cleared_by_telemetry
+
+**File**: `tests/platform_tests/daemon/test_bmcctld.py`
+
+**Test Objective**:
+Rack Manager only writes deviations to `RACK_MANAGER_ALERT` and never writes `NORMAL`, so a raised alert never clears itself. Verify bmcctld deletes the matching `RACK_MANAGER_ALERT|<key>` row when `RACK_MANAGER_DATA|<key>` telemetry reports `NORMAL` (`severity` field; `leak` field for `Rack_level_leak`), and does nothing otherwise. MINOR alerts are used so no power action is taken.
+
+**Test Steps**:
+1. Skip if `rack_mgr_minor_alert_action` is a power-down action. Snapshot and clear existing `RACK_MANAGER_ALERT` and `RACK_MANAGER_DATA` rows for `Inlet_liquid_pressure` and `Rack_level_leak`
+2. Seed MINOR alerts for both keys
+3. Write `RACK_MANAGER_DATA|Inlet_liquid_pressure severity = MINOR`; assert the alert is still present
+4. Rewrite the telemetry row with no `severity`/`leak` field; assert the alert is still present
+5. Write `severity = NORMAL` for `Inlet_liquid_pressure`; assert its alert is deleted and the `Rack_level_leak` alert remains
+6. Write `leak = NORMAL` for `Rack_level_leak`; assert its alert is deleted
+7. Write `severity = NORMAL` again with no active alert; assert no alert row is created
+8. `finally`: delete injected rows and restore the snapshot
+
+**Expected Result**:
+- Only NORMAL telemetry for a key clears that key's alert; other keys are untouched
+- Non-NORMAL or malformed telemetry never clears an alert
+- NORMAL telemetry never creates an alert
+
+---
+
 #### Test Case #13: test_bmcctld_power_on_delay
 
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
