@@ -61,6 +61,14 @@ After interface restoration, the control state is checked again, followed by
 connected-port presence and recovery of connected links which were up before
 the test. An initially down port is not required to become up.
 
+DOM polling is configured on the unsplit/primary subport of each affected
+physical PORT index. Secondary breakout children are still isolated, but are
+not passed to the DOM config CLI, which accepts only subport 0/1 (or absent).
+Owners are found in the full PORT table even when the connected/affected port
+is a secondary child. Missing owners fail before mutation. Cleanup restores
+only attempted admin/DOM changes, with admin restoration before DOM restoration;
+a preparation failure does not restart untouched ports.
+
 Low-power starts from either boolean value. TX deduplicates by (OE, bank),
 because the setter affects that bank, including all breakout siblings; it
 does not deduplicate by physical PORT index. Uniform true or false states are
@@ -106,5 +114,9 @@ distinct OE/ELS status headings, malformed/duplicate/missing rows and cells,
 non-finite temperature, DOM error/section checks, identity suppression and
 topology-based breakout selection. The actual module with a synthetic testbed
 and module guard passed 13/13. Collection, flake8 and whitespace checks passed.
+An additional nine checks reproduce secondary-subport DOM rejection and verify
+owner selection, partial preparation cleanup, unchanged admin-down children,
+missing-owner failure and restoration order. The full module also passed 13/13
+with a synthetic CLI that rejects DOM requests for secondary breakout children.
 These are local synthetic results. A fresh Ansible/DUT run remains pending;
 the PR stays draft.

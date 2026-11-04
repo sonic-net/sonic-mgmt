@@ -32,7 +32,7 @@ def numbers(value):
 def read_port_config(duthost):
     """Keep only test inputs; omit descriptions/aliases from assertion locals."""
     result = duthost.command("sonic-cfggen -d --var-json PORT", verbose=False)
-    return {port: {key: value for key, value in entry.items() if key in ("lanes", "index", "dom_polling")}
+    return {port: {key: value for key, value in entry.items() if key in ("lanes", "index", "subport", "dom_polling")}
             for port, entry in json.loads(result["stdout"]).items()}
 
 
@@ -172,33 +172,54 @@ def isolated_interfaces(duthost, ports):
     baseline = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     config = read_port_config(duthost)
     originally_up = [port for port in ports if baseline[port]["oper_state"] == "up"]
+    physical_ports = {index for port in ports for index in numbers(config[port]["index"])}
+    # DOM polling belongs to the unsplit/primary subport, not every breakout
+    # child. The standard config CLI rejects subport > 1. Find owners in all
+    # PORT entries, even when only a secondary child is affected/connected.
+    dom_ports = sorted(port for port, entry in config.items()
+                       if str(entry.get("subport", "0")) in ("0", "1")
+                       and physical_ports.intersection(numbers(entry["index"])))
+    covered = {index for port in dom_ports for index in numbers(config[port]["index"])}
+    assert physical_ports <= covered, "DOM polling owner is missing for an affected physical port"
+    dom_attempted, admin_attempted = [], []
     errors = []
     try:
-        for port in ports:
+        for port in dom_ports:
+            dom_attempted.append(port)
             result = duthost.command("sudo config interface transceiver dom {} disable".format(port),
                                      module_ignore_errors=True, verbose=False)
-            assert result["rc"] == 0, "Could not disable DOM polling"
+            assert result["rc"] == 0, "Could not disable DOM polling for " + port
+        for port in ports:
+            if baseline[port]["admin_state"] != "up":
+                continue
+            admin_attempted.append(port)
             result = duthost.command("sudo config interface shutdown " + port,
                                      module_ignore_errors=True, verbose=False)
-            assert result["rc"] == 0, "Could not shut down shared port"
+            assert result["rc"] == 0, "Could not shut down shared port: " + port
         assert wait_until(60, 2, 0, interfaces_have_state, duthost, ports, "down")
         yield
     finally:
-        # Attempt restoration for every shared port, even if one command fails.
-        for port in ports:
+        # Restore only attempted changes; a preparation failure must not
+        # restart untouched ports. Keep DOM disabled until admin restoration.
+        for port in admin_attempted:
+            try:
+                if duthost.command("sudo config interface startup " + port,
+                                   module_ignore_errors=True, verbose=False)["rc"] != 0:
+                    errors.append(port)
+            except Exception:
+                errors.append(port)
+        for port in dom_attempted:
             key = shlex.quote("PORT|" + port)
             if "dom_polling" in config[port]:
                 dom = "sonic-db-cli CONFIG_DB HSET {} dom_polling {}".format(
                     key, shlex.quote(config[port]["dom_polling"]))
             else:
                 dom = "sonic-db-cli CONFIG_DB HDEL {} dom_polling".format(key)
-            mode = "startup" if baseline[port]["admin_state"] == "up" else "shutdown"
-            for command in (dom, "sudo config interface {} {}".format(mode, port)):
-                try:
-                    if duthost.command(command, module_ignore_errors=True, verbose=False)["rc"] != 0:
-                        errors.append(port)
-                except Exception:
+            try:
+                if duthost.command(dom, module_ignore_errors=True, verbose=False)["rc"] != 0:
                     errors.append(port)
+            except Exception:
+                errors.append(port)
         assert not errors, "Shared interface restoration failed for: {}".format(sorted(set(errors)))
         assert wait_until(180, 5, 0, interfaces_have_state, duthost, originally_up, "up"), \
             "Original links did not recover"
