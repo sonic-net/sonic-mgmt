@@ -702,7 +702,7 @@
 
       - name: Add PTF mgmt IPv4 address to NTP servers
         set_fact:
-            ntp_servers: "{{ ntp_servers + [testbed_facts['ptf_ip']] }}"
+            ntp_servers: "{{ ntp_servers + [testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip']] }}"
         when:
           - not sonic_mgmt_ipv6|bool
 
