@@ -7,7 +7,6 @@ from tests.common.platform.bmc_utils import assert_bmc_clock_in_sync
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     back_up_device_state,
-    best_effort,
     BMCWEB_CONTAINER,
     BMCWEB_READY_POLL,
     BMCWEB_READY_TIMEOUT,
@@ -61,12 +60,12 @@ def bmc_ip(bmc_duthost):
     return bmc_duthost.mgmt_ip
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def redfish_base_url(bmc_ip, redfish_port):
     return redfish_url(bmc_ip, REDFISH_ROOT, redfish_port)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def redfish_client(bmc_ip, bmc_tls_certs):
     """Return a RedfishClient configured for mTLS client-certificate auth.
 
@@ -109,18 +108,17 @@ def bmc_clock_in_sync(bmc_duthost):
     assert_bmc_clock_in_sync(bmc_duthost)
 
 
-@pytest.fixture(scope="session")
-def redfish_feature_enabled(bmc_duthost):
+@pytest.fixture(scope="module")
+def redfish_feature_enabled(request, bmc_duthost, core_dump_and_config_check):
     """Make sure the redfish feature is enabled and its container is running.
 
     The image ships the redfish FEATURE row as "disabled" and expects it to be
     turned on at runtime, so the suite cannot assume the container is already
     up. Without this the first "docker exec redfish" in bmc_tls_certs fails with
-    "No such container: redfish", and because that fixture is session scoped the
-    whole suite errors instead of skipping.
+    "No such container: redfish".
 
-    Restores the original feature state at session end so the DUT is left as the
-    image shipped it.
+    Depends on the module config check so feature and TLS cleanup finish before
+    config comparison/recovery. Restore the original state even if startup fails.
     """
     features, ok = bmc_duthost.get_feature_status()
     pyrequire(
@@ -131,7 +129,12 @@ def redfish_feature_enabled(bmc_duthost):
 
     was_enabled = features[BMCWEB_CONTAINER] == "enabled"
     if not was_enabled:
-        logger.info("redfish feature is disabled, enabling it for this session")
+        def restore_feature():
+            logger.info("Restoring the original redfish feature state")
+            bmc_duthost.shell(
+                "sudo config feature state {} {}".format(BMCWEB_CONTAINER, features[BMCWEB_CONTAINER]))
+        request.addfinalizer(restore_feature)
+        logger.info("redfish feature is disabled, enabling it for this module")
         bmc_duthost.shell(
             "sudo config feature state {} enabled".format(BMCWEB_CONTAINER),
             module_ignore_errors=False,
@@ -146,14 +149,8 @@ def redfish_feature_enabled(bmc_duthost):
 
     yield
 
-    if not was_enabled:
-        logger.info("Restoring redfish feature to its shipped disabled state")
-        best_effort(bmc_duthost.shell,
-                    "sudo config feature state {} disabled".format(BMCWEB_CONTAINER),
-                    module_ignore_errors=True)
 
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def redfish_port(bmc_duthost, redfish_feature_enabled):
     """The port the suite addresses the Redfish API on.
 
@@ -165,10 +162,10 @@ def redfish_port(bmc_duthost, redfish_feature_enabled):
     return port
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_feature_enabled,
                   redfish_port, tmp_path_factory):
-    """Provision TLS certificates through the staging pipeline, clean up at session end.
+    """Provision TLS certificates for one module, then restore the original state.
 
     Certificates are delivered to the paths configured in CONFIG_DB, the way a
     provisioning agent does, rather than copied straight into the redfish
@@ -180,9 +177,10 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
     plus "server_crt"/"server_key"/"dir"/"generator" so a test can re-deliver
     or reissue them to exercise rotation, and "port", the port to address.
 
-    On teardown the device is returned to the unprovisioned state. That is
-    required rather than tidy: the provisioned state is one-way, so leaving it
-    behind would hand every later module a fail-closed device.
+    The redfish_feature_enabled dependency orders provisioning after the module
+    config check's setup, and restoration before its teardown. A session-owned
+    certificate set would otherwise outlive config recovery and lose its trusted
+    client names. Originally provisioned devices retain their own certificates.
     """
     snapshot = snapshot_redfish_config(bmc_duthost)
     saved = back_up_device_state(bmc_duthost)
@@ -190,7 +188,7 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
     # Registered before the device is touched, so it also runs when a setup
     # step below fails: code after the yield would be skipped in that case.
     def restore():
-        logger.info("Returning the BMC to the unprovisioned state")
+        logger.info("Restoring the BMC certificate and Redfish configuration state")
         reset_to_bootstrap(bmc_duthost, snapshot, saved)
     request.addfinalizer(restore)
 
