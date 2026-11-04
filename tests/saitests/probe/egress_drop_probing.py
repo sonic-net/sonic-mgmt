@@ -102,6 +102,11 @@ class EgressDropProbing(ProbingBase):
     def get_expected_threshold(self):
         """Get expected Egress Drop threshold from test parameters."""
         value = getattr(self, 'pkts_num_trig_egr_drp', None)
+        if value is not None:
+            if 'Arista-7060X6' in str(getattr(self, 'hwsku', '')):
+                pkts_num_egr_mem = getattr(self, 'pkts_num_egr_mem', None)
+                if pkts_num_egr_mem is not None:
+                    value += pkts_num_egr_mem
         return (value, "Egress Drop threshold") if value is not None else None
 
     def get_pool_size(self):
