@@ -54,7 +54,7 @@ imports Linux-only testbed utilities.
 `unit_test_bmcctld_startup.py` executes the startup assertions and power-loss test
 method via AST without importing Linux/testbed dependencies. It covers both
 air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
-or malformed evidence, reboot/health failures, remote API boolean type checking,
+or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
 and PDU outlet restoration after individual controller exceptions.
 Physical startup behavior still requires a BMC chassis with a wired PDU.
 

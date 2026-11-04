@@ -16,6 +16,7 @@ import re
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.platform_api import chassis
 from tests.common.helpers.sonic_db import (
     CONFIG_DB,
     STATE_DB,
@@ -42,6 +43,7 @@ from tests.common.platform.bmc_utils import (
 )
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -455,7 +457,7 @@ class TestBmcctldDaemon:
         finally:
             del_cmd(unknown_key)
 
-    def test_bmcctld_power_on_delay(self, localhost, get_pdu_controller):
+    def test_bmcctld_power_on_delay(self, localhost, get_pdu_controller, platform_api_conn):  # noqa: F811
         """Verify cooling-aware Switch-Host startup after chassis power loss.
 
         Air-cooled hosts may already be ONLINE or power on immediately. Liquid-cooled
@@ -464,15 +466,9 @@ class TestBmcctldDaemon:
         """
 
         test_delay = 30
-        cooling = self.duthost.shell(
-            "python3 -c 'from sonic_platform.chassis import Chassis; "
-            "cooling = Chassis().is_liquid_cooled(); "
-            "assert isinstance(cooling, bool), \"Chassis.is_liquid_cooled() must return bool\"; "
-            "print(cooling)'"
-        )['stdout'].strip()
-        pytest_assert(cooling in ('True', 'False'),
-                      f"Chassis.is_liquid_cooled() must return a boolean, got {cooling!r}")
-        is_liquid_cooled = cooling == 'True'
+        is_liquid_cooled = chassis.is_liquid_cooled(platform_api_conn)
+        pytest_assert(isinstance(is_liquid_cooled, bool),
+                      f"Chassis.is_liquid_cooled() must return a boolean, got {is_liquid_cooled!r}")
 
         orig_delay = self.duthost.shell(
             "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"

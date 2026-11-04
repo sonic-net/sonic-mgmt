@@ -5,10 +5,7 @@ import json
 import logging
 from pathlib import Path
 import re
-import shlex
-import sys
-from types import ModuleType
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -94,12 +91,10 @@ def test_liquid_delay_does_not_hide_invalid_evidence(startup_namespace, journal,
         startup_namespace["_assert_liquid_cooled_power_on_delay"](journal, 30)
 
 
-def _integration_context(namespace, cooling="False", startup=ONLINE):
+def _integration_context(namespace, cooling=False, startup=ONLINE):
     bmc, host, pdu, analyzer = Mock(), Mock(), Mock(), Mock()
 
     def shell(command, **kwargs):
-        if "is_liquid_cooled" in command:
-            return {"stdout": cooling}
         if command == "true":
             return {"rc": 1}
         if "HGET" in command:
@@ -117,6 +112,7 @@ def _integration_context(namespace, cooling="False", startup=ONLINE):
     pdu.turn_on_outlet.return_value = True
     analyzer.analyze.return_value = {"match_messages": {"/host/bmc/event.log": [startup]}}
     namespace.update(
+        chassis=Mock(),
         get_switch_host_or_skip_test=Mock(return_value=host),
         get_host_boot_id=Mock(side_effect=["bmc-before", "host-before", "bmc-after", "host-after"]),
         make_bmc_loganalyzer=Mock(return_value=analyzer),
@@ -124,14 +120,17 @@ def _integration_context(namespace, cooling="False", startup=ONLINE):
         wait_critical_processes=Mock(),
         wait_host_on=Mock(return_value=True),
     )
+    namespace["chassis"].is_liquid_cooled.return_value = cooling
     return Mock(duthost=bmc), host, pdu
 
 
-@pytest.mark.parametrize("cooling,startup", [("False", ONLINE), ("False", IMMEDIATE), ("True", DELAYED)])
+@pytest.mark.parametrize("cooling,startup", [(False, ONLINE), (False, IMMEDIATE), (True, DELAYED)])
 def test_integration_keeps_reboot_and_health_checks(startup_namespace, cooling, startup):
     """Execute each accepted path through the real test and require both reboot IDs and health."""
     instance, host, pdu = _integration_context(startup_namespace, cooling, startup)
-    startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
+    conn = Mock()
+    startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), conn)
+    startup_namespace["chassis"].is_liquid_cooled.assert_called_once_with(conn)
     assert startup_namespace["get_host_boot_id"].call_count == 4
     startup_namespace["wait_host_on"].assert_called_once_with(host, timeout=600)
     assert pdu.turn_on_outlet.call_count == 2
@@ -158,30 +157,42 @@ def test_integration_does_not_mask_failures(startup_namespace, failure):
     elif failure == "pdu-on":
         pdu.turn_on_outlet.return_value = False
     with pytest.raises(AssertionError):
-        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), Mock())
     if failure in ("pdu", "pdu-on"):
         assert pdu.turn_on_outlet.call_count == 2
 
 
 @pytest.mark.parametrize("cooling", [True, False, "True", "False", None, 0, 1, [], {}])
-def test_remote_cooling_probe_validates_type_before_printing(startup_namespace, cooling, capsys):
-    """Execute the actual remote probe so string booleans cannot masquerade as bool."""
+def test_cooling_api_preserves_and_validates_boolean_type(startup_namespace, cooling):
+    """Execute the existing JSON API wrapper; reject strings, integers, and null."""
+    instance, _, pdu = _integration_context(startup_namespace, startup=DELAYED if cooling is True else ONLINE)
+    api_path = Path(__file__).resolve().parents[1] / "helpers" / "platform_api" / "chassis.py"
+    tree = ast.parse(api_path.read_text(encoding="utf-8"))
+    helpers = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+               and node.name in ("chassis_api", "is_liquid_cooled")]
+    api_namespace = dict(json=json, logger=Mock())
+    exec(compile(ast.Module(body=helpers, type_ignores=[]), str(api_path), "exec"), api_namespace)
+    startup_namespace["chassis"].is_liquid_cooled = api_namespace["is_liquid_cooled"]
+    conn = Mock()
+    conn.getresponse.return_value.read.return_value = json.dumps({"res": cooling}).encode()
+    if isinstance(cooling, bool):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), conn)
+    else:
+        with pytest.raises(AssertionError, match=r"Chassis.is_liquid_cooled\(\) must return a boolean"):
+            startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), conn)
+        pdu.turn_off_outlet.assert_not_called()
+        instance.duthost.shell.assert_not_called()
+    conn.request.assert_called_once_with("POST", "/platform/chassis/is_liquid_cooled", json.dumps({"args": []}))
+
+
+def test_cooling_api_failure_propagates_before_power_cycle(startup_namespace):
+    """An API request failure cannot select the relaxed air-cooled policy."""
     instance, _, pdu = _integration_context(startup_namespace)
-    startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
-    command = instance.duthost.shell.call_args_list[0].args[0]
-    script = shlex.split(command)[2]
-    platform = ModuleType("sonic_platform")
-    chassis = ModuleType("sonic_platform.chassis")
-    chassis.Chassis = Mock()
-    chassis.Chassis.return_value.is_liquid_cooled.return_value = cooling
-    with patch.dict(sys.modules, {"sonic_platform": platform, "sonic_platform.chassis": chassis}):
-        if isinstance(cooling, bool):
-            exec(script, {})
-            assert capsys.readouterr().out == f"{cooling}\n"
-        else:
-            with pytest.raises(AssertionError, match=r"Chassis.is_liquid_cooled\(\) must return bool"):
-                exec(script, {})
-            assert capsys.readouterr().out == ""
+    startup_namespace["chassis"].is_liquid_cooled.side_effect = RuntimeError("Platform API unavailable")
+    with pytest.raises(RuntimeError, match="Platform API unavailable"):
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), Mock())
+    pdu.turn_off_outlet.assert_not_called()
+    instance.duthost.shell.assert_not_called()
 
 
 @pytest.mark.parametrize("results", [
@@ -198,7 +209,7 @@ def test_pdu_restoration_attempts_all_outlets_after_exception(startup_namespace,
     outlets = pdu.get_outlet_status.return_value
     failed_outlets = [outlet for outlet, result in zip(outlets, results) if result is not True]
     with pytest.raises(AssertionError) as failure:
-        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu))
+        startup_namespace["test_bmcctld_power_on_delay"](instance, Mock(), Mock(return_value=pdu), Mock())
     assert str(failure.value).splitlines()[0] == f"Failed to power on PDU outlets {failed_outlets}"
     assert pdu.turn_on_outlet.call_args_list == [call(outlet) for outlet in outlets]
     assert startup_namespace["logger"].exception.call_args_list == [
