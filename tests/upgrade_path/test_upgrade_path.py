@@ -66,7 +66,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
         modify_reboot_script(upgrade_type)
 
 
-def regenerate_and_apply_golden_config_db(dut, tbinfo):
+def regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts):
     """Regenerate UT2 golden config before reloading minigraph."""
     if 't2_single_node' in tbinfo['topo']['name']:
         hostvars = dut.host.options['variable_manager'].get_vars(
@@ -86,7 +86,8 @@ def regenerate_and_apply_golden_config_db(dut, tbinfo):
             num_asics=dut.facts['num_asic'],
             macsec_profile=macsec_profile,
             bgp_confd_asn=common.get('dut_confed_asn'),
-            bgp_confd_peers=common.get('dut_confed_peers'))
+            bgp_confd_peers=common.get('dut_confed_peers'),
+            device_conn=conn_graph_facts.get('device_conn', {}).get(dut.hostname, {}))
         config_reload(dut, config_source="minigraph", override_config=True,
                       safe_reload=True, wait_for_bgp=True)
 
@@ -136,7 +137,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
 
 @pytest.mark.device_type('t2')
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
-                         tbinfo, request, verify_testbed_health):                     # noqa: F811
+                         tbinfo, request, verify_testbed_health, conn_graph_facts):   # noqa: F811
     """Cold-upgrade a modular chassis or a single standalone T2 DUT."""
 
     _, from_image, to_image, _, _ = upgrade_path_lists
@@ -158,7 +159,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
 
     def upgrade_path_postboot_setup(dut):
-        regenerate_and_apply_golden_config_db(dut, tbinfo)
+        regenerate_and_apply_golden_config_db(dut, tbinfo, conn_graph_facts)
         dut.shell("config bgp startup all")
 
     def upgrade_dut(dut):
