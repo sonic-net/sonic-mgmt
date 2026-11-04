@@ -1043,6 +1043,20 @@ dualtor-aa-vpp:
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
 
+dualtor-vpp:
+  - arp/test_arp_dualtor.py
+  - dualtor/test_switchover_faulty_ycable.py
+  - dualtor_io/test_heartbeat_failure.py
+  - dualtor_io/test_link_drop.py
+  - dualtor_io/test_normal_op.py
+  - dualtor_io/test_tor_bgp_failure.py
+  - dualtor_io/test_tor_failure.py
+  - dualtor_mgmt/test_dualtor_linkmgrd_restart_mux_port_status.py
+  - dualtor_mgmt/test_dualtor_setup_mux_ports.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
+  - dualtor_mgmt/test_toggle_mux.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
