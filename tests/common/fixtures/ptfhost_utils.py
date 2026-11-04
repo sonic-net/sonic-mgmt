@@ -16,7 +16,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-from tests.common.utilities import wait_until, is_ipv6_only_topology
+from tests.common.utilities import wait_until, is_ipv6_only_topology, is_lacp_server_sim_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from pytest_ansible.errors import AnsibleConnectionFailure
 
@@ -118,7 +118,7 @@ def copy_saitests_directory(ptfhost):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def change_mac_addresses(ptfhost):
+def change_mac_addresses(ptfhost, tbinfo):
     """
         Change MAC addresses (unique) on PTF host.
 
@@ -128,6 +128,9 @@ def change_mac_addresses(ptfhost):
         Returns:
             None
     """
+    if is_lacp_server_sim_topology(tbinfo):
+        logger.info("LACP server simulator topology, keep the bond member MAC addresses")
+        return
     logger.info("Change interface MAC addresses on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.change_mac_addresses()
     # NOTE: up/down ptf interfaces in change_mac_address will interrupt icmp_responder
@@ -139,7 +142,7 @@ def change_mac_addresses(ptfhost):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def remove_ip_addresses(ptfhost):
+def remove_ip_addresses(ptfhost, tbinfo):
     """
         Remove existing IP addresses on PTF host.
 
@@ -148,6 +151,11 @@ def remove_ip_addresses(ptfhost):
         Returns:
             None
     """
+    if is_lacp_server_sim_topology(tbinfo):
+        logger.info("LACP server simulator topology, keep PTF interfaces and server netns untouched")
+        yield
+        return
+
     logger.info("Remove existing IPs on ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.remove_ip_addresses()
 
@@ -247,6 +255,12 @@ ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
+    if is_lacp_server_sim_topology(tbinfo):
+        # The server netns answers ARP/ND itself
+        logger.info("LACP server simulator topology, not starting arp_responder")
+        yield ArpResponderInfo(vlan=None, responder_cfg={})
+        return
+
     arp_responder_cfg = {}
     if is_ipv6_only_topology(tbinfo):
         ipv4_base = None
@@ -429,6 +443,12 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
 @pytest.fixture(scope="module", autouse=True)
 def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request):
     """Run icmp_responder.py over ptfhost."""
+    if is_lacp_server_sim_topology(tbinfo):
+        # The server netns answers ICMP/ARP/ND itself, and there is no linkmgrd
+        logger.info("LACP server simulator topology, not starting ICMP responder")
+        yield
+        return
+
     # No vlan is available on non-t0 testbed, so skip this fixture
     if 't0' not in tbinfo['topo']['type']:
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
@@ -503,6 +523,11 @@ def pause_garp_service(ptfhost):
 
 @pytest.fixture(scope='module', autouse=True)
 def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    if is_lacp_server_sim_topology(tbinfo):
+        logger.info("LACP server simulator topology, not starting GARP service")
+        yield
+        return
+
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
