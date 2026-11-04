@@ -7,11 +7,14 @@ import traceback
 import pytest
 import logging
 from datetime import datetime
+from functools import partial
 from urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import get_reboot_cause
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
+from tests.common.utilities import get_host_visible_vars, get_inventory_files
+from tests.copp.copp_utils import parse_show_copp_configuration
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
@@ -69,36 +72,74 @@ class ContinuousReboot:
         return self.duthost.shell(cmd, module_ignore_errors=True).get("stdout", "").strip()
 
     def ensure_dut_can_resolve(self, host):
-        """
-        install_sonic() downloads on the DUT by URL, but a freshly booted image
-        has no nameserver configured. If the DUT can't resolve the image host,
-        point it at the testbed DNS (.254 of the mgmt subnet). Best-effort.
-        """
-        if not host or self._dut_stdout("getent hosts {} | head -1".format(host)):
+        """Use inventory DNS servers if the DUT cannot resolve the image host."""
+        if not host:
             return
-        mgmt_ip = self._dut_stdout(
-            "ip -4 addr show eth0 | grep -oP '(?<=inet\\s)\\d+\\.\\d+\\.\\d+\\.\\d+'")
-        if not mgmt_ip:
-            logging.warning("Could not determine eth0 IP on DUT; skipping DNS setup")
+        result = self.duthost.command(argv=["getent", "hosts", host], module_ignore_errors=True)
+        if result.get("rc") == 0:
             return
-        dns = ".".join(mgmt_ip.split(".")[:3]) + ".254"
-        self.duthost.command(
-            "config dns nameserver add {}".format(dns), module_ignore_errors=True)
+        dut_vars = get_host_visible_vars(get_inventory_files(self.request), self.duthost.hostname) or {}
+        dns_servers = dut_vars.get("dns_servers", [])
+        if not dns_servers:
+            logging.warning("No inventory dns_servers configured for DUT; skipping DNS setup")
+            return
+        for dns in dns_servers:
+            result = self.duthost.command(
+                argv=["config", "dns", "nameserver", "add", str(dns)], module_ignore_errors=True)
+            if result.get("rc") != 0:
+                logging.warning("Failed to add inventory DNS server %s: %s", dns, result.get("stderr", ""))
 
     def ensure_neighbor_miss_copp(self):
         """
-        Raise the neighbor_miss CoPP rate so the warm-up's bulk ARP resolution
-        isn't throttled below the data-plane readiness threshold. Re-run before
-        every reboot; the default (200 pps) is restored on each image boot. Full
-        COPP_GROUP entry so it passes YANG validation.
+        Raise neighbor_miss cir/cbs for bulk ARP resolution during warm-up.
+        Restore the original overrides at teardown.
         """
-        result = self.duthost.shell(
-            "sonic-db-cli CONFIG_DB HSET 'COPP_GROUP|queue1_group3' "
-            "trap_action trap trap_priority 1 queue 1 meter_type packets "
-            "mode sr_tcm cir {pps} cbs {pps} red_action drop".format(pps=self.neighbor_miss_copp_pps),
+        trap = parse_show_copp_configuration(self.duthost, None).get("neighbor_miss")
+        if not trap:
+            logging.warning("No neighbor_miss CoPP trap configured; skipping rate adjustment")
+            return
+        group = trap["trap_group"]
+        if trap.get("meter_type") != "packets" or not all(trap.get(k) for k in ("cir", "cbs")):
+            logging.warning("CoPP group %s has no existing packet rate/burst; skipping rate adjustment", group)
+            return
+        config = self.duthost.get_running_config_facts()
+        original = dict(config.get("COPP_GROUP", {}).get(group, {}))
+        applied_rate = str(self.neighbor_miss_copp_pps)
+        # Register cleanup before changing rates.
+        self.request.addfinalizer(partial(
+            self.restore_neighbor_miss_copp, group, original, applied_rate))
+        result = self.duthost.command(
+            argv=["sonic-db-cli", "CONFIG_DB", "HSET", "COPP_GROUP|" + group,
+                  "cir", applied_rate, "cbs", applied_rate],
             module_ignore_errors=True)
         if result.get("rc") != 0:
             logging.warning("Failed to raise neighbor_miss CoPP rate: {}".format(result.get("stderr", "")))
+
+    def restore_neighbor_miss_copp(self, group, original, applied_rate):
+        current = self.duthost.get_running_config_facts().get("COPP_GROUP", {}).get(group)
+        expected = dict(original, cir=applied_rate, cbs=applied_rate)
+        # Skip entries changed outside this test.
+        if current != expected:
+            return
+        # Use the current image's defaults for rates without user overrides.
+        defaults = json.loads(self._dut_stdout("cat /etc/sonic/copp_cfg.json") or "{}")
+        group_defaults = defaults.get("COPP_GROUP", {}).get(group, {})
+        rates = {k: original.get(k, group_defaults.get(k)) for k in ("cir", "cbs")}
+        key = "COPP_GROUP|" + group
+        # Restore effective rates first; HDEL alone may leave the policer unchanged.
+        restore_args = ["HSET", key]
+        for field, value in rates.items():
+            if value is not None:
+                restore_args.extend([field, str(value)])
+        commands = [restore_args] if len(restore_args) > 2 else []
+        missing_fields = [k for k in ("cir", "cbs") if k not in original]
+        if missing_fields:
+            commands.append(["HDEL", key] + missing_fields)
+        for args in commands:
+            result = self.duthost.command(
+                argv=["sonic-db-cli", "CONFIG_DB"] + args, module_ignore_errors=True)
+            pytest_assert(result.get("rc") == 0, "Failed to restore neighbor_miss CoPP rates: {}".
+                          format(result.get("stderr", "")))
 
     def init_reporting(self):
         self.reboot_count = None
@@ -352,7 +393,7 @@ class ContinuousReboot:
             reboot_type = self.reboot_type + "-reboot"
             try:
                 self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo,
-                                                     creds, rebootType=reboot_type, moduleIgnoreErrors=True)
+                                                     creds, rebootType=reboot_type)
             except Exception:
                 self.sub_test_result = False
                 self.test_failures = self.test_failures + 1
