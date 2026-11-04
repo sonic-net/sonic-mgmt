@@ -11,7 +11,6 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
-from tests.bgp.bgp_helpers import get_vm_name_list
 from tests.common.helpers.bgp import BGPNeighbor
 
 
@@ -39,10 +38,16 @@ class PendingRoute:
         self.ptf_addresses = []
         self.peer_keys = []
         self.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        properties = tbinfo["topo"]["properties"]
+        # Match bgp_helpers.get_vm_offset: converged topologies keep logical offsets separately.
+        if properties.get("topo_is_multi_vrf", False):
+            vm_offsets = properties["convergence_data"]["vm_offset_mapping"]
+        else:
+            vm_offsets = {name: info["vm_offset"] for name, info in properties["topology"]["VMs"].items()}
         for version, port in ports.items():
             vm_offset = port - (5000 if version == 4 else 6000)
-            vm = next(name for name, info in tbinfo["topo"]["properties"]["topology"]["VMs"].items()
-                      if info["vm_offset"] == vm_offset)
+            vm = next((name for name, offset in vm_offsets.items() if offset == vm_offset), None)
+            pytest_assert(vm, "No neighbor VM has vm_offset {} for ExaBGP port {}".format(vm_offset, port))
             members = [name for name, info in self.mg_facts["minigraph_neighbors"].items()
                        if info["name"] == vm]
             pytest_assert(members, "No DUT interface found for {}".format(vm))
@@ -67,15 +72,16 @@ class PendingRoute:
             command = "sudo ip netns exec {} {}".format(namespace, command)
         return self.dut.shell(command)["stdout"]
 
-    def configure_address(self, family, action):
+    def configure_address(self, family, address, action):
         namespace = " -n {}".format(family["namespace"]) if family["namespace"] else ""
         self.dut.shell("sudo config interface{} ip {} {} {}".format(
-            namespace, action, family["interface"], family["address"]))
+            namespace, action, family["interface"], address))
 
-    def db(self, database, command, namespace):
-        cmd = self.dut.get_cli_cmd_for_namespace(
+    def db(self, database, command, namespace, duthost=None):
+        duthost = duthost or self.dut
+        cmd = duthost.get_cli_cmd_for_namespace(
             "sonic-db-cli {} {}".format(database, command), namespace)
-        return self.dut.shell(cmd)["stdout"].strip()
+        return duthost.shell(cmd)["stdout"].strip()
 
     def vty(self, command, namespace):
         cmd = self.dut.get_vtysh_cmd_for_namespace("vtysh -c '{}'".format(command), namespace)
@@ -112,6 +118,13 @@ class PendingRoute:
                     else "2001:db8:2664:{:x}::/64".format(random.randrange(1, 65535)))
                 if any(subnet.overlaps(network) for network in existing):
                     continue
+                # Chassis iBGP keeps this next-hop and redistributes only /31 and /126 connected
+                # subnets, so a point-to-point subnet lets remote ASICs resolve it toward this ASIC.
+                nexthop_subnet = ipaddress.ip_network(
+                    "198.18.{}.{}/31".format(random.randrange(1, 250), 2 * random.randrange(0, 128))
+                    if version == 4 else "2001:db8:2664:{:x}::/126".format(random.randrange(1, 65535)))
+                if nexthop_subnet.overlaps(subnet) or any(nexthop_subnet.overlaps(network) for network in existing):
+                    continue
                 pool = ipaddress.ip_network("198.19.0.0/16" if version == 4 else "2001:db8:2665::/48")
                 prefixlen = 30 if version == 4 else 64
                 block_size = 1 << (pool.max_prefixlen - prefixlen)
@@ -129,17 +142,20 @@ class PendingRoute:
                 pytest.fail("Could not allocate unused IPv{} test addresses".format(version))
 
             address = "{}/{}".format(subnet.network_address + 1, subnet.prefixlen)
-            nexthop = str(subnet.network_address + 99)
+            local_nexthop, nexthop = (str(host) for host in list(nexthop_subnet.hosts())[:2])
+            nexthop_address = "{}/{}".format(local_nexthop, nexthop_subnet.prefixlen)
             prior_neighbor = json.loads(self.shell(
                 "ip -{} -j neigh show to {} dev {}".format(
                     version, nexthop, family["interface"]), namespace))
             pytest_assert(not prior_neighbor, "Refusing to overwrite neighbor {}".format(nexthop))
             family.update({"address": address, "nexthop": nexthop, "prefixes": prefixes})
             self.neighbors.append((version, family))
-            logger.info("Pending-route IPv%s: interface=%s namespace=%s vrf=%s address=%s nexthop=%s prefixes=%s",
-                        version, family["interface"], namespace, self.vrf, address, nexthop, prefixes)
-            self.addresses.append(family)
-            self.configure_address(family, "add")
+            logger.info("Pending-route IPv%s: interface=%s namespace=%s vrf=%s address=%s nexthop_address=%s "
+                        "nexthop=%s prefixes=%s", version, family["interface"], namespace, self.vrf, address,
+                        nexthop_address, nexthop, prefixes)
+            for configured in (address, nexthop_address):
+                self.addresses.append((family, configured))
+                self.configure_address(family, configured, "add")
             pytest_assert(wait_until(30, 2, 0, self.connected, version),
                           "Test next-hop is not routing-reachable: {}".format(nexthop))
             self.start_session(version, family, subnet, rib["localAS"])
@@ -177,13 +193,24 @@ class PendingRoute:
                 family["namespace"])
         peer = BGPNeighbor(self.dut, self.ptfhost, name, peer_ip, remote_asn,
                            str(subnet.network_address + 1), local_asn, port,
-                           namespace=family["namespace"], is_passive=True)
+                           namespace=family["namespace"], is_passive=True,
+                           confed_asn=self.confed_asn_for_peer(local_asn, remote_asn, family["namespace"]))
         self.sessions.append(peer)
         self.ports[version] = port
         family["peer_ip"] = peer_ip
         peer.start_session()
         pytest_assert(wait_until(60, 2, 0, self.session_established, version),
                       "Private IPv{} BGP peer did not establish".format(version))
+
+    def confed_asn_for_peer(self, local_asn, remote_asn, namespace):
+        """Return the confederation ASN the DUT presents to a peer outside its confederation."""
+        key = "'BGP_DEVICE_GLOBAL|CONFED'"
+        confed_asn = self.db("CONFIG_DB", "HGET {} asn".format(key), namespace)
+        if not confed_asn:
+            return None
+        peers = self.db("CONFIG_DB", "HGET {} peers".format(key), namespace)
+        members = set(peers.replace(";", " ").replace(",", " ").split()) | {str(local_asn)}
+        return None if str(remote_asn) in members else int(confed_asn)
 
     def session_established(self, version):
         family = self.families[version]
@@ -210,22 +237,53 @@ class PendingRoute:
     def route_key(self, prefix):
         return prefix if self.vrf == "default" else "{}:{}".format(self.vrf, prefix)
 
-    def asic_prefixes(self, namespace):
-        """Read exact SAI prefix entries, not Zebra's logical offloaded flag."""
-        keys = self.db("ASIC_DB", 'KEYS "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*"', namespace)
+    def asic_prefixes(self, namespace, duthost=None, prefixes=None):
+        """Read exact SAI prefix entries, not Zebra's logical offloaded flag.
+
+        With prefixes, match only those destinations inside Redis: chassis ASICs hold ~100k routes.
+        """
+        if prefixes is None:
+            command = 'KEYS "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*"'
+        else:
+            script = ('local r={} for _,p in ipairs(ARGV) do for _,k in ipairs(redis.call("KEYS", '
+                      '[[ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*"dest":"]]..p..[["*]])) do '
+                      'r[#r+1]=k end end return table.concat(r, "\\n")')
+            command = "EVAL '{}' 0 {}".format(script, " ".join(prefixes))
+        keys = self.db("ASIC_DB", command, namespace, duthost)
         return {ipaddress.ip_network(json.loads(key.split(":", 2)[2])["dest"])
                 for key in keys.splitlines() if key}
+
+    def bgp_routes(self, version, prefixes, namespace, duthost=None):
+        """Read exact BGP prefixes in one vtysh call; full-table JSON is hundreds of MB on chassis ASICs."""
+        if not prefixes:
+            return {}
+        duthost = duthost or self.dut
+        command = duthost.get_vtysh_cmd_for_namespace("vtysh " + " ".join(
+            "-c 'show bgp vrf {} ipv{} unicast {} json'".format(self.vrf, version, prefix)
+            for prefix in prefixes), namespace)
+        output = duthost.shell(command, verbose=False)["stdout"]
+        # vtysh prints one JSON object per -c command, back to back.
+        decoder, routes, index = json.JSONDecoder(), [], 0
+        while index < len(output):
+            if output[index].isspace():
+                index += 1
+                continue
+            route, index = decoder.raw_decode(output, index)
+            routes.append(route)
+        pytest_assert(len(routes) == len(prefixes),
+                      "Expected {} BGP prefix lookups, got {}".format(len(prefixes), len(routes)))
+        return dict(zip(prefixes, routes))
 
     def installation_matches(self, installed):
         """Check route delivery and prefix installation in the owning ASIC."""
         for version, family in self.families.items():
             namespace = family["namespace"]
-            prefixes = self.asic_prefixes(namespace)
-            rib = self.vty("show bgp vrf {} ipv{} unicast json".format(self.vrf, version), namespace)
+            prefixes = self.asic_prefixes(namespace, prefixes=family["prefixes"])
+            routes = self.bgp_routes(version, family["prefixes"], namespace)
             app_routes = self.app_routes(family)
             for prefix in family["prefixes"]:
                 if not any(path.get("valid") and path.get("bestpath")
-                           for path in rib.get("routes", {}).get(prefix, [])):
+                           for path in routes[prefix].get("paths", [])):
                     return False
                 nexthops = app_routes.get("ROUTE_TABLE:" + self.route_key(prefix), "")
                 if family["nexthop"] not in nexthops.split(","):
@@ -255,36 +313,68 @@ class PendingRoute:
         logger.info("PENDING PROVEN on %s: BGP selected, APPL_DB delivered, neighbors unresolved, ASIC prefixes absent",
                     self.dut.hostname)
 
+    def ingress_installed(self, duthost, namespaces):
+        """Check whether any test prefix is in the SAI route table of an ingress ASIC."""
+        prefixes = [prefix for family in self.families.values() for prefix in family["prefixes"]]
+        return any(self.asic_prefixes(namespace, duthost, prefixes) for namespace in namespaces)
+
+    def ingress_delayed(self, duthost):
+        """Prove the test prefixes are absent from the hardware where upstream traffic enters.
+
+        The unresolved next-hop delays only the downstream ASIC. When upstream traffic enters
+        another DUT or ASIC, that ingress may install the routes through its internal BGP
+        next-hop, so wait for its state to settle before relying on default-route loopback.
+        """
+        mg_facts = self.mg_facts if duthost == self.dut else duthost.get_extended_minigraph_facts(self.tbinfo)
+        upstream_type = UPSTREAM_NEIGHBOR_MAP[self.tbinfo["topo"]["type"]].upper()
+        namespaces = {info.get("namespace") for info in mg_facts["minigraph_neighbors"].values()
+                      if info["name"].endswith(upstream_type)}
+        pytest_assert(namespaces, "No upstream ingress ASIC found on {}".format(duthost.hostname))
+        delayed_here = duthost == self.dut and all(
+            namespace == family["namespace"] for family in self.families.values() for namespace in namespaces)
+        if delayed_here:
+            pytest_assert(not self.ingress_installed(duthost, namespaces),
+                          "Test prefixes are installed on the delayed ingress ASIC of {}".format(duthost.hostname))
+            return True
+        installed = wait_until(20, 2, 0, self.ingress_installed, duthost, namespaces)
+        logger.info("INGRESS on %s namespaces %s: test prefixes %s", duthost.hostname, sorted(map(str, namespaces)),
+                    "installed" if installed else "absent")
+        return not installed
+
     def advertisement_matches(self, duthost, exist, prefixes=None):
         """Check exact-prefix advertisement to every upstream peer in its ASIC."""
         prefixes = prefixes if prefixes is not None else {
             version: family["prefixes"] for version, family in self.families.items()}
         mg_facts = duthost.get_extended_minigraph_facts(self.tbinfo)
         upstream_type = UPSTREAM_NEIGHBOR_MAP[self.tbinfo["topo"]["type"]].upper()
-        upstream_vms = set(get_vm_name_list(self.tbinfo, upstream_type))
-        checked = set()
+        upstream_vms = {
+            peer["name"] for peer in mg_facts["minigraph_bgp"]
+            if peer["name"].endswith(upstream_type)
+        }
+        peers = {}
         for peer in mg_facts["minigraph_bgp"]:
             if peer["name"] not in upstream_vms:
                 continue
             address = ipaddress.ip_address(peer["addr"])
-            version = address.version
-            if version not in prefixes:
+            if address.version not in prefixes:
                 continue
             namespace = next(
                 info.get("namespace") for info in mg_facts["minigraph_neighbors"].values()
                 if info["name"] == peer["name"])
-            checked.add(version)
-            command = duthost.get_vtysh_cmd_for_namespace(
-                "vtysh -c 'show bgp vrf {} ipv{} unicast neighbors {} advertised-routes json'".format(
-                    self.vrf, version, address), namespace)
-            routes = json.loads(duthost.shell(command, verbose=False)["stdout"])
-            advertised = {ipaddress.ip_network(value) for value in routes.get("advertisedRoutes", {})}
+            peers.setdefault((address.version, namespace), set()).add(str(address))
+        for (version, namespace), addresses in peers.items():
+            routes = self.bgp_routes(version, prefixes[version], namespace, duthost)
             for prefix in prefixes[version]:
-                if (ipaddress.ip_network(prefix) in advertised) != exist:
-                    logger.info("Advertisement mismatch: DUT=%s prefix=%s peer=%s expected=%s advertisedTo=%s",
-                                duthost.hostname, prefix, address, exist, advertised)
+                route = routes[prefix]
+                # FRR builds advertisedTo from the adj-out, per path when add-path TX is in use.
+                advertised = set(route.get("advertisedTo", {}))
+                for path in route.get("paths", []):
+                    advertised.update(path.get("advertisedTo", {}))
+                if addresses & advertised != (addresses if exist else set()):
+                    logger.info("Advertisement mismatch: DUT=%s prefix=%s peers=%s expected=%s advertisedTo=%s",
+                                duthost.hostname, prefix, sorted(addresses), exist, sorted(advertised))
                     return False
-        return checked == set(prefixes)
+        return {version for version, _ in peers} == set(prefixes)
 
     def check_advertisement(self, duthost, exist, prefixes=None):
         """Poll positive checks; require sustained absence for the negative check."""
@@ -354,15 +444,15 @@ class PendingRoute:
         for version in self.announced:
             family = self.families[version]
             namespace = family["namespace"]
-            prefixes = self.asic_prefixes(namespace)
+            prefixes = self.asic_prefixes(namespace, prefixes=family["prefixes"])
+            routes = self.bgp_routes(version, family["prefixes"], namespace)
             app_routes = self.app_routes(family)
-            rib = self.vty("show bgp vrf {} ipv{} unicast json".format(self.vrf, version), namespace)
             for prefix in family["prefixes"]:
                 if app_routes.get("ROUTE_TABLE:" + self.route_key(prefix)):
                     return False
                 if ipaddress.ip_network(prefix) in prefixes:
                     return False
-                if rib.get("routes", {}).get(prefix):
+                if routes[prefix].get("paths"):
                     return False
         return True
 
@@ -418,9 +508,9 @@ class PendingRoute:
                         v, f["nexthop"], f["interface"]), f["namespace"])
                 self.neighbors.remove((v, f))
             attempt("remove test neighbor", remove_neighbor)
-        for family in reversed(self.addresses):
-            def remove_address(f=family):
-                self.configure_address(f, "remove")
-                self.addresses.remove(f)
+        for family, address in list(reversed(self.addresses)):
+            def remove_address(f=family, a=address):
+                self.configure_address(f, a, "remove")
+                self.addresses.remove((f, a))
             attempt("remove test interface address", remove_address)
         pytest_assert(not failures, "Pending-route cleanup failed: {}".format("; ".join(failures)))

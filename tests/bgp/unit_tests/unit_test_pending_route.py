@@ -57,9 +57,9 @@ def test_pending_requires_selection_delivery_and_unresolved_hardware_absence(
     """Require agreement between selection, delivery, neighbor, and ASIC evidence."""
     pending = make_pending(pending_class)
     prefix = "198.19.1.1/32"
-    pending.asic_prefixes = lambda namespace: {ipaddress.ip_network(prefix)} if asic_present else set()
-    pending.vty = lambda command, namespace: {
-        "routes": {prefix: [{"valid": True, "bestpath": selected}]}}
+    pending.asic_prefixes = lambda namespace, prefixes: {ipaddress.ip_network(prefix)} if asic_present else set()
+    pending.bgp_routes = lambda version, prefixes, namespace: {
+        prefix: {"paths": [{"valid": True, "bestpath": selected}]}}
     pending.app_routes = lambda family: {
         "ROUTE_TABLE:Vrf1:" + prefix: "198.18.1.99" if delivered else ""}
     pending.shell = lambda command, namespace: json.dumps(
@@ -67,12 +67,35 @@ def test_pending_requires_selection_delivery_and_unresolved_hardware_absence(
     assert pending.installation_matches(False) is expected
 
 
+def test_bgp_routes_reads_all_prefixes_in_one_namespaced_vtysh_call(pending_class):
+    """Batch exact-prefix lookups and split vtysh's back-to-back JSON replies."""
+    pending = make_pending(pending_class)
+    commands = []
+    output = {"stdout": '{"paths": [{"valid": true}]}\n{}\n'}
+
+    def shell(command, **kwargs):
+        commands.append(command)
+        return output
+
+    pending.dut = SimpleNamespace(shell=shell, get_vtysh_cmd_for_namespace=lambda command, namespace:
+                                  command.replace("vtysh", "vtysh -n 1"))
+    prefixes = ["198.19.1.0/30", "198.19.1.4/30"]
+    assert pending.bgp_routes(4, prefixes, "asic1") == {
+        "198.19.1.0/30": {"paths": [{"valid": True}]}, "198.19.1.4/30": {}}
+    assert commands == ["vtysh -n 1 -c 'show bgp vrf Vrf1 ipv4 unicast 198.19.1.0/30 json' "
+                        "-c 'show bgp vrf Vrf1 ipv4 unicast 198.19.1.4/30 json'"]
+    assert pending.bgp_routes(4, [], "asic1") == {} and len(commands) == 1
+    output["stdout"] = "{}\n"
+    with pytest.raises(AssertionError, match="Expected 2 BGP prefix lookups, got 1"):
+        pending.bgp_routes(4, prefixes, "asic1")
+
+
 def test_cleanup_continues_after_pytest_failure_and_retries_safely(pending_class):
     """Finish owned-resource removal after pytest failures and allow a safe retry."""
     pending = make_pending(pending_class)
     family = pending.families[4]
     pending.neighbors = [(4, family)]
-    pending.addresses = [family]
+    pending.addresses = [(family, "198.18.1.1/24")]
     calls = []
 
     def withdraw_failure():
@@ -126,7 +149,7 @@ def test_setup_ignores_default_route_but_avoids_existing_asic_prefix(pending_cla
     pending.count = 2
     pending.vty = lambda command, namespace: {"routes": {"0.0.0.0/0": []}, "localAS": 65100}
     pending.asic_prefixes = lambda namespace: {ipaddress.ip_network("198.18.1.0/24")}
-    slots = iter([1, 2, 10])
+    slots = iter([1, 2, 1, 5, 2, 3, 5, 10])
     monkeypatch.setattr(random, "randrange", lambda *args: next(slots))
 
     def shell(command, namespace):
@@ -138,9 +161,10 @@ def test_setup_ignores_default_route_but_avoids_existing_asic_prefix(pending_cla
     pending.ptfhost = SimpleNamespace(shell=lambda command: {"stdout": "[]"})
     pending.start_session = lambda *args: None
     calls = []
-    pending.configure_address = lambda family, action: calls.append((family["address"], action))
+    pending.configure_address = lambda family, address, action: calls.append((address, action))
     pending.setup()
-    assert calls == [("198.18.2.1/24", "add")]
+    assert calls == [("198.18.2.1/24", "add"), ("198.18.3.10/31", "add")]
+    assert pending.families[4]["nexthop"] == "198.18.3.11"
 
 
 def test_cleanup_attempts_remaining_peers_and_addresses_after_session_failure(pending_class):
@@ -174,7 +198,8 @@ def test_setup_uses_ipv6_subnets_accepted_by_tor_import_policy(pending_class, mo
     pending.count = 2
     pending.vty = lambda command, namespace: {"routes": {"::/0": []}, "localAS": 65100}
     pending.asic_prefixes = lambda namespace: set()
-    monkeypatch.setattr(random, "randrange", lambda *args: 10)
+    slots = iter([1, 10, 11, 10])
+    monkeypatch.setattr(random, "randrange", lambda *args: next(slots))
 
     def shell(command, namespace):
         return "[]" if any(value in command for value in ("address show", "route show", "neigh show")) else \
@@ -183,34 +208,46 @@ def test_setup_uses_ipv6_subnets_accepted_by_tor_import_policy(pending_class, mo
     pending.shell = shell
     pending.ptfhost = SimpleNamespace(shell=lambda command: {"stdout": "[]"})
     pending.start_session = lambda *args: None
-    pending.configure_address = lambda *args: None
+    calls = []
+    pending.configure_address = lambda family, address, action: calls.append(address)
     pending.setup()
     assert [ipaddress.ip_network(prefix).prefixlen for prefix in pending.families[6]["prefixes"]] == [64, 64]
+    assert calls == ["2001:db8:2664:a::1/64", "2001:db8:2664:b::1/126"]
+    assert pending.families[6]["nexthop"] == "2001:db8:2664:b::2"
 
 
+@pytest.mark.parametrize("addpath", [False, True])
+@pytest.mark.parametrize("topo,upstream,peer_name", [
+    ("t1", "t2", "ARISTA01T2"), ("lrh", "urh", "ARISTA07URH"),
+])
 @pytest.mark.parametrize("advertised,has_peer,expected", [
     (True, True, True), (False, True, False), (True, False, False),
 ])
 def test_static_advertisement_checks_the_explicit_prefix_and_requires_an_upstream_peer(
-        pending_class, advertised, has_peer, expected):
-    """Require an upstream peer and advertisement of the requested static prefix."""
+        pending_class, topo, upstream, peer_name, advertised, has_peer, expected, addpath):
+    """Require an upstream peer, matched by its full role suffix, in the prefix's advertisedTo."""
     pending = make_pending(pending_class)
-    pending.tbinfo = {"topo": {"type": "t1"}}
-    pending_class.advertisement_matches.__globals__.update({
-        "UPSTREAM_NEIGHBOR_MAP": {"t1": "T2"},
-        "get_vm_name_list": lambda tbinfo, kind: ["ARISTA01T2"],
-    })
+    pending.tbinfo = {"topo": {"type": topo}}
+    pending_class.advertisement_matches.__globals__["UPSTREAM_NEIGHBOR_MAP"] = {topo: upstream}
     facts = {
-        "minigraph_bgp": [{"name": "ARISTA01T2", "addr": "10.0.0.1"}] if has_peer else [],
-        "minigraph_neighbors": {"Ethernet0": {"name": "ARISTA01T2", "namespace": "asic1"}},
+        "minigraph_bgp": [{"name": peer_name, "addr": "10.0.0.1"}] if has_peer else [],
+        "minigraph_neighbors": {"Ethernet0": {"name": peer_name, "namespace": "asic1"}},
     }
+    advertised_to = {"10.0.0.1": {}} if advertised else {}
+    route = ({"paths": [{"valid": True}, {"valid": True, "advertisedTo": advertised_to}]} if addpath
+             else {"advertisedTo": advertised_to, "paths": [{"valid": True}]})
+    commands = []
+
+    def shell(command, **kwargs):
+        commands.append(command)
+        return {"stdout": json.dumps(route)}
+
     dut = SimpleNamespace(
         hostname="dut", get_extended_minigraph_facts=lambda tbinfo: facts,
-        get_vtysh_cmd_for_namespace=lambda command, namespace: command,
-        shell=lambda *args, **kwargs: {"stdout": json.dumps({
-            "advertisedRoutes": {"1.1.1.0/24": {}} if advertised else {}})},
+        get_vtysh_cmd_for_namespace=lambda command, namespace: command, shell=shell,
     )
     assert pending.advertisement_matches(dut, True, {4: ["1.1.1.0/24"]}) is expected
+    assert commands == (["vtysh -c 'show bgp vrf Vrf1 ipv4 unicast 1.1.1.0/24 json'"] if has_peer else [])
 
 
 @pytest.mark.parametrize("multi_asic", [False, True])
@@ -267,6 +304,52 @@ def test_packet_masks_use_scapy_layers_and_check_the_resolved_mac(
         assert packet[scapy.Ether].dst == (ingress or pending.dut).facts["router_mac"]
 
 
+@pytest.mark.parametrize("confed,remote_asn,expected", [
+    ({"asn": "64915", "peers": "64982;64983"}, 65200, 64915),
+    ({"asn": "64915", "peers": "64982;64983"}, 64982, None),
+    ({"asn": "64915", "peers": "64982;64983"}, 64981, None),
+    ({}, 65200, None),
+])
+def test_private_peer_expects_confederation_asn_only_outside_the_confederation(
+        pending_class, confed, remote_asn, expected):
+    """External peers of a confederation member receive the confederation ASN in BGP OPEN."""
+    pending = make_pending(pending_class)
+    pending.db = lambda database, command, namespace: confed.get(command.split()[-1], "")
+    assert pending.confed_asn_for_peer(64981, remote_asn, "asic1") == expected
+
+
+@pytest.mark.parametrize("same_dut,ingress_namespace,installed,expected", [
+    (True, "asic1", False, True),
+    (True, "asic1", True, AssertionError),
+    (True, "asic0", True, False),
+    (False, "asic1", True, False),
+    (False, "asic1", False, True),
+])
+def test_loopback_requires_test_prefixes_absent_on_the_ingress_asic(
+        pending_class, same_dut, ingress_namespace, installed, expected):
+    """Only the downstream ASIC is delayed; another ingress may install the routes."""
+    pending = make_pending(pending_class)
+    pending.tbinfo = {"topo": {"type": "t2"}}
+    pending_class.ingress_delayed.__globals__["UPSTREAM_NEIGHBOR_MAP"] = {"t2": "t3"}
+    facts = {"minigraph_neighbors": {"Ethernet0": {"name": "ARISTA01T3", "namespace": ingress_namespace}}}
+    pending.mg_facts = facts
+    ingress = pending.dut if same_dut else SimpleNamespace(
+        hostname="upstream", get_extended_minigraph_facts=lambda tbinfo: facts)
+    checked = []
+
+    def asic_prefixes(namespace, duthost, prefixes):
+        checked.append((duthost.hostname, namespace, prefixes))
+        return {ipaddress.ip_network("198.19.1.1/32")} if installed else set()
+
+    pending.asic_prefixes = asic_prefixes
+    if expected is AssertionError:
+        with pytest.raises(AssertionError, match="delayed ingress"):
+            pending.ingress_delayed(ingress)
+    else:
+        assert pending.ingress_delayed(ingress) is expected
+    assert checked == [(ingress.hostname, ingress_namespace, ["198.19.1.1/32"])]
+
+
 def test_resolution_normalizes_the_ptf_receiving_mac_from_bytes(pending_class):
     """Use the ASCII receiving MAC when releasing the neighbor-dependent delay."""
     facts = {
@@ -286,3 +369,23 @@ def test_resolution_normalizes_the_ptf_receiving_mac_from_bytes(pending_class):
     pending.resolve()
     assert commands == [
         "sudo ip -4 neigh replace 198.18.1.99 lladdr 0a:00:00:00:00:99 nud permanent dev PortChannel1"]
+
+
+def test_converged_topology_maps_ports_through_logical_vm_offsets(pending_class):
+    """Converged cEOS topologies keep only prime VMs, so ports must use vm_offset_mapping."""
+    facts = {
+        "minigraph_neighbors": {"Ethernet64": {"name": "ARISTA16T0"}},
+        "minigraph_portchannels": {},
+        "minigraph_bgp": [{"name": "ARISTA16T0", "asn": 64016}],
+        "minigraph_devices": {"ARISTA16T0": {"type": "ToRRouter"}},
+    }
+    dut = SimpleNamespace(hostname="dut", get_extended_minigraph_facts=lambda tbinfo: facts)
+    ptfadapter = SimpleNamespace(dataplane=SimpleNamespace(get_mac=lambda *args: "0a:00:00:00:00:99"))
+    tbinfo = {"topo": {"properties": {
+        "topo_is_multi_vrf": True,
+        "topology": {"VMs": {"ARISTA01T2": {"vm_offset": 0}, "ARISTA01T0": {"vm_offset": 1}}},
+        "convergence_data": {"vm_offset_mapping": {"ARISTA01T2": 0, "ARISTA16T0": 23}},
+    }}}
+    pending = pending_class(dut, tbinfo, ptfadapter, None, None, {6: 6023}, {6: [31]})
+    assert pending.families[6]["interface"] == "Ethernet64"
+    assert pending.families[6]["asn"] == 64016

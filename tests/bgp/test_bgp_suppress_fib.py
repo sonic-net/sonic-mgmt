@@ -1109,8 +1109,7 @@ def exercise_pending_routes(pending, duthost_up, suppression_enabled):
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
 def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                                  ptfadapter, localhost, restore_bgp_suppress_fib, pending_route_factory,
-                                 prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
-                                 request, loganalyzer):
+                                 prepare_param, vrf_type, continuous_boot_times, request, loganalyzer):
     duthost = duthosts[enum_upstream_dut_hostname]
     asic_name = duthost.get_asic_name()
     if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
@@ -1131,10 +1130,6 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
 
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
-
-        with allure.step("Get route and traffic data"):
-            ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-                traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
         with allure.step("Config bgp suppress-fib-pending function"):
             config_bgp_suppress_fib(duthost_down, loganalyzer=loganalyzer)
@@ -1171,7 +1166,7 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
 
 def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo,
                                     nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,
-                                    pending_route_factory, generate_route_and_traffic_data, loganalyzer):
+                                    pending_route_factory, loganalyzer):
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
     multi_dut = False
@@ -1185,10 +1180,6 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
         if multi_dut:
             config_bgp_suppress_fib(duthost_up, enable=False, validate_result=True, loganalyzer=loganalyzer)
 
-    with allure.step("Get route and traffic data"):
-        ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
-
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         pending = pending_route_factory(duthost_down, exabgp_port, exabgp_port_v6, recv_port)
         try:
@@ -1200,8 +1191,7 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 
 def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
                                                     tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
-                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data,
-                                                    pending_route_factory, loganalyzer):
+                                                    restore_bgp_suppress_fib, pending_route_factory, loganalyzer):
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
     multi_dut = False
@@ -1211,10 +1201,6 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
 
     with allure.step("Prepare needed parameters"):
         router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
-
-    with allure.step("Get route and traffic data"):
-        ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
     with allure.step("Config bgp suppress-fib-pending function"):
         config_bgp_suppress_fib(duthost_down, loganalyzer=loganalyzer)
@@ -1279,8 +1265,7 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
 
 
 def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts, ptfadapter,
-                     prepare_param, generate_route_and_traffic_data, pending_route_factory,
-                     restore_bgp_suppress_fib, loganalyzer):
+                     prepare_param, pending_route_factory, restore_bgp_suppress_fib, loganalyzer):
     """
     The problem with BGP programming occurs after the T1 switch is rebooted:
 
@@ -1300,10 +1285,6 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
     with allure.step("Prepare needed parameters"):
         router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
 
-    with allure.step("Get route and traffic data"):
-        ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
-
     for enable in (False, True):
         with allure.step("{} bgp suppress-fib-pending function".format("Config" if enable else "Disable")):
             config_bgp_suppress_fib(duthost_down, enable, validate_result=True, loganalyzer=loganalyzer)
@@ -1322,15 +1303,23 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
                     pending.check_advertisement(duthost_up, exist=not enable)
 
                 with allure.step("Validate traffic is forwarded back to Upstream VM"):
-                    mg_facts = duthost_up.get_extended_minigraph_facts(tbinfo)
-                    router_mac = duthost_up.facts["router_mac"]
-                    ptf_interfaces = get_upstream_ptf_intfs(mg_facts, tbinfo)
-                    traffic = [
-                        generate_traffic_data(family["prefixes"], FORWARD)
-                        for family in pending.families.values()
-                    ]
-                    validate_traffic(ptfadapter, traffic, router_mac,
-                                     ptf_interfaces, ptf_interfaces, loop_back=True)
+                    ingress_delayed = pending.ingress_delayed(duthost_up)
+                    pytest_assert(ingress_delayed or not enable,
+                                  "Suppressed test prefixes were installed on ingress {}".format(duthost_up.hostname))
+                    if ingress_delayed:
+                        mg_facts = duthost_up.get_extended_minigraph_facts(tbinfo)
+                        router_mac = duthost_up.facts["router_mac"]
+                        ptf_interfaces = get_upstream_ptf_intfs(mg_facts, tbinfo)
+                        traffic = [
+                            generate_traffic_data(family["prefixes"], FORWARD)
+                            for family in pending.families.values()
+                        ]
+                        validate_traffic(ptfadapter, traffic, router_mac,
+                                         ptf_interfaces, ptf_interfaces, loop_back=True)
+                    else:
+                        logger.warning("Skipping default-route loopback check: ingress %s installed the test "
+                                       "prefixes; the installation delay applies only to the downstream ASIC of %s",
+                                       duthost_up.hostname, duthost_down.hostname)
                     pending.check_pending()
 
                 with allure.step("Resolve next-hops and validate BGP routes are announced to Upstream VM"):
@@ -1346,7 +1335,7 @@ def test_credit_loop(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_h
 
 def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
                              ptfadapter, prepare_param, completeness_level, pending_route_factory,
-                             generate_route_and_traffic_data, restore_bgp_suppress_fib, loganalyzer):
+                             restore_bgp_suppress_fib, loganalyzer):
     """
     Verify BGP suppress-fib-pending under stress conditions.
 
@@ -1362,10 +1351,6 @@ def test_suppress_fib_stress(duthosts, enum_downstream_dut_hostname, enum_upstre
 
     with allure.step("Prepare needed parameters"):
         router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
-
-    with allure.step("Get route and traffic data"):
-        ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[STRESS]
 
     with allure.step("Enable BGP suppress-fib-pending function at DUT"):
         config_bgp_suppress_fib(duthost_down, loganalyzer=loganalyzer)
