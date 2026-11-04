@@ -33,9 +33,12 @@ transceiver test aggregates per-port failures into a single
 ``pytest.fail`` at the end, and an exception inside the loop would
 short-circuit that pattern.
 """
+import time
+
 from tests.transceiver.common.cli_parser_helper import (
     parse_fwversion,
     parse_hexdump,
+    parse_lpmode,
     parse_read_eeprom,
     RC_FAILURE,
 )
@@ -63,8 +66,14 @@ SFPUTIL_SHOW_EEPROM_HEXDUMP = "sfputil show eeprom-hexdump"
 SFPUTIL_READ_EEPROM = "sfputil read-eeprom"
 SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
+SFPUTIL_RESET = "sfputil reset"
+SFPUTIL_SHOW_LPMODE = "sfputil show lpmode"
+SFPUTIL_LPMODE = "sfputil lpmode"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
+SFPUTIL_FIRMWARE_DOWNLOAD = "sfputil firmware download"
+SFPUTIL_FIRMWARE_RUN = "sfputil firmware run"
+SFPUTIL_FIRMWARE_COMMIT = "sfputil firmware commit"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -72,6 +81,16 @@ SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 # "Error: invalid port ..." / "Root privileges are required") while keeping the
 # aggregated per-port failure report readable.
 CLI_ERROR_DETAIL_MAX_CHARS = 200
+TIMEOUT_RC = 124
+FW_RUN_DELAY_SEC = 10
+
+# Success markers for the firmware sfputil commands
+FW_DOWNLOAD_SUCCESS_MARKER = "Firmware download complete success"
+FW_RUN_SUCCESS_MARKER = "Firmware run in mode=0 success"
+FW_COMMIT_SUCCESS_MARKER = "Firmware commit successful"
+SFPUTIL_RESET_SUCCESS_MARKER = "OK"
+SFPUTIL_LPMODE_SUCCESS_MARKER = "OK"
+FW_DOWNLOAD_INTERRUPT_SIGNALS = {"sigkill": 9}
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -116,9 +135,14 @@ def _as_decimal_int(value):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def sfputil_show_eeprom_cmd(port=None):
-    """Return ``sfputil show eeprom`` (all ports) or ``... -p <port>``."""
-    return f"{SFPUTIL_SHOW_EEPROM} -p {port}" if port else SFPUTIL_SHOW_EEPROM
+def sfputil_show_eeprom_cmd(port=None, dom=False):
+    """Return ``sfputil show eeprom [-d]`` (all ports) or ``... -p <port>``.
+
+    DOM has no CLI subcommand of its own; ``-d/--dom`` appends the Digital
+    Optical Monitoring values to the EEPROM dump.
+    """
+    cmd = SFPUTIL_SHOW_EEPROM + (" -d" if dom else "")
+    return f"{cmd} -p {port}" if port else cmd
 
 
 def sfputil_show_eeprom_hexdump_cmd(port, page=None):
@@ -199,7 +223,7 @@ def _error_detail(result):
     if stdout:
         parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
     if stderr:
-        parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+        parts.append(f"stderr: {stderr[-CLI_ERROR_DETAIL_MAX_CHARS:]}")
     return "; ".join(parts) if parts else "no stdout/stderr"
 
 
@@ -361,6 +385,34 @@ def set_dom_polling(duthost, port, enable, namespace=None):
     """
     action = "enable" if enable else "disable"
     cmd = f"config interface{_ns_flag(namespace)} transceiver dom {port} {action}"
+    result = duthost.command(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def config_interface_shutdown(duthost, port, namespace=None):
+    """Run ``sudo config interface [-n <ns>] shutdown <port>``.
+
+    On multi-ASIC the ``-n <namespace>`` option is mandatory and must follow
+    ``config interface``, so it cannot use the trailing ``_ns_flag`` used by
+    the ``show`` commands (see :func:`set_dom_polling`).
+    Returns ``None`` on success, or a short error string.
+    """
+    cmd = f"sudo config interface{_ns_flag(namespace)} shutdown {port}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def config_interface_startup(duthost, port, namespace=None):
+    """Run ``sudo config interface [-n <ns>] startup <port>``.
+
+    See :func:`config_interface_shutdown` for the namespace-placement note.
+    Returns ``None`` on success, or a short error string.
+    """
+    cmd = f"sudo config interface{_ns_flag(namespace)} startup {port}"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
@@ -371,3 +423,201 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
     cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)
     return _run_and_parse(duthost, cmd, parse_eeprom)
+
+
+_CDB_FW_ABORT_PYCODE = (
+    "import sonic_platform.platform as P\n"
+    "api = P.Platform().get_chassis().get_sfp({idx}).get_xcvr_api()\n"
+    "cdb = getattr(api, 'cdb', None)\n"
+    "if cdb is None:\n"
+    "    cdb = getattr(api, 'cdb_fw_hdlr', None)\n"
+    "print(cdb.abort_fw_download() if cdb is not None else 'NO_CDB')\n"
+)
+
+
+def _run_firmware_cmd(duthost, cmd, timeout_sec, success_marker):
+    """Run ``cmd`` under a hard ``timeout``; returns ``(elapsed_sec, rc, err)``.
+
+    ``err`` is ``None`` only when rc is 0 AND ``success_marker`` is in stdout.
+    """
+    wrapped = f"timeout {timeout_sec} {cmd}"
+    start = time.time()
+    result = duthost.command(wrapped, module_ignore_errors=True)
+    elapsed = round(time.time() - start, 1)
+    rc = result.get("rc", RC_FAILURE)
+    if rc == TIMEOUT_RC:
+        return elapsed, rc, f"{cmd} timed out after {timeout_sec}s"
+    if rc != 0:
+        return elapsed, rc, f"{cmd} failed with rc={rc} ({_error_detail(result)})"
+    stdout = "\n".join(result.get("stdout_lines") or [])
+    if success_marker and success_marker not in stdout:
+        return elapsed, rc, (
+            f"{cmd} did not report success ('{success_marker}' absent; "
+            f"{_error_detail(result)})"
+        )
+    return elapsed, rc, None
+
+
+def sfputil_firmware_download(duthost, port, fwfile, timeout_sec):
+    """Run ``sfputil firmware download <port> "<fwfile>"``
+
+    Returns ``(elapsed_sec, rc, err)``.
+    """
+    cmd = f'{SFPUTIL_FIRMWARE_DOWNLOAD} {port} "{fwfile}"'
+    return _run_firmware_cmd(duthost, cmd, timeout_sec, FW_DOWNLOAD_SUCCESS_MARKER)
+
+
+_FW_DOWNLOAD_INTERRUPT_PYCODE = (
+    "import errno, os, pty, re, select, time\n"
+    "argv = {argv}\n"
+    "pid, master_fd = pty.fork()\n"
+    "if pid == 0:\n"
+    "    os.execvp(argv[0], argv)\n"
+    "deadline = time.time() + {timeout_sec}\n"
+    "tail = ''\n"
+    "reached = 0\n"
+    "outcome = 'RUNNING'\n"
+    "try:\n"
+    "    while True:\n"
+    "        remaining = deadline - time.time()\n"
+    "        if remaining <= 0:\n"
+    "            outcome = 'TIMEOUT'\n"
+    "            break\n"
+    "        ready, _, _ = select.select([master_fd], [], [], remaining)\n"
+    "        if not ready:\n"
+    "            continue\n"
+    "        try:\n"
+    "            chunk = os.read(master_fd, 4096)\n"
+    "        except OSError as exc:\n"
+    "            if exc.errno == errno.EIO:\n"
+    "                outcome = 'COMPLETED'\n"
+    "                break\n"
+    "            raise\n"
+    "        if not chunk:\n"
+    "            outcome = 'COMPLETED'\n"
+    "            break\n"
+    "        tail = (tail + chunk.decode(errors='replace'))[-4096:]\n"
+    "        percentages = [int(value) for value in re.findall(r'(\\d{{1,3}})%', tail)]\n"
+    "        if percentages:\n"
+    "            reached = max(reached, max(percentages))\n"
+    "        if reached >= {percentage}:\n"
+    "            outcome = 'INTERRUPTED'\n"
+    "            break\n"
+    "finally:\n"
+    "    try:\n"
+    "        if outcome != 'COMPLETED':\n"
+    "            try:\n"
+    "                os.kill(pid, {signum} if outcome == 'INTERRUPTED' else 9)\n"
+    "            except ProcessLookupError:\n"
+    "                pass\n"
+    "        _, status = os.waitpid(pid, 0)\n"
+    "    finally:\n"
+    "        os.close(master_fd)\n"
+    "returncode = -os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.WEXITSTATUS(status)\n"
+    "print('RESULT|%s|%d|%d' % (outcome, reached, returncode))\n"
+)
+
+
+def sfputil_firmware_download_interrupted(
+    duthost, port, fwfile, percentage, timeout_sec, method
+):
+    """Start ``sfputil firmware download`` and interrupt it at ``percentage`` of the binary.
+
+    Returns ``(reached_percentage, elapsed_sec, err)``; ``err`` is set when the
+    download could not be interrupted at the requested progress point.
+    """
+    signum = FW_DOWNLOAD_INTERRUPT_SIGNALS[method]
+
+    pycode = _FW_DOWNLOAD_INTERRUPT_PYCODE.format(
+        argv=SFPUTIL_FIRMWARE_DOWNLOAD.split() + [port, fwfile],
+        timeout_sec=timeout_sec,
+        percentage=percentage,
+        signum=signum,
+    )
+    start = time.time()
+    result = duthost.shell(
+        'python3 -c "{}"'.format(pycode),
+        module_ignore_errors=True,
+    )
+    elapsed = round(time.time() - start, 1)
+    if result.get("rc", RC_FAILURE) != 0:
+        return None, elapsed, (
+            f"interrupted firmware download failed with rc={result.get('rc')} ({_error_detail(result)})"
+        )
+
+    stdout_lines = result.get("stdout_lines") or []
+    status = next(
+        (line.strip() for line in reversed(stdout_lines) if line.strip().startswith("RESULT|")),
+        "",
+    )
+    parts = status.split("|")
+    if len(parts) == 4 and parts[0] == "RESULT":
+        outcome, reached, returncode = parts[1:]
+        reached = int(reached)
+        returncode = int(returncode)
+        if outcome == "INTERRUPTED":
+            if returncode != -signum:
+                return None, elapsed, (
+                    f"firmware download exited with rc={returncode}, expected signal {signum}"
+                )
+            return reached, elapsed, None
+        if outcome == "COMPLETED":
+            return None, elapsed, (
+                f"firmware download exited with rc={returncode} before reaching {percentage}%"
+            )
+        if outcome == "TIMEOUT":
+            return None, elapsed, (
+                f"firmware download did not reach {percentage}% within {timeout_sec}s"
+            )
+    return None, elapsed, (
+        "unexpected interrupted download output: "
+        + (status or " ".join(stdout_lines).strip())
+    )
+
+
+def sfputil_firmware_run(duthost, port, timeout_sec):
+    """Run ``sfputil firmware run --delay <delay_sec> <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_FIRMWARE_RUN} --delay {FW_RUN_DELAY_SEC} {port}"
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, FW_RUN_SUCCESS_MARKER)
+    return elapsed, err
+
+
+def sfputil_firmware_commit(duthost, port, timeout_sec):
+    """Run ``sfputil firmware commit <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_FIRMWARE_COMMIT} {port}"
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, FW_COMMIT_SUCCESS_MARKER)
+    return elapsed, err
+
+
+def sfputil_reset(duthost, port, timeout_sec=60):
+    """Run ``sfputil reset <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_RESET} {port}"
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_RESET_SUCCESS_MARKER)
+    return elapsed, err
+
+
+def sfputil_show_lpmode(duthost, port=None):
+    """Run ``sfputil show lpmode`` for one port or all ports."""
+    cmd = SFPUTIL_SHOW_LPMODE
+    if port is not None:
+        cmd = f"{cmd} -p {port}"
+    return _run_and_parse(duthost, cmd, parse_lpmode)
+
+
+def sfputil_set_lpmode(duthost, port, low_power, timeout_sec=60):
+    """Run ``sfputil lpmode on|off <port>`` returns ``(elapsed_sec, err)``."""
+    cmd = f"{SFPUTIL_LPMODE} {'on' if low_power else 'off'} {port}"
+    elapsed, _, err = _run_firmware_cmd(duthost, cmd, timeout_sec, SFPUTIL_LPMODE_SUCCESS_MARKER)
+    return elapsed, err
+
+
+def issue_cdb_fw_abort(duthost, physical_index):
+    """``status`` is the raw ``abort_fw_download()`` reply."""
+    pycode = _CDB_FW_ABORT_PYCODE.format(idx=int(physical_index))
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return None, f"CDB abort failed with rc={result.get('rc')} ({_error_detail(result)})"
+    status = " ".join(result.get("stdout_lines") or []).strip()
+    if status == "NO_CDB":
+        return None, "CDB not supported on module"
+    return status, None

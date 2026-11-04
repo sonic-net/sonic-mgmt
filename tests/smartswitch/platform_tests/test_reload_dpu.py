@@ -25,7 +25,8 @@ from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
-    pytest.mark.topology('smartswitch')
+    pytest.mark.topology('smartswitch'),
+    pytest.mark.disable_loganalyzer
 ]
 
 kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
@@ -35,12 +36,25 @@ DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 MAX_COOL_OFF_TIME = 300
 EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 MAX_DPU_DOWN_TIME_SPREAD_SECS = 20
+SN4280_HWSKU_PREFIX = "Mellanox-SN4280"
 
 
 @pytest.fixture(params=["gnoi_based", "cli_based"])
 def invocation_type(request):
     """Parametrize reboot tests to run with both gNOI and CLI reboot paths."""
     return request.param
+
+
+def expects_dpu_reboot_after_npu_crash(duthost):
+    """Return whether DPUs are expected to reboot after an NPU crash/recovery."""
+    hwsku = duthost.facts.get('hwsku', '')
+    if hwsku.startswith(SN4280_HWSKU_PREFIX):
+        logging.info(
+            "Skipping DPU uptime reboot validation: %s keeps DPUs up during NPU crash recovery",
+            hwsku
+        )
+        return False
+    return True
 
 
 @contextmanager
@@ -51,7 +65,7 @@ def mellanox_dpu_shutdown_check(duthost, dpu_on_list):
     yield
 
     dpu_down_log_pattern = r"dpuctl_plat.*(dpu\d).*Total time taken = (\d+\.\d+) for going down"
-    syslog = duthost.shell(f"grep -E '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
+    syslog = duthost.shell(f"grep -P '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
     matches = re.findall(dpu_down_log_pattern, syslog)
     logging.info(f"Found {len(matches)} DPU down logs")
     logging.info(f"Time taken for DPUs to shutdown: {matches}")
@@ -66,7 +80,6 @@ def mellanox_dpu_shutdown_check(duthost, dpu_on_list):
                   f"(delta={delta:.2f}s)")  # noqa: E231
 
 
-@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
@@ -135,7 +148,6 @@ def test_dpu_status_post_switch_config_reload(duthosts, dpuhosts,
                          num_dpu_modules, None)
 
 
-@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                                                enum_rand_one_per_hwsku_hostname,  # noqa: E501
                                                localhost,
@@ -155,8 +167,10 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
-    logging.info("Recording DPU boot times before NPU memory exhaustion")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+    pre_boot_times = None
+    if expects_dpu_reboot_after_npu_crash(duthost):
+        logging.info("Recording DPU boot times before NPU memory exhaustion")
+        pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
 
     logging.info("Starting memory exhaustion test on NPU by running \
                   a large process...")
@@ -183,7 +197,6 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                          pre_boot_times=pre_boot_times)
 
 
-@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                              enum_rand_one_per_hwsku_hostname,
                                              localhost,
@@ -203,8 +216,10 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
-    logging.info("Recording DPU boot times before NPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+    pre_boot_times = None
+    if expects_dpu_reboot_after_npu_crash(duthost):
+        logging.info("Recording DPU boot times before NPU kernel panic")
+        pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
 
     logging.info("Triggering kernel panic on NPU...")
     duthost.shell(kernel_panic_cmd, executable="/bin/bash")
@@ -230,7 +245,6 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                          pre_boot_times=pre_boot_times)
 
 
-@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                                           enum_rand_one_per_hwsku_hostname,
                                           platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -245,6 +259,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                                                  duthost,
                                                  platform_api_conn,
                                                  num_dpu_modules)
+
+    logging.info("Recording DPU boot times before DPU kernel panic")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
 
     triggered_dpu_on_list = []
     triggered_ip_list = []
@@ -261,9 +278,6 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         triggered_ip_list.append(ip_address_list[index])
 
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
-
-    logging.info("Recording DPU boot times before DPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
 
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, triggered_ip_list)
@@ -300,7 +314,6 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                          pre_boot_times=pre_boot_times)
 
 
-@pytest.mark.disable_loganalyzer
 def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                                            enum_rand_one_per_hwsku_hostname,
                                            platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -372,7 +385,6 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                          pre_boot_times=pre_boot_times)
 
 
-@pytest.mark.disable_loganalyzer
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn, num_dpu_modules,  # noqa: F811
                           invocation_type, gnmi_tls):  # noqa: F811, E501
@@ -421,7 +433,6 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                              pre_boot_times=pre_boot_times)
 
 
-@pytest.mark.disable_loganalyzer
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                             platform_api_conn, num_dpu_modules, localhost):  # noqa: F811, E501
     """

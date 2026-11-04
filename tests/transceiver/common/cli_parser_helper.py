@@ -8,20 +8,37 @@ be unit-tested in isolation and reused without importing the command layer.
 Note: the baseline ``parse_eeprom`` parser intentionally remains in
 ``tests/transceiver/utils/cli_parser_helper.py`` — it pre-dates this suite and
 is imported by other (non-EEPROM) transceiver tests, so it is not relocated
-here.  These are the parsers newly added by the EEPROM work.
+here; it is wrapped by ``reduce_eeprom_status`` for the status-line contract
+shared by the EEPROM and OIR categories.
 """
 import re
+
+from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 
 
 __all__ = [
     # ── General shell / command-result constants ────────────────────────────
     "RC_FAILURE",
 
+    # ── Presence / EEPROM CLI status contract ───────────────────────────────
+    "PRESENCE_PRESENT",
+    "PRESENCE_ABSENT",
+    "ABSENT_MSG_SFPUTIL",
+    "ABSENT_MSG_CLI_INFO",
+
+    # ── sfputil show fwversion field labels ─────────────────────────────────
+    "FW_ACTIVE",
+    "FW_INACTIVE",
+    "FW_RUNNING_IMAGE",
+    "FW_COMMITTED_IMAGE",
+
     # ── Public parsers ──────────────────────────────────────────────────────
     "parse_fwversion",
     "parse_hexdump",
+    "parse_lpmode",
     "parse_presence",
     "parse_read_eeprom",
+    "reduce_eeprom_status",
 ]
 
 # Default rc for a duthost.command()/shell() result that lacks an 'rc' key.
@@ -171,6 +188,17 @@ def parse_hexdump(output_lines):
     return sections
 
 
+# ── Presence / EEPROM CLI status contract ───────────────────────────────────
+# The exact per-port status tokens the presence / EEPROM CLIs emit.  Shared by
+# every category that reads them (EEPROM error handling, physical OIR) so the
+# two test paths cannot drift when the CLI output changes.  The absence messages
+# are case-sensitive and deliberately differ per command family.
+PRESENCE_PRESENT = "Present"
+PRESENCE_ABSENT = "Not present"
+ABSENT_MSG_SFPUTIL = "SFP EEPROM not detected"    # sfputil family:                   lowercase 'not'
+ABSENT_MSG_CLI_INFO = "SFP EEPROM Not detected"   # show interfaces transceiver info: capital 'Not'
+
+
 # ``parse_presence`` accepts the standard ``EthernetN`` name as well as the
 # ``EthernetN/M`` form used on some chassis platforms (e.g. modular line-card
 # breakouts).  The first capture group preserves the full port identifier; the
@@ -178,7 +206,10 @@ def parse_hexdump(output_lines):
 # stray non-table line beginning with ``EthernetN`` (e.g. an interleaved log
 # line) cannot produce a spurious entry.  The trailing ``\s*$`` anchor rejects
 # rows that carry unexpected extra columns.
-_PRESENCE_LINE_RE = re.compile(r"^(Ethernet\d+(?:/\d+)?)\s+(Present|Not present)\s*$")
+_PRESENCE_LINE_RE = re.compile(
+    r"^(Ethernet\d+(?:/\d+)?)\s+({}|{})\s*$".format(
+        re.escape(PRESENCE_PRESENT), re.escape(PRESENCE_ABSENT))
+)
 
 
 def parse_presence(output_lines):
@@ -203,6 +234,43 @@ def parse_presence(output_lines):
             presence = match.group(2).strip()
             res[port] = presence
     return res
+
+
+_LPMODE_LINE_RE = re.compile(r"^(Ethernet\d+(?:/\d+)?)\s+(On|Off|N/A|Not Present)\s*$")
+
+
+def parse_lpmode(output_lines):
+    """Parse ``sfputil show lpmode`` output into a ``{port: low_power_mode}`` map.
+
+    Args:
+        output_lines: command stdout as a list of lines.
+
+    Returns:
+        dict mapping port name to its ``Low-power Mode`` column value, e.g.
+        ``{"Ethernet0": "On", "Ethernet8": "Off"}``.
+    """
+    res = {}
+    for line in output_lines:
+        match = _LPMODE_LINE_RE.match(line.strip())
+        if match:
+            res[match.group(1)] = match.group(2)
+    return res
+
+
+def reduce_eeprom_status(output_lines):
+    """Reduce an ``... eeprom`` / ``... info`` dump to ``{port: status_line}``.
+
+    ``parse_eeprom`` records each ``EthernetN: <text>`` header under the port's
+    ``status`` key (e.g. ``"SFP EEPROM not detected"`` for an empty cage), which
+    is the per-port status the verification loops compare against.
+    """
+    return {port: fields.get("status") for port, fields in parse_eeprom(output_lines).items()}
+
+
+FW_ACTIVE = "Active Firmware"
+FW_INACTIVE = "Inactive Firmware"
+FW_RUNNING_IMAGE = "Running Image"
+FW_COMMITTED_IMAGE = "Committed Image"
 
 
 def parse_fwversion(output_lines):

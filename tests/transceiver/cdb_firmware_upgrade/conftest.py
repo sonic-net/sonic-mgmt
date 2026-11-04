@@ -1,5 +1,4 @@
 import logging
-import time
 
 import pytest
 
@@ -16,12 +15,14 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     stage_prestaged_firmware_binaries,
     cleanup_firmware_files,
 )
-from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.db_helpers import get_db_hash_field, resolve_port_namespace
 from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 from tests.transceiver.common.port_selectors import (
     resolve_ports_under_test,
     select_attribute_ports,
+)
+from tests.transceiver.cdb_firmware_upgrade.firmware_operations import (
+    execute_on_ports,
+    restore_module_to_original,
 )
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
@@ -56,18 +57,18 @@ def transceiver_firmware_info_parser(ansible_root):
 
 @pytest.fixture(scope="session")
 def required_firmware_metadata_for_all_transceivers(
-    get_dev_transceiver_details,
+    port_attributes_dict,
     transceiver_firmware_info_parser,
-    get_transceiver_common_attributes
+    cdb_firmware_qualifying_ports,
 ):
     return get_required_firmware_metadata_for_all_transceivers(
-        get_dev_transceiver_details,
+        port_attributes_dict,
         transceiver_firmware_info_parser.transceiver_firmware_info,
-        transceiver_common_attributes=get_transceiver_common_attributes
+        cdb_firmware_qualifying_ports,
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def stage_latest_firmware_binaries_on_dut(
     duthost,
     transceiver_firmware_info_parser,
@@ -104,9 +105,9 @@ def stage_latest_firmware_binaries_on_dut(
     logger.info("All latest firmware staged to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def cdb_firmware_qualifying_ports(
-    port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
+    port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
 ):
     """CMIS active-optical first-subport ports the CDB firmware tests run on.
 
@@ -133,53 +134,53 @@ def cdb_firmware_qualifying_ports(
     return qualifying_ports
 
 
-@pytest.fixture
-def dom_polling_disabled(duthost, port_attributes_dict, cdb_firmware_qualifying_ports):
-    """Disable DOM polling on the ports under test, restoring it on teardown.
+@pytest.fixture(scope="session")
+def cdb_firmware_abort_supported_ports(
+    port_attributes_dict, cdb_firmware_qualifying_ports,
+):
+    """Qualifying ports whose modules support aborting a firmware download."""
+    ports = [
+        port for port in cdb_firmware_qualifying_ports
+        if port_attributes_dict[port][CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY].get(
+            "firmware_download_cdb_abort_support", True
+        )
+    ]
+    if not ports:
+        pytest.skip("No qualifying ports support CDB firmware download abort")
+    return ports
 
-    Scope is intentionally function (the default): upcoming firmware-operation
-    tests re-validate DOM values after each test, which requires DOM to be
-    re-enabled between tests.  Function scope gives a per-test
-    disable -> yield -> re-enable cycle.
+
+@pytest.fixture(scope="package", autouse=True)
+def restore_original_firmware_baseline(
+    stage_latest_firmware_binaries_on_dut, firmware_files_cleanup, duthost, port_attributes_dict,
+    cdb_firmware_qualifying_ports, required_firmware_metadata_for_all_transceivers,
+    get_lport_to_pport_mapping,
+):
+    """Restore every qualifying module to its original state before and
+    after the package. Depends on ``firmware_files_cleanup`` so the
+    post-package restore runs before the staged binaries are removed.
     """
-    sleep_sec = 0
-    disabled_ports = []
-    try:
-        for port in cdb_firmware_qualifying_ports:
-            cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 5))
-            namespace = resolve_port_namespace(duthost, port)
-            dom_polling, err = get_db_hash_field(
-                duthost, "CONFIG_DB", "PORT", port, "dom_polling", namespace=namespace
-            )
-            if err:
-                pytest.fail(f"Failed to read dom_polling for {port}: {err}")
-            if dom_polling == "disabled":
-                logger.debug("Port %s: DOM polling already disabled", port)
-                continue
-            err = cli_helpers.set_dom_polling(duthost, port, enable=False, namespace=namespace)
-            if err:
-                pytest.fail(f"Failed to disable DOM polling: {err}")
-            disabled_ports.append((port, namespace))
-        if disabled_ports:
-            logger.info("Disabled DOM polling on %d port(s); waiting %ds", len(disabled_ports), sleep_sec)
-            time.sleep(sleep_sec)
-        yield
-    finally:
-        for port, namespace in disabled_ports:
-            err = cli_helpers.set_dom_polling(duthost, port, enable=True, namespace=namespace)
-            if err:
-                logger.warning("Failed to re-enable DOM polling on %s: %s", port, err)
-        if disabled_ports:
-            logger.info("Re-enabled DOM polling on %d port(s)", len(disabled_ports))
+    def _restore(phase):
+        failures, ports = execute_on_ports(
+            duthost, port_attributes_dict, cdb_firmware_qualifying_ports,
+            get_lport_to_pport_mapping, required_firmware_metadata_for_all_transceivers,
+            restore_module_to_original,
+        )
+        logger.info("%s original firmware baseline on %d port(s)", phase, ports)
+        if failures:
+            pytest.fail(f"{phase} firmware restore failures:\n" + "\n".join(failures))
+
+    _restore("Pre-package")
+    yield
+    _restore("Post-package")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="package", autouse=True)
 def firmware_files_cleanup(
     duthost
 ):
     """
-    Module-scoped cleanup fixture that removes firmware files after all tests in the module complete.
+    Package-scoped cleanup fixture that removes firmware files after all tests in the package complete.
     """
     yield  # This is where all tests run
 

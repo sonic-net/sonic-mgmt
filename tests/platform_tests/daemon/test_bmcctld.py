@@ -28,6 +28,7 @@ from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
     CAUSE_POWER_DOWN_FROM_BMC,
+    get_host_boot_id,
     get_host_uptime,
     get_switch_host_or_skip_test,
     make_bmc_loganalyzer,
@@ -38,6 +39,7 @@ from tests.common.platform.bmc_utils import (
     wait_host_on,
 )
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -446,6 +448,7 @@ class TestBmcctldDaemon:
             ).get('stdout', '').strip()
             pytest_assert(readback == str(test_delay),
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
+            self.duthost.shell("sudo config save -y")
 
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
             # The PDU/PSU connection graph is defined for the switch chassis, not the BMC
@@ -480,21 +483,27 @@ class TestBmcctldDaemon:
             for outlet in outlets:
                 pdu_ctrl.turn_on_outlet(outlet)
 
-            wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
+            wait_critical_processes(self.duthost, timeout=600)
 
             la.match_regex = [r".*issuing power_on.*", r".*STARTUP:.*"]
-            b_result = la.analyze(marker_b, fail=False)
             b_lines = []
-            for lines in (b_result.get("match_messages") or {}).values():
-                b_lines.extend(lines)
+
+            def power_on_logged():
+                result = la.analyze(marker_b, fail=False)
+                b_lines.clear()
+                for lines in (result.get("match_messages") or {}).values():
+                    b_lines.extend(lines)
+                return re.search(r"issuing power_on", "\n".join(b_lines)) is not None
+
+            poweron_match = wait_until(90, 5, 0, power_on_logged)
             journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
 
-            poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
                 poweron_match,
                 "After PDU-induced BMC power-loss reboot, expected "
-                "'STARTUP: ... issuing power_on' log not found in event.log"
+                "'STARTUP: ... issuing power_on' log not found in event.log; "
+                f"observed STARTUP entries: {b_lines}"
             )
         finally:
             if orig_delay and orig_delay.isdigit():
@@ -502,48 +511,42 @@ class TestBmcctldDaemon:
                     f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
                     module_ignore_errors=True
                 )
+            else:
+                self.duthost.shell(
+                    "sonic-db-cli CONFIG_DB HDEL "
+                    "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
+                    module_ignore_errors=True
+                )
+            self.duthost.shell("sudo config save -y", module_ignore_errors=True)
 
     def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
         """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.
 
         Confirms BMC↔Switch-Host fault isolation: rebooting the BMC SONiC instance
         must not trigger any POWER_OFF/POWER_ON/POWER_CYCLE on the Switch-Host.
-        - BMC: uptime advances, reboot-cause history grows by one entry
-        - Switch-Host: uptime unchanged, reboot-cause history length unchanged
+        - BMC boot ID must change
+        - Switch-Host boot ID must remain unchanged
         """
 
         host = get_switch_host_or_skip_test(self.duthost)
 
-        # uptime -s reports boot time to the second, and NTP can step the clock by a
-        # second or two without any reboot. Compare the Switch-Host boot time at minute
-        # resolution so such a clock step can't be misread as "isolation broken".
-        sw_uptime_pre = get_host_uptime(host).rsplit(':', 1)[0]
-        sw_history_pre = host.show_and_parse('show reboot-cause history') or []
-        bmc_uptime_pre = get_host_uptime(self.duthost)
-        bmc_history_pre = self.duthost.show_and_parse('show reboot-cause history') or []
+        sw_boot_id_pre = get_host_boot_id(host)
+        bmc_boot_id_pre = get_host_boot_id(self.duthost)
 
         reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
                wait_for_ssh=True, safe_reboot=True)
 
         wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
 
-        bmc_uptime_post = get_host_uptime(self.duthost)
-        bmc_history_post = self.duthost.show_and_parse('show reboot-cause history') or []
-        pytest_assert(bmc_uptime_post and bmc_uptime_post != bmc_uptime_pre,
-                      f"BMC uptime did not advance after reboot: "
-                      f"pre={bmc_uptime_pre!r} post={bmc_uptime_post!r}")
-        pytest_assert(len(bmc_history_post) > len(bmc_history_pre),
-                      f"BMC reboot-cause history did not grow: "
-                      f"pre={len(bmc_history_pre)} post={len(bmc_history_post)}")
+        bmc_boot_id_post = get_host_boot_id(self.duthost)
+        sw_boot_id_post = get_host_boot_id(host)
 
-        sw_uptime_post = get_host_uptime(host).rsplit(':', 1)[0]
-        sw_history_post = host.show_and_parse('show reboot-cause history') or []
-        pytest_assert(sw_uptime_post == sw_uptime_pre,
-                      f"Switch-Host uptime advanced after BMC reboot — isolation broken: "
-                      f"pre={sw_uptime_pre!r} post={sw_uptime_post!r}")
-        pytest_assert(len(sw_history_post) == len(sw_history_pre),
-                      f"Switch-Host reboot-cause history grew after BMC reboot — "
-                      f"isolation broken: pre={len(sw_history_pre)} post={len(sw_history_post)}")
+        pytest_assert(bmc_boot_id_post != bmc_boot_id_pre,
+                      f"BMC boot ID did not change after cold reboot: "
+                      f"pre={bmc_boot_id_pre!r} post={bmc_boot_id_post!r}")
+        pytest_assert(sw_boot_id_post == sw_boot_id_pre,
+                      f"Switch-Host rebooted during BMC reboot — isolation broken: "
+                      f"pre_boot_id={sw_boot_id_pre!r} post_boot_id={sw_boot_id_post!r}")
         pytest_assert(host.critical_services_fully_started(),
                       "Switch-Host critical services not fully started after BMC reboot")
 

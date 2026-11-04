@@ -5,6 +5,7 @@ import datetime
 import gzip
 import logging
 import os
+import subprocess
 import sys
 import tarfile
 import traceback
@@ -18,7 +19,10 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_testbed_sonichosts  # noqa: E402
+from devutil.devices.factory import (  # noqa: E402
+    init_sonichosts,
+    init_testbed_sonichosts,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -50,8 +54,10 @@ def get_techsupport(sonichost, time_since, dump_dir):
         return None
 
     except Exception as e:
-        logger.info(f"[{sonichost.hostname}] Failed to get techsupport: {e}")
-        sys.exit(RC_GET_TECHSUPPORT_FAILED)
+        logger.error(
+            f"[{sonichost.hostname}] Failed to get techsupport: {e}"
+        )
+        raise
 
 
 def extract_dump_tar_gz(tar_file_path, extract_path):
@@ -124,26 +130,84 @@ def collect_dump_and_extract(sonichost, time_since, testbed_name_with_idx, dump_
         logger.warning(f"[{sonichost.hostname}] No dump file collected.")
 
 
-def main(args):
+def collect_dump_in_subprocess(args: argparse.Namespace, hostname: str) -> int:
+    """Run each Ansible collection from a child process's main thread."""
+    command = [
+        sys.executable,
+        os.path.abspath(__file__),
+        "--inventory",
+        *args.inventory,
+        "--testbed-name",
+        args.testbed_name,
+        "--testbed-name-with-idx",
+        args.testbed_name_with_idx,
+        "-f",
+        args.tbfile,
+        "-s",
+        args.time_since,
+        "--verbosity",
+        str(args.verbosity),
+        "--dump-dir",
+        args.dump_dir,
+        "--dut",
+        hostname,
+    ]
+    logger.info(
+        f"[{hostname}] Starting isolated dump collection process"
+    )
+    return subprocess.run(command, check=False).returncode
+
+
+def collect_single_dut(args: argparse.Namespace) -> int:
+    logger.info(f"Initializing host {args.dut}")
+    sonichosts = init_sonichosts(
+        args.inventory, args.dut, options={"verbosity": args.verbosity}
+    )
+    if not sonichosts:
+        return RC_INIT_FAILED
+
+    os.makedirs(args.dump_dir, exist_ok=True)
+    collect_dump_and_extract(
+        sonichosts[0],
+        args.time_since,
+        args.testbed_name_with_idx,
+        args.dump_dir,
+    )
+    return 0
+
+
+def main(args: argparse.Namespace) -> int:
+    if args.dut:
+        return collect_single_dut(args)
+
     logger.info("Initializing hosts")
     sonichosts = init_testbed_sonichosts(
         args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
     )
 
     if not sonichosts:
-        sys.exit(RC_INIT_FAILED)
+        return RC_INIT_FAILED
 
-    if not os.path.exists(args.dump_dir):
-        os.makedirs(args.dump_dir)
+    os.makedirs(args.dump_dir, exist_ok=True)
 
     with ThreadPoolExecutor(max_workers=len(sonichosts)) as executor:
-        futures = [
-            executor.submit(collect_dump_and_extract,
-                            sonichost, args.time_since, args.testbed_name_with_idx, args.dump_dir)
+        futures = {
+            executor.submit(
+                collect_dump_in_subprocess, args, sonichost.hostname
+            ): sonichost.hostname
             for sonichost in sonichosts
+        }
+        failed_hosts = [
+            hostname
+            for future, hostname in futures.items()
+            if future.result() != 0
         ]
-        for future in futures:
-            future.result()
+
+    if failed_hosts:
+        logger.error(f"Dump collection failed on hosts: {failed_hosts}")
+        return RC_GET_TECHSUPPORT_FAILED
+
+    return 0
 
 
 if __name__ == "__main__":
@@ -207,5 +271,12 @@ if __name__ == "__main__":
         help="Directory to store collected dumps."
     )
 
+    parser.add_argument(
+        "--dut",
+        type=str,
+        default=None,
+        help=argparse.SUPPRESS
+    )
+
     args = parser.parse_args()
-    main(args)
+    sys.exit(main(args))
