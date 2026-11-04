@@ -557,6 +557,71 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate HTTP status is `400` (Bad Request)
 3. Validate the error response body contains a Redfish-compliant error object
 
+### Test Case \#35 — Faulted leak sensor is reported unavailable
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_leak_detector_fault_reported_unavailable`        |
+| **Priority** | P0                                                     |
+| **Endpoint** | `GET /redfish/v1/Chassis/chassis/LeakDetectors/{id}`, `GET /redfish/v1/Chassis/chassis/ThermalSubsystem/LeakDetection/LeakDetectors/{id}` |
+
+**Steps:**
+
+1. Write `LIQUID_COOLING_INFO|<sensor>` with `leaking=N/A` and `leak_sensor_status=Fault`
+2. Validate both URIs report `DetectorState` `Unavailable`, `Status.State` `UnavailableOffline` and `Status.Health` `Warning`
+3. Write the row back to `leaking=No`, `leak_sensor_status=Good`
+4. Validate both URIs report `DetectorState` `OK` with `Status` `Enabled` / `OK`
+
+### Test Case \#36 — Leak sensor fault and recovery raise ResourceStatusChanged events
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_leak_detector_fault_events_delivered`            |
+| **Priority** | P0                                                     |
+| **Endpoint** | `POST /redfish/v1/EventService/Subscriptions`          |
+
+**Steps:**
+
+1. Create an unfiltered subscription and one with `ResourceTypes` `["LeakDetector"]`
+2. Fault the sensor as in Test Case \#35
+3. Validate each subscriber receives only `ResourceEvent.1.3.0.ResourceStatusChangedWarning`, `MessageArgs` `[<sensor>, "Warning"]`, `OriginOfCondition` the leak detector
+4. Recover the sensor
+5. Validate each subscriber receives `ResourceEvent.1.3.0.ResourceStatusChangedOK` and `Environmental.1.1.0.LeakDetectedNormal`
+
+### Test Case \#37 — Leak sensor published after the bridge started
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_leak_detector_published_after_bridge_start`      |
+| **Priority** | P0                                                     |
+| **Endpoint** | `GET /redfish/v1/Chassis/chassis/LeakDetectors`        |
+
+**Steps:**
+
+1. With `sonic-dbus-bridge` running, write a new `LIQUID_COOLING_INFO|<sensor>` row
+2. Validate both LeakDetectors collections list the new detector without a bridge or container restart, with `DetectorState` `OK`
+3. Validate the canonical collection lists exactly one detector per `LIQUID_COOLING_INFO|*` key in STATE_DB
+
+### Test Case \#38 — Switch-Host power state is unknown until bmcctld publishes it
+
+
+| Field        | Value                                                  |
+| :------------- | :------------------------------------------------------- |
+| **Test ID**  | `test_host_state_unknown_until_bmcctld_publishes`      |
+| **Priority** | P0                                                     |
+| **Endpoint** | `GET /redfish/v1/Systems/system`, `GET /redfish/v1/Chassis/chassis`, `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. Subscribe with `ResourceTypes` `["ComputerSystem"]`, stop `bmcctld`, delete `HOST_STATE|switch-host` and restart `sonic-dbus-bridge`
+2. Validate `Systems/system` and `Chassis/chassis` omit `PowerState` and report `Status.State` `UnavailableOffline`
+3. Send `ResetType` `On` and validate one `RACK_MANAGER_COMMAND` row with `command=POWER_ON` is created
+4. Validate no power event is delivered
+5. Start `bmcctld` and validate both resources report `PowerState` `On` and the subscriber receives `ResourceEvent.1.3.0.ResourcePoweredOn`
+
 ---
 
 ## Section 9: D-Bus Infrastructure Health
@@ -780,12 +845,12 @@ Certificate-based tests use a `bmc_tls_certs` pytest fixture that handles the fu
 | Computer System Reset                | 5        | P0/P1    | NA     |
 | Rack Manager Alert                   | 2        | P0/P1    | NA     |
 | Rack Manager Telemetry               | 2        | P0/P1    | NA     |
-| Rack Manager Event Subscription      | 3        | P1       | NA     |
+| Rack Manager Event Subscription      | 7        | P0/P1    | NA     |
 | D-Bus Infrastructure Health          | 3        | P0       | NA     |
 | Graceful Degradation                 | 2        | P1       | NA     |
 | Error Handling                       | 2        | P1       | NA     |
 | Certificate-Based Authentication     | 5        | P0/P1    | NA     |
-| **Total**                            | **34**   |          |        |
+| **Total**                            | **38**   |          |        |
 
 # Open Items
 

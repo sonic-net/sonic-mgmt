@@ -47,7 +47,7 @@ import requests
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
-from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_keys
+from tests.common.helpers.sonic_db import STATE_DB, redis_del, redis_hgetall, redis_keys
 from tests.common.utilities import wait_until
 from tests.redfish.redfish_utils import (
     assert_field_contains,
@@ -90,9 +90,9 @@ BRIDGE_READY_TIMEOUT = 60
 
 EVENT_ODATA_TYPE = "#Event.v1_4_0.Event"
 
-# Synthetic leak sensor the test plays platform daemon for. sonic-dbus-bridge
-# discovers LIQUID_COOLING_INFO|* rows only at startup, so the row is seeded
-# and the bridge restarted once per module.
+# Synthetic leak sensor the test plays platform daemon for. The row is seeded
+# and the bridge restarted once per module, so every test starts from a
+# detector the bridge exported at startup.
 LEAK_SENSOR = "rmc_test_leak"
 LEAK_SENSOR_KEY = "LIQUID_COOLING_INFO|{}".format(LEAK_SENSOR)
 LEAK_SENSOR_DBUS_PATH = "/xyz/openbmc_project/sensors/leak/{}".format(LEAK_SENSOR)
@@ -106,12 +106,23 @@ LEAK_ORIGIN_CANONICAL = "/redfish/v1/Chassis/chassis/LeakDetectors/{}".format(LE
 LEAK_REGISTRY = "Environmental"
 LEAK_RESOURCE_TYPE = "LeakDetector"
 # STATE_DB fields per detector state, as thermalctld writes them and
-# sonic-dbus-bridge's LeakSensor::detectorState() maps them.
+# sonic-dbus-bridge's LeakSensor::detectorState() maps them. Unavailable is
+# a faulted sensor whose leak state cannot be read (sonic-redfish design section 7.6).
 LEAK_STATES = {
-    "OK": {"leaking": "No", "leak_status": "No", "leak_severity": "None"},
-    "Warning": {"leaking": "Yes", "leak_status": "Yes", "leak_severity": "MINOR"},
-    "Critical": {"leaking": "Yes", "leak_status": "Yes", "leak_severity": "CRITICAL"},
+    "OK": {"leaking": "No", "leak_status": "No", "leak_severity": "None", "leak_sensor_status": "Good"},
+    "Warning": {"leaking": "Yes", "leak_status": "Yes", "leak_severity": "MINOR", "leak_sensor_status": "Good"},
+    "Critical": {"leaking": "Yes", "leak_status": "Yes", "leak_severity": "CRITICAL", "leak_sensor_status": "Good"},
+    "Unavailable": {"leaking": "N/A", "leak_status": "N/A", "leak_severity": "None", "leak_sensor_status": "Fault"},
 }
+# Event raised as a detector enters (Warning) or leaves (OK) Unavailable: (MessageId, Severity).
+LEAK_STATUS_EVENTS = {
+    "Warning": ("ResourceEvent.1.3.0.ResourceStatusChangedWarning", "Warning"),
+    "OK": ("ResourceEvent.1.3.0.ResourceStatusChangedOK", "OK"),
+}
+LEAK_SENSOR_KEY_GLOB = "LIQUID_COOLING_INFO|*"
+# A second synthetic sensor, written while the bridge is already running.
+LATE_LEAK_SENSOR = "rmc_test_leak_late"
+LATE_LEAK_SENSOR_KEY = "LIQUID_COOLING_INFO|{}".format(LATE_LEAK_SENSOR)
 # Event bmcweb's leak monitor emits for each detector state: (MessageId, Severity, Message).
 LEAK_EVENTS = {
     "Critical": ("Environmental.1.1.0.LeakDetectedCritical", "Critical",
@@ -143,6 +154,10 @@ POWER_OFF_ON_SEQUENCE = ("PoweringOff", "PoweredOff", "PoweringOn", "PoweredOn")
 HOST_OFF_TIMEOUT = 240
 HOST_ON_TIMEOUT = 120
 HOST_STATE_POLL = 5
+CHASSIS_PATH = "/redfish/v1/Chassis/chassis"
+PMON_CONTAINER = "pmon"
+BMCCTLD = "bmcctld"
+BMCCTLD_TIMEOUT = 120
 
 # Runs a POST from inside the redfish container: exactly the network path bmcweb uses.
 PROBE_SNIPPET = ("import sys, urllib.request; "
@@ -338,6 +353,51 @@ def _assert_host_power_event(event, event_name):
     )
 
 
+def _assert_leak_status_event(event, health):
+    """Check an event record is the ResourceStatusChanged<health> event for the test sensor."""
+    message_id, severity = LEAK_STATUS_EVENTS[health]
+    assert_field_equals(event, "MessageId", message_id)
+    assert_field_equals(event, "Severity", severity)
+    assert_field_equals(event, "MessageArgs", [LEAK_SENSOR, health])
+    pytest_assert(
+        event.get("OriginOfCondition", {}).get("@odata.id") == LEAK_ORIGIN,
+        "OriginOfCondition must be {!r}, got: {!r}".format(LEAK_ORIGIN, event.get("OriginOfCondition"))
+    )
+    pytest_assert(
+        isinstance(event.get("EventTimestamp"), str) and event["EventTimestamp"],
+        "EventTimestamp must be a non-empty string, got: {!r}".format(event.get("EventTimestamp"))
+    )
+
+
+def _event_with_id(payloads, message_id):
+    """The first event record carrying `message_id` among delivered payloads, envelope checked."""
+    event = next(
+        (record for payload in payloads for record in _assert_event_envelope(payload)
+         if record.get("MessageId") == message_id),
+        None)
+    pytest_assert(event is not None,
+                  "{} not found in deliveries: {}".format(message_id, _delivered_message_ids(payloads)))
+    return event
+
+
+def _get_body(redfish_client, path):
+    """JSON body of a 200 GET on `path`, or {} while the BMC cannot answer it."""
+    try:
+        response = redfish_client.get(path)
+    except requests.exceptions.RequestException:
+        return {}
+    return response.json() if response.status_code == 200 else {}
+
+
+def _reports_unknown_power(body):
+    return bool(body) and "PowerState" not in body and body.get("Status", {}).get("State") == "UnavailableOffline"
+
+
+def _bmcctld_pid(bmc_duthost):
+    status, pid = bmc_duthost.get_pmon_daemon_status(BMCCTLD)
+    return pid if status == "RUNNING" else -1
+
+
 def _wait_for_bmcweb(redfish_client, bmc_duthost):
     def _up():
         res = _container_shell(bmc_duthost, "supervisorctl status bmcweb", module_ignore_errors=True)
@@ -459,7 +519,7 @@ def leak_sensor(bmc_duthost, redfish_client, redfish_feature_enabled):
         pairs = " ".join("{} {}".format(k, shlex.quote(v)) for k, v in fields.items())
         bmc_duthost.shell("sonic-db-cli STATE_DB HSET {} {}".format(shlex.quote(LEAK_SENSOR_KEY), pairs))
 
-    seed = dict(LEAK_STATES["OK"], leak_sensor_status="Good", type="leak", location="rmc-test")
+    seed = dict(LEAK_STATES["OK"], type="leak", location="rmc-test")
     _hset(seed)
     logger.info("Seeded STATE_DB %s with %s", LEAK_SENSOR_KEY, seed)
     _restart_bridge(bmc_duthost)
@@ -516,6 +576,43 @@ def host_power_restored(redfish_client, bmc_duthost):
     pytest_assert(wait_until(HOST_ON_TIMEOUT, HOST_STATE_POLL, 0, _host_is_settled_on, bmc_duthost),
                   "{} did not settle on within {}s of ResetType=On: {}".format(
                       HOST_STATE_KEY, HOST_ON_TIMEOUT, _host_state(bmc_duthost)))
+
+
+@pytest.fixture(scope="function")
+def late_leak_sensor(bmc_duthost, leak_sensor):
+    """Remove the late sensor row afterwards and restart the bridge so it no longer exports it."""
+    yield LATE_LEAK_SENSOR_KEY
+    redis_del(bmc_duthost, STATE_DB, LATE_LEAK_SENSOR_KEY)
+    _restart_bridge(bmc_duthost, module_ignore_errors=True)
+    pytest_assert(
+        wait_until(BRIDGE_READY_TIMEOUT, 3, 0, lambda: _leak_detector_state(bmc_duthost) == "OK"),
+        "{} did not export {} again within {}s of restarting".format(
+            BRIDGE_SERVICE, LEAK_SENSOR_DBUS_PATH, BRIDGE_READY_TIMEOUT)
+    )
+
+
+@pytest.fixture(scope="function")
+def bmcctld_stopped(bmc_duthost):
+    """Stop bmcctld so HOST_STATE|switch-host stays absent, and start it again afterwards.
+
+    bmcctld republishes HOST_STATE from the live oper status when it starts,
+    so starting it is also how the test ends the unknown state.
+    """
+    pyrequire(_bmcctld_pid(bmc_duthost) != -1, "{} is not RUNNING in the {} container".format(BMCCTLD, PMON_CONTAINER))
+    logger.info("Stopping %s in the %s container", BMCCTLD, PMON_CONTAINER)
+    bmc_duthost.shell("docker exec {} supervisorctl stop {}".format(PMON_CONTAINER, BMCCTLD))
+
+    def _start():
+        logger.info("Starting %s in the %s container", BMCCTLD, PMON_CONTAINER)
+        bmc_duthost.shell("docker exec {} supervisorctl start {}".format(PMON_CONTAINER, BMCCTLD),
+                          module_ignore_errors=True)
+        return wait_until(BMCCTLD_TIMEOUT, HOST_STATE_POLL, 0, lambda: _host_state(bmc_duthost))
+
+    yield _start
+
+    if _bmcctld_pid(bmc_duthost) == -1 or not _host_state(bmc_duthost):
+        pytest_assert(_start(), "{} did not republish {} within {}s of starting".format(
+            BMCCTLD, HOST_STATE_KEY, BMCCTLD_TIMEOUT))
 
 
 class TestRedfishEventSubscription:
@@ -932,3 +1029,208 @@ class TestRedfishEventSubscription:
         payloads = _wait_for_power_event(rmc_receiver, "rm", "PoweredOn", HOST_ON_TIMEOUT)
         _assert_host_power_event(_power_event(payloads, "PoweredOn"), "PoweredOn")
         logger.info("Verified the rack manager saw the host go off, powered it on, and saw it on again")
+
+    def test_leak_detector_fault_reported_unavailable(self, redfish_client, leak_event):
+        """
+        A faulted leak sensor does not look healthy to the rack manager.
+
+        sonic-redfish design section 7.6: thermalctld reporting leak_sensor_status=Fault with an
+        unreadable leaking value maps to DetectorState Unavailable, reported
+        with Status.State UnavailableOffline and Status.Health Warning at both
+        LeakDetector URIs. Once the sensor reads again the detector returns to
+        DetectorState OK with an Enabled, OK Status.
+        """
+        expected = {
+            "Unavailable": ("UnavailableOffline", "Warning"),
+            "OK": ("Enabled", "OK"),
+        }
+        for state in ("Unavailable", "OK"):
+            leak_event(state)
+            want_state, want_health = expected[state]
+
+            def _reports(member):
+                body = _get_body(redfish_client, member)
+                status = body.get("Status", {})
+                return (body.get("DetectorState") == state and status.get("State") == want_state
+                        and status.get("Health") == want_health)
+
+            for member in (LEAK_ORIGIN, LEAK_ORIGIN_CANONICAL):
+                pytest_assert(
+                    wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0, _reports, member),
+                    "{} must report DetectorState {} with Status {}/{} within {}s, got: {}".format(
+                        member, state, want_state, want_health, DELIVERY_TIMEOUT, _get_body(redfish_client, member))
+                )
+                logger.info("Verified %s DetectorState=%s Status=%s/%s", member, state, want_state, want_health)
+
+    def test_leak_detector_fault_events_delivered(self, redfish_client, rmc_receiver, leak_event):
+        """
+        A leak sensor faulting and recovering reaches the rack manager as ResourceStatusChanged events.
+
+        sonic-redfish design section 7.6: the transition into Unavailable raises
+        ResourceEvent.1.3.0.ResourceStatusChangedWarning and the transition
+        out raises ResourceStatusChangedOK, each with the detector as
+        OriginOfCondition. The fault is not a leak, so no LeakDetected event
+        accompanies it. Recovering into DetectorState OK also raises
+        LeakDetectedNormal. An unfiltered subscription and one filtered on
+        ResourceTypes=[LeakDetector] both receive the events.
+        """
+        _subscribe(redfish_client, rmc_receiver.url("fault"), "ctx-fault")
+        _subscribe(redfish_client, rmc_receiver.url("fault-leak"), "ctx-fault-leak",
+                   ResourceTypes=[LEAK_RESOURCE_TYPE])
+
+        leak_event("Unavailable")
+        for name in ("fault", "fault-leak"):
+            payloads = _wait_for_deliveries(rmc_receiver, name, 1)
+            events = _assert_event_envelope(payloads[0])
+            pytest_assert(len(events) == 1, "Expected exactly one event record, got: {}".format(events))
+            _assert_leak_status_event(events[0], "Warning")
+        time.sleep(NO_DELIVERY_SETTLE)
+        delivered = _delivered_message_ids(rmc_receiver.deliveries("fault"))
+        pytest_assert(delivered == [LEAK_STATUS_EVENTS["Warning"][0]],
+                      "A sensor fault must raise only {}, got: {}".format(LEAK_STATUS_EVENTS["Warning"][0], delivered))
+        logger.info("Verified the sensor fault was delivered as %s", LEAK_STATUS_EVENTS["Warning"][0])
+
+        leak_event("OK")
+        recovered = (LEAK_STATUS_EVENTS["OK"][0], LEAK_EVENTS["OK"][0])
+        for name in ("fault", "fault-leak"):
+            pytest_assert(
+                wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
+                           lambda: set(recovered) <= set(_delivered_message_ids(rmc_receiver.deliveries(name)))),
+                "{} must receive {} within {}s, got: {}".format(
+                    rmc_receiver.url(name), recovered, DELIVERY_TIMEOUT,
+                    _delivered_message_ids(rmc_receiver.deliveries(name)))
+            )
+            payloads = rmc_receiver.deliveries(name)
+            _assert_leak_status_event(_event_with_id(payloads, LEAK_STATUS_EVENTS["OK"][0]), "OK")
+            _assert_leak_event(_event_with_id(payloads, LEAK_EVENTS["OK"][0]), "OK")
+        logger.info("Verified the sensor recovery was delivered as %s and %s", *recovered)
+
+    def test_leak_detector_published_after_bridge_start(self, redfish_client, bmc_duthost, late_leak_sensor):
+        """
+        A leak sensor thermalctld publishes after the bridge started gets its LeakDetector.
+
+        sonic-redfish design section 2.1: one LeakDetector per LIQUID_COOLING_INFO|* sensor. A
+        sensor row written while sonic-dbus-bridge is running, as after a cold
+        boot where thermalctld starts later, must appear in both LeakDetectors
+        collections without a bridge or container restart, and the canonical
+        collection must then list exactly the sensors in STATE_DB.
+        """
+        fields = dict(LEAK_STATES["OK"], type="leak", location="rmc-test")
+        bmc_duthost.shell("sonic-db-cli STATE_DB HSET {} {}".format(
+            shlex.quote(late_leak_sensor), " ".join("{} {}".format(k, shlex.quote(v)) for k, v in fields.items())))
+        logger.info("Seeded STATE_DB %s with %s while %s is running", late_leak_sensor, fields, BRIDGE_SERVICE)
+
+        for member in (LEAK_ORIGIN, LEAK_ORIGIN_CANONICAL):
+            collection = member.rsplit("/", 1)[0]
+            late_member = "{}/{}".format(collection, LATE_LEAK_SENSOR)
+
+            def _listed():
+                members = [m.get("@odata.id") for m in _get_body(redfish_client, collection).get("Members", [])]
+                return late_member in members
+
+            pytest_assert(
+                wait_until(BRIDGE_READY_TIMEOUT, 3, 0, _listed),
+                "{} did not list {} within {}s of the row being written".format(
+                    collection, late_member, BRIDGE_READY_TIMEOUT)
+            )
+            body = _get_body(redfish_client, late_member)
+            assert_field_equals(body, "@odata.id", late_member)
+            assert_field_equals(body, "Id", LATE_LEAK_SENSOR)
+            assert_field_equals(body, "DetectorState", "OK")
+            status = body.get("Status", {})
+            pytest_assert(status.get("State") == "Enabled" and status.get("Health") == "OK",
+                          "{} Status must be Enabled/OK, got: {!r}".format(late_member, status))
+            logger.info("Verified %s is served with DetectorState OK", late_member)
+
+        collection = LEAK_ORIGIN_CANONICAL.rsplit("/", 1)[0]
+        sensors = sorted(key.split("|", 1)[1] for key in redis_keys(bmc_duthost, STATE_DB, LEAK_SENSOR_KEY_GLOB))
+        detectors = sorted(m.get("@odata.id", "").rsplit("/", 1)[1]
+                           for m in _get_body(redfish_client, collection).get("Members", []))
+        pytest_assert(detectors == sensors,
+                      "{} must list one detector per {} row: detectors={} sensors={}".format(
+                          collection, LEAK_SENSOR_KEY_GLOB, detectors, sensors))
+        logger.info("Verified %s lists one detector per STATE_DB sensor: %s", collection, detectors)
+
+    def test_host_state_unknown_until_bmcctld_publishes(
+            self, redfish_client, bmc_duthost, rmc_receiver, clean_subscriptions, host_power_restored,
+            bmcctld_stopped):
+        """
+        The switch-host power state is reported unknown until bmcctld publishes HOST_STATE.
+
+        sonic-redfish design section 7.7: with HOST_STATE|switch-host absent when
+        sonic-dbus-bridge starts, Systems/system and Chassis/chassis omit
+        PowerState and report Status.State UnavailableOffline, and no
+        ResourcePowered* event is raised. A ComputerSystem.Reset received
+        meanwhile is still forwarded as a RACK_MANAGER_COMMAND row. bmcctld's
+        first HOST_STATE row then sets the real state on both resources and
+        raises the matching event, ResourcePoweredOn for a host that is on.
+
+        bmcctld is stopped for the duration so it cannot republish the row,
+        and the reset is ResetType=On against a host that is on, which bmcctld
+        resolves as a no-op.
+        """
+        _subscribe(redfish_client, rmc_receiver.url("unknown"), "ctx-unknown", ResourceTypes=[HOST_RESOURCE_TYPE])
+
+        logger.info("Removing %s (%s) and restarting %s", HOST_STATE_KEY, _host_state(bmc_duthost), BRIDGE_SERVICE)
+        redis_del(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+        _restart_bridge(bmc_duthost)
+
+        for path in (SYSTEM_ORIGIN, CHASSIS_PATH):
+            pytest_assert(
+                wait_until(BRIDGE_READY_TIMEOUT, 3, 0, lambda: _reports_unknown_power(_get_body(redfish_client, path))),
+                "{} must omit PowerState and report Status.State UnavailableOffline within {}s, got: {}".format(
+                    path, BRIDGE_READY_TIMEOUT, _get_body(redfish_client, path))
+            )
+            logger.info("Verified %s reports an unknown power state: %s", path,
+                        _get_body(redfish_client, path).get("Status"))
+
+        keys_before = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+        _reset(redfish_client, "On")
+        pytest_assert(
+            wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
+                       lambda: set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before),
+            "ResetType=On in the unknown state created no RACK_MANAGER_COMMAND row within {}s".format(DELIVERY_TIMEOUT)
+        )
+        new_keys = set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB)) - keys_before
+        pytest_assert(len(new_keys) == 1, "One reset must create one command row, got: {}".format(sorted(new_keys)))
+        command_key = new_keys.pop()
+        row = redis_hgetall(bmc_duthost, STATE_DB, command_key)
+        pytest_assert(row.get("command") == "POWER_ON",
+                      "{} must carry command=POWER_ON, got: {}".format(command_key, row))
+        logger.info("Verified ResetType=On in the unknown state was forwarded as %s: %s", command_key, row)
+
+        time.sleep(NO_DELIVERY_SETTLE)
+        early = _delivered_message_ids(rmc_receiver.deliveries("unknown"))
+        pytest_assert(not early, "The unknown state must raise no power event, got: {}".format(early))
+
+        pytest_assert(bmcctld_stopped(), "{} did not republish {} within {}s of starting".format(
+            BMCCTLD, HOST_STATE_KEY, BMCCTLD_TIMEOUT))
+        pytest_assert(wait_until(HOST_ON_TIMEOUT, HOST_STATE_POLL, 0, _host_is_settled_on, bmc_duthost),
+                      "{} did not settle on after {} started: {}".format(
+                          HOST_STATE_KEY, BMCCTLD, _host_state(bmc_duthost)))
+        logger.info("%s republished %s: %s", BMCCTLD, HOST_STATE_KEY, _host_state(bmc_duthost))
+
+        for path in (SYSTEM_ORIGIN, CHASSIS_PATH):
+            pytest_assert(
+                wait_until(DELIVERY_TIMEOUT, DELIVERY_POLL, 0,
+                           lambda: _get_body(redfish_client, path).get("PowerState") == "On"),
+                "{} must report PowerState On once {} is published, got: {}".format(
+                    path, HOST_STATE_KEY, _get_body(redfish_client, path))
+            )
+            status = _get_body(redfish_client, path).get("Status", {})
+            pytest_assert(status.get("State") != "UnavailableOffline",
+                          "{} must leave UnavailableOffline once {} is published, got: {}".format(
+                              path, HOST_STATE_KEY, status))
+            logger.info("Verified %s reports PowerState On, Status %s", path, status)
+
+        payloads = _wait_for_power_event(rmc_receiver, "unknown", "PoweredOn", HOST_ON_TIMEOUT)
+        _assert_host_power_event(_power_event(payloads, "PoweredOn"), "PoweredOn")
+        logger.info("Verified the first published %s raised %s", HOST_STATE_KEY, HOST_POWER_EVENTS["PoweredOn"][0])
+
+        def _command_done():
+            return redis_hgetall(bmc_duthost, STATE_DB, command_key).get("status") in ("DONE", "FAILED")
+
+        if not wait_until(COMMAND_DONE_TIMEOUT, DELIVERY_POLL, 0, _command_done):
+            logger.info("%s was not consumed after %s started, removing it: %s", command_key, BMCCTLD,
+                        redis_hgetall(bmc_duthost, STATE_DB, command_key))
+            redis_del(bmc_duthost, STATE_DB, command_key)
