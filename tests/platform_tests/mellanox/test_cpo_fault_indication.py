@@ -52,6 +52,7 @@ from tests.platform_tests.mellanox.cpo_fault_helpers import (
     GNMI_LOCAL_ADDR,
     TRANSCEIVER_STATUS_SW_TABLE,
     assert_fault_token_count,
+    ensure_xcvr_fault_field,
     reset_baseline,
     fault_tokens,
     get_cpo_logical_ports,
@@ -339,6 +340,8 @@ def test_tc1_single_fault_indication(duthost, target_vmodule, fault_injector):
 
     with allure.step("Reset baseline: clear xcvr_fault on the target port"):
         reset_baseline(duthost, [target_port])
+        # The field must exist before subscribing, or no update is streamed.
+        ensure_xcvr_fault_field(duthost, target_port)
 
     # The injection runs in the background while the gNMI helper blocks in
     # the foreground. This mirrors the existing gNMI on_change tests and

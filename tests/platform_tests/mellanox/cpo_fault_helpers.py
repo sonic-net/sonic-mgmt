@@ -231,6 +231,18 @@ def clear_xcvr_fault(duthost, ports):
     logger.info("Reset %s on %d of %d port(s)", FAULT_FIELD, cleared, len(ports))
 
 
+def ensure_xcvr_fault_field(duthost, port):
+    """Create <port>.xcvr_fault as "" if it does not exist yet (HSETNX).
+
+    A field-level gNMI subscription to ``<port>/xcvr_fault`` only streams
+    updates if the field already exists when the client subscribes.
+    """
+    duthost.shell(
+        "redis-cli -n {db} HSETNX '{table}|{port}' {field} ''".format(
+            db=STATE_DB_INDEX, table=TRANSCEIVER_STATUS_SW_TABLE,
+            port=port, field=FAULT_FIELD))
+
+
 def reset_baseline(duthost, ports):
     """Clear xcvr_fault on ``ports`` and assert the clear took effect.
 
