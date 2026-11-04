@@ -21,8 +21,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCAL_LOG_GENERATOR_FILE = os.path.join(BASE_DIR, 'log_generator.py')
 REMOTE_LOG_GENERATOR_FILE = os.path.join('/tmp', 'log_generator.py')
 DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
-# rsyslogd prints this log when rate-limiting reached
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*rate-limit-test>: begin to drop messages due to rate-limiting.*'
+# rsyslogd emits one of two messages depending on version when rate-limiting kicks in:
+#   - "rate-limit-test>: begin to drop messages due to rate-limiting"  (logged when drops start)
+#   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (summary, emitted by
+#     rsyslogd itself rather than tagged with the test process name)
+# Both indicate that rate limiting is working, so accept either form.
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = \
+    r'.*(?:rate-limit-test>: begin to drop messages due to rate-limiting|messages lost due to rate-limiting).*'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 
@@ -153,14 +158,18 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
 
         rand_selected_dut.command(
             'docker cp {} {}:{}'.format(REMOTE_LOG_GENERATOR_FILE, container_name, DOCKER_LOG_GENERATOR_FILE))
+        # The rate-limit notification is checked separately via presence_log_regex: its exact
+        # count is non-deterministic across rsyslogd versions (the "messages lost" summary form
+        # may appear more than once), so it is excluded from the per-message tally and only
+        # verified to appear at least once.
         verify_rate_limit_with_log_generator(rand_selected_dut,
                                              container_name,
                                              'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name,
                                                                                                 RATE_LIMIT_INTERVAL,
                                                                                                 RATE_LIMIT_BURST),
-                                             [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
-                                              LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
-                                             RATE_LIMIT_BURST + 1)
+                                             [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
+                                             RATE_LIMIT_BURST,
+                                             presence_log_regex=[LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED])
 
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
@@ -206,8 +215,9 @@ def verify_host_rate_limit(rand_selected_dut):
                                          'host',
                                          'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
                                                                                               RATE_LIMIT_BURST),
-                                         [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format('')],
-                                         RATE_LIMIT_BURST + 1,
+                                         [LOG_EXPECT_LAST_MESSAGE.format('')],
+                                         RATE_LIMIT_BURST,
+                                         presence_log_regex=[LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED],
                                          is_host=True)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
@@ -240,20 +250,31 @@ def verify_config_rate_limit_fail(duthost, service_name):
 
 
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
-                                         is_host=False):
+                                         presence_log_regex=None, is_host=False):
     """Generator syslog with a script and verify that syslog rate limit reached
 
     Args:
         duthost (object): DUT host object
         service_name (str): Service name
         log_marker (str): Log start marker
-        expect_log_regex (list): A list of expected log message regular expression
-        expect_log_matches (int): Number of log lines matches the expect_log_regex
+        expect_log_regex (list): A list of expected log message regular expressions; the total
+            number of matching lines must equal expect_log_matches.
+        expect_log_matches (int): Exact number of log lines expected to match expect_log_regex.
+        presence_log_regex (list, optional): Patterns that must appear at least once in the
+            log window. Verified via a separate LogAnalyzer pass so their (variable) count
+            does not skew the expect_log_matches tally. Defaults to None.
         is_host (bool, optional): Verify on host side or container side. Defaults to False.
     """
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=log_marker)
     loganalyzer.expect_regex = expect_log_regex
     loganalyzer.expected_matches_target = expect_log_matches
+
+    # Initialise the presence-check analyzer before entering the window so both
+    # analyzers capture the same log section.
+    if presence_log_regex:
+        presence_analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=log_marker + '_presence')
+        presence_analyzer.expect_regex = presence_log_regex
+        presence_marker = presence_analyzer.init()
 
     if is_host:
         run_generator_cmd = "python3 {}".format(REMOTE_LOG_GENERATOR_FILE)
@@ -266,6 +287,9 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
         # to the host syslog. Without this, the notification may arrive after the
         # LogAnalyzer end marker, causing intermittent test failures.
         time.sleep(5)
+
+    if presence_log_regex:
+        presence_analyzer.analyze(presence_marker)
 
 
 def get_host_rsyslogd_pid(duthost):
