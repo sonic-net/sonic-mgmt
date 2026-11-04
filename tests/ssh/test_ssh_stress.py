@@ -39,6 +39,7 @@ MAX_COMMAND_TIMEOUT = 180
 COMMAND_CANCEL_TIMEOUT = 20
 COMMAND_POLL_INTERVAL = 0.1
 SSH_CONNECT_TIMEOUT = 30
+SSH_KEEPALIVE_INTERVAL = 30
 THREAD_JOIN_TIMEOUT = (
     2 * (MAX_COMMAND_TIMEOUT + COMMAND_CANCEL_TIMEOUT) + 10
 )
@@ -389,6 +390,7 @@ def start_SSH_connection(dut_mgmt_ip, username, password):
             banner_timeout=SSH_CONNECT_TIMEOUT,
             auth_timeout=SSH_CONNECT_TIMEOUT,
         )
+        ssh.get_transport().set_keepalive(SSH_KEEPALIVE_INTERVAL)
     except Exception:
         ssh.close()
         raise
