@@ -118,7 +118,19 @@ About the detail to set the testbed, please refer the doc: https://github.com/so
 ./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_macsec.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic"
 ```
 
-To run the fallback CAK cases, select a fallback profile. `--macsec_profile all` excludes them.
+Fallback cases reuse the selected shared or per-interface profiles and their current bindings.
+Only profiles missing fallback get a temporary dual-CA baseline. Compatible installed profiles can also
+be temporarily bound to initially unbound ports without being deleted. Cleanup restores the original
+bindings and waits for both endpoints of originally protected links to recover.
+`--per_interface_macsec` is supported. `--macsec_profile all` excludes the static fallback profiles.
+Existing EOS profiles must expose type-7 keys and explicit cipher/priority settings for restoration.
+SONiC binding snapshots use CONFIG_DB rather than operational SA state; key reads target the selected
+profile in its ASIC namespace. EOS uses the existing
+`show running-config section mac security` response, which can include other profiles, and filters
+the requested profile locally. Raw output is suppressed and CAKs stay within the test process.
+Failure reports omit CAK-bearing locals and argument values, including with `--showlocals`.
+Setup follows reused-profile sharing once and reads each selected profile's settings once per endpoint.
+The CLI and live-link cases remain in the same module with their existing selectors and explicit cleanup.
 
 ```
 ./run_tests.sh -u -n vms-kvm-t0 -d vlab-01 -c macsec/test_fallback_cak.py -f vtestbed.csv -i veos_vtb -e "--neighbor_type=sonic --macsec_profile=MACSEC_PROFILE_FALLBACK"
@@ -353,10 +365,13 @@ macsecmgrd applies key updates in place and does not guarantee hitless updates. 
 
 - Staged primary/fallback rotation
     1. Ping both ways at 10 pps.
-    2. Wait for a periodic SAK refresh.
-    3. Replace the CAK on the DUT, then on both peers. For the primary, expect the fallback CA in between.
-    4. Expect the primary CA, then another periodic SAK refresh with unchanged CKNs.
-    5. Expect no packet loss. Restore the original CAK.
+    2. Replace each affected DUT profile once, then its peers. For the primary, expect the fallback CA in between.
+    3. Expect the primary CA and no packet loss. Restore the original CAKs outside the measured window.
+
+- Periodic rekey during rotation
+    1. Skip only this case if the selected key server's rekey timer is disabled.
+    2. Keep the existing timer. Observe natural SAK refreshes before and after CAK rotation, with unchanged CKNs.
+    3. Expect no packet loss. A CAK-induced SAK change alone does not count.
 
 - Primary mismatch
     1. Ping both ways at 10 pps.
@@ -367,10 +382,11 @@ macsecmgrd applies key updates in place and does not guarantee hitless updates. 
 - Primary update without a live fallback
     1. Make one peer's fallback CAK wrong. Expect no live fallback peer on that port.
     2. Update the DUT primary CAK. Expect the new primary and fallback participants, config in-sync, on that port. Traffic loss is allowed.
-    3. Expect the other port to move to the fallback CA.
-    4. Update both peers. Expect both ports on the new primary.
+    3. A sibling sharing that profile moves to fallback; a distinct profile stays on its original primary.
+    4. Update only affected peers. Expect each port on its configured primary.
 
 - Both CAKs wrong
+    cEOS is skipped: it may retain the removed principal participant.
     1. Route between the neighbor loopbacks through the DUT. Link addresses can disappear when MACsec goes down.
     2. Update the peer primary, then fallback CAK, to wrong keys.
     3. Expect the new CKNs in-sync with no live peer, the port not secured, and no ping replies. SAs may be retained.
@@ -384,7 +400,7 @@ macsecmgrd applies key updates in place and does not guarantee hitless updates. 
 - Stress, with `--run-stress-tests`
     1. Alternate primary and fallback rotations 10 times. Expect no packet loss.
 
-Not covered: config reload, reboot, per-interface profiles and EOS SAK inspection.
+Not covered: config reload, reboot and EOS SAK inspection.
 Component tests cover WPA key remove/add order, add retry and persistent `degraded` status; there is no public stimulus for them.
 
 #### MACsec Counters

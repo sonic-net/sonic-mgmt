@@ -95,6 +95,7 @@ class MacsecPlugin(object):
                 policy=macsec_profile["policy"],
                 send_sci=macsec_profile["send_sci"],
                 rekey_period=macsec_profile["rekey_period"],
+                include_fallback=bool(macsec_profile.get("fallback_cak")),
             )
         return profiles
 
@@ -156,7 +157,7 @@ class MacsecPlugin(object):
                                            profile['send_sci'], profile['rekey_period'], tbinfo,
                                            profile.get('fallback_cak'), profile.get('fallback_ckn'))
             logger.info(
-                "Setup MACsec configuration with arguments:\n{}".format(locals()))
+                "Setup MACsec profile %s on %d controlled links", profile["name"], len(ctrl_links))
 
         return __startup_macsec
 
@@ -185,20 +186,24 @@ class MacsecPlugin(object):
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile,
+    def macsec_setup(self, request, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile,
                      port_profiles, ctrl_links):
         '''
             setup macsec links
         '''
+        if request.node.path.name == "test_fallback_cak.py":
+            # Its fixture owns missing baselines and preserves every existing endpoint binding.
+            yield
+            return
+
         shutdown = False
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-
             macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
             if not macsec_preconfigured or port_profiles is not None:
                 shutdown = True
                 startup_macsec()
             if macsec_preconfigured:
-                logger.info(f"Macsec is already configured for {macsec_profile}, skipping setup")
+                logger.info("MACsec bindings are already configured; skipping setup")
         yield
         if shutdown:
             shutdown_macsec()
@@ -214,6 +219,10 @@ class MacsecPlugin(object):
         ``get_macsec_attr`` hits APP_DB before the egress SA row (and ``sak``)
         has been written by wpa_supplicant.
         """
+
+        if request.node.path.name == "test_fallback_cak.py":
+            # This module checks effective per-port profiles and SAs, not one assumed suite profile.
+            return
 
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
             try:

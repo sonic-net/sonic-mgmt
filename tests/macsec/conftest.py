@@ -23,12 +23,24 @@ def pytest_collection_modifyitems(config, items):
             if item.path.name == "test_per_interface_profile.py":
                 item.add_marker(skip_per_interface)
 
-    if config.getoption("enable_macsec"):
-        skip_no_fallback = pytest.mark.skip(reason="Selected MACsec profile has no fallback CAK/CKN")
-        for item in items:
-            if item.path.name == "test_fallback_cak.py" and \
-                    not item.callspec.params["macsec_profile"].get("fallback_cak"):
-                item.add_marker(skip_no_fallback)
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_makereport(item, call):
+    """Keep fallback-profile CAKs out of failure locals and fixture argument representations."""
+    if item.path.name != "test_fallback_cak.py":
+        return None
+    showlocals = item.config.option.showlocals
+    try:
+        item.config.option.showlocals = False
+        report = pytest.TestReport.from_item_and_call(item, call)
+        if report.failed and call.excinfo is not None:
+            report.longrepr = call.excinfo.getrepr(
+                showlocals=False, funcargs=False,
+                style="short" if item.config.option.tbstyle == "short" else "long",
+                tbfilter=not item.config.option.fulltrace)
+        return report
+    finally:
+        item.config.option.showlocals = showlocals
 
 
 @pytest.fixture(scope="module")
