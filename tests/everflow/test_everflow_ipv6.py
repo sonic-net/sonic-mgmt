@@ -222,11 +222,18 @@ class EverflowIPv6Tests(BaseEverflowTest):
                     self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method,
                                                 bind_namespace=getattr(inst, 'namespace', None))
 
+            # Snapshot the ACL rule counts BEFORE applying the everflow rules so the
+            # readiness check can compare deltas instead of absolute counts. On dualtor
+            # the standby ToR already carries a MuxOrch-installed DROP-all-ingress ACL
+            # entry in ASIC_DB that has no CONFIG_DB ACL_RULE key; capturing the baseline
+            # here folds that constant offset into the baseline so it cancels out.
+            baseline_counts = everflow_utils.get_acl_rule_counts(duthost)
+
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
             # Wait for ACL rules to be programmed
-            everflow_utils.wait_for_acl_rules_in_asic_db(duthost)
+            everflow_utils.wait_for_acl_rules_in_asic_db(duthost, baseline_counts)
 
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
