@@ -384,7 +384,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
                 logging.info("Verifying DPU admin/oper status consistency after power-off reboot")
                 verify_dpu_status_consistency(duthost, dpu_status_before)
 
-    except Exception as e:
+    except (Exception, pytest.fail.Exception):
         logging.debug("Restore power after test failure")
         for outlet in all_outlets:
             logging.debug("turning on {}".format(outlet))
@@ -393,4 +393,4 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
         reboot_time = 600 if is_chassis else 120
         wait_for_startup(duthost, localhost, 0, reboot_time)
         wait_critical_processes(duthost)
-        raise e
+        raise
