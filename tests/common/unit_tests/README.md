@@ -58,7 +58,8 @@ or malformed evidence, reboot/health failures, platform API JSON boolean type ch
 and PDU outlet restoration after individual controller exceptions.
 It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
 positive delay-bypass and host-isolation evidence, and checks configuration
-restoration on success and failures.
+restoration on success and failures. Failed or malformed delay snapshots must
+abort before configuration changes, cleanup, or reboot.
 Physical startup behavior still requires a BMC chassis with a wired PDU.
 
 ```bash

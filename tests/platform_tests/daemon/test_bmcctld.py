@@ -610,7 +610,9 @@ class TestBmcctldDaemon:
         bmc_boot_id_pre = get_host_boot_id(self.duthost)
         pytest_assert(sw_boot_id_pre and bmc_boot_id_pre, "Unable to read pre-reboot boot IDs")
         delay_key = 'CHASSIS_MODULE|SWITCH-HOST'
-        orig_delay = redis_hget(self.duthost, CONFIG_DB, delay_key, 'power_on_delay')
+        orig_delay = self.duthost.shell(
+            f"sonic-db-cli CONFIG_DB HGET '{delay_key}' power_on_delay"
+        )['stdout'].strip()
         pytest_assert(not orig_delay or orig_delay.isdigit(),
                       f"Invalid original power_on_delay: {orig_delay!r}")
         test_delay = 300

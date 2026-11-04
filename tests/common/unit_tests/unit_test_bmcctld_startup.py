@@ -228,7 +228,7 @@ def _cold_reboot_context(namespace, original_delay):
     namespace.update(
         get_switch_host_or_skip_test=Mock(return_value=host),
         get_host_boot_id=Mock(side_effect=["host", "bmc-before", "bmc-after", "host"]),
-        redis_hget=Mock(side_effect=[original_delay, "300", "300"]),
+        redis_hget=Mock(side_effect=["300", "300"]),
         CONFIG_DB="CONFIG_DB",
         reboot=Mock(),
         REBOOT_TYPE_COLD="cold",
@@ -236,13 +236,19 @@ def _cold_reboot_context(namespace, original_delay):
         wait_until=lambda timeout, interval, delay, condition: condition(),
     )
     default_shell = bmc.shell.return_value
-    bmc.shell.side_effect = lambda command: (
-        {"stdout": "User issued reboot command"} if command == "show reboot-cause" else default_shell
-    )
+
+    def shell(command):
+        if command.startswith("sonic-db-cli CONFIG_DB HGET"):
+            return {"stdout": original_delay}
+        if command == "show reboot-cause":
+            return {"stdout": "User issued reboot command"}
+        return default_shell
+
+    bmc.shell.side_effect = shell
     return Mock(duthost=bmc), host
 
 
-@pytest.mark.parametrize("original_delay", ["30", "0", "", None])
+@pytest.mark.parametrize("original_delay", ["30", "0", ""])
 def test_cold_reboot_ignores_explicit_delay_and_restores_config(startup_namespace, original_delay):
     """A saved nonzero delay is bypassed with positive evidence and host isolation."""
     instance, host = _cold_reboot_context(startup_namespace, original_delay)
@@ -253,13 +259,16 @@ def test_cold_reboot_ignores_explicit_delay_and_restores_config(startup_namespac
     startup_namespace["make_bmc_loganalyzer"].return_value.analyze.assert_called_once_with(
         startup_namespace["make_bmc_loganalyzer"].return_value.init.return_value, fail=False)
     commands = [args.args[0] for args in instance.duthost.shell.call_args_list]
-    assert commands[0] == "config chassis modules power-on-delay SWITCH-HOST 300"
+    assert commands[:2] == [
+        "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
+        "config chassis modules power-on-delay SWITCH-HOST 300",
+    ]
     expected_restore = (f"config chassis modules power-on-delay SWITCH-HOST {original_delay}"
                         if original_delay else
                         "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
     assert commands[-2:] == [expected_restore, "sudo config save -y"]
     assert commands.count("sudo config save -y") == 2
-    assert startup_namespace["redis_hget"].call_count == 3
+    assert startup_namespace["redis_hget"].call_count == 2
     assert startup_namespace["get_host_boot_id"].call_count == 4
     host.critical_services_fully_started.assert_called_once_with()
 
@@ -271,6 +280,7 @@ def test_cold_reboot_ignores_explicit_delay_and_restores_config(startup_namespac
 def test_cold_reboot_rejects_bad_evidence_and_restores_delay(startup_namespace, failure):
     """Reboot, persistence, isolation, and delay failures cannot bypass restoration."""
     instance, host = _cold_reboot_context(startup_namespace, "30")
+    shell = instance.duthost.shell.side_effect
     if failure == "reboot":
         startup_namespace["reboot"].side_effect = RuntimeError("Reboot failed")
     elif failure == "bmc-health":
@@ -284,23 +294,42 @@ def test_cold_reboot_rejects_bad_evidence_and_restores_delay(startup_namespace, 
     elif failure == "host-health":
         host.critical_services_fully_started.return_value = False
     elif failure == "not-set":
-        startup_namespace["redis_hget"].side_effect = ["30", "0"]
+        startup_namespace["redis_hget"].side_effect = ["0"]
     elif failure == "not-persisted":
-        startup_namespace["redis_hget"].side_effect = ["30", "300", "0"]
+        startup_namespace["redis_hget"].side_effect = ["300", "0"]
     elif failure == "power-loss":
-        instance.duthost.shell.side_effect = lambda command: {"stdout": "Power Loss"}
+        instance.duthost.shell.side_effect = lambda command: (
+            {"stdout": "Power Loss"} if command == "show reboot-cause" else shell(command))
     elif failure == "event-log":
         startup_namespace["make_bmc_loganalyzer"].return_value.analyze.return_value = {"total": {"match": 0}}
     elif failure == "journal":
-        instance.duthost.shell.side_effect = lambda command: {
-            "stdout": "User issued reboot command" if command == "show reboot-cause" else ""}
+        instance.duthost.shell.side_effect = lambda command: (
+            {"stdout": ""} if command.startswith("journalctl") else shell(command))
     elif failure == "delay-applied":
         journal = "\n".join(json.dumps({"MESSAGE": message}) for message in (
             ONLINE, "Waiting 300s before initial Switch-Host power-on check (SWITCH_HOST_POWER_ON_DELAY)"))
-        instance.duthost.shell.side_effect = lambda command: {
-            "stdout": "User issued reboot command" if command == "show reboot-cause" else journal}
+        instance.duthost.shell.side_effect = lambda command: (
+            {"stdout": journal} if command.startswith("journalctl") else shell(command))
     with pytest.raises(RuntimeError if failure == "reboot" else AssertionError):
         startup_namespace["test_bmc_reboot_does_not_affect_switch_host"](instance, Mock())
     assert instance.duthost.shell.call_args_list[-2:] == [
         call("config chassis modules power-on-delay SWITCH-HOST 30"), call("sudo config save -y")
     ]
+
+
+@pytest.mark.parametrize("snapshot,error", [
+    (RuntimeError("Redis snapshot command failed"), RuntimeError),
+    ({}, KeyError),
+    ({"stdout": "invalid"}, AssertionError),
+])
+def test_cold_reboot_snapshot_failure_aborts_without_changing_config(startup_namespace, snapshot, error):
+    """A failed or malformed snapshot cannot trigger HDEL or config save during cleanup."""
+    instance, _ = _cold_reboot_context(startup_namespace, "30")
+    instance.duthost.shell.side_effect = [snapshot]
+    with pytest.raises(error):
+        startup_namespace["test_bmc_reboot_does_not_affect_switch_host"](instance, Mock())
+    instance.duthost.shell.assert_called_once_with(
+        "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
+    startup_namespace["redis_hget"].assert_not_called()
+    startup_namespace["reboot"].assert_not_called()
+    startup_namespace["make_bmc_loganalyzer"].assert_not_called()
