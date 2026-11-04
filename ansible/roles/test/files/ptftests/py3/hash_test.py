@@ -186,7 +186,8 @@ class HashTest(BaseTest):
         return filtered_ports
 
     def findDstIpWithDisjointExpectedPorts(self, orig_exp_port_lists, orig_dip):
-        ip_ranges = self.fibs[0].ipv4_ranges() if ip_network(six.text_type(orig_dip)).version == 4 else self.fibs[0].ipv6_ranges()
+        ipv4 = ip_network(six.text_type(orig_dip)).version == 4
+        ip_ranges = self.fibs[0].ipv4_ranges() if ipv4 else self.fibs[0].ipv6_ranges()
         orig_exp_port_set = {port for exp_port_list in orig_exp_port_lists for port in exp_port_list}
         dip = None
         exp_port_lists = None
@@ -277,7 +278,7 @@ class HashTest(BaseTest):
             self.runIngressPortTest(exp_port_lists, dst_ip)
             if self.topo_type == 't2':
                 # Try another iteration of 'ingress-port' with a different dest IP to cover testing all ports
-                logging.info( "2nd ingress-port hashing test (disjoint exp_ports)" )
+                logging.info("2nd ingress-port hashing test (disjoint exp_ports)")
                 new_exp_port_list, new_dst_ip = self.findDstIpWithDisjointExpectedPorts(exp_port_lists, dst_ip)
                 if new_exp_port_list and new_dst_ip:
                     self.runIngressPortTest(new_exp_port_list, new_dst_ip)
