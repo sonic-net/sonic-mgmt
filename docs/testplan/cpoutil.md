@@ -18,26 +18,34 @@ OE/ELS ownership and shared banks directly from cpo.json and PORT. Parent
 interface names in cpo.json need not match current breakout subport names:
 the current PORT lanes select the declared OE bank.
 
-JSON is a structured input/readback format, not an independent option test.
-The suite does not compare bulk output with per-port `-p` output or exercise
-an option matrix. A required selector in a config command still identifies
-the object being changed.
+Every cpoutil query uses its default text output, including the initial
+configuration snapshot, inverted-state readback, restoration readback and reset
+recovery. No cpoutil query requests JSON or compares per-port selector output
+with bulk output. Required selectors in config commands still identify targets.
+
+The DUT filter parses simple-table column boundaries and DOM section headings.
+It returns public identifiers, numeric/boolean values and cell-validity flags;
+raw status, Application descriptions and DOM identity strings stay on the DUT.
+The filter's JSON transport envelope and cpo.json/PORT configuration inputs are
+separate from the cpoutil text output being tested.
 
 | Cases | Checks |
 | --- | --- |
 | Map | Public fields, configured OE/ELS association, OE bank/PORT lanes and common text columns |
 | Presence | Every connected CPO port must be present; absence fails |
-| DOM | Present, no read errors, nonempty OE/ELS info/DOM dictionaries and public text sections |
-| OE / ELS status | Nonempty state, finite temperature and boolean low-power mode; public columns/resources |
-| Application | Public Host/Media display fields, integer/null/N/A selections, exact bank-local subport lanes and populated text cells |
-| TX query | Boolean lane values, PORT lane count and public text columns |
+| DOM | Detected, no Read errors, OE/ELS sections with displayed fields and monitor/threshold headings |
+| OE / ELS status | Nonempty non-N/A state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
+| Application | Exact bank-local subport lane rows and nonempty configured/active cells; AppSel/Host/Media display syntax or N/A placeholders |
+| TX query | true/false lane cells, PORT lane count and public text columns |
 | OE / ELS low-power | Snapshot all associated endpoints, invert all supported modes, verify, restore and verify |
 | TX control | Snapshot all associated OE banks and their siblings, invert supported/restorable banks, verify, restore and verify |
 | OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
 | Lane status | Exactly the OE datapath and ELS lane tables, public headers and connected-port rows |
 
 Application checks current breakout configuration without creating breakout.
-It does not compare configured/active AppSel equality, advertisement membership,
+The default table displays selected Application descriptions; the JSON-only
+Advertisement dictionary is outside this text test. It does not compare
+configured/active AppSel equality, advertisement membership,
 specific interface types or actual link speed. There are no EEPROM read/write,
 EEPROM argument or help smoke cases.
 
@@ -92,9 +100,11 @@ From the sonic-mgmt `tests` directory:
 Controls run by default and can interrupt all interfaces sharing the selected
 OE/ELS or OE bank. There is no separate disruptive-control switch.
 
-2026-11-03: local synthetic checks exercise all 13 retained case bodies,
-batch inversion/restoration, initial true states, shared-bank deduplication,
-partial failures, unsupported setters, absent modules and topology-based
-breakout selection. Collection, lint and whitespace checks are also required.
-These local checks are not hardware results. A fresh Ansible/DUT run of this
-revision remains pending; the PR stays draft.
+2026-11-04: 73 local synthetic checks passed, including all 13 retained case
+bodies, default text parsing, actual table formatters, On/Off controls, the
+distinct OE/ELS status headings, malformed/duplicate/missing rows and cells,
+non-finite temperature, DOM error/section checks, identity suppression and
+topology-based breakout selection. The actual module with a synthetic testbed
+and module guard passed 13/13. Collection, flake8 and whitespace checks passed.
+These are local synthetic results. A fresh Ansible/DUT run remains pending;
+the PR stays draft.

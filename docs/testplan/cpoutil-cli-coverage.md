@@ -1,6 +1,6 @@
 # cpoutil basic command coverage
 
-Updated 2026-11-03. Contract: merged sonic-utilities #4864; lane-status uses
+Updated 2026-11-04. Contract: merged sonic-utilities #4864; lane-status uses
 sonic-utilities #5012 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
 There are 13 cases; this is not exhaustive command/argument acceptance.
 
@@ -8,13 +8,13 @@ There are 13 cases; this is not exhaustive command/argument acceptance.
 | --- | --- | --- |
 | show interface map | test_cpoutil_map | Public fields, association and OE-bank/PORT lanes against cpo.json, common table columns/resources |
 | show interface presence | test_cpoutil_presence | Every connected CPO interface present; absent means failure |
-| show interface dom | test_cpoutil_dom | Present, no read errors, OE/ELS info/DOM/threshold dictionaries and text sections |
-| show interface tx-disable | test_cpoutil_tx_disable_query | Boolean lane values, PORT lane count and common columns/resources |
-| show interface speed application | test_cpoutil_application | Host/Media display fields, selection types, exact subport lanes and populated configured/active cells |
+| show interface dom | test_cpoutil_dom | Detected, no Read errors, OE/ELS sections, displayed fields and monitor/threshold headings |
+| show interface tx-disable | test_cpoutil_tx_disable_query | true/false text cells, PORT lane count and common columns/resources |
+| show interface speed application | test_cpoutil_application | Exact subport lane rows, populated configured/active cells and public AppSel/Host/Media display syntax or N/A |
 | show interface lane-status | test_cpoutil_lane_status | Exactly two public tables, headers and connected-port rows |
-| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty non-N/A state and common columns/resources |
+| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty non-N/A cell; OE Module State / ELS Status columns and resource rows |
 | show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common column |
-| show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | Boolean value and common column |
+| show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | On/Off text value and common column |
 | config interface tx-disable | test_cpoutil_tx_disable | All associated restorable OE banks: save all, invert all, verify, restore all, verify, presence/link recovery |
 | config oe lpmode / config els lpmode | test_cpoutil_low_power | All associated supported endpoints: save all, invert all, verify, restore all, verify, presence/link recovery |
 | config oe reset / config els reset | test_cpoutil_reset | Deduplicated endpoints: rc=0, readable module, present interfaces and environment/link recovery |
@@ -22,8 +22,15 @@ There are 13 cases; this is not exhaustive command/argument acceptance.
 
 Only the map case calls CLI map. Other cases obtain resource associations
 directly from cpo.json and current PORT lanes, including breakout children.
-JSON is used to parse/read back functional state, with no independent JSON
-option test or bulk-versus-`-p` comparison. Required config selectors remain.
+All cpoutil queries use default text, including control snapshots, inverted
+and restored readbacks, and reset recovery. No cpoutil JSON query is issued.
+Required config selectors remain. Configuration files and the safe transport
+envelope still use JSON; neither substitutes for the rendered CLI cells.
+
+The default Application table renders selected descriptions rather than a
+standalone Advertisement dictionary. Only displayed lane/cell syntax is tested;
+the JSON-only advertisement fields are excluded. Raw DOM identities and cell
+descriptions never cross the DUT output filter.
 
 Controls restore DOM/admin settings and require previously up links to recover.
 Low-power supports either initial boolean. TX controls an entire OE bank:

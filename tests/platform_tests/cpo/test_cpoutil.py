@@ -3,7 +3,7 @@
 Tests select their DUT explicitly and use connected CPO ports from the testbed
 connection graph. Commands and public output checks stay together. The DUT
 helper removes identity data before any command output reaches Ansible.
-JSON is used for structured readback, not as a separate option-coverage test.
+All cpoutil queries and control readbacks use default text output.
 """
 from contextlib import contextmanager
 import hashlib
@@ -140,10 +140,10 @@ def connected_cpo_ports(duthosts, enum_rand_one_per_hwsku_frontend_hostname, con
 def wait_for_state(duthost, command, expected, timeout=30):
     """Poll a bulk query for the requested subset of resource/port states."""
     def matches():
-        result = run_cpoutil(duthost, command + " --json", expected_rc=None)
+        result = run_cpoutil(duthost, command, expected_rc=None)
         if result["rc"] != 0:
             return False
-        records = json.loads(result["stdout"])
+        records = result["table"]["records"]
         return all(key in records and records[key] == value for key, value in expected.items())
     assert wait_until(timeout, 2, 0, matches), "CPO state did not converge: " + command
 
@@ -156,10 +156,10 @@ def interfaces_have_state(duthost, ports, state):
 def check_connected_recovery(duthost, connected_ports, originally_up):
     """Require presence and recovery of links which were up before the action."""
     def present():
-        result = run_cpoutil(duthost, "show interface presence --json", expected_rc=None)
+        result = run_cpoutil(duthost, "show interface presence", expected_rc=None)
         if result["rc"] != 0:
             return False
-        records = json.loads(result["stdout"])
+        records = result["table"]["records"]
         return all(records.get(port, {}).get("present") is True for port in connected_ports)
     assert wait_until(60, 2, 0, present), "Connected CPO interface is absent after the action"
     assert wait_until(180, 5, 0, interfaces_have_state, duthost, originally_up, "up"), \
@@ -218,30 +218,27 @@ def test_cpoutil_map(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connec
         oe_link = links["optical_engine"]
         els_link = links["external_laser_source"]
         declared_pairs.add((oe_link["device_id"].upper(), int(oe_link.get("bank", 0)), els_link["device_id"].upper()))
-    records = json.loads(run_cpoutil(duthost, "show interface map --json")["stdout"])
+    table = run_cpoutil(duthost, "show interface map")["table"]
+    assert table["headers"] == ["Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"]
+    records = table["records"]
     for port in connected_cpo_ports:
         oe, els = records[port]["oe"], records[port]["els"]
         assert devices[oe["id"]]["device_type"] == "optical_engine"
         assert devices[els["id"]]["device_type"] == "external_laser_source"
         assert set(oe["lanes"]) == set(numbers(ports[port]["lanes"]))
-        assert type(oe["bank"]) is int and 0 <= oe["bank"] < int(devices[oe["id"]].get("max_banks", 1))
-        assert set(oe["lanes"]) <= set(numbers(devices[oe["id"]]["asic_lanes"]))
+        assert 0 <= oe["bank"] < int(devices[oe["id"]].get("max_banks", 1))
         device_lanes = numbers(devices[oe["id"]]["asic_lanes"])
         width = len(device_lanes) // int(devices[oe["id"]].get("max_banks", 1))
         bank_lanes = device_lanes[oe["bank"] * width:(oe["bank"] + 1) * width]
         assert set(oe["lanes"]) <= set(bank_lanes), "Interface lanes do not belong to the declared OE bank"
         assert (oe["id"], oe["bank"], els["id"]) in declared_pairs, "OE/ELS association does not match topology"
-        assert els["lasers"] is None or (isinstance(els["lasers"], list)
-                                         and all(type(laser) is int and laser >= 0 for laser in els["lasers"]))
-    table = run_cpoutil(duthost, "show interface map")["table"]
-    assert {"Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"} <= set(table["headers"])
-    assert set(connected_cpo_ports) <= set(table["resources"])
+        assert els["lasers"] is None or all(laser >= 0 for laser in els["lasers"])
 
 
 def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
     """Every connected CPO interface must be present; absence is a failure."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    records = json.loads(run_cpoutil(duthost, "show interface presence --json")["stdout"])
+    records = run_cpoutil(duthost, "show interface presence")["table"]["records"]
     for port in connected_cpo_ports:
         assert records[port]["present"] is True, "Connected CPO port is absent: " + port
 
@@ -249,20 +246,16 @@ def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, c
 def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
     """Check DOM structure and read status without asserting identity values."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    records = json.loads(run_cpoutil(duthost, "show interface dom --json")["stdout"])
+    records = run_cpoutil(duthost, "show interface dom")["dom"]
     for port in connected_cpo_ports:
         record = records[port]
-        assert record["present"] is True
-        assert not record.get("read_errors"), "DOM read failed for " + port
+        assert record["present"] is True, "DOM reports an absent port: " + port
+        assert not record["read_errors"], "DOM read failed for " + port
+        assert record["sections"] == ["oe", "els"], "DOM must display OE and ELS sections"
         for endpoint in ("oe", "els"):
-            for section in ("info", "dom", "thresholds"):
-                assert isinstance(record[endpoint][section], dict)
-                if section != "thresholds":
-                    assert record[endpoint][section], "DOM section is empty: " + section
-    table = run_cpoutil(duthost, "show interface dom")["dom"]
-    for port in connected_cpo_ports:
-        assert table[port]["present"] is True
-        assert set(table[port]["sections"]) == {"oe", "els"}
+            assert record["fields"][endpoint] > 0, "DOM endpoint has no displayed fields: " + endpoint
+            assert record["monitors"][endpoint] and record["thresholds"][endpoint], \
+                "DOM monitor/threshold headings are missing: " + endpoint
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
@@ -271,22 +264,22 @@ def test_cpoutil_endpoint_status(duthosts, enum_rand_one_per_hwsku_frontend_host
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = configured_cpo_ports(duthost)
     expected = {mapping[port][target]["id"].lower() for port in connected_cpo_ports}
-    queries = (("status", "Module State"), ("temperature", "Temperature (C)"), ("lpmode", "Low-power Mode"))
+    state_heading = "Module State" if target == "oe" else "Status"
+    queries = (("status", state_heading), ("temperature", "Temperature (C)"), ("lpmode", "Low-power Mode"))
     for command, heading in queries:
-        query = "show {} {}".format(target, command)
-        records = json.loads(run_cpoutil(duthost, query + " --json", optional=command == "lpmode")["stdout"])
+        table = run_cpoutil(duthost, "show {} {}".format(target, command), optional=command == "lpmode")["table"]
+        assert table["headers"] == [target.upper(), heading]
+        records = table["records"]
         assert expected <= set(records)
         for name in expected:
             value = records[name]
             if command == "status":
-                assert isinstance(value, str) and value and value != "N/A"
+                # The filter returns cell validity, never arbitrary status text.
+                assert value is True, "Module state is empty or N/A: " + name
             elif command == "temperature":
-                assert not isinstance(value, bool) and math.isfinite(float(value))
+                assert not isinstance(value, bool) and math.isfinite(value)
             else:
                 assert isinstance(value, bool)
-        table = run_cpoutil(duthost, query)["table"]
-        assert {target.upper(), heading} <= set(table["headers"])
-        assert {name.upper() for name in expected} <= set(table["resources"])
 
 
 def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
@@ -297,7 +290,6 @@ def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     topology = json.loads(duthost.command("cat " + shlex.quote(path), verbose=False)["stdout"])
     devices = {name.upper(): device for name, device in topology["devices"].items()}
     mapping = configured_cpo_ports(duthost)
-    records = json.loads(run_cpoutil(duthost, "show interface speed application --json", optional=True)["stdout"])
     expected_lanes_by_port = {}
     for port in connected_cpo_ports:
         # Derive bank-local lane positions from topology and active PORT lanes,
@@ -315,22 +307,7 @@ def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         assert port_lanes and port_lanes <= set(bank_lanes), "PORT lanes do not belong to the mapped OE bank"
         expected_lanes = {index for index, lane in enumerate(bank_lanes) if lane in port_lanes}
         expected_lanes_by_port[port] = expected_lanes
-        expected_keys = {"lane{:02d}".format(lane) for lane in expected_lanes}
-        advertisements = records[port]["Application Advertisement"]
-        assert isinstance(advertisements, dict) and advertisements
-        for application in advertisements.values():
-            assert isinstance(application, dict)
-            for field in ("host_electrical_interface_id", "module_media_interface_id"):
-                assert isinstance(application.get(field), str) and application[field].strip(), \
-                    "Application Host/Media description is missing or empty"
-        for field in ("Application Select Controls", "Active Application Control Set"):
-            values = records[port][field]
-            assert isinstance(values, dict) and set(values) == expected_keys, "Application lane keys do not match PORT"
-            # Validate display types only. The CLI renders null/N/A as N/A;
-            # comparing selections or checking advertisement membership is out of scope.
-            assert all(type(value) is int or value is None or value == "N/A" for value in values.values()), \
-                "Application selection has an invalid display type"
-    tables = run_cpoutil(duthost, "show interface speed application")["table"]["tables"]
+    tables = run_cpoutil(duthost, "show interface speed application", optional=True)["table"]["tables"]
     assert len(tables) == 1
     table = tables[0]
     assert table["headers"] == ["Interface", "Lane", "Configured Application", "Active Application"]
@@ -339,19 +316,19 @@ def test_cpoutil_application(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         assert {row["lane"] for row in rows} == expected_lanes_by_port[port] \
             and len(rows) == len(expected_lanes_by_port[port]), "Application table lanes do not match PORT"
         assert all(row["populated"] for row in rows), "Application table has an empty configured/active cell"
+        assert all(row["valid_display"] for row in rows), "Application AppSel/Host/Media display is malformed"
 
 
 def test_cpoutil_tx_disable_query(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
     """Check boolean Tx flags and the common lane table for connected ports."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     ports = read_port_config(duthost)
-    records = json.loads(run_cpoutil(duthost, "show interface tx-disable --json", optional=True)["stdout"])
+    table = run_cpoutil(duthost, "show interface tx-disable", optional=True)["table"]
+    assert table["headers"] == ["Interface", "Lane", "Tx Disable Status"]
+    records = table["records"]
     for port in connected_cpo_ports:
-        assert isinstance(records[port], dict) and len(records[port]) == len(numbers(ports[port]["lanes"]))
+        assert len(records[port]) == len(numbers(ports[port]["lanes"])), "TX lane count does not match PORT"
         assert all(isinstance(value, bool) for value in records[port].values())
-    table = run_cpoutil(duthost, "show interface tx-disable")["table"]
-    assert {"Interface", "Lane", "Tx Disable Status"} <= set(table["headers"])
-    assert set(connected_cpo_ports) <= set(table["resources"])
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
@@ -361,7 +338,7 @@ def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     mapping = configured_cpo_ports(duthost)
     names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
     query = "show {} lpmode".format(target)
-    records = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
+    records = run_cpoutil(duthost, query, optional=True)["table"]["records"]
     originals = {name: records[name] for name in names}
     assert all(type(value) is bool for value in originals.values()), "Invalid original low-power state"
     affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() in names)
@@ -414,7 +391,7 @@ def test_cpoutil_tx_disable(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # Use topology, not physical PORT index, to avoid duplicate/conflicting writes.
     banks = {(mapping[port]["oe"]["id"], mapping[port]["oe"]["bank"]) for port in connected_cpo_ports}
     query = "show interface tx-disable"
-    records = json.loads(run_cpoutil(duthost, query + " --json", optional=True)["stdout"])
+    records = run_cpoutil(duthost, query, optional=True)["table"]["records"]
     groups, originals, skipped = {}, {}, {}
     for bank in sorted(banks):
         siblings = sorted(port for port, entry in mapping.items()
@@ -497,11 +474,10 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
             assert unsupported or result["rc"] == 0, "Reset command failed for " + name
             if not unsupported:
                 def readable():
-                    result = run_cpoutil(duthost, query + " --json", expected_rc=None)
+                    result = run_cpoutil(duthost, query, expected_rc=None)
                     if result["rc"] != 0:
                         return False
-                    value = json.loads(result["stdout"]).get(name)
-                    return isinstance(value, str) and bool(value) and value != "N/A"
+                    return result["table"]["records"].get(name) is True
                 assert wait_until(60, 2, 0, readable), "Module did not become readable after reset: " + name
                 # sfputil also checks presence after the reset wait. Do not
                 # require a platform-specific module state or a visible down edge.
