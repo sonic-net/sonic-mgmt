@@ -305,6 +305,62 @@ def run_cmd_on_dut(test_case, cmd, timeout=30):
     )
 
 
+def pg_overflow_pkts(test_case, port, profile_name, cell_size, cells_per_packet):
+    """Packets that overflow a PG on port using profile_name, whatever its threshold.
+
+    The PG holds at most its own reservation and headroom, the port's ingress
+    reservation, and its share of the pool: static_th, or under dynamic_th
+    alpha / (1 + alpha) of the pool, which it reaches only with the pool
+    otherwise empty. One packet more than that overflows it.
+
+    This is an upper bound, not the drop point. Whether the pool's headroom
+    (xoff) is taken out of the shared space is not visible in CONFIG_DB and
+    has been measured both ways on TH5, and on TH5 a port may get only its
+    ITM's half of the pool, so the whole pool size is used.
+
+    The pool size is read from CONFIG_DB, so the dynamic buffer model, which
+    keeps it only in APPL_DB, fails here.
+    """
+    def hget(key, field):
+        stdout, _, ret = run_cmd_on_dut(
+            test_case, 'sonic-db-cli CONFIG_DB HGET "{}" "{}"'.format(key, field))
+        if ret != 0:
+            raise RuntimeError("Failed to read {} {} from CONFIG_DB".format(key, field))
+        value = stdout[0] if isinstance(stdout, list) and stdout else stdout
+        return str(value).strip() if value else ''
+
+    def hget_bytes(key, field, required):
+        value = hget(key, field)
+        if not value and not required:
+            return 0
+        if not value.isdigit():
+            raise ValueError("{} {} is {!r}, expected a size in bytes".format(key, field, value))
+        return int(value)
+
+    profile_key = 'BUFFER_PROFILE|{}'.format(profile_name)
+    pool = hget(profile_key, 'pool').strip('[]').split('|')[-1]
+    if not pool:
+        raise ValueError("{} has no pool".format(profile_key))
+    pool_key = 'BUFFER_POOL|{}'.format(pool)
+    if not hget(pool_key, 'size'):
+        raise ValueError("{} has no size in CONFIG_DB; the dynamic buffer model keeps it only in "
+                         "APPL_DB, which this test does not read".format(pool_key))
+    pool_size = hget_bytes(pool_key, 'size', required=True)
+    dynamic_th = hget(profile_key, 'dynamic_th')
+    if dynamic_th:
+        alpha = 2.0 ** int(dynamic_th)
+        held = int(pool_size * alpha / (1 + alpha))
+    else:
+        held = min(hget_bytes(profile_key, 'static_th', required=True), pool_size)
+    for field in ('xoff', 'size'):
+        held += hget_bytes(profile_key, field, required=False)
+    port_profiles = hget('BUFFER_PORT_INGRESS_PROFILE_LIST|{}'.format(port), 'profile_list')
+    for name in filter(None, (n.strip() for n in port_profiles.strip('[]').split(','))):
+        held += hget_bytes('BUFFER_PROFILE|{}'.format(name.split('|')[-1]), 'size', required=False)
+    cells = -(-held // cell_size)
+    return -(-cells // cells_per_packet) + 1
+
+
 class CounterCollector:
     '''Collect, compare and display counters for test'''
 
@@ -7834,6 +7890,9 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pg0_profile_name, self.pg0_key = self._find_pg_profile(self.pg0)
         if not self.pg0_profile_name:
             raise ValueError("Could not find profile for PG{} on {}".format(self.pg0, self.test_interface))
+        self.pg0_overflow_pkts = pg_overflow_pkts(
+            self, self.test_interface, self.pg0_profile_name, self.cell_size, self.cells_per_packet)
+        self.pg_pkts_to_fill = max(self.pg_pkts_to_fill, self.pg0_overflow_pkts + self.pg1_capacity_pkts)
 
         # Create PG1 key by replacing last part of PG0 key
         self.pg1_key = "{}|{}".format(self.pg0_key.rsplit('|', 1)[0], self.pg1)
@@ -8070,6 +8129,8 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
             assert pg0_total_drops > 0, \
                 "PG0: Total drops ({}) should be > 0 (buffer should be exhausted)".format(pg0_total_drops)
             print("✓ PG0 Validation 2 PASSED: Total drops ({}) > 0".format(pg0_total_drops), file=sys.stderr)
+            print("PG0 held {} packets, computed upper bound {}".format(
+                self.pg_pkts_to_fill - pg0_total_drops, self.pg0_overflow_pkts), file=sys.stderr)
 
             # ===== Enable TX to drain traffic =====
             print("\n--- Draining PG0 traffic ---", file=sys.stderr)
@@ -8133,6 +8194,10 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
             print("✓ PG1 Validation 1 PASSED: Received ({}) >= Sent ({})".format(
                 pg1_pkts_received, self.pg_pkts_to_fill), file=sys.stderr)
 
+            assert pg1_total_drops > 0, \
+                "PG1: Total drops ({}) should be > 0 (the burst must overflow PG1 too)".format(pg1_total_drops)
+            print("✓ PG1 Validation 2 PASSED: Total drops ({}) > 0".format(pg1_total_drops), file=sys.stderr)
+
             # ===== PHASE 3: Compare PG0 and PG1 drops =====
             print("\n--- PHASE 3: Comparing PG0 and PG1 drops ---", file=sys.stderr)
             print("PG0 total drops: {}".format(pg0_total_drops), file=sys.stderr)
@@ -8140,7 +8205,7 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
             print("PG1 MIN capacity: {} packets".format(self.pg1_capacity_pkts), file=sys.stderr)
             print("Tolerance: {} packets".format(self.pkt_count_tolerance), file=sys.stderr)
 
-            # Final validation: pg0_drops - pg1_drops >= tolerance
+            # Final validation: PG1 drops its MIN capacity fewer than PG0
             drop_difference = pg0_total_drops - pg1_total_drops
 
             print("Drop difference (PG0 - PG1): {}".format(drop_difference), file=sys.stderr)
@@ -8148,12 +8213,24 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
             # Use margin for comparison because after draining PG0 traffic, PG1 traffic may not
             # immediately utilize the full shared space even though all PG0 traffic has been drained.
             # While waiting longer could help, it doesn't guarantee complete shared pool utilization.
-            assert drop_difference >= self.pkt_count_tolerance, \
-                "Drop difference ({}) should be >= tolerance ({}). " \
-                "This indicates PG1 MIN threshold is not protecting enough packets.".format(
-                    drop_difference, self.pkt_count_tolerance)
-            print("✓ Final Validation PASSED: Drop difference ({}) >= tolerance ({})".format(
-                drop_difference, self.pkt_count_tolerance), file=sys.stderr)
+            # On XGS PG1's reservation does not shrink the shared space, so the difference is exactly
+            # its MIN capacity. Elsewhere (DNX) the reservation comes out of the shared pool too.
+            if self.platform_asic == "broadcom":
+                assert abs(drop_difference - self.pg1_capacity_pkts) <= self.pkt_count_tolerance, \
+                    "Drop difference ({}) should be PG1 MIN capacity ({}) +/- tolerance ({}). " \
+                    "This indicates PG1 MIN threshold is not protecting the packets it reserves.".format(
+                        drop_difference, self.pg1_capacity_pkts, self.pkt_count_tolerance)
+                print("✓ Final Validation PASSED: Drop difference ({}) is PG1 MIN capacity ({}) +/- "
+                      "tolerance ({})".format(drop_difference, self.pg1_capacity_pkts, self.pkt_count_tolerance),
+                      file=sys.stderr)
+            else:
+                assert drop_difference >= self.pkt_count_tolerance, \
+                    "Drop difference ({}) should be >= tolerance ({}). " \
+                    "This indicates PG1 MIN threshold is not protecting enough packets.".format(
+                        drop_difference, self.pkt_count_tolerance)
+                print("✓ Final Validation PASSED: Drop difference ({}) >= tolerance ({}) "
+                      "(exact PG1 MIN capacity checked on XGS only)".format(
+                          drop_difference, self.pkt_count_tolerance), file=sys.stderr)
 
             print("\n=== ALL VALIDATIONS PASSED ===", file=sys.stderr)
             print("=== PG MIN Threshold Test PASSED ===\n", file=sys.stderr)
