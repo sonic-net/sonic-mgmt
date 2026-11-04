@@ -530,6 +530,36 @@ def fetch_flow_metrics_for_macsec(api):
     return flow_metrics
 
 
+def get_macsec_flow_loss(rows, flow_name, tx_port_name, rx_port_name, pgid):
+    """
+    Computes the loss % of a flow from the IxNetwork 'Flow Statistics' rows
+    returned by run_traffic in MACsec mode.
+
+    Args:
+    rows (list): IxNetwork Flow Statistics rows (keyed by column name)
+    flow_name (str): name of the flow, used for logging and assertion messages
+    tx_port_name (str): name of the flow's Tx Port
+    rx_port_name (str): name of the flow's Rx Port
+    pgid (int): PGID of the flow
+
+    Returns:
+    loss (float): loss percentage of the flow
+    """
+    matched = [row for row in rows
+               if int(row['PGID']) == int(pgid)
+               and row['Tx Port'] == tx_port_name
+               and row['Rx Port'] == rx_port_name]
+    pytest_assert(matched,
+                  f"No flow statistics found for {flow_name} (Tx Port {tx_port_name}, "
+                  f"Rx Port {rx_port_name}, PGID {pgid})")
+    tx_frames = sum(int(row['Tx Frames']) for row in matched)
+    rx_frames = sum(int(row['Rx Frames']) for row in matched)
+    pytest_assert(tx_frames > 0, f"{flow_name} did not transmit any frames")
+    loss = 100.0 * (tx_frames - rx_frames) / tx_frames
+    logger.info(f"{flow_name}: PGID {pgid} Tx Frames {tx_frames} Rx Frames {rx_frames} Loss {loss:.2f}%")
+    return loss
+
+
 def get_macs(mac: str, count: int, offset: int = 1):
     """
     Take a starting MAC address string and return `count` MACs in a list.
@@ -549,15 +579,21 @@ def get_macs(mac: str, count: int, offset: int = 1):
 
 def get_ip_addresses(ip, count, type='ipv4'):
     """
-    Take ip as start ip returns the count of ips in a list
+    Take ip as start ip returns the count of ips in a list.
+    The start ip itself is never included in the returned list.
     """
+    if type == 'ipv6':
+        start = ipaddr.IPv6Address(ip)
+    else:
+        start = ipaddr.IPv4Address(ip)
+
     ip_list = list()
-    for i in range(count):
-        if type == 'ipv6':
-            ipaddress = ipaddr.IPv6Address(ip)
-        else:
-            ipaddress = ipaddr.IPv4Address(ip)
-        ipaddress = ipaddress + i
+    i = 1
+    while len(ip_list) < count:
+        ipaddress = start + i
+        i += 1
+        if ipaddress == start:
+            continue
         value = ipaddress._string_from_ip_int(ipaddress._ip)
         ip_list.append(value)
     return ip_list
