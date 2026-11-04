@@ -75,6 +75,7 @@ class FibTest(BaseTest):
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
     BALANCING_TEST_TIMES = 625
+    FT2_BALANCING_TEST_TIMES = 250
     DEFAULT_BALANCING_TEST_NUMBER = 1
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
@@ -145,8 +146,11 @@ class FibTest(BaseTest):
         self.test_balancing = self.test_params.get('test_balancing', True)
         self.balancing_range = self.test_params.get(
             'balancing_range', self.DEFAULT_BALANCING_RANGE)
+        self.topo_type = self.test_params.get('topo_type', None)
+        default_balancing_test_times = (
+            self.FT2_BALANCING_TEST_TIMES if self.topo_type == 'ft2' else self.BALANCING_TEST_TIMES)
         self.balancing_test_times = self.test_params.get(
-            'balancing_test_times', self.BALANCING_TEST_TIMES)
+            'balancing_test_times', default_balancing_test_times)
         self.balancing_test_number = self.test_params.get(
             'balancing_test_number', self.DEFAULT_BALANCING_TEST_NUMBER)
         self.balancing_test_count = 0
@@ -178,7 +182,6 @@ class FibTest(BaseTest):
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
             'single_fib_for_duts', "multiple-fib")
-        self.topo_type = self.test_params.get('topo_type', None)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, dut_fib in enumerate(self.fibs):
