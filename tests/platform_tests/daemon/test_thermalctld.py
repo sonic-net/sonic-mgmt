@@ -555,6 +555,9 @@ class TestThermalctldDaemon:
 THERMALCTLD_DAEMON_NAME = "thermalctld"
 THERMALCTLD_DB_KEY_PATTERN = "TEMPERATURE_INFO|*"
 
+daemon_name = THERMALCTLD_DAEMON_NAME
+daemon_dut_hostname_fixture = "enum_rand_one_per_hwsku_hostname"
+
 SIG_STOP_SERVICE = None
 SIG_TERM = "-15"
 SIG_KILL = "-9"
@@ -569,16 +572,6 @@ def thermalctld_teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
     """Ensure thermalctld is left running after lifecycle tests."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
-    daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
-    if daemon_status != expected_running_status:
-        duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
-        time.sleep(10)
-
-
-@pytest.fixture
-def thermalctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Ensure thermalctld is running before each lifecycle test."""
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
     if daemon_status != expected_running_status:
         duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
@@ -627,7 +620,7 @@ def test_pmon_thermalctld_running_status(duthosts, enum_rand_one_per_hwsku_hostn
                   "{} expected valid pid but got {}".format(THERMALCTLD_DAEMON_NAME, daemon_pid))
 
 
-def test_pmon_thermalctld_stop_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_stop_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
@@ -658,7 +651,7 @@ def test_pmon_thermalctld_stop_and_start_status(thermalctld_check_daemon_status,
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
-def test_pmon_thermalctld_term_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_term_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
@@ -680,7 +673,7 @@ def test_pmon_thermalctld_term_and_start_status(thermalctld_check_daemon_status,
                       THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
 
 
-def test_pmon_thermalctld_kill_and_start_status(thermalctld_check_daemon_status, duthosts,
+def test_pmon_thermalctld_kill_and_start_status(check_daemon_status, duthosts,
                                                 enum_rand_one_per_hwsku_hostname,
                                                 thermalctld_data_before_restart,
                                                 thermalctld_teardown_module):
