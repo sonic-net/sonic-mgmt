@@ -2,12 +2,12 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts,  \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,  \
+    get_lossless_buffer_size, get_pg_dropped_packets,  \
+    stop_pfcwd, disable_packet_aging, sec_to_nanosec,  \
+    get_pfc_frame_count, packet_capture, config_capture_pkt,  \
     start_pfcwd, enable_packet_aging, \
     traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
@@ -306,12 +306,18 @@ def run_pfc_test(api,
         lossless_drop = round((1 - float(test_stats['tgen_lossless_rx_pkts']) / test_stats['tgen_lossless_tx_pkts']), 2)
         lossy_drop = round((1 - float(test_stats['tgen_lossy_rx_pkts']) / test_stats['tgen_lossy_tx_pkts']), 2)
         logger.info('Lossless Drop %:{}, Lossy Drop %:{}'.format(lossless_drop, lossy_drop))
-        pytest_assert((lossless_drop*100) <= test_check['lossless'], 'Lossless packet drop outside tolerance limit')
-        pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
+        pytest_assert(
+            (lossless_drop*100) <= test_check['lossless'],
+            f'Lossless packet drop outside tolerance limit: limit:{test_check["lossless"]}, obtained:{lossless_drop}')
+        pytest_assert(
+            (lossy_drop*100) <= test_check['lossy'],
+            f'Lossy packet drop outside tolerance limit:{test_check["lossy"]}, obtained{lossy_drop}')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
-    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
-                  'Egress speed beyond tolerance range')
+    obtained = (1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100
+    pytest_assert(
+        obtained <= test_check['speed_tol'],
+        f'Egress speed beyond tolerance range:expected:{test_check["speed_tol"]} Got:{obtained}')
 
     # Checking for PFC counts on DUT
     if (not test_check['pfc']):
@@ -331,7 +337,7 @@ def run_pfc_test(api,
     if (test_traffic_pause):
         if valid_pfc_frame_test:
             is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
-            pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+            pytest_assert(is_valid_pfc_frame, "Found an invalid PFC frame.")
             return
 
     # Verify pause flows
