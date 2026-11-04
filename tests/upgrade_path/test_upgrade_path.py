@@ -68,7 +68,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
 
 def regenerate_and_apply_golden_config_db(dut, tbinfo):
     """Regenerate UT2 golden config before reloading minigraph."""
-    if tbinfo['topo']['type'] == 't2' and 't2_single_node' in tbinfo['topo']['name']:
+    if 't2_single_node' in tbinfo['topo']['name']:
         hostvars = dut.host.options['variable_manager'].get_vars(
             host=dut.host.options['inventory_manager'].get_host(dut.hostname))
         common = tbinfo['topo']['properties'].get('configuration_properties', {}).get('common', {})
@@ -150,7 +150,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     for duthost in duthosts:
         cleanup_prev_images(duthost)
     if standalone:
-        boot_into_base_image(duthost, localhost, from_image, tbinfo)
+        boot_into_base_image(duthosts[0], localhost, from_image, tbinfo)
     else:
         boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
@@ -171,7 +171,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
                             consistency_checker_provider=None,
                             enable_cpa=False)
     if standalone:
-        upgrade_dut(duthost)
+        upgrade_dut(duthosts[0])
         return
     upgrade_dut(duthosts.supervisor_nodes[0])
     with SafeThreadPoolExecutor(max_workers=8) as executor:
