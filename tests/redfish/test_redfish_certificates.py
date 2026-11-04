@@ -269,9 +269,11 @@ class TestRedfishCertProvisioning:
         pytest_assert(rc == 0,
                       "CA hash symlink {}.0 missing from the truststore".format(ca_hash.strip()))
 
-        stdout, _, _ = bmc_exec(in_container("supervisorctl status bmcweb"))
-        pytest_assert("RUNNING" in stdout,
-                      "bmcweb is not running after provisioning: {}".format(stdout))
+        # The redfish container's critical processes: every Redfish resource depends on both.
+        for program in ("sonic-dbus-bridge", "bmcweb"):
+            stdout, _, _ = bmc_exec(in_container("supervisorctl status {}".format(program)))
+            pytest_assert("RUNNING" in stdout,
+                          "{} is not running after provisioning: {}".format(program, stdout))
 
     def test_provisioned_state_is_recorded(self, bmc_tls_certs, bmc_exec):
         """Provisioning writes the marker and the staging stamp on the host mount."""
