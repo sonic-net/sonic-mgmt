@@ -116,6 +116,15 @@ class PduManager():
         where all of them contributes to the status of one PSU.
         """
         self.PSUs = {}
+        """
+        Track every PSU that was requested via add_controller, regardless of
+        whether the PSU was successfully built. This lets callers distinguish
+        between "PSU not configured in inventory" and "PSU configured but its
+        PDU controller could not be built (e.g. SNMP timeout)".
+
+        Mapping: psu_name -> {feed_name: {"peerdevice": <pdu>, "peerport": <port>}}
+        """
+        self.configured_psu_peers = {}
 
     def add_controller(self, psu_name, psu_peer, pdu_info, pdu_vars):
         """
@@ -128,10 +137,35 @@ class PduManager():
                 }
             }
         """
+        self.configured_psu_peers[psu_name] = psu_peer
         psu = PSU(psu_name, self.dut_hostname)
         if not psu.build_psu(psu_peer, pdu_info, pdu_vars):
             return
         self.PSUs[psu_name] = psu
+
+    def get_unreachable_psus(self):
+        """
+            @summary: Return PSUs that were configured (in inventory or
+                      connection graph) but whose PDU controller could not be
+                      built. The most common cause is the peer PDU being
+                      unreachable over SNMP, but it can also be missing
+                      pdu_info / pdu_vars or unsupported protocol.
+
+            @return: dict mapping unreachable psu_name -> list of unique peer
+                     PDU device names configured for that PSU. Returns an
+                     empty dict when every configured PSU is reachable.
+        """
+        unreachable = {}
+        for psu_name, psu_peer in self.configured_psu_peers.items():
+            if psu_name in self.PSUs:
+                continue
+            pdu_devices = []
+            for feed_info in psu_peer.values():
+                peerdevice = feed_info.get("peerdevice")
+                if peerdevice and peerdevice not in pdu_devices:
+                    pdu_devices.append(peerdevice)
+            unreachable[psu_name] = pdu_devices
+        return unreachable
 
     def _get_controller(self, outlet):
         return self.PSUs[outlet['psu_name']].feeds[outlet['feed_name']].controller
