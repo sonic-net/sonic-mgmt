@@ -17,6 +17,16 @@ are discovered at startup; restart after changing interface addresses. Missing
 IPv6 tooling does not prevent IPv4-only startup. Interfaces without either a
 usable IPv4 or IPv6 address are skipped; management must have a usable address.
 
+## Namespace forwarding
+
+The simulator namespace is a control-plane endpoint, not an IPv4 router.
+`vm_topology.py` disables `net.ipv4.ip_forward` when creating the namespace for
+topology binding or renumbering. Downstream frames are delivered to both the
+PTF and simulator interfaces by OVS; if a server and simulator interface share
+a MAC, kernel forwarding would send those frames back to the ToRs and create
+a packet-duplication loop. OVS forwarding, locally terminated gRPC traffic,
+and source-policy routing for locally generated replies remain unchanged.
+
 ## CLI
 
 Run inside the existing simulator network namespace, with its `mgmt` and `ethN`

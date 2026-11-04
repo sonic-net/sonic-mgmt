@@ -462,6 +462,8 @@ class VMTopology(object):
         """Create a network namespace."""
         self.delete_network_namespace()
         VMTopology.cmd("ip netns add %s" % self.netns)
+        # The NIC simulator must not route mirrored server traffic back to the ToRs.
+        VMTopology.cmd("ip netns exec %s sysctl -w net.ipv4.ip_forward=0" % self.netns)
 
     def delete_network_namespace(self):
         """Delete a network namespace."""
