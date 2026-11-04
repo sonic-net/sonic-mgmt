@@ -62,6 +62,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TRIAGED_LABEL: Triaged
           AUTO_TRIAGED_LABEL: auto-triaged
+          PENDING_TRIAGE_LABEL: "Pending Triage :medical_symbol:"
           SCAN_LIMIT: ${{ github.event.inputs.scan_limit || '0' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
 

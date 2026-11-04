@@ -8,7 +8,9 @@ page, and closes when the PR merges.
 
 For every such issue that is open, in this repository and not yet labelled
 TRIAGED_LABEL (default "Triaged"), the script:
-  * adds TRIAGED_LABEL and AUTO_TRIAGED_LABEL (default "auto-triaged"), and
+  * adds TRIAGED_LABEL and AUTO_TRIAGED_LABEL (default "auto-triaged"),
+  * removes PENDING_TRIAGE_LABEL (default "Pending Triage :medical_symbol:"),
+    which contradicts TRIAGED_LABEL, and
   * assigns the issue to the pull request author or, when GitHub will not let
     them be assigned (only sonic-net members, repository collaborators and
     people who have commented on the issue can be), posts a comment on the
@@ -22,9 +24,10 @@ has removed TRIAGED_LABEL from an issue, the script never triages it again.
 
 An automatic triage is undone when no open pull request links the issue any
 more: the PR was closed without merging, or the link was removed from its
-description or sidebar. The issue loses both labels, and every assignee this
-script assigned is unassigned. When another open PR still links the issue, the
-labels stay and the assignment passes to that PR's author.
+description or sidebar. The issue loses both labels, gets PENDING_TRIAGE_LABEL
+back if this script removed it, and every assignee this script assigned is
+unassigned. When another open PR still links the issue, the labels stay and
+the assignment passes to that PR's author.
 
 GitHub fires no workflow event when an issue is linked or unlinked from the
 sidebar, or when a closing keyword is removed, so the workflow also runs a
@@ -44,6 +47,7 @@ Modes:
 import logging
 import os
 import time
+from urllib.parse import quote
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -56,6 +60,7 @@ PR_NUMBER = os.environ.get("PR_NUMBER", "").strip()
 TRIAGED_LABEL = os.environ.get("TRIAGED_LABEL", "").strip() or "Triaged"
 AUTO_TRIAGED_LABEL = os.environ.get("AUTO_TRIAGED_LABEL", "").strip() or "auto-triaged"
 AUTO_TRIAGED_COLOR = "ededed"
+PENDING_TRIAGE_LABEL = os.environ.get("PENDING_TRIAGE_LABEL", "").strip() or "Pending Triage :medical_symbol:"
 # The account GITHUB_TOKEN acts as; REST reports it as "github-actions[bot]",
 # GraphQL as "github-actions".
 BOT_LOGIN = os.environ.get("BOT_LOGIN", "").strip() or "github-actions"
@@ -117,10 +122,11 @@ query($search: String!, $after: String) {
 """ % ISSUE_FIELDS
 
 HISTORY_QUERY = """
-query($owner: String!, $name: String!, $number: Int!) {
+query($owner: String!, $name: String!, $number: Int!, $before: String) {
   repository(owner: $owner, name: $name) {
     issue(number: $number) {
-      timelineItems(last: 100, itemTypes: [ASSIGNED_EVENT, UNLABELED_EVENT]) {
+      timelineItems(last: 100, before: $before, itemTypes: [ASSIGNED_EVENT, UNLABELED_EVENT]) {
+        pageInfo { hasPreviousPage startCursor }
         nodes {
           ... on AssignedEvent { actor { login } assignee { ... on User { login } } }
           ... on UnlabeledEvent { actor { login } label { name } }
@@ -259,26 +265,47 @@ def ensure_auto_triaged_label() -> None:
         response.raise_for_status()
 
 
+def issue_timeline(issue_number: int) -> list:
+    """The issue's assignment and unlabel events, oldest first.
+
+    Every page is read, so a human rejection stays visible however many events
+    follow it.
+    """
+    owner, name = GITHUB_REPOSITORY.split("/", 1)
+    events = []
+    before = None
+    while True:
+        items = graphql(HISTORY_QUERY, {"owner": owner, "name": name, "number": issue_number,
+                                        "before": before})["repository"]["issue"]["timelineItems"]
+        events[:0] = [event for event in items["nodes"] if event]
+        if not items["pageInfo"]["hasPreviousPage"]:
+            return events
+        before = items["pageInfo"]["startCursor"]
+
+
 def issue_history(issue_number: int) -> tuple:
-    """Return (bot_assignees, rejected) from the issue's timeline.
+    """Return (bot_assignees, rejected, removed_pending) from the issue's timeline.
 
     bot_assignees: lower-cased logins whose most recent assignment was made by
     this script. rejected: whether anyone other than this script has removed
-    TRIAGED_LABEL from the issue.
+    TRIAGED_LABEL from the issue. removed_pending: whether the most recent
+    removal of PENDING_TRIAGE_LABEL was made by this script.
     """
-    owner, name = GITHUB_REPOSITORY.split("/", 1)
-    data = graphql(HISTORY_QUERY, {"owner": owner, "name": name, "number": issue_number})
     assigned_by = {}
-    rejected = False
-    for event in data["repository"]["issue"]["timelineItems"]["nodes"]:
+    rejected = removed_pending = False
+    for event in issue_timeline(issue_number):
         actor = (event.get("actor") or {}).get("login") or ""
         if "assignee" in event:
             assignee = ((event.get("assignee") or {}).get("login") or "").lower()
             if assignee:
                 assigned_by[assignee] = actor
-        elif (event.get("label") or {}).get("name") == TRIAGED_LABEL and not is_bot(actor):
+            continue
+        label = (event.get("label") or {}).get("name")
+        if label == TRIAGED_LABEL and not is_bot(actor):
             rejected = True
-    return {login for login, actor in assigned_by.items() if is_bot(actor)}, rejected
+        elif label == PENDING_TRIAGE_LABEL:
+            removed_pending = is_bot(actor)
+    return {login for login, actor in assigned_by.items() if is_bot(actor)}, rejected, removed_pending
 
 
 def can_be_assigned(issue_number: int, login: str) -> bool:
@@ -330,7 +357,15 @@ def plan_assignment(issue: dict, login: str) -> tuple:
 
 
 def describe_assignment(login: str, assign: bool, comment: bool) -> list:
-    return ([f"assign @{login}"] if assign else []) + ([f"comment for @{login} (cannot be assigned)"] if comment else [])
+    return (([f"assign @{login}"] if assign else [])
+            + ([f"comment for @{login} (cannot be assigned)"] if comment else []))
+
+
+def remove_label(issue_number: int, label: str) -> None:
+    """Remove `label` from the issue; already gone is fine."""
+    response = send("DELETE", f"{API_URL}{issue_path(issue_number)}/labels/{quote(label, safe='')}")
+    if response.status_code != 404:
+        response.raise_for_status()
 
 
 def apply_assignment(issue_number: int, pr_number: int, login: str, assign: bool, comment: bool) -> None:
@@ -364,12 +399,17 @@ def triage_issue(issue: dict, pr_number: int, author: dict) -> bool:
     # Bot-authored PRs (dependabot, ...) label what they fix but assign no one.
     login = user_login(author)
     assign, comment = plan_assignment(issue, login)
-    actions = [f"label '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"] + describe_assignment(login, assign, comment)
+    pending = PENDING_TRIAGE_LABEL in label_names(issue)
+    actions = [f"label '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"]
+    actions += [f"remove '{PENDING_TRIAGE_LABEL}'"] if pending else []
+    actions += describe_assignment(login, assign, comment)
     logger.info("PR #%s links issue #%s: %s.", pr_number, issue_number, ", ".join(actions))
     if DRY_RUN:
         return True
 
     apply_assignment(issue_number, pr_number, login, assign, comment)
+    if pending:
+        remove_label(issue_number, PENDING_TRIAGE_LABEL)
     # Labelled last: the label is what marks the issue as handled, so a
     # failure above leaves it to be retried by the next run.
     rest("POST", f"{issue_path(issue_number)}/labels", json={"labels": [TRIAGED_LABEL, AUTO_TRIAGED_LABEL]})
@@ -396,9 +436,12 @@ def reconcile_issue(issue: dict, closed_pr: int = 0) -> bool:
     authors = {user_login(pr.get("author") or {}).lower() for pr in pull_requests} - {""}
     assignees = assignee_logins(issue)
     stale = [assignee for key, assignee in assignees.items() if key not in authors]
-    if stale:
-        bot_assignees = issue_history(issue_number)[0]
+    restore_pending = False
+    if stale or not pull_requests:
+        bot_assignees, _, removed_pending = issue_history(issue_number)
         stale = [assignee for assignee in stale if assignee.lower() in bot_assignees]
+        restore_pending = (not pull_requests and removed_pending
+                           and PENDING_TRIAGE_LABEL not in label_names(issue))
 
     # Hand over only an assignment the bot is taking away, so an issue a
     # human unassigned is not reassigned.
@@ -411,6 +454,7 @@ def reconcile_issue(issue: dict, closed_pr: int = 0) -> bool:
         assign, comment = plan_assignment(issue, login)
 
     actions = [] if pull_requests else [f"remove '{TRIAGED_LABEL}', '{AUTO_TRIAGED_LABEL}'"]
+    actions += [f"restore '{PENDING_TRIAGE_LABEL}'"] if restore_pending else []
     actions += [f"unassign @{assignee}" for assignee in stale] + describe_assignment(login, assign, comment)
     if not actions:
         return False
@@ -429,11 +473,11 @@ def reconcile_issue(issue: dict, closed_pr: int = 0) -> bool:
         apply_assignment(issue_number, successor["number"], login, assign, comment)
     if stale:
         rest("DELETE", f"{path}/assignees", json={"assignees": stale})
+    if restore_pending:
+        rest("POST", f"{path}/labels", json={"labels": [PENDING_TRIAGE_LABEL]})
     if not pull_requests:
         for label in (TRIAGED_LABEL, AUTO_TRIAGED_LABEL):
-            response = send("DELETE", f"{API_URL}{path}/labels/{label}")
-            if response.status_code != 404:
-                response.raise_for_status()
+            remove_label(issue_number, label)
     return True
 
 
