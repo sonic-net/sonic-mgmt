@@ -2,7 +2,7 @@
 
 Updated 2026-11-04. Contract: merged sonic-utilities #4864; lane-status uses
 sonic-utilities #5012 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
-There are 13 cases; this is not exhaustive command/argument acceptance.
+There are 15 cases; this is not exhaustive command/argument acceptance.
 
 | Command after cpoutil | Basic test | Output/result checks |
 | --- | --- | --- |
@@ -18,7 +18,9 @@ There are 13 cases; this is not exhaustive command/argument acceptance.
 | config interface tx-disable | test_cpoutil_tx_disable | All associated restorable OE banks: save all, invert all, verify, restore all, verify, presence/link recovery |
 | config oe lpmode / config els lpmode | test_cpoutil_low_power | All associated supported endpoints: save all, invert all, verify, restore all, verify, presence/link recovery |
 | config oe reset / config els reset | test_cpoutil_reset | Deduplicated endpoints: rc=0, readable module, present interfaces and environment/link recovery |
-| read-eeprom / write-eeprom and their options | Excluded | No EEPROM or EEPROM parser cases |
+| read-eeprom oe / els | test_cpoutil_eeprom_read | Each distinct associated endpoint once: rc=0, correct heading and nonempty hexdump |
+| read-eeprom interface --oe / --els | test_cpoutil_eeprom_read | Each connected interface alias: rc=0, correct port/endpoint heading and nonempty hexdump |
+| write-eeprom and EEPROM option matrices | Excluded | No writes, byte-content assertions or range/bank combinations |
 
 Only the map case calls CLI map. Other cases obtain resource associations
 directly from cpo.json and current PORT lanes, including breakout children.
@@ -44,6 +46,7 @@ Only previously oper-up links are required up afterward. CLI recovery is not
 independent proof of a hardware reset pulse.
 
 No test asserts vendor/model/serial identities, complete sensor semantics,
-physical cabling or traffic. EEPROM, option matrices, fault matrices and live
-breakout are excluded. See [test plan](cpoutil.md) for restoration and limits.
+physical cabling or traffic. EEPROM sanity uses default CLI page selection;
+only headings and a data-present flag leave the DUT. Writes, option matrices,
+fault matrices and live breakout are excluded. See [test plan](cpoutil.md) for restoration and limits.
 A fresh real testbed run of this revision is pending.

@@ -129,6 +129,16 @@ def dom_summary(output):
     return records
 
 
+def eeprom_summary(output):
+    """Keep a safe target heading and whether any real hexdump row exists."""
+    headings = [line.strip() for line in output.splitlines() if re.fullmatch(
+        r"EEPROM hexdump for (?:(?:OE|ELS)\d+|port Ethernet\S+ \((?:OE|ELS)\d+\))", line.strip())]
+    has_data = any(re.fullmatch(
+        r"\s*[0-9a-fA-F]{8}\s+(?:[0-9a-fA-F]{2}\s+){0,15}[0-9a-fA-F]{2}\s+\|.*\|", line)
+        for line in output.splitlines())
+    return {"headings": headings, "has_data": has_data}
+
+
 def run(arguments):
     if any(option in arguments for option in ("--json", "-j")):
         raise ValueError("Only default text queries are supported")
@@ -141,6 +151,8 @@ def run(arguments):
         safe["dom"] = dom_summary(result.stdout)
     elif arguments[:1] == ["show"]:
         safe["table"] = table_summary(result.stdout)
+    elif arguments[:1] == ["read-eeprom"]:
+        safe["eeprom"] = eeprom_summary(result.stdout)
     return safe
 
 

@@ -8,7 +8,7 @@ two-table output in sonic-utilities #5012 at
 
 ## Selection and checks
 
-There are 10 test functions / 13 collected cases. Hardware traversal stays
+There are 11 test functions / 15 collected cases. Hardware traversal stays
 inside each case. DUT selection is explicit; `connected_cpo_ports` intersects
 connection-graph ports, current PORT lanes and cpo.json optical-engine lanes.
 The scope is physical single-ASIC, non-ganged CPO devices.
@@ -37,6 +37,7 @@ separate from the cpoutil text output being tested.
 | OE / ELS status | Nonempty non-N/A state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
 | Application | Exact bank-local subport lane rows and nonempty configured/active cells; AppSel/Host/Media display syntax or N/A placeholders |
 | TX query | true/false lane cells, PORT lane count and public text columns |
+| OE / ELS EEPROM read | rc=0, matching target heading and at least one hexdump data row; no byte-content comparison |
 | OE / ELS low-power | Snapshot all associated endpoints, invert all supported modes, verify, restore and verify |
 | TX control | Snapshot all associated OE banks and their siblings, invert supported/restorable banks, verify, restore and verify |
 | OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
@@ -46,8 +47,14 @@ Application checks current breakout configuration without creating breakout.
 The default table displays selected Application descriptions; the JSON-only
 Advertisement dictionary is outside this text test. It does not compare
 configured/active AppSel equality, advertisement membership,
-specific interface types or actual link speed. There are no EEPROM read/write,
-EEPROM argument or help smoke cases.
+specific interface types or actual link speed.
+
+EEPROM sanity has two cases, OE and ELS. It reads each distinct associated
+endpoint once and each connected port's interface alias. The CLI selects its
+default pages; this test does not choose a universal page, bank or fixed read
+length. It only requires rc=0, the expected target heading and at least one
+actual hexdump data row. The DUT filter returns a heading and a boolean, never
+raw EEPROM bytes or ASCII. There are no writes or EEPROM argument/help matrices.
 
 ## Controls and restoration
 
@@ -108,15 +115,19 @@ From the sonic-mgmt `tests` directory:
 Controls run by default and can interrupt all interfaces sharing the selected
 OE/ELS or OE bank. There is no separate disruptive-control switch.
 
-2026-11-04: 73 local synthetic checks passed, including all 13 retained case
+2026-11-04: 73 local synthetic checks passed, including the 13 text/control case
 bodies, default text parsing, actual table formatters, On/Off controls, the
 distinct OE/ELS status headings, malformed/duplicate/missing rows and cells,
 non-finite temperature, DOM error/section checks, identity suppression and
-topology-based breakout selection. The actual module with a synthetic testbed
-and module guard passed 13/13. Collection, flake8 and whitespace checks passed.
+topology-based breakout selection. Collection, flake8 and whitespace checks passed.
 An additional nine checks reproduce secondary-subport DOM rejection and verify
 owner selection, partial preparation cleanup, unchanged admin-down children,
-missing-owner failure and restoration order. The full module also passed 13/13
-with a synthetic CLI that rejects DOM requests for secondary breakout children.
+missing-owner failure and restoration order.
 These are local synthetic results. A fresh Ansible/DUT run remains pending;
 the PR stays draft.
+
+EEPROM sanity adds ten focused local checks for traversal/deduplication,
+title-only output, wrong targets, invalid data rows, failed commands and output
+privacy. The full module collected and passed 15/15 with a synthetic CLI that
+rejects DOM requests for secondary breakout children, including the module state
+guard. Hardware execution remains pending.

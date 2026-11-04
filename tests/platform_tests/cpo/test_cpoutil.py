@@ -353,6 +353,29 @@ def test_cpoutil_tx_disable_query(duthosts, enum_rand_one_per_hwsku_frontend_hos
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))
+def test_cpoutil_eeprom_read(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
+    """Sanity only: rc=0, correct target heading and at least one data row."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mapping = configured_cpo_ports(duthost)
+    names = sorted({mapping[port][target]["id"] for port in connected_cpo_ports})
+    # Read each shared endpoint once; the CLI selects its declared pages.
+    # No range/bank matrix or EEPROM content comparison belongs in this check.
+    for name in names:
+        index = int(name[len(target):])
+        result = run_cpoutil(duthost, "read-eeprom {} -i {}".format(target, index))["eeprom"]
+        assert result["headings"] == ["EEPROM hexdump for " + name], "EEPROM target heading is incorrect"
+        assert result["has_data"], "EEPROM dump contains no data rows for " + name
+    # Every connected port still exercises its interface entry point, even
+    # when several breakout siblings share the same physical endpoint.
+    for port in connected_cpo_ports:
+        name = mapping[port][target]["id"]
+        result = run_cpoutil(duthost, "read-eeprom interface -p {} --{}".format(port, target))["eeprom"]
+        assert result["headings"] == ["EEPROM hexdump for port {} ({})".format(port, name)], \
+            "EEPROM interface heading is incorrect"
+        assert result["has_data"], "EEPROM dump contains no data rows for " + port
+
+
+@pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
     """Snapshot all endpoints, invert all supported modes, then restore every original."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
