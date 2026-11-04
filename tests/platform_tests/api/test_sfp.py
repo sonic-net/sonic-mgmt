@@ -341,16 +341,40 @@ class TestSfpApi(PlatformApiTestBase):
         "slot_id",
     ]
 
+    EXPECTED_CPO_INFO_KEYS = [
+        'hardware_rev',
+        'host_lane_count',
+        'media_lane_count',
+        'media_interface_technology',
+        'cmis_rev',
+        'vdm_supported',
+        'oe_sn'
+    ]
+
     chassis_facts = None
     duthost_vars = None
 
     #
     # Helper functions
     #
+    def is_nvidia_cpo(self, xcvr_info_dict: object) -> bool:
+        """Returns True if transceiver is an NVIDIA CPO module, False otherwise (including invalid info)"""
+        if not isinstance(xcvr_info_dict, dict):
+            logger.info("is_nvidia_cpo: transceiver info is not a dict: {!r}".format(xcvr_info_dict))
+            return False
+        xcvr_type = xcvr_info_dict.get("type")
+        manufacturer = xcvr_info_dict.get("manufacturer")
+        result = xcvr_type == "CPO" and isinstance(manufacturer, str) and manufacturer.rstrip() == "NVIDIA"
+        logger.info("is_nvidia_cpo: type={!r}, manufacturer={!r} -> {}".format(xcvr_type, manufacturer, result))
+        return result
+
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         type_name = xcvr_info_dict["type_abbrv_name"]
         spec = xcvr_info_dict["specification_compliance"]
+
+        if self.is_nvidia_cpo(xcvr_info_dict):
+            return True
 
         # QSFP-DD/OSFP-8X/QSFP+C/BP report specification_compliance as a plain string.
         if type_name in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
@@ -558,6 +582,9 @@ class TestSfpApi(PlatformApiTestBase):
                     elif info_dict["type"] == "Backplane Cartridge" and \
                             info_dict['manufacturer'].rstrip() == "Amphenol":
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
+                    elif self.is_nvidia_cpo(info_dict):
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + self.EXPECTED_CPO_INFO_KEYS + \
+                            ["active_apsel_hostlane{}".format(n) for n in range(1, 9)]
                     else:
 
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
@@ -623,7 +650,11 @@ class TestSfpApi(PlatformApiTestBase):
                     #       If the xcvr has multiple channels, we should adjust the fields here accordingly
                     actual_keys = list(dom_real_value_dict.keys())
 
-                    missing_keys = set(self.EXPECTED_XCVR_DOM_REAL_VALUE_KEYS) - set(actual_keys)
+                    expected_keys = set(self.EXPECTED_XCVR_DOM_REAL_VALUE_KEYS)
+                    # NVIDIA CPO OE does not report TX bias
+                    if self.is_nvidia_cpo(sfp.get_transceiver_info(platform_api_conn, i)):
+                        expected_keys.discard('tx1bias')
+                    missing_keys = expected_keys - set(actual_keys)
                     for key in missing_keys:
                         self.expect(
                             False, "Transceiver {} dom real value does not contain field: '{}'".format(i, key))
@@ -651,6 +682,9 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
+                    # NVIDIA CPO OE does not report TX bias thresholds
+                    if self.is_nvidia_cpo(info_dict):
+                        expected_keys = [key for key in expected_keys if not key.startswith('txbias')]
                     # Keys which are allowed to be reported, but are not required to be present
                     optional_keys = []
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
