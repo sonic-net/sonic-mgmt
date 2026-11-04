@@ -36,6 +36,7 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import ISOLATED_T2_TOPO_PREFIX
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
@@ -1021,6 +1022,9 @@ def get_upstream_neigh_type(tbinfo, is_upper=True):
     topo_name = tbinfo["topo"]["name"]
     topo_type = tbinfo["topo"]["type"]
     topo_attrs = [topo_name, topo_type]
+    if topo_name.startswith(ISOLATED_T2_TOPO_PREFIX):
+        # All isolated T2 variants share the same PT1 upstream tier instead of the T2 default T3 tier.
+        topo_attrs.insert(1, ISOLATED_T2_TOPO_PREFIX)
 
     for topo_attr in topo_attrs:
         if topo_attr in UPSTREAM_NEIGHBOR_MAP:
@@ -1072,6 +1076,21 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     if is_upper:
         return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def flush_permanent_neighbors(duthost):
+    """
+    Flush PERMANENT neighbor entries on all interfaces except 'lo'.
+
+    All IPv4 traffic over 'lo' shares the single kernel neighbor entry '0.0.0.0 dev lo'. The kernel creates it
+    as NOARP, but Cisco 8000 images (platform-cisco-8000 202605.1.0.7 and later) pin it PERMANENT from an
+    if-up.d hook. If that entry is deleted while it is in use, the kernel can leave it FAILED, which
+    black-holes 127.0.0.1 (e.g. Redis TCP) until 'lo' is bounced or the DUT is rebooted.
+    """
+    duthost.shell(
+        "ip neigh show nud permanent | awk '$2 == \"dev\" && $3 != \"lo\" {print $3}' | sort -u | "
+        "xargs -r -t -I{} sudo ip neigh flush dev {} nud permanent"
+    )
 
 
 def is_ipv6_only_topology(tbinfo):
@@ -1548,19 +1567,22 @@ def get_running_config(duthost, asic=None, filter=None):
     return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
-def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True, wait_for_bgp=True):
     """
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     from tests.common.config_reload import config_reload
-    golden_config = "/etc/sonic/golden_config_db.json"
+    golden_config = constants.GOLDEN_CONFIG_DB_PATH
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
         config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
-                      wait_for_bgp=True)
+                      wait_for_bgp=wait_for_bgp)
     finally:
-        # Cleanup golden config because some other test or device recover may reload config with golden config
+        # Cleanup golden config because some other test or device recover may reload config with golden config,
+        # then restore the original golden config.
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+        if file_exists_on_dut(duthost, constants.GOLDEN_CONFIG_DB_PATH_ORI):
+            duthost.command('cp {} {}'.format(constants.GOLDEN_CONFIG_DB_PATH_ORI, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

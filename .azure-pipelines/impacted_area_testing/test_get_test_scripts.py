@@ -43,6 +43,18 @@ def _write_file(directory, relpath, content=""):
     return full
 
 
+def test_bgp_session_flap_keeps_classic_topology_selection():
+    tests_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "tests")
+    )
+
+    result = collect_scripts_by_topology_type("bgp", tests_dir)
+
+    script = "bgp/test_bgp_session_flap.py"
+    assert script in result["t1_checker"]
+    assert script in result["t2_checker"]
+
+
 # ── VPP allowlist intersection ────────────────────────────
 
 class TestVppImpactedArea:
@@ -190,14 +202,15 @@ class TestVppImpactedArea:
     def test_vpp_topologies_use_independent_allowlists(
         self, test_dir, monkeypatch
     ):
-        """Verify t0-vpp and t1-lag-vpp build independent checker lists."""
+        """Verify every VPP topology builds its own independent checker list."""
         tests_dir = os.path.join(test_dir, "tests")
-        _write_file(tests_dir, "bgp/test_t0_vpp.py", "import pytest\n")
-        _write_file(tests_dir, "bgp/test_t1_lag_vpp.py", "import pytest\n")
-        allowlists = {
-            "t0-vpp": ["bgp/test_t0_vpp.py"],
-            "t1-lag-vpp": ["bgp/test_t1_lag_vpp.py"],
-        }
+        # One uniquely-named script per topology, so a checker picking up
+        # another topology's script would be visible rather than masked.
+        allowlists = {}
+        for topology in VPP_TOPOLOGY_CHECKERS:
+            script = "bgp/test_{}.py".format(topology.replace("-", "_"))
+            _write_file(tests_dir, script, "import pytest\n")
+            allowlists[topology] = [script]
         monkeypatch.setattr(
             "get_test_scripts.load_vpp_test_scripts_allowlist",
             lambda topology: allowlists[topology],
@@ -205,10 +218,8 @@ class TestVppImpactedArea:
 
         result = collect_scripts_by_topology_type("bgp", tests_dir)
 
-        assert result["t0-vpp_checker"] == ["bgp/test_t0_vpp.py"]
-        assert result["t1-lag-vpp_checker"] == [
-            "bgp/test_t1_lag_vpp.py"
-        ]
+        for topology, checker in VPP_TOPOLOGY_CHECKERS.items():
+            assert result[checker] == allowlists[topology]
 
     def test_build_vpp_impacted_scripts_preserves_allowlist_order(self):
         result = build_vpp_impacted_scripts(

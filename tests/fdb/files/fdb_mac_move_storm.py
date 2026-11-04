@@ -74,6 +74,13 @@ def main():
                         help="seconds between progress reports on stdout")
     parser.add_argument("--vlan-tag", type=int, default=None,
                         help="if set, insert an 802.1Q tag with this VID on every frame")
+    parser.add_argument("--pps", type=float, default=0.0,
+                        help="aggregate send rate limit in packets/second across both "
+                             "interfaces; 0 means unlimited. MAC_MOVE_GUARD only needs "
+                             "threshold/detect_interval moves per second per MAC, and "
+                             "pacing keeps the CPU-punted copies of the storm under the "
+                             "CoPP ARP policer so the kernel netlink consumers in the "
+                             "swss container are not overrun.")
     args = parser.parse_args()
 
     signal.signal(signal.SIGTERM, _stop)
@@ -91,15 +98,25 @@ def main():
     n = len(pkts)
 
     sys.stdout.write(
-        "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={}\n".format(
-            args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag))
+        "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={} "
+        "pps={}\n".format(
+            args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag,
+            args.pps if args.pps > 0 else "unlimited"))
     sys.stdout.flush()
+
+    # One round sends every MAC on both interfaces (2 * n frames) and produces
+    # exactly one MAC move per MAC on the DUT, so the round period that yields
+    # the requested rate is (2 * n) / pps. Pacing per round rather than per
+    # packet keeps the per-frame cost negligible.
+    round_period = (2.0 * n / args.pps) if args.pps > 0 else 0.0
 
     sent = 0
     last_report = time.time()
+    next_round = time.time()
     while _running:
         # One round: each MAC is sent on iface_a immediately followed by iface_b,
         # producing one FDB MAC-move event per MAC per round on the DUT.
+        next_round += round_period
         for i in range(n):
             if not _running:
                 break
@@ -110,6 +127,14 @@ def main():
             except OSError as e:
                 sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
                 time.sleep(0.01)
+        if round_period:
+            delay = next_round - time.time()
+            if delay > 0:
+                time.sleep(delay)
+            elif delay < -round_period:
+                # Fell behind by more than one full round; re-anchor instead of
+                # bursting to catch up.
+                next_round = time.time()
         now = time.time()
         elapsed = now - last_report
         if elapsed >= args.report_interval:

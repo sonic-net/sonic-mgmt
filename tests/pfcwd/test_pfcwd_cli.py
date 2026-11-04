@@ -18,10 +18,19 @@ from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_pfcwd_cli_on_vs_t2(duthosts, tbinfo):
+    """Skip VS/KVM t2: storm_setup needs a hardware fanout peer that KVM t2 does not have."""
+    if tbinfo["topo"]["type"] != "t2":
+        return
+    if any(dut.facts.get("asic_type") == "vs" for dut in duthosts):
+        pytest.skip("Skip test_pfcwd_cli on VS/KVM t2: no fanout peer for PFC storm generation")
 
 
 @pytest.fixture(autouse=True)
@@ -306,7 +315,8 @@ class SendVerifyTraffic():
 
 
 @pytest.fixture(scope='function')
-def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test,
+                      loganalyzer):
     """Complete LAG config resource manager.
 
     Setup (before test): backs up config_db and shuts down extra LAG members so
@@ -322,7 +332,8 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
     yield
 
-    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports,
+                            loganalyzer=loganalyzer)
 
 
 class TestPfcwdFunc(SetupPfcwdFunc):

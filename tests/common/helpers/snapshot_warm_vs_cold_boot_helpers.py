@@ -34,9 +34,9 @@ def run_presnapshot_checks(duthost, tbinfo):
     check_services(duthost)  # NOTE: Only checks critical services
     check_neighbors(duthost, tbinfo)
     verify_no_coredumps(duthost, 0)
-    # Telemetry container is typically the last container to start, so waiting for it is a good proxy for
-    # all containers being up
-    wait_for_container_running(duthost, "telemetry", timeout=300)
+    # The gnmi container is a delayed feature and typically one of the last to start, so waiting for it is a
+    # good proxy for all containers being up
+    wait_for_container_running(duthost, "gnmi", timeout=300)
 
     # NOTE: There are some late running processes such as xcvrd that may still be starting up and causing
     # Redis keys to be changing in the background. FIXME: We should replace this with a clear finish

@@ -36,18 +36,7 @@ class GNMIEnvironment(object):
                 return
             else:
                 pytest.fail("GNMI is not running")
-        cmd = "docker images | grep -w sonic-telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
-                self.gnmi_program = "telemetry"
-                self.gnmi_port = 50051
-                return
-            else:
-                pytest.fail("Telemetry is not running")
-        pytest.fail("Can't find telemetry and gnmi image")
+        pytest.fail("Can't find gnmi image")
 
 
 def create_ext_conf(ip, filename):

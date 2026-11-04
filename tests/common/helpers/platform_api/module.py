@@ -150,6 +150,10 @@ def get_midplane_ip(conn, mod_idx):
     return module_api(conn, mod_idx, 'get_midplane_ip')
 
 
+def get_pci_bus_info(conn, mod_idx):
+    return module_api(conn, mod_idx, 'get_pci_bus_info')
+
+
 def is_midplane_reachable(conn, mod_idx):
     return module_api(conn, mod_idx, 'is_midplane_reachable')
 

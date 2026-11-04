@@ -262,7 +262,11 @@ def gnmi_tls(request, duthosts, ptfhost):
         yield from _gnmi_uds_flow(duthost)
         return
 
-    # --- existing TLS flow below (unchanged) ---
+    yield from _gnmi_tls_flow(duthost, ptfhost)
+
+
+def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
+    """Managed TLS lifecycle; strict cleanup is opt-in for shared owners."""
     checkpoint_name = "gnoi_tls_setup"
     cert_dir = "/tmp/gnoi_certs"
 
@@ -328,35 +332,50 @@ def gnmi_tls(request, duthosts, ptfhost):
     finally:
         # 6. Cleanup: close the reused gNMI channel, then rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
-        if pygnmi_client is not None:
+        cleanup_errors = []
+        try:
+            if pygnmi_client is not None:
+                try:
+                    pygnmi_client.close()
+                except Exception as e:
+                    logger.error("Failed to close PygnmiClient: %s", e)
+                    cleanup_errors.append(str(e))
+
             try:
-                pygnmi_client.close()
+                output = rollback(duthost, checkpoint_name)
+                stdout = output.get('stdout', '')
+                if output.get('rc') or "Config rolled back successfully" not in stdout:
+                    error_msg = output.get('stdout', output.get('msg', 'unknown error'))
+                    logger.error("Configuration rollback failed: %s", error_msg)
+                    cleanup_errors.append(error_msg)
+                else:
+                    logger.info("Configuration rollback completed")
             except Exception as e:
-                logger.error("Failed to close PygnmiClient: %s", e)
+                logger.error("Configuration rollback failed with exception: %s", e)
+                cleanup_errors.append(str(e))
 
-        try:
-            output = rollback(duthost, checkpoint_name)
-            stdout = output.get('stdout', '')
-            if output.get('rc') or "Config rolled back successfully" not in stdout:
-                error_msg = output.get('stdout', output.get('msg', 'unknown error'))
-                logger.error("Configuration rollback failed: %s", error_msg)
-            else:
-                logger.info("Configuration rollback completed")
-        except Exception as e:
-            logger.error("Configuration rollback failed with exception: %s", e)
+            try:
+                logger.info("Waiting for critical processes to be healthy after rollback")
+                wait_critical_processes(duthost)
+                logger.info("All critical processes are healthy")
+            except Exception as e:
+                logger.error("Waiting for critical processes failed with exception: %s", e)
+                cleanup_errors.append(str(e))
+        finally:
+            # pytest outcomes derive from BaseException: always remove local
+            # certificates even when a health assertion aborts prior cleanup.
+            try:
+                if strict_cleanup:
+                    _delete_gnoi_certs(cert_dir, strict=True)
+                else:
+                    _delete_gnoi_certs(cert_dir)
+                logger.info("Certificate cleanup completed")
+            except Exception as e:
+                logger.error(f"Failed to cleanup certificates: {e}")
+                cleanup_errors.append(str(e))
 
-        try:
-            logger.info("Waiting for critical processes to be healthy after rollback")
-            wait_critical_processes(duthost)
-            logger.info("All critical processes are healthy")
-        except Exception as e:
-            logger.error("Waiting for critical processes failed with exception: %s", e)
-
-        try:
-            _delete_gnoi_certs(cert_dir)
-            logger.info("Certificate cleanup completed")
-        except Exception as e:
-            logger.error(f"Failed to cleanup certificates: {e}")
+        if strict_cleanup and cleanup_errors:
+            raise RuntimeError("gNMI TLS cleanup failed: {}".format("; ".join(cleanup_errors)))
 
 
 @pytest.fixture(scope="function")
@@ -585,13 +604,8 @@ def _restart_gnoi_server(duthost):
     if result['rc'] != 0:
         raise Exception(f"Failed to restart gnmi-native: {result['stderr']}")
 
-    # Wait for supervisor to report RUNNING. This is a fast guard against
-    # immediate crash loops; it does NOT prove that telemetry has actually
-    # bound its TLS listener (supervisor flips RUNNING after startsecs=1,
-    # but on slow armhf platforms the gnmi-native wrapper + Go telemetry
-    # startup can take longer than that to call listen()). The end-to-end
-    # readiness check lives in _verify_gnoi_tls_connectivity, which retries
-    # bounded grpcurl calls from PTF.
+    # Wait for supervisor to report RUNNING as a guard against immediate
+    # crash loops.
     def _supervisor_running():
         status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
                                module_ignore_errors=True)
@@ -604,7 +618,37 @@ def _restart_gnoi_server(duthost):
             f"gnmi-native failed to reach RUNNING within 30s: {status.get('stdout', '')}"
         )
 
-    logger.info("gNOI server restart completed (supervisor reports RUNNING)")
+    # Supervisor can report RUNNING before telemetry binds its TLS listener,
+    # especially on slower platforms. Do not return until callers can safely
+    # start a client connection. Full TLS/RPC validation remains in
+    # _verify_gnoi_tls_connectivity.
+    def _tls_listener_ready():
+        status = duthost.shell(
+            "sudo ss -ltn | grep -q ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        return status.get('rc', 1) == 0
+
+    if not wait_until(60, 2, 0, _tls_listener_ready):
+        status = duthost.shell(
+            "sudo ss -ltn | grep ':{} '".format(
+                grpc_config.DEFAULT_TLS_PORT
+            ),
+            module_ignore_errors=True,
+        )
+        raise Exception(
+            "gNOI server failed to listen on port {} within 60s: {}".format(
+                grpc_config.DEFAULT_TLS_PORT,
+                status.get('stdout', ''),
+            )
+        )
+
+    logger.info(
+        "gNOI server restart completed (supervisor RUNNING, port %s listening)",
+        grpc_config.DEFAULT_TLS_PORT,
+    )
 
 
 def _verify_gnoi_tls_connectivity(duthost, ptfhost):
@@ -668,14 +712,14 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("TLS connectivity verification completed successfully")
 
 
-def _delete_gnoi_certs(cert_dir):
+def _delete_gnoi_certs(cert_dir, strict=False):
     """Clean up generated certificate files."""
 
     logger.info("Cleaning up certificate files")
 
     # Remove the entire certificate directory
     if os.path.exists(cert_dir):
-        shutil.rmtree(cert_dir, ignore_errors=True)
+        shutil.rmtree(cert_dir, ignore_errors=not strict)
 
 
 def reprovision_gnoi_tls(duthost, ptfhost, cert_dir="/tmp/gnoi_certs"):

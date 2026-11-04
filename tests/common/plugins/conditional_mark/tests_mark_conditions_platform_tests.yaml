@@ -10,6 +10,15 @@ platform_tests/api:
       - "asic_type in ['vs']"
 
 #######################################
+#####      api/test_bmc.py        #####
+#######################################
+platform_tests/api/test_bmc.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
 #####      api/test_chassis.py    #####
 #######################################
 platform_tests/api/test_chassis.py::TestChassisApi::test_components:
@@ -602,6 +611,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
       - "'t0-isolated-d32u32s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'t1-isolated-d56u1-lag' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
@@ -805,6 +815,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
 #######################################
 #####     api/test_thermal.py     #####
 #######################################
+platform_tests/api/test_thermal.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold:
   skip:
     reason: "Unsupported platform API"
@@ -958,6 +974,15 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
+####################################
+#####  cli/test_pddf_ledutil.py  #####
+####################################
+platform_tests/cli/test_pddf_ledutil.py:
+  skip:
+    reason: "LED util tests are not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 ##################################
 #####  cli/test_show_bmc.py  #####
 ##################################
@@ -976,6 +1001,12 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
+platform_tests/cli/test_show_platform.py::test_show_platform_current:
+  skip:
+    reason: "Current sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
     reason: "Unsupported platform API"
@@ -988,6 +1019,12 @@ platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
     reason: "Unsupported platform API"
     conditions:
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_pcieinfo:
+  skip:
+    reason: "PCIe info is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
   skip:
@@ -1007,12 +1044,24 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "platform in ['arm64-elba-asic-flash128-r0']"
       - "'bmc' in topo_type"
 
+platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
+  skip:
+    reason: "SSD health check is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_voltage:
+  skip:
+    reason: "Voltage sensor CLI is not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
@@ -1053,6 +1102,19 @@ platform_tests/daemon/test_chassisd.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
       - "asic_type in ['vs']"
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_fancontrol.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_ledd.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 
 platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
@@ -1066,8 +1128,22 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
 platform_tests/daemon/test_pcied.py:
   skip:
     reason: "Not supported, AMD DPU Pcie link bringup sequence is handled differently"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['arm64-elba-asic-flash128-r0']"
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_psud.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/daemon/test_sensord.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####    fwutil/test_fwutil.py    #####
@@ -1315,6 +1391,7 @@ platform_tests/test_cont_warm_reboot.py:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
       - "is_smartswitch==True"
 
 #######################################
@@ -1454,6 +1531,12 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "is_smartswitch==True"
       - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
@@ -1471,6 +1554,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
+  xfail:
+    reason: "case failed and waiting for fix"
+    conditions:
+      - "hwsku in ['Celestica-DX010-C32']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
@@ -1550,11 +1639,29 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Skipped on mellanox and nvidia asic from 202411 and later / This test is not run on this topology currently"
+    reason: "Skipped on mellanox, nvidia, and cisco-8000 asic from 202411 and later / This test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'nvidia']"
+      - "asic_type in ['mellanox', 'nvidia', 'cisco-8000']"
       - "topo_type not in ['t0']"
+
+##########################################
+#####  test_sfp_thermal_state_db.py  #####
+##########################################
+platform_tests/test_sfp_thermal_state_db.py:
+  skip:
+    reason: "SFP thermal state DB test is not supported on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+#######################################
+#####      test_tmpfiles.py        #####
+#######################################
+platform_tests/test_tmpfiles.py::test_tmpfiles_age_disabled:
+  skip:
+    reason: "These older SONiC releases predate the Debian 13 tmpfiles aging policy"
+    conditions:
+      - "release < '202511'"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
