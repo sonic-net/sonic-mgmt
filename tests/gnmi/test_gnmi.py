@@ -306,7 +306,13 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
 
     def client_worker():
         gnmi_subscribe_stream_connections(
-            duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB", create_connections=2000, update_count=1
+            duthost,
+            ptfhost,
+            ["DOCKER_STATS"],
+            target="STATE_DB",
+            create_connections=2000,
+            update_count=1,
+            port=env.gnmi_port,
         )
 
     client_thread = threading.Thread(target=client_worker)
