@@ -56,6 +56,9 @@ method via AST without importing Linux/testbed dependencies. It covers both
 air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
 or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
 and PDU outlet restoration after individual controller exceptions.
+It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
+positive delay-bypass and host-isolation evidence, and checks configuration
+restoration on success and failures.
 Physical startup behavior still requires a BMC chassis with a wired PDU.
 
 ```bash

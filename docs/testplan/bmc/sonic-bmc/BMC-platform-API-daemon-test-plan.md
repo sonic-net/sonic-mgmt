@@ -477,18 +477,20 @@ Verify that `power_on_delay` is configurable and persists across chassis power l
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
 **Test Objective**:
-Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Switch-Host must NOT power-cycle, reboot, or see any service interruption. Confirmed via reboot-cause history on both sides — a new entry must appear on the BMC, and no new entry must appear on the Switch-Host.
+Verify that an explicitly configured nonzero `power_on_delay` is ignored when the BMC alone cold-reboots and the paired Switch-Host is already ONLINE. The host must not power-cycle or reboot, and its critical services must be healthy afterward. This covers both cooling types without powering off the host or invoking the liquid-cooled OFFLINE startup sequence.
 
 **Test Steps**:
-1. Snapshot both sides: `uptime -s` and `show reboot-cause history` length on BMC and Switch-Host
-2. Cold-reboot the BMC and wait for `critical_services_fully_started`
-3. Assert BMC `uptime -s` advanced and its reboot-cause history grew by exactly 1
-4. Assert Switch-Host `uptime -s` unchanged and reboot-cause history length unchanged
+1. Snapshot BMC and Switch-Host kernel boot IDs and the original `power_on_delay`.
+2. Set `power_on_delay=300` through the CLI, verify CONFIG_DB, save, and write a persistent event.log marker.
+3. Cold-reboot only the BMC; require BMC critical-service recovery, a changed BMC boot ID, and a non-power-loss reboot cause.
+4. Require the configured delay to remain 300 after reboot. Require marker-bounded event.log and current-boot `bmcctld` journal evidence of `already ONLINE (daemon restart); skipping boot sequence`. Reject any current-boot `Waiting ... SWITCH_HOST_POWER_ON_DELAY` entry. Do not infer delay bypass from total SSH/service-recovery time.
+5. Require the Switch-Host boot ID to remain unchanged and its critical services to be healthy.
+6. In `finally`, restore the original delay (or remove the field if originally absent) and save configuration.
 
 **Expected Result**:
-- BMC reboot succeeds; BMC's own reboot-cause history shows a new "User issued 'reboot' command" entry
-- Switch-Host is undisturbed: uptime unchanged, no new reboot-cause history entry
-- This confirms BMC↔Switch-Host fault isolation: a BMC self-reboot does not trigger any `POWER_OFF`, `POWER_ON`, or `POWER_CYCLE` action on the Switch-Host
+- BMC reboot succeeds without power loss, and the explicit nonzero delay persists but is not applied on the already-ONLINE startup path.
+- Switch-Host boot ID remains unchanged and critical services remain healthy; missing startup evidence or a boot-delay wait fails the test.
+- Original configuration is restored even if the reboot or a verification fails. This is post-reboot isolation coverage, not continuous monitoring for service interruption during the BMC reboot.
 
 ---
 

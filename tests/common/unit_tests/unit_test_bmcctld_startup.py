@@ -28,11 +28,11 @@ def startup_namespace():
                and node.name in ("_startup_power_on_observed", "_assert_liquid_cooled_power_on_delay")]
     test_class = next(node for node in tree.body if isinstance(node, ast.ClassDef)
                       and node.name == "TestBmcctldDaemon")
-    method = next(node for node in test_class.body if isinstance(node, ast.FunctionDef)
-                  and node.name == "test_bmcctld_power_on_delay")
+    methods = [node for node in test_class.body if isinstance(node, ast.FunctionDef)
+               and node.name in ("test_bmcctld_power_on_delay", "test_bmc_reboot_does_not_affect_switch_host")]
     namespace = dict(json=json, re=re, pytest_assert=_assert, pytest=pytest,
                      logger=logging.getLogger(__name__), CAUSE_POWER_LOSS="power loss")
-    exec(compile(ast.Module(body=helpers + [method], type_ignores=[]), str(MODULE_PATH), "exec"), namespace)
+    exec(compile(ast.Module(body=helpers + methods, type_ignores=[]), str(MODULE_PATH), "exec"), namespace)
     return namespace
 
 
@@ -217,3 +217,90 @@ def test_pdu_restoration_attempts_all_outlets_after_exception(startup_namespace,
         for outlet, result in zip(outlets, results) if isinstance(result, Exception)
     ]
     startup_namespace["wait_critical_processes"].assert_not_called()
+
+
+def _cold_reboot_context(namespace, original_delay):
+    bmc, host, analyzer = Mock(), Mock(), Mock()
+    bmc.shell.return_value = {"stdout": json.dumps({"MESSAGE": ONLINE})}
+    bmc.critical_services_fully_started.return_value = True
+    host.critical_services_fully_started.return_value = True
+    analyzer.analyze.return_value = {"total": {"match": 1}}
+    namespace.update(
+        get_switch_host_or_skip_test=Mock(return_value=host),
+        get_host_boot_id=Mock(side_effect=["host", "bmc-before", "bmc-after", "host"]),
+        redis_hget=Mock(side_effect=[original_delay, "300", "300"]),
+        CONFIG_DB="CONFIG_DB",
+        reboot=Mock(),
+        REBOOT_TYPE_COLD="cold",
+        make_bmc_loganalyzer=Mock(return_value=analyzer),
+        wait_until=lambda timeout, interval, delay, condition: condition(),
+    )
+    default_shell = bmc.shell.return_value
+    bmc.shell.side_effect = lambda command: (
+        {"stdout": "User issued reboot command"} if command == "show reboot-cause" else default_shell
+    )
+    return Mock(duthost=bmc), host
+
+
+@pytest.mark.parametrize("original_delay", ["30", "0", "", None])
+def test_cold_reboot_ignores_explicit_delay_and_restores_config(startup_namespace, original_delay):
+    """A saved nonzero delay is bypassed with positive evidence and host isolation."""
+    instance, host = _cold_reboot_context(startup_namespace, original_delay)
+    localhost = Mock()
+    startup_namespace["test_bmc_reboot_does_not_affect_switch_host"](instance, localhost)
+    startup_namespace["reboot"].assert_called_once_with(
+        instance.duthost, localhost, reboot_type="cold", wait_for_ssh=True, safe_reboot=True)
+    startup_namespace["make_bmc_loganalyzer"].return_value.analyze.assert_called_once_with(
+        startup_namespace["make_bmc_loganalyzer"].return_value.init.return_value, fail=False)
+    commands = [args.args[0] for args in instance.duthost.shell.call_args_list]
+    assert commands[0] == "config chassis modules power-on-delay SWITCH-HOST 300"
+    expected_restore = (f"config chassis modules power-on-delay SWITCH-HOST {original_delay}"
+                        if original_delay else
+                        "sonic-db-cli CONFIG_DB HDEL 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay")
+    assert commands[-2:] == [expected_restore, "sudo config save -y"]
+    assert commands.count("sudo config save -y") == 2
+    assert startup_namespace["redis_hget"].call_count == 3
+    assert startup_namespace["get_host_boot_id"].call_count == 4
+    host.critical_services_fully_started.assert_called_once_with()
+
+
+@pytest.mark.parametrize("failure", [
+    "reboot", "bmc-health", "bmc-id", "host-id", "missing-id", "host-health",
+    "not-set", "not-persisted", "power-loss", "event-log", "journal", "delay-applied",
+])
+def test_cold_reboot_rejects_bad_evidence_and_restores_delay(startup_namespace, failure):
+    """Reboot, persistence, isolation, and delay failures cannot bypass restoration."""
+    instance, host = _cold_reboot_context(startup_namespace, "30")
+    if failure == "reboot":
+        startup_namespace["reboot"].side_effect = RuntimeError("Reboot failed")
+    elif failure == "bmc-health":
+        instance.duthost.critical_services_fully_started.return_value = False
+    elif failure == "bmc-id":
+        startup_namespace["get_host_boot_id"].side_effect = ["host", "bmc", "bmc", "host"]
+    elif failure == "host-id":
+        startup_namespace["get_host_boot_id"].side_effect = ["host", "bmc", "new-bmc", "new-host"]
+    elif failure == "missing-id":
+        startup_namespace["get_host_boot_id"].side_effect = ["host", "bmc", "", ""]
+    elif failure == "host-health":
+        host.critical_services_fully_started.return_value = False
+    elif failure == "not-set":
+        startup_namespace["redis_hget"].side_effect = ["30", "0"]
+    elif failure == "not-persisted":
+        startup_namespace["redis_hget"].side_effect = ["30", "300", "0"]
+    elif failure == "power-loss":
+        instance.duthost.shell.side_effect = lambda command: {"stdout": "Power Loss"}
+    elif failure == "event-log":
+        startup_namespace["make_bmc_loganalyzer"].return_value.analyze.return_value = {"total": {"match": 0}}
+    elif failure == "journal":
+        instance.duthost.shell.side_effect = lambda command: {
+            "stdout": "User issued reboot command" if command == "show reboot-cause" else ""}
+    elif failure == "delay-applied":
+        journal = "\n".join(json.dumps({"MESSAGE": message}) for message in (
+            ONLINE, "Waiting 300s before initial Switch-Host power-on check (SWITCH_HOST_POWER_ON_DELAY)"))
+        instance.duthost.shell.side_effect = lambda command: {
+            "stdout": "User issued reboot command" if command == "show reboot-cause" else journal}
+    with pytest.raises(RuntimeError if failure == "reboot" else AssertionError):
+        startup_namespace["test_bmc_reboot_does_not_affect_switch_host"](instance, Mock())
+    assert instance.duthost.shell.call_args_list[-2:] == [
+        call("config chassis modules power-on-delay SWITCH-HOST 30"), call("sudo config save -y")
+    ]
