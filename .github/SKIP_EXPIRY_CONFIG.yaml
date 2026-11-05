@@ -14,6 +14,8 @@ releases:
     - "202012"
 
 expiry:
+  # Must stay below days-before-stale in .github/workflows/close-stale.yml: the
+  # stale bot only exempts skip-tracked issues once they carry the expired label.
   default_days: 90
 
 report:

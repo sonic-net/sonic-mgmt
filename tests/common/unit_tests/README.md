@@ -49,6 +49,24 @@ imports Linux-only testbed utilities.
 - `pytest`
 - `unittest.mock` (built into Python standard library)
 
+## BMC cooling-aware startup regression
+
+`unit_test_bmcctld_startup.py` executes the startup assertions and power-loss test
+method via AST without importing Linux/testbed dependencies. It covers both
+air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
+or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
+and PDU outlet restoration after individual controller exceptions.
+It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
+positive delay-bypass and host-isolation evidence, and checks configuration
+restoration on success and failures. Failed or malformed delay snapshots must
+abort before configuration changes, cleanup, or reboot.
+Physical startup behavior still requires a BMC chassis with a wired PDU.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_bmcctld_startup.py -q
+```
+
 ## PTF daily TACACS provisioning regression
 
 `helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and
@@ -92,3 +110,18 @@ executes the generated DUT Python cleanup command with mocked Redis and
 authentication modules. It checks that cleanup uses available local credentials,
 preserves unrelated routes and reports authentication or command failures. These
 checks do not run the platform or gNMI feature suites on a switch.
+
+## gNMI AAA TLS reuse
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/fixtures/unit_test_gnmi_aaa.py -q
+```
+
+These offline regressions extract production helpers to avoid testbed imports.
+They independently model raw Redis hashes and cfggen-decoded role lists, including
+empty fields and NULL sentinels. They exercise exact metadata restoration,
+setup/body/cleanup failures, configuration-leak detection, strict certificate
+cleanup, fresh public RPC channels, and real pytest fixture
+ordering with mocked devices. They do not establish device authorization,
+audit/rate-limit behavior, or a hardware performance improvement.
