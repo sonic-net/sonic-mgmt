@@ -363,9 +363,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
     logger.info("Configured bgpmon v6 and verifying active ExaBGP peering")
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
     if configure_passive:
-        duthost.run_vtysh(
-            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr),
-            asic_index='all'
+        asichost.run_vtysh(
+            "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr)
         )
 
     selected_ptf_interface = None
@@ -408,9 +407,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
         pytest_assert(bgpmon_established, "BGPMon v6 Peer connection not established")
     finally:
         if configure_passive:
-            duthost.run_vtysh(
-                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr),
-                asic_index='all'
+            asichost.run_vtysh(
+                "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr)
             )
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         if selected_ptf_interface:
@@ -418,5 +416,5 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
             ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s"
                           % (local_addr, selected_router_mac, selected_ptf_interface))
             ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", selected_ptf_interface))
-        duthost.run_sonic_db_cli_cmd(
-            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
+        asichost.run_sonic_db_cli_cmd(
+            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr))
