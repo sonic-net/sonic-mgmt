@@ -69,7 +69,7 @@ def test_database_metadata_keeps_each_process_endpoint(client):
 def test_existing_cli_preferences(client, mode):
     client.st.mode = mode
     assert client._prefix("dut", "CONFIG_DB") == {
-        "0": "redis-cli -n 4",
+        "0": "redis-cli -s /run/redis/primary.sock -n 4",
         "1": "redis-cli -s /run/redis/primary.sock -n 4",
         "2": "sonic-db-cli -s CONFIG_DB"}[mode]
 
@@ -137,3 +137,20 @@ def test_named_dump_uses_database_option(client, mode):
     client.st.mode = mode
     assert client.dump("dut", "CONFIG_DB", "PORT|*") == \
         "sonic-db-dump -t unix_socket -n CONFIG_DB -k 'PORT|*' -y"
+
+
+@pytest.mark.parametrize('output,expected', [('OK', True), ('NOPERM denied', False),
+    ('NOAUTH Authentication required', False), ('WRONGPASS invalid', False), ('Permission denied', False)])
+def test_interactive_writer_reports_redis_errors(client, monkeypatch, output, expected):
+    from types import SimpleNamespace
+    monkeypatch.setattr(client.st, 'log', lambda message: None, raising=False)
+    connection = SimpleNamespace(find_prompt=lambda: '#', send_command=lambda *a, **kw: output)
+    assert client.config_redis_db(connection, 'SET key value') is expected
+
+
+def test_copied_legacy_writer_is_rejected_with_tcp_disabled(client, monkeypatch):
+    messages = []
+    monkeypatch.setattr(client.st, 'error', lambda message, **kw: messages.append(message), raising=False)
+    assert client.build_std_redis_cli('dut') == 1
+    assert 'legacy Redis only' in messages[0]
+    assert not hasattr(client.st, 'command')

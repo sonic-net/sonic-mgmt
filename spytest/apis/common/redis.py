@@ -98,7 +98,7 @@ def _prefix(dut, db, suffix="cli", force_raw=False):
             return "sonic-db-dump -t unix_socket -n {}".format(db) if db else "sonic-db-dump"
         return "sonic-db-cli -s {}".format(db or "")
 
-    if db_cli == "1":
+    if db_cli == "1" or (db and db_port_map[db] == 0):
         if db_port_map[db] == 0:
             if not db_socket_map.get(db):
                 raise ValueError("Missing Unix socket for DB {} with TCP disabled".format(db))
@@ -238,6 +238,9 @@ def build_std_redis_cli(dut, skip_error_check=False):
     :param skip_error_check:
     :return:
     """
+    if db_port_map.get(CONFIG_DB) == 0:
+        st.error("The copied redis-cli writer supports legacy Redis only; use config() or multi()", dut=dut)
+        return 1
     command = "sudo bash -c ' mkdir -p /tmp/std_redisclient; cd /tmp/std_redisclient/; " \
               "docker cp database:/usr/bin/redis-cli .; " \
               "docker cp database:/usr/lib/x86_64-linux-gnu/liblua5.1-cjson.so.0.0.0 .; " \
@@ -261,7 +264,7 @@ def config_redis_db(con_obj, cmd=""):
     """
     prompt = con_obj.find_prompt()
     result = con_obj.send_command(cmd, expect_string=prompt, max_loops=50, delay_factor=5)
-    if "permission denied" in result:
+    if any(error in result.lower() for error in ("permission denied", "noperm", "noauth", "wrongpass")):
         st.log("Configuration failed using redis-cli")
         return False
     else:
