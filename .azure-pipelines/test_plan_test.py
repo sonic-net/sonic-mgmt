@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import runpy
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -114,7 +115,7 @@ def test_pr_template_requests_secure_boot_only_for_secure_boot_checker():
     defaults = {param["name"]: param.get("default") for param in template["parameters"]}
     assert defaults["SECURE_BOOT"] is False
     trigger = next(step for step in template["steps"] if step.get("displayName") == "Trigger Test")
-    assert "--secure-boot ${{ parameters.SECURE_BOOT }}" in trigger["script"]
+    assert '"${secure_boot_args[@]}"' in trigger["script"]
 
     pipeline = yaml.safe_load(MODULE_PATH.with_name("pr_test_template.yml").read_text())
     secure_boot_jobs = []
@@ -127,6 +128,28 @@ def test_pr_template_requests_secure_boot_only_for_secure_boot_checker():
                 secure_boot_jobs.append(job["job"])
                 assert params["ADD_TOPO_PARAMS"] == "-e use_uefi=true"
     assert secure_boot_jobs == ["impacted_area_secureboot_t0_elastictest"]
+
+
+@pytest.mark.parametrize(
+    "mode, expected_args",
+    [("True", ["--secure-boot"]), ("False", [])],
+)
+def test_submission_template_omits_new_option_for_bios_jobs(mode, expected_args):
+    """Avoid breaking BIOS checkers that download a pre-flag test_plan.py from master."""
+    template = yaml.safe_load(MODULE_PATH.with_name("run-test-elastictest-template.yml").read_text())
+    script = next(step["script"] for step in template["steps"] if step.get("displayName") == "Trigger Test")
+    start = script.index("secure_boot_args=()")
+    end = script.index("esac", start) + len("esac")
+    snippet = script[start:end].replace("${{ parameters.SECURE_BOOT }}", mode)
+
+    result = subprocess.run(
+        ["bash", "-c", snippet + '\nprintf "%s\\n" "${secure_boot_args[@]}"'],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.splitlines() == (expected_args or [""])
 
 
 def test_secure_boot_checker_uses_regular_pr_execution_gates():

@@ -289,6 +289,12 @@ steps:
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
+      # Keep BIOS jobs compatible with older master test_plan.py versions.
+      secure_boot_args=()
+      case "${{ parameters.SECURE_BOOT }}" in
+        True|true) secure_boot_args=(--secure-boot) ;;
+      esac
+
       python3 ./.azure-pipelines/test_plan.py create \
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
@@ -300,7 +306,7 @@ steps:
       --kvm-image-branch ${{ parameters.KVM_IMAGE_BRANCH }} \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
-      --secure-boot ${{ parameters.SECURE_BOOT }} \
+      "${secure_boot_args[@]}" \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
       --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
