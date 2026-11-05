@@ -22,7 +22,7 @@ DIAGNOSTICS = ("not implemented", "invalid", "failed", "traceback", "no such com
 def table_summary(output):
     """Use simple-table column boundaries, retaining typed values or validity flags."""
     lines = output.splitlines()
-    tables, records = [], {}
+    tables, records, ready_resources = [], {}, []
     for index, separator in enumerate(lines):
         if not index or not re.fullmatch(r"\s*-{2,}[-\s]*", separator):
             continue
@@ -79,6 +79,8 @@ def table_summary(output):
                     value = float(cells[1])
                 elif headers[1] in ("Module State", "Status"):
                     value = bool(cells[1]) and cells[1] != "N/A"
+                    if cells[1] == "ModuleReady":
+                        ready_resources.append(name)
             elif headers == ["Interface", "Lane", "Tx Disable Status"]:
                 lane = re.fullmatch(r"Lane ([1-9]\d*)", cells[1])
                 if not lane or cells[2] not in ("true", "false"):
@@ -105,7 +107,7 @@ def table_summary(output):
         tables.append({"headers": headers, "resources": sorted(set(resources)), "lane_rows": lane_rows})
     return {"headers": [field for table in tables for field in table["headers"]],
             "resources": sorted({name for table in tables for name in table["resources"]}),
-            "tables": tables, "records": records}
+            "tables": tables, "records": records, "ready_resources": sorted(set(ready_resources))}
 
 
 def dom_summary(output):

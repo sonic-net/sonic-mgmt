@@ -12,7 +12,7 @@ There are 15 cases; this is not exhaustive command/argument acceptance.
 | show interface tx-disable | test_cpoutil_tx_disable_query | true/false text cells, PORT lane count and common columns/resources |
 | show interface speed application | test_cpoutil_application | Exact subport lane rows, populated configured/active cells and public AppSel/Host/Media display syntax or N/A |
 | show interface lane-status | test_cpoutil_lane_status | Exactly two public tables, headers and connected-port rows |
-| show oe status / show els status | test_cpoutil_endpoint_status | Nonempty non-N/A cell; OE Module State / ELS Status columns and resource rows |
+| show oe status / show els status | test_cpoutil_endpoint_status | Exact ModuleReady state; OE Module State / ELS Status columns and all associated resource rows |
 | show oe temperature / show els temperature | test_cpoutil_endpoint_status | Finite numeric value and common column |
 | show oe lpmode / show els lpmode | test_cpoutil_endpoint_status | On/Off text value and common column |
 | config interface tx-disable | test_cpoutil_tx_disable | All associated restorable OE banks: save all, invert all, verify, restore all, verify, presence/link recovery |

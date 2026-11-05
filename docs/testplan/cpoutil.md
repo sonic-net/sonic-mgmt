@@ -34,7 +34,7 @@ separate from the cpoutil text output being tested.
 | Map | Command success, common headers/connected-port rows; OE/ELS association and OE bank versus cpo.json, lanes versus current PORT; laser selection when precisely mapped |
 | Presence | Every connected CPO port must be present; absence fails |
 | DOM | Detected, no Read errors, OE/ELS sections with displayed fields and monitor/threshold headings |
-| OE / ELS status | Nonempty non-N/A state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
+| OE / ELS status | Exact ModuleReady state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
 | Application | Exact bank-local subport lane rows and nonempty configured/active cells; AppSel/Host/Media display syntax or N/A placeholders |
 | TX query | true/false lane cells, PORT lane count and public text columns |
 | OE / ELS EEPROM read | rc=0, matching target heading and at least one hexdump data row; no byte-content comparison |
@@ -79,6 +79,12 @@ restoration of every attempted object, even after a later write or an earlier
 restoration fails. Each restored value is checked, followed by connected-port
 presence and recovery of connected links which were up before the test.
 An initially down port is not required to become up.
+
+The endpoint status case requires every associated connected OE/ELS to display
+the exact public state `ModuleReady`. ModuleLowPwr, transitional/fault states,
+empty/N/A and arbitrary nonempty text fail. The DUT filter returns ready
+resource IDs rather than raw status strings. This is a readiness assertion for
+the endpoint case; reset recovery retains its independent readable-state check.
 
 Like sfputil lpmode, the low-power case does not shut down/start up interfaces
 or change DOM polling. It changes only the endpoint low-power configuration;
