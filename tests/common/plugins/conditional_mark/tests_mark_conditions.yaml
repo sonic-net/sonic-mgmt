@@ -180,6 +180,13 @@ arp/:
     conditions:
       - "'bmc' in topo_type"
 
+arp/test_arp_dualtor.py::test_ipv6_na_after_failed_neighbor_moves_to_incomplete[active-active-configured-server]:
+  xfail:
+    reason: "Deleting a resolved IPv6 VLAN neighbor can leave a stale NEIGH_FAILED_TABLE entry, which fails the
+             failed-neighbor check in setup or teardown. See https://github.com/sonic-net/sonic-swss/issues/5074"
+    conditions:
+      - "https://github.com/sonic-net/sonic-swss/issues/5074"
+
 arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
   skip:
     reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
