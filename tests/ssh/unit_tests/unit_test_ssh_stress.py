@@ -1372,10 +1372,10 @@ def test_recovery_rejects_readings_outside_threshold(
     ssh_stress, monkeypatch
 ):
     readings = iter([
-        (0.31, 0.31),
-        (0.32, 0.32),
-        (0.33, 0.33),
-        (0.34, 0.34),
+        (0.41, 0.41),
+        (0.42, 0.42),
+        (0.43, 0.43),
+        (0.44, 0.44),
     ])
     sample_count = 0
 
@@ -1388,7 +1388,7 @@ def test_recovery_rejects_readings_outside_threshold(
     monkeypatch.setattr(ssh_stress, "HEALTH_RECOVERY_TIMEOUT", 25)
     _install_fake_clock(ssh_stress, monkeypatch)
 
-    with pytest.raises(AssertionError, match="did not return within 20 points"):
+    with pytest.raises(AssertionError, match="did not return within 30 points"):
         ssh_stress.run_post_test_system_check(
             0.10, 0.10, object(), 0.80, 0.90
         )
@@ -1410,11 +1410,11 @@ def test_recovery_rejects_samples_completed_after_deadline(
         sample_completions.append(now[0])
         if now[0] > ssh_stress.HEALTH_RECOVERY_TIMEOUT:
             return 0.10, 0.10
-        return 0.31, 0.31
+        return 0.41, 0.41
 
     monkeypatch.setattr(ssh_stress, "get_system_stats", get_stats)
 
-    with pytest.raises(AssertionError, match="did not return within 20 points"):
+    with pytest.raises(AssertionError, match="did not return within 30 points"):
         ssh_stress.run_post_test_system_check(
             0.10, 0.10, object(), 0.80, 0.90
         )

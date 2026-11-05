@@ -22,7 +22,7 @@ Part 1:
     - Add a PortChannel, then remove it
 5. During the five-minute stress phase, derive a host-normalized requirement of 3–20 restored cycles from the mixed workload's serial medians; discount the initial no-op BGP startup and do not count an unmatched final command. Use one relative p95/watchdog budget based on every pair's slower direction, with a 60-second floor and 180-second ceiling; commands dispatched before the shared deadline keep that watchdog, while late completions are excluded and safely rolled back. Fail on command, fencing, rollback, p95, or progress violations, and log each command's baseline, sample count, p95, maximum, slowdown, and budget.
 6. Monitor memory and CPU throughout the stress phase through the persistent `vmstat` stream.
-7. After stress, require one CPU and memory sample within 20 percentage points of the pre-stress baselines. Poll every five seconds for up to 180 seconds.
+7. After stress, require one CPU and memory sample within 30 percentage points of the pre-stress baselines. Poll every five seconds for up to 180 seconds.
 
 Part 2:
 

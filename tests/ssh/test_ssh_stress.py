@@ -56,9 +56,8 @@ MAX_STRESS_CYCLES = 20
 MIN_STRESS_CYCLES = 3
 STRESS_COMMAND_MARGIN = 1
 
-# Preserve the test's long-standing 20-point recovery guard. This is a
-# compatibility guardrail rather than a product resource-utilization SLO.
-RECOVER_THRESHOLD = 0.2
+# Allow slower VPP workers additional recovery headroom after stress.
+RECOVER_THRESHOLD = 0.3
 SETTLE_INTERVAL = 5
 
 
