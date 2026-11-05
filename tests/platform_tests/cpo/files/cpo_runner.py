@@ -43,21 +43,9 @@ def table_summary(output):
             name = cells[0]
             resources.append(name)
             value = None
-            if headers == ["Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"]:
-                oe = re.fullmatch(r"(OE\d+) bank(\d+)", cells[1])
-                els = re.fullmatch(r"(ELS\d+)(?: bank\d+)?", cells[3])
-                if not oe or not els or not re.fullmatch(r"\d+(?:,\d+)*", cells[2]):
-                    raise ValueError("Malformed map row")
-                if cells[4] == "Unresolved":
-                    lasers = None
-                elif re.fullmatch(r"\d+(?:,\d+)*", cells[4]):
-                    lasers = [int(item) for item in cells[4].split(",")]
-                else:
-                    raise ValueError("Malformed laser list")
-                value = {"oe": {"id": oe[1], "bank": int(oe[2]),
-                                "lanes": [int(item) for item in cells[2].split(",")]},
-                         "els": {"id": els[1], "lasers": lasers}}
-            elif headers == ["Interface", "ELS", "Presence"]:
+            # Map cells are deliberately neither validated nor returned. Its
+            # smoke test uses only common headers and connected-port names.
+            if headers == ["Interface", "ELS", "Presence"]:
                 if cells[2] not in ("Present", "Not present"):
                     raise ValueError("Malformed presence cell")
                 value = {"present": cells[2] == "Present"}

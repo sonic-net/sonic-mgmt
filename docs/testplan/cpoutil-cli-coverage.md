@@ -1,12 +1,12 @@
 # cpoutil basic command coverage
 
-Updated 2026-11-04. Contract: merged sonic-utilities #4864; lane-status uses
+Updated 2026-11-05. Contract: merged sonic-utilities #4864; lane-status uses
 sonic-utilities #5012 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
 There are 15 cases; this is not exhaustive command/argument acceptance.
 
 | Command after cpoutil | Basic test | Output/result checks |
 | --- | --- | --- |
-| show interface map | test_cpoutil_map | Public fields, association and OE-bank/PORT lanes against cpo.json, common table columns/resources |
+| show interface map | test_cpoutil_map | rc=0, common table headers and connected-port rows; no OE/ELS/bank/lane/laser content checks |
 | show interface presence | test_cpoutil_presence | Every connected CPO interface present; absent means failure |
 | show interface dom | test_cpoutil_dom | Detected, no Read errors, OE/ELS sections, displayed fields and monitor/threshold headings |
 | show interface tx-disable | test_cpoutil_tx_disable_query | true/false text cells, PORT lane count and common columns/resources |

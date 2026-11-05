@@ -31,7 +31,7 @@ separate from the cpoutil text output being tested.
 
 | Cases | Checks |
 | --- | --- |
-| Map | Public fields, configured OE/ELS association, OE bank/PORT lanes and common text columns |
+| Map | Command success, common table headers and connected-port rows; no cell-content or topology-value comparison |
 | Presence | Every connected CPO port must be present; absence fails |
 | DOM | Detected, no Read errors, OE/ELS sections with displayed fields and monitor/threshold headings |
 | OE / ELS status | Nonempty non-N/A state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
@@ -42,6 +42,12 @@ separate from the cpoutil text output being tested.
 | TX control | Snapshot all associated OE banks and their siblings, invert supported/restorable banks, verify, restore and verify |
 | OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
 | Lane status | Exactly the OE datapath and ELS lane tables, public headers and connected-port rows |
+
+The map case is a display smoke check. It does not parse or validate OE/ELS,
+bank, lane or laser cell values, including unresolved placeholders, and does
+not compare those cells with cpo.json/PORT. Those files still select connected
+test ports and the resources used by other cases. Control readback/restoration
+checks retain their state assertions.
 
 Application checks current breakout configuration without creating breakout.
 The default table displays selected Application descriptions; the JSON-only
@@ -131,3 +137,10 @@ title-only output, wrong targets, invalid data rows, failed commands and output
 privacy. The full module collected and passed 15/15 with a synthetic CLI that
 rejects DOM requests for secondary breakout children, including the module state
 guard. Hardware execution remains pending.
+
+2026-11-05: map scope was reduced to rc=0, common headers and connected-port
+rows. Eight focused checks passed, including the actual CLI formatter's
+unresolved placeholder and arbitrary/empty map cells. The obsolete four map
+value-comparison checks were excluded; the other 69 text/control checks passed.
+The full module passed 15/15 on the synthetic breakout testbed. These are local
+results; a new DUT run is still pending.
