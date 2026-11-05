@@ -59,6 +59,26 @@ def test_bgp_session_flap_keeps_classic_topology_selection():
 
 class TestVppImpactedArea:
 
+    @pytest.mark.parametrize("features", ["packet_trimming", ""])
+    def test_packet_trimming_modules_selected_for_t1_lag_vpp(self, features):
+        """Keep the complete trimming suite selected for targeted and broad PR changes."""
+        tests_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "tests")
+        )
+        expected = {
+            "packet_trimming/{}".format(name)
+            for name in os.listdir(os.path.join(tests_dir, "packet_trimming"))
+            if name.startswith("test_") and name.endswith(".py")
+        }
+
+        result = collect_scripts_by_topology_type(features, tests_dir)
+        selected = {
+            script for script in result.get("t1-lag-vpp_checker", [])
+            if script.startswith("packet_trimming/")
+        }
+
+        assert selected == expected
+
     @pytest.mark.parametrize(
         "topology,checker", VPP_TOPOLOGY_CHECKERS.items()
     )
