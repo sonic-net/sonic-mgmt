@@ -56,6 +56,9 @@ method via AST without importing Linux/testbed dependencies. It covers both
 air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
 or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
 and PDU outlet restoration after individual controller exceptions.
+Power-loss regressions also check localhost SSH probing, recovery before CONFIG_DB
+cleanup after shutdown/PDU failures, and explicit reporting without remote cleanup
+commands when BMC connectivity or critical-service recovery fails.
 It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
 positive delay-bypass and host-isolation evidence, and checks configuration
 restoration on success and failures. Failed or malformed delay snapshots must
