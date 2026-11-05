@@ -115,7 +115,7 @@ def gen_ports_cable_info(ports_with_config_exceed_max_headroom_ports, map_port_t
 
 
 @pytest.fixture(scope="function")
-def update_cable_len_for_all_ports(duthost):
+def update_cable_len_for_all_ports(duthost, skip_traditional_model):
     if is_mellanox_device(duthost):
         ports_cable_len_map_with_config_exceed_max_headroom, original_ports_cable_len_map = \
             get_ports_with_config_exceed_max_headroom(duthost)

@@ -49,7 +49,9 @@ def toggle_upper_tor_pdu(upper_tor_host, get_pdu_controller):       # noqa: F811
     pdu_controller = get_pdu_controller(upper_tor_host)
     if pdu_controller is None:
         # restart the kernel instantly through system request if there is no pdu information present
-        return lambda: upper_tor_host.shell("nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null &")
+        # Detach stderr too so Ansible can return before the reboot drops SSH.
+        return lambda: upper_tor_host.shell(
+            "nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null 2>&1 &")
     else:
         return lambda: toggle_pdu_outlet(pdu_controller)
 
@@ -58,7 +60,8 @@ def toggle_upper_tor_pdu(upper_tor_host, get_pdu_controller):       # noqa: F811
 def toggle_lower_tor_pdu(lower_tor_host, get_pdu_controller):       # noqa: F811
     pdu_controller = get_pdu_controller(lower_tor_host)
     if pdu_controller is None:
-        return lambda: lower_tor_host.shell("nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null &")
+        return lambda: lower_tor_host.shell(
+            "nohup sh -c 'sleep 2; echo b > /proc/sysrq-trigger;' > /dev/null 2>&1 &")
     else:
         return lambda: toggle_pdu_outlet(pdu_controller)
 

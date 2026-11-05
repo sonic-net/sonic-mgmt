@@ -611,6 +611,7 @@ def test_fdb_distinct_macs_bulk_learn(
             inject_learn_frames(
                 ptfadapter, topo["ptf_port_a"], mac, topo["inject_vlan_a"]
             )
+            time.sleep(0.01)
 
     # Sample a handful of the MACs we injected and verify their
     # presence -- checking all 1000 individually would be slow.
