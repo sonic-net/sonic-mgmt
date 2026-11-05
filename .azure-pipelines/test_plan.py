@@ -377,7 +377,8 @@ class TestPlanManager(object):
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch,
-                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
+                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None),
+                    "secure_boot": kwargs.get("secure_boot", False)
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -756,6 +757,17 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="KVM image build pipeline id."
+    )
+    parser_create.add_argument(
+        "--secure-boot",
+        type=ast.literal_eval,
+        dest="secure_boot",
+        nargs='?',
+        const=True,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Request a Secure Boot UEFI image and matching enrolled firmware."
     )
     parser_create.add_argument(
         "--mgmt-branch",
@@ -1221,6 +1233,7 @@ if __name__ == "__main__":
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
                     kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
+                    secure_boot=args.secure_boot,
                     min_worker=args.min_worker,
                     max_worker=args.max_worker,
                     pr_id=pr_id,

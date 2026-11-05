@@ -200,6 +200,10 @@ parameters:
     type: string
     default: ""
 
+  - name: SECURE_BOOT
+    type: boolean
+    default: false
+
   - name: EXPECTED_RESULT
     type: string
     default: ""
@@ -296,6 +300,7 @@ steps:
       --kvm-image-branch ${{ parameters.KVM_IMAGE_BRANCH }} \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
+      --secure-boot ${{ parameters.SECURE_BOOT }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
       --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
