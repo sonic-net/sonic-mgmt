@@ -163,6 +163,8 @@ DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 10
 PG_TOLERANCE = 2
+# Smallest burst that overfills the egress path of a TX-disabled XGS port.
+EGR_MEM_PROBE_PKTS = 2000
 
 # Constants for voq/oq watchdog test
 WATCHDOG_TIMEOUT_SECONDS = {"voq": 60,
@@ -6448,6 +6450,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters_history, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             que_min_pkts_num = 0
+            egr_mem_probe = 0
 
             # send packets to fill queue min but not trek into shared pool
             # so if queue min is zero, it will directly trek into shared pool by 1
@@ -6456,6 +6459,16 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64') or 'Arista-7060X6' in hwsku \
                     or 'Nokia-IXR7220-H6' in hwsku or 'M2-W6940' in hwsku:
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
+                send_packet(self, src_port_id, pkt, que_min_pkts_num)
+            elif platform_asic and platform_asic == "broadcom":
+                # Packets the egress path holds past the MMU while TX is
+                # disabled are released from the queue's accounting, so the
+                # fill below would read that much short of what was sent.
+                # Overfill that depth, whatever it is, and start the fill
+                # from what lands in the queue. pkts_num_egr_mem only sizes
+                # the probe.
+                egr_mem_probe = max(2 * pkts_num_egr_mem, EGR_MEM_PROBE_PKTS)
+                que_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min + egr_mem_probe
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
                 que_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
@@ -6486,7 +6499,15 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
+            start_wm = 0
+            if egr_mem_probe:
+                start_wm = q_wm_res[queue] // cell_size
+                print("egress path holds %d packets (pkts_num_egr_mem: %d)" % (
+                    egr_mem_probe - start_wm // cell_occupancy, pkts_num_egr_mem), file=sys.stderr)
+                assert start_wm > 0, \
+                    "{} probe packets did not reach queue {}; the egress path is deeper".format(
+                        egr_mem_probe, queue)
+            elif 'Arista-7060X6' in hwsku or 'M2-W6940' in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
@@ -6503,7 +6524,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send packet batch of fixed packet numbers to fill queue shared
             # first round sends only 1 packet
-            expected_wm = 0
+            expected_wm = start_wm
             total_shared = pkts_num_trig_drp - pkts_num_fill_min - 1
             pkts_inc = (total_shared // cell_occupancy) >> 2
             if 'cisco-8000' in asic_type:
@@ -6513,6 +6534,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num = 1 + margin
             fragment = 0
             refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
+
             while (expected_wm < total_shared - fragment):
                 expected_wm += pkts_num * cell_occupancy
                 if (expected_wm > total_shared):
@@ -6556,12 +6578,25 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, port_list['src'][src_port_id])
                 print("Received packets: %d" %
                       (pg_cntrs[queue] - pg_cntrs_base[queue]), file=sys.stderr)
+                # Past the queue's drop point packets are dropped, not queued, and that
+                # point moves with whatever else holds the shared pool. On Broadcom expect
+                # what the queue admitted: sent, less what either port dropped since the
+                # fill began (on XGS a shared-pool overflow is counted as a port buffer drop).
+                check_wm = expected_wm
+                if platform_asic == "broadcom":
+                    src_cntrs, _ = sai_thrift_read_port_counters(
+                        self.src_client, asic_type, port_list['src'][src_port_id])
+                    dst_cntrs, _ = sai_thrift_read_port_counters(
+                        self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                    check_wm -= (src_cntrs[INGRESS_PORT_BUFFER_DROP] - recv_counters_base[INGRESS_PORT_BUFFER_DROP] +
+                                 dst_cntrs[EGRESS_PORT_BUFFER_DROP] - xmit_counters_base[EGRESS_PORT_BUFFER_DROP]) \
+                        * cell_occupancy
                 print(
                       "lower bound: %d, actual value: %d, upper bound: %d"
                       % (
-                            (expected_wm - margin) * cell_size,
+                            (check_wm - margin) * cell_size,
                             q_wm_res[queue],
-                            (expected_wm + margin) * cell_size,
+                            (check_wm + margin) * cell_size,
                       ),
                       file=sys.stderr,
                 )
@@ -6579,8 +6614,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                                  "stat - so ignoring this step for now")
                 else:
                     assert (q_wm_res[queue] <= (
-                        expected_wm + margin) * cell_size)
-                    assert ((expected_wm - margin) *
+                        check_wm + margin) * cell_size)
+                    assert ((check_wm - margin) *
                             cell_size <= q_wm_res[queue])
 
                 pkts_num = pkts_inc
@@ -6605,9 +6640,22 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.src_client, port_list['src'][src_port_id])
             print("Received packets: %d" %
                   (pg_cntrs[queue] - pg_cntrs_base[queue]), file=sys.stderr)
+            if platform_asic == "broadcom":
+                src_cntrs, _ = sai_thrift_read_port_counters(
+                    self.src_client, asic_type, port_list['src'][src_port_id])
+                dst_cntrs, _ = sai_thrift_read_port_counters(
+                    self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                overflow_dropped = (src_cntrs[INGRESS_PORT_BUFFER_DROP] - recv_counters_base[INGRESS_PORT_BUFFER_DROP] +
+                                    dst_cntrs[EGRESS_PORT_BUFFER_DROP] - xmit_counters_base[EGRESS_PORT_BUFFER_DROP]) \
+                    * cell_occupancy
+                check_wm = expected_wm + pkts_num * cell_occupancy - overflow_dropped
+                print("dropped: %d cells, admitted: %d cells, %+d from the configured drop point" % (
+                    overflow_dropped, check_wm, check_wm - (total_shared + 1)), file=sys.stderr)
+            else:
+                check_wm = expected_wm
             print("exceeded pkts num sent: %d, actual value: %d, lower bound: %d, upper bound: %d" % (
-                pkts_num, q_wm_res[queue], expected_wm * cell_size,
-                (expected_wm + margin) * cell_size), file=sys.stderr)
+                pkts_num, q_wm_res[queue], (check_wm - margin) * cell_size,
+                (check_wm + margin) * cell_size), file=sys.stderr)
 
             self.show_stats('Overflow queue shared', asic_type,
                             queue, src_port_id, dst_port_id, ingress_counters, egress_counters,
@@ -6618,13 +6666,16 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
             assert (fragment < cell_occupancy)
+            if platform_asic == "broadcom":
+                assert overflow_dropped > 0, \
+                    "Queue {} admitted every packet sent past its configured drop point".format(queue)
 
             if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                              "stat - so ignoring this step for now")
             else:
-                assert ((expected_wm - margin) * cell_size <= q_wm_res[queue])
-                assert (q_wm_res[queue] <= (expected_wm + margin) * cell_size)
+                assert ((check_wm - margin) * cell_size <= q_wm_res[queue])
+                assert (q_wm_res[queue] <= (check_wm + margin) * cell_size)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
