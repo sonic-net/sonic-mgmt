@@ -62,6 +62,8 @@ def ping_dut_refresh_fdb(ptfhost, interface):
 def clean_dhcp_server_config(duthost):
     keys = duthost.shell("sonic-db-cli CONFIG_DB KEYS DHCP_SERVER_IPV4*")
     clean_order = [
+        "DHCP_SERVER_IPV4_BINDING",
+        "DHCP_SERVER_IPV4_MATCH",
         "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
         "DHCP_SERVER_IPV4_RANGE",
         "DHCP_SERVER_IPV4_PORT",
