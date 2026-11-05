@@ -297,7 +297,7 @@ def _reapply_golden_link_training(sonic_host, golden_config_path):
             logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
                            "PORT table; skipping", lt_ports[port], port)
             continue
-        cmds.append('sonic-db-cli -s CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+        cmds.append('sonic-db-cli -s --authenticate CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
     if not cmds:
         return
     logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
@@ -432,7 +432,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if zebra_nexthop:
             logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
             sonic_host.shell(
-                'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         if is_dut and not golden_override:
             _reapply_golden_link_training(sonic_host, golden_config_path)

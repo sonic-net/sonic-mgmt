@@ -147,14 +147,14 @@ def preserve_sflow_drop_limit(duthost):
 
     if originally_present:
         restore = duthost.shell(
-            "sonic-db-cli -s CONFIG_DB hset '{}' {} '{}'".format(
+            "sonic-db-cli -s --authenticate CONFIG_DB hset '{}' {} '{}'".format(
                 SFLOW_TABLE, DROP_LIMIT_FIELD, original_value
             ),
             module_ignore_errors=True,
         )
     else:
         restore = duthost.shell(
-            "sonic-db-cli -s CONFIG_DB hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+            "sonic-db-cli -s --authenticate CONFIG_DB hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
             module_ignore_errors=True,
         )
 

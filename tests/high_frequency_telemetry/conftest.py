@@ -291,7 +291,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
         if extra_fields:
             fields = " ".join(f"'{field}'" for field in extra_fields)
             duthost.shell(
-                f"sonic-db-cli -s CONFIG_DB HDEL 'FEATURE|otel' {fields}",
+                f"sonic-db-cli -s --authenticate CONFIG_DB HDEL 'FEATURE|otel' {fields}",
                 module_ignore_errors=False,
             )
 
@@ -301,7 +301,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
             for field, value in original_feature.items()
         )
         duthost.shell(
-            f"sonic-db-cli -s CONFIG_DB HSET 'FEATURE|otel' {field_values}",
+            f"sonic-db-cli -s --authenticate CONFIG_DB HSET 'FEATURE|otel' {field_values}",
             module_ignore_errors=False,
         )
 
@@ -319,7 +319,7 @@ def hft_otel_collector(duthosts, enum_rand_one_per_hwsku_hostname,
         if not wait_until(60, 2, 0, _is_otel_container_stopped, duthost):
             pytest.fail("OTEL container did not stop during restoration")
         duthost.shell(
-            "sonic-db-cli -s CONFIG_DB del 'FEATURE|otel'",
+            "sonic-db-cli -s --authenticate CONFIG_DB del 'FEATURE|otel'",
             module_ignore_errors=False,
         )
 

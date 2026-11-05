@@ -190,7 +190,7 @@ class TestProcessRebootCause():
         logging.info("statedb output: {}".format(statedb_output))
 
         # Remove the dummy reboot cause entry from the STATE_DB
-        _ = self.duthost.command('sonic-db-cli -s STATE_DB DEL "REBOOT_CAUSE|9999_99_99_99_99_99"')  # noqa: E501
+        _ = self.duthost.command('sonic-db-cli -s --authenticate STATE_DB DEL "REBOOT_CAUSE|9999_99_99_99_99_99"')  # noqa: E501
 
         # Return relevant fields
         return main_pid, status, result, journalctl_output, statedb_output

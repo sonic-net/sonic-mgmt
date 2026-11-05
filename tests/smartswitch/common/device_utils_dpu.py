@@ -960,7 +960,7 @@ def get_dpu_auto_recovery(duthost):
 def set_dpu_auto_recovery(duthost, state):
     """Set DPU auto-recovery in CONFIG_DB DEVICE_METADATA|localhost (runtime only)."""
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB hset '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB hset '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
         f"'{DPU_AUTO_RECOVERY_FIELD}' '{state}'")
     logging.info("Set %s|%s %s to '%s'",
                  DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,
@@ -970,7 +970,7 @@ def set_dpu_auto_recovery(duthost, state):
 def unset_dpu_auto_recovery(duthost):
     """Delete the auto-recovery field from CONFIG_DB DEVICE_METADATA|localhost."""
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB hdel '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB hdel '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
         f"'{DPU_AUTO_RECOVERY_FIELD}'", module_ignore_errors=True)
     logging.info("Deleted %s|%s %s",
                  DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,

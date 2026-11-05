@@ -1339,7 +1339,7 @@ def clear_auto_techsupport_history(duthost):
     """
     auto_tech_history_entries = duthost.shell(CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS)['stdout_lines']
     for entry in auto_tech_history_entries:
-        duthost.shell('sudo sonic-db-cli -s STATE_DB DEL "{}"'.format(entry))
+        duthost.shell('sudo sonic-db-cli -s --authenticate STATE_DB DEL "{}"'.format(entry))
 
 
 def clear_folders(duthost):

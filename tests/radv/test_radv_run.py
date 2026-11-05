@@ -19,7 +19,7 @@ def test_radv_deployment_id(duthost):
     assert ret is True, "radv container is not running"
     logger.info("Set the deployment id to {} and restart radv".format(PO2VLAN_DEPLOYMENT_ID))
     get_cmd = 'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" "deployment_id"'
-    set_cmd = 'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "{}"'
+    set_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "{}"'
     # Need to generate supervisord.conf
     docker_cmd = 'docker exec radv sonic-cfggen -d -t \
 /usr/share/sonic/templates/docker-router-advertiser.supervisord.conf.j2,/etc/supervisor/conf.d/supervisord.conf'

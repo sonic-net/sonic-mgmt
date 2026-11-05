@@ -238,7 +238,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_se
     if is_ipv6_only_topology(tbinfo):
         SESSION_INFO['src_ip'] = IPV6_IPS['src_ip']
         SESSION_INFO['dst_ip'] = IPV6_IPS['dst_ip']
-        cmd = "sonic-db-cli -s CONFIG_DB hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
+        cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
 
     cmd = cmd.format(
         SESSION_INFO['name'],

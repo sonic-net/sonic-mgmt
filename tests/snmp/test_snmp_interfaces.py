@@ -94,7 +94,7 @@ def set_counters_value(duthost, interface_oid, counter_name, counter_value):
     :param counter_name: counter name
     :param counter_value: counter value
     """
-    duthost.command(f"sudo sonic-db-cli -s COUNTERS_DB hset COUNTERS:{interface_oid} {counter_name} {counter_value}")
+    duthost.command(f"sudo sonic-db-cli -s --authenticate COUNTERS_DB hset COUNTERS:{interface_oid} {counter_name} {counter_value}")
 
 
 def get_port_interface_counter(duthost, interface_name):

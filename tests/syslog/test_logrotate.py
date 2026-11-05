@@ -368,7 +368,7 @@ def clear_pending_entries(duthost):
     if pending_entries:
         # Publishing to any table channel should publish all pending entries in all tables
         logger.info('Clearing pending entries in APPL_DB: {}'.format(pending_entries))
-        duthost.shell('sonic-db-cli -s APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
+        duthost.shell('sonic-db-cli -s --authenticate APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
 
 
 def neigh_entry_processed(duthost, target_port, namespace=''):
