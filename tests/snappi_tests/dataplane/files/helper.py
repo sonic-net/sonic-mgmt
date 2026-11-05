@@ -1,6 +1,5 @@
 import random
-import re
-import re
+import re    # noqa: F811
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
 from tests.common.telemetry import UNIT_SECONDS
 from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
@@ -1022,7 +1021,7 @@ def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
         return None
 
 
-def _normalize_stat_rows(rows: Any) -> list:
+def _normalize_stat_rows(rows: Any) -> list:    # noqa: F811
     """Normalize StatViewAssistant.Rows into list[dict].
 
     Handles cases where each row element is:
@@ -1063,7 +1062,7 @@ def _normalize_stat_rows(rows: Any) -> list:
     return norm
 
 
-def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
+def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:    # noqa: F811
     """Print selected columns from a User Defined Statistics StatViewAssistant.
 
     Args:
@@ -1330,7 +1329,7 @@ def dutconfig_checkpoint(duthosts):  # noqa: F811
         delete_checkpoint(duthost)
 
 
-def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
+def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):     # noqa: F811
     """Apply a near-zero-rate scheduler to the lossless queue to block egress."""
     cmd = (
         f"sonic-db-cli CONFIG_DB HSET 'SCHEDULER|{scheduler}' "
@@ -1349,7 +1348,7 @@ def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
     pytest_assert(scheduler in result["stdout"], f"Scheduler {scheduler} was not applied to {port} queue {queue}")
 
 
-def _unblock_egress(duthost, port, queue, original_scheduler):
+def _unblock_egress(duthost, port, queue, original_scheduler):   # noqa: F811
     """Restore the original scheduler on the lossless queue."""
     duthost.shell(
         f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{original_scheduler}'"
@@ -1357,7 +1356,7 @@ def _unblock_egress(duthost, port, queue, original_scheduler):
     time.sleep(5)
 
 
-def _get_original_scheduler(duthost, port, queue):
+def _get_original_scheduler(duthost, port, queue):    # noqa: F811
     result = duthost.shell(f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{queue}' 'scheduler'")
     original = result["stdout"].strip()
     pytest_assert(original, f"Could not read scheduler for QUEUE|{port}|{queue}")
@@ -1368,20 +1367,20 @@ def _get_original_scheduler(duthost, port, queue):
     return original
 
 
-def _dscp_values(config_facts, prio):
+def _dscp_values(config_facts, prio):   # noqa: F811
     """Return the list of DSCP values mapped to ``prio`` in DSCP_TO_TC_MAP."""
     return [int(dscp) for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
             if int(tc) == prio]
 
 
-def _traffic_item(ixnet, flow_name):
+def _traffic_item(ixnet, flow_name):   # noqa: F811
     """Return the IxNetwork Traffic Item for a snappi flow name."""
     ti = ixnet.Traffic.TrafficItem.find(Name=flow_name)
     pytest_assert(len(ti) == 1, "Traffic item {} not found".format(flow_name))
     return ti
 
 
-def _ti_row_index(ixnet, flow_name):
+def _ti_row_index(ixnet, flow_name):   # noqa: F811
     """Return the row index of ``flow_name`` in the Traffic Item Statistics view."""
     rows = _normalize_stat_rows(StatViewAssistant(ixnet, "Traffic Item Statistics").Rows)
     for idx, row in enumerate(rows):
@@ -1390,7 +1389,7 @@ def _ti_row_index(ixnet, flow_name):
     pytest_assert(False, "Traffic Item {} not found in statistics".format(flow_name))
 
 
-def _drill_down_egress(ixnet, target_row_index=0):
+def _drill_down_egress(ixnet, target_row_index=0):   # noqa: F811
     """Drill the Traffic Item view down on the 2 egress ECN bits, producing the
     per-codepoint 'User Defined Statistics' view for the given target row."""
     tiview = ixnet.Statistics.View.find(Caption="Traffic Item Statistics")[0]
@@ -1403,7 +1402,7 @@ def _drill_down_egress(ixnet, target_row_index=0):
     logger.info("Drill Down Finished")
 
 
-def _parse_codepoint(egress_value):
+def _parse_codepoint(egress_value):   # noqa: F811
     """Extract the ECN codepoint (0-3) from a UD 'Egress Tracking' cell value."""
     tokens = re.findall(r"0x[0-9a-fA-F]+|\d+", str(egress_value))
     if not tokens:
@@ -1413,7 +1412,7 @@ def _parse_codepoint(egress_value):
     return val if val in (ECN_NON_ECT, ECN_ECT1, ECN_ECT0, ECN_CE) else None
 
 
-def _ud_rows_by_codepoint(ixnet):
+def _ud_rows_by_codepoint(ixnet):   # noqa: F811
     """Return {codepoint: row_dict} for the current User Defined Statistics view."""
     ud = StatViewAssistant(ixnet, "User Defined Statistics")
     print_ud_statistics(SELECTED_UD_COLS, ud)
@@ -1425,7 +1424,7 @@ def _ud_rows_by_codepoint(ixnet):
     return mapping
 
 
-def _rx_rate(cp_map, codepoint):
+def _rx_rate(cp_map, codepoint):   # noqa: F811
     """Rx Frame Rate for a codepoint row (0.0 if the codepoint is absent)."""
     row = cp_map.get(codepoint)
     if not row:
@@ -1436,7 +1435,7 @@ def _rx_rate(cp_map, codepoint):
         return 0.0
 
 
-def _drill_and_get(ixnet, flow_name):
+def _drill_and_get(ixnet, flow_name):   # noqa: F811
     """Drill the given flow's Traffic Item down on the egress ECN bits and return
     its {codepoint: row_dict} User Defined Statistics mapping."""
     _drill_down_egress(ixnet, _ti_row_index(ixnet, flow_name))
@@ -1444,7 +1443,7 @@ def _drill_and_get(ixnet, flow_name):
     return _ud_rows_by_codepoint(ixnet)
 
 
-def _ts_seconds(timestamp_str):
+def _ts_seconds(timestamp_str):   # noqa: F811
     """Parse the seconds.milliseconds field out of an IxNetwork 'HH:MM:SS.sss'
     timestamp string (same convention as the original response-time test)."""
     return float(timestamp_str.split(":")[-1])
