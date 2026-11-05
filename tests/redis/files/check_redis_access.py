@@ -240,7 +240,8 @@ def cli_checks(metadata, processes, controls, prefix, preflight, namespace=''):
         value = process['value'].encode()
         transport = ['-s'] if process['protected'] else []
         args = ['sonic-db-cli'] + ns_args + transport + [name]
-        result = execute(args + ['SET', prefix + ':cli', value.decode(), 'EX', '300'])
+        writer_args = ['sonic-db-cli'] + ns_args + (['-s', '--authenticate'] if process['protected'] else []) + [name]
+        result = execute(writer_args + ['SET', prefix + ':cli', value.decode(), 'EX', '300'])
         require(result[0] == 0 and client.get(prefix + ':cli') == value, 'Admin sonic-db-cli write failed: ' + name)
         result = execute(['sonic-db-cli'] + ns_args + transport + ['-j', name, 'HGETALL', prefix + ':hash'])
         require(result[0] == 0 and json.loads(result[1]) == {'field': value.decode()},
@@ -313,7 +314,7 @@ def main(preflight, allow_tcp_exceptions=False):
         intent = json.loads(INTENT.read_text()) if allow_tcp_exceptions else None
         exceptions = protection_scope(local, selected, allow_tcp_exceptions=allow_tcp_exceptions, intent=intent)
     secret = SECRET.read_bytes() if selected else None
-    from swsscommon import swsscommon
+    from swsscommon.redis import connection_pool
     prefix = '__sonic_redis_access_test__:' + uuid.uuid4().hex
     processes, controls = {}, {}
     seeded = 0
@@ -339,9 +340,12 @@ def main(preflight, allow_tcp_exceptions=False):
                 client.set(prefix, value, ex=300)
                 client.hset(prefix + ':hash', 'field', value)
                 client.expire(prefix + ':hash', 300)
-                native = (swsscommon.DBConnector(database, socket, 1000) if policy else
-                          swsscommon.DBConnector(database, instance['hostname'], instance['port'], 1000))
-                require(native.set(prefix, value.decode()), 'Admin native write failed')
+                native = redis.Redis(connection_pool=connection_pool(
+                    db=database, authenticate=bool(policy), **endpoint))
+                try:
+                    require(native.set(prefix, value.decode()), 'Admin native-backed pool write failed')
+                finally:
+                    native.close()
                 client.expire(prefix, 300)
                 seeded += 1
         ordinary = 0
