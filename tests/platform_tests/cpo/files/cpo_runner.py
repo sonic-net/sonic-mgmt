@@ -43,9 +43,29 @@ def table_summary(output):
             name = cells[0]
             resources.append(name)
             value = None
-            # Map cells are deliberately neither validated nor returned. Its
-            # smoke test uses only common headers and connected-port names.
-            if headers == ["Interface", "ELS", "Presence"]:
+            if headers == ["Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"]:
+                oe = re.fullmatch(r"(OE\d+) bank(\d+)", cells[1])
+                els = re.fullmatch(r"(ELS\d+)(?: bank\d+)?", cells[3])
+                if not oe or not els or not re.fullmatch(r"\d+(?:,\d+)*", cells[2]):
+                    raise ValueError("Malformed map row")
+                # Missing precise laser mapping is valid for breakout ports.
+                # Use the CLI's actual placeholder, not the old test-only one.
+                if cells[4] in ("N/A", "N/A (needs laser_to_asic_lane_mapping)"):
+                    lasers = None
+                elif not cells[4]:
+                    lasers = []  # No lasers were declared for this interface.
+                elif re.fullmatch(r"\d+(?:,\d+)*", cells[4]):
+                    lasers = [int(item) for item in cells[4].split(",")]
+                    if len(lasers) != len(set(lasers)):
+                        raise ValueError("Duplicate map laser")
+                else:
+                    raise ValueError("Malformed laser list")
+                lanes = [int(item) for item in cells[2].split(",")]
+                if len(lanes) != len(set(lanes)):
+                    raise ValueError("Duplicate map lane")
+                value = {"oe": {"id": oe[1], "bank": int(oe[2]), "lanes": lanes},
+                         "els": {"id": els[1], "lasers": lasers}}
+            elif headers == ["Interface", "ELS", "Presence"]:
                 if cells[2] not in ("Present", "Not present"):
                     raise ValueError("Malformed presence cell")
                 value = {"present": cells[2] == "Present"}

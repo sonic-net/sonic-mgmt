@@ -6,7 +6,7 @@ There are 15 cases; this is not exhaustive command/argument acceptance.
 
 | Command after cpoutil | Basic test | Output/result checks |
 | --- | --- | --- |
-| show interface map | test_cpoutil_map | rc=0, common table headers and connected-port rows; no OE/ELS/bank/lane/laser content checks |
+| show interface map | test_cpoutil_map | rc=0, headers/connected-port rows, configured OE/ELS pair and OE bank, current PORT lanes; exact laser set when mapped, unresolved placeholder allowed without precise laser mapping |
 | show interface presence | test_cpoutil_presence | Every connected CPO interface present; absent means failure |
 | show interface dom | test_cpoutil_dom | Detected, no Read errors, OE/ELS sections, displayed fields and monitor/threshold headings |
 | show interface tx-disable | test_cpoutil_tx_disable_query | true/false text cells, PORT lane count and common columns/resources |
@@ -28,6 +28,13 @@ All cpoutil queries use default text, including control snapshots, inverted
 and restored readbacks, and reset recovery. No cpoutil JSON query is issued.
 Required config selectors remain. Configuration files and the safe transport
 envelope still use JSON; neither substitutes for the rendered CLI cells.
+
+Map verifies OE/ELS types, the configured OE/bank/ELS association, OE bank bounds
+and lane membership, and equality with current PORT ASIC lanes. Exact laser
+mapping uses one-based JSON IDs normalized to zero-based CLI IDs. Without that
+mapping, numeric lists, empty lists or the CLI's unresolved N/A placeholder are
+valid; laser assignment is not guessed. All other map assertions remain active.
+Optional displayed ELS bank is parsed for syntax only, not compared.
 
 The default Application table renders selected descriptions rather than a
 standalone Advertisement dictionary. Only displayed lane/cell syntax is tested;

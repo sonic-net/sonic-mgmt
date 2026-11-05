@@ -226,11 +226,45 @@ def isolated_interfaces(duthost, ports):
 
 
 def test_cpoutil_map(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Check map command success, common columns and connected-port rows only."""
+    """Compare text map with configured associations and current breakout lanes."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = read_port_config(duthost)
+    path = "/usr/share/sonic/device/{}/cpo.json".format(duthost.facts["platform"])
+    topology = json.loads(duthost.command("cat " + shlex.quote(path), verbose=False)["stdout"])
+    devices = {name.upper(): device for name, device in topology["devices"].items()}
+    declared_pairs = set()
+    for entry in topology["interfaces"].values():
+        links = {devices[item["device_id"].upper()]["device_type"]: item for item in entry["associated_devices"]}
+        oe_link, els_link = links["optical_engine"], links["external_laser_source"]
+        declared_pairs.add((oe_link["device_id"].upper(), int(oe_link.get("bank", 0)), els_link["device_id"].upper()))
     table = run_cpoutil(duthost, "show interface map")["table"]
     assert table["headers"] == ["Interface", "OE", "OE Lanes", "ELS", "ELS Lasers"]
     assert set(connected_cpo_ports) <= set(table["resources"]), "Connected CPO port missing from map output"
+    for port in connected_cpo_ports:
+        oe, els = table["records"][port]["oe"], table["records"][port]["els"]
+        assert oe["id"] in devices and devices[oe["id"]]["device_type"] == "optical_engine", "Invalid mapped OE"
+        assert els["id"] in devices and devices[els["id"]]["device_type"] == "external_laser_source", \
+            "Invalid mapped ELS"
+        assert set(oe["lanes"]) == set(numbers(ports[port]["lanes"])), "Map lanes differ from PORT: " + port
+        banks = int(devices[oe["id"]].get("max_banks", 1))
+        device_lanes = numbers(devices[oe["id"]]["asic_lanes"])
+        assert banks > 0 and len(device_lanes) % banks == 0 and 0 <= oe["bank"] < banks, "Invalid mapped OE bank"
+        width = len(device_lanes) // banks
+        bank_lanes = device_lanes[oe["bank"] * width:(oe["bank"] + 1) * width]
+        assert set(oe["lanes"]) <= set(bank_lanes), "Interface lanes do not belong to the mapped OE bank"
+        assert (oe["id"], oe["bank"], els["id"]) in declared_pairs, "OE/ELS association differs from cpo.json"
+        laser_map = devices[els["id"]].get("laser_to_asic_lane_mapping", {})
+        if laser_map:
+            # JSON laser IDs are one-based; the CLI displays zero-based IDs.
+            lanes = set(numbers(ports[port]["lanes"]))
+            expected_lasers = {int(laser) - 1 for laser, mapped in laser_map.items()
+                               if lanes.intersection(numbers(mapped))}
+            covered = {lane for mapped in laser_map.values() for lane in numbers(mapped)}
+            assert lanes <= covered, "Configured laser mapping does not cover PORT lanes: " + port
+            assert els["lasers"] is not None and set(els["lasers"]) == expected_lasers, "Map lasers differ: " + port
+        # Without a precise mapping, a full port may display configured lasers,
+        # a breakout port may display N/A, or no declared lasers may display empty.
+        # Do not infer a subport's laser IDs from its lane count.
 
 
 def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):

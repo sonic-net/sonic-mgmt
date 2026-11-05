@@ -31,7 +31,7 @@ separate from the cpoutil text output being tested.
 
 | Cases | Checks |
 | --- | --- |
-| Map | Command success, common table headers and connected-port rows; no cell-content or topology-value comparison |
+| Map | Command success, common headers/connected-port rows; OE/ELS association and OE bank versus cpo.json, lanes versus current PORT; laser selection when precisely mapped |
 | Presence | Every connected CPO port must be present; absence fails |
 | DOM | Detected, no Read errors, OE/ELS sections with displayed fields and monitor/threshold headings |
 | OE / ELS status | Nonempty non-N/A state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
@@ -43,11 +43,20 @@ separate from the cpoutil text output being tested.
 | OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
 | Lane status | Exactly the OE datapath and ELS lane tables, public headers and connected-port rows |
 
-The map case is a display smoke check. It does not parse or validate OE/ELS,
-bank, lane or laser cell values, including unresolved placeholders, and does
-not compare those cells with cpo.json/PORT. Those files still select connected
-test ports and the resources used by other cases. Control readback/restoration
-checks retain their state assertions.
+The map case parses default text and checks each connected port. OE/ELS must
+exist with their expected device types, and the OE/bank/ELS tuple must appear
+in cpo.json associations. Displayed ASIC lanes must equal current PORT lanes
+and belong to the configured OE bank, including after breakout. OE bank bounds
+and bank lane ranges are checked; an optional displayed ELS bank is not compared.
+
+If the ELS declares laser_to_asic_lane_mapping, select lasers whose mapped ASIC
+lanes overlap this port, normalize one-based JSON laser IDs to zero-based CLI
+IDs, and require the exact displayed laser set. The map must cover PORT lanes.
+Without that precise mapping, accept the actual CLI placeholder
+`N/A (needs laser_to_asic_lane_mapping)` or `N/A`, a numeric laser list for a
+full port, or empty when no lasers are declared. No subport laser assignment
+is inferred. Malformed/duplicate lane and laser lists still fail; unresolved
+laser selection does not disable OE/ELS/bank/lane checks or skip the case.
 
 Application checks current breakout configuration without creating breakout.
 The default table displays selected Application descriptions; the JSON-only
@@ -160,3 +169,8 @@ while retaining snapshot, inversion, restoration and presence/link checks.
 Reset skips explicitly unsupported endpoints after cleanup and recovery checks,
 matching the low-power capability policy. Targeted local fault checks cover
 these paths; hardware execution of this revision remains pending.
+
+The subsequent map revision restores topology/PORT comparisons and handles the
+actual unresolved-laser placeholder. Local checks use the CLI mapping logic
+and formatter at the documented contract revision, covering full/breakout
+ports with and without precise laser mapping. Hardware execution is pending.
