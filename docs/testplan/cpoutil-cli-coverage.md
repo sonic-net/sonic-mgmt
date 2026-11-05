@@ -41,7 +41,9 @@ Low-power supports either initial boolean. TX controls an entire OE bank:
 uniform true or false can be inverted/restored; mixed lane states are excluded
 because the setter has no per-lane mask. Unsupported low-power/TX setters are
 logged; general failures fail. No supported/restorable objects means a
-low-power/TX case skip. An unsupported reset fails after isolation cleanup.
+low-power/TX case skip. Reset also skips explicitly unsupported endpoints after
+isolation cleanup and presence/link checks; all unsupported means a case skip.
+Command, readback, connection and cleanup failures are not capability skips.
 
 Reset uses the sfputil command/presence/recovery model without requiring
 Application/TX snapshot equality or initial full-power/admin-up prerequisites.

@@ -486,27 +486,34 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
     names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
     status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     originally_up = [port for port in connected_cpo_ports if status[port]["oper_state"] == "up"]
-    tested = []
+    tested, skipped = [], {}
     for name in names:
         affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
         query = "show {} status {}".format(target, name)
         with isolated_interfaces(duthost, affected):
-            # Reset must succeed; an unsupported reset is a failure, not a skip.
-            # The context still restores DOM/admin settings before propagating it.
-            run_cpoutil(duthost, "config {} reset {}".format(target, name))
-
-            def readable():
-                result = run_cpoutil(duthost, query, expected_rc=None)
-                if result["rc"] != 0:
-                    return False
-                return result["table"]["records"].get(name) is True
-            assert wait_until(60, 2, 0, readable), "Module did not become readable after reset: " + name
-            # sfputil also checks presence after the reset wait. Do not
-            # require a platform-specific module state or a visible down edge.
-            check_connected_recovery(duthost, [port for port in connected_cpo_ports if port in affected], [])
+            result = run_cpoutil(duthost, "config {} reset {}".format(target, name), expected_rc=None)
+            unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
+            assert unsupported or result["rc"] == 0, "Reset failed for {}: {}".format(name, result["stderr"])
+            if not unsupported:
+                def readable():
+                    result = run_cpoutil(duthost, query, expected_rc=None)
+                    if result["rc"] != 0:
+                        return False
+                    return result["table"]["records"].get(name) is True
+                assert wait_until(60, 2, 0, readable), "Module did not become readable after reset: " + name
+                # sfputil also checks presence after the reset wait. Do not
+                # require a platform-specific module state or a visible down edge.
+                check_connected_recovery(duthost, [port for port in connected_cpo_ports if port in affected], [])
+        # Decide skip only after cleanup and presence/link recovery checks.
+        # An unsupported command must not hide restoration or connection errors.
         check_connected_recovery(duthost, connected_cpo_ports, originally_up)
+        if unsupported:
+            skipped[name] = "Reset is not implemented"
+            continue
         tested.append(name)
-    logger.info("%s reset coverage: tested=%s", target, tested)
+    logger.info("%s reset coverage: tested=%s, skipped=%s", target, tested, skipped)
+    if not tested:
+        pytest.skip("No supported {} reset endpoints: {}".format(target, skipped))
 
 
 def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):

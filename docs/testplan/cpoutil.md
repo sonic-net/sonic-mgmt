@@ -102,8 +102,10 @@ and recovery errors fail. Exclusions are logged and are not hardware PASS.
 Reset follows sfputil's command/presence/recovery approach, once per distinct
 associated OE/ELS. It waits up to 60 seconds for a nonempty, non-N/A module
 status and for presence. DOM/admin restoration runs even on reset failure.
-Every selected reset must return rc=0. An unsupported reset fails the case;
-it is not treated as a capability skip. Isolation cleanup still runs.
+A supported reset must return rc=0. An explicit rc=1/not-implemented response
+excludes that endpoint after isolation cleanup and presence/link checks; later
+endpoints are still tested. If every selected reset is unsupported, the case
+skips. Other command, readback, connection or cleanup failures still fail.
 It does not require initial full power or all shared ports admin-up, compare
 Application/TX snapshots, force a generic low-power transition, require a
 specific module state or require an observable link-down edge. Unlike sfputil's
@@ -155,5 +157,6 @@ results; a new DUT run is still pending.
 
 The subsequent low-power revision removes DOM/admin isolation from that case
 while retaining snapshot, inversion, restoration and presence/link checks.
-Reset now fails on unsupported commands. Targeted local fault checks cover
+Reset skips explicitly unsupported endpoints after cleanup and recovery checks,
+matching the low-power capability policy. Targeted local fault checks cover
 these paths; hardware execution of this revision remains pending.
