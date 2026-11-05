@@ -708,6 +708,7 @@ t1-lag-vpp:
   - test_interfaces.py
   - hash/test_generic_hash.py
   - http/test_http_copy.py
+  - ip/link_local/test_link_local_ip.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dir_bcast.py
@@ -830,9 +831,11 @@ t0-vpp:
   - hash/test_generic_hash.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
+  - ip/link_local/test_link_local_ip.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
+  - ipfwd/test_dir_bcast.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - pc/test_lag_2.py
@@ -1043,6 +1046,8 @@ dualtor-aa-vpp:
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
+  - ip/link_local/test_link_local_ip.py
+  - ipfwd/test_dir_bcast.py
 
 dualtor-vpp:
   - arp/test_arp_dualtor.py
