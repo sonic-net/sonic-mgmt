@@ -269,11 +269,11 @@ def _cleanup_test_tables(duthost, table_prefix):
     so transient inconsistency between tests is acceptable.
     """
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli -s CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli -s --authenticate CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli -s CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli -s --authenticate CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
 

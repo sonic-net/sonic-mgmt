@@ -664,7 +664,7 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
     try:
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
-        redis_cmd = 'sonic-db-cli -s CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+        redis_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
         duthost.shell(redis_cmd)
         time.sleep(10)
 
@@ -740,7 +740,7 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
         for i in range(20):
-            redis_cmd = 'sonic-db-cli -s CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
+            redis_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
             duthost.shell(redis_cmd)
             time.sleep(10)
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')

@@ -35,7 +35,7 @@ def test_bbr_presence_checks_keep_integer_output_during_fallback():
     namespace['config_bbr_by_gcu'](SimpleNamespace(shell=execute), 'enabled')
     assert commands[:2] == ['redis-cli -s /configured.sock -n 4 EXISTS "BGP_BBR|all"',
                             'redis-cli -s /configured.sock -n 4 HEXISTS "BGP_BBR|all" "status"']
-    assert commands[-2:] == ['sonic-db-cli -s CONFIG_DB HSET "BGP_BBR|all" "status" "enabled"',
+    assert commands[-2:] == ['sonic-db-cli -s --authenticate CONFIG_DB HSET "BGP_BBR|all" "status" "enabled"',
                              'sonic-db-cli -s CONFIG_DB HGET "BGP_BBR|all" "status"']
 
 
@@ -46,7 +46,7 @@ def test_cleanup_keeps_hash_key_and_field_separate(filename):
     command = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)
                    and isinstance(node.func, ast.Attribute) and node.func.attr == 'format'
                    and isinstance(node.func.value, ast.Constant)
-                   and node.func.value.value.startswith('sonic-db-cli -s CONFIG_DB hdel '))
+                   and node.func.value.value.startswith('sonic-db-cli -s --authenticate CONFIG_DB hdel '))
     text = eval(compile(ast.Expression(body=command), filename, 'eval'),
                 {'redis_string': 'INTERFACE', 'intf': 'Ethernet0'})
     assert shlex.split(text) == ['sonic-db-cli', '-s', 'CONFIG_DB', 'hdel',

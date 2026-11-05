@@ -295,7 +295,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             initial_ports_count_for_mtu = get_port_count_for_mtu()
 
             duthost.command(
-                "sonic-db-cli -s -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                "sonic-db-cli -s --authenticate -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, iface, mtu
                 )
             )["stdout"]
@@ -318,7 +318,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 cls.asic_index
             ) if duthost.is_multi_asic else ''
             duthost.command(
-                "sonic-db-cli -s -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                "sonic-db-cli -s --authenticate -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, cls.iface, cls.mtu
                 )
             )["stdout"]

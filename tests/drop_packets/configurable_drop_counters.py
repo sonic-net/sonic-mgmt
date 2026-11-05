@@ -48,7 +48,7 @@ _COUNTERS_DB_INCIDENT_COUNT = (
     "sonic-db-cli -s COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
 )
 _COUNTERS_DB_INCIDENT_CLEAR = (
-    "sonic-db-cli -s COUNTERS_DB DEL 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
+    "sonic-db-cli -s --authenticate COUNTERS_DB DEL 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
 )
 _COUNTERS_DB_FIRST_INCIDENT = (
     "sonic-db-cli -s COUNTERS_DB LINDEX 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents' 0"

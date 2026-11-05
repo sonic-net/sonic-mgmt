@@ -358,13 +358,13 @@ def fixture_setUp(duthosts,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("sonic-db-cli -s CONFIG_DB del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli -s --authenticate CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VNET|{vnet}")
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "sonic-db-cli -s CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli -s --authenticate CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     for tunnel in list(tunnel_names.values()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VXLAN_TUNNEL|{tunnel}")
 
@@ -444,14 +444,14 @@ class Test_VNET_BGP_route_Precedence():
 
     def create_bgp_profile(self, name, community):
         # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
-        self.duthost.shell("sonic-db-cli -s APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
                            .format(name, community))
         if hasattr(self, "_test_bgp_profiles"):
             self._test_bgp_profiles.add(name)
 
     def remove_bgp_profile(self, name):
         # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
-        self.duthost.shell("sonic-db-cli -s APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
         if hasattr(self, "_test_bgp_profiles"):
             self._test_bgp_profiles.discard(name)
 
@@ -829,7 +829,7 @@ class Test_VNET_BGP_route_Precedence():
             "'VNET_MONITOR_TABLE|{}|{}'".format(nh, prefix) for nh in routes[vnet][address]
         ]
         request.addfinalizer(
-            lambda: duthost.shell("sonic-db-cli -s STATE_DB DEL {}".format(' '.join(monitor_keys))))
+            lambda: duthost.shell("sonic-db-cli -s --authenticate STATE_DB DEL {}".format(' '.join(monitor_keys))))
         request.addfinalizer(
             lambda: _configure_static_route(duthost, prefix, competing_nexthop, False))
 

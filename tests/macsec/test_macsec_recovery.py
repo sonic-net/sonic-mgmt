@@ -85,7 +85,7 @@ def force_dut_key_server(macsec_duthost, profile_name, ctrl_links,
                 "forcing priority to 0", orig_priority, orig_rekey)
 
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority 0".format(
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority 0".format(
             profile_name),
         module_ignore_errors=False,
     )
@@ -99,7 +99,7 @@ def force_dut_key_server(macsec_duthost, profile_name, ctrl_links,
     logger.info("force_dut_key_server teardown: restoring priority=%s "
                 "rekey_period=%s", orig_priority, orig_rekey)
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority {} "
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' priority {} "
         "rekey_period {}".format(profile_name, orig_priority, orig_rekey),
         module_ignore_errors=False,
     )

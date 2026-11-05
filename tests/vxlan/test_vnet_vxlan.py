@@ -145,7 +145,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
         if result["stdout_lines"] is not None:
             vlan_tagging_mode = result["stdout_lines"][0]
             duthost.shell(
-                "sonic-db-cli -s CONFIG_DB del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
+                "sonic-db-cli -s --authenticate CONFIG_DB del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
         apply_dut_config_files(duthost, vnet_test_params, num_routes)
         # Check arp table status in a loop with delay.
@@ -154,7 +154,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":
-            duthost.shell("sonic-db-cli -s CONFIG_DB hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(
+            duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(
                 attached_vlan, vlan_member, vlan_tagging_mode))
 
         vxlan_enabled = True

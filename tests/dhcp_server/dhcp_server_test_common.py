@@ -70,7 +70,7 @@ def clean_dhcp_server_config(duthost):
     for key in clean_order:
         for line in keys['stdout_lines']:
             if line.startswith(key + '|'):
-                duthost.shell("sonic-db-cli -s CONFIG_DB DEL '{}'".format(line))
+                duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB DEL '{}'".format(line))
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):

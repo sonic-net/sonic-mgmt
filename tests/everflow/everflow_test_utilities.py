@@ -1051,7 +1051,7 @@ class BaseEverflowTest(object):
             str: The ASIC command string.
         """
         per_asic_index = f"-n asic{asic_index} " if asic_index is not None else ""
-        command = (f"sonic-db-cli -s {per_asic_index}CONFIG_DB HSET "
+        command = (f"sonic-db-cli -s --authenticate {per_asic_index}CONFIG_DB HSET "
                    f"'MIRROR_SESSION|{session_info['session_name']}' "
                    f"'dscp' '{session_info['session_dscp']}' "
                    f"'dst_ip' '{session_info['session_dst_ipv6']}' "

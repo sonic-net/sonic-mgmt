@@ -64,7 +64,7 @@ def warmRebootSystemFlag(duthost):
     yield
     if not wait_until(300, 10, 0, checkWarmbootFlag, duthost):
         logger.info('Setting warm-reboot system flag to false')
-        duthost.shell(cmd='sonic-db-cli -s STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+        duthost.shell(cmd='sonic-db-cli -s --authenticate STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
 
 
 def test_wr_arp(request, duthost, ptfhost, creds):

@@ -26,7 +26,7 @@ def pytest_runtest_teardown(item, nextitem):
     """
     failures = []
     crm_threshold_name = RESTORE_CMDS.get("crm_threshold_name")
-    restore_cmd = "sonic-db-cli -s CONFIG_DB hmset 'CRM|Config' \
+    restore_cmd = "sonic-db-cli -s --authenticate CONFIG_DB hmset 'CRM|Config' \
     {threshold_name}_high_threshold {high} \
     {threshold_name}_low_threshold {low} \
     {threshold_name}_threshold_type percentage"

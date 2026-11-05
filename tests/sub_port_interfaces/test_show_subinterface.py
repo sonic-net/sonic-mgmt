@@ -65,7 +65,7 @@ def test_subinterface_status(duthost, subintf_expected_config):
                 "sonic-db-dump -t unix_socket -n CONFIG_DB -k \"VLAN_SUB_INTERFACE|%s*\"" % subintf
             )["stdout"])
             for entry in entries:
-                duthost.shell("sonic-db-cli -s CONFIG_DB del \"%s\"" % entry)
+                duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del \"%s\"" % entry)
 
     # creation verification
     success_show_sub_status = []

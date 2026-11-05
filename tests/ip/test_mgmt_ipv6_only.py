@@ -247,7 +247,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
                 # Refresh the environment after the context has created any missing
                 # GNMI configuration so that connection parameters are current.
                 env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
-                dut.shell('sonic-db-cli -s CONFIG_DB HSET "%s|gnmi" user_auth none'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" user_auth none'
                           % (env.gnmi_config_table), module_ignore_errors=False)
                 dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
                 dut.service(name=env.gnmi_container, state="restarted")
@@ -274,10 +274,10 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
                               "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
         finally:
             if default_user_auth:
-                dut.shell('sonic-db-cli -s CONFIG_DB HSET "%s|gnmi" user_auth %s'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" user_auth %s'
                           % (env.gnmi_config_table, default_user_auth), module_ignore_errors=False)
             else:
-                dut.shell('sonic-db-cli -s CONFIG_DB HDEL "%s|gnmi" user_auth'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HDEL "%s|gnmi" user_auth'
                           % (env.gnmi_config_table), module_ignore_errors=False)
             dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
             dut.service(name=env.gnmi_container, state="restarted")

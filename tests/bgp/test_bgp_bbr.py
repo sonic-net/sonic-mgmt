@@ -466,7 +466,7 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
         pytest.skip('Skip test for multi-asic environment')
 
     # Set BBR status in config_db
-    duthost.shell('sonic-db-cli -s CONFIG_DB HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
     duthost.shell('sudo config save -y')
     config_reload(duthost)
 

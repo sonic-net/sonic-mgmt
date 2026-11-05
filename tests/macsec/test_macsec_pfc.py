@@ -47,7 +47,7 @@ def enable_flex_port_counter_macsec(macsec_duthost):
     if status == 'enable':
         yield
         return
-    set_cmd = ('sonic-db-cli -s CONFIG_DB hset '
+    set_cmd = ('sonic-db-cli -s --authenticate CONFIG_DB hset '
                '"FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"')
     logger.info("Enable flex counter for port")
     macsec_duthost.shell(set_cmd.format('enable'))

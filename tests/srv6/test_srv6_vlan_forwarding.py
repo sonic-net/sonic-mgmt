@@ -82,7 +82,7 @@ def proxy_arp_enabled(rand_selected_dut):
 
     yield
 
-    proxy_arp_del_cmd = 'sonic-db-cli -s CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_del_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Disable proxy_arp explicitly

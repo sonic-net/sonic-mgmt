@@ -183,7 +183,7 @@ def test_kernel_asic_mac_mismatch(
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli -s APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
+        f"sonic-db-cli -s --authenticate APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli -s APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231

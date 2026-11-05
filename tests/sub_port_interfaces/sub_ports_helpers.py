@@ -870,7 +870,7 @@ def remove_sub_port(duthost, sub_port, ip):
     """
     cmds = []
     cmds.append('config interface ip remove {} {}'.format(sub_port, ip))
-    cmds.append('sonic-db-cli -s CONFIG_DB del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
+    cmds.append('sonic-db-cli -s --authenticate CONFIG_DB del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
 
     duthost.shell_cmds(cmds=cmds)
 

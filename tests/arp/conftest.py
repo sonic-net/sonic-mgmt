@@ -210,7 +210,7 @@ def garp_enabled(rand_selected_dut, config_facts):
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
     garp_check_cmd = 'sonic-db-cli -s CONFIG_DB HGET "VLAN_INTERFACE|{}" grat_arp'
-    garp_enable_cmd = 'sonic-db-cli -s CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
+    garp_enable_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HSET "VLAN_INTERFACE|{}" grat_arp enabled'
     cat_arp_accept_cmd = 'cat /proc/sys/net/ipv4/conf/{}/arp_accept'
     arp_accept_vals = []
     old_grat_arp_vals = {}
@@ -231,7 +231,7 @@ def garp_enabled(rand_selected_dut, config_facts):
 
     yield all(int(val) == 2 for val in arp_accept_vals)
 
-    garp_disable_cmd = 'sonic-db-cli -s CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
+    garp_disable_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
         old_grat_arp_val = old_grat_arp_vals[vlan]
 
@@ -326,7 +326,7 @@ def proxy_arp_enabled(request, rand_selected_dut, config_facts):
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 
-    proxy_arp_del_cmd = 'sonic-db-cli -s CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_del_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Disable proxy_arp explicitly

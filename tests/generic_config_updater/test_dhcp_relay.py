@@ -98,7 +98,7 @@ def default_setup(duthost, vlan_intfs_list):
     # Generate 4 dhcp servers for each new created vlan
     for vlan in vlan_intfs_list:
         expected_content_dict[vlan] = []
-        cmds.append('sonic-db-cli -s CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
+        cmds.append('sonic-db-cli -s --authenticate CONFIG_DB hset "VLAN|Vlan{}" "dhcp_servers@" "{}"'
                     .format(vlan, ",".join(["192.0.{}.{}".format(vlan, i) for i in range(1, 5)])))
         for i in range(1, 5):
             expected_content_dict[vlan].append('192.0.{}.{}'.format(vlan, i))

@@ -330,7 +330,7 @@ def _apply_mac_move_guard_config(duthost, config):
 
 
 def _remove_mac_move_guard_config(duthost):
-    duthost.shell('sonic-db-cli -s CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"',
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"',
                   module_ignore_errors=True)
     duthost.shell("rm -f {}".format(MMG_CONFIG_REMOTE_PATH), module_ignore_errors=True)
 
@@ -575,11 +575,11 @@ def _set_orchagent_loglevel(duthost, level):
     or '' to clear the override (reverts to the binary default)."""
     if level:
         duthost.shell(
-            'sonic-db-cli -s LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
+            'sonic-db-cli -s --authenticate LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
             module_ignore_errors=True)
     else:
         duthost.shell(
-            'sonic-db-cli -s LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
+            'sonic-db-cli -s --authenticate LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
             module_ignore_errors=True)
 
 

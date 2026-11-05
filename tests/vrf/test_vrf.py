@@ -960,10 +960,10 @@ class TestVrfAclRedirect:
         yield
 
         # -------- Teardown ----------
-        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
-        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
-        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
-        duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
+        duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V4|rule1'")
+        duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_RULE|VRF_ACL_REDIRECT_V6|rule1'")
+        duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
+        duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
     def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
         # verify origin dst ports should not receive packets any more

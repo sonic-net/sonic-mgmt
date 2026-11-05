@@ -209,7 +209,7 @@ def test_update_forced_mgmt(
 
         # Update current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(updated_forced_mgmt_routes))
-        command = "sonic-db-cli -s CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
+        command = "sonic-db-cli -s --authenticate CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, updated_forced_mgmt_routes)
 
         def update_interface_config(duthost, command):
@@ -237,7 +237,7 @@ def test_update_forced_mgmt(
 
         # Revert current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(original_forced_mgmt_routes))
-        command = "sonic-db-cli -s CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
+        command = "sonic-db-cli -s --authenticate CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, original_forced_mgmt_routes)
         wait_for_file_changed(
                             duthost,

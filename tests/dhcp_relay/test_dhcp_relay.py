@@ -108,11 +108,11 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             default_deployment_id = duthost.shell('sonic-db-cli -s CONFIG_DB hget '    # noqa: F841
                                                   '"DEVICE_METADATA|localhost" "deployment_id"',
                                                   module_ignore_errors=True)["stdout"].strip()
-            duthost.shell('sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "8"',
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "8"',
                           module_ignore_errors=True)
             yield
         finally:
-            duthost.shell(f'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost"'
+            duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost"'
                           f' "deployment_id" "{default_deployment_id}"', module_ignore_errors=True)
     else:
         """

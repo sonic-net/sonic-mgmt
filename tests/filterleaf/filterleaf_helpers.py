@@ -124,7 +124,7 @@ def remove_allow_list(duthost, namespace, allow_list_file_path):
     allow_list_keys = duthost.shell('sonic-db-cli -s {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'
                                     .format('-n ' + namespace if namespace else ''))['stdout_lines']
     for key in allow_list_keys:
-        duthost.shell('sonic-db-cli -s {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
+        duthost.shell('sonic-db-cli -s --authenticate {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
 
     duthost.shell('rm -rf {}'.format(allow_list_file_path))
 

@@ -155,7 +155,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
     for asic_index in duthost.get_frontend_asic_ids():
         ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
-            'sonic-db-cli -s {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
+            'sonic-db-cli -s --authenticate {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
         )
 
 
@@ -164,7 +164,7 @@ def delete_config_db_key_directly(duthost, prefix_type, prefix):
     for asic_index in duthost.get_frontend_asic_ids():
         ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
-            'sonic-db-cli -s {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
+            'sonic-db-cli -s --authenticate {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
             module_ignore_errors=True,
         )
 

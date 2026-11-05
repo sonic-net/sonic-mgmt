@@ -889,23 +889,23 @@ def test_static_route_blackhole_removal_after_config_reload(rand_selected_dut, r
     def add_blackhole_route(prefix, ipv6=False):
         """Add a blackhole static route via CONFIG_DB."""
         duthost.shell(
-            'sonic-db-cli -s CONFIG_DB hmset "STATIC_ROUTE|{}" '
+            'sonic-db-cli -s --authenticate CONFIG_DB hmset "STATIC_ROUTE|{}" '
             'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
         )
         if is_dual_tor and unselected_duthost:
             unselected_duthost.shell(
-                'sonic-db-cli -s CONFIG_DB hmset "STATIC_ROUTE|{}" '
+                'sonic-db-cli -s --authenticate CONFIG_DB hmset "STATIC_ROUTE|{}" '
                 'blackhole true distance 0 ifname "" nexthop blackhole nexthop-vrf ""'.format(prefix)
             )
 
     def remove_blackhole_route(prefix):
         """Remove a blackhole static route from CONFIG_DB."""
         duthost.shell(
-            'sonic-db-cli -s CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+            'sonic-db-cli -s --authenticate CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
         )
         if is_dual_tor and unselected_duthost:
             unselected_duthost.shell(
-                'sonic-db-cli -s CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
+                'sonic-db-cli -s --authenticate CONFIG_DB del "STATIC_ROUTE|{}"'.format(prefix)
             )
 
     def check_blackhole_route_present(prefix, ipv6=False):

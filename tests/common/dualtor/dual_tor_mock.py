@@ -359,7 +359,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     restart_swss = False
     if dut.get_asic_name() in ['th2', 'td3', 'gb']:
         restart_swss = True
-    cmd = 'sonic-db-cli -s CONFIG_DB HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
+    cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)
     if ((restart_swss) and (dut.get_asic_name() != 'gb')):
         # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
@@ -369,10 +369,10 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
     cmds = [
-        'sonic-db-cli -s CONFIG_DB HSET "{}" "address_ipv4" "{}"'.format(
+        'sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" "address_ipv4" "{}"'.format(
             peer_switch_key,
             mock_peer_switch_loopback_ip.ip),
-        'sonic-db-cli -s CONFIG_DB HSET "{}" "{}" "{}"'.format(
+        'sonic-db-cli -s --authenticate CONFIG_DB HSET "{}" "{}" "{}"'.format(
             device_meta_key,
             'peer_switch',
             peer_switch_hostname)]

@@ -99,7 +99,7 @@ def remove_acl_link_drop(duthost, interface):
     if current_ports:
         new_ports = ",".join(current_ports)
         duthost.shell(
-            f"sonic-db-cli -s CONFIG_DB HSET "
+            f"sonic-db-cli -s --authenticate CONFIG_DB HSET "
             f"'ACL_TABLE|{ACL_TABLE}' 'ports@' "
             f"'{new_ports}'"
         )
@@ -116,7 +116,7 @@ def remove_acl_link_drop_table(duthost):
         f"{duthost.hostname} Removing ACL rule via CONFIG_DB"
     )
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB DEL "
+        f"sonic-db-cli -s --authenticate CONFIG_DB DEL "
         f"'ACL_RULE|{ACL_TABLE}|{ACL_RULE}'"
     )
 
@@ -124,6 +124,6 @@ def remove_acl_link_drop_table(duthost):
         f"{duthost.hostname} Removing ACL table via CONFIG_DB"
     )
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB DEL "
+        f"sonic-db-cli -s --authenticate CONFIG_DB DEL "
         f"'ACL_TABLE|{ACL_TABLE}'"
     )

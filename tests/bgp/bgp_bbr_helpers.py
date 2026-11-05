@@ -80,7 +80,7 @@ def config_bbr_by_gcu(duthost, status):
             e,
         )
         duthost.shell(
-            'sonic-db-cli -s CONFIG_DB HSET "BGP_BBR|all" "status" "{}"'.format(status),
+            'sonic-db-cli -s --authenticate CONFIG_DB HSET "BGP_BBR|all" "status" "{}"'.format(status),
             module_ignore_errors=True,
         )
         # Allow bgpcfgd to pick up the CONFIG_DB change

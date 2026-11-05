@@ -91,13 +91,13 @@ def init_counter(duthost, ifname, types):
     output_new = duthost.shell(cmd_new_version)['stdout']
     if len(output_new) != 0:
         counters_str = NEW_COUNTER_VALUE_FORMAT
-        cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
-        cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
     else:
         for type in types:
-            cmd = 'sonic-db-cli -s STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
+            cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
             duthost.shell(cmd)
 
 

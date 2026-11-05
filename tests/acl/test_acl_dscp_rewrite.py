@@ -221,12 +221,12 @@ def fixture_setUp_vxlan_vnet_routes(rand_selected_dut,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("sonic-db-cli -s CONFIG_DB del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli -s --authenticate CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "sonic-db-cli -s CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli -s --authenticate CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
 
 def setup_acl_tables(duthost, setUp_vnet):
@@ -312,7 +312,7 @@ def create_acl_rule(duthost, tableName, ruleNumber, priority, dscpAction, dstIp,
 def del_acl_rule(duthost, table, ruleId):
     config_key = f'ACL_RULE|{table}|RULE{ruleId}'
     state_key = f'ACL_RULE_TABLE|{table}|RULE{ruleId}'
-    duthost.shell(f"sonic-db-cli -s CONFIG_DB del '{config_key}'")
+    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB del '{config_key}'")
 
     def rule_is_removed():
         exists = duthost.shell((redis_cli_command(duthost, 'STATE_DB') + f" exists '{state_key}'"))['stdout'].strip()
@@ -336,7 +336,7 @@ def del_all_acl_rules(duthost):
         for key in out.splitlines():
             key = key.strip()
             if key:
-                duthost.shell("sonic-db-cli -s CONFIG_DB del '{}'".format(key))
+                duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del '{}'".format(key))
 
     def all_rules_removed():
         for table in (TABLE_V4, TABLE_V6):
@@ -353,8 +353,8 @@ def del_all_acl_rules(duthost):
 def del_acl_tables(duthost):
     Logger.info("Cleaning up ACL rules and tables")
     del_all_acl_rules(duthost)
-    duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TEST' ")
-    duthost.shell("sonic-db-cli -s CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TESTV6' ")
+    duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TEST' ")
+    duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB del 'ACL_TABLE|OVERLAY_MARK_META_TESTV6' ")
 
     def table_is_removed(table_name):
         exists = duthost.shell((redis_cli_command(duthost, 'STATE_DB') +

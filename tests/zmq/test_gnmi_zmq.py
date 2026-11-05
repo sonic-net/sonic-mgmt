@@ -52,7 +52,7 @@ def enable_zmq(duthost):
         return
 
     # enable ZMQ
-    command = 'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
+    command = 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
     result = duthost.shell(command, module_ignore_errors=True)
     logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
@@ -70,7 +70,7 @@ def enable_zmq(duthost):
     yield
 
     # revert change
-    command = 'sonic-db-cli -s CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
+    command = 'sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
     result = duthost.shell(command, module_ignore_errors=True)
     logger.debug("revert subtype subtype: {}".format(result))
     save_reload_config(duthost)
