@@ -197,8 +197,6 @@ def get_applied_ckn_errors(state, primary_ckn, fallback_ckn):
     if state is None:
         return ["MKA status is missing"]
     errors = []
-    if state["query"] != "ok" or not state["fresh"]:
-        errors.append("MKA status is not fresh")
     if state["config"] != "in-sync":
         errors.append("config is {}".format(state["config"]))
     roles = {ckn: participant.get("role") for ckn, participant in state["participants"].items()}
@@ -233,7 +231,7 @@ def _eos_true(value):
 
 
 def eos_participants(host, port):
-    """Return {ckn: {active, failed, live}} from `show mac security participants`.
+    """Return {ckn: {active, failed, live, principal}} from `show mac security participants`.
 
     See the sample in tests/common/devices/arista.py get_macsec_connection_status_details.
     """
@@ -252,6 +250,7 @@ def eos_participants(host, port):
         participants[ckn.lower()] = {
             "active": bool(flags) and all(_eos_true(flag) for flag in flags),
             "failed": _eos_true(_eos_field(participant, "failed", "failure")),
+            "principal": _eos_true(_eos_field(participant, "principalactor")),
             "live": len(live) if isinstance(live, (list, dict)) else int(live or 0),
         }
     return participants
@@ -273,6 +272,9 @@ def get_peer_protection_errors(env, port, principal, require_all_live=True, prof
         errors.append("configured CKNs differ")
     if set(participants) != expected:
         errors.append("participants are {}".format(sorted(participants)))
+    principals = sorted(ckn for ckn, participant in participants.items() if participant["principal"])
+    if principals != [principal.lower()]:
+        errors.append("principals are {}, expected {}".format(principals, principal.lower()))
     for ckn in expected:
         participant = participants.get(ckn, {})
         if (require_all_live or ckn == principal.lower()) and (
@@ -749,7 +751,8 @@ def select_pair(duthost, ctrl_links, upstream_links):
                     and upstream_links[other]["local_ipv4_addr"] != upstream_links[port]["local_ipv4_addr"]
                     and getns_prefix(duthost, other) == getns_prefix(duthost, port)):
                 return {port: ctrl_links[port], other: ctrl_links[other]}
-    pytest.skip("Need two same-ASIC MACsec links to distinct routed neighbors, each direct or a 1-member PortChannel")
+    return pytest.skip(
+        "Need two same-ASIC MACsec links to distinct routed neighbors, each direct or a 1-member PortChannel")
 
 
 def get_bound_profile_settings(host, port, candidates):
@@ -869,6 +872,12 @@ def prepare_fallback_profiles(env, candidates):
         if shared <= active:
             break
         active.update(shared)
+
+    for port in active:
+        if (env["duthost"].facts["asic_type"] == "vs"
+                and isinstance(env["control_links"][port]["host"], EosHost)
+                and "false" in (env["profiles"][port]["send_sci"], env["peer_profiles"][port]["send_sci"])):
+            pytest.skip("macsec on dut vsonic, neighbor eos, send_sci false")
 
     created = []
     bindings = []

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import ExitStack
 from ipaddress import ip_address, IPv4Address
 
 import natsort
@@ -24,6 +25,7 @@ from .macsec_config_helper import cleanup_macsec_multi_profile_configuration
 from .macsec_config_helper import enable_macsec_port
 from .macsec_helper import load_all_macsec_info, getns_prefix
 
+from tests.common.devices.eos import EosHost
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 from tests.common.utilities import wait_until
@@ -112,7 +114,27 @@ class MacsecPlugin(object):
         return __stop_macsec_service
 
     @pytest.fixture(scope="module")
-    def macsec_feature(self, start_macsec_service, stop_macsec_service):
+    def macsec_feature(self, request, start_macsec_service, stop_macsec_service, macsec_duthost, macsec_nbrhosts):
+        if request.node.path.name == "test_fallback_cak.py":
+            hosts = {host.hostname: host for host in
+                     [macsec_duthost] + [neighbor["host"] for neighbor in macsec_nbrhosts.values()]
+                     if not isinstance(host, EosHost)}
+            disabled = []
+            for host in hosts.values():
+                features, succeeded = host.get_feature_status()
+                assert succeeded and features.get("macsec") in (
+                    "enabled", "always_enabled", "disabled", "always_disabled"), (
+                    "Unable to determine original MACsec feature state on {}".format(host.hostname))
+                if features["macsec"] == "always_disabled":
+                    pytest.skip("MACsec is always_disabled on {}".format(host.hostname))
+                if features["macsec"] == "disabled":
+                    disabled.append(host)
+            with ExitStack() as cleanup:
+                for host in disabled:
+                    cleanup.callback(host.command, "sudo config feature state macsec disabled")
+                    enable_macsec_feature(host, {})
+                yield
+            return
         start_macsec_service()
         yield
         stop_macsec_service()

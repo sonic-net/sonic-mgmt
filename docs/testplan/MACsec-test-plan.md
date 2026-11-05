@@ -122,7 +122,9 @@ Fallback cases reuse the selected shared or per-interface profiles and their cur
 Only profiles missing fallback get a temporary dual-CA baseline. Compatible installed profiles can also
 be temporarily bound to initially unbound ports without being deleted. Cleanup restores the original
 bindings and waits for both endpoints of originally protected links to recover.
+Original MACsec feature-enable states are preserved on the DUT and SONiC peers.
 `--per_interface_macsec` is supported. `--macsec_profile all` excludes the static fallback profiles.
+VS DUT links to EOS still require `send_sci=true` in both effective endpoint profiles.
 Existing EOS profiles must expose type-7 keys and explicit cipher/priority settings for restoration.
 SONiC binding snapshots use CONFIG_DB rather than operational SA state; key reads target the selected
 profile in its ASIC namespace. EOS uses the existing
@@ -357,6 +359,7 @@ SAI_MACSEC_SA_ATTR_CONFIGURED_EGRESS_XPN            │
 Covers the [fallback CAK HLD](https://github.com/sonic-net/SONiC/pull/2495) and [MKA state HLD](https://github.com/sonic-net/SONiC/pull/2545).
 Uses two same-ASIC links to distinct neighbors, a test-owned profile with primary and fallback CAKs, and a 30-second rekey period.
 Traffic is ping between the two neighbors, through the DUT. State is read with `show macsec --mka`, `show macsec --profile` and `show macsec <port>`.
+An empty detailed MKA response is a missing observation to retry, not a retained successful session.
 macsecmgrd applies key updates in place and does not guarantee hitless updates. Zero-loss cases are operator-staged, with the other CA live on every link.
 
 - Operational state

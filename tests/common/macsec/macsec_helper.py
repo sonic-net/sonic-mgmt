@@ -693,20 +693,19 @@ def get_macsec_counters(duthost, port):
 
 def get_mka_status(host, port):
     '''
-    Parse `show macsec --mka <port>` into a dict, or None when the port has no MKA session.
+    Parse a detailed MKA observation, or None when show emits no valid session observation.
     Participants are keyed by lower-case CKN:
     {'role': 'primary'|'fallback', 'principal': bool, 'active': bool, 'live': int}
     '''
     output = host.command("show macsec {} --mka {}".format(getns_prefix(host, port), port),
                           verbose=False)["stdout"]
-    if "MKA session state for {} is missing".format(port) in output:
+    if not output.strip():
         return None
     labels = {
         "Interface": "interface",
         "Profile": "profile",
         "PAE KaY status": "kay",
         "Controlled port mode": "mode",
-        "Query status": "query",
         "Config status": "config",
         "MKA hello time": "hello",
         "Local key server": "local_key_server",
@@ -719,20 +718,19 @@ def get_mka_status(host, port):
             status[labels[key.strip()]] = value.strip()
     assert set(status) == set(labels.values()) and status["interface"] == port, \
         "Incomplete MKA status for {}".format(port)
-    status["fresh"] = "retained" not in output.lower()
-
     status["participants"] = {}
     header = next((i for i, line in enumerate(lines)
                    if line.split()[:5] == ["CKN", "Role", "Principal", "Active", "Live"]), None)
     if header is None:
-        assert "No MACsec MKA participant state found" in output, \
-            "Missing MKA participant table for {}".format(port)
         return status
     for line in lines[header + 2:]:
         if not line.strip():
             break
-        ckn, role, principal, active, live = line.split()[:5]
-        assert role in ("primary", "fallback") and live.isdigit(), \
+        fields = line.split()
+        assert len(fields) >= 5, "Malformed MKA participant row for {}".format(port)
+        ckn, role, principal, active, live = fields[:5]
+        assert (role in ("primary", "fallback") and principal in ("true", "false")
+                and active in ("true", "false") and live.isdigit()), \
             "Malformed MKA participant row for {}".format(port)
         status["participants"][ckn.lower()] = {
             "role": role,

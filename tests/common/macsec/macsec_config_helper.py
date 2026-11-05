@@ -399,7 +399,7 @@ def generate_macsec_profile(port_name, cipher_suite="GCM-AES-128", priority=64,
         port_name: Interface name (e.g. "Ethernet0"). Used in the profile name.
         cipher_suite: Cipher suite string. Determines key lengths.
         priority: MKA key-server priority (0-255).
-        policy: "security" (encrypt) or "integrity" (auth only).
+        policy: "security" (encrypt) or "integrity_only" (auth only).
         send_sci: "true" or "false".
         rekey_period: Seconds between rekeying (0 = disabled).
         include_fallback: Generate a separate fallback CAK/CKN pair.
