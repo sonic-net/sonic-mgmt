@@ -325,6 +325,60 @@ def send_and_verify_traffic(ptfadapter,
     return ptf_dst_port_list
 
 
+def get_dscp_to_tc_map_bindings(duthost):
+    """
+    Return the DSCP_TO_TC_MAP configured for the packets entering each front-end port of the DUT.
+
+    The effective binding of a port is its own PORT_QOS_MAP binding, otherwise the switch-global binding
+    (PORT_QOS_MAP|global) of its ASIC namespace. Ports with neither are left out.
+
+    Args:
+        duthost (AnsibleHost): The DUT host
+    Returns:
+        dict: DSCP_TO_TC_MAP name keyed by port name
+    """
+    bindings = {}
+    for namespace in duthost.get_frontend_asic_namespace_list():
+        cfg_facts = duthost.config_facts(host=duthost.hostname, source="running",
+                                         namespace=namespace)["ansible_facts"]
+        port_qos_map = cfg_facts.get("PORT_QOS_MAP", {})
+        global_ref = port_qos_map.get("global", {}).get("dscp_to_tc_map")
+        for port in cfg_facts.get("PORT", {}):
+            ref = port_qos_map.get(port, {}).get("dscp_to_tc_map", global_ref)
+            if ref:
+                # Older releases store the reference as "[DSCP_TO_TC_MAP|AZURE]"
+                bindings[port] = ref.strip("[]").split("|")[-1]
+    return bindings
+
+
+def get_src_link_candidates(links, dscp_to_tc_map_bindings, map_name=DEFAULT_MAPPING_TYPE):
+    """
+    Return the links that can be the ingress port of the test traffic.
+
+    The expected egress queues are computed from DSCP_TO_TC_MAP ``map_name``. A port can bind another map: with
+    tunnel_qos_remap enabled, the T2-facing ports of a T1 bind AZURE_UPLINK, which maps DSCP 2 and 6 to TC 1. On
+    some platforms (Cisco 8000 T1s, for example) the decapsulated packets are queued according to the ingress
+    port's map, so only ports whose effective binding is ``map_name`` are used.
+
+    Args:
+        links (dict): Links keyed by DUT interface name
+        dscp_to_tc_map_bindings (dict): DSCP_TO_TC_MAP name keyed by port, see get_dscp_to_tc_map_bindings()
+        map_name (str): Name of the DSCP_TO_TC_MAP the expected queues are computed from
+    Returns:
+        dict: The links whose port binds ``map_name``, or all links if there is none
+    """
+    candidates = {intf: link for intf, link in links.items() if dscp_to_tc_map_bindings.get(intf) == map_name}
+    if not candidates:
+        logger.warning("No link binds DSCP_TO_TC_MAP {}, selecting the source port among all links".format(map_name))
+        return links
+
+    excluded = {intf: dscp_to_tc_map_bindings.get(intf) for intf in links if intf not in candidates}
+    if excluded:
+        logger.info("Not using these ports as source port, their DSCP_TO_TC_MAP is not {}: {}"
+                    .format(map_name, excluded))
+    return candidates
+
+
 def find_queue_count_and_value(duthost, queue_val_list, dut_egress_port_list):
     egress_queue_counts_all_queues = get_egress_queue_pkt_count_all_port_prio(duthost)
     global egress_queue_count_list, egress_queue_val_list
@@ -354,6 +408,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                            tbinfo,
                            downstream_links,  # noqa F811
                            upstream_links,  # noqa F811
+                           src_dscp_to_tc_map=None,
                            ):
         """
         Set up test parameters for the DSCP to Queue mapping test for IP-IP packets.
@@ -365,13 +420,18 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             duthost (fixture): DUT fixture
             downstream_links (fixture): Dictionary of downstream links info for DUT
             upstream_links (fixture): Dictionary of upstream links info for DUT
+            src_dscp_to_tc_map (str): If given, select the source port only among the links whose port binds
+                this DSCP_TO_TC_MAP, see get_src_link_candidates()
         """
         links = {**downstream_links, **upstream_links}
+        src_links = links
+        if src_dscp_to_tc_map:
+            src_links = get_src_link_candidates(links, get_dscp_to_tc_map_bindings(duthost), src_dscp_to_tc_map)
 
         loopback_ip = get_ipv4_loopback_ip(duthost)
         pytest_assert(loopback_ip is not None, "No loopback IP found")
 
-        src_link = select_random_link(links)
+        src_link = select_random_link(src_links)
         pytest_assert(src_link is not None, "src_link is None")
 
         ptf_src_port_id = src_link.get("ptf_port_id")
@@ -631,7 +691,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_ip_list = route_config
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links,
+                                                  src_dscp_to_tc_map=DEFAULT_MAPPING_TYPE)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
