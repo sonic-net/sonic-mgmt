@@ -17,7 +17,6 @@ artifact_size = 0
 NOT_FOUND_BUILD_ID = -999
 MAX_DOWNLOAD_TIMES = 3
 BACKOFF_BASE_SECONDS = 30
-SECURE_BOOT_VS_PIPELINE_ID = 3442
 
 
 def reporthook(count, block_size, total_size):
@@ -106,12 +105,14 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     return (download_url, artifact_size)
 
 
-def download_artifacts(url, content_type, platform, buildid, num_asic, access_token, token):
+def download_artifacts(url, content_type, platform, buildid, num_asic, access_token, token, secure_boot=False):
     """find latest successful build id for a branch"""
 
     if content_type == 'image':
         if platform == 'vs':
-            if num_asic == 6:
+            if secure_boot:
+                filename = 'sonic-vs.img-uefi.img.gz'
+            elif num_asic == 6:
                 filename = 'sonic-6asic-vs.img.gz'
             elif num_asic == 4:
                 filename = 'sonic-4asic-vs.img.gz'
@@ -128,6 +129,9 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 
         url = url.replace('zip', 'file')
         url += "&subPath=%2Ftarget%2F{}".format(filename)
+        if secure_boot:
+            # Keep the standard local filename for existing VM image staging.
+            filename = 'sonic-vs.img.gz'
     else:
         filename = "{}.zip".format(platform)
 
@@ -173,9 +177,8 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                     sys.exit(1)
 
 
-def download_optional_artifact(url, filename, output_path, buildid,
-                               access_token, token):
-    """Download an optional file from the selected build artifact."""
+def download_secure_boot_firmware(url, filename, output_path, buildid, access_token, token):
+    """Download required Secure Boot firmware from the selected build artifact."""
 
     file_url = url.replace('zip', 'file')
     file_url += "&subPath=%2Ftarget%2F{}".format(filename)
@@ -193,16 +196,17 @@ def download_optional_artifact(url, filename, output_path, buildid,
         ]
 
     try:
-        print("Downloading optional {} from build {}".format(filename, buildid))
+        print("Downloading required {} from build {}".format(filename, buildid))
         with opener.open(file_url) as response, open(output_path, 'wb') as output:
             shutil.copyfileobj(response, output)
     except HTTPError as error:
         if error.code == 404:
-            print("Optional artifact {} is not present".format(filename))
-            return
+            raise RuntimeError(
+                "Secure Boot firmware {} is not present in build {}".format(filename, buildid)
+            ) from error
         raise
 
-    print("Optional artifact {} downloaded".format(filename))
+    print("Secure Boot firmware {} downloaded".format(filename))
 
 
 def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
@@ -258,8 +262,12 @@ def main():
                         default='', nargs='?', const='', required=False, help='bearer token')
     parser.add_argument('--build_pipeline_id', metavar='build_pipeline_id', type=int,
                         default=None, nargs='?', const=None, required=False, help='Build Pipeline ID (download image)')
+    parser.add_argument('--secure-boot', action='store_true',
+                        help='Download the single-ASIC VS UEFI image and required matching Secure Boot firmware')
 
     args = parser.parse_args()
+    if args.secure_boot and (args.content != 'image' or args.platform != 'vs' or args.num_asic != 1):
+        parser.error('--secure-boot requires --platform vs --content image --num_asic 1')
 
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded", args.build_pipeline_id)
@@ -285,10 +293,9 @@ def main():
                                                token=args.token)
 
     download_artifacts(dl_url, args.content, args.platform,
-                       buildid, args.num_asic, access_token=args.access_token, token=args.token)
-    if (args.content == 'image' and args.platform == 'vs' and
-            args.num_asic == 1 and
-            args.build_pipeline_id == SECURE_BOOT_VS_PIPELINE_ID):
+                       buildid, args.num_asic, access_token=args.access_token, token=args.token,
+                       secure_boot=args.secure_boot)
+    if args.secure_boot:
         companion_filename = 'sonic-vs_vars.fd'
         companion_directory = os.path.join('sonic-vm', 'images')
         companion_path = (
@@ -296,7 +303,7 @@ def main():
             if os.path.isdir(companion_directory)
             else companion_filename
         )
-        download_optional_artifact(
+        download_secure_boot_firmware(
             dl_url,
             companion_filename,
             companion_path,
