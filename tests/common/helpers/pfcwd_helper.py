@@ -13,7 +13,7 @@ from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import redis_hgetall
+from tests.common.helpers.sonic_db import redis_hget, redis_hgetall
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -348,7 +348,6 @@ def set_pfc_timers():
     pfc_timers = {'pfc_wd_detect_time': 400,
                   'pfc_wd_restore_time': 400,
                   'pfc_wd_restore_time_large': 3000,
-                  'pfc_wd_restore_time_hw': 1000,
                   'pfc_wd_poll_time': 400
                   }
     return pfc_timers
@@ -383,7 +382,6 @@ def calculate_pfcwd_default_timers(duthost):
         'pfc_wd_detect_time': PFCWD_DEFAULT_DETECT_TIME * multiply,
         'pfc_wd_restore_time': PFCWD_DEFAULT_RESTORE_TIME * multiply,
         'pfc_wd_restore_time_large': 3000,
-        'pfc_wd_restore_time_hw': 1000,
         'pfc_wd_poll_time': poll_interval
     }
 
@@ -454,7 +452,16 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
-def is_pfcwd_hw_recovery_enabled(duthost):
+def _pfcwd_state_db_host(duthost, port=None):
+    """Host to read the watchdog's STATE_DB from: on multi-ASIC, the port's ASIC or the first frontend ASIC"""
+    if not getattr(duthost, "is_multi_asic", False):
+        return duthost
+    if port:
+        return duthost.get_port_asic_instance(port)
+    return duthost.frontend_asics[0]
+
+
+def is_pfcwd_hw_recovery_enabled(duthost, port=None):
     """
     Check if PFC watchdog is using hardware-based recovery mechanism.
 
@@ -463,13 +470,16 @@ def is_pfcwd_hw_recovery_enabled(duthost):
     'show pfcwd stats' are sourced from the software-recovery code path and
     stay at 0 on HW-recovery platforms even when silicon is dropping.
 
+    Args:
+        port (str): port whose ASIC to check on a multi-ASIC DUT
+
     Returns:
         bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
     """
     try:
-        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
-        result = duthost.shell(cmd, module_ignore_errors=True)
-        output = result.get('stdout', '').strip().strip('"').strip("'").lower()
+        output = redis_hget(_pfcwd_state_db_host(duthost, port), 'STATE_DB',
+                            'PFC_WD_STATE_TABLE|PFC_WD', 'RECOVERY_MECHANISM')
+        output = output.strip('"').strip("'").lower()
         is_hardware = (output == "hardware")
         logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
             output or "not set", is_hardware))
@@ -479,9 +489,9 @@ def is_pfcwd_hw_recovery_enabled(duthost):
         return False
 
 
-def get_pfcwd_hw_timer_limits(duthost):
+def get_pfcwd_hw_timer_limits(duthost, port=None):
     """Return the HW PFCWD timer ranges (ms) from STATE_DB, or None if not in HW mode."""
-    state = redis_hgetall(duthost, 'STATE_DB', 'PFC_WD_STATE_TABLE|PFC_WD')
+    state = redis_hgetall(_pfcwd_state_db_host(duthost, port), 'STATE_DB', 'PFC_WD_STATE_TABLE|PFC_WD')
     if state.get('RECOVERY_MECHANISM', '').upper() != 'HARDWARE':
         return None
     try:
@@ -496,6 +506,15 @@ def get_pfcwd_hw_timer_limits(duthost):
         return None
     logger.info("Hardware PFCWD timer limits: {}".format(limits))
     return limits
+
+
+def get_pfcwd_hw_timers(duthost, detect_time, restore_time, port=None):
+    """Clamp detection/restoration times (ms) into the HW ranges; unchanged when none are published."""
+    limits = get_pfcwd_hw_timer_limits(duthost, port)
+    if not limits:
+        return detect_time, restore_time
+    return (min(max(detect_time, limits['detection_min']), limits['detection_max']),
+            min(max(restore_time, limits['restoration_min']), limits['restoration_max']))
 
 
 @contextlib.contextmanager

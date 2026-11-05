@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports  # noqa: F401
 from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
-from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled, get_pfcwd_hw_timers
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -76,18 +76,20 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
-    hw_pfcwd = is_pfcwd_hw_recovery_enabled(duthost)
+    # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
+    # So that convert to list explicitly.
+    pfc_wd_test_port = list(test_ports.keys())[0]
+    hw_pfcwd = is_pfcwd_hw_recovery_enabled(duthost, pfc_wd_test_port)
     if hw_pfcwd:
         # Hardware timers are programmed in the ASIC: the port-count scaling does not
-        # apply and scaled values can be rejected.
-        logger.info(f"Hardware PFC watchdog: keeping base timers {timers}")
+        # apply, and the timers must be within the published ranges.
+        timers['pfc_wd_detect_time'], timers['pfc_wd_restore_time'] = get_pfcwd_hw_timers(
+            duthost, timers['pfc_wd_detect_time'], timers['pfc_wd_restore_time'], pfc_wd_test_port)
+        logger.info(f"Hardware PFC watchdog: timers {timers}")
     else:
         dynamic_timers = calculate_pfcwd_default_timers(duthost)
         logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
         timers.update(dynamic_timers)
-    # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
-    # So that convert to list explicitly.
-    pfc_wd_test_port = list(test_ports.keys())[0]
     neighbors = setup_info['neighbors']
     fanout_info = enum_fanout_graph_facts
     dut = duthost

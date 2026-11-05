@@ -20,7 +20,8 @@ from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, \
-    verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled
+    verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled, \
+    get_pfcwd_hw_timers
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
@@ -775,9 +776,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         Returns:
             loganalyzer(Loganalyzer) : instance
         """
-        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
-            else self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
+        if self.is_hw_recovery:
+            detect_time, restore_time = get_pfcwd_hw_timers(dut, detect_time, restore_time, port)
 
         loganalyzer = LogAnalyzer(ansible_host=self.dut,
                                   marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
@@ -909,9 +911,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.match_regex = []
         loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
 
-        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
-            else self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
+        if self.is_hw_recovery:
+            detect_time, restore_time = get_pfcwd_hw_timers(dut, detect_time, restore_time, port)
         start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
         self.storm_hndle.start_storm()
 
@@ -1344,11 +1347,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def run_pfcwd_storm_with_active_traffic(self, dut, port, action):
         restore_time = self.timers['pfc_wd_restore_time_large']
-        # Hardware PFCwd platforms (e.g., Broadcom DNX) cap pfcwd
-        # restoration-time at 100-1000 ms; clamp to keep the CLI happy.
-        if is_pfcwd_hw_recovery_enabled(dut):
-            restore_time = min(restore_time, 1000)
         detect_time = self.timers['pfc_wd_detect_time']
+        # Hardware PFCwd platforms only accept timers within their published ranges
+        if is_pfcwd_hw_recovery_enabled(dut, port):
+            detect_time, restore_time = get_pfcwd_hw_timers(dut, detect_time, restore_time, port)
         queue = self.pfc_wd['queue_index']
 
         start_wd_on_ports(dut, port, restore_time, detect_time, action)

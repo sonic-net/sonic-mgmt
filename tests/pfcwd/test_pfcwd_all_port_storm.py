@@ -9,7 +9,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, update_pfc_poll_interval  # noqa: F401
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re, verify_all_ports_pfc_storm_in_expected_state, \
-    get_pfc_storm_baseline_counters, is_pfcwd_hw_recovery_enabled
+    get_pfc_storm_baseline_counters, is_pfcwd_hw_recovery_enabled, get_pfcwd_hw_timers
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
@@ -114,8 +114,11 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     pfc_frames_number = 10000000
     pfc_wd_detect_time = 200
     # No poll interval in HW mode
-    is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
-    pfc_wd_restore_time = 1000 if is_hw_recovery else 200
+    is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost, port_list[0])
+    pfc_wd_restore_time = 200
+    if is_hw_recovery:
+        pfc_wd_detect_time, pfc_wd_restore_time = get_pfcwd_hw_timers(
+            duthost, pfc_wd_detect_time, 1000, port_list[0])
     peer_params = populate_peer_info(asic_type, port_list, neighbors, pfc_queue_index, pfc_frames_number)
     storm_hndle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
     if not is_hw_recovery:

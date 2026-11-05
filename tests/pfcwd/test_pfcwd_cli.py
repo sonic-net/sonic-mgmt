@@ -8,7 +8,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
     shutdown_lag_members, restore_original_config
-from tests.common.helpers.pfcwd_helper import has_neighbor_device, is_pfcwd_hw_recovery_enabled
+from tests.common.helpers.pfcwd_helper import has_neighbor_device, is_pfcwd_hw_recovery_enabled, \
+    get_pfcwd_hw_timers
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
@@ -350,9 +351,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         Returns:
             loganalyzer(Loganalyzer) : instance
         """
-        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
-            else self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
+        if self.is_hw_recovery:
+            detect_time, restore_time = get_pfcwd_hw_timers(dut, detect_time, restore_time, port)
 
         selected_test_ports = [self.pfc_wd['rx_port'][0]]
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}

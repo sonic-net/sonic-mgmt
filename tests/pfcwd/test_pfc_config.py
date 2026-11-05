@@ -135,7 +135,7 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
     pfc_wd_test_port = list(setup_info['test_ports'].keys())[0]
-    hw_limits = get_pfcwd_hw_timer_limits(duthost)
+    hw_limits = get_pfcwd_hw_timer_limits(duthost, pfc_wd_test_port)
     logger.info("Creating json templates for all config tests")
     cfg_params = generate_cfg_templates(pfc_wd_test_port, hw_limits)
     logger.info("Copying templates over to the DUT")
