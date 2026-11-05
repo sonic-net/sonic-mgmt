@@ -587,11 +587,11 @@ def thermalctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
 
 def _thermalctld_collect_data(duthost):
     keys = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "{}"'.format(THERMALCTLD_DB_KEY_PATTERN)
+        'sonic-db-cli -s STATE_DB KEYS "{}"'.format(THERMALCTLD_DB_KEY_PATTERN)
     )['stdout_lines']
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        data = duthost.shell('sonic-db-cli -s STATE_DB HGETALL "{}"'.format(k))['stdout']
         dev_data[k] = data
     return {'keys': sorted(keys), 'data': dev_data}
 

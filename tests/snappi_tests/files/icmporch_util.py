@@ -143,7 +143,7 @@ class ICMPOrchUtil:
                         if self.verbose:
                             print("Removing from APP_DB: {}".format(key))
                         # Delete the key directly
-                        subprocess.run(['sonic-db-cli', '-s', 'APPL_DB', 'DEL', key],
+                        subprocess.run(['sonic-db-cli', '-s', '--authenticate', 'APPL_DB', 'DEL', key],
                                        capture_output=True, text=True)
                         app_count += 1
         except Exception as e:
@@ -165,7 +165,7 @@ class ICMPOrchUtil:
                         if self.verbose:
                             print("Removing from STATE_DB: {}".format(key))
                         # Delete the key directly
-                        subprocess.run(['sonic-db-cli', '-s', 'STATE_DB', 'DEL', key],
+                        subprocess.run(['sonic-db-cli', '-s', '--authenticate', 'STATE_DB', 'DEL', key],
                                        capture_output=True, text=True)
                         state_count += 1
         except Exception as e:
