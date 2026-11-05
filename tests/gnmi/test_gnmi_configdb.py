@@ -32,6 +32,10 @@ pytestmark = [
 ]
 
 
+# After a port flap, a BGP session can repeat connection collisions with its neighbor for over a minute
+# before it establishes, so allow as long as other BGP recovery waits do (e.g. tests/lldp/test_lldp_syncd.py).
+BGP_RECOVERY_TIMEOUT = 300
+
 VRF_SCENARIOS = [
     {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
     {"name": "default_2", "vrf": DEFAULT_VRF_NAME, "description": f"Default (explicit '{DEFAULT_VRF_NAME}')"},
@@ -152,7 +156,7 @@ def wait_bgp_neighbor(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {})
     pytest_assert(
-        wait_until(60, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+        wait_until(BGP_RECOVERY_TIMEOUT, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
         "Not all BGP sessions are established on DUT",
     )
 
