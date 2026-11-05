@@ -181,9 +181,10 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
 
-    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False):
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False, authenticate=False):
         cli = "sonic-db-cli {}".format(self.cli_ns_option) if use_tcp else self.sonic_db_cli
-        cmd = "{} {}".format(cli, sonic_db_cmd)
+        auth_option = " --authenticate" if authenticate else ""
+        cmd = "{}{} {}".format(cli, auth_option, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
 
     def run_redis_cli_cmd(self, redis_cmd):
