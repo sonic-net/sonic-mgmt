@@ -53,53 +53,6 @@ def skip_if_platform_unsupported(result):
         pytest.skip("Drop monitor is not supported on this platform: {!r}".format(output.strip()))
 
 
-def read_drop_limit_raw(duthost):
-    """
-    Return drop_monitor_limit as a raw string, or None when the field is absent.
-
-    A redis-cli failure must not be mistaken for an absent field, so a non-zero
-    rc is an assertion failure rather than None.
-    """
-    result = duthost.shell(
-        "redis-cli -n 4 hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
-        module_ignore_errors=True,
-    )
-
-    assert result["rc"] == 0, (
-        "Failed to read {} from CONFIG_DB: stdout={!r}, stderr={!r}".format(
-            DROP_LIMIT_FIELD,
-            result.get("stdout", ""),
-            result.get("stderr", ""),
-        )
-    )
-
-    value = result.get("stdout", "").strip()
-    return value if value != "" else None
-
-
-def write_drop_limit_raw(duthost, value):
-    """
-    Write drop_monitor_limit directly to CONFIG_DB, or delete it when value is
-    None. Used only to undo writes made by this module.
-    """
-    if value is None:
-        cmd = "redis-cli -n 4 hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD)
-    else:
-        cmd = "redis-cli -n 4 hset '{}' {} '{}'".format(
-            SFLOW_TABLE, DROP_LIMIT_FIELD, value
-        )
-
-    result = duthost.shell(cmd, module_ignore_errors=True)
-
-    assert result["rc"] == 0, (
-        "Failed to restore {}: stdout={!r}, stderr={!r}".format(
-            DROP_LIMIT_FIELD,
-            result.get("stdout", ""),
-            result.get("stderr", ""),
-        )
-    )
-
-
 def get_drop_limit_from_db(duthost, required=True):
     """
     Read drop_monitor_limit from CONFIG_DB.
@@ -144,14 +97,7 @@ def get_drop_limit_from_db(duthost, required=True):
 @pytest.fixture(scope="module")
 def cli_sflow_drop_monitor_support(duthost):
     """
-    Skip the whole module when the image or the platform lacks drop-monitor-limit.
-
-    '--help' only proves the command is present; the platform capability check
-    runs at execution time, so the probe has to actually invoke the command.
-    The probe writes to CONFIG_DB and runs before the function-scoped
-    preserve_sflow_drop_limit fixture, so it snapshots and restores on its own --
-    otherwise the probed value would become the "original" that every later test
-    restores to.
+    Verify that 'config sflow drop-monitor-limit' exists on the image.
     """
     result = duthost.shell(
         "{} --help".format(CLI_CMD),
@@ -172,25 +118,6 @@ def cli_sflow_drop_monitor_support(duthost):
             result.get("stderr", ""),
         )
     )
-
-    original = read_drop_limit_raw(duthost)
-    try:
-        probe = run_drop_limit_cli(duthost, BASELINE_VALUE)
-    finally:
-        write_drop_limit_raw(duthost, original)
-
-    skip_if_platform_unsupported(probe)
-
-    assert probe["rc"] == 0, (
-        "CLI '{}' failed for valid value {} for an unrecognized reason: "
-        "rc={}, stdout={!r}, stderr={!r}".format(
-            CLI_CMD,
-            BASELINE_VALUE,
-            probe["rc"],
-            probe.get("stdout", ""),
-            probe.get("stderr", ""),
-        )
-    )
     return True
 
 
@@ -201,11 +128,43 @@ def preserve_sflow_drop_limit(duthost):
 
     Module-level autouse: it does not run for other test files in tests/sflow.
     """
-    original = read_drop_limit_raw(duthost)
+    original = duthost.shell(
+        "redis-cli -n 4 hget '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+        module_ignore_errors=True,
+    )
+    # A redis-cli failure must not be mistaken for an absent field.
+    assert original["rc"] == 0, (
+        "Failed to snapshot {} from CONFIG_DB: stdout={!r}, stderr={!r}".format(
+            DROP_LIMIT_FIELD,
+            original.get("stdout", ""),
+            original.get("stderr", ""),
+        )
+    )
+    original_value = original.get("stdout", "").strip()
+    originally_present = original_value != ""
 
     yield
 
-    write_drop_limit_raw(duthost, original)
+    if originally_present:
+        restore = duthost.shell(
+            "redis-cli -n 4 hset '{}' {} '{}'".format(
+                SFLOW_TABLE, DROP_LIMIT_FIELD, original_value
+            ),
+            module_ignore_errors=True,
+        )
+    else:
+        restore = duthost.shell(
+            "redis-cli -n 4 hdel '{}' {}".format(SFLOW_TABLE, DROP_LIMIT_FIELD),
+            module_ignore_errors=True,
+        )
+
+    assert restore["rc"] == 0, (
+        "Failed to restore {} after test: stdout={!r}, stderr={!r}".format(
+            DROP_LIMIT_FIELD,
+            restore.get("stdout", ""),
+            restore.get("stderr", ""),
+        )
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -226,6 +185,7 @@ def test_sflow_drop_monitor_limit_valid(
     """
 
     result = run_drop_limit_cli(duthost, value)
+    skip_if_platform_unsupported(result)
 
     assert result["rc"] == 0, (
         "CLI rejected valid drop-monitor-limit value {}: "
@@ -262,6 +222,7 @@ def test_sflow_drop_monitor_limit_invalid(
     """
 
     baseline = run_drop_limit_cli(duthost, BASELINE_VALUE)
+    skip_if_platform_unsupported(baseline)
     assert baseline["rc"] == 0, (
         "Failed to set baseline drop-monitor-limit {}: stdout={!r}, stderr={!r}".format(
             BASELINE_VALUE,
