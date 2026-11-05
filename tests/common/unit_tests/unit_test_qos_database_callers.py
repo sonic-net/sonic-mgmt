@@ -79,7 +79,7 @@ def test_storm_write_stays_on_queue_asic_and_counters_database(pfc):
     dut.get_queue_oid_asic_instance.return_value = asic
     pfc['PfcCmd'].set_storm_status(dut, 'oid:0x123', 'enabled')
     asic.run_redis_cmd.assert_called_once_with(argv=[
-        'sonic-db-cli', '-s', 'COUNTERS_DB', 'HSET', 'COUNTERS:oid:0x123', 'DEBUG_STORM', 'enabled'])
+        'sonic-db-cli', '-s', '--authenticate', 'COUNTERS_DB', 'HSET', 'COUNTERS:oid:0x123', 'DEBUG_STORM', 'enabled'])
 
 
 @pytest.mark.parametrize('status', ['enable', 'disable'])
@@ -99,7 +99,7 @@ def test_pfcwd_setup_uses_namespace_database_helper(status):
     for asic in asics.values():
         if status == 'disable':
             asic.run_sonic_db_cli_cmd.assert_called_once_with(
-                'CONFIG_DB hset "DEVICE_METADATA|localhost" default_pfcwd_status enable')
+                'CONFIG_DB hset "DEVICE_METADATA|localhost" default_pfcwd_status enable', authenticate=True)
         else:
             asic.run_sonic_db_cli_cmd.assert_not_called()
 

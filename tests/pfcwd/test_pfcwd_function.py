@@ -154,7 +154,7 @@ class PfcCmd(object):
         asic = dut.get_queue_oid_asic_instance(queue_oid)
         asic.run_redis_cmd(
             argv=[
-                "sonic-db-cli", '-s', "COUNTERS_DB", "HSET",
+                "sonic-db-cli", '-s', '--authenticate', "COUNTERS_DB", "HSET",
                 "COUNTERS:{}".format(queue_oid),
                 "DEBUG_STORM", storm_status
             ]

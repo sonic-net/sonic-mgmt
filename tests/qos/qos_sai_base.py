@@ -2691,7 +2691,7 @@ class QosSaiBase(QosBase):
             """
             for a_asic in get_src_dst_asic_and_duts['all_asics']:
                 a_asic.run_redis_cmd(
-                    argv=["sonic-db-cli", '-s', 'CONFIG_DB', "HSET",
+                    argv=["sonic-db-cli", '-s', '--authenticate', 'CONFIG_DB', "HSET",
                           schedParam["profile"],
                           "weight",
                           schedParam["qosConfig"]
@@ -2837,7 +2837,7 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']  # noqa: F841
 
         dualtor_ports_str = get_src_dst_asic_and_duts['src_asic'].run_redis_cmd(
-            argv=["sonic-db-cli", '-s', "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
+            argv=["sonic-db-cli", '-s', '--authenticate', "CONFIG_DB", "eval", fetch_dual_tor_ports_script, "0"])
         if dualtor_ports_str:
             dualtor_ports_set = set(dualtor_ports_str)
         else:
