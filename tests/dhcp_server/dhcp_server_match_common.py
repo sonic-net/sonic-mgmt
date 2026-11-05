@@ -17,6 +17,7 @@ import tempfile
 import time
 import uuid
 from collections import OrderedDict, namedtuple
+from contextlib import contextmanager
 
 import pytest
 import ptf.packet as scapy
@@ -92,12 +93,12 @@ def get_running_config(duthost):
     return json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
 
 
-def discover_match_env(duthost, tbinfo):
-    """Discover the VLAN, its PTF-connected members and a free address window."""
+def discover_match_env(duthost, tbinfo, vlan_name=None):
+    """Discover the VLAN (the first one with IPv4 unless named), its PTF-connected members and free addresses."""
     config = get_running_config(duthost)
     vlan_brief = duthost.get_vlan_brief()
-    vlan_name, vlan_info = next(((name, info) for name, info in vlan_brief.items() if info.get("interface_ipv4")),
-                                (None, None))
+    vlan_name, vlan_info = next(((name, info) for name, info in vlan_brief.items()
+                                 if info.get("interface_ipv4") and vlan_name in (None, name)), (None, None))
     pytest_require(vlan_name is not None, "No VLAN with an IPv4 address found")
     vlan_intf = ipaddress.ip_interface(vlan_info["interface_ipv4"][0])
     topology = tbinfo["topo"]["properties"]["topology"]
@@ -332,15 +333,7 @@ class MatchConfig(object):
         return tables
 
     def gcu_patch(self, reverse=False):
-        patch = []
-        for table, entries in self.config_db_tables(reverse).items():
-            if not entries:
-                continue
-            patch.append({"op": "add", "path": "/{}".format(table), "value": {}})
-            for key, value in entries.items():
-                patch.append({"op": "add", "path": "/{}/{}".format(table, json_pointer_escape(key)),
-                              "value": value})
-        return patch
+        return tables_gcu_patch(self.config_db_tables(reverse))
 
     def apply(self, duthost, config_tool=DHCP_SERVER_CONFIG_TOOL_CLI, reverse=False, wait=True):
         clean_match_server_config(duthost)
@@ -370,6 +363,84 @@ class MatchConfig(object):
 
 def json_pointer_escape(key):
     return key.replace("~", "~0").replace("/", "~1")
+
+
+def tables_gcu_patch(tables):
+    patch = []
+    for table, entries in tables.items():
+        if not entries:
+            continue
+        patch.append({"op": "add", "path": "/{}".format(table), "value": {}})
+        for key, value in entries.items():
+            patch.append({"op": "add", "path": "/{}/{}".format(table, json_pointer_escape(key)), "value": value})
+    return patch
+
+
+def apply_match_configs(duthost, cfgs, wait=True):
+    """Apply the configurations of several DHCP interfaces in one GCU patch.
+
+    Matches and ranges are global tables, so entries with the same name must be identical.
+    """
+    merged = OrderedDict((table, OrderedDict()) for table in DHCP_SERVER_TABLES)
+    for cfg in cfgs:
+        for table, entries in cfg.config_db_tables().items():
+            for key, value in entries.items():
+                pytest_assert(merged[table].get(key, value) == value,
+                              "Conflicting {} entry {} across configurations".format(table, key))
+                merged[table][key] = value
+    clean_match_server_config(duthost)
+    apply_dhcp_server_config_gcu(duthost, tables_gcu_patch(merged))
+    if wait:
+        for cfg in cfgs:
+            wait_for_kea_pools(duthost, cfg.env, cfg.expected_pools())
+
+
+def _vlan_gcu_patch(vlan, vlan_id, interface, members, from_vlan, adding):
+    """Patch that moves ``members`` from ``from_vlan`` to a new ``vlan`` (or back when not ``adding``)."""
+    vlan_ops = [("/VLAN/{}".format(vlan), {"vlanid": vlan_id}),
+                ("/VLAN_INTERFACE/{}".format(vlan), {}),
+                ("/VLAN_INTERFACE/{}".format(json_pointer_escape("{}|{}".format(vlan, interface))), {})]
+    old_members = ["/VLAN_MEMBER/{}|{}".format(from_vlan, member) for member in members]
+    new_members = ["/VLAN_MEMBER/{}|{}".format(vlan, member) for member in members]
+    untagged = {"tagging_mode": "untagged"}
+    if adding:
+        return ([{"op": "remove", "path": path} for path in old_members] +
+                [{"op": "add", "path": path, "value": value} for path, value in vlan_ops] +
+                [{"op": "add", "path": path, "value": untagged} for path in new_members])
+    return ([{"op": "remove", "path": path} for path in new_members] +
+            [{"op": "remove", "path": path} for path, _ in reversed(vlan_ops)] +
+            [{"op": "add", "path": path, "value": untagged} for path in old_members])
+
+
+@contextmanager
+def second_vlan(duthost, tbinfo, env, vlan="Vlan4001", interface="192.168.200.1/24", member_count=3):
+    """Move the last PTF-connected members of ``env.vlan`` into a new VLAN with its own prefix.
+
+    The original VLAN keeps its other members, IP addresses and relay settings, so P1 and P2
+    of ``env`` are unaffected. Yields (refreshed env of the original VLAN, env of the new VLAN).
+    The DHCP server tables are cleared on exit, because they may reference the new VLAN or its members.
+    """
+    new_net = ipaddress.ip_interface(interface).network
+    for name in duthost.shell("sonic-db-cli CONFIG_DB KEYS '*INTERFACE|*|*'")["stdout_lines"]:
+        address = name.split("|")[-1]
+        if "." in address:
+            pytest_require(not ipaddress.ip_interface(address).network.overlaps(new_net),
+                           "{} overlaps existing interface address {}".format(interface, name))
+    pytest_require(len(env.members) >= member_count + 2, "Not enough PTF-connected members to split the VLAN")
+    moved = [port.name for port in env.members[-member_count:]]
+    for port in moved:
+        mode = duthost.shell("sonic-db-cli CONFIG_DB HGET 'VLAN_MEMBER|{}|{}' tagging_mode".format(
+            env.vlan, port))["stdout"].strip()
+        pytest_require(mode == "untagged", "{} is not an untagged member of {}".format(port, env.vlan))
+    vlan_id = vlan.replace("Vlan", "")
+    apply_dhcp_server_config_gcu(duthost, _vlan_gcu_patch(vlan, vlan_id, interface, moved, env.vlan, True))
+    try:
+        pytest_assert(wait_until(60, 2, 0, lambda: vlan in duthost.get_vlan_brief()),
+                      "{} was not created".format(vlan))
+        yield discover_match_env(duthost, tbinfo, env.vlan), discover_match_env(duthost, tbinfo, vlan)
+    finally:
+        clean_match_server_config(duthost)
+        apply_dhcp_server_config_gcu(duthost, _vlan_gcu_patch(vlan, vlan_id, interface, moved, env.vlan, False))
 
 
 def binding_command(vlan, name, binding, verb="add"):
@@ -520,8 +591,8 @@ def get_kea_class_test(duthost, class_name):
 def get_kea_leases(duthost):
     """Return the current Kea leases parsed from the memfile lease database.
 
-    SONiC Kea does not load the lease_cmds hook, so ``lease4-get`` is unavailable.
-    The memfile appends one row per lease change (a release or deletion is a row with
+    The memfile is read so that the helpers also work on images whose Kea does not load
+    the lease_cmds hook. It appends one row per lease change (a release or deletion is a row with
     a zero lifetime), so the last row for an address is its current state. Files left
     by lease file cleanup (LFC) are read first, in the order Kea itself loads them.
     """
@@ -569,7 +640,7 @@ def remaining_lease_seconds(duthost, ip):
 def cleanup_test_leases(duthost):
     """Delete only leases created by these tests from Kea and State DB.
 
-    Without lease_cmds there is no ``lease4-del``, so kea-dhcp4 is stopped, the test
+    Kea without the lease_cmds hook has no ``lease4-del``, so kea-dhcp4 is stopped, the test
     rows are removed from the memfile and kea-dhcp4 is started again. This happens only
     when test leases exist, and only between scenarios, never inside one.
     """
@@ -596,6 +667,23 @@ def get_state_db_lease(duthost, vlan, mac):
     if not lines or lines == "{}":
         return {}
     return json.loads(lines.replace("'", '"'))
+
+
+def get_state_db_leases(duthost, vlan):
+    """Return {mac: ip} of the State DB leases on ``vlan``."""
+    leases = {}
+    for key in duthost.shell("sonic-db-cli STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|*'".format(vlan))["stdout_lines"]:
+        mac = key.split("|")[-1]
+        leases[mac] = get_state_db_lease(duthost, vlan, mac).get("ip")
+    return leases
+
+
+def get_kea_subnet_leases(duthost, subnet_id):
+    """Return {mac: ip} of the leases that Kea holds in ``subnet_id``, using the lease_cmds hook."""
+    response = kea_command(duthost, "lease4-get-all", {"subnets": [int(subnet_id)]})
+    pytest_assert(response is not None and response.get("result") in (0, 3),
+                  "lease4-get-all failed (is the lease_cmds hook loaded?): {}".format(response))
+    return {lease["hw-address"]: lease["ip-address"] for lease in response.get("arguments", {}).get("leases", [])}
 
 
 def wait_for_state_db_lease(duthost, vlan, mac, present=True, timeout=20):
