@@ -2,6 +2,7 @@
 # - dpu
 # - dualtor-t0
 # - dualtor-aa-vpp
+# - dualtor-vpp
 # - multi-asic-t1-lag
 # - t0
 # - t0-2vlans
@@ -11,7 +12,7 @@
 # - t1-lag-vpp
 PR_TOPOLOGY_TYPE = ["t0_checker", "t0-2vlans_checker", "t0-sonic_checker", "t0-vpp_checker",
                     "t1_checker", "t1-multi-asic_checker", "t1-lag-vpp_checker", "dpu_checker",
-                    "dualtor_checker", "dualtor-aa-vpp_checker", "t2_checker"]
+                    "dualtor_checker", "dualtor-aa-vpp_checker", "dualtor-vpp_checker", "t2_checker"]
 
 EXCLUDE_TEST_SCRIPTS = [
     "test_posttest.py",
@@ -30,6 +31,7 @@ PR_CHECKER_TOPOLOGY_NAME = {
     "dpu": ["dpu", "kvmtest-dpu_"],
     "dualtor": ["dualtor", "kvmtest-dualtor-t0_"],
     "dualtor-aa-vpp": ["dualtor-aa-vpp", "kvmtest-dualtor-aa-vpp_"],
+    "dualtor-vpp": ["dualtor-vpp", "kvmtest-dualtor-vpp_"],
     "t2": ["t2", "kvmtest-t2_"]
 }
 
@@ -47,8 +49,4 @@ CONTROL_PLANE_DEDUP_RULES = [
 ]
 
 MAX_INSTANCE_NUMBER = 40
-WORKER_COUNT_DIVISOR_BY_TOPOLOGY = {
-    "dualtor-vpp": 2,
-    "dualtor-aa-vpp": 2,
-}
 MAX_GET_TOKEN_RETRY_TIMES = 3

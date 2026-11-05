@@ -7,6 +7,7 @@ import time
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.constants import ISOLATED_T2_TOPO_PREFIX
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type, get_all_upstream_neigh_type
@@ -57,7 +58,9 @@ def get_default_route_upstream_neigh_type(tb):
 
 def get_default_route_all_upstream_neigh_type(tb):
     if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
-        return "T0"
+        return ["T0"]
+    if tb["topo"]["name"].startswith(ISOLATED_T2_TOPO_PREFIX):
+        return get_all_upstream_neigh_type(ISOLATED_T2_TOPO_PREFIX)
     return get_all_upstream_neigh_type(tb["topo"]["type"])
 
 

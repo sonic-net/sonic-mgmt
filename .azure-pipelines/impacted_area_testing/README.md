@@ -94,6 +94,10 @@ ensuring that the workload is balanced of each instance.
 Ideally, each instance will run its assigned scripts in approximately 1.5 hours,
 leaving additional time for tasks such as testbed preparation and clean-up and keeping the total runtime within 2 hours.
 
+`calculate-instance-numbers.yml` reuses `jq` when it is already available on the agent.
+Otherwise it installs `jq` with the existing APT lock timeout and fails the step immediately if installation fails.
+Preinstalling `jq` on agents avoids per-job APT operations and contention with background updates.
+
 ## Advantages
 Impacted area based PR testing runs test scripts on demand, reducing the overall scale of the PR test and saving execution time.
 And instances will be allocated as needed, resulting in more cost-efficient resource usage.

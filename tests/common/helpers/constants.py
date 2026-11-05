@@ -27,6 +27,10 @@ ARP_RESPONDER_DEFAULT_CONFIG = "/tmp/from_t1.json"
 # the file naming scheme ever changes; the PTF runner keeps a module-local mirror.
 ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT = "/tmp/from_t1_%s.json"
 
+# Isolated T2 topologies (t2-isolated-*) have no T3 tier. Their PT1 peer-leaf neighbors
+# provide the default routes, so PT1 is treated as the upstream tier for every variant.
+ISOLATED_T2_TOPO_PREFIX = "t2-isolated"
+
 # Describe upstream neighbor of dut in different topos
 UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
@@ -35,6 +39,7 @@ UPSTREAM_NEIGHBOR_MAP = {
     "m0": "m1",
     "mx": "m0",
     "t2": "t3",
+    ISOLATED_T2_TOPO_PREFIX: "pt1",
     "m0_vlan": "m1",
     "m0_l3": "m1",
     "ft2": "lt2",
@@ -58,6 +63,7 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0": ["m1"],
     "mx": ["m0"],
     "t2": ["t3"],
+    ISOLATED_T2_TOPO_PREFIX: ["pt1"],
     "m0_vlan": ["m1"],
     "m0_l3": ["m1"],
     'lt2': ['ut2'],

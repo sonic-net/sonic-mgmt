@@ -89,8 +89,11 @@ def get_t2_fib_info_per_asic(duthosts, duts_cfg_facts, duts_mg_facts, testname=N
                 fib = json.load(fp)
                 for k, v in list(fib.items()):
                     skip = False
-
-                    prefix = k.split(':', 1)[1]
+                    if ":" in k:
+                        prefix = k.split(':', 1)[1]
+                    else:
+                        # Handle keys without colon
+                        continue
                     ifnames = v['value']['ifname'].split(',')
                     nh = v['value']['nexthop']
                     nh_ips = nh.split(',')
@@ -227,8 +230,11 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
             fib = json.load(fp)
             for k, v in list(fib.items()):
                 skip = False
-
-                prefix = k.split(':', 1)[1]
+                if ":" in k:
+                    prefix = k.split(':', 1)[1]
+                else:
+                    # Handle keys without colon
+                    continue
                 ifnames = v['value']['ifname'].split(',')
                 nh = v['value']['nexthop']
 

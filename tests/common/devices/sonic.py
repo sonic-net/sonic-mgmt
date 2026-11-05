@@ -51,6 +51,7 @@ class ConsoleLineStatus(TypedDict):
 
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
+    "nbrmgrd": "swss",
     "orchagent": "swss",
     "syncd": "syncd"
 }

@@ -1,7 +1,7 @@
 import datetime
 import ipaddress
+import json
 import sys
-import random
 import pytest
 import contextlib
 import time
@@ -12,6 +12,7 @@ from tests.common import constants
 from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
 from tests.common.devices.eos import EosHost
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -32,6 +33,7 @@ PFCWD_DEFAULT_RESTORE_TIME = 200
 PFCWD_DEFAULT_POLL_INTERVAL = 200
 PFCWD_DEFAULT_PORT_NUM = 32
 PFCWD_MAX_POLL_INTERVAL = 1000
+BACKGROUND_TRAFFIC_PORT_MAP = '/root/pfc_wd_background_traffic_port_map.json'
 
 logger = logging.getLogger(__name__)
 
@@ -474,112 +476,6 @@ def is_pfcwd_hw_recovery_enabled(duthost):
         return False
 
 
-@pytest.fixture(scope='class', autouse=False)
-def start_background_traffic(
-        duthosts,
-        enum_rand_one_per_hwsku_frontend_hostname,
-        pfc_queue_idx,
-        setup_pfc_test,
-        copy_ptftests_directory,
-        ptfhost,
-        tbinfo
-        ):
-    """
-       This fixutre starts a background traffic during
-       the test. This will start a continuous traffic flow from PTF
-       exiting the test port.
-
-       This uses a fixture pfc_queue_idx: which *must* be defined in the
-       test script before using this fixture.
-    """
-    if duthosts[enum_rand_one_per_hwsku_frontend_hostname].facts['asic_type'] != "cisco-8000":
-        yield
-        return
-
-    # This is needed only for cisco-8000
-    program_name = "pfcwd_background_traffic"
-    dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dst_dut_intf = list(setup_pfc_test['test_ports'].keys())[0]
-    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-    vlan_ports = []
-    for vlan in mg_facts['minigraph_vlans'].keys():
-        vlan_ports.extend(mg_facts['minigraph_vlans'][vlan]['members'])
-    all_ip_intfs = mg_facts['minigraph_interfaces'] + mg_facts['minigraph_portchannel_interfaces']
-    non_vlan_ports = set(list(setup_pfc_test['test_ports'])) - set(vlan_ports) - set([dst_dut_intf])
-    src_dut_intf = random.choice(list(non_vlan_ports))
-    dest_mac = dut.get_dut_iface_mac(src_dut_intf)
-    # Find out if the selected port is a lag member
-    # If so, we need to use the neighbor address of the portchannel.
-    # else, we need the neighbor address of the interface itself.
-    required_intf = dst_dut_intf
-    for intf in mg_facts['minigraph_portchannels']:
-        if dst_dut_intf in mg_facts['minigraph_portchannels'][intf]['members']:
-            required_intf = intf
-            break
-    # At this point, required_intf is either a portchannel or Ethernet port.
-    # It should have a neighbor address or it is an error.
-    dst_ip_addr = None
-    for intf_obj in all_ip_intfs:
-        if intf_obj['attachto'] == required_intf:
-            dst_ip_addr = intf_obj['peer_addr']
-            break
-    if dst_ip_addr is None:
-        raise RuntimeError("Could not find the neighbor address for intf:{}".format(required_intf))
-    ptf_src_port = mg_facts['minigraph_ptf_indices'][src_dut_intf]
-    ptf_dst_port = mg_facts['minigraph_ptf_indices'][dst_dut_intf]
-    extra_vars = {
-        f'{program_name}_args':
-            'dest_mac=u"{}";dst_ip_addr={};ptf_src_port={};ptf_dst_port={};pfc_queue_idx={}'.format(
-                dest_mac,
-                dst_ip_addr,
-                ptf_src_port,
-                ptf_dst_port,
-                pfc_queue_idx
-                )}
-    try:
-        ptfhost.command('supervisorctl stop {}'.format(program_name))
-    except BaseException:
-        pass
-
-    ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
-    script_args = \
-        '''dest_mac=u"{}";dst_ip_addr="{}";ptf_src_port={};ptf_dst_port={};pfc_queue_idx={}'''.format(
-                dest_mac,
-                dst_ip_addr,
-                ptf_src_port,
-                ptf_dst_port,
-                pfc_queue_idx)
-    supervisor_conf_content = ('''
-[program:{program_name}]
-command=/root/env-python3/bin/ptf --test-dir /root/ptftests/py3 {program_name}.BG_pkt_sender'''
-                               ''' --platform-dir /root/ptftests/ -t'''
-                               ''' '{script_args}' --relax  --platform remote
-process_name={program_name}
-stdout_logfile=/tmp/{program_name}.out.log
-stderr_logfile=/tmp/{program_name}.err.log
-redirect_stderr=false
-autostart=false
-autorestart=true
-startsecs=1
-numprocs=1
-'''.format(script_args=script_args, program_name=program_name))
-    ptfhost.copy(
-        content=supervisor_conf_content,
-        dest=f'/etc/supervisor/conf.d/{program_name}.conf')
-
-    ptfhost.command('supervisorctl reread')
-    ptfhost.command('supervisorctl update')
-    ptfhost.command(f'supervisorctl start {program_name}')
-
-    yield
-
-    try:
-        ptfhost.command(f'supervisorctl stop {program_name}')
-    except BaseException:
-        pass
-    ptfhost.command(f'supervisorctl remove {program_name}')
-
-
 @contextlib.contextmanager
 def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info, pkt_count=100000):
     """Send background traffic, stop the background traffic when the context finish """
@@ -589,6 +485,7 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info,
                                                                        pkt_count)
+        _create_ptf_test_port_map(duthost, ptfhost, selected_test_ports, test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
         # Ensure the background traffic is running before moving on
         time.sleep(1)
@@ -600,6 +497,9 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
 
 
 def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info, pkt_count):
+    pytest_assert(selected_test_ports,
+                  "No DUT port was selected for PFC watchdog background traffic: the fanout "
+                  "to DUT port mapping yielded no port present in setup_pfc_test['test_ports']")
     src_ports = []
     dst_ports = []
     src_ips = []
@@ -614,9 +514,9 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         dst_ips.append(selected_test_port_info["test_neighbor_addr"])
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
-    router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-
-    ptf_params = {'router_mac': router_mac,
+    fallback_rx_port = test_ports_info[selected_test_ports[0]]["rx_port"][0]
+    ptf_params = {'ptf_test_port_map': BACKGROUND_TRAFFIC_PORT_MAP,
+                  'router_mac': duthost.get_dut_iface_mac(fallback_rx_port),
                   'src_ports': src_ports,
                   'dst_ports': dst_ports,
                   'src_ips': src_ips,
@@ -626,6 +526,20 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
                   'pkt_count': pkt_count}
 
     return ptf_params
+
+
+def _create_ptf_test_port_map(duthost, ptfhost, selected_test_ports, test_ports_info):
+    ports_map = {}
+    for selected_test_port in selected_test_ports:
+        selected_test_port_info = test_ports_info[selected_test_port]
+        rx_port_id = selected_test_port_info["rx_port_id"]
+        if type(rx_port_id) is list:
+            rx_port_id = rx_port_id[0]
+        ports_map[str(rx_port_id)] = {
+            'target_dest_mac': duthost.get_dut_iface_mac(selected_test_port_info["rx_port"][0])
+        }
+
+    ptfhost.copy(content=json.dumps(ports_map), dest=BACKGROUND_TRAFFIC_PORT_MAP)
 
 
 def _send_background_traffic(ptfhost, ptf_params):

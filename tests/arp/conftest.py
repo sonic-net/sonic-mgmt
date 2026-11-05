@@ -287,7 +287,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(request, rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -299,7 +299,7 @@ def proxy_arp_enabled(request, rand_selected_dut, config_facts):
         (bool) True if proxy ARP was enabled for all VLANs,
                False otherwise
     """
-    duthost = rand_selected_dut
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     pt_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
 
     proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'

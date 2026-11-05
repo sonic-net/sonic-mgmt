@@ -92,6 +92,14 @@ IPv6 service configurations are defined in:
 - `group_vars/sonic/ipv6.yml` - For lab inventory (depending on the inventory group)
 - `group_vars/vm_host/ipv6.yml` - For vm_host inventory
 
+For inventories with nested groups, set `ipv6_mgmt_config_group` to load the
+intended lab file instead of relying on group ordering:
+
+```yaml
+# group_vars/<lab>/ipv6.yml
+ipv6_mgmt_config_group: <lab>
+```
+
 ## Virtual Testbed IPv6 Addressing Scheme
 
 For virtual testbeds, we use the following IPv6 addressing:
