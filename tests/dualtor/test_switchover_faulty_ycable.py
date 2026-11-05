@@ -8,6 +8,7 @@ import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
+from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
@@ -114,7 +115,8 @@ def select_mux_port(active_standby_ports):  # noqa: F811
 
 
 @pytest.fixture
-def restore_pmon(simulated_faulty_side, select_mux_port):
+def restore_pmon(simulated_faulty_side, simulated_good_side, select_mux_port,
+                 active_standby_ports, run_icmp_responder):  # noqa: F811
     """Restore pmon container."""
 
     def _remove_pmon_container(duthost):
@@ -138,16 +140,33 @@ def restore_pmon(simulated_faulty_side, select_mux_port):
         pytest_assert(restarted, "Failed to restart '{}' container!")
         logging.info("'{}' container is restarted.")
 
+    def _check_fault_cleared():
+        return (get_tor_mux_probe_state(simulated_faulty_side, mux_port) in ("active", "standby") and
+                get_tor_mux_cable_info(simulated_faulty_side, mux_port)["link_status_peer"] == "up")
+
+    def _check_mux_health():
+        for duthost in (simulated_faulty_side, simulated_good_side):
+            mux_status = show_muxcable_status(duthost)
+            logging.debug("Mux status on %s: %s", duthost.hostname, mux_status)
+            if any(mux_status[port]["health"] != "healthy" or mux_status[port]["hwstatus"] != "consistent"
+                   for port in active_standby_ports):
+                return False
+        return True
+
     mux_port = select_mux_port
 
     yield
 
-    # If the simulated fault still persist, let's remove pmon and
-    # and restart the pmon service to restore.
-    if (get_tor_mux_probe_state(simulated_faulty_side, mux_port) == "unknown" or
-            get_tor_mux_cable_info(simulated_faulty_side, mux_port)["link_status_peer"] == "down"):
+    # ycabled polls link status every 60 seconds; allow restoration before recreating PMON.
+    if not wait_until(90, 5, 0, _check_fault_cleared):
         _remove_pmon_container(simulated_faulty_side)
         _restart_pmon_container(simulated_faulty_side)
+        pytest_assert(wait_until(90, 5, 0, _check_fault_cleared),
+                      "Failed to clear the simulated Y-cable fault on {} {}".format(
+                          simulated_faulty_side.hostname, mux_port))
+
+    pytest_assert(wait_until(120, 10, 0, _check_mux_health),
+                  "Mux ports did not recover healthy, consistent state after Y-cable fault restoration")
 
 
 def test_switchover_probe_unknown(
