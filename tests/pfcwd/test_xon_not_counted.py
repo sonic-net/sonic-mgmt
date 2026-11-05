@@ -67,8 +67,8 @@ def read_rx_drops(duthost, port):
     Returns int (0 if no value).
     """
     try:
-        oid = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP {}".format(port))['stdout'].strip()  # noqa E501
-        rx_drop = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS:{} SAI_PORT_STAT_IF_IN_DISCARDS".format(oid))['stdout'].strip()  # noqa E501
+        oid = duthost.shell("sonic-db-cli -s COUNTERS_DB hget COUNTERS_PORT_NAME_MAP {}".format(port))['stdout'].strip()  # noqa E501
+        rx_drop = duthost.shell("sonic-db-cli -s COUNTERS_DB hget COUNTERS:{} SAI_PORT_STAT_IF_IN_DISCARDS".format(oid))['stdout'].strip()  # noqa E501
         return int(rx_drop)
     except Exception:
         return 0

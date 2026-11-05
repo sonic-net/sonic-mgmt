@@ -502,7 +502,7 @@ def test_timezone_recovery_restores_config_db_and_system_timezone():
         'wait_for_timezone "$barrier_timezone"'
     )
     assert (
-        'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" UTC'
+        'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" UTC'
         in recovery_script
     )
     restore_index = recovery_script.rindex("restore_timezone_config || exit 1")
@@ -540,7 +540,7 @@ def test_timezone_recovery_restores_absent_config_db_field():
 
     recovery_script = duthost.copy.call_args_list[0].kwargs["content"]
     assert (
-        'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "timezone"'
+        'sonic-db-cli -s CONFIG_DB hdel "DEVICE_METADATA|localhost" "timezone"'
         in recovery_script
     )
     assert "timedatectl set-timezone Etc/UTC" in recovery_script
@@ -566,7 +566,7 @@ def test_timezone_recovery_restores_empty_config_db_field():
 
     recovery_script = duthost.copy.call_args_list[0].kwargs["content"]
     assert (
-        'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" \'\''
+        'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" \'\''
         in recovery_script
     )
     assert "wait_for_timezone ''" not in recovery_script
@@ -618,6 +618,7 @@ def test_timezone_recovery_waits_for_delayed_hostcfgd_before_restoring_alias(
     sonic_db_cli = bin_path / "sonic-db-cli"
     sonic_db_cli.write_text(
         """#!/bin/bash
+[ "$1" != "-s" ] || shift
 if [ "$2" = "hset" ]; then
     value=$5
     printf '%s\\n' "$value" > "$CONFIGURED_TIMEZONE_PATH"
@@ -715,6 +716,7 @@ def test_timezone_recovery_signal_rolls_back_temporary_config(tmp_path):
     sonic_db_cli = bin_path / "sonic-db-cli"
     sonic_db_cli.write_text(
         """#!/bin/bash
+[ "$1" != "-s" ] || shift
 if [ "$2" = "hset" ]; then
     printf '%s\\n' "$5" > "$CONFIGURED_TIMEZONE_PATH"
 elif [ "$2" = "hdel" ]; then
@@ -794,7 +796,7 @@ def test_clock_recovery_restores_exact_configured_timezone():
 
     recovery_script = duthost.copy.call_args_list[0].kwargs["content"]
     assert (
-        'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" UTC'
+        'sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "timezone" UTC'
         in recovery_script
     )
     assert "wait_for_timezone UTC" in recovery_script

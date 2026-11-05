@@ -118,7 +118,7 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
     """ Get dhcp relay info from all vlans
 
     Sample output for CONFIG_ADD_DEFAULT:
-    admin@vlab-01:~$ sonic-db-cli CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli CONFIG_DB hgetall "{}"
+    admin@vlab-01:~$ sonic-db-cli -s CONFIG_DB keys "VLAN|*" | xargs -I {} sonic-db-cli -s CONFIG_DB hgetall "{}"
     {'vlanid': '108', 'dhcp_servers@': '192.0.108.1,192.0.108.2,192.0.108.3,192.0.108.4'}
     {'dhcp_servers@': '192.0.0.1,192.0.0.2,192.0.0.3,192.0.0.4',
      'dhcpv6_servers@': 'fc02:2000::1,fc02:2000::2,fc02:2000::3,fc02:2000::4', 'vlanid': '1000'}

@@ -49,7 +49,7 @@ def test_cleanup_keeps_hash_key_and_field_separate(filename):
                    and node.func.value.value.startswith('sonic-db-cli -s --authenticate CONFIG_DB hdel '))
     text = eval(compile(ast.Expression(body=command), filename, 'eval'),
                 {'redis_string': 'INTERFACE', 'intf': 'Ethernet0'})
-    assert shlex.split(text) == ['sonic-db-cli', '-s', 'CONFIG_DB', 'hdel',
+    assert shlex.split(text) == ['sonic-db-cli', '-s', '--authenticate', 'CONFIG_DB', 'hdel',
                                  'INTERFACE|Ethernet0', 'vnet_name']
 
 

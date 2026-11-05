@@ -212,7 +212,7 @@ def get_mirror_acl_bindings(duthost):
     """
     mirror_bindings = set()
 
-    keys_result = duthost.shell('sonic-db-cli CONFIG_DB keys "ACL_TABLE|*"',
+    keys_result = duthost.shell('sonic-db-cli -s CONFIG_DB keys "ACL_TABLE|*"',
                                 module_ignore_errors=True)
     if keys_result['rc'] != 0:
         return mirror_bindings
@@ -575,7 +575,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
         logger.info(f"Verifying admin_status is down/unset for affected ports: {sorted(affected_ports)}")
         unexpected = {}
         for port in affected_ports:
-            redis_cmd = f'sonic-db-cli CONFIG_DB hget "PORT|{port}" admin_status'
+            redis_cmd = f'sonic-db-cli -s CONFIG_DB hget "PORT|{port}" admin_status'
             result = duthost.shell(redis_cmd, module_ignore_errors=True)
             admin_status = result['stdout'].strip() if result['rc'] == 0 else "unknown"
             if admin_status not in reverted_values:
@@ -869,7 +869,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
             ports_not_up.clear()
             for port in sorted(front_panel_ports):
                 oper_status = duthost.shell(
-                    f'sonic-db-cli APPL_DB hget "PORT_TABLE:{port}" oper_status',
+                    f'sonic-db-cli -s APPL_DB hget "PORT_TABLE:{port}" oper_status',
                     module_ignore_errors=True)
                 status = oper_status['stdout'].strip() if oper_status['rc'] == 0 else 'unknown'
                 if status != 'up':

@@ -225,7 +225,7 @@ def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
         # Update min_links
-        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        min_link_cmd = "sonic-db-cli -s CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
         rand_selected_dut.shell(min_link_cmd)
         # Delete to min_links
         cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])

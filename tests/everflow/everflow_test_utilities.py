@@ -1202,7 +1202,7 @@ class BaseEverflowTest(object):
             rate_limit = rate_limit * 1.25
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
-                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
                 command = ("{} CONFIG_DB hmset \"POLICER|{}\" "
                            "meter_type packets mode sr_tcm cir {} cbs {} "
                            "red_packet_action drop").format(sonic_db_cmd, policer_name, rate_limit, rate_limit)
@@ -1213,7 +1213,7 @@ class BaseEverflowTest(object):
     def remove_policer_config(self, duthost, policer_name, config_method):
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
-                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
                 command = "{} CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
             elif config_method == CONFIG_MODE_CONFIGLET:
                 pass

@@ -48,14 +48,14 @@ AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_on
 def dump_db(duthost, dbname, tablename):
     """Return current DB content as dict."""
     keys_out = duthost.shell(
-        f"sonic-db-cli {dbname} keys '{tablename}*'", module_ignore_errors=True
+        f"sonic-db-cli -s {dbname} keys '{tablename}*'", module_ignore_errors=True
     )["stdout"]
     logger.info(f"dump {dbname} db, table {tablename}, keys output: {keys_out}")
     keys = keys_out.strip().splitlines() if keys_out.strip() else []
     res = {}
     for k in keys:
         fields = duthost.shell(
-            f"sonic-db-cli {dbname} hgetall '{k}'", module_ignore_errors=True
+            f"sonic-db-cli -s {dbname} hgetall '{k}'", module_ignore_errors=True
         )["stdout"]
         logger.info(f"all fields:{fields} for key: {k}")
         prefix = k.removeprefix(f"{tablename}|")

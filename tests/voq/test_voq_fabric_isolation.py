@@ -39,7 +39,7 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
     port = random.randint(0, 111)
 
     # sanity check if the link is up or not
-    cmd = "sonic-db-cli {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' STATUS".format(asicName, port)
+    cmd = "sonic-db-cli -s {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' STATUS".format(asicName, port)
     cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     logger.info(cmd_output)
     lnkStatus = cmd_output[0]
@@ -56,11 +56,11 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
         # set TEST to "TEST"
         # Check auto_isolation status
 
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CODE_ERRORS 0".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CODE_ERRORS 0".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST 'TEST'".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST 'TEST'".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         pytest_assert(wait_until(600, 60, 0, check_fabric_link_status, duthost, asicName, port, '0'),
@@ -68,7 +68,7 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
 
         # Update fake crc errors by setting TEST_CRC_ERRORS to <num>
         # Check auto_isolation status
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 2".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 2".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         pytest_assert(wait_until(360, 60, 0, check_fabric_link_status, duthost, asicName, port, '1'),
@@ -76,7 +76,7 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
 
         # Clear fake crc errors by setting TEST_CRC_ERRORS to 0
         # Check auto_isolation status
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
         pytest_assert(wait_until(600, 60, 0, check_fabric_link_status, duthost, asicName, port, '0'),
@@ -85,16 +85,16 @@ def test_voq_fabric_isolation_status(duthosts, enum_frontend_dut_hostname):
         # Clean up the test
         # set TEST to "product"
 
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CRC_ERRORS 0".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CODE_ERRORS 0".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST_CODE_ERRORS 0".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
-        cmd = "sonic-db-cli {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST 'product'".format(asicName, port)
+        cmd = "sonic-db-cli -s {} STATE_DB hset 'FABRIC_PORT_TABLE|PORT{}' TEST 'product'".format(asicName, port)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
 
 def check_skip_poll(host, asicName, port, skip_poll):
-    cmd = "sonic-db-cli {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' 'SKIP_CRC_ERR_ON_LNKUP_CNT'".format(asicName, port)
+    cmd = "sonic-db-cli -s {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' 'SKIP_CRC_ERR_ON_LNKUP_CNT'".format(asicName, port)
     cmd_output = host.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     num_poll = cmd_output[0]
     if num_poll == skip_poll:
@@ -104,7 +104,7 @@ def check_skip_poll(host, asicName, port, skip_poll):
 
 
 def check_fabric_link_status(host, asicName, port, state):
-    cmd = "sonic-db-cli {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' AUTO_ISOLATED".format(asicName, port)
+    cmd = "sonic-db-cli -s {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' AUTO_ISOLATED".format(asicName, port)
     cmd_output = host.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
     auto_isolated = cmd_output[0]
     if auto_isolated == state:
