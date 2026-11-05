@@ -13,7 +13,7 @@ from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import redis_hget, redis_hgetall
+from tests.common.helpers.sonic_db import redis_hgetall
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -452,6 +452,10 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
+HARDWARE = "hardware"
+SOFTWARE = "software"
+
+
 def _pfcwd_state_db_host(duthost, port=None):
     """Host to read the watchdog's STATE_DB from: on multi-ASIC, the port's ASIC or the first frontend ASIC"""
     if not getattr(duthost, "is_multi_asic", False):
@@ -459,6 +463,13 @@ def _pfcwd_state_db_host(duthost, port=None):
     if port:
         return duthost.get_port_asic_instance(port)
     return duthost.frontend_asics[0]
+
+
+def get_pfcwd_recovery_mode(duthost, port=None):
+    """Return HARDWARE or SOFTWARE from STATE_DB; SOFTWARE when unset. Raises if the read fails."""
+    value = _pfcwd_state_db_host(duthost, port).run_sonic_db_cli_cmd(
+        "STATE_DB HGET 'PFC_WD_STATE_TABLE|PFC_WD' RECOVERY_MECHANISM")["stdout"]
+    return HARDWARE if value.strip().strip('"\'').lower() == HARDWARE else SOFTWARE
 
 
 def is_pfcwd_hw_recovery_enabled(duthost, port=None):
@@ -477,16 +488,12 @@ def is_pfcwd_hw_recovery_enabled(duthost, port=None):
         bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
     """
     try:
-        output = redis_hget(_pfcwd_state_db_host(duthost, port), 'STATE_DB',
-                            'PFC_WD_STATE_TABLE|PFC_WD', 'RECOVERY_MECHANISM')
-        output = output.strip('"').strip("'").lower()
-        is_hardware = (output == "hardware")
-        logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
-            output or "not set", is_hardware))
-        return is_hardware
+        mode = get_pfcwd_recovery_mode(duthost, port)
     except Exception as e:
         logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
         return False
+    logger.info("PFC watchdog recovery mechanism: {}".format(mode))
+    return mode == HARDWARE
 
 
 def get_pfcwd_hw_timer_limits(duthost, port=None):
