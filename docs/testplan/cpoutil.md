@@ -65,14 +65,19 @@ raw EEPROM bytes or ASCII. There are no writes or EEPROM argument/help matrices.
 ## Controls and restoration
 
 Low-power and TX cases first read all initial states before any mutation.
-They disable DOM polling and shut down all affected shared interfaces,
-including unconnected siblings. They then write all inverted values before
-checking readback. `finally` attempts restoration of every attempted object,
-even after a later write or an earlier restoration fails. Each restored value
-is checked; DOM/admin configuration and previously up shared links are restored.
-After interface restoration, the control state is checked again, followed by
-connected-port presence and recovery of connected links which were up before
-the test. An initially down port is not required to become up.
+They write all inverted values before checking readback. `finally` attempts
+restoration of every attempted object, even after a later write or an earlier
+restoration fails. Each restored value is checked, followed by connected-port
+presence and recovery of connected links which were up before the test.
+An initially down port is not required to become up.
+
+Like sfputil lpmode, the low-power case does not shut down/start up interfaces
+or change DOM polling. It changes only the endpoint low-power configuration;
+that hardware transition can still interrupt every interface sharing it.
+An unsupported setter therefore does not cause an artificial admin flap.
+TX and reset retain DOM/admin isolation of all affected shared interfaces,
+including unconnected siblings, and restore those settings and prior up shared
+links. TX checks control state again after interface restoration.
 
 DOM polling is configured on the unsplit/primary subport of each affected
 physical PORT index. Secondary breakout children are still isolated, but are
@@ -88,14 +93,17 @@ does not deduplicate by physical PORT index. Uniform true or false states are
 supported. A bank with mixed lane states is excluded before writing because
 the boolean bank-wide setter cannot restore a mixed lane mask exactly.
 
-An explicitly unsupported setter is recorded after checking that its state
-remains unchanged; later objects are still exercised. A case skips if no
+An explicitly unsupported low-power or TX setter is recorded after checking
+that its state remains unchanged; later objects are still exercised.
+A low-power or TX case skips if no
 supported/restorable objects remain. General I/O, command, readback, presence
 and recovery errors fail. Exclusions are logged and are not hardware PASS.
 
 Reset follows sfputil's command/presence/recovery approach, once per distinct
 associated OE/ELS. It waits up to 60 seconds for a nonempty, non-N/A module
 status and for presence. DOM/admin restoration runs even on reset failure.
+Every selected reset must return rc=0. An unsupported reset fails the case;
+it is not treated as a capability skip. Isolation cleanup still runs.
 It does not require initial full power or all shared ports admin-up, compare
 Application/TX snapshots, force a generic low-power transition, require a
 specific module state or require an observable link-down edge. Unlike sfputil's
@@ -144,3 +152,8 @@ unresolved placeholder and arbitrary/empty map cells. The obsolete four map
 value-comparison checks were excluded; the other 69 text/control checks passed.
 The full module passed 15/15 on the synthetic breakout testbed. These are local
 results; a new DUT run is still pending.
+
+The subsequent low-power revision removes DOM/admin isolation from that case
+while retaining snapshot, inversion, restoration and presence/link checks.
+Reset now fails on unsupported commands. Targeted local fault checks cover
+these paths; hardware execution of this revision remains pending.

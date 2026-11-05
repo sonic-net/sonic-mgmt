@@ -34,11 +34,14 @@ standalone Advertisement dictionary. Only displayed lane/cell syntax is tested;
 the JSON-only advertisement fields are excluded. Raw DOM identities and cell
 descriptions never cross the DUT output filter.
 
-Controls restore DOM/admin settings and require previously up links to recover.
+Controls restore their original values and require previously up links to recover.
+Low-power leaves interface admin and DOM settings unchanged, following sfputil
+lpmode; TX and reset retain DOM/admin isolation and restoration.
 Low-power supports either initial boolean. TX controls an entire OE bank:
 uniform true or false can be inverted/restored; mixed lane states are excluded
-because the setter has no per-lane mask. Unsupported setters are logged;
-general failures fail. No supported/restorable objects means a case skip.
+because the setter has no per-lane mask. Unsupported low-power/TX setters are
+logged; general failures fail. No supported/restorable objects means a
+low-power/TX case skip. An unsupported reset fails after isolation cleanup.
 
 Reset uses the sfputil command/presence/recovery model without requiring
 Application/TX snapshot equality or initial full-power/admin-up prerequisites.

@@ -354,7 +354,11 @@ def test_cpoutil_eeprom_read(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 @pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
-    """Snapshot all endpoints, invert all supported modes, then restore every original."""
+    """Like sfputil lpmode: invert/read back, restore, then check presence/links.
+
+    Keep interface admin settings and DOM polling unchanged. Reset isolation
+    is not needed for this test and would flap ports even for an unsupported setter.
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = configured_cpo_ports(duthost)
     names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
@@ -362,41 +366,39 @@ def test_cpoutil_low_power(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     records = run_cpoutil(duthost, query, optional=True)["table"]["records"]
     originals = {name: records[name] for name in names}
     assert all(type(value) is bool for value in originals.values()), "Invalid original low-power state"
-    affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() in names)
     status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     originally_up = [port for port in connected_cpo_ports if status[port]["oper_state"] == "up"]
     attempted, tested, skipped = [], [], {}
-    with isolated_interfaces(duthost, affected):
-        try:
-            # Finish all writes before checking the inverted configuration.
-            for name in names:
-                mode = "full" if originals[name] else "low"
-                attempted.append(name)  # A failed setter may already have changed hardware.
-                result = run_cpoutil(duthost, "config {} lpmode {} {}".format(target, name, mode), expected_rc=None)
-                if result["rc"] == 1 and "not implemented" in result["stderr"]:
-                    attempted.remove(name)
-                    skipped[name] = "Low-power setter is not implemented"
-                    wait_for_state(duthost, query, {name: originals[name]})
-                    continue
-                assert result["rc"] == 0, "Invert low-power failed for " + name
-                tested.append(name)
-            if tested:
-                wait_for_state(duthost, query, {name: not originals[name] for name in tested})
-        finally:
-            # Attempt every restoration even if one setter or readback fails.
-            errors = []
-            for name in attempted:
-                try:
-                    mode = "low" if originals[name] else "full"
-                    run_cpoutil(duthost, "config {} lpmode {} {}".format(target, name, mode))
-                except Exception:
-                    errors.append(name)
-            for name in attempted:
-                try:
-                    wait_for_state(duthost, query, {name: originals[name]})
-                except Exception:
-                    errors.append(name)
-            assert not errors, "Low-power restoration failed for: {}".format(errors)
+    try:
+        # Finish all writes before checking the inverted configuration.
+        for name in names:
+            mode = "full" if originals[name] else "low"
+            attempted.append(name)  # A failed setter may already have changed hardware.
+            result = run_cpoutil(duthost, "config {} lpmode {} {}".format(target, name, mode), expected_rc=None)
+            if result["rc"] == 1 and "not implemented" in result["stderr"]:
+                wait_for_state(duthost, query, {name: originals[name]})
+                attempted.remove(name)
+                skipped[name] = "Low-power setter is not implemented"
+                continue
+            assert result["rc"] == 0, "Invert low-power failed for " + name
+            tested.append(name)
+        if tested:
+            wait_for_state(duthost, query, {name: not originals[name] for name in tested})
+    finally:
+        # Attempt every restoration even if one setter or readback fails.
+        errors = []
+        for name in attempted:
+            try:
+                mode = "low" if originals[name] else "full"
+                run_cpoutil(duthost, "config {} lpmode {} {}".format(target, name, mode))
+            except Exception:
+                errors.append(name)
+        for name in attempted:
+            try:
+                wait_for_state(duthost, query, {name: originals[name]})
+            except Exception:
+                errors.append(name)
+        assert not errors, "Low-power restoration failed for: {}".format(errors)
     wait_for_state(duthost, query, originals)
     check_connected_recovery(duthost, connected_cpo_ports, originally_up)
     logger.info("%s low-power coverage: tested=%s, skipped=%s", target, tested, skipped)
@@ -484,33 +486,27 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
     names = sorted({mapping[port][target]["id"].lower() for port in connected_cpo_ports})
     status = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
     originally_up = [port for port in connected_cpo_ports if status[port]["oper_state"] == "up"]
-    tested, skipped = [], {}
+    tested = []
     for name in names:
         affected = sorted(port for port, entry in mapping.items() if entry[target]["id"].lower() == name)
         query = "show {} status {}".format(target, name)
-        unsupported = False
         with isolated_interfaces(duthost, affected):
-            result = run_cpoutil(duthost, "config {} reset {}".format(target, name), expected_rc=None)
-            unsupported = result["rc"] == 1 and "not implemented" in result["stderr"]
-            assert unsupported or result["rc"] == 0, "Reset command failed for " + name
-            if not unsupported:
-                def readable():
-                    result = run_cpoutil(duthost, query, expected_rc=None)
-                    if result["rc"] != 0:
-                        return False
-                    return result["table"]["records"].get(name) is True
-                assert wait_until(60, 2, 0, readable), "Module did not become readable after reset: " + name
-                # sfputil also checks presence after the reset wait. Do not
-                # require a platform-specific module state or a visible down edge.
-                check_connected_recovery(duthost, [port for port in connected_cpo_ports if port in affected], [])
-        if unsupported:
-            skipped[name] = "Reset is not implemented"
-            continue
+            # Reset must succeed; an unsupported reset is a failure, not a skip.
+            # The context still restores DOM/admin settings before propagating it.
+            run_cpoutil(duthost, "config {} reset {}".format(target, name))
+
+            def readable():
+                result = run_cpoutil(duthost, query, expected_rc=None)
+                if result["rc"] != 0:
+                    return False
+                return result["table"]["records"].get(name) is True
+            assert wait_until(60, 2, 0, readable), "Module did not become readable after reset: " + name
+            # sfputil also checks presence after the reset wait. Do not
+            # require a platform-specific module state or a visible down edge.
+            check_connected_recovery(duthost, [port for port in connected_cpo_ports if port in affected], [])
         check_connected_recovery(duthost, connected_cpo_ports, originally_up)
         tested.append(name)
-    logger.info("%s reset coverage: tested=%s, skipped=%s", target, tested, skipped)
-    if not tested:
-        pytest.skip("No supported {} reset endpoints: {}".format(target, skipped))
+    logger.info("%s reset coverage: tested=%s", target, tested)
 
 
 def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
