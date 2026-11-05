@@ -291,6 +291,8 @@ class PfcPktCntrs(object):
                                 "Expected (diff): {} Obtained: {}"),
                                "Rx forward last cnt check failed: Expected: {} Obtained: {}"
                                ]
+        # Keyed by queue oid: the multi-port test takes begin snapshots on every port
+        # before it takes any end snapshot.
         self.cntr_val = dict()
 
     def get_pkt_cnts(self, queue_oid, begin=True):
@@ -307,37 +309,40 @@ class PfcPktCntrs(object):
             return
         test_state = ['end', 'begin']
         state = test_state[begin]
-        self.cntr_val["tx_{}".format(state)] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[0]))
+        vals = self.cntr_val.setdefault(queue_oid, dict())
+        vals["tx_{}".format(state)] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[0]))
         if self.check_rx:
-            self.cntr_val["rx_{}".format(state)] = int(
+            vals["rx_{}".format(state)] = int(
                 PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_rx[0]))
 
         if not begin:
-            self.cntr_val["tx_last"] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[1]))
+            vals["tx_last"] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[1]))
             if self.check_rx:
-                self.cntr_val["rx_last"] = int(
+                vals["rx_last"] = int(
                     PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_rx[1]))
 
-    def verify_pkt_cnts(self, port_type, pkt_cnt):
+    def verify_pkt_cnts(self, queue_oid, port_type, pkt_cnt):
         """
         Validate the packet cnts after the test
 
         Args:
+            queue_oid(string) : queue oid the counters were collected on
             port_type(string) : the type of port (eg. portchannel, vlan, interface)
             pkt_cnt(int) : Number of test packets sent from the PTF
         """
         if self.asic_type == 'vs':
             logger.info("Skipping packet cnt check on vs")
             return
+        vals = self.cntr_val[queue_oid]
         logger.info("--- Checking Tx {} cntrs ---".format(self.tx_action))
-        tx_diff = self.cntr_val["tx_end"] - self.cntr_val["tx_begin"]
+        tx_diff = vals["tx_end"] - vals["tx_begin"]
         if (port_type in ['vlan', 'interface'] and tx_diff != pkt_cnt) or tx_diff <= 0:
-            err_msg = self.err_msg_tx[0].format(self.cntr_val["tx_begin"], self.cntr_val["tx_end"], pkt_cnt, tx_diff)
+            err_msg = self.err_msg_tx[0].format(vals["tx_begin"], vals["tx_end"], pkt_cnt, tx_diff)
             pytest_assert(err_msg)
 
-        if (port_type in ['vlan', 'interface'] and self.cntr_val["tx_last"] != pkt_cnt) \
-                or self.cntr_val["tx_last"] <= 0:
-            err_msg = self.err_msg_tx[1].format(pkt_cnt, self.cntr_val["tx_last"])
+        if (port_type in ['vlan', 'interface'] and vals["tx_last"] != pkt_cnt) \
+                or vals["tx_last"] <= 0:
+            err_msg = self.err_msg_tx[1].format(pkt_cnt, vals["tx_last"])
             pytest_assert(err_msg)
 
         if not self.check_rx:
@@ -345,14 +350,14 @@ class PfcPktCntrs(object):
             return
 
         logger.info("--- Checking Rx {} cntrs ---".format(self.rx_action))
-        rx_diff = self.cntr_val["rx_end"] - self.cntr_val["rx_begin"]
+        rx_diff = vals["rx_end"] - vals["rx_begin"]
         if (port_type in ['vlan', 'interface'] and rx_diff != pkt_cnt) or rx_diff <= 0:
-            err_msg = self.err_msg_rx[0].format(self.cntr_val["rx_begin"], self.cntr_val["rx_end"], pkt_cnt, rx_diff)
+            err_msg = self.err_msg_rx[0].format(vals["rx_begin"], vals["rx_end"], pkt_cnt, rx_diff)
             pytest_assert(err_msg)
 
-        if (port_type in ['vlan', 'interface'] and self.cntr_val["rx_last"] != pkt_cnt) \
-                or self.cntr_val["rx_last"] <= 0:
-            err_msg = self.err_msg_rx[1].format(pkt_cnt, self.cntr_val["rx_last"])
+        if (port_type in ['vlan', 'interface'] and vals["rx_last"] != pkt_cnt) \
+                or vals["rx_last"] <= 0:
+            err_msg = self.err_msg_rx[1].format(pkt_cnt, vals["rx_last"])
             pytest_assert(err_msg)
 
 
@@ -887,7 +892,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("--- Storm restoration path for port {} ---".format(port))
             self.storm_restore_path(dut, loganalyzer, port, action)
             logger.info("--- Verify PFCwd counters for port {} ---".format(port))
-            self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
+            self.stats.verify_pkt_cnts(self.queue_oid, self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
     def run_no_traffic_test(self, dut, port):
         """
