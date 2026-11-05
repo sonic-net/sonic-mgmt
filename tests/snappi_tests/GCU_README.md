@@ -75,7 +75,9 @@ In `modify_minigraph()` (`common/helpers/xml_utils.py`):
 - `no_front_panel_ports`: all front-panel ports are removed.
 - `one_front_panel_port`: the first front-panel port (per ASIC minigraph facts pass)
   is kept; all others are removed. If only one front-panel port exists, minigraph
-  modification is a no-op for that ASIC.
+  modification is a no-op for that ASIC. See
+  [Known limitations](#known-limitations-one_front_panel_port-on-broadcom-dnx) for
+  topologies where this choice is not safe on Broadcom-DNX.
 
 On multi-ASIC DUTs, `modify_minigraph()` is called **once per ASIC** using that ASIC's
 `duts_minigraph_facts` entry, but always edits the **same** fetched minigraph file.
@@ -131,12 +133,41 @@ Uses a targeted path:
 1. **Portchannels**  For each portchannel whose member is in `interfaces_to_remove`,
    remove the portchannel name from the minigraph (when `minigraph_portchannels` is
    available in minigraph facts).
-2. **BGP neighbors**  Remove neighbor names tied to removed interfaces.
+2. **BGP neighbors**  Remove neighbor names tied to removed interfaces. The whole
+   neighbor hostname must match (an element is removed only if its text equals the
+   hostname, or the hostname followed by an explicit `-ASIC<n>` suffix), so removing
+   `T1` does not remove entries of a different neighbor such as `T10`.
 3. **BGP addresses**  Remove `addr` / `peer_addr` only for BGP peers associated with
    removed neighbors (not all BGP entries).
 
 Platform detection uses `node.facts.get("platform_asic")` passed from
 `convert_to_rsb`; it is not hardcoded in the helper.
+
+#### Known limitations (`one_front_panel_port` on Broadcom-DNX)
+
+The kept port is simply the first front-panel port of each ASIC's minigraph facts. It is
+not checked against the topology, so the following topologies can produce a wrong RSB
+configuration. They are not an issue for `no_front_panel_ports`, where every front-panel
+port and portchannel is removed.
+
+1. **Kept port is a member of a portchannel with two or more members.**
+   A portchannel is removed from the minigraph as soon as any of its members is removed.
+   The kept port therefore loses its portchannel membership, IP address and BGP session,
+   and the RSB config ends up with no usable interface. (A portchannel that still has
+   members also cannot be deleted on the DUT: `config portchannel del` fails with
+   "Portchannel ... contains members".)
+2. **Kept port shares its neighbor with a removed port.**
+   Neighbor removal and the `addr` / `peer_addr` removal are keyed by neighbor name, not
+   by interface. If a removed port connects to the same neighbor as the kept port, the
+   kept port's IP interface and BGP session are removed as well. The neighbor must be
+   unique across all ASICs of the DUT, because the minigraph file is shared by all ASIC
+   passes.
+
+Planned follow-up: select the kept port up front, before the minigraph is modified, so that
+(a) it is a routed port or the **only** member of its portchannel, and (b) its neighbor is
+not used by any other front-panel port on the DUT. If no port on an ASIC qualifies, the
+run would be skipped with a clear message. Until then, use topologies that satisfy both
+conditions, or use `no_front_panel_ports`.
 
 ### Load RSB minigraph
 

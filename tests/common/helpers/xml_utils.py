@@ -16,7 +16,7 @@ def _parse_ip_address(text):
         return None
 
 
-def _text_matches(search_text, elem_text, exact_match=False):
+def _text_matches(search_text, elem_text, exact_match=False, allowed_suffix=None):
     """Check whether element text matches the text we were asked to remove.
 
     exact_match=False (default): original behaviour, plain substring match.
@@ -27,6 +27,9 @@ def _text_matches(search_text, elem_text, exact_match=False):
     10.0.0.10. Surrounding whitespace is ignored. IP addresses are compared as
     addresses (case-insensitive for IPv6, an optional /prefix on either side is
     ignored), so 10.0.0.1 matches both '10.0.0.1' and '10.0.0.1/31'.
+
+    allowed_suffix (exact mode only): regex for a suffix that may follow the search text,
+    e.g. '-ASIC' followed by digits lets T1 match T1-ASIC0 but still not T10.
     """
     if not elem_text:
         return False
@@ -44,13 +47,15 @@ def _text_matches(search_text, elem_text, exact_match=False):
             continue
         if item == search:
             return True
+        if allowed_suffix and re.fullmatch(re.escape(search) + allowed_suffix, item):
+            return True
         if search_ip is not None and search_ip == _parse_ip_address(item):
             return True
     return False
 
 
 def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, remove_parent_if_matched=True,
-                       exact_match=False):
+                       exact_match=False, allowed_suffix=None):
     """
     Reads an XML file, removes entries related to a specific text, and rewrites the file.
 
@@ -68,6 +73,8 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
                                       text_to_remove is a substring of its text. If True,
                                       the whole element text must match (IP addresses are
                                       compared as addresses). See _text_matches().
+        allowed_suffix (str, optional): With exact_match, regex of a suffix allowed after
+                                        text_to_remove (e.g. '-ASIC' followed by digits).
     """
     if not os.path.exists(file_path):
         raise RuntimeError(f"Error: File not found at {file_path}")
@@ -90,8 +97,8 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         # Determine if this element should be considered for removal based on its tag
         tag_matches_criteria = (element_tag_to_check is None) or (elem.tag == element_tag_to_check)
 
-        # Check if the element's text contains the string to remove
-        if tag_matches_criteria and _text_matches(text_to_remove, elem.text, exact_match):
+        # Check if the element's text matches the string to remove
+        if tag_matches_criteria and _text_matches(text_to_remove, elem.text, exact_match, allowed_suffix):
             if elem == root:
                 # Special handling for root: we can't remove the root itself from a parent.
                 # If root matches and we're not removing its parent, we'll clear its content.
@@ -192,7 +199,7 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                 if "-BP" not in neighbor and neighbor not in interfaces_not_to_remove:
                     remove_count += remove_xml_entries(
                         minigraph_file,
-                        text_to_remove=entry,
+                        text_to_remove=neighbor,
                         element_tag_to_check=None,
                         remove_parent_if_matched=True)
 
@@ -217,7 +224,7 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
         # On this path names and IP addresses are matched exactly (exact_match=True), so that
         # e.g. PortChannel1 does not also remove PortChannel10..19, or 10.0.0.1 remove 10.0.0.10.
         # Use .get() as the facts of an ASIC may not carry every section (e.g. no portchannels).
-        for pc, data in minigraph_data['minigraph_portchannels'].items():
+        for pc, data in minigraph_data.get('minigraph_portchannels', {}).items():
             for member in data['members']:
                 if (member in interfaces_to_remove):
                     remove_count += remove_xml_entries(
@@ -228,22 +235,24 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode, platform_asic=Non
                         exact_match=True)
 
         bgp_peer_to_remove = []
-        for key, value in minigraph_data['minigraph_neighbors'].items():
+        for key, value in minigraph_data.get('minigraph_neighbors', {}).items():
             if key in interfaces_to_remove:
                 logger.info('To remove BGP neighbor:{}'.format(value['name']))
                 bgp_peer_to_remove.append(value['name'])
-                # Neighbor names stay a substring match on purpose: entries such as the
-                # BGP router declarations of the neighbor are named '<neighbor>-ASIC<n>'.
+                # Match the whole neighbor name (T1 must not remove T10); only an explicit
+                # '-ASIC<n>' suffix is allowed, as used by some router declarations.
                 remove_count += remove_xml_entries(
                     minigraph_file,
                     text_to_remove=value['name'],
                     element_tag_to_check=None,
-                    remove_parent_if_matched=True)
+                    remove_parent_if_matched=True,
+                    exact_match=True,
+                    allowed_suffix=r'-ASIC\d+')
             else:
                 logger.info('BGP peer that will not be removed in test:{}'.format(value['name']))
 
         bgp_peers = [
-            x for x in minigraph_data['minigraph_bgp']
+            x for x in minigraph_data.get('minigraph_bgp', [])
             if (
                 ("ASIC" not in x['name'])
                 and (x['name'] in bgp_peer_to_remove)
