@@ -3162,21 +3162,21 @@ hash/test_generic_hash.py:
     reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['t0', 't1']"
+      - "topo_type in ['t0', 't1'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_backend_error_messages:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
@@ -3215,7 +3215,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
+    reason: 'Independent ECMP hash configuration is not supported in Broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields; VPP has fixed dataplane field selections.'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
@@ -3239,14 +3239,14 @@ hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
+    reason: 'Independent LAG hash configuration is not supported in Broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields; VPP has fixed dataplane field selections.'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:

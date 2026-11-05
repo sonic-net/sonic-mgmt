@@ -706,6 +706,7 @@ t1-lag-vpp:
   - ecmp/test_fgnhg.py
   - fib/test_fib.py
   - test_interfaces.py
+  - hash/test_generic_hash.py
   - http/test_http_copy.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
