@@ -30,7 +30,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.mellanox_data import get_chip_type
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
-from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.sonic_db import AsicDbCli, redis_hget, redis_hgetall
 from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, restore_ebgp_on_exit
 import json
 
@@ -596,11 +596,20 @@ def validate_mirror_session_up(duthost, session_name):
     """
     Check if a mirror session is up.
     """
-    cmd = f'sonic-db-cli STATE_DB HGET \"MIRROR_SESSION_TABLE|{session_name}\" status'
-    mirror_status = duthost.command(cmd)['stdout']
-    if 'active' in mirror_status:
-        return True
-    return False
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    checked_asic = False
+    for asic in asic_instances:
+        mirror_config = redis_hgetall(asic, 'CONFIG_DB', f'MIRROR_SESSION|{session_name}')
+        if mirror_config:
+            mirror_status = redis_hget(asic, 'STATE_DB', f'MIRROR_SESSION_TABLE|{session_name}', 'status')
+            if 'active' not in mirror_status:
+                return False
+            checked_asic = True
+    return checked_asic
 
 
 def validate_acl_rule_rids(duthost):

@@ -514,7 +514,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
 
 
 def gnmi_subscribe_stream_connections(
-    duthost, ptfhost, path_list, target, create_connections, update_count, namespace=None, ip=None
+    duthost, ptfhost, path_list, target, create_connections, update_count, namespace=None, ip=None, port=None
 ):
     """
     STREAM subscribe via py_gnmicli opening create_connections channels, used to
@@ -522,9 +522,9 @@ def gnmi_subscribe_stream_connections(
 
     Returns the ptfhost.shell result dict (rc / stdout / stderr).
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = ip or duthost.mgmt_ip
-    port = env.gnmi_port
+    if port is None:
+        port = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE).gnmi_port
     ns = "/{}".format(namespace) if namespace else ""
     cmd = "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py "
     cmd += "-t %s -p %u " % (ip, port)
