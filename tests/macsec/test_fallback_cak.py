@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import logging
 import math
 import re
@@ -107,6 +108,76 @@ def bound_profile(host, port):
     succeeded = not result.get("failed") and result.get("rc") == 0
     assert succeeded, "Unable to inspect configured MACsec binding"
     return result["stdout"].strip() or None
+
+
+def _eos_interface_stanzas(host):
+    """Return all EOS interface stanzas keyed by logical interface name."""
+    result = host.eos_command(
+        commands=["show running-config section ^interface"],
+        module_ignore_errors=True, verbose=False)
+    assert not result.get("failed"), \
+        "Unable to enumerate EOS interface MACsec bindings"
+    output = result["stdout"][0]
+    inverse = {
+        actual: logical
+        for logical, actual in (host.intf_map or {}).items()
+    }
+    stanzas = {}
+    current = None
+    for raw_line in output.splitlines():
+        if raw_line.startswith("interface "):
+            current = inverse.get(
+                raw_line.split(None, 1)[1].strip(),
+                raw_line.split(None, 1)[1].strip())
+            stanzas[current] = []
+        elif current is not None and raw_line.strip() == "!":
+            current = None
+        elif current is not None:
+            stanzas[current].append(raw_line.strip())
+    return stanzas
+
+
+def _profile_attachments(host, port, profile_name):
+    """Enumerate every interface bound to one profile in its actual scope."""
+    if isinstance(host, EosHost):
+        attachments = set()
+        for interface, lines in _eos_interface_stanzas(host).items():
+            profiles = [
+                line.split(None, 3)[3]
+                for line in lines
+                if line.startswith("mac security profile ")
+            ]
+            assert len(profiles) <= 1, \
+                "Multiple MACsec profiles are bound to {} {}".format(
+                    host.hostname, interface)
+            if profiles and profiles[0] == profile_name:
+                attachments.add(interface)
+        return attachments
+
+    namespace = getns_prefix(host, port)
+    result = host.command(
+        "sonic-db-cli {} CONFIG_DB KEYS 'PORT|*'".format(namespace),
+        module_ignore_errors=True, verbose=False)
+    assert not result.get("failed") and result.get("rc") == 0, \
+        "Unable to enumerate SONiC MACsec port bindings"
+    keys = [
+        key.strip()
+        for key in result["stdout"].splitlines()
+        if key.strip()
+    ]
+    attachments = set()
+    for key in keys:
+        assert key.startswith("PORT|"), \
+            "Unexpected CONFIG_DB port key {}".format(key)
+        binding = host.command(
+            "sonic-db-cli {} CONFIG_DB HGET {} macsec".format(
+                namespace, shlex.quote(key)),
+            module_ignore_errors=True, verbose=False)
+        assert not binding.get("failed") and binding.get("rc") == 0, \
+            "Unable to read SONiC MACsec binding {}".format(key)
+        if binding["stdout"].strip() == profile_name:
+            attachments.add(key.split("|", 1)[1])
+    return attachments
 
 
 def configured_ckns(host, port, name):
@@ -490,6 +561,147 @@ def dut_route_ok(duthost, in_port, out_port, source, destination, via=None):
             and "nexthop" not in route.split())
 
 
+def _route_entries(output, prefix):
+    """Return one prefix's FRR JSON entries, or an empty list."""
+    try:
+        routes = json.loads(output or "{}")
+    except ValueError as error:
+        raise AssertionError(
+            "Unable to parse route state for {}".format(prefix)) from error
+    return routes.get(prefix, [])
+
+
+def _static_nexthops(entries):
+    """Return {(gateway, interface)} for every configured static route path."""
+    paths = set()
+    for entry in entries:
+        if entry.get("protocol") != "static":
+            continue
+        for nexthop in entry.get("nexthops", []):
+            paths.add((
+                nexthop.get("ip"),
+                nexthop.get("interfaceName")))
+    return paths
+
+
+def _sonic_route_entries(host, port, prefix):
+    output = run_in_port_namespace(
+        host, port,
+        "vtysh -c {}".format(
+            shlex.quote("show ip route {} json".format(prefix))))
+    return _route_entries(output, prefix)
+
+
+def _asic_route_entries(asic, prefix):
+    result = asic.run_vtysh(
+        "-c {}".format(
+            shlex.quote("show ip route {} json".format(prefix))))
+    return _route_entries(result["stdout"], prefix)
+
+
+def _eos_route_state(host, prefix):
+    result = host.eos_command(
+        commands=["show ip route {} | json".format(prefix)],
+        module_ignore_errors=True, verbose=False)
+    assert not result.get("failed"), \
+        "Unable to inspect EOS route {}".format(prefix)
+    output = result["stdout"][0]
+    vrfs = output.get("vrfs", {}) if isinstance(output, dict) else {}
+    if vrfs:
+        vrf = host.bgp_vrf or "default"
+        return (
+            vrfs.get(vrf, {})
+            .get("routes", {})
+            .get(prefix, {})
+        )
+    return output.get("routes", {}).get(prefix, {}) \
+        if isinstance(output, dict) else {}
+
+
+def _eos_static_nexthops(host, prefix):
+    result = host.eos_command(
+        commands=["show running-config | include ^ip route"],
+        module_ignore_errors=True, verbose=False)
+    assert not result.get("failed"), \
+        "Unable to inspect EOS static routes"
+    expected_vrf = host.bgp_vrf
+    nexthops = set()
+    for line in result["stdout"][0].splitlines():
+        fields = line.split()
+        if fields[:2] != ["ip", "route"]:
+            continue
+        index = 2
+        vrf = None
+        if fields[index:index + 1] == ["vrf"]:
+            assert len(fields) >= 6, "Malformed EOS static route"
+            vrf = fields[index + 1]
+            index += 2
+        if vrf != expected_vrf or len(fields) <= index + 1:
+            continue
+        if fields[index] == prefix:
+            nexthops.add((fields[index + 1], None))
+    return nexthops
+
+
+def _peer_static_nexthops(host, port, prefix):
+    if isinstance(host, EosHost):
+        return _eos_static_nexthops(host, prefix)
+    return _static_nexthops(
+        _sonic_route_entries(host, port, prefix))
+
+
+def _peer_route_nexthops(host, port, prefix):
+    if isinstance(host, EosHost):
+        route = _eos_route_state(host, prefix)
+        return {
+            (via.get("nexthopAddr"), via.get("interface"))
+            for via in route.get("vias", [])
+            if via.get("nexthopAddr")
+        }
+    return {
+        (nexthop.get("ip"), nexthop.get("interfaceName"))
+        for entry in _sonic_route_entries(host, port, prefix)
+        for nexthop in entry.get("nexthops", [])
+        if nexthop.get("active", True)
+    }
+
+
+def _add_peer_static_route(
+        host, port, prefix, source, gateway, device):
+    if isinstance(host, EosHost):
+        vrf = "vrf {} ".format(host.bgp_vrf) if host.bgp_vrf else ""
+        host.eos_config(
+            lines=[
+                "ip route {}{} {}".format(
+                    vrf, prefix, gateway)])
+        return
+    run_in_port_namespace(
+        host, port,
+        "vtysh -c {} -c {}".format(
+            shlex.quote("configure terminal"),
+            shlex.quote(
+                "ip route {} {} {}".format(
+                    prefix, gateway, device))))
+
+
+def _remove_peer_static_route(
+        host, port, prefix, source, gateway, device):
+    if isinstance(host, EosHost):
+        vrf = "vrf {} ".format(host.bgp_vrf) if host.bgp_vrf else ""
+        host.eos_config(
+            lines=[
+                "no ip route {}{} {}".format(
+                    vrf, prefix, gateway)])
+        return
+    run_in_port_namespace(
+        host, port,
+        "vtysh -c {} -c {}".format(
+            shlex.quote("configure terminal"),
+            shlex.quote(
+                "no ip route {} {} {}".format(
+                    prefix, gateway, device))))
+
+
 def _directions(env, port):
     other = next(p for p in env["links"] if p != port)
     return ((port, other), (other, port))
@@ -558,34 +770,135 @@ def stable_transit_path(env, port):
             pytest.skip("{} loopback cannot reach its DUT gateway directly".format(nbr["host"].hostname))
         endpoints.append((nbr["host"], nbr["port"], loopbacks[src_port], destination, gateway,
                           _route_field(route, "dev")))
-        dut_routes.append((src_port, dst_port, "{}/32".format(destination), upstream[dst_port]["local_ipv4_addr"]))
-        if (
-            run_in_port_namespace(duthost, port, "ip -4 route show exact {}/32".format(destination))
-            or run_in_port_namespace(nbr["host"], nbr["port"], "ip -4 route show exact {}/32".format(destination))
-        ):
-            pytest.skip("Existing /32 route to neighbor loopback {}".format(destination))
+        dut_routes.append((
+            src_port, dst_port, "{}/32".format(destination),
+            upstream[dst_port]["local_ipv4_addr"]))
 
-    def _peer_route(host, nbr_port, source, destination, gateway, device, remove=False):
-        if isinstance(host, EosHost):
-            vrf = "vrf {} ".format(host.bgp_vrf) if host.bgp_vrf else ""
-            host.eos_config(lines=["{}ip route {}{}/32 {}".format("no " if remove else "", vrf, destination, gateway)])
-        else:
-            run_in_port_namespace(host, nbr_port, "sudo ip -4 route {} {}/32 via {} dev {}{}".format(
-                "del" if remove else "add", destination, gateway, device, "" if remove else " src " + source))
+    expected_peer_routes = []
+    for endpoint in endpoints:
+        host, nbr_port, source, destination, gateway, device = endpoint
+        prefix = "{}/32".format(destination)
+        if not route_ok(*endpoint):
+            pytest.skip(
+                "Existing route to {} is not a single protected path".format(
+                    destination))
+        static_paths = _peer_static_nexthops(
+            host, nbr_port, prefix)
+        route_paths = _peer_route_nexthops(
+            host, nbr_port, prefix)
+        if len(route_paths) != 1 or not any(
+                route_gateway == gateway
+                and route_interface in (None, device)
+                for route_gateway, route_interface in route_paths):
+            pytest.skip(
+                "Existing route to {} is ECMP or unprotected".format(
+                    destination))
+        if static_paths and not any(
+                static_gateway == gateway
+                and static_interface in (None, device)
+                for static_gateway, static_interface in static_paths):
+            pytest.skip(
+                "Existing static route to {} is incompatible".format(
+                    destination))
+        if len(static_paths) > 1:
+            pytest.skip(
+                "Existing static route to {} is ECMP".format(
+                    destination))
+        expected_peer_routes.append(
+            (endpoint, prefix, bool(static_paths)))
+
+    expected_dut_routes = []
+    for in_port, out_port, prefix, nexthop in dut_routes:
+        if not dut_route_ok(
+                duthost, in_port, out_port,
+                loopbacks[in_port], loopbacks[out_port],
+                via=nexthop):
+            pytest.skip(
+                "Existing DUT route to {} is not a single protected path".format(
+                    prefix))
+        static_paths = _static_nexthops(
+            _asic_route_entries(asic, prefix))
+        route_paths = {
+            (path.get("ip"), path.get("interfaceName"))
+            for entry in _asic_route_entries(asic, prefix)
+            for path in entry.get("nexthops", [])
+            if path.get("active", True)
+        }
+        if len(route_paths) != 1 or not any(
+                gateway == nexthop
+                for gateway, _ in route_paths):
+            pytest.skip(
+                "Existing DUT route to {} is ECMP or unprotected".format(
+                    prefix))
+        if static_paths and not any(
+                gateway == nexthop
+                for gateway, _ in static_paths):
+            pytest.skip(
+                "Existing DUT static route to {} is incompatible".format(
+                    prefix))
+        if len(static_paths) > 1:
+            pytest.skip(
+                "Existing DUT static route to {} is ECMP".format(
+                    prefix))
+        expected_dut_routes.append(
+            (in_port, out_port, prefix, nexthop, bool(static_paths)))
+
+    def _routes_ok():
+        return (
+            all(
+                dut_route_ok(
+                    duthost, in_port, out_port,
+                    loopbacks[in_port], loopbacks[out_port],
+                    via=nexthop)
+                for in_port, out_port, _, nexthop, _ in
+                expected_dut_routes)
+            and all(
+                route_ok(*endpoint)
+                for endpoint, _, _ in expected_peer_routes))
+
+    def _pins_ok():
+        return (
+            all(
+                any(
+                    gateway == nexthop
+                    for gateway, _ in _static_nexthops(
+                        _asic_route_entries(asic, prefix)))
+                for _, _, prefix, nexthop, _ in
+                expected_dut_routes)
+            and all(
+                any(
+                    static_gateway == endpoint[4]
+                    and static_interface in (
+                        None, endpoint[5])
+                    for static_gateway, static_interface in
+                    _peer_static_nexthops(
+                        endpoint[0], endpoint[1], prefix))
+                for endpoint, prefix, _ in expected_peer_routes))
 
     with ExitStack() as cleanup:
-        for _, _, prefix, nexthop in dut_routes:
+        for _, _, prefix, nexthop, existed in expected_dut_routes:
+            if existed:
+                continue
             asic.run_vtysh("-c 'configure terminal' -c 'ip route {} {}'".format(prefix, nexthop))
             cleanup.callback(asic.run_vtysh, "-c 'configure terminal' -c 'no ip route {} {}'".format(prefix, nexthop))
-        assert wait_until(90, 2, 0, lambda: all(
-            dut_route_ok(duthost, in_port, out_port, loopbacks[in_port], loopbacks[out_port], via=nexthop)
-            for in_port, out_port, _, nexthop in dut_routes)), "DUT loopback routes are not programmed"
-        for endpoint in endpoints:
-            _peer_route(*endpoint)
-            cleanup.callback(_peer_route, *endpoint, remove=True)
-        assert wait_until(60, 2, 0, lambda: all(route_ok(*endpoint) for endpoint in endpoints)), \
-            "Neighbor loopback routes do not go through the DUT"
-        yield endpoints
+        for endpoint, prefix, existed in expected_peer_routes:
+            if existed:
+                continue
+            _add_peer_static_route(
+                endpoint[0], endpoint[1], prefix,
+                endpoint[2], endpoint[4], endpoint[5])
+            cleanup.callback(
+                _remove_peer_static_route,
+                endpoint[0], endpoint[1], prefix,
+                endpoint[2], endpoint[4], endpoint[5])
+        assert wait_until(
+            90, 2, 0,
+            lambda: _routes_ok() and _pins_ok()), \
+            "Protected static route pins are not programmed"
+        yield {
+            "endpoints": endpoints,
+            "routes_ok": _routes_ok,
+        }
 
 
 def ping_transit_endpoint(endpoint):
@@ -597,6 +910,279 @@ def ping_transit_endpoint(endpoint):
         return False
     assert result["rc"] in (0, 1), "Transit ping did not run on {}: {}".format(host.hostname, result.get("stderr"))
     return result["rc"] == 0
+
+
+def _namespace_shell(host, port, command):
+    prefix = _netns_prefix(host, port)
+    if prefix:
+        return "{} sh -c {}".format(
+            prefix, shlex.quote(command))
+    return "sudo sh -c {}".format(shlex.quote(command))
+
+
+def observe_transit_requests(
+        endpoints, routes_ok, window, expect_requests,
+        capability_probe=False):
+    """Count exact ICMP echo requests received at both destinations."""
+    if any(isinstance(endpoint[0], EosHost) for endpoint in endpoints):
+        pytest.skip(
+            "Both-invalid request capture requires SONiC neighbors")
+
+    def _capture_alive(capture):
+        result = capture["capture_host"].command(
+            _namespace_shell(
+                capture["capture_host"], capture["capture_port"],
+                "kill -0 {}".format(capture["pid"])),
+            module_ignore_errors=True, verbose=False)
+        return not result.get("failed") and result.get("rc") == 0
+
+    def _capture_stopped(capture):
+        result = capture["capture_host"].command(
+            _namespace_shell(
+                capture["capture_host"], capture["capture_port"],
+                "test ! -d /proc/{}".format(capture["pid"])),
+            module_ignore_errors=True, verbose=False)
+        return not result.get("failed") and result.get("rc") == 0
+
+    token = uuid.uuid4().hex[:12]
+    captures = []
+    errors = []
+    try:
+        for direction, source_endpoint in enumerate(endpoints):
+            destination_endpoint = endpoints[1 - direction]
+            source_host, source_port, source = source_endpoint[:3]
+            destination = source_endpoint[3]
+            capture_host, capture_port = destination_endpoint[:2]
+            capture_device = destination_endpoint[5]
+            identifier = int(uuid.uuid4().hex[:4], 16) or 1
+            remote_base = "/tmp/macsec_block_{}_{}".format(
+                token, direction)
+            pcap = remote_base + ".pcap"
+            stats = remote_base + ".stats"
+            packet_filter = (
+                "icmp and src host {source} and dst host {destination} "
+                "and icmp[icmptype] = icmp-echo and icmp[4:2] = {identifier}"
+            ).format(
+                source=source, destination=destination,
+                identifier=identifier)
+
+            source_capability = source_host.command(
+                _namespace_shell(
+                    source_host, source_port,
+                    "ping -h 2>&1 | grep -q -- '-e <identifier>'"),
+                module_ignore_errors=True, verbose=False)
+            capture_capability = capture_host.command(
+                _namespace_shell(
+                    capture_host, capture_port,
+                    "command -v tcpdump && command -v timeout"),
+                module_ignore_errors=True, verbose=False)
+            if (
+                    source_capability.get("failed")
+                    or source_capability.get("rc") != 0
+                    or capture_capability.get("failed")
+                    or capture_capability.get("rc") != 0):
+                if capability_probe:
+                    pytest.skip(
+                        "Both-invalid request capture tools are unavailable")
+                raise AssertionError(
+                    "Both-invalid request capture capability disappeared")
+
+            command = (
+                "rm -f {pcap} {stats}; "
+                "nohup timeout --foreground --signal=INT 30 "
+                "tcpdump -U -n -s 96 -i {device} -w {pcap} {filter} "
+                ">/dev/null 2>{stats} </dev/null & echo $!"
+            ).format(
+                pcap=shlex.quote(pcap),
+                stats=shlex.quote(stats),
+                device=shlex.quote(capture_device),
+                filter=shlex.quote(packet_filter))
+            result = capture_host.command(
+                _namespace_shell(
+                    capture_host, capture_port, command),
+                module_ignore_errors=True, verbose=False)
+            assert (
+                not result.get("failed")
+                and result.get("rc") == 0
+                and result.get("stdout_lines")
+                and result["stdout_lines"][-1].strip().isdigit()), \
+                "Unable to start both-invalid request capture"
+            capture = {
+                "direction": direction,
+                "source_host": source_host,
+                "source_port": source_port,
+                "source": source,
+                "destination": destination,
+                "capture_host": capture_host,
+                "capture_port": capture_port,
+                "capture_device": capture_device,
+                "identifier": identifier,
+                "pcap": pcap,
+                "stats": stats,
+                "filter": packet_filter,
+                "pid": int(result["stdout_lines"][-1].strip()),
+            }
+            captures.append(capture)
+
+            def _capture_ready(c=capture):
+                result = c["capture_host"].command(
+                    _namespace_shell(
+                        c["capture_host"], c["capture_port"],
+                        (
+                            "kill -0 {pid} && test -e {pcap} "
+                            "&& grep -q 'listening on ' {stats}"
+                        ).format(
+                            pid=c["pid"],
+                            pcap=shlex.quote(c["pcap"]),
+                            stats=shlex.quote(c["stats"]))),
+                    module_ignore_errors=True, verbose=False)
+                return not result.get("failed") and result.get("rc") == 0
+
+            assert wait_until(15, 1, 0, _capture_ready), \
+                "Both-invalid request capture did not become ready"
+
+        assert routes_ok(), \
+            "Protected routes are missing before request transmission"
+        assert all(_capture_alive(capture) for capture in captures), \
+            "Both-invalid request capture stopped before transmission"
+        for capture in captures:
+            result = capture["source_host"].command(
+                _namespace_shell(
+                    capture["source_host"], capture["source_port"],
+                    "ping -n -c 3 -W 1 -i 0.2 -e {identifier} "
+                    "-I {source} {destination}".format(**capture)),
+                module_ignore_errors=True, verbose=False)
+            output = "{}\n{}".format(
+                result.get("stdout", ""),
+                result.get("stderr", ""))
+            assert result.get("rc") in (0, 1), \
+                "Both-invalid request transmission did not run"
+            match = re.search(
+                r"(\d+) packets transmitted", output)
+            assert match and int(match.group(1)) == 3, \
+                "Both-invalid request transmission count is unavailable"
+            assert all(_capture_alive(c) for c in captures), \
+                "Both-invalid request capture stopped during transmission"
+        assert routes_ok(), \
+            "Protected routes disappeared during request transmission"
+    finally:
+        for capture in captures:
+            stopped = False
+            try:
+                removal = capture["capture_host"].command(
+                    _namespace_shell(
+                        capture["capture_host"],
+                        capture["capture_port"],
+                        "kill -INT {}".format(capture["pid"])),
+                    module_ignore_errors=True, verbose=False)
+                stopped = wait_until(
+                    15, 1, 0, _capture_stopped, capture)
+                if not stopped:
+                    capture["capture_host"].command(
+                        _namespace_shell(
+                            capture["capture_host"],
+                            capture["capture_port"],
+                            "kill -TERM {}".format(capture["pid"])),
+                        module_ignore_errors=True, verbose=False)
+                    stopped = wait_until(
+                        5, 1, 0, _capture_stopped, capture)
+                if not stopped:
+                    errors.append(
+                        "capture PID {} did not stop".format(
+                            capture["pid"]))
+                    continue
+                readback = capture["capture_host"].command(
+                    _namespace_shell(
+                        capture["capture_host"],
+                        capture["capture_port"],
+                        "test -s {pcap} && "
+                        "tcpdump -nn -r {pcap} {filter} "
+                        "2>/dev/null".format(
+                            pcap=shlex.quote(capture["pcap"]),
+                            filter=shlex.quote(capture["filter"]))),
+                    module_ignore_errors=True, verbose=False)
+                if (
+                        readback.get("failed")
+                        or readback.get("rc") != 0):
+                    errors.append(
+                        "capture readback failed for direction {}".format(
+                            capture["direction"]))
+                    continue
+                capture["requests_received"] = len([
+                    line for line in
+                    readback["stdout"].splitlines()
+                    if line.strip()
+                ])
+                stats = capture["capture_host"].command(
+                    _namespace_shell(
+                        capture["capture_host"],
+                        capture["capture_port"],
+                        "cat {}".format(
+                            shlex.quote(capture["stats"]))),
+                    module_ignore_errors=True, verbose=False)
+                dropped = re.search(
+                    r"(\d+) packets dropped by kernel",
+                    stats.get("stdout", ""))
+                if (
+                        stats.get("failed")
+                        or stats.get("rc") != 0
+                        or dropped is None
+                        or int(dropped.group(1)) != 0):
+                    errors.append(
+                        "capture counters are incomplete for direction {}".format(
+                            capture["direction"]))
+                if removal.get("failed") or removal.get("rc") != 0:
+                    errors.append(
+                        "capture cleanup failed for direction {}".format(
+                            capture["direction"]))
+            except BaseException as error:
+                errors.append(
+                    "capture cleanup failed for direction {}: {}".format(
+                        capture["direction"], error))
+            finally:
+                if stopped:
+                    try:
+                        result = capture["capture_host"].command(
+                            _namespace_shell(
+                                capture["capture_host"], capture["capture_port"],
+                                "rm -f {} {}".format(
+                                    shlex.quote(capture["pcap"]),
+                                    shlex.quote(capture["stats"]))),
+                            module_ignore_errors=True, verbose=False)
+                        if result.get("failed") or result.get("rc") != 0:
+                            errors.append(
+                                "capture file cleanup failed for direction {}".format(
+                                    capture["direction"]))
+                    except BaseException as error:
+                        errors.append(
+                            "capture file cleanup failed for direction {}: {}".format(
+                                capture["direction"], error))
+        assert not errors, "; ".join(errors)
+
+    counts = [
+        capture["requests_received"]
+        for capture in sorted(
+            captures, key=lambda item: item["direction"])
+    ]
+    logger.info(
+        "Both-invalid %s request reception IDs/counts: %s",
+        window, [
+            (capture["identifier"], capture["requests_received"])
+            for capture in sorted(
+                captures, key=lambda item: item["direction"])
+        ])
+    if capability_probe and any(count == 0 for count in counts):
+        pytest.skip(
+            "Selected neighbor capture points cannot observe plaintext "
+            "test ICMP requests in both directions")
+    if expect_requests:
+        assert all(count > 0 for count in counts), \
+            "{} did not receive requests in both directions: {}".format(
+                window, counts)
+    else:
+        assert counts == [0, 0], \
+            "{} forwarded requests: {}".format(window, counts)
+    return counts
 
 
 def replies(ping):
@@ -739,6 +1325,44 @@ def create_unattached_profile(env, name, fallback=True):
 # Fixture
 # ---------------------------------------------------------------------------
 
+def get_fallback_routed_links(
+        duthost, tbinfo, ctrl_links, upstream_links):
+    """Recover routed controlled peers for regional topologies locally."""
+    if tbinfo["topo"]["type"] not in ("lrh", "urh"):
+        return upstream_links
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbors = mg_facts.get("minigraph_neighbors", {})
+    bgp = mg_facts.get("minigraph_bgp", [])
+    routed = dict(upstream_links)
+    for dut_port, controlled in ctrl_links.items():
+        if dut_port in routed:
+            continue
+        neighbor = neighbors.get(dut_port)
+        if not neighbor or neighbor.get("name") != controlled["name"]:
+            continue
+        sessions = [
+            session for session in bgp
+            if session.get("name") == controlled["name"]
+            and isinstance(
+                ipaddress.ip_address(session["addr"]),
+                ipaddress.IPv4Address)
+        ]
+        if len(sessions) != 1:
+            continue
+        session = sessions[0]
+        if not session.get("peer_addr"):
+            continue
+        routed[dut_port] = {
+            "name": controlled["name"],
+            "host": controlled["host"],
+            "port": neighbor["port"],
+            "local_ipv4_addr": session["addr"],
+            "peer_ipv4_addr": session["peer_addr"],
+        }
+    return routed
+
+
 def select_pair(duthost, ctrl_links, upstream_links):
     """Pick two same-ASIC links to distinct routed neighbors, preferring cEOS peers."""
     portchannels = get_portchannel(duthost)
@@ -839,7 +1463,7 @@ def wait_for_original_macsec_links(original_bindings):
 
 @contextmanager
 def prepare_fallback_profiles(env, candidates):
-    """Reuse known bound profiles; own only replacement baselines missing fallback."""
+    """Reuse bound profiles; isolate managed endpoints when a profile has unmanaged users."""
     cache = {}
     original_bindings = {}
     for port, neighbor in env["control_links"].items():
@@ -848,6 +1472,8 @@ def prepare_fallback_profiles(env, candidates):
             (neighbor["host"], neighbor["port"], bound_profile(neighbor["host"], neighbor["port"])),
         ]
     active = set(env["links"])
+    isolated_scopes = set()
+    attachment_cache = {}
     while True:
         for port, neighbor in env["control_links"].items():
             if port not in active or port in env["profiles"]:
@@ -858,20 +1484,47 @@ def prepare_fallback_profiles(env, candidates):
                 profile = get_bound_profile_settings(host, endpoint_port, known_profiles)
                 scope = _profile_scope(host, endpoint_port, profile)
                 target[port] = cache.setdefault(scope, profile)
-        # Primary-only profiles will be replaced, so their untouched siblings are not affected.
-        reused_scopes = {
-            _profile_scope(host, endpoint_port, profile)
-            for host, endpoint_port, profile in get_profile_operations(env, active)
-            if profile.get("fallback_cak") and profile["name"] is not None
+        operations = get_profile_operations(env, active)
+        scopes = {
+            _profile_scope(host, endpoint_port, profile):
+            (host, endpoint_port, profile)
+            for host, endpoint_port, profile in operations
+            if profile["name"] is not None
         }
-        shared = {
-            port for port, endpoints in original_bindings.items()
-            if any(name is not None and _profile_scope(host, endpoint_port, {"name": name}) in reused_scopes
-                   for host, endpoint_port, name in endpoints)
-        }
-        if shared <= active:
+        added = set()
+        for scope, (host, endpoint_port, profile) in scopes.items():
+            if scope not in attachment_cache:
+                attachment_cache[scope] = _profile_attachments(
+                    host, endpoint_port, profile["name"])
+            attachments = attachment_cache[scope]
+            managed = {
+                managed_port
+                for managed_port, endpoints in original_bindings.items()
+                if any(
+                    name is not None
+                    and _profile_scope(
+                        endpoint_host, managed_endpoint,
+                        {"name": name}) == scope
+                    for endpoint_host, managed_endpoint, name in endpoints)
+            }
+            managed_attachments = {
+                managed_endpoint
+                for endpoints in original_bindings.values()
+                for endpoint_host, managed_endpoint, name in endpoints
+                if name is not None
+                and _profile_scope(
+                    endpoint_host, managed_endpoint,
+                    {"name": name}) == scope
+            }
+            assert managed_attachments <= attachments, \
+                "MACsec profile attachment enumeration is incomplete"
+            if attachments - managed_attachments:
+                isolated_scopes.add(scope)
+            else:
+                added.update(managed)
+        if added <= active:
             break
-        active.update(shared)
+        active.update(added)
 
     for port in active:
         if (env["duthost"].facts["asic_type"] == "vs"
@@ -881,15 +1534,12 @@ def prepare_fallback_profiles(env, candidates):
 
     created = []
     bindings = []
+    owned_profiles = {}
 
     def _delete_owned(host, endpoint_port, profile):
-        bound_ports = [
-            dut_port if host is env["duthost"] else neighbor["port"]
-            for dut_port, neighbor in env["control_links"].items()
-            if host is env["duthost"] or neighbor["host"] is host
-        ]
-        assert all(bound_profile(host, bound_port) != profile["name"] for bound_port in bound_ports), (
-            "Cannot delete an attached test-owned MACsec profile")
+        assert not _profile_attachments(
+            host, endpoint_port, profile["name"]), \
+            "Cannot delete an attached test-owned MACsec profile"
         delete_macsec_profile(host, profile["name"], namespace_option=getns_prefix(host, endpoint_port))
 
     try:
@@ -906,9 +1556,26 @@ def prepare_fallback_profiles(env, candidates):
             same_primary = _key_identity(dut_profile, "primary") == _key_identity(peer_profile, "primary")
             assert same_primary, (
                 "The selected link does not share the suite primary CA")
-            fallback_profiles = [p for p in (dut_profile, peer_profile) if p.get("fallback_cak")]
+            endpoint_scopes = [
+                _profile_scope(host, endpoint_port, profile)
+                for (host, endpoint_port, _), profile in zip(
+                    original_bindings[port],
+                    (dut_profile, peer_profile))
+            ]
+            effective_profiles = [
+                owned_profiles.get(scope, profile)
+                for scope, profile in zip(
+                    endpoint_scopes, (dut_profile, peer_profile))
+            ]
+            fallback_profiles = [
+                p for p in effective_profiles
+                if p.get("fallback_cak")]
             if len(fallback_profiles) == 2:
-                same_fallback = _key_identity(dut_profile, "fallback") == _key_identity(peer_profile, "fallback")
+                same_fallback = (
+                    _key_identity(
+                        effective_profiles[0], "fallback")
+                    == _key_identity(
+                        effective_profiles[1], "fallback"))
                 assert same_fallback, (
                     "The selected link does not share the suite fallback CA")
             fallback_pair = (
@@ -917,10 +1584,18 @@ def prepare_fallback_profiles(env, candidates):
             for (host, endpoint_port, original_name), target in zip(
                     original_bindings[port], (env["profiles"], env["peer_profiles"])):
                 profile = target[port]
-                if profile["name"] is None or not profile.get("fallback_cak"):
+                scope = _profile_scope(host, endpoint_port, profile)
+                needs_owned = (
+                    scope in isolated_scopes
+                    or profile["name"] is None
+                    or not profile.get("fallback_cak"))
+                if needs_owned and scope in owned_profiles:
+                    profile = owned_profiles[scope]
+                elif needs_owned:
                     name = "FC" + uuid.uuid4().hex[:12]
                     assert not profile_exists(host, name), "Refusing to overwrite an existing MACsec profile"
                     profile = dict(profile, name=name, fallback_cak=fallback_pair[0], fallback_ckn=fallback_pair[1])
+                    owned_profiles[scope] = profile
                     created.append((host, endpoint_port, profile))
                     set_macsec_profile(
                         host, name, profile["priority"], profile["cipher_suite"],
@@ -934,7 +1609,6 @@ def prepare_fallback_profiles(env, candidates):
                     enable_macsec_port(host, endpoint_port, profile["name"])
                 target[port] = profile
 
-        # Only reused profiles link ports together; newly owned baselines are unique per endpoint.
         env["active_ports"] = [port for port in env["control_links"] if port in active]
         for host, endpoint_port, profile in get_profile_operations(env):
             assert profile.get("fallback_cak") and profile.get("fallback_ckn"), (
@@ -955,14 +1629,16 @@ def prepare_fallback_profiles(env, candidates):
 
 @pytest.fixture(scope="module")
 def fallback_env(macsec_duthost, ctrl_links, upstream_links, macsec_profile, port_profiles, tbinfo):
-    """Use suite-bound fallback profiles, creating baselines only when fallback is missing."""
+    """Use suite-bound fallback profiles, isolating only profiles unsafe to mutate."""
     duthost = macsec_duthost
     result = duthost.command("show macsec --mka", module_ignore_errors=True)
     if "no such option" in result.get("stderr", "").lower():
         pytest.skip("Image does not support show macsec --mka")
 
-    links = select_pair(duthost, ctrl_links, upstream_links)
-    env = {"duthost": duthost, "links": links, "control_links": ctrl_links, "upstream_links": upstream_links,
+    routed_links = get_fallback_routed_links(
+        duthost, tbinfo, ctrl_links, upstream_links)
+    links = select_pair(duthost, ctrl_links, routed_links)
+    env = {"duthost": duthost, "links": links, "control_links": ctrl_links, "upstream_links": routed_links,
            "profiles": {}, "peer_profiles": {}, "active_ports": list(links),
            "suite_profiles": {port: (port_profiles or {}).get(port, macsec_profile) for port in ctrl_links},
            "base_profile_name": macsec_profile["name"]}
@@ -1267,9 +1943,11 @@ def test_both_invalid_blocks_traffic_and_recovers(fallback_env):
             + get_link_blocking_errors(
                 get_mka_status(peer_host, operation[1]), invalid_primary_key[1], invalid_fallback_key[1]))
 
-    with stable_transit_path(env, selected_port) as endpoints:
-        assert all(ping_transit_endpoint(endpoint) for endpoint in endpoints), \
-            "Transit is not healthy before the change"
+    with stable_transit_path(env, selected_port) as path:
+        endpoints = path["endpoints"]
+        observe_transit_requests(
+            endpoints, path["routes_ok"], "baseline",
+            expect_requests=True, capability_probe=True)
         try:
             replace_profile_key(operation, "primary", invalid_primary_key)
             replace_profile_key(operation, "fallback", invalid_fallback_key)
@@ -1277,12 +1955,16 @@ def test_both_invalid_blocks_traffic_and_recovers(fallback_env):
             wait_until_no_errors(
                 MKA_CONVERGE_TIMEOUT, _get_both_invalid_errors,
                 "Link with both CAKs mismatched is not blocked")
-            results = [ping_transit_endpoint(endpoint) for endpoint in endpoints]
-            assert not any(results), "Traffic was forwarded with both CAKs mismatched: {}".format(results)
+            assert path["routes_ok"](), \
+                "Protected routes disappeared while both CAKs were invalid"
+            observe_transit_requests(
+                endpoints, path["routes_ok"], "blocked",
+                expect_requests=False)
         finally:
             with ExitStack() as cleanup:
                 cleanup.callback(restore_profile_key, operation, "fallback", fallback_key, invalid_fallback_key)
                 cleanup.callback(restore_profile_key, operation, "primary", primary_key, invalid_primary_key)
             wait_for_primary_macsec_links(env)
-        results = [ping_transit_endpoint(endpoint) for endpoint in endpoints]
-        assert all(results), "Transit traffic did not recover: {}".format(results)
+        observe_transit_requests(
+            endpoints, path["routes_ok"], "recovery",
+            expect_requests=True)

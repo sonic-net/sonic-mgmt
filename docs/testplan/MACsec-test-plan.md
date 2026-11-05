@@ -119,9 +119,15 @@ About the detail to set the testbed, please refer the doc: https://github.com/so
 ```
 
 Fallback cases reuse the selected shared or per-interface profiles and their current bindings.
-Only profiles missing fallback get a temporary dual-CA baseline. Compatible installed profiles can also
-be temporarily bound to initially unbound ports without being deleted. Cleanup restores the original
-bindings and waits for both endpoints of originally protected links to recover.
+Profiles missing fallback get a temporary dual-CA baseline. Compatible installed profiles can also
+be temporarily bound to initially unbound ports without being deleted.
+Before any writes, setup enumerates all profile attachments in the SONiC ASIC namespace or EOS
+interface configuration, including shutdown ports and Port-Channels.
+If a selected profile also has unmanaged attachments, the test leaves that profile and those ports
+untouched and moves only the affected managed endpoints to one test-owned counterpart per host,
+profile and namespace. Fully managed shared profiles remain reused.
+Cleanup restores the original bindings, rechecks attachments before deleting owned profiles, and
+waits for both endpoints of originally protected links to recover.
 Original MACsec feature-enable states are preserved on the DUT and SONiC peers.
 `--per_interface_macsec` is supported. `--macsec_profile all` excludes the static fallback profiles.
 VS DUT links to EOS still require `send_sci=true` in both effective endpoint profiles.
@@ -132,6 +138,8 @@ profile in its ASIC namespace. EOS uses the existing
 the requested profile locally. Raw output is suppressed and CAKs stay within the test process.
 Failure reports omit CAK-bearing locals and argument values, including with `--showlocals`.
 Setup follows reused-profile sharing once and reads each selected profile's settings once per endpoint.
+On LRH/URH, the module derives missing routed controlled peers from matching minigraph neighbors
+and unique IPv4 minigraph BGP sessions instead of assuming T1/T3 neighbor labels.
 The CLI and live-link cases remain in the same module with their existing selectors and explicit cleanup.
 
 ```
@@ -390,10 +398,11 @@ macsecmgrd applies key updates in place and does not guarantee hitless updates. 
 
 - Both CAKs wrong
     cEOS is skipped: it may retain the removed principal participant.
-    1. Route between the neighbor loopbacks through the DUT. Link addresses can disappear when MACsec goes down.
-    2. Update the peer primary, then fallback CAK, to wrong keys.
-    3. Expect the new CKNs in-sync with no live peer, the port not secured, and no ping replies. SAs may be retained.
-    4. Restore the CAKs. Expect ping replies.
+    1. Pin existing protected neighbor-loopback routes through the routing daemons. Reuse matching static pins and remove only pins added by the test. Incompatible, ECMP, or unprotected routes are skipped before writes.
+    2. Before key mutation, prove both SONiC neighbor capture points receive exact test ICMP echo requests. Missing capture tools or plaintext visibility cause an explicit skip.
+    3. Update the peer primary, then fallback CAK, to wrong keys.
+    4. Expect the new CKNs in-sync with no live peer, the port not secured, both protected routes still present, and zero matching requests received in either direction. SAs may be retained. Each capture must remain alive during transmission, have readable output, and report zero kernel drops; capture failures are not evidence of blocking.
+    5. Restore the CAKs. Expect matching requests received in both directions. Cleanup stops only owned capture PIDs and removes only their exact files.
 
 - Profile validation
     1. Add a profile with half a fallback key, a duplicate CKN or an invalid CAK. Expect failure.
