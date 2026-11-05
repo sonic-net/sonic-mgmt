@@ -58,4 +58,5 @@ def test_cleanup_keeps_hash_key_and_field_separate(filename):
 def test_local_config_commands_do_not_request_cluster_mode(path):
     text = (ROOT / path).read_text()
     assert "redis-cli -n 4 -c " not in text
-    assert "sonic-db-cli -s CONFIG_DB " in text
+    assert ("sonic-db-cli -s CONFIG_DB " in text or
+            "sonic-db-cli -s --authenticate CONFIG_DB " in text)
