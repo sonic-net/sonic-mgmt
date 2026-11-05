@@ -658,7 +658,7 @@ jobs:
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           ASIC_TYPE: "vpp"
           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer ${{ parameters.EXTRA_COMMON_PARAMS }}"
           SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "False"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
