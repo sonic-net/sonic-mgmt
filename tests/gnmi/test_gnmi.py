@@ -9,13 +9,16 @@ import time
 import pytest
 
 from tests.common.helpers import gnmi_cli_helpers as helper
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
+from tests.common.helpers.gnmi_utils import (
+    GNMIEnvironment,
+    dump_gnmi_log,
+    gnmi_capabilities,
+)
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.utilities import wait_until
 
 from .helper import (
     apply_cert_config,
-    dump_gnmi_log,
     gnmi_get,
     gnmi_set,
     gnmi_subscribe_stream_connections,
@@ -303,7 +306,13 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost):
 
     def client_worker():
         gnmi_subscribe_stream_connections(
-            duthost, ptfhost, ["DOCKER_STATS"], target="STATE_DB", create_connections=2000, update_count=1
+            duthost,
+            ptfhost,
+            ["DOCKER_STATS"],
+            target="STATE_DB",
+            create_connections=2000,
+            update_count=1,
+            port=env.gnmi_port,
         )
 
     client_thread = threading.Thread(target=client_worker)
