@@ -994,7 +994,9 @@ def check_monit(duthosts):
         results = kwargs['results']
 
         logger.info("Checking status of each Monit service...")
-        networking_uptime = dut.get_networking_uptime().seconds
+        service_props = dut.get_service_props("networking", props=["ExecMainStartTimestampMonotonic"])
+        networking_started = int(service_props["ExecMainStartTimestampMonotonic"]) / 1000000.0
+        networking_uptime = max(dut.get_uptime().total_seconds() - networking_started, 0)
         timeout = max((MONIT_STABILIZE_MAX_TIME - networking_uptime), 0)
         interval = 20
         logger.info("networking_uptime = {} seconds, timeout = {} seconds, interval = {} seconds"
@@ -1014,7 +1016,7 @@ def check_monit(duthosts):
 
             check_result = _check_monit_services_status(check_result, monit_services_status)
         else:
-            start = time.time()
+            start = time.monotonic()
             elapsed = 0
             is_monit_running = False
             while elapsed < timeout:
@@ -1023,7 +1025,7 @@ def check_monit(duthosts):
                 if not monit_services_status:
                     wait(interval, msg="Monit was not started and wait {} seconds to retry. Remaining time: {}."
                          .format(interval, timeout - elapsed))
-                    elapsed = time.time() - start
+                    elapsed = time.monotonic() - start
                     continue
 
                 is_monit_running = True
@@ -1033,7 +1035,7 @@ def check_monit(duthosts):
                          msg="Services were not monitored and wait {} seconds to retry. \
                              Remaining time: {}. Services status: {}"
                          .format(interval, timeout - elapsed, str(check_result["services_status"])))
-                    elapsed = time.time() - start
+                    elapsed = time.monotonic() - start
                 else:
                     break
 
