@@ -1106,14 +1106,14 @@ def dutconfig_checkpoint(duthosts):  # noqa: F811
 def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
     """Apply a near-zero-rate scheduler to the lossless queue to block egress."""
     cmd = (
-        f"sonic-db-cli -s CONFIG_DB HSET 'SCHEDULER|{scheduler}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB HSET 'SCHEDULER|{scheduler}' "
         "'type' 'DWRR' 'weight' '15' 'pir' '1' 'cir' '1'"
     )
     if duthost.facts["asic_type"] == "broadcom":
         cmd += " 'meter_type' 'packets'"
     duthost.shell(cmd)
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{scheduler}'"
+        f"sonic-db-cli -s --authenticate CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{scheduler}'"
     )
     time.sleep(5)
     result = duthost.shell(
@@ -1125,7 +1125,7 @@ def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
 def _unblock_egress(duthost, port, queue, original_scheduler):
     """Restore the original scheduler on the lossless queue."""
     duthost.shell(
-        f"sonic-db-cli -s CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{original_scheduler}'"
+        f"sonic-db-cli -s --authenticate CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{original_scheduler}'"
     )
     time.sleep(5)
 

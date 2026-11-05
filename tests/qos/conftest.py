@@ -184,7 +184,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
     config_changed = False
     if not is_tunnel_qos_remap_enabled(duthost) and request.config.getoption("--qos_dual_tor"):
-        duthost.shell("sonic-db-cli -s CONFIG_DB hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
+        duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)
@@ -193,7 +193,7 @@ def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     yield
 
     if config_changed:
-        duthost.shell('sonic-db-cli -s CONFIG_DB DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
         duthost.shell("config qos reload --no-dynamic-buffer")
         duthost.shell("config save -y")
         config_reload(duthost, safe_reload=True, yang_validate=False)

@@ -549,7 +549,7 @@ def disable_wred(snappi_dut_port_map, queues):
                     if not prof:
                         continue
                     saved[duthost][(intf, q)] = prof
-                    duthost.shell(f'sonic-db-cli -s CONFIG_DB hdel "{key}" wred_profile')
+                    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hdel "{key}" wred_profile')
                     left = duthost.shell(f'sonic-db-cli -s CONFIG_DB hget "{key}" wred_profile',
                                          module_ignore_errors=True)["stdout"].strip()
                     pytest_assert(not left, f"WRED still set on {duthost.hostname} {key} after hdel")
@@ -564,7 +564,7 @@ def restore_wred(saved):
     """Re-attach the WRED profiles removed by disable_wred()."""
     for duthost, items in (saved or {}).items():
         for (intf, q), prof in items.items():
-            duthost.shell(f'sonic-db-cli -s CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
+            duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "QUEUE|{intf}|{q}" wred_profile "{prof}"')
             logger.info(f"WRED restored on {duthost.hostname} QUEUE|{intf}|{q} -> {prof}")
 
 

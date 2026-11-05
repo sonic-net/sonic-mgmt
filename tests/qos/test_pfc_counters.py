@@ -28,7 +28,7 @@ def enable_flex_port_counter(rand_selected_dut):
     if status == 'enable':
         yield
         return
-    set_cmd = 'sonic-db-cli -s CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"'
+    set_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset "FLEX_COUNTER_TABLE|PORT" "FLEX_COUNTER_STATUS" "{}"'
     logger.info("Enable flex counter for port")
     rand_selected_dut.shell(set_cmd.format('enable'))
     yield

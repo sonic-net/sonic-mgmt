@@ -439,17 +439,17 @@ class StrictPriorityRateLimitingDriver:
             scheduler_key = f"SCHEDULER|{policy_name}"
 
             # Set scheduler parameters (rates in bytes per second)
-            self.duthost.shell(f"sonic-db-cli -s CONFIG_DB HSET '{scheduler_key}' 'type' 'STRICT'")
+            self.duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{scheduler_key}' 'type' 'STRICT'")
             self.duthost.shell(
-                f"sonic-db-cli -s CONFIG_DB HSET '{scheduler_key}' 'cir' '{TEST_CONFIG['cir_bytes_per_sec']}'")
+                f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{scheduler_key}' 'cir' '{TEST_CONFIG['cir_bytes_per_sec']}'")
             self.duthost.shell(
-                f"sonic-db-cli -s CONFIG_DB HSET '{scheduler_key}' 'pir' '{TEST_CONFIG['pir_bytes_per_sec']}'")
+                f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{scheduler_key}' 'pir' '{TEST_CONFIG['pir_bytes_per_sec']}'")
 
             # Get the correct queue key format for this platform
             queue_key = self._get_queue_key(self.test_interface, self.target_queue)
 
             # Apply scheduler policy to queue
-            self.duthost.shell(f"sonic-db-cli -s CONFIG_DB HSET '{queue_key}' 'scheduler' '{policy_name}'")
+            self.duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB HSET '{queue_key}' 'scheduler' '{policy_name}'")
 
             # Show the queue configuration after setting scheduler
             queue_config = self.duthost.shell(

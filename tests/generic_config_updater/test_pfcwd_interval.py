@@ -71,7 +71,7 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
         "default_pfcwd_status", "")
     if pfc_status == 'disable':
         duthost.shell(
-            'sonic-db-cli -s CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
+            'sonic-db-cli -s --authenticate CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
             'default_pfcwd_status enable')
         # apply cofig to all namespaces also for multi-asic platforms
         for asic_id in duthost.get_asic_ids():
@@ -79,7 +79,7 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
                 duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(
                     'CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
                     'default_pfcwd_status enable'
-                )
+                , authenticate=True)
     # Enable default pfcwd configuration
     start_pfcwd = duthost.shell('config pfcwd start_default')
     pytest_assert(not start_pfcwd['rc'],
@@ -136,7 +136,7 @@ def prepare_pfcwd_interval_config(duthost, value, ip_netns_namespace_prefix,
     if value:
         cmd = "{} pfcwd interval {}".format(ip_netns_namespace_prefix, value)
     else:
-        cmd = r"sonic-db-cli -s {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
+        cmd = r"sonic-db-cli -s --authenticate {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
         cmd = cmd.format(cli_namespace_prefix)
 
     duthost.shell(cmd)
