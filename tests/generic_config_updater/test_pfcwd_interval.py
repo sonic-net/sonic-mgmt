@@ -65,21 +65,21 @@ def enable_default_pfcwd_configuration(ensure_dut_readiness):
     """Enable default PFCWD configuration on the DUT."""
     duthost = ensure_dut_readiness
     res = duthost.shell(
-        'redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
+        'sonic-db-dump -t unix_socket -n CONFIG_DB --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get(
         "default_pfcwd_status", "")
     if pfc_status == 'disable':
         duthost.shell(
-            'redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" '
+            'sonic-db-cli -s --authenticate CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
             'default_pfcwd_status enable')
         # apply cofig to all namespaces also for multi-asic platforms
         for asic_id in duthost.get_asic_ids():
             if asic_id:
-                duthost.asic_instance(asic_id).command(
-                    'redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" '
+                duthost.asic_instance(asic_id).run_sonic_db_cli_cmd(
+                    'CONFIG_DB hset \"DEVICE_METADATA|localhost\" '
                     'default_pfcwd_status enable'
-                )
+                , authenticate=True)
     # Enable default pfcwd configuration
     start_pfcwd = duthost.shell('config pfcwd start_default')
     pytest_assert(not start_pfcwd['rc'],
@@ -104,7 +104,7 @@ def ensure_application_of_updated_config(duthost, value, cli_namespace_prefix):
         cli_namespace_prefix: fixture for the formatted cli namespace
     """
     def _confirm_value_in_flex_counter_db():
-        cmd = ('sonic-db-cli {} PFC_WD_DB hget '
+        cmd = ('sonic-db-cli -s {} PFC_WD_DB hget '
                'FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL').format(
                    cli_namespace_prefix)
         poll_interval = duthost.shell(cmd)["stdout"]
@@ -136,7 +136,7 @@ def prepare_pfcwd_interval_config(duthost, value, ip_netns_namespace_prefix,
     if value:
         cmd = "{} pfcwd interval {}".format(ip_netns_namespace_prefix, value)
     else:
-        cmd = r"sonic-db-cli {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
+        cmd = r"sonic-db-cli -s --authenticate {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
         cmd = cmd.format(cli_namespace_prefix)
 
     duthost.shell(cmd)
@@ -164,14 +164,14 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix,
         if line.startswith('Ethernet'):
             # Since line starts with Ethernet, we can safely use 0 index
             interface = line.split()[0]
-            cmd = ('sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" '
+            cmd = ('sonic-db-cli -s {} CONFIG_DB hget \"PFC_WD|{}\" '
                    '\"detection_time\" ').format(cli_namespace_prefix,
                                                  interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read detection time")
             detection_time = output["stdout"]
 
-            cmd = ('sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" '
+            cmd = ('sonic-db-cli -s {} CONFIG_DB hget \"PFC_WD|{}\" '
                    '\"restoration_time\" ').format(cli_namespace_prefix,
                                                    interface)
             output = duthost.shell(cmd, module_ignore_errors=True)

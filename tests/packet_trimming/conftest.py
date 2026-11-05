@@ -41,8 +41,8 @@ def skip_if_packet_trimming_not_supported(duthost):
     logger.info(f"Checking packet trimming support for platform: {platform}")
 
     # Check if the SWITCH_TRIMMING_CAPABLE capability is true
-    trimming_capable = duthost.command('redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')[
-        'stdout'].strip()
+    trimming_capable = duthost.command(
+        'sonic-db-cli -s STATE_DB HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')['stdout'].strip()
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")
 
@@ -341,7 +341,7 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
 
     # Use static route to control egress interface
     rand_selected_dut.command(
-        f'sonic-db-cli CONFIG_DB HSET "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}" '
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}" '
         f'nexthop {nexthop} ifname {egress_intf}'
     )
     logger.info(f"Added static route {SRV6_ROUTE_PREFIX} -> {nexthop} via {egress_intf}")
@@ -354,7 +354,7 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
 
     # Cleanup: remove ingress ACL first, then the static route
     cleanup_srv6_loop_break_acl(rand_selected_dut)
-    rand_selected_dut.command(f'sonic-db-cli CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
+    rand_selected_dut.command(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
     logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
     for sid_param in SRV6_MY_SID_LIST:

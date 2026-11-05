@@ -19,16 +19,16 @@ class DutDbInfo:
         self.update_db_info()
 
     def get_asic_db(self):
-        return ast.literal_eval(self.duthost.shell('sonic-db-dump -n ASIC_DB -y')['stdout'])
+        return ast.literal_eval(self.duthost.shell('sonic-db-dump -t unix_socket -n ASIC_DB -y')['stdout'])
 
     def get_appl_db(self):
-        return ast.literal_eval(self.duthost.shell('sonic-db-dump -n APPL_DB -y')['stdout'])
+        return ast.literal_eval(self.duthost.shell('sonic-db-dump -t unix_socket -n APPL_DB -y')['stdout'])
 
     def get_config_db(self):
-        return ast.literal_eval(self.duthost.shell('sonic-db-dump -n CONFIG_DB -y ')['stdout'])
+        return ast.literal_eval(self.duthost.shell('sonic-db-dump -t unix_socket -n CONFIG_DB -y ')['stdout'])
 
     def get_state_db(self):
-        return ast.literal_eval(self.duthost.shell('sonic-db-dump -n STATE_DB -y')['stdout'])
+        return ast.literal_eval(self.duthost.shell('sonic-db-dump -t unix_socket -n STATE_DB -y')['stdout'])
 
     def get_port_info_from_config_db(self, port):
         return self.config_db.get("PORT|{}".format(port)).get("value")
@@ -78,7 +78,7 @@ def get_ports_with_config_exceed_max_headroom(duthost):
 
 
 def change_ports_cable_len(duthost, port_cable_info):
-    cmd_get_pool_size = 'redis-cli -n 0 hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
+    cmd_get_pool_size = 'sonic-db-cli -s APPL_DB hget "BUFFER_POOL_TABLE:ingress_lossless_pool" size'
     original_pool_size = duthost.shell(cmd_get_pool_size)['stdout']
     ports_cable_len_j2_file_name = "ports_cable_len.j2"
     with open(os.path.join(PORT_CABLE_LEN_JSON_TEMPLATE_PATH, ports_cable_len_j2_file_name)) as template_file:
