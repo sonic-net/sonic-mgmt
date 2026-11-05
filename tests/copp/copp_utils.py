@@ -662,3 +662,8 @@ def get_feature_name_from_trap_id(duthost, trap_id):
             return always_enabled.lower() == "true", feature_name if always_enabled.lower() == "true" else feature_name
 
     return False, None
+
+
+def get_frontend_asics(duthost):
+    """Frontend ASICs on a multi-ASIC DUT, else the single default-namespace ASIC."""
+    return duthost.frontend_asics if duthost.is_multi_asic else duthost.asics
