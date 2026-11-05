@@ -325,23 +325,23 @@ class PfcPktCntrs(object):
         tx_diff = self.cntr_val["tx_end"] - self.cntr_val["tx_begin"]
         if (port_type in ['vlan', 'interface'] and tx_diff != pkt_cnt) or tx_diff <= 0:
             err_msg = self.err_msg_tx[0].format(self.cntr_val["tx_begin"], self.cntr_val["tx_end"], pkt_cnt, tx_diff)
-            pytest_assert(err_msg)
+            pytest.fail(err_msg)
 
         if (port_type in ['vlan', 'interface'] and self.cntr_val["tx_last"] != pkt_cnt) \
                 or self.cntr_val["tx_last"] <= 0:
             err_msg = self.err_msg_tx[1].format(pkt_cnt, self.cntr_val["tx_last"])
-            pytest_assert(err_msg)
+            pytest.fail(err_msg)
 
         logger.info("--- Checking Rx {} cntrs ---".format(self.rx_action))
         rx_diff = self.cntr_val["rx_end"] - self.cntr_val["rx_begin"]
         if (port_type in ['vlan', 'interface'] and rx_diff != pkt_cnt) or rx_diff <= 0:
             err_msg = self.err_msg_rx[0].format(self.cntr_val["rx_begin"], self.cntr_val["rx_end"], pkt_cnt, rx_diff)
-            pytest_assert(err_msg)
+            pytest.fail(err_msg)
 
         if (port_type in ['vlan', 'interface'] and self.cntr_val["rx_last"] != pkt_cnt) \
                 or self.cntr_val["rx_last"] <= 0:
             err_msg = self.err_msg_rx[1].format(pkt_cnt, self.cntr_val["rx_last"])
-            pytest_assert(err_msg)
+            pytest.fail(err_msg)
 
 
 class SetupPfcwdFunc(object):

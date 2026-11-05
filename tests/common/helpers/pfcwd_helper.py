@@ -451,6 +451,18 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
+HARDWARE = "hardware"
+SOFTWARE = "software"
+
+
+def get_pfcwd_recovery_mode(duthost):
+    """Return HARDWARE or SOFTWARE from STATE_DB; SOFTWARE when the watchdog has not published one."""
+    # Raises on a sonic-db-cli failure, so only an absent field reads as software.
+    value = duthost.asic_instance(0).run_sonic_db_cli_cmd(
+        "STATE_DB HGET 'PFC_WD_STATE_TABLE|PFC_WD' RECOVERY_MECHANISM")["stdout"].strip().lower()
+    return HARDWARE if value == HARDWARE else SOFTWARE
+
+
 def is_pfcwd_hw_recovery_enabled(duthost):
     """
     Check if PFC watchdog is using hardware-based recovery mechanism.
