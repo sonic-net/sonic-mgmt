@@ -192,9 +192,9 @@ def dut_lo_addr(rand_selected_dut, enum_rand_one_frontend_asic_index):
 
 
 def cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6):
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all', authenticate=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all', authenticate=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all', authenticate=True)
 
 
 @pytest.fixture(scope="module", params=['BGPSentinel'])
@@ -240,8 +240,8 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, request.param
 
     # Cleanup bgp sentinel configuration
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all', authenticate=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all', authenticate=True)
     duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
 
 

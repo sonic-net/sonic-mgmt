@@ -46,8 +46,8 @@ def get_db_cli_prefix(duthost, asic_index):
 
     Example::
 
-        sonic-db-cli                  # single-ASIC / default namespace
-        sonic-db-cli -n asic1         # multi-ASIC, namespace asic1
+        sonic-db-cli -s               # single-ASIC / default namespace
+        sonic-db-cli -s -n asic1      # multi-ASIC, namespace asic1
     """
     return get_db_cli_prefix_for_namespace(get_asic_namespace(duthost, asic_index))
 
@@ -57,7 +57,7 @@ def get_db_cli_prefix_for_namespace(namespace):
     resolved ``namespace`` (e.g. helpers that take a ``namespace`` parameter
     rather than an ``asic_index``).
     """
-    return "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
+    return "sonic-db-cli -s {}".format(namespace_cli_arg(namespace)).rstrip()
 
 
 def get_asic_config_facts(duthost, asic_index):
@@ -318,8 +318,8 @@ class BGPNeighbor(object):
             )
         elif not self.is_passive:
             asichost = self.duthost.asic_instance_from_namespace(self.namespace)
-            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
-            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip), authenticate=True)
+            asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name), authenticate=True)
 
         self.ptfhost.exabgp(name=self.name, state="absent")
 
@@ -350,7 +350,7 @@ class BGPNeighbor(object):
             for asichost in self.duthost.asics:
                 if asichost.namespace == self.namespace:
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
-                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
+                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip), authenticate=True)
 
     def announce_route(self, route):
         if "aspath" in route:

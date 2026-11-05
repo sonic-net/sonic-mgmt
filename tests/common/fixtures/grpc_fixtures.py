@@ -566,20 +566,20 @@ def _configure_gnoi_tls_server(duthost):
     logger.info("Configuring gNOI server for TLS mode")
 
     # Configure GNMI table for TLS mode
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port 50052')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" user_auth cert')
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" port 50052')
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" client_auth true')
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" log_level 2')
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" user_auth cert')
 
     # Configure certificate paths using centralized config
     config_db_settings = grpc_config.get_config_db_cert_settings()
-    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" ca_crt "{config_db_settings["ca_crt"]}"')
-    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" server_crt "{config_db_settings["server_crt"]}"')
-    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" server_key "{config_db_settings["server_key"]}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" ca_crt "{config_db_settings["ca_crt"]}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_crt "{config_db_settings["server_crt"]}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" server_key "{config_db_settings["server_key"]}"')
 
     # Register client certificate with appropriate roles
     duthost.shell(
-        '''sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|test.client.gnmi.sonic" "role@" '''
+        '''sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI_CLIENT_CERT|test.client.gnmi.sonic" "role@" '''
         '''"gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,'''
         '''gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
     )

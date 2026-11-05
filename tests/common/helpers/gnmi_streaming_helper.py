@@ -9,37 +9,37 @@ logger = logging.getLogger(__name__)
 
 
 def check_gnmi_config(duthost):
-    cmd = 'sonic-db-cli CONFIG_DB HGET "GNMI|gnmi" port'
+    cmd = 'sonic-db-cli -s CONFIG_DB HGET "GNMI|gnmi" port'
     port = duthost.shell(cmd, module_ignore_errors=False)['stdout']
     return port != ""
 
 
 def create_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|gnmi' port 50052"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|gnmi' client_auth true"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|certs' "\
           "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|certs' "\
           "server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|certs' "\
           "server_key /etc/sonic/telemetry/streamingtelemetryserver.key"
     duthost.shell(cmd, module_ignore_errors=True)
 
 
 def delete_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hdel 'GNMI|gnmi' port"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hdel 'GNMI|gnmi' client_auth"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hdel 'GNMI|certs' ca_crt"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_crt"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hdel 'GNMI|certs' server_crt"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
+    cmd = "sonic-db-cli -s --authenticate CONFIG_DB hdel 'GNMI|certs' server_key"
     duthost.shell(cmd, module_ignore_errors=True)
 
 
@@ -48,12 +48,12 @@ def setup_gnmi_forpyclient(duthost):
         Restart the gnmi container.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
+    client_auth_out = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
 
     if client_auth == "true":
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
         duthost.service(name=env.gnmi_container, state="restarted")
@@ -69,11 +69,11 @@ def setup_gnmi_forpyclient(duthost):
 
 def restore_gnmi_forpyclient(duthost, default_client_auth):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
+    client_auth_out = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth != default_client_auth:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
                       % (env.gnmi_config_table, default_client_auth),
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))

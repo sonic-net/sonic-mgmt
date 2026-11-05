@@ -69,7 +69,7 @@ def test_cleanup_uses_each_tors_relay_mode(
     expected_checks = []
     if testing_mode == "dual":
         standby.shell.assert_called_once_with(
-            'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"')
+            'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"')
         expected_restarts.append(call(standby, [standby_type]))
         expected_checks.append(call(
             120, 5, 0, namespace["check_interface_status"], standby, "{}-relay-agent".format(standby_type)))

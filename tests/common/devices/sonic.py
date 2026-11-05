@@ -324,7 +324,7 @@ class SonicHost(AnsibleHostBase):
         """
         try:
             result = self.shell(
-                'sonic-db-cli CONFIG_DB hget "CONSOLE_SWITCH|console_mgmt" enabled',
+                'sonic-db-cli -s CONFIG_DB hget "CONSOLE_SWITCH|console_mgmt" enabled',
                 module_ignore_errors=True
             )
             if result["rc"] == 0:
@@ -874,7 +874,7 @@ class SonicHost(AnsibleHostBase):
         @summary: get db value in state db to check the daemon expected status
         """
         ret_val = None
-        get_db_value_cmd = 'redis-cli -n 6 hget "{}" {}'.format(daemon_db_table_key, field)
+        get_db_value_cmd = 'sonic-db-cli -s STATE_DB hget "{}" {}'.format(daemon_db_table_key, field)
 
         cmd_output = self.shell(get_db_value_cmd, module_ignore_errors=True)
         if cmd_output['rc'] == 0:
@@ -1031,7 +1031,7 @@ class SonicHost(AnsibleHostBase):
         namespace_ids = []
 
         num_asics = int(self.facts["num_asic"])
-        command_config_entry = "sonic-db-cli CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
+        command_config_entry = "sonic-db-cli -s CONFIG_DB hgetall \"FEATURE|{}\"".format(container_name)
         command_output = self.shell(command_config_entry)
         exit_code = command_output["rc"]
         if exit_code != 0:
@@ -1605,7 +1605,7 @@ Totals               6450                 6449
         Returns: True or False
         """
         try:
-            cmd = 'sonic-db-cli STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(interface_name)
+            cmd = 'sonic-db-cli -s STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(interface_name)
             state = self.shell(cmd)['stdout'].strip()
             return state == 'ok'
         except Exception as e:
@@ -1850,9 +1850,21 @@ Totals               6450                 6449
                 return True
         return False
 
-    def run_sonic_db_cli_cmd(self, sonic_db_cmd):
-        cmd = "sonic-db-cli {}".format(sonic_db_cmd)
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False, authenticate=False):
+        socket_option = "" if use_tcp else "-s "
+        auth_option = "--authenticate " if authenticate else ""
+        cmd = "sonic-db-cli {}{}{}".format(socket_option, auth_option, sonic_db_cmd)
         return self.command(cmd, verbose=False)
+
+    def get_sonic_db_dump_command(self, db_name, namespace=None):
+        """Build a sonic-db-dump command compatible with the installed namespace options."""
+        command = "sonic-db-dump -t unix_socket -n {}".format(shlex.quote(db_name))
+        if namespace is None:
+            return command
+        help_text = self.command("sonic-db-dump --help")["stdout"]
+        if "--netns" in help_text:
+            command += " --netns {}".format(shlex.quote(namespace))
+        return "sudo ip netns exec {} {}".format(shlex.quote(namespace), command)
 
     def run_redis_cli_cmd(self, redis_cmd):
         cmd = "/usr/bin/redis-cli {}".format(redis_cmd)
@@ -2310,7 +2322,7 @@ Totals               6450                 6449
         Returns:
             list: A list of supported speed strings or None
         """
-        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_speeds')
+        cmd = 'sonic-db-cli -s STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_speeds')
         supported_speeds = self.shell(cmd)['stdout'].strip()
         return None if not supported_speeds else supported_speeds.split(',')
 
@@ -2338,7 +2350,7 @@ Totals               6450                 6449
             boolean: True if auto negotiation mode is enabled else False. Return None if
             the auto negotiation mode is unknown or unsupported.
         """
-        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
+        cmd = 'sonic-db-cli -s APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'autoneg')
         try:
             mode = self.shell(cmd)['stdout'].strip()
         except RunAnsibleModuleFail:
@@ -2381,7 +2393,7 @@ Totals               6450                 6449
         Returns:
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
-        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'speed')
+        cmd = 'sonic-db-cli -s STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'speed')
         speed = self.shell(cmd)['stdout'].strip()
         return speed
 
@@ -2774,7 +2786,7 @@ Totals               6450                 6449
         return re.search('up +up', output['stdout_lines'][-1])
 
     def get_port_fec(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
+        out = self.shell('sonic-db-cli -s CONFIG_DB HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
         if out["stdout_lines"] and out["stdout_lines"][0] != "(nil)":
             return out["stdout_lines"][0]
@@ -2788,13 +2800,13 @@ Totals               6450                 6449
         return res['rc'] == 0
 
     def count_portlanes(self, portname):
-        out = self.shell('redis-cli -n 4 HGET "PORT|{}" "lanes"'.format(portname))
+        out = self.shell('sonic-db-cli -s CONFIG_DB HGET "PORT|{}" "lanes"'.format(portname))
         assert_exit_non_zero(out)
         lanes = out["stdout_lines"][0].split(',')
         return len(lanes)
 
     def get_sfp_type(self, portname):
-        out = self.shell('redis-cli -n 6 HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
+        out = self.shell('sonic-db-cli -s STATE_DB HGET "TRANSCEIVER_INFO|{}" "type"'.format(portname))
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
@@ -2950,7 +2962,7 @@ Totals               6450                 6449
 
     def get_frr_mgmt_framework_config(self):
         frr_config = self.shell(
-            'sudo sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" '
+            'sudo sonic-db-cli -s CONFIG_DB HGET "DEVICE_METADATA|localhost" '
             '"frr_mgmt_framework_config"'
         )['stdout'].strip()
         return frr_config == "true"

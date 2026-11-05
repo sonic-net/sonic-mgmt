@@ -253,7 +253,7 @@ def query_dhcpmon_counter_result(duthost, query_key, is_v6=False):
     'Request':'0','Confirm':'0','Renew':'0','Rebind':'0','Reply':'0','Release':'0','Decline':'0','Reconfigure':'0',
     'Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0','Malformed':'0'}"}
     '''
-    counters_query_string = 'sonic-db-cli COUNTERS_DB hgetall "DHCP{}_COUNTER_TABLE:{}"' \
+    counters_query_string = 'sonic-db-cli -s COUNTERS_DB hgetall "DHCP{}_COUNTER_TABLE:{}"' \
                             .format("V6" if is_v6 else "V4", query_key)
     shell_result = json.loads(
         duthost.shell(counters_query_string)['stdout'].replace("\"", "").replace("'", "\"")
@@ -606,10 +606,10 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
     Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
     """
     if dhcpv4_config_flag:
-        duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
                       module_ignore_errors=True)
     else:
-        duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
                       module_ignore_errors=True)
 
     # Save the config and restart DHCP relay service

@@ -223,7 +223,7 @@ class MultiAsicSonicHost(object):
                 asic = self.get_port_asic_instance(interface_name)
                 cmd_prefix = "-n {}".format(asic.namespace)
 
-            cmd = 'sonic-db-cli {} STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(cmd_prefix, interface_name)
+            cmd = 'sonic-db-cli -s {} STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(cmd_prefix, interface_name)
             state = self.shell(cmd)['stdout'].strip()
             return state == 'ok'
         except Exception as e:

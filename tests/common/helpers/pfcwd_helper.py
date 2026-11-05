@@ -464,7 +464,7 @@ def is_pfcwd_hw_recovery_enabled(duthost):
         bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
     """
     try:
-        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+        cmd = 'sonic-db-cli -s STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
         result = duthost.shell(cmd, module_ignore_errors=True)
         output = result.get('stdout', '').strip().strip('"').strip("'").lower()
         is_hardware = (output == "hardware")
@@ -944,7 +944,7 @@ def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
     ns = duthost.get_port_asic_instance(selected_port).cli_ns_option
     # Drop min-links to 1 so the LAG stays up while N-1 members are shut.
     duthost.shell(
-        f"sonic-db-cli {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
+        f"sonic-db-cli -s --authenticate {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
     for port in portChannelMembers:
         if port == selected_port:
             continue

@@ -149,7 +149,7 @@ def _get_appl_db_sa_sak(duthost, port_name, sci, an, egress=True):
     """Return the SAK from APPL_DB for the given (port, sci, an), or None."""
     table = "MACSEC_EGRESS_SA_TABLE" if egress else "MACSEC_INGRESS_SA_TABLE"
     ns_prefix = getns_prefix(duthost, port_name)
-    cmd = "sonic-db-cli {} APPL_DB HGET '{}:{}:{}:{}' sak".format(
+    cmd = "sonic-db-cli -s {} APPL_DB HGET '{}:{}:{}:{}' sak".format(
         ns_prefix, table, port_name, sci, an)
     result = duthost.shell(cmd, module_ignore_errors=True)
     sak = result.get("stdout", "").strip()
@@ -190,13 +190,13 @@ def _asic_db_macsec_saks(duthost, ctrl_links):
     saks = set()
     for ns_prefix in ns_prefixes:
         keys = duthost.shell(
-            "sonic-db-cli {} ASIC_DB KEYS "
+            "sonic-db-cli -s {} ASIC_DB KEYS "
             "'ASIC_STATE:SAI_OBJECT_TYPE_MACSEC_SA:*'".format(ns_prefix),
             module_ignore_errors=True,
         ).get("stdout", "").split()
         for key in keys:
             sak = duthost.shell(
-                "sonic-db-cli {} ASIC_DB HGET '{}' "
+                "sonic-db-cli -s {} ASIC_DB HGET '{}' "
                 "SAI_MACSEC_SA_ATTR_SAK".format(ns_prefix, key),
                 module_ignore_errors=True,
             ).get("stdout", "").strip()
@@ -265,7 +265,7 @@ def get_egress_encoding_ans(duthost, ctrl_links):
         host_sci = get_sci(duthost.get_dut_iface_mac(port_name))
         ns_prefix = getns_prefix(duthost, port_name)
         v = duthost.shell(
-            "sonic-db-cli {} APPL_DB HGET 'MACSEC_EGRESS_SC_TABLE:{}:{}' "
+            "sonic-db-cli -s {} APPL_DB HGET 'MACSEC_EGRESS_SC_TABLE:{}:{}' "
             "encoding_an".format(ns_prefix, port_name, host_sci),
             module_ignore_errors=True,
         ).get("stdout", "").strip()
@@ -293,7 +293,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
     Returns the {(port, sci): encoding_an} map observed after the advance.
     """
     duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
             profile_name, rekey_period),
         module_ignore_errors=False,
     )
@@ -317,7 +317,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
 def set_rekey_period(duthost, profile_name, rekey_period):
     """Set rekey_period on the DUT MACSEC_PROFILE (does not restart macsec)."""
     duthost.shell(
-        "sonic-db-cli CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
             profile_name, rekey_period),
         module_ignore_errors=False,
     )
@@ -335,13 +335,13 @@ def _asic_db_egress_sa_ans_by_sc(duthost, ctrl_links):
     sc_to_ans = {}
     for ns_prefix in ns_prefixes:
         script = (
-            "for k in $(sonic-db-cli {ns} ASIC_DB KEYS "
+            "for k in $(sonic-db-cli -s {ns} ASIC_DB KEYS "
             "'ASIC_STATE:SAI_OBJECT_TYPE_MACSEC_SA:*' 2>/dev/null); do "
-            "d=$(sonic-db-cli {ns} ASIC_DB HGET \"$k\" "
+            "d=$(sonic-db-cli -s {ns} ASIC_DB HGET \"$k\" "
             "SAI_MACSEC_SA_ATTR_MACSEC_DIRECTION); "
-            "sc=$(sonic-db-cli {ns} ASIC_DB HGET \"$k\" "
+            "sc=$(sonic-db-cli -s {ns} ASIC_DB HGET \"$k\" "
             "SAI_MACSEC_SA_ATTR_SC_ID); "
-            "an=$(sonic-db-cli {ns} ASIC_DB HGET \"$k\" "
+            "an=$(sonic-db-cli -s {ns} ASIC_DB HGET \"$k\" "
             "SAI_MACSEC_SA_ATTR_AN); "
             "echo \"$d|$sc|$an\"; done"
         ).format(ns=ns_prefix)

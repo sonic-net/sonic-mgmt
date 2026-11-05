@@ -107,19 +107,19 @@ def is_macsec_configured(host, mac_profile, ctrl_links):
     if host.is_multi_asic:
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
-            cmd = "sonic-db-cli {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            cmd = "sonic-db-cli -s {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
             output = host.command(cmd)['stdout'].strip()
             profile = output.split('|')[1] if output else None
             is_profile_present = (profile == profile_name)
     else:
-        cmd = "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
+        cmd = "sonic-db-cli -s CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
         output = host.command(cmd)['stdout'].strip()
         profile = output.split('|')[1] if output else None
         is_profile_present = (profile == profile_name)
 
     # Check if macsec profile is configured on interfaces
     for port, nbr in ctrl_links.items():
-        cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(getns_prefix(host, port), port)
+        cmd = "sonic-db-cli -s {} CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(getns_prefix(host, port), port)
         output = host.command(cmd)['stdout'].strip()
         is_port_profile_present = (output == profile_name)
 

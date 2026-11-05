@@ -100,7 +100,7 @@
 
 - name: Wait for CONFIG_DB to be ready in container
   become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} sonic-db-cli CONFIG_DB PING
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} sonic-db-cli -s CONFIG_DB PING
   delegate_to: "{{ VM_host[0] }}"
   register: configdb_ping
   until: configdb_ping.rc == 0 and (configdb_ping.stdout | trim) in ["True", "PONG"]

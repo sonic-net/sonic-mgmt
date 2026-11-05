@@ -136,7 +136,7 @@ class TestbedHealthChecker:
     def _get_dut_basic_facts(self, sonichosts):
         """Gather DUT facts without waiting indefinitely for CONFIG_DB."""
         config_db_status = sonichosts.command(
-            "sonic-db-cli CONFIG_DB GET CONFIG_DB_INITIALIZED",
+            "sonic-db-cli -s CONFIG_DB GET CONFIG_DB_INITIALIZED",
             module_attrs={
                 "async": CONFIG_DB_CHECK_TIMEOUT_SECONDS,
                 "poll": ANSIBLE_POLL_INTERVAL_SECONDS,

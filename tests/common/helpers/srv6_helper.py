@@ -468,7 +468,7 @@ def create_srv6_locator(duthost,
                         arg_len=0):
     logger.info(f'Configure locator: SRV6_MY_LOCATORS|{locator_name}')
     duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
         f'"prefix" "{prefix}" '
         f'"block_len" "{block_len}" '
         f'"node_len" "{node_len}" '
@@ -478,7 +478,7 @@ def create_srv6_locator(duthost,
 
 def del_srv6_locator(duthost, locator_name):
     logger.info(f'Delete locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
 
 
 def create_srv6_sid(duthost,
@@ -489,7 +489,7 @@ def create_srv6_sid(duthost,
                     decap_dscp_mode=SRv6.uniform_mode):
     logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
     duthost.shell(
-        f'sonic-db-cli CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
         f'"action" "{action}" '
         f'"decap_vrf" "{decap_vrf}" '
         f'"decap_dscp_mode" "{decap_dscp_mode}"')
@@ -497,7 +497,7 @@ def create_srv6_sid(duthost,
 
 def del_srv6_sid(duthost, locator_name, ip_addr):
     logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
 
 
 def validate_srv6_in_appl_db(duthost,
@@ -522,7 +522,7 @@ def validate_srv6_in_appl_db(duthost,
     """
     try:
         # Get all SRv6 MySID entries from APPL_DB
-        appl_db_keys = duthost.shell('sonic-db-cli APPL_DB KEYS "SRV6_MY_SID_TABLE*"')["stdout"]
+        appl_db_keys = duthost.shell('sonic-db-cli -s APPL_DB KEYS "SRV6_MY_SID_TABLE*"')["stdout"]
         if not appl_db_keys:
             logger.error("No SRv6 MySID entries found in APPL_DB")
             return False
@@ -558,7 +558,8 @@ def validate_srv6_in_asic_db(duthost, mysid_list):
         bool: True if all MySIDs are valid, False otherwise
     """
     try:
-        asic_db_keys = duthost.shell('sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
+        asic_db_keys = duthost.shell(
+            'sonic-db-cli -s ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
         if not asic_db_keys:
             logger.error("No SRv6 MySID entries found in ASIC_DB")
             return False
@@ -587,7 +588,7 @@ def validate_srv6_route(duthost, route_prefix):
     """
     try:
         asic_route = duthost.shell(
-            f'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route_prefix}::/16*"')["stdout"]
+            f'sonic-db-cli -s ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route_prefix}::/16*"')["stdout"]
 
         if not asic_route:
             logger.error(f"No SRv6 route {route_prefix}::/16 found")

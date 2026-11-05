@@ -250,8 +250,8 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     pyrequire(
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
-    duthost.shell('sonic-db-cli CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
+    duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB hset 'GNMI|gnmi' port 50052")
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
     duthost.shell('sudo systemctl reset-failed gnmi')
     duthost.shell('sudo service gnmi restart')
 

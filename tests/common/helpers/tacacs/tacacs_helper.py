@@ -293,7 +293,7 @@ def restore_tacacs_servers(duthost):
     if aaa_config:
         cfg = aaa_config.get("authentication", {}).get("login", "")
         if cfg:
-            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|authentication' login %s" % cfg)
+            cmds.append("sonic-db-cli -s --authenticate CONFIG_DB hset 'AAA|authentication' login %s" % cfg)
 
         cfg = aaa_config.get("authentication", {}).get("failthrough", "")
         if cfg.lower() == "true":
@@ -303,11 +303,11 @@ def restore_tacacs_servers(duthost):
 
         cfg = aaa_config.get("authorization", {}).get("login", "")
         if cfg:
-            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|authorization' login %s" % cfg)
+            cmds.append("sonic-db-cli -s --authenticate CONFIG_DB hset 'AAA|authorization' login %s" % cfg)
 
         cfg = aaa_config.get("accounting", {}).get("login", "")
         if cfg:
-            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|accounting' login %s" % cfg)
+            cmds.append("sonic-db-cli -s --authenticate CONFIG_DB hset 'AAA|accounting' login %s" % cfg)
 
     tacplus_config = config_facts.get("TACPLUS", {})
     if tacplus_config:

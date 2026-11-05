@@ -729,7 +729,7 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
 
 def get_pdb_num(duthost):
     """Return pdb_num from chassis_info in STATE_DB."""
-    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    command = 'sonic-db-cli -s STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
     result = duthost.shell(command, module_ignore_errors=True)
     if result['rc'] != 0:
         stderr = result.get('stderr', '').strip()
