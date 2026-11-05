@@ -59,6 +59,9 @@ and PDU outlet restoration after individual controller exceptions.
 Power-loss regressions also check localhost SSH probing, recovery before CONFIG_DB
 cleanup after shutdown/PDU failures, and explicit reporting without remote cleanup
 commands when BMC connectivity or critical-service recovery fails.
+They execute the shared startup helper's second-attempt timing failure and verify
+that independent SSH/Ansible and service recovery restores the original delay
+(including zero or an absent field) before propagating that failure.
 It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
 positive delay-bypass and host-isolation evidence, and checks configuration
 restoration on success and failures. Failed or malformed delay snapshots must

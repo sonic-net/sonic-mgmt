@@ -25,7 +25,14 @@ from tests.common.helpers.sonic_db import (
     redis_hgetall,
     redis_hset,
 )
-from tests.common.reboot import reboot, REBOOT_TYPE_COLD, wait_for_shutdown, wait_for_startup
+from tests.common.reboot import (
+    ANSIBLE_READY_INTERVAL,
+    SONIC_SSH_PORT,
+    reboot,
+    REBOOT_TYPE_COLD,
+    wait_for_shutdown,
+    wait_for_startup,
+)
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
@@ -534,9 +541,22 @@ class TestBmcctldDaemon:
                     pytest_assert(not failed_outlets, f"Failed to power on PDU outlets {failed_outlets}")
                 finally:
                     # Recover before CONFIG_DB cleanup, even when power-loss checks fail.
-                    wait_for_startup(self.duthost, localhost, delay=10, timeout=600)
-                    wait_critical_processes(self.duthost, timeout=600)
-                    bmc_ready = True
+                    try:
+                        wait_for_startup(self.duthost, localhost, delay=10, timeout=600)
+                    finally:
+                        # A late-startup assertion must not prevent cleanup readiness.
+                        localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT,
+                                           state='started', delay=0, timeout=600)
+                        self.duthost.meta("clear_facts")
+                        pytest_assert(
+                            wait_until(
+                                600, ANSIBLE_READY_INTERVAL, 0,
+                                lambda: self.duthost.command("true", module_ignore_errors=True).is_successful,
+                            ),
+                            "BMC did not become ready for Ansible commands during recovery",
+                        )
+                        wait_critical_processes(self.duthost, timeout=600)
+                        bmc_ready = True
 
             bmc_boot_id_post = get_host_boot_id(self.duthost)
             pytest_assert(bmc_boot_id_post and bmc_boot_id_post != bmc_boot_id,
