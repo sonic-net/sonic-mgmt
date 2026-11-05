@@ -365,8 +365,8 @@ def cleanup_bgp_sentinel(duthost):
     logger.info("Cleaning up BGP Sentinel configuration")
 
     # Remove BGP Sentinel entries from CONFIG_DB
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all', authenticate=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all', authenticate=True)
 
     # Remove config file
     duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
@@ -399,7 +399,7 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
     if bgp_monitor_ips:
         for monitor_ip in bgp_monitor_ips:
             duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(monitor_ip),
-                                         asic_index='all')
+                                         asic_index='all', authenticate=True)
 
     # Remove PTF routes to DUT loopback
     if bgp_monitor_routes and dut_lo_addr:

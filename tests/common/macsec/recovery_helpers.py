@@ -293,7 +293,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
     Returns the {(port, sci): encoding_an} map observed after the advance.
     """
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
             profile_name, rekey_period),
         module_ignore_errors=False,
     )
@@ -317,7 +317,7 @@ def advance_egress_encoding_an(duthost, profile_name, ctrl_links,
 def set_rekey_period(duthost, profile_name, rekey_period):
     """Set rekey_period on the DUT MACSEC_PROFILE (does not restart macsec)."""
     duthost.shell(
-        "sonic-db-cli -s CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
+        "sonic-db-cli -s --authenticate CONFIG_DB HSET 'MACSEC_PROFILE|{}' rekey_period {}".format(
             profile_name, rekey_period),
         module_ignore_errors=False,
     )

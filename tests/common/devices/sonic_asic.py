@@ -762,7 +762,7 @@ class SonicAsic(object):
         if self.sonichost.is_multi_asic:
             ns_prefix = '-n ' + str(self.namespace)
         return int(self.shell(
-            'sonic-db-cli -s {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'
+            'sonic-db-cli -s --authenticate {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'
             .format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
 
@@ -770,7 +770,7 @@ class SonicAsic(object):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
             ns_prefix = '-n ' + str(self.namespace)
-        return self.shell('sonic-db-cli -s {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
+        return self.shell('sonic-db-cli -s --authenticate {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
                           .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
 
     def show_and_parse(self, show_cmd, **kwargs):

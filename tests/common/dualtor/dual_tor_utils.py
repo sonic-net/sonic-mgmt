@@ -1561,7 +1561,7 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo):
     '''
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
-    duthosts.shell('sonic-db-cli -s CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
+    duthosts.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
@@ -1572,7 +1572,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
         return
 
     logger.info("Update linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
-    duthosts.shell('sonic-db-cli -s CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
+    duthosts.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'
                    .format(probe_interval_ms))
 
 
@@ -2129,5 +2129,5 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
         return
 
     for duthost in duthosts:
-        duthost.shell('sonic-db-cli -s CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
         duthost.shell("config save -y")

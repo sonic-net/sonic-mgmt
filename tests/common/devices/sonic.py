@@ -1850,9 +1850,10 @@ Totals               6450                 6449
                 return True
         return False
 
-    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False):
+    def run_sonic_db_cli_cmd(self, sonic_db_cmd, use_tcp=False, authenticate=False):
         socket_option = "" if use_tcp else "-s "
-        cmd = "sonic-db-cli {}{}".format(socket_option, sonic_db_cmd)
+        auth_option = "--authenticate " if authenticate else ""
+        cmd = "sonic-db-cli {}{}{}".format(socket_option, auth_option, sonic_db_cmd)
         return self.command(cmd, verbose=False)
 
     def get_sonic_db_dump_command(self, db_name, namespace=None):

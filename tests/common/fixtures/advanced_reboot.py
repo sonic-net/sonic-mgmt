@@ -1109,7 +1109,7 @@ class AdvancedReboot:
         if 'warm-reboot' in self.rebootType:
             if not wait_until(300, 10, 0, self.__checkWarmbootFlag, self.duthost):
                 logger.info('Setting warm-reboot system flag to false')
-                self.duthost.shell(cmd='sonic-db-cli -s STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+                self.duthost.shell(cmd='sonic-db-cli -s --authenticate STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
 
         if 'warm-reboot' in self.rebootType and self.newSonicImage is not None:
             logger.info('Save configuration after warm rebooting into new image')

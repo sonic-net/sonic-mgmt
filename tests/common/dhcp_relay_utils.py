@@ -606,10 +606,10 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
     Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
     """
     if dhcpv4_config_flag:
-        duthost.shell('sonic-db-cli -s CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
                       module_ignore_errors=True)
     else:
-        duthost.shell('sonic-db-cli -s CONFIG_DB hdel "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+        duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
                       module_ignore_errors=True)
 
     # Save the config and restart DHCP relay service

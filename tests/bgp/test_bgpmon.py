@@ -318,7 +318,7 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
         ptfhost.shell("ip addr del %s dev %s" % (peer_addr + "/24", ptf_interface))
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
         duthost.run_sonic_db_cli_cmd(
-            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
+            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all', authenticate=True)
 
 
 def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
@@ -419,4 +419,4 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
                           % (local_addr, selected_router_mac, selected_ptf_interface))
             ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", selected_ptf_interface))
         duthost.run_sonic_db_cli_cmd(
-            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all')
+            "CONFIG_DB del 'BGP_MONITORS|{}'".format(peer_addr), asic_index='all', authenticate=True)

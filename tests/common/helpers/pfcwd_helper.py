@@ -944,7 +944,7 @@ def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
     ns = duthost.get_port_asic_instance(selected_port).cli_ns_option
     # Drop min-links to 1 so the LAG stays up while N-1 members are shut.
     duthost.shell(
-        f"sonic-db-cli -s {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
+        f"sonic-db-cli -s --authenticate {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
     for port in portChannelMembers:
         if port == selected_port:
             continue

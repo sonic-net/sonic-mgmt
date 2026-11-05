@@ -468,7 +468,7 @@ def create_srv6_locator(duthost,
                         arg_len=0):
     logger.info(f'Configure locator: SRV6_MY_LOCATORS|{locator_name}')
     duthost.shell(
-        f'sonic-db-cli -s CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET "SRV6_MY_LOCATORS|{locator_name}" '
         f'"prefix" "{prefix}" '
         f'"block_len" "{block_len}" '
         f'"node_len" "{node_len}" '
@@ -478,7 +478,7 @@ def create_srv6_locator(duthost,
 
 def del_srv6_locator(duthost, locator_name):
     logger.info(f'Delete locator: SRV6_MY_LOCATORS|{locator_name}')
-    duthost.shell(f'sonic-db-cli -s CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_LOCATORS|{locator_name}"')
 
 
 def create_srv6_sid(duthost,
@@ -489,7 +489,7 @@ def create_srv6_sid(duthost,
                     decap_dscp_mode=SRv6.uniform_mode):
     logger.info(f'Configure sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
     duthost.shell(
-        f'sonic-db-cli -s CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
+        f'sonic-db-cli -s --authenticate CONFIG_DB HSET "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}" '
         f'"action" "{action}" '
         f'"decap_vrf" "{decap_vrf}" '
         f'"decap_dscp_mode" "{decap_dscp_mode}"')
@@ -497,7 +497,7 @@ def create_srv6_sid(duthost,
 
 def del_srv6_sid(duthost, locator_name, ip_addr):
     logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
-    duthost.shell(f'sonic-db-cli -s CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
+    duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
 
 
 def validate_srv6_in_appl_db(duthost,
