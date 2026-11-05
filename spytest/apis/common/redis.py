@@ -128,7 +128,7 @@ def build(dut, db, cmd):
 
 
 def build_sonic_db_cli(db, cmd):
-    return 'sonic-db-cli -s {} {}'.format(db, cmd)
+    return 'sonic-db-cli -s --authenticate {} {}'.format(db, cmd)
 
 
 def redis_show(dut, db, cmd):
@@ -192,7 +192,7 @@ def multi(dut, db, cmd_list, skip_error_check=False):
 from swsscommon.redis import UnixConnection
 socket_path, database, commands = sys.argv[1:]
 payload = pathlib.Path(commands).read_bytes()
-connection = UnixConnection(path=socket_path, db=int(database))
+connection = UnixConnection(path=socket_path, db=int(database), authenticate=True)
 def emit(reply):
     if isinstance(reply, list) and reply:
         for item in reply:

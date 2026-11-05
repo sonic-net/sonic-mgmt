@@ -97,7 +97,7 @@ def test_native_scan_and_named_dump_keep_filters(client):
 def test_writers_use_named_cli_without_quoting_the_entire_command(client, mode):
     client.st.mode = mode
     command = 'HSET "PORT|test" field "value with spaces"'
-    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli -s CONFIG_DB ' + command
+    assert client.config('dut', 'CONFIG_DB', command) == 'sonic-db-cli -s --authenticate CONFIG_DB ' + command
 
 
 @pytest.mark.parametrize("mode", ["0", "1", "2"])
@@ -111,7 +111,7 @@ def test_multi_keeps_native_stdin_for_all_cli_preferences(client, mode, port):
         assert client.st.options["sudo"] is False
         assert client.st.options["split_cmds"] is False
         assert 'from swsscommon.redis import UnixConnection' in command
-        assert 'UnixConnection(path=socket_path, db=int(database))' in command
+        assert 'UnixConnection(path=socket_path, db=int(database), authenticate=True)' in command
         assert 'connection.connect()' in command
         assert 'connection.send_packed_command([payload' in command
     else:
