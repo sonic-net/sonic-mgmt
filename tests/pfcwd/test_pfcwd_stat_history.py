@@ -7,7 +7,7 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import parser_show_pfcwd_stat, start_wd_on_ports
 from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget
 from tests.common.utilities import wait_until
 from tests.common import config_reload
@@ -23,14 +23,23 @@ logger = logging.getLogger(__name__)
 PFC_QUEUE = 4
 HISTORY_UPDATE_TIMEOUT = 30
 HISTORY_UPDATE_INTERVAL = 2
-PFC_FRAMES_COUNT = 1000000
+# a storm must outlast the history wait, the accuracy sample and the CLI reads, about 40 s;
+# 1,000,000 frames from a CPU sender at ~145k fps lasted 7 s. Every test and fixture stops
+# its storm, so the count only bounds a storm that nothing stops
+PFC_FRAMES_COUNT = 100000000
 T2_PFC_SEND_PERIOD = 60
+
+# history must keep its rate after drop or forward mitigates the queue, not only under alert
+PFCWD_ACTIONS = ["alert", "drop", "forward"]
 
 ACCURACY_SAMPLE_SECONDS = 5
 CUMULATIVE_STORM_COUNT = 3
 # recent rx pause timestamp has resolution of 1 second, so we need to wait > 1 second
 TIMESTAMP_SETTLE_SECONDS = 1.1
 UNPAUSED_POLL_COUNT = 2
+# where the switch has a pause duration counter, the total comes from the port counter group;
+# its next poll after the storm, plus this margin, brings the total up to date
+PORT_COUNTER_SETTLE_MARGIN_SECONDS = 0.5
 
 
 def _history_config_is(duthost, port, expected):
@@ -39,6 +48,16 @@ def _history_config_is(duthost, port, expected):
     return redis_hget(
         asic, CONFIG_DB, "PFC_WD|{}".format(port), "pfc_stat_history"
     ) == expected
+
+
+def _port_counter_poll_seconds(duthost, port):
+    """port counter group poll interval, 1 s when CONFIG_DB does not set it"""
+    asic = duthost.get_port_asic_instance(port)
+    interval_ms = redis_hget(asic, CONFIG_DB, "FLEX_COUNTER_TABLE|PORT", "POLL_INTERVAL")
+    try:
+        return int(interval_ms) / 1000.0
+    except ValueError:
+        return 1.0
 
 
 def _to_int(value):
@@ -109,6 +128,12 @@ def _sample_history(duthost, port, queue):
     return history, (before + after) / 2
 
 
+def _storm_detect_count(duthost, port, queue):
+    """storms the watchdog has detected on the queue; the CLI omits all-zero rows"""
+    stats = parser_show_pfcwd_stat(duthost, port, queue)
+    return int(stats[0]["storm_detect_count"]) if stats else 0
+
+
 @pytest.fixture(scope="module")
 def ip_version():
     # these tests are not dependent on the IP version, choose one arbitrarily
@@ -160,17 +185,7 @@ def stat_history_setup(
     )
     storm.deploy_pfc_gen()
 
-    # Start PFCWD in alert mode so detection records history without mitigating traffic.
-    timers = setup_info["pfc_timers"]
-    start_wd_on_ports(
-        duthost,
-        port,
-        timers["pfc_wd_restore_time"],
-        timers["pfc_wd_detect_time"],
-        action="alert",
-    )
-
-    yield duthost, port, storm, timers["pfc_wd_poll_time"]
+    yield duthost, port, storm, setup_info["pfc_timers"]
 
     # Stop storm and restore the per-port history configuration
     storm.stop_storm()
@@ -183,12 +198,23 @@ def stat_history_setup(
 
 
 @pytest.fixture
-def stat_history_test_setup(stat_history_setup):
-    """ensure there is no storm before each test and enable history"""
-    duthost, port, storm, poll_interval_ms = stat_history_setup
+def stat_history_test_setup(request, stat_history_setup):
+    """start PFCWD with the requested action (alert by default), ensure there is no storm and enable history"""
+    duthost, port, storm, timers = stat_history_setup
+    poll_interval_ms = timers["pfc_wd_poll_time"]
 
-    # Force XON and wait for two at least PFCWD polls before taking a new test baseline.
+    # Force XON, then restart PFCWD with this test's action
     storm.stop_storm()
+    duthost.command("pfcwd stop")
+    start_wd_on_ports(
+        duthost,
+        port,
+        timers["pfc_wd_restore_time"],
+        timers["pfc_wd_detect_time"],
+        action=getattr(request, "param", "alert"),
+    )
+
+    # Wait for two at least PFCWD polls before taking a new test baseline.
     time.sleep(
         max(
             TIMESTAMP_SETTLE_SECONDS,
@@ -198,7 +224,7 @@ def stat_history_test_setup(stat_history_setup):
     # Enable collection once the queue unpaused
     _enable_history(duthost, port)
 
-    yield stat_history_setup
+    yield duthost, port, storm, poll_interval_ms
     storm.stop_storm()
 
 
@@ -253,8 +279,12 @@ def test_pfcwd_stat_history(stat_history_test_setup):
     )
 
 
+@pytest.mark.parametrize("stat_history_test_setup", PFCWD_ACTIONS, indirect=True)
 def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
-    """verify that estimated pause time tracks elapsed pause time"""
+    """
+    verify that estimated pause time tracks elapsed pause time, and that the
+    recent pause time covers the whole storm once it ends
+    """
     duthost, port, storm, poll_interval_ms = stat_history_test_setup
 
     # save snapshot of history before storm
@@ -263,9 +293,11 @@ def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
         before is not None,
         "No history row was shown for {} PFC{}".format(port, PFC_QUEUE),
     )
+    detected_before = _storm_detect_count(duthost, port, PFC_QUEUE)
 
     # start the storm and wait to see history begin updating
     try:
+        storm_start = time.monotonic()
         storm.start_storm()
         pytest_assert(
             wait_until(
@@ -293,8 +325,16 @@ def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
         # Take the ending counter sample while the queue is still paused.
         history_end, sample_end = _sample_history(duthost, port, PFC_QUEUE)
         pytest_assert(history_end is not None, "Failed to read final history")
+        detected_during = _storm_detect_count(duthost, port, PFC_QUEUE)
     finally:
         storm.stop_storm()
+        storm_stop = time.monotonic()
+
+    # without a detection the queue was never mitigated, so the action went untested
+    pytest_assert(
+        detected_during > detected_before,
+        "PFCWD did not detect the storm on {} PFC{}".format(port, PFC_QUEUE),
+    )
 
     # time delta between reported recent pause time
     estimated_elapsed_us = (
@@ -325,6 +365,59 @@ def test_pfcwd_stat_history_accuracy(stat_history_test_setup):
         error_us <= tolerance_us,
         "Estimated pause time differs from elapsed time by {}us; "
         "allowed tolerance is {}us".format(error_us, tolerance_us),
+    )
+
+    # once the queue unpauses, the storm is one period: its whole pause time is the recent pause time.
+    # History credits a whole poll interval at the poll that sees the storm start and at the one
+    # that sees it end, so the whole storm can be up to two polls longer than it was
+    storm_tolerance_us = 2 * poll_interval_ms * 1000 + 200_000
+    time.sleep(
+        max(
+            TIMESTAMP_SETTLE_SECONDS,
+            UNPAUSED_POLL_COUNT * poll_interval_ms / 1000.0,
+            _port_counter_poll_seconds(duthost, port) + PORT_COUNTER_SETTLE_MARGIN_SECONDS,
+        )
+    )
+    after = _get_history(duthost, port, PFC_QUEUE)
+    pytest_assert(after is not None, "Failed to read history after the storm")
+    # The total is SAI_PORT_STAT_PFC_<q>_RX_PAUSE_DURATION_US where the switch provides it, and
+    # otherwise history's own estimate. Either way it counts the storm's whole pause time, so it
+    # matches the recent pause time, within the tolerance, when history recorded the storm as one period
+    storm_pause_us = after["total_pause_time_us"] - before["total_pause_time_us"]
+    recent_us = after["recent_pause_time_us"]
+    # SAI_PORT_STAT_PFC_<q>_ON2OFF_RX_PKTS, a switch counter history does not write;
+    # the CLI shows N/A, read as 0, where the image does not collect it
+    xoff_transitions = (
+        after["transitions"] - before["transitions"] if after["transitions"] else "N/A"
+    )
+    # the storm had ended once stop_storm returned
+    storm_max_us = int((storm_stop - storm_start) * 1000000)
+
+    logger.info(
+        "PFC history after the storm on %s PFC%s: recent=%sus storm pause=%sus "
+        "xoff transitions=%s storm at most %sus tolerance=%sus",
+        port,
+        PFC_QUEUE,
+        recent_us,
+        storm_pause_us,
+        xoff_transitions,
+        storm_max_us,
+        storm_tolerance_us,
+    )
+    pytest_assert(
+        abs(recent_us - storm_pause_us) <= storm_tolerance_us,
+        "Recent pause time {}us is not the storm's {}us of pause, so history recorded "
+        "the storm as several periods. SAI_PORT_STAT_PFC_{}_ON2OFF_RX_PKTS rose by {} "
+        "during the storm. On XGS it counts pause episodes: 1 means the pause held and "
+        "history split the storm, more means the pause lapsed mid-storm, as when the "
+        "fanout stops sending. On DNX it counts the XON frames received".format(
+            recent_us, storm_pause_us, PFC_QUEUE, xoff_transitions
+        ),
+    )
+    pytest_assert(
+        recent_us <= storm_max_us + storm_tolerance_us,
+        "Recent pause time {}us is longer than the {}us storm; "
+        "allowed tolerance is {}us".format(recent_us, storm_max_us, storm_tolerance_us),
     )
 
 
