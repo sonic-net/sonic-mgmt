@@ -3,24 +3,38 @@ Tests for Redfish ComputerSystem.Reset action endpoint.
 
 WARNING: GracefulShutdown, ForceOff and PowerCycle tests trigger actual power state
 changes on the BMC DUT. They restore the system to its original power state after each test.
+
+The error-path tests only ever send ResetType=On to a switch host that is already on,
+so whatever reaches bmcctld leaves the host as it was.
 """
 import logging
 import time
 
 import pytest
+import requests
 
 from ansible.errors import AnsibleConnectionFailure
 from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.platform_api import chassis, module as module_api
-from tests.common.helpers.sonic_db import STATE_DB, redis_hgetall, redis_keys
+from tests.common.helpers.sonic_db import STATE_DB, redis_del, redis_hgetall, redis_keys
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
 )
 from tests.common.utilities import wait_until
-from tests.redfish.redfish_utils import assert_no_content, assert_redfish_error
+from tests.redfish.redfish_utils import (
+    assert_no_content,
+    assert_redfish_error,
+    assert_retry_after,
+    BRIDGE_SERVICE,
+    host_is_settled_on,
+    program_state,
+    supervisor,
+    wait_for_program,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +62,21 @@ COMMAND_KEY_GLOB = "RACK_MANAGER_COMMAND|*"
 CMD_POWER_OFF = "POWER_OFF"
 COMMAND_ROW_TIMEOUT = 30
 COMMAND_POLL = 1
+CMD_POWER_ON = "POWER_ON"
+
+# sonic-redfish keeps one host power command in flight and queues at most this many behind it.
+COMMAND_QUEUE_DEPTH = 10
+HOST_STATE_KEY = "HOST_STATE|switch-host"
+PMON_CONTAINER = "pmon"
+BMCCTLD = "bmcctld"
+BMCCTLD_TIMEOUT = 120
+BRIDGE_STATE_TIMEOUT = 30
+BRIDGE_RECOVERY_TIMEOUT = 60
+# Settle time before asserting that a refused request wrote nothing.
+NO_WRITE_SETTLE = 3
+# With the bridge off the bus the mTLS user lookup can fail before the reset is
+# forwarded, so 500 or 401 are as valid as the 503 the forward itself produces.
+BRIDGE_DOWN_STATUSES = (401, 500, 503)
 
 
 @pytest.fixture(scope="function")
@@ -169,6 +198,68 @@ def _ensure_system_in_reset(redfish_client, cpu_running):
                    _cpu_state_matches, cpu_running, False),
         "x86 CPU did not enter reset within {}s".format(POWER_OFF_TIMEOUT),
     )
+
+
+def _command_keys(bmc_duthost):
+    return set(redis_keys(bmc_duthost, STATE_DB, COMMAND_KEY_GLOB))
+
+
+def _bmcctld_running(bmc_duthost):
+    status, _ = bmc_duthost.get_pmon_daemon_status(BMCCTLD)
+    return status == "RUNNING"
+
+
+def _restart_bridge(redfish_client, bmc_duthost):
+    """Restart sonic-dbus-bridge and wait until bmcweb serves the system it exports again."""
+    logger.info("Restarting %s", BRIDGE_SERVICE)
+    supervisor(bmc_duthost, "restart", BRIDGE_SERVICE)
+
+    def _system_served():
+        if program_state(bmc_duthost, BRIDGE_SERVICE) != "RUNNING":
+            return False
+        try:
+            response = redfish_client.get("/redfish/v1/Systems/system")
+        except requests.exceptions.RequestException:
+            return False
+        return response.status_code == 200 and "PowerState" in response.json()
+
+    return wait_until(BRIDGE_RECOVERY_TIMEOUT, 2, 0, _system_served)
+
+
+@pytest.fixture(scope="function")
+def bmcctld_held(redfish_client, bmc_duthost):
+    """Hold bmcctld stopped so the bridge's in-flight power command never completes.
+
+    The bridge is restarted after the stop so no slot is held over from an
+    earlier test. Teardown restarts the bridge again, dropping whatever is
+    still queued, removes the rows the test created before bmcctld can pick
+    them up, and starts bmcctld. Yields the RACK_MANAGER_COMMAND keys that
+    existed before the test.
+    """
+    pyrequire(_bmcctld_running(bmc_duthost), "{} is not RUNNING in the {} container".format(BMCCTLD, PMON_CONTAINER))
+    host_state = redis_hgetall(bmc_duthost, STATE_DB, HOST_STATE_KEY)
+    pyrequire(host_is_settled_on(host_state),
+              "{} must show the switch host settled on, got: {}".format(HOST_STATE_KEY, host_state))
+    keys_before = _command_keys(bmc_duthost)
+
+    logger.info("Stopping %s in the %s container", BMCCTLD, PMON_CONTAINER)
+    bmc_duthost.shell("docker exec {} supervisorctl stop {}".format(PMON_CONTAINER, BMCCTLD))
+    try:
+        pytest_assert(_restart_bridge(redfish_client, bmc_duthost),
+                      "{} did not serve Systems/system within {}s of restarting".format(
+                          BRIDGE_SERVICE, BRIDGE_RECOVERY_TIMEOUT))
+        yield keys_before
+    finally:
+        if not _restart_bridge(redfish_client, bmc_duthost):
+            logger.error("%s did not come back after the test", BRIDGE_SERVICE)
+        for key in _command_keys(bmc_duthost) - keys_before:
+            logger.info("Removing %s: %s", key, redis_hgetall(bmc_duthost, STATE_DB, key))
+            redis_del(bmc_duthost, STATE_DB, key)
+        logger.info("Starting %s in the %s container", BMCCTLD, PMON_CONTAINER)
+        bmc_duthost.shell("docker exec {} supervisorctl start {}".format(PMON_CONTAINER, BMCCTLD),
+                          module_ignore_errors=True)
+        pytest_assert(wait_until(BMCCTLD_TIMEOUT, POLL_INTERVAL, 0, _bmcctld_running, bmc_duthost),
+                      "{} did not return to RUNNING within {}s".format(BMCCTLD, BMCCTLD_TIMEOUT))
 
 
 class TestRedfishComputerReset:
@@ -334,3 +425,94 @@ class TestRedfishComputerReset:
             RESET_PATH, response.status_code, response.text[:300]))
 
         assert_redfish_error(response, 400, "ActionParameterUnknown", message_args=["Reset", "InvalidType"])
+
+    def test_reset_queue_full_returns_409(self, redfish_client, bmc_duthost, bmcctld_held):
+        """
+        A reset beyond the bridge's command queue is refused with 409 and never published.
+
+        The bridge's StateManager keeps one command in flight and queues at most
+        10 behind it, and refuses the next with
+        xyz.openbmc_project.Common.Error.Unavailable, which bmcweb reports as
+        409. With bmcctld stopped the first command never completes, so 11
+        ResetType=On requests must be accepted with 204 and the 12th refused
+        with 409. Only the command in flight may reach STATE_DB, as one
+        RACK_MANAGER_COMMAND row with command=POWER_ON.
+        """
+        accepted = COMMAND_QUEUE_DEPTH + 1
+        statuses = []
+        for attempt in range(1, accepted + 2):
+            response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
+            statuses.append(response.status_code)
+            logger.info("POST %s ResetType=On #%d -> HTTP %s %s", RESET_PATH, attempt, response.status_code,
+                        response.text[:300])
+            if response.status_code != 204:
+                break
+
+        pytest_assert(
+            statuses == [204] * accepted + [409],
+            "Expected {} resets accepted with 204 (one in flight, {} queued) and the next refused with 409, "
+            "got: {}".format(accepted, COMMAND_QUEUE_DEPTH, statuses)
+        )
+
+        time.sleep(NO_WRITE_SETTLE)
+        new_keys = _command_keys(bmc_duthost) - bmcctld_held
+        pytest_assert(
+            len(new_keys) == 1,
+            "Only the command in flight may be published while bmcctld holds it, got: {}".format(sorted(new_keys))
+        )
+        key = new_keys.pop()
+        row = redis_hgetall(bmc_duthost, STATE_DB, key)
+        pytest_assert(row.get("command") == CMD_POWER_ON,
+                      "{} command must be {}, got: {}".format(key, CMD_POWER_ON, row))
+        logger.info("Verified %d resets queued, the next refused with 409, and only %s published: %s",
+                    accepted, key, row)
+
+    def test_reset_bridge_unavailable(self, redfish_client, bmc_duthost, cpu_running):
+        """
+        With sonic-dbus-bridge off the bus a reset is refused as retryable and recovers.
+
+        If the bridge is not on the bus, bmcweb answers 503 with
+        Retry-After. The mTLS user lookup also goes through the bridge and
+        can fail first, giving 500 or 401, so any of the three is accepted
+        and Retry-After is asserted whenever the answer is 503. No
+        RACK_MANAGER_COMMAND row may appear. Once the bridge is back the
+        same request must be accepted with 204.
+        """
+        _ensure_system_on(redfish_client, cpu_running)
+        keys_before = _command_keys(bmc_duthost)
+
+        supervisor(bmc_duthost, "stop", BRIDGE_SERVICE)
+        try:
+            pytest_assert(wait_for_program(bmc_duthost, BRIDGE_SERVICE, "STOPPED", BRIDGE_STATE_TIMEOUT),
+                          "{} did not reach STOPPED within {}s".format(BRIDGE_SERVICE, BRIDGE_STATE_TIMEOUT))
+            response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
+            logger.info("POST %s ResetType=On with %s stopped -> HTTP %s headers=%s body=%r", RESET_PATH,
+                        BRIDGE_SERVICE, response.status_code, dict(response.headers), response.text[:300])
+            pytest_assert(
+                response.status_code in BRIDGE_DOWN_STATUSES,
+                "Expected one of {} with {} stopped, got: {} body={!r}".format(
+                    BRIDGE_DOWN_STATUSES, BRIDGE_SERVICE, response.status_code, response.text[:300])
+            )
+            if response.status_code == 503:
+                logger.info("503 carries Retry-After: %s", assert_retry_after(response, RESET_PATH))
+            time.sleep(NO_WRITE_SETTLE)
+            new_keys = _command_keys(bmc_duthost) - keys_before
+            pytest_assert(not new_keys,
+                          "A refused reset must not publish a command, got: {}".format(sorted(new_keys)))
+        finally:
+            supervisor(bmc_duthost, "start", BRIDGE_SERVICE)
+
+        pytest_assert(wait_for_program(bmc_duthost, BRIDGE_SERVICE, "RUNNING", BRIDGE_STATE_TIMEOUT),
+                      "{} did not return to RUNNING within {}s".format(BRIDGE_SERVICE, BRIDGE_STATE_TIMEOUT))
+
+        def _reset_accepted():
+            response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
+            logger.info("POST %s ResetType=On after restarting %s -> HTTP %s", RESET_PATH, BRIDGE_SERVICE,
+                        response.status_code)
+            return response.status_code == 204
+
+        pytest_assert(
+            wait_until(BRIDGE_RECOVERY_TIMEOUT, 2, 0, _reset_accepted),
+            "ComputerSystem.Reset did not recover within {}s of restarting {}".format(
+                BRIDGE_RECOVERY_TIMEOUT, BRIDGE_SERVICE)
+        )

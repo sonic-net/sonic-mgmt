@@ -16,6 +16,8 @@
 | SONiC-BMC-OS HLD             | [https://github.com/sonic-net/SONiC/pull/2043](https://github.com/sonic-net/SONiC/pull/2043)           |
 | sonic-redfish HLD            | [https://github.com/sonic-net/sonic-redfish/pull/2](https://github.com/sonic-net/sonic-redfish/pull/2) |
 | sonic-redfish Implementation | [https://github.com/sonic-net/sonic-redfish/pull/1](https://github.com/sonic-net/sonic-redfish/pull/1) |
+| SONiC Redfish with D-Bus Bridge design | [doc/sonic-redfish/HLD.md](https://github.com/sonic-net/SONiC/blob/master/doc/sonic-redfish/HLD.md) |
+| sonic-redfish inventory unit tests | [tests/unit-tests/inventory_model_test.cpp](https://github.com/sonic-net/sonic-redfish/blob/master/tests/unit-tests/inventory_model_test.cpp) |
 
 # Definitions/Abbreviation
 
@@ -145,7 +147,7 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 
 | D-Bus Service Name                 | Interface                               | Purpose                          |
 | :----------------------------------- | :---------------------------------------- | :--------------------------------- |
-| `xyz.openbmc_project.Inventory`    | `xyz.openbmc_project.Inventory.Manager` | Chassis/system inventory objects |
+| `xyz.openbmc_project.Inventory.Manager` | `xyz.openbmc_project.Inventory.Item.Chassis` | Chassis/system inventory objects |
 | `xyz.openbmc_project.ObjectMapper` | `xyz.openbmc_project.ObjectMapper`      | Object discovery for bmcweb      |
 
 # Test Cases
@@ -254,6 +256,8 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 4. Cross-validate `SerialNumber` with the value from `show platform syseeprom` on the BMC CLI
 5. Cross-validate `Model` with the value stored in Redis `CHASSIS_INFO|chassis 1` → `model`
 
+**Source precedence:** chassis identity fields come from CONFIG_DB `DEVICE_METADATA` > FRU > platform.json > `Unknown` (sonic-redfish design, section 6.3.3.1). This is the reverse of the order for System identity fields (Test Case \#8). This case only checks that the served value is non-empty and matches whichever source is populated. Setting up a field that is present in one source and absent in another would mean rewriting the FRU EEPROM or removing platform.json, which cannot be undone safely within a test run. The order itself is verified by the sonic-redfish gtests `RedisBeatsFruForSerialNumber`, `FruUsedWhenRedisFieldsMissing`, `ModelFallsBackToPlatformWhenModelAbsent`, `PartNumberPrefersRedisPartNumberOverHwsku`, `PartNumberFallsBackToHwsku` and `DefaultsWhenAllSourcesAbsent` in `tests/unit-tests/inventory_model_test.cpp`.
+
 ### Test Case \#6 — Chassis D-Bus objects match Redfish output
 
 
@@ -266,7 +270,7 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 **Steps:**
 
 1. SSH into the BMC DUT
-2. Run `busctl get-property xyz.openbmc_project.Inventory /xyz/openbmc_project/inventory/system/chassis xyz.openbmc_project.Inventory.Decorator.Asset SerialNumber`
+2. Run `busctl get-property xyz.openbmc_project.Inventory.Manager /xyz/openbmc_project/inventory/system/chassis xyz.openbmc_project.Inventory.Decorator.Asset SerialNumber`
 3. Send `GET /redfish/v1/Chassis/chassis`
 4. Validate the `SerialNumber` from D-Bus matches the `SerialNumber` from the Redfish response
 5. Repeat for `Manufacturer`, `Model`, and `PartNumber`
@@ -305,6 +309,8 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate HTTP status is `200`
 3. Validate `PowerState` is one of: `On`, `Off`, `PoweringOn`, `PoweringOff`
 4. Validate `@odata.type` contains `ComputerSystem`
+
+**Source precedence:** System identity fields come from FRU > CONFIG_DB > `Unknown` (sonic-redfish design, section 6.3.3.1). This is the reverse of the Chassis order (Test Case \#5). As there, the order is verified by the sonic-redfish gtests `SystemSerialPrefersFruOverRedis` and `SystemHostnameFromConfigDb` in `tests/unit-tests/inventory_model_test.cpp`, not on hardware.
 
 ---
 
@@ -428,6 +434,40 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 2. Validate HTTP status is `400` (Bad Request)
 3. Validate the error response body contains a Redfish error message
 
+### Test Case \#39 — Reset beyond the bridge command queue is refused with 409
+
+
+| Field        | Value                                                          |
+| :------------- | :--------------------------------------------------------------- |
+| **Test ID**  | `test_reset_queue_full_returns_409`                            |
+| **Priority** | P1                                                             |
+| **Endpoint** | `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. With the Switch-Host settled on, stop `bmcctld` so the command in flight never completes, and restart `sonic-dbus-bridge` so no earlier command holds the slot
+2. Send `ResetType` `On` 11 times and validate each is answered `204`: one command in flight and 10 queued (sonic-redfish design, section 7.4)
+3. Send it once more and validate HTTP status is `409`
+4. Validate exactly one new `RACK_MANAGER_COMMAND` row exists, with `command=POWER_ON`
+5. Restart `sonic-dbus-bridge` to drop the queue, delete the row and start `bmcctld`
+
+### Test Case \#40 — Reset with the bridge off the bus is refused as retryable
+
+
+| Field        | Value                                                          |
+| :------------- | :--------------------------------------------------------------- |
+| **Test ID**  | `test_reset_bridge_unavailable`                                |
+| **Priority** | P1                                                             |
+| **Endpoint** | `POST /redfish/v1/Systems/system/Actions/ComputerSystem.Reset` |
+
+**Steps:**
+
+1. With the Switch-Host on, stop `sonic-dbus-bridge` in the `redfish` container
+2. Send `ResetType` `On` and validate HTTP status is `503`, or `500`/`401` when the mTLS user lookup through the bridge fails first
+3. If the status is `503`, validate the `Retry-After` header is present and is delay-seconds or an HTTP-date (sonic-redfish design, section 7.4)
+4. Validate no `RACK_MANAGER_COMMAND` row is created
+5. Start `sonic-dbus-bridge` and validate the same request is answered `204`
+
 ---
 
 ## Section 6: Rack Manager Alert
@@ -495,6 +535,23 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 1. Send `POST /redfish/v1/Managers/Bmc/Oem/SONiC/RackManagerInterface/Actions/SONiC.SubmitTelemetry` with an empty body `{}`
 2. Validate HTTP status is `400` (Bad Request)
 3. Validate the error response body contains a Redfish-compliant error object
+
+### Test Case \#41 — Telemetry with the bridge off the bus is refused as retryable
+
+
+| Field        | Value                                                                                         |
+| :------------- | :---------------------------------------------------------------------------------------------- |
+| **Test ID**  | `test_submit_telemetry_bridge_unavailable`                                                    |
+| **Priority** | P1                                                                                            |
+| **Endpoint** | `POST /redfish/v1/Managers/bmc/Oem/SONiC/RackManager/Actions/SONiC.SubmitTelemetry`           |
+
+**Steps:**
+
+1. Stop `sonic-dbus-bridge` in the `redfish` container
+2. Submit telemetry and validate HTTP status is `503`, or `500`/`401` when the mTLS user lookup through the bridge fails first (sonic-redfish design, section 7.5)
+3. If the status is `503`, validate the `Retry-After` header is present and is delay-seconds or an HTTP-date
+4. Validate nothing is written to `RACK_MANAGER_DATA`
+5. Start `sonic-dbus-bridge` and validate telemetry is accepted with `204` and persisted
 
 ---
 
@@ -622,6 +679,7 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 4. Validate no power event is delivered
 5. Start `bmcctld` and validate both resources report `PowerState` `On` and the subscriber receives `ResourceEvent.1.3.0.ResourcePoweredOn`
 
+
 ---
 
 ## Section 9: D-Bus Infrastructure Health
@@ -651,9 +709,9 @@ Each test module carries its own in-file `pytest.mark.topology("any")` marker (t
 **Steps:**
 
 1. SSH into the BMC DUT
-2. Run `busctl status xyz.openbmc_project.Inventory`
+2. Run `busctl status xyz.openbmc_project.Inventory.Manager`
 3. Validate the command succeeds (return code 0)
-4. Run `busctl tree xyz.openbmc_project.Inventory`
+4. Run `busctl tree xyz.openbmc_project.Inventory.Manager`
 5. Validate the output contains `/xyz/openbmc_project/inventory/system/chassis`
 
 ### Test Case \#25 — D-Bus ObjectMapper is functional
@@ -678,7 +736,7 @@ busctl call xyz.openbmc_project.ObjectMapper \
 ```
 
 3. Validate the command succeeds and returns at least one chassis object path
-4. Validate the returned service name is `xyz.openbmc_project.Inventory`
+4. Validate the returned service name is `xyz.openbmc_project.Inventory.Manager`
 
 ---
 
@@ -842,15 +900,15 @@ Certificate-based tests use a `bmc_tls_certs` pytest fixture that handles the fu
 | Chassis Inventory                    | 3        | P0/P1    | NA     |
 | Systems Inventory                    | 2        | P0       | NA     |
 | Firmware Inventory                   | 2        | P1       | NA     |
-| Computer System Reset                | 5        | P0/P1    | NA     |
+| Computer System Reset                | 7        | P0/P1    | NA     |
 | Rack Manager Alert                   | 2        | P0/P1    | NA     |
-| Rack Manager Telemetry               | 2        | P0/P1    | NA     |
+| Rack Manager Telemetry               | 3        | P0/P1    | NA     |
 | Rack Manager Event Subscription      | 7        | P0/P1    | NA     |
 | D-Bus Infrastructure Health          | 3        | P0       | NA     |
 | Graceful Degradation                 | 2        | P1       | NA     |
 | Error Handling                       | 2        | P1       | NA     |
 | Certificate-Based Authentication     | 5        | P0/P1    | NA     |
-| **Total**                            | **38**   |          |        |
+| **Total**                            | **41**   |          |        |
 
 # Open Items
 
