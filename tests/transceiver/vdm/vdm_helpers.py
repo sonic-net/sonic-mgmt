@@ -246,6 +246,7 @@ def validate_vdm_operational_ranges(duthost, primary_ports, rows, plan_by_port, 
         duthost, primary_ports, [], rows, plan_by_port, now_utc=now_utc,
     )
     checked_fields = 0
+    reported_range_errors = set()
     for port in primary_ports:
         row = rows.get(port)
         if row is None:
@@ -258,7 +259,9 @@ def validate_vdm_operational_ranges(duthost, primary_ports, rows, plan_by_port, 
             )
             low, high, range_error = parse_min_max_range(mapped, attribute_key=VDM_ATTRIBUTES_KEY)
             if range_error:
-                failures.append("{}: {}".format(context, range_error))
+                if (port, mapped.source_attr) not in reported_range_errors:
+                    reported_range_errors.add((port, mapped.source_attr))
+                    failures.append("{}: {}".format(port, range_error))
                 continue
             value = parse_numeric(row.get(field)) if row else None
             if value is None or not math.isfinite(value):
@@ -280,12 +283,17 @@ def build_vdm_threshold_plan(port_attributes_dict, primary_ports, field_plan):
             port_attributes_dict[port][VDM_ATTRIBUTES_KEY],
             THRESHOLD_SUFFIX, plan["lane_domains"], port,
         )
+        matched = {
+            field: mapped for field, mapped in threshold_fields.items()
+            if field in plan["expected_fields"]
+        }
+        # Per-lane partial matches are fine; only an attribute with no matching field is an error.
+        matched_attrs = {mapped.source_attr for mapped in matched.values()}
+        for attr in sorted({mapped.source_attr for mapped in threshold_fields.values()} - matched_attrs):
+            errors.append("{} has no matching {} attribute".format(attr, OPERATIONAL_SUFFIX))
         plans[port] = {
             "expected_fields": plan["expected_fields"],
-            "threshold_fields": {
-                field: mapped for field, mapped in threshold_fields.items()
-                if field in plan["expected_fields"]
-            },
+            "threshold_fields": matched,
             "errors": list(plan["errors"]) + errors,
         }
     return plans
@@ -303,17 +311,21 @@ def read_vdm_thresholds(duthost, ports):
 
 
 def _parse_vdm_threshold_range(mapped):
-    """Require finite configured values or 'N/A' for every threshold severity."""
+    """Parse the configured severities; each value is a finite number or 'N/A'."""
     values = mapped.attr_value
     if not isinstance(values, dict):
         return {}, ["{} must define a severity dict (raw={!r})".format(mapped.source_attr, values)]
+    if not values:
+        return {}, ["{} must define at least one severity".format(mapped.source_attr)]
     thresholds = {}
     errors = []
     known_severities = {severity for severity, _ in VDM_THRESHOLD_TABLES}
     for severity in sorted(set(values) - known_severities):
         errors.append("{} has unknown severity {}".format(mapped.source_attr, severity))
     for severity, _ in VDM_THRESHOLD_TABLES:
-        raw_value = values.get(severity)
+        if severity not in values:
+            continue
+        raw_value = values[severity]
         if isinstance(raw_value, str) and raw_value.strip().upper() == "N/A":
             thresholds[severity] = "N/A"
             continue
@@ -335,12 +347,15 @@ def validate_vdm_thresholds(primary_ports, rows_by_severity, plan_by_port):
     for port in primary_ports:
         plan = plan_by_port[port]
         port_failures = list(plan["errors"])
+        unread_tables = []
         for severity, table in VDM_THRESHOLD_TABLES:
             row = rows_by_severity[severity].get(port)
             if row is None:
-                port_failures.append("{} ({}): namespace read failed".format(table, severity))
+                unread_tables.append(table)
             elif not row:
                 port_failures.append("{} ({}): port row is missing".format(table, severity))
+        if unread_tables:
+            port_failures.append("namespace read failed for {}".format(", ".join(unread_tables)))
         for field, mapped in plan["expected_fields"].items():
             numeric = {}
             represented = 0
@@ -363,8 +378,6 @@ def validate_vdm_thresholds(primary_ports, rows_by_severity, plan_by_port):
                     else:
                         numeric[severity] = value
                         represented += 1
-            if represented == len(VDM_THRESHOLD_TABLES):
-                checked_fields += 1
             equality = plan["threshold_fields"].get(field)
             expected_values = {}
             if equality is not None:
@@ -376,11 +389,14 @@ def validate_vdm_thresholds(primary_ports, rows_by_severity, plan_by_port):
                 (severity, numeric[severity]) for severity, _ in VDM_THRESHOLD_TABLES
                 if severity in numeric and expected_values.get(severity) != "N/A"
             ]
-            if represented == len(VDM_THRESHOLD_TABLES) and len(ordered) < 2:
-                logger.debug(
-                    "%s %s from %s: reduced threshold hierarchy coverage (%d applicable numeric severities)",
-                    port, field, mapped.source_attr, len(ordered),
-                )
+            if represented == len(VDM_THRESHOLD_TABLES):
+                if len(ordered) >= 2 or expected_values:
+                    checked_fields += 1
+                if len(ordered) < 2:
+                    logger.debug(
+                        "%s %s from %s: reduced threshold hierarchy coverage (%d applicable numeric severities)",
+                        port, field, mapped.source_attr, len(ordered),
+                    )
             for (low_name, low), (high_name, high) in zip(ordered, ordered[1:]):
                 if low >= high:
                     port_failures.append(

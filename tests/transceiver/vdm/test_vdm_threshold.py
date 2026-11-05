@@ -26,6 +26,8 @@ def test_vdm_threshold_validation(
         pytest.fail("VDM threshold validation failures:\n" + "\n".join(failures))
     if not equality_checks:
         logger.warning("VDM threshold equality is not covered: no optional _threshold_range values authored")
+    if not checked_fields:
+        logger.warning("VDM threshold validation is not covered: no field had a hierarchy or equality check")
     logger.info(
         "VDM threshold validation passed: %d field(s), %d equality check(s) across %d primary port(s)",
         checked_fields, equality_checks, len(vdm_primary_ports),

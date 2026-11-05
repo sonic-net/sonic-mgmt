@@ -245,8 +245,8 @@ tests/transceiver/
 │   ├── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
 │   ├── test_vdm_operational_range.py        # Basic TC 2: Inclusive operational ranges and freshness
 │   ├── test_vdm_threshold.py                # Basic TC 3: Threshold hierarchy and optional exact values
-│   └── test_vdm_consistency.py              # Basic TC 4: Owns private sampling, timestamp advancement,
-│                                            #   freshness/range, and statistic-coherence checks
+│   └── test_vdm_data_consistency.py         # Basic TC 4: Samples consistency_check_poll_count times; checks
+│                                            #  timestamp advance, freshness/range, and statistic coherence
 │
 └── pm/
     ├── __init__.py

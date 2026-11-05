@@ -9,7 +9,7 @@ from collections import defaultdict
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import VDM_ATTRIBUTES_KEY
-from tests.transceiver.common.attribute_helpers import parse_positive_int
+from tests.transceiver.common.attribute_helpers import parse_min_max_range, parse_positive_int
 from tests.transceiver.common.db_helpers import STATE_DB_UPDATE_TIME_FIELD, parse_numeric, parse_update_time
 from tests.transceiver.vdm.vdm_helpers import (
     build_vdm_field_plan,
@@ -41,6 +41,14 @@ def _build_vdm_consistency_plan(port_attributes_dict, primary_ports, field_plan)
         )
         if interval_error:
             errors.append(interval_error)
+        checked_attrs = set()
+        for mapped in field_plan[port]["expected_fields"].values():
+            if mapped.source_attr in checked_attrs:
+                continue
+            checked_attrs.add(mapped.source_attr)
+            _, _, range_error = parse_min_max_range(mapped, attribute_key=VDM_ATTRIBUTES_KEY)
+            if range_error:
+                errors.append(range_error)
         families = defaultdict(dict)
         for field in field_plan[port]["expected_fields"]:
             match = _STATISTIC_FIELD.fullmatch(field)
