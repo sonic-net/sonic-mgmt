@@ -738,18 +738,43 @@ def _log_in_flight_stats(api, in_flight_flow_metrics, data_flow_names, ptype, sn
         _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params)
 
 
+def _macsec_row_identity(row):
+    """(Tx Port, Rx Port, PGID) of an IxNetwork Flow Statistics row, as stored in flow_name_stats_identity_map."""
+    return (row['Tx Port'], row['Rx Port'], int(row['PGID']))
+
+
+def _to_number(value):
+    """int value of a statistics cell, or None when the cell is blank (e.g. rows without a transmit side)."""
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _log_in_flight_macsec_flow_stats(in_flight_flow_metrics, data_flow_names, snappi_extra_params):
     """Log per-flow TX/RX frame counts from in-flight MACsec TGEN flow statistics."""
     prio_count = 7
     flow_names, pgids, tx_frames, rx_frames = [], [], [], []
-    for fs in in_flight_flow_metrics:
-        if int(fs['PGID']) % prio_count in snappi_extra_params.flow_name_prio_map.values() and \
-           fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"] and \
-           int(fs['Tx Frames']) != 0:
-            flow_names.append(fs['Tx Port'] + "->" + fs['Rx Port'])
-            pgids.append(int(fs['PGID']) % prio_count)
-            tx_frames.append(fs['Tx Frames'])
-            rx_frames.append(fs['Rx Frames'])
+    identity_map = snappi_extra_params.flow_name_stats_identity_map
+    if identity_map:
+        # Tests that register their flows per (Tx Port, Rx Port, PGID), e.g. the M2O tests
+        identity_to_flow_name = {identity: name for name, identity in identity_map.items()}
+        for fs in in_flight_flow_metrics:
+            identity = _macsec_row_identity(fs)
+            if identity in identity_to_flow_name and (_to_number(fs['Tx Frames']) or 0) != 0:
+                flow_names.append(identity_to_flow_name[identity])
+                pgids.append(identity[2] % prio_count)
+                tx_frames.append(fs['Tx Frames'])
+                rx_frames.append(fs['Rx Frames'])
+    else:
+        for fs in in_flight_flow_metrics:
+            if int(fs['PGID']) % prio_count in snappi_extra_params.flow_name_prio_map.values() and \
+               fs['Rx Port'] == snappi_extra_params.base_flow_config["rx_port_name"] and \
+               int(fs['Tx Frames']) != 0:
+                flow_names.append(fs['Tx Port'] + "->" + fs['Rx Port'])
+                pgids.append(int(fs['PGID']) % prio_count)
+                tx_frames.append(fs['Tx Frames'])
+                rx_frames.append(fs['Rx Frames'])
     rows = list(zip(flow_names, pgids, tx_frames, rx_frames))
     logger.info(
         "In-flight traffic statistics for flows:\n%s",
@@ -781,6 +806,19 @@ def run_traffic(duthost,
         in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
                                                         (right before flows end)
     """
+
+    # snappi-ixnetwork applies LAGs before it removes topologies left over from a previous test
+    # in the same (module-scoped) session. Vports that are still part of a stale "Topology Port N"
+    # cannot be imported into a LAG ("Ports already assigned to a Topology cannot be used as part
+    # of a LAG"), so the LAG ends up empty and StartAllProtocols fails with
+    # "No ports assigned to topology 'Topology Lag ...'". Start from a clean config in that case.
+    _ixn = getattr(api, '_ixnetwork', None)
+    if _ixn is not None and len(config.lags) > 0:
+        _lag_topos = {"Topology " + lg.name for lg in config.lags}
+        _stale = [t.Name for t in _ixn.Topology.find() if t.Name not in _lag_topos]
+        if _stale:
+            logger.info("Clearing stale IxNetwork topologies {} before applying LAG config".format(_stale))
+            api.set_config(api.config())
 
     api.set_config(config)
     ptype = "--snappi_macsec" in sys.argv
@@ -949,14 +987,33 @@ def run_traffic(duthost,
                 time.sleep(1)
                 attempts += 1
         else:
+            flow_stat_view = api._ixnetwork.Statistics.View.find(Caption='Flow Statistics')
+            if flow_stat_view:
+                flow_stat_view.Page.PageSize = 1000
+                logger.info("Flow Statistics page size set to {}".format(flow_stat_view.Page.PageSize))
+            else:
+                logger.warning("'Flow Statistics' view not found, page size not changed")
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
-            transmit_states = [
-                int(float(metric['Tx Frame Rate']))
-                for metric in flow_metrics
-                if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
-                and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
-            ]
-            if list(set(transmit_states)) != [0]:   # Issue encountered, workaround is != instead of ==
+            identity_map = snappi_extra_params.flow_name_stats_identity_map
+            if identity_map:
+                # Watch every registered flow (all ingress ports), matched by (Tx Port, Rx Port, PGID)
+                tracked_identities = set(identity_map.values())
+                transmit_states = [
+                    _to_number(metric['Tx Frame Rate'])
+                    for metric in flow_metrics
+                    if _macsec_row_identity(metric) in tracked_identities
+                ]
+                transmit_states = [state for state in transmit_states if state is not None]
+                flows_stopped = len(transmit_states) > 0 and all(state == 0 for state in transmit_states)
+            else:
+                transmit_states = [
+                    int(float(metric['Tx Frame Rate']))
+                    for metric in flow_metrics
+                    if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
+                    and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
+                ]
+                flows_stopped = all(state == 0 for state in transmit_states)
+            if flows_stopped:
                 logger.info("All test and background traffic flows stopped")
                 time.sleep(SNAPPI_POLL_DELAY_SEC)
                 break
