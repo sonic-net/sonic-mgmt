@@ -28,9 +28,12 @@ from tests.common.snappi_tests.variables import pfcQueueValueDict, dut_ip_start,
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
     delete_macsec_profile
+from urllib.parse import urlparse  # py3
 from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
                                                        create_connections, create_connections_pl, create_uhdIp_list,
                                                        create_arp_bypass, create_arp_bypass_pl, create_profiles)
+from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.multi_asic import MultiAsicSonicHost
 yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
@@ -65,6 +68,27 @@ def snappi_api_serv_ip(tbinfo):
     return tbinfo['ptf_ip']
 
 
+def _is_otg_testbed(tbinfo):
+    name = (tbinfo.get("ptf_image_name") or "").upper()
+    return "OTG" in name  # OTG_API
+
+
+def _parse_tg_api_server(tbinfo):
+    """Return (host, port) from tbinfo['tg_api_server'] if set."""
+    raw = tbinfo.get("tg_api_server")
+    if not raw:
+        return None, None
+    raw = raw.strip()
+    if "://" in raw:
+        p = urlparse(raw)
+        host, port = p.hostname, p.port
+    else:
+        parts = raw.split(":")
+        host = parts[0]
+        port = int(parts[1]) if len(parts) > 1 else None
+    return host, port
+
+
 @pytest.fixture(scope="module")
 def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     """
@@ -74,12 +98,46 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     Returns:
         snappi API server port.
     """
+
+    if _is_otg_testbed(tbinfo):
+        _, port = _parse_tg_api_server(tbinfo)
+        return port or int(os.environ.get("TGEN_API_PORT", "8443"))
+
+    if "tg_api_server" in tbinfo:
+        _, port = _parse_tg_api_server(tbinfo)
+        if port is None:
+            raise ValueError("tg_api_server must include a port for non-OTG testbeds")
+        return port
+
     if "tg_api_server" in tbinfo:
         return tbinfo['tg_api_server'].split(':')[1]
 
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
+
+
+def _otg_api_location(tbinfo, snappi_api_serv_ip, snappi_api_serv_port):
+    env = os.environ.get("TGEN_API")
+    if env:
+        return env.rstrip("/")
+    scheme = os.environ.get("TGEN_API_SCHEME", "http")
+    host = os.environ.get("OTG_DOCKER_HOST_GATEWAY", "172.17.0.1")
+    port = snappi_api_serv_port
+    _, parsed_port = _parse_tg_api_server(tbinfo)
+    if parsed_port is not None:
+        port = parsed_port
+    return "%s://%s:%s" % (scheme, host, port)
+
+
+def _bypass_proxy_for_api(location):
+    host = urlparse(location).hostname
+    if not host:
+        return
+    for name in ("no_proxy", "NO_PROXY"):
+        cur = os.environ.get(name, "")
+        if host not in cur.split(","):
+            os.environ[name] = ",".join(x for x in (cur, host) if x)
 
 
 @pytest.fixture(scope='module')
@@ -108,6 +166,11 @@ def snappi_api(snappi_api_serv_ip,
         location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
         api = snappi.api(location=location, transport="grpc")
         api.request_timeout = 300
+    elif _is_otg_testbed(tbinfo):
+        location = _otg_api_location(tbinfo, snappi_api_serv_ip, snappi_api_serv_port)
+        _bypass_proxy_for_api(location)
+        logger.info("OTG / dpdk-tgen API at %s", location)
+        api = snappi.api(location=location, verify=False)
     else:
         logger.info("for docker-keysight-api-server")
         location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
@@ -1548,7 +1611,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             gen_data_flow_dest_ip(port['ipAddress'], duthost, port['peer_port'], port['asic_value'], setup)
         return True
 
-    global macsec_enabled_ports, macsec_profile_duthosts, macsec_profile_name, reconfigure_port
+    global macsec_enabled_ports, macsec_profile_duthosts, macsec_profile_name, reconfigure_port     # noqa: F824
     num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
     # +3 to ignore the network and broadcast address and plus one extra buffer
     # since the address is already configure on the dut interface
@@ -1932,6 +1995,27 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
     return multidut_snappi_ports
 
 
+def _snappi_chassis_index_in_fanout_graph(fanout_graph_facts, snappi_fanout_hostname):      # noqa: F811
+    """
+    Index for SnappiFanoutManager.get_fanout_device_details().
+
+    Must match SnappiFanoutManager fanout_list order (SNAPPI/IXIA testers only),
+    not the index of snappi_fanout_hostname in all fanout_graph_facts keys.
+    """
+    index = 0
+    for fanout, data in fanout_graph_facts.items():
+        hwsku = data.get("device_info", {}).get("HwSku")
+        if hwsku not in ("SNAPPI-tester", "IXIA-tester"):
+            continue
+        if fanout == snappi_fanout_hostname:
+            return index
+        index += 1
+    raise ValueError(
+        "Snappi chassis %s not in fanout_graph_facts as SNAPPI-tester/IXIA-tester"
+        % snappi_fanout_hostname
+    )
+
+
 @pytest.fixture(scope="module")
 def get_snappi_ports_single_dut(duthosts,  # noqa: F811
                                 conn_graph_facts,  # noqa: F811
@@ -1955,7 +2039,8 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_ports_all = []
     for snappi_fanout in snappi_fanouts:
-        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        # snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_id = _snappi_chassis_index_in_fanout_graph(fanout_graph_facts, snappi_fanout)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
         # Add snappi ports for each chassis connetion
