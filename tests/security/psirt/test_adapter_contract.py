@@ -47,7 +47,7 @@ def test_sudi_broker_socket_and_sandbox_policy(duthosts, enum_rand_one_per_hwsku
     duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
     require_capability(psirt_adapter, duthost, "sudi_broker_policy")
     policy = psirt_adapter.sudi_broker_policy(duthost)
-    assert policy["socket_mode"] == "0666"
+    assert int(policy["socket_mode"], 8) == 0o666
     assert policy["socket_owner"] == "root:root"
     assert policy["service_user"] == "root"
     assert policy["no_new_privileges"] is True
