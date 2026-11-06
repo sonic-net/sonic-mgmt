@@ -1,0 +1,65 @@
+schema_version: 1
+type: sonic_sonic
+
+controller:
+  testbed: ranking
+  host_pattern: all
+  connection: ssh
+
+hosts:
+  dut:
+    name: sonic-dut
+    address: 192.0.2.10
+    user: root
+  ptf:
+    name: sonic-ptf
+    address: 192.0.2.20
+    user: root
+
+dut:
+  rpc_port: 9092
+
+ptf:
+  container: saiserverv2
+  workdir: /SAI-TEST
+  executable: /SAI-TEST/test/ptf/ptf
+  case_dir: /SAI-TEST/ptf
+  binding_dir: /usr/lib/python3/dist-packages
+  collector_dir: /tmp/sai_test_results
+  timeout_s: 180
+  arguments:
+    - --relax
+
+ports:
+  Ethernet1: {id: 1, interface: Ethernet1}
+  Ethernet2: {id: 2, interface: Ethernet2}
+  Ethernet3: {id: 3, interface: Ethernet3}
+  Ethernet4: {id: 4, interface: Ethernet4}
+  Ethernet5: {id: 5, interface: Ethernet5}
+  Ethernet6: {id: 6, interface: Ethernet6}
+  Ethernet7: {id: 7, interface: Ethernet7}
+  Ethernet8: {id: 8, interface: Ethernet8}
+  Ethernet9: {id: 9, interface: Ethernet9}
+  Ethernet10: {id: 10, interface: Ethernet10}
+  Ethernet11: {id: 11, interface: Ethernet11}
+  Ethernet12: {id: 12, interface: Ethernet12}
+  Ethernet13: {id: 13, interface: Ethernet13}
+  Ethernet14: {id: 14, interface: Ethernet14}
+  Ethernet15: {id: 15, interface: Ethernet15}
+  Ethernet16: {id: 16, interface: Ethernet16}
+  Ethernet17: {id: 17, interface: Ethernet17}
+  Ethernet18: {id: 18, interface: Ethernet18}
+  Ethernet19: {id: 19, interface: Ethernet19}
+  Ethernet20: {id: 20, interface: Ethernet20}
+  Ethernet21: {id: 21, interface: Ethernet21}
+  Ethernet22: {id: 22, interface: Ethernet22}
+  Ethernet23: {id: 23, interface: Ethernet23}
+  Ethernet24: {id: 24, interface: Ethernet24}
+  Ethernet25: {id: 25, interface: Ethernet25}
+  Ethernet26: {id: 26, interface: Ethernet26}
+  Ethernet27: {id: 27, interface: Ethernet27}
+  Ethernet28: {id: 28, interface: Ethernet28}
+  Ethernet29: {id: 29, interface: Ethernet29}
+  Ethernet30: {id: 30, interface: Ethernet30}
+  Ethernet31: {id: 31, interface: Ethernet31}
+  Ethernet32: {id: 32, interface: Ethernet32}

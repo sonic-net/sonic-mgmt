@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source_identity": {
+    "repo": "SONiC/SAI",
+    "branch": "v1.10-pdx-capability",
+    "commit": "3e2e3631b57d8ce9f461ece2e14e451295cb520b"
+  },
+  "rpc_port": 9092,
+  "binding_identity": {
+    "package_sha256": "f2b8879d86923e3c0274a34325ba4d52234763db1258e62b30e64d3693ab7b45",
+    "headers_sha256": "5f2b56e04b71aea7fae330dff5ee7cb844ac2716b4dbd8af104df97625f37226",
+    "adapter_sha256": "2e3013489bcec95b28172e4fc42fc5eaccf86366fcd276dfee9a789fc33551e9",
+    "semantic_identity": {
+      "SAI_MAJOR": 1,
+      "SAI_MINOR": 10,
+      "SAI_REVISION": 2,
+      "SAI_API_VERSION": 11002
+    }
+  },
+  "requires_dut_credentials": false,
+  "switch_owner": "case",
+  "dataplane_validation": "after_create_switch"
+}

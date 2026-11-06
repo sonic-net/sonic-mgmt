@@ -27,3 +27,10 @@ sonic-dump/
 **/common/sai_validation/github.com/
 tests/pfc_headroom_test_params/*.json
 tests/priority/*.json
+
+# Local Ranking lab packages can contain internal addresses and credentials.
+/tests/ranking/examples/
+# Legacy local results created before --ranking-output was introduced.
+/tests/ranking/artifacts/
+# Current controller output.
+/tests/ranking/output/
