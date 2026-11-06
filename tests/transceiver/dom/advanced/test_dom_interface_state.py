@@ -8,7 +8,10 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.transceiver.common import scenario_ops
 from tests.transceiver.common.db_helpers import STATE_DB_UPDATE_TIME_FIELD
-from tests.transceiver.common.topology import resolve_remote_peer
+from tests.transceiver.common.topology import (
+    _get_lport_to_first_subport_mapping,
+    resolve_remote_peer,
+)
 from tests.transceiver.dom.advanced.helpers import (
     build_dom_deviation_checks,
     dom_rx_power_flag_candidates,
@@ -248,12 +251,11 @@ def _operation_context(
     conn_graph_facts,
     local_port,
     port_attributes_for_dut,
-    lport_to_first_subport_mapping_by_dut,
+    local_port_mapping,
 ):
     """Return ``(context, errors)`` for one local primary port under test."""
     errors = []
     local_port_attributes, local_attr_error = port_attributes_for_dut(duthost.hostname)
-    local_port_mapping = lport_to_first_subport_mapping_by_dut.get(duthost.hostname)
     if local_port_attributes is None or local_port_mapping is None:
         return None, ["{} has no transceiver attribute/mapping context: {}".format(
             duthost.hostname, local_attr_error or "mapping is unavailable"
@@ -264,13 +266,19 @@ def _operation_context(
         duthosts,
         conn_graph_facts,
         local_port,
-        lport_to_first_subport_mapping_by_dut,
     )
     if error:
         return None, [error]
 
     remote_port_attributes, remote_attr_error = port_attributes_for_dut(remote.device)
-    remote_port_mapping = lport_to_first_subport_mapping_by_dut.get(remote.device)
+    try:
+        remote_port_mapping = _get_lport_to_first_subport_mapping(remote.host)
+    except Exception as error:
+        return None, ["{} peer DUT {} has no logical-port mapping: {}".format(
+            local_port,
+            remote.device,
+            error,
+        )]
     if remote_port_attributes is None or remote_port_mapping is None:
         return None, ["{} peer DUT {} has no transceiver attribute/mapping context: {}".format(
             local_port,
@@ -617,7 +625,7 @@ def test_dom_data_during_interface_state_changes(
     conn_graph_facts,
     dom_primary_ports,
     port_attributes_for_dut,
-    lport_to_first_subport_mapping_by_dut,
+    lport_to_first_subport_mapping,
 ):
     """Verify local and remote DOM state transitions across shut/no-shut."""
     all_failures = []
@@ -631,7 +639,7 @@ def test_dom_data_during_interface_state_changes(
             conn_graph_facts,
             local_port,
             port_attributes_for_dut,
-            lport_to_first_subport_mapping_by_dut,
+            lport_to_first_subport_mapping,
         )
         if config_errors:
             all_failures.append(
