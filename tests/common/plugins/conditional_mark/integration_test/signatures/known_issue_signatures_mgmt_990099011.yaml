@@ -1,0 +1,12 @@
+signatures:
+  - name: multi_issue_bad_match
+    exception_type: AssertionError
+    message: |-
+      AssertionError: SNMP walk returned unexpected OID values for sysDescr. Expected version 20240101, got version 20230601.
+    stack_trace: |-
+      tests/snmp/test_snmp.py:90: in test_snmp_sysDescr
+          assert actual_version == expected_version
+    failure_matching_rule: >-
+      If the failure is about SNMP OID values mismatch, it is the same issue.
+    xfail_similarity_high_th: "0.55"
+    xfail_similarity_low_th: "0.30"
