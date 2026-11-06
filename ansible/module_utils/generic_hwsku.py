@@ -110,7 +110,7 @@ def _normalize_devices(devices):
         for key in ("name", "platform", "base_hwsku", "realized_hwsku", "image"):
             _text(item[key])
         _integer(item["asic_count"], 1)
-        _integer(item["port_capacity"], 1)
+        _integer(item["port_capacity"])
         _integer(item["headroom_capacity"])
         if type(item["dedicated"]) is not bool:
             raise InvalidInput("dedicated must be a boolean")
@@ -138,7 +138,7 @@ def _normalize_devices(devices):
                     _text(mode[key])
                 mode["ports"] = sorted((_normalize_port(port) for port in _items(mode["ports"])),
                                        key=lambda port: port["name"])
-                for key in ("name", "alias", "index"):
+                for key in ("name", "alias"):
                     _unique([port[key] for port in mode["ports"]], "port " + key)
                 lanes = [lane for port in mode["ports"] for lane in port["lanes"]]
                 channels = [channel for port in mode["ports"] for channel in port["channels"]]

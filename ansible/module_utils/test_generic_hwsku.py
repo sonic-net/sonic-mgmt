@@ -72,6 +72,67 @@ def settings():
             "profile": "lossless", "max_search_nodes": 20000}
 
 
+@pytest.fixture
+def shared_indices_snapshot(snapshot):
+    for device in snapshot["devices"]:
+        for cage in device["cages"]:
+            physical_index = cage["modes"][0]["ports"][0]["index"]
+            for mode in cage["modes"]:
+                for port in mode["ports"]:
+                    port["index"] = physical_index
+    return snapshot
+
+
+def test_shared_physical_indices_preserve_logical_endpoints(shared_indices_snapshot, settings):
+    """Breakout children sharing a physical index still have distinct logical and PTF endpoints."""
+    manifest = planner.plan_scenario(shared_indices_snapshot, settings)
+    planner.validate_manifest(json.loads(planner.canonical_json(manifest)), shared_indices_snapshot, settings)
+    children = [endpoint for endpoint in manifest["endpoints"] if endpoint["speed"] == 100000]
+    assert len({(child["dut_cage"], child["dut_index"]) for child in children}) < len(children)
+    endpoints = manifest["endpoints"]
+    assert len({endpoint["dut_port"] for endpoint in endpoints}) == len(endpoints)
+    assert len({endpoint["transport"]["ptf_index"] for endpoint in endpoints}) == len(endpoints)
+
+
+@pytest.mark.parametrize("field", ["name", "alias"])
+def test_shared_physical_indices_do_not_allow_duplicate_identities(shared_indices_snapshot, settings, field):
+    """Sharing a physical index must not relax logical port-name or alias uniqueness."""
+    ports = shared_indices_snapshot["devices"][0]["cages"][0]["modes"][1]["ports"]
+    ports[1][field] = ports[0][field]
+    with pytest.raises(planner.InvalidInput, match="Duplicate port " + field):
+        planner.plan_scenario(shared_indices_snapshot, settings)
+
+
+@pytest.mark.parametrize("protected", [False, True])
+def test_zero_available_capacity_on_unused_or_protected_leaf(snapshot, settings, protected):
+    """A zero-budget leaf must not block a complete plan using other reserved peers."""
+    spare = copy.deepcopy(snapshot["devices"][1])
+    spare["name"], spare["port_capacity"] = "spare-leaf", 0
+    snapshot["devices"].append(spare)
+    if protected:
+        for cage in spare["cages"]:
+            cage["protected_reason"] = "baseline reservation"
+        for link in snapshot["links"]:
+            if link["dut_cage"] == "cage-0":
+                link["leaf"] = spare["name"]
+        for endpoint in snapshot["endpoints"]:
+            if endpoint["cage"] == "cage-0":
+                endpoint["leaf"] = spare["name"]
+    manifest = planner.plan_scenario(snapshot, settings)
+    planner.validate_manifest(manifest, snapshot, settings)
+    assert all(entry["device"] != spare["name"] for entry in manifest["layout"])
+    if protected:
+        assert not any(entry["device"] == "dut" and entry["cage"] == "cage-0" for entry in manifest["layout"])
+
+
+@pytest.mark.parametrize("device", ["dut", "leaf"])
+def test_zero_available_capacity_on_required_device_is_infeasible(snapshot, settings, device):
+    """A valid zero budget cannot be bypassed when the required DUT/peer expansions consume ports."""
+    next(item for item in snapshot["devices"] if item["name"] == device)["port_capacity"] = 0
+    with pytest.raises(planner.InfeasiblePlan):
+        planner.plan_scenario(snapshot, settings)
+
+
 def test_complete_plan_and_independent_roundtrip(snapshot, settings):
     """Cover every required mode/pair and replay real witnesses after JSON serialization."""
     manifest = planner.plan_scenario(snapshot, settings)

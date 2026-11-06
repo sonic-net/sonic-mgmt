@@ -55,7 +55,9 @@ Each device must be a dedicated, reserved single-ASIC device on the same
 platform as the DUT. All non-DUT devices are leaf peers. Capacities are the
 verified **available scenario budget after reserving unrelated baseline
 usage**, not raw ASIC maxima. `port_capacity` includes inactive children of a
-selected leaf expansion. Policy must provide conservative additive `headroom`
+selected leaf expansion. Zero available capacity is valid for protected or
+unused devices; every selected expansion must still fit its device's budget.
+Policy must provide conservative additive `headroom`
 costs and available per-device `headroom_capacity` for the supported profile.
 The planner sums these supplied costs on both active ends; it does not compute
 buffer-manager thresholds, derive pool sizes, or replace live convergence
@@ -65,7 +67,10 @@ The collector supplies every canonical expansion, including alternate-speed
 variants and mixed-speed children. Variants have distinct expansion IDs but
 retain their canonical advertised mode name. Every expansion of a cage must
 describe the same complete physical lane/channel set. ASIC lane order is
-preserved. The planner never divides lanes, parses a breakout string, invents
+preserved. Breakout children within one cage may share a physical `index`;
+logical port names and aliases remain unique, and PTF endpoint indices are
+independently allocated from reserved transport. The planner never divides
+lanes, parses a breakout string, invents
 aliases, assumes FEC, or infers connectivity from Ethernet interface numbers.
 
 `group_mode` is a platform-policy compatibility token: selected expansions in
