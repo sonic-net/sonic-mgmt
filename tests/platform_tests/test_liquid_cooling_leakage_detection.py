@@ -100,7 +100,10 @@ def test_mock_liquid_leak_event(
         expected_log_messages = []
         loganalyzer.expect_regex = []
         for index in mocker.test_leakage_index_list:
-            expected_log_messages.append(f".*Liquid cooling leakage sensor leakage{index} recovered from leaking.*")
+            expected_log_messages.append(
+                f".*Liquid cooling leakage sensor leakage{index} recovered from leaking.*"
+                f"|.*Liquid cooling leakage sensor leakage{index} recovered from CRITICAL leak.*"
+            )
         loganalyzer.expect_regex.extend(expected_log_messages)
 
         loganalyzer.analyze(marker)
