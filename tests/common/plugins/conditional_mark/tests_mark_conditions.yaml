@@ -4186,36 +4186,6 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_config_reload_persistence:
-  skip:
-    reason: "Full PHY attribute validation is currently limited to Broadcom TH5"
-    conditions:
-      - "asic_type != 'broadcom' or asic_gen != 'th5'"
-
-platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_enable_and_validate:
-  skip:
-    reason: "Full PHY attribute validation is currently limited to Broadcom TH5"
-    conditions:
-      - "asic_type != 'broadcom' or asic_gen != 'th5'"
-
-platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_interval_change:
-  skip:
-    reason: "Full PHY attribute validation is currently limited to Broadcom TH5"
-    conditions:
-      - "asic_type != 'broadcom' or asic_gen != 'th5'"
-
-platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_latch_status_transition:
-  skip:
-    reason: "Full PHY attribute validation is currently limited to Broadcom TH5"
-    conditions:
-      - "asic_type != 'broadcom' or asic_gen != 'th5'"
-
-platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_reboot_persistence:
-  skip:
-    reason: "Full PHY attribute validation is currently limited to Broadcom TH5"
-    conditions:
-      - "asic_type != 'broadcom' or asic_gen != 'th5'"
-
 platform_tests/test_reboot.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."

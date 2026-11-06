@@ -1033,6 +1033,18 @@ platform_tests/counterpoll/:
     conditions:
       - "'bmc' in topo_type"
 
+platform_tests/counterpoll/test_counterpoll_phy_attr.py:
+  skip:
+    reason: "PORT_PHY_ATTR validation is currently limited to Broadcom TH5"
+    conditions:
+      - "asic_type != 'broadcom' or asic_gen != 'th5'"
+
+platform_tests/counterpoll/test_counterpoll_phy_attr.py::test_phy_latch_status_transition:
+  skip:
+    reason: "RX signal-detect latch can miss the F* transition on Broadcom TH5"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/30445"
+
 platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue_watermark_pg_drop:
   skip:
     reason: "Unsupported topology"
