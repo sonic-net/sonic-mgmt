@@ -235,7 +235,7 @@ def bgp_unnumbered_established(duthost, portchannel):
 
 
 @pytest.fixture(scope='function')
-def configure_unnumbered_bgp(setup_info):
+def configure_unnumbered_bgp(setup_info, request):
     """Configure unnumbered BGP peering and restore original config afterward.
 
     Setup:
@@ -344,12 +344,66 @@ def configure_unnumbered_bgp(setup_info):
     # FRR's unnumbered peering on the DUT side relies on receiving IPv6 RAs
     # from the peer to discover its link-local address; without RAs the DUT
     # stays in '(unspec)' state and never opens TCP/179. We therefore enable
-    # RAs on the peer Port-Channel as part of the peering setup.
+    # RAs on the peer Port-Channel as part of the peering setup, and shorten
+    # the RA interval. EOS advertises every 200s by default, and enabling RAs
+    # only triggers an immediate advertisement when it is a real state change,
+    # so on any run where RAs are already enabled the DUT would otherwise have
+    # to win a 120s race against that 200s cycle.
     eos_peer_group = "LINK_LOCAL_PG"
     logger.info("Enable IPv6 RAs on EOS %s (required for FRR unnumbered peer discovery)",
                 neigh_pc_intf)
+    # Snapshot the peer's RA configuration first, so teardown puts back exactly
+    # what was there instead of assuming the topology default.
+    ra_was_disabled = True
+    ra_prior_interval = None
+    try:
+        ra_show = neigh_host.eos_command(
+            commands=["show running-config interfaces {}".format(neigh_pc_intf)])
+        ra_text = ra_show['stdout'][0] if isinstance(
+            ra_show['stdout'], list) else ra_show['stdout']
+        ra_was_disabled = False
+        for cfg_line in str(ra_text).splitlines():
+            cfg_line = cfg_line.strip()
+            # The *-leaf.j2 templates emit the deprecated 'ipv6 nd ra suppress',
+            # which EOS normalises to 'ipv6 nd ra disabled' in running-config, so
+            # in practice only the latter is seen here. Accept both for safety.
+            # Restoring always uses 'disabled': current EOS rejects 'suppress'
+            # from the CLI with "% Unavailable command".
+            if cfg_line in ("ipv6 nd ra disabled", "ipv6 nd ra suppress"):
+                ra_was_disabled = True
+            elif cfg_line.startswith("ipv6 nd ra interval "):
+                ra_prior_interval = cfg_line
+    except Exception as e:
+        logger.warning("Could not read RA config on %s; teardown will restore the "
+                       "topology default (disabled): %s", neigh_pc_intf, e)
+    logger.info("Peer %s RA state before test: disabled=%s, interval=%s",
+                neigh_pc_intf, ra_was_disabled, ra_prior_interval or "default")
+
+    # Register the restore *before* changing anything, so a partially applied
+    # eos_config -- or anything raising between here and the yield -- is still
+    # cleaned up. Re-applying the observed state is a no-op if the change below
+    # never happened.
+    def restore_peer_ra_state():
+        restore_lines = [ra_prior_interval] if ra_prior_interval \
+            else ["no ipv6 nd ra interval"]
+        restore_lines.append(
+            "ipv6 nd ra disabled" if ra_was_disabled else "no ipv6 nd ra disabled")
+        try:
+            neigh_host.eos_config(
+                lines=restore_lines,
+                parents="interface {}".format(neigh_pc_intf))
+        except Exception:
+            # Deliberately not swallowed. A peer left advertising every 5s
+            # changes RA timing for every later run on this topology, which is
+            # the defect this test previously had; it must be visible in CI.
+            logger.error("Failed to restore RA state on %s; peer may still carry "
+                         "the test's RA configuration", neigh_pc_intf)
+            raise
+
+    request.addfinalizer(restore_peer_ra_state)
+
     neigh_host.eos_config(
-        lines=["no ipv6 nd ra disabled"],
+        lines=["no ipv6 nd ra disabled", "ipv6 nd ra interval 5"],
         parents="interface {}".format(neigh_pc_intf))
 
     logger.info("Configure interface-based BGP peering on EOS via %s (peer-group %s)",
@@ -358,7 +412,12 @@ def configure_unnumbered_bgp(setup_info):
         lines=[
             "neighbor {} peer group".format(eos_peer_group),
             "neighbor {} remote-as {}".format(eos_peer_group, dut_asn),
-            "neighbor interface {} peer-group {}".format(neigh_pc_intf, eos_peer_group),
+            # remote-as must be on this line: EOS requires it as part of the
+            # interface-neighbor command. Setting it on the peer-group alone
+            # works for address-based neighbors but is rejected here as
+            # "% Incomplete command" on older EOS (e.g. vEOS 4.24).
+            "neighbor interface {} peer-group {} remote-as {}".format(
+                neigh_pc_intf, eos_peer_group, dut_asn),
         ],
         parents="router bgp {}".format(neigh_asn))
 
