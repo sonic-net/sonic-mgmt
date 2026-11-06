@@ -79,14 +79,6 @@ parameters:
   type: string
   default: ""
 
-- name: SECURE_BOOT_KVM_BUILD_ID
-  type: string
-  default: ""
-
-- name: SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID
-  type: string
-  default: ""
-
 - name: INCLUDE_JOBS
   type: string
   default: "all"
@@ -202,11 +194,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          ${{ if or(ne(parameters.SECURE_BOOT_KVM_BUILD_ID, ''), ne(parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID, '')) }}:
-            KVM_BUILD_ID: ${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}
-          ${{ else }}:
-            KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
-          KVM_IMAGE_BUILD_PIPELINE_ID: ${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           ADD_TOPO_PARAMS: "-e use_uefi=true"
           SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "False"

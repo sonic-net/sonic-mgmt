@@ -163,8 +163,8 @@ def test_secure_boot_checker_uses_regular_pr_execution_gates():
     assert "SECURE_BOOT_IMAGE_AVAILABLE" not in secure_boot["variables"]
 
 
-def test_secure_boot_checker_uses_shared_build_unless_a_dedicated_source_is_requested():
-    """Preserve pipeline-only overrides without mixing them with a regular build ID."""
+def test_secure_boot_checker_uses_the_regular_build_source():
+    """Use the same build source as BIOS jobs while retaining Secure Boot and UEFI mode."""
     pipeline = yaml.safe_load(MODULE_PATH.with_name("pr_test_template.yml").read_text())
     jobs = {job["job"]: job for job in pipeline["jobs"]}
     submissions = {
@@ -177,15 +177,11 @@ def test_secure_boot_checker_uses_shared_build_unless_a_dedicated_source_is_requ
     }
     regular = submissions["impacted_area_t0_elastictest"]
     secure_boot = submissions["impacted_area_secureboot_t0_elastictest"]
-    dedicated_condition = (
-        "${{ if or(ne(parameters.SECURE_BOOT_KVM_BUILD_ID, ''), "
-        "ne(parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID, '')) }}"
-    )
-
     assert secure_boot["KVM_IMAGE_BRANCH"] == regular["KVM_IMAGE_BRANCH"]
-    assert secure_boot["${{ else }}"]["KVM_BUILD_ID"] == regular["KVM_BUILD_ID"]
-    assert secure_boot[dedicated_condition]["KVM_BUILD_ID"] == "${{ parameters.SECURE_BOOT_KVM_BUILD_ID }}"
-    assert secure_boot["KVM_IMAGE_BUILD_PIPELINE_ID"] == "${{ parameters.SECURE_BOOT_KVM_IMAGE_BUILD_PIPELINE_ID }}"
+    assert secure_boot["KVM_BUILD_ID"] == regular["KVM_BUILD_ID"]
+    assert "KVM_IMAGE_BUILD_PIPELINE_ID" not in secure_boot
+    assert secure_boot["SECURE_BOOT"] is True
+    assert secure_boot["ADD_TOPO_PARAMS"] == "-e use_uefi=true"
 
 
 def test_success_resets_consecutive_poll_failures(manager, monkeypatch):
