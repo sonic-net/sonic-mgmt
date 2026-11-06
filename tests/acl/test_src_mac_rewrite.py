@@ -3,6 +3,8 @@ Tests ACL to modify inner source MAC in VXLAN packets in SONiC.
 
 This test suite validates the INNER_SRC_MAC_REWRITE_ACTION functionality
 for ACL rules that can rewrite the inner source MAC address of VXLAN-encapsulated packets.
+Usage: -C ipv4/ipv6 -e --completeness_level=debug/basic/confident/thorough
+
 """
 
 import os
@@ -66,6 +68,14 @@ SCALE_RULE_COUNT_LEVEL_MAP = {
     "thorough": 9000
 }
 
+# Scale test values lower as v6 hardware capacity is lower than v4.
+SCALE_RULE_COUNT_LEVEL_MAP_V6 = {
+    "debug": 100,
+    "basic": 1000,
+    "confident": 3000,
+    "thorough": 4500
+}
+
 # IP range used for scale testing
 SCALE_IP_BASE = "201.0.0.0"
 SCALE_IP_PREFIX = 16
@@ -78,6 +88,56 @@ SCALE_TEST_ORIG_MAC = "00:11:22:33:44:55"
 # single rule times out AND runs its own multi-command diagnostic dump - potentially hours for
 # 'thorough', instead of failing fast.
 CONSECUTIVE_FAILURE_LIMIT = 10
+
+# IPv6 constants similar to the IPv4 constants. The VNET, tunnel and ingress port are shared between two.
+VNET_PRIMARY_ROUTE_IP_V6 = "2001:db8:150::3"
+VNET_PRIMARY_ROUTE_PREFIX_V6 = f"{VNET_PRIMARY_ROUTE_IP_V6}/128"
+VNET_INGRESS_IP_V6 = "2001:db8:201::1/64"
+
+# Per-IP-version test data.
+# Both families share ACL_TABLE_TYPE; only the match field changes.
+IP_VERSION_CONFIG = {
+    "ipv4": {
+        "match_field": "INNER_SRC_IP",
+        "host_bits": 32,
+        "route_ip": VNET_PRIMARY_ROUTE_IP,
+        "route_prefix": VNET_PRIMARY_ROUTE_PREFIX,
+        "scale_ip_base": SCALE_IP_BASE,
+        "scale_ip_prefix": SCALE_IP_PREFIX,
+        "scale_level_map": SCALE_RULE_COUNT_LEVEL_MAP,
+        "single_ip": "201.0.0.101",
+        "range_prefix": "201.0.0.0/24",
+        "range_extra_ips": ["201.0.0.102", "201.0.0.103", "201.0.0.104"],
+        "partial_rule_ip": "202.1.1.100",
+        "partial_pkt_ip": "202.1.1.200",
+        "partial_vni_ip": "202.2.2.100",
+        "multi_ip_1": "203.1.1.100",
+        "multi_ip_2": "203.1.1.200",
+    },
+    "ipv6": {
+        "match_field": "INNER_SRC_IPV6",
+        "host_bits": 128,
+        "route_ip": VNET_PRIMARY_ROUTE_IP_V6,
+        "route_prefix": VNET_PRIMARY_ROUTE_PREFIX_V6,
+        "scale_ip_base": "2001:db8:210::",
+        "scale_ip_prefix": 64,
+        "scale_level_map": SCALE_RULE_COUNT_LEVEL_MAP_V6,
+        "single_ip": "2001:db8:201::101",
+        "range_prefix": "2001:db8:201::/64",
+        "range_extra_ips": ["2001:db8:201::102", "2001:db8:201::103", "2001:db8:201::104"],
+        "partial_rule_ip": "2001:db8:202:1::100",
+        "partial_pkt_ip": "2001:db8:202:1::200",
+        "partial_vni_ip": "2001:db8:202:2::100",
+        "multi_ip_1": "2001:db8:203:1::100",
+        "multi_ip_2": "2001:db8:203:1::200",
+    },
+}
+
+
+@pytest.fixture(params=["ipv4", "ipv6"])
+def ip_version(request):
+    """Inner IP version under test; select with '-k ipv4' / '-k ipv6'."""
+    return request.param
 
 
 def _check_acl_rule_active(duthost, table_name, rule_name):
@@ -172,6 +232,7 @@ def setup_vnet_ingress_datapath(duthost, ingress_port, vlan_id):
         "INTERFACE": {
             ingress_port: {"vnet_name": VNET_PRIMARY_NAME},
             f"{ingress_port}|{VNET_INGRESS_IP}": {},
+            f"{ingress_port}|{VNET_INGRESS_IP_V6}": {},
         }
     }
     apply_config_chunk(duthost, intf_config, "vnet_ingress_intf")
@@ -192,11 +253,11 @@ def generate_mac_address(index):
 
 def generate_ip_address(index, base_ip="10.0.0.0", prefix=16):
     """
-    Generate an IP address from a base network using an index.
+    Generate an IPv4 or IPv6 address from a base network using an index.
     """
-    network = ipaddress.IPv4Network(f"{base_ip}/{prefix}", strict=False)
+    network = ipaddress.ip_network(f"{base_ip}/{prefix}", strict=False)
     # Ensure we don't exceed the network size
-    max_hosts = 2**(32 - prefix) - 2  # Subtract network and broadcast
+    max_hosts = 2**(network.max_prefixlen - prefix) - 2  # Subtract network and broadcast
     if index >= max_hosts:
         raise ValueError(f"Index {index} exceeds maximum hosts {max_hosts} for network {network}")
 
@@ -221,7 +282,8 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     loopback0_ips = mg_facts["minigraph_lo_interfaces"]
     loopback_src_ip = None
     for intf in loopback0_ips:
-        if intf["name"] == "Loopback0":
+        # The VXLAN underlay is IPv4 for both v4 and v6 test.
+        if intf["name"] == "Loopback0" and ipaddress.ip_address(intf["addr"]).version == 4:
             loopback_src_ip = intf["addr"]
             break
 
@@ -310,22 +372,35 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     pytest_assert(any(entry.get('vnet name') == VNET_PRIMARY_NAME for entry in vnet_list),
                   f"{VNET_PRIMARY_NAME} not found in 'show vnet brief' output")
 
-    # Wait for VNET route to be active in STATE_DB (confirms orchagent programmed it)
-    if not wait_until(60, 5, 5, _check_vnet_route, rand_selected_dut):
-        vnet_route_state = rand_selected_dut.shell(
-            "redis-cli -n 6 HGETALL '{}'".format(
-                _vnet_route_state_db_key(VNET_PRIMARY_NAME, VNET_PRIMARY_ROUTE_PREFIX)
-            ),
-            module_ignore_errors=True
-        )["stdout"]
-        logger.error("STATE_DB VNET route entry:\n%s", vnet_route_state)
-        pytest.fail(f"VNET route for {VNET_PRIMARY_ROUTE_PREFIX} is not active in STATE_DB")
+    # The VNET route of each IP version is verified per test by vnet_route_ready, so a run
+    # selected with '-k ipv4' / '-k ipv6' only depends on that version's route.
+    data['verified_route_prefixes'] = set()
 
     # Bind the ingress interface into the VNET so the DUT VXLAN-encapsulates ingress traffic
     # (without this the packet is plain-routed and the ACL never matches).
     setup_vnet_ingress_datapath(rand_selected_dut, data['vnet_ingress_port'], data['vnet_ingress_vlan'])
 
     return data
+
+
+@pytest.fixture(autouse=True)
+def vnet_route_ready(setUp, ip_version):
+    """
+    Wait for the VNET route of the IP version to be active.
+    """
+    route_prefix = IP_VERSION_CONFIG[ip_version]['route_prefix']
+    if route_prefix in setUp['verified_route_prefixes']:
+        return
+
+    duthost = setUp['duthost']
+    if not wait_until(60, 5, 5, _check_vnet_route, duthost, VNET_PRIMARY_NAME, route_prefix):
+        vnet_route_state = duthost.shell(
+            "redis-cli -n 6 HGETALL '{}'".format(_vnet_route_state_db_key(VNET_PRIMARY_NAME, route_prefix)),
+            module_ignore_errors=True
+        )["stdout"]
+        logger.error("STATE_DB VNET route entry:\n%s", vnet_route_state)
+        pytest.fail(f"VNET route for {route_prefix} is not active in STATE_DB")
+    setUp['verified_route_prefixes'].add(route_prefix)
 
 
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL, prev_count=0):
@@ -402,7 +477,16 @@ def count_active_acl_rules(duthost):
                 if r.get('table') == ACL_TABLE_NAME and r.get('status', '').lower() == 'active'])
 
 
-def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
+def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE, match_field="INNER_SRC_IP"):
+    # The same type name is used for IPv4 and IPv6 with different matches.
+    # update an existing ACL_TABLE_TYPE in place can have issues, so removing the table and the type before re-creating.
+    duthost.shell(f"config acl remove table {ACL_TABLE_NAME}", module_ignore_errors=True)
+    pytest_assert(wait_until(30, 5, 0, _check_acl_table_absent, duthost, ACL_TABLE_NAME),
+                  f"ACL table {ACL_TABLE_NAME} still present before re-creating ACL table type")
+    duthost.shell(f'sonic-db-cli CONFIG_DB DEL "ACL_TABLE_TYPE|{acl_type_name}"', module_ignore_errors=True)
+    pytest_assert(wait_until(30, 5, 0, lambda: not _check_acl_table_type_in_config_db(duthost, acl_type_name)),
+                  f"ACL table type {acl_type_name} still present in CONFIG_DB after deletion")
+
     acl_table_type_data = {
         "ACL_TABLE_TYPE": {
             acl_type_name: {
@@ -411,7 +495,7 @@ def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
                     "PORTCHANNEL"
                 ],
                 "MATCHES": [
-                    "INNER_SRC_IP",
+                    match_field,
                     "TUNNEL_VNI"
                 ],
                 "ACTIONS": [
@@ -470,14 +554,15 @@ def remove_acl_table(duthost):
     logger.info(f"ACL table {ACL_TABLE_NAME} successfully removed from STATE_DB")
 
 
-def setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name="rule_1", priority=ACL_RULE_PRIORITY):
+def setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name="rule_1", priority=ACL_RULE_PRIORITY,
+                   match_field="INNER_SRC_IP"):
     """Create (or update) an ACL rule via 'config load -y' and wait until it is active."""
     acl_rule = {
         "ACL_RULE": {
             f"{ACL_TABLE_NAME}|{rule_name}": {
                 "PRIORITY": priority,
                 "TUNNEL_VNI": vni,
-                "INNER_SRC_IP": inner_src_ip,
+                match_field: inner_src_ip,
                 "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
             }
         }
@@ -493,7 +578,7 @@ def setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name="rule_1", 
     logger.info(f"ACL rule {rule_name} for table {ACL_TABLE_NAME} is successfully created and active")
 
 
-def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0):
+def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0, ip_version="ipv4"):
     """
     Setup ALL ACL rules at once using a single JSON operation - maximum performance. Used by the
     scale test, where applying rule_count individual 'config load' calls would be far too slow.
@@ -501,6 +586,7 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
     logger.info(f"Building ALL {rule_count} ACL rules for single application")
 
     start_time = time.time()
+    ip_cfg = IP_VERSION_CONFIG[ip_version]
 
     # Create complete JSON config with ALL rules at once
     acl_rules = {"ACL_RULE": {}}
@@ -511,13 +597,14 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
     for i in range(rule_count):
         rule_index = start_index + i
         rule_name = f"scale_rule_{i + 1:04d}"
-        inner_src_ip = generate_ip_address(rule_index, base_ip=SCALE_IP_BASE, prefix=SCALE_IP_PREFIX)
+        inner_src_ip = generate_ip_address(rule_index, base_ip=ip_cfg["scale_ip_base"],
+                                           prefix=ip_cfg["scale_ip_prefix"])
         new_src_mac = generate_mac_address(rule_index)
 
         # Create rule entry for config
         rule_key = f"{ACL_TABLE_NAME}|{rule_name}"
         acl_rules["ACL_RULE"][rule_key] = {
-            "INNER_SRC_IP": f"{inner_src_ip}/32",
+            ip_cfg["match_field"]: f"{inner_src_ip}/{ip_cfg['host_bits']}",
             "TUNNEL_VNI": str(vni),
             "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac,
             "PRIORITY": ACL_RULE_PRIORITY  # SAME PRIORITY for all rules to observe behavior
@@ -636,10 +723,10 @@ def verify_acl_rules_installation(duthost, expected_count):
     logger.info(f"Successfully verified {expected_count} ACL rules installation")
 
 
-def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
+def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac, match_field="INNER_SRC_IP"):
     logger.info("Modifying ACL rule with new MAC: %s", new_src_mac)
     # Re-applying the rule via config load properly triggers change notifications.
-    setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac)
+    setup_acl_rule(duthost, inner_src_ip, vni, new_src_mac, match_field=match_field)
     logger.info("ACL rule successfully modified to use MAC: %s", new_src_mac)
 
 
@@ -733,6 +820,9 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip):
     route_config = {
         "VNET_ROUTE_TUNNEL": {
             f"{vnet_name}|{VNET_PRIMARY_ROUTE_PREFIX}": {
+                "endpoint": ptf_vtep
+            },
+            f"{vnet_name}|{VNET_PRIMARY_ROUTE_PREFIX_V6}": {
                 "endpoint": ptf_vtep
             }
         }
@@ -829,7 +919,8 @@ def _log_vxlan_datapath_state(duthost, inner_src_ip, inner_dst_ip, rule_name):
         "show vxlan tunnel",
         "show ip route {}".format(PTF_VTEP_IP),
         "show arp {}".format(PTF_VTEP_IP),
-        "show ip route {}".format(inner_dst_ip),
+        "show {} route {}".format("ipv6" if ipaddress.ip_address(inner_dst_ip).version == 6 else "ip",
+                                  inner_dst_ip),
         "aclshow -a",
     ]
     logger.error("=== VXLAN datapath diagnostics (no encapsulated packet received for "
@@ -905,19 +996,29 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     vxlan_router_mac = VXLAN_ROUTER_MAC
     logger.info("vxlan_router_mac=%s, router_mac=%s", vxlan_router_mac, router_mac)
 
-    input_pkt = testutils.simple_tcp_packet(
-        pktlen=100, eth_dst=router_mac, eth_src=orig_src_mac,
-        ip_dst=dst_ip, ip_src=src_ip, ip_id=105, ip_ttl=64,
-        tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
     # Inner src MAC of the encapped packet: the ACL rewrite MAC when the rule fires, otherwise the
     # DUT router_mac. VNET L3 routing rebuilds the inner Ethernet header, so orig_src_mac is gone
     # and the un-rewritten inner src MAC is router_mac. Matching it exactly confirms e2e whether
     # the rewrite happened.
     expected_inner_src_mac = rewrite_mac if expect_rewrite else router_mac
-    inner_exp = testutils.simple_tcp_packet(
-        pktlen=100, eth_src=expected_inner_src_mac, eth_dst=vxlan_router_mac,
-        ip_src=src_ip, ip_dst=dst_ip, ip_id=105, ip_ttl=63,
-        tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
+    if ipaddress.ip_address(src_ip).version == 6:
+        input_pkt = testutils.simple_tcpv6_packet(
+            pktlen=100, eth_dst=router_mac, eth_src=orig_src_mac,
+            ipv6_dst=dst_ip, ipv6_src=src_ip, ipv6_hlim=64,
+            tcp_sport=1234, tcp_dport=5000, ipv6_ecn=0)
+        inner_exp = testutils.simple_tcpv6_packet(
+            pktlen=100, eth_src=expected_inner_src_mac, eth_dst=vxlan_router_mac,
+            ipv6_src=src_ip, ipv6_dst=dst_ip, ipv6_hlim=63,
+            tcp_sport=1234, tcp_dport=5000, ipv6_ecn=0)
+    else:
+        input_pkt = testutils.simple_tcp_packet(
+            pktlen=100, eth_dst=router_mac, eth_src=orig_src_mac,
+            ip_dst=dst_ip, ip_src=src_ip, ip_id=105, ip_ttl=64,
+            tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
+        inner_exp = testutils.simple_tcp_packet(
+            pktlen=100, eth_src=expected_inner_src_mac, eth_dst=vxlan_router_mac,
+            ip_src=src_ip, ip_dst=dst_ip, ip_id=105, ip_ttl=63,
+            tcp_sport=1234, tcp_dport=5000, ip_ecn=0)
     expected_pkt = testutils.simple_vxlan_packet(
         eth_src=router_mac, eth_dst="ff:ff:ff:ff:ff:ff",
         ip_src=dut_vtep_ip, ip_dst=PTF_VTEP_IP, ip_id=0, ip_flags=0x2,
@@ -968,11 +1069,12 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
                     src_ip, count_before, count_after)
 
 
-def _test_inner_src_mac_rewrite(setUp, scenario_name):
+def _test_inner_src_mac_rewrite(setUp, scenario_name, ip_version="ipv4"):
     # Extract test data from setUp fixture
     duthost = setUp['duthost']
     ptfadapter = setUp['ptfadapter']
     scenario = setUp['test_scenarios'][scenario_name]
+    ip_cfg = IP_VERSION_CONFIG[ip_version]
 
     ptf_port_1 = setUp['ptf_port_1']
     ptf_port_2 = setUp['ptf_port_2']
@@ -987,27 +1089,28 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     # Configuration values
     RULE_NAME = "rule_1"
     table_name = ACL_TABLE_NAME
+    match_field = ip_cfg['match_field']
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = VNET_PRIMARY_ROUTE_IP  # Route destination
+    inner_dst_ip = ip_cfg['route_ip']  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
-    inner_src_ip = "201.0.0.101"  # Source IP for test packets
+    inner_src_ip = ip_cfg['single_ip']  # Source IP for test packets
 
     try:
-        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE, match_field=match_field)
         setup_acl_table(duthost, bind_ports)
 
         # Configure ACL rule based on scenario
         if scenario_name == "single_ip_test":
             # Use specific source IP for ACL rule matching (single IP)
-            acl_rule_prefix = f"{inner_src_ip}/32"
+            acl_rule_prefix = f"{inner_src_ip}/{ip_cfg['host_bits']}"
             logger.info(f"Single IP test: Using ACL rule prefix {acl_rule_prefix}")
         else:  # range_test
-            # Use broader subnet for range testing (matches multiple IPs)
-            acl_rule_prefix = "201.0.0.0/24"  # Matches the 201.0.0.x range including 201.0.0.101
+            # Use broader subnet for range testing (matches multiple IPs, including inner_src_ip)
+            acl_rule_prefix = ip_cfg['range_prefix']
             logger.info(f"Range test: Using ACL rule prefix {acl_rule_prefix}")
 
-        setup_acl_rule(duthost, acl_rule_prefix, vni_id, first_modified_mac)
+        setup_acl_rule(duthost, acl_rule_prefix, vni_id, first_modified_mac, match_field=match_field)
 
         # Test with the configured source IP
         _send_and_verify_mac_rewrite(
@@ -1017,8 +1120,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
 
         # For range test, also test with different IPs in the range
         if scenario_name == "range_test":
-            test_ips = ["201.0.0.102", "201.0.0.103", "201.0.0.104"]  # Additional IPs in the 201.0.0.0/24 range
-            for test_ip in test_ips:
+            for test_ip in ip_cfg['range_extra_ips']:  # Additional IPs in the range prefix
                 logger.info(f"Range test: Verifying rewrite with IP {test_ip}")
                 _send_and_verify_mac_rewrite(
                     ptfadapter, ptf_port_1, ptf_port_2, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
@@ -1026,7 +1128,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
 
         # Modify ACL rule to use new MAC address (much more efficient than remove/recreate)
         logger.info("Step 3: Modifying ACL rule to use new MAC: %s", second_modified_mac)
-        modify_acl_rule(duthost, acl_rule_prefix, vni_id, second_modified_mac)
+        modify_acl_rule(duthost, acl_rule_prefix, vni_id, second_modified_mac, match_field=match_field)
 
         logger.info("Step 4: Verifying rewrite with second modified MAC: %s", second_modified_mac)
         _send_and_verify_mac_rewrite(
@@ -1047,33 +1149,34 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
             # Don't raise the exception to avoid masking test failures
 
 
-def test_single_ip_acl_rule(setUp):
+def test_single_ip_acl_rule(setUp, ip_version):
     """
-    Test ACL rule for inner source MAC rewriting with single IP (/32) matching.
+    Test ACL rule for inner source MAC rewriting with single IP (/32 or /128) matching.
     Validates that ACL rules can target specific IP addresses for MAC rewriting.
     """
-    _test_inner_src_mac_rewrite(setUp, "single_ip_test")
+    _test_inner_src_mac_rewrite(setUp, "single_ip_test", ip_version)
 
 
-def test_range_ip_acl_rule(setUp):
+def test_range_ip_acl_rule(setUp, ip_version):
     """
-    Test ACL rule for inner source MAC rewriting with IP range (/24) matching.
+    Test ACL rule for inner source MAC rewriting with IP range (/24 or /64) matching.
     Validates that ACL rules can target IP subnets and rewrite MAC for multiple IPs.
     """
-    _test_inner_src_mac_rewrite(setUp, "range_test")
+    _test_inner_src_mac_rewrite(setUp, "range_test", ip_version)
 
 
-def test_partial_match(setUp):
+def test_partial_match(setUp, ip_version):
     """
     Test partial match cases for ACL rules:
       1. VNI matches but source IP does not - rule should not trigger.
       2. Source IP matches but VNI does not - rule should not trigger.
-    Validates that both INNER_SRC_IP and TUNNEL_VNI must match for an ACL
+    Validates that both INNER_SRC_IP/INNER_SRC_IPV6 and TUNNEL_VNI must match for an ACL
     rule to fire; a partial match should not increment counters or rewrite the MAC.
     """
     duthost = setUp['duthost']
     ptfadapter = setUp['ptfadapter']
     scenario = setUp['test_scenarios']['multi_vni_test']
+    ip_cfg = IP_VERSION_CONFIG[ip_version]
     ptf_port_1 = setUp['ptf_port_1']
     ptf_port_2 = setUp['ptf_port_2']
     bind_ports = setUp['bind_ports']
@@ -1085,15 +1188,16 @@ def test_partial_match(setUp):
     rule_name_2 = "rule_ip_match_no_vni"
 
     try:
-        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE, match_field=ip_cfg['match_field'])
         setup_acl_table(duthost, bind_ports)
 
         # Case 1: VNI matches but source IP does not match
         logger.info("=== Case 1: VNI matches but IP does not ===")
-        setup_acl_rule(duthost, "202.1.1.100/32", str(VXLAN_VNI), rewrite_mac_1, rule_name_1)
+        setup_acl_rule(duthost, f"{ip_cfg['partial_rule_ip']}/{ip_cfg['host_bits']}", str(VXLAN_VNI),
+                       rewrite_mac_1, rule_name_1, match_field=ip_cfg['match_field'])
         _send_and_verify_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
-            "202.1.1.200", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
+            ip_cfg['partial_pkt_ip'], ip_cfg['route_ip'], original_inner_src_mac,
             rewrite_mac_1, ACL_TABLE_NAME, rule_name_1,
             expect_rewrite=False,
             test_description="VNI matches but IP does not",
@@ -1105,10 +1209,11 @@ def test_partial_match(setUp):
         # as a VNET; traffic is encapped with the primary VNET's VNI, so the rule can't match and
         # no extra VNET provisioning is needed.
         logger.info("=== Case 2: IP matches but VNI does not ===")
-        setup_acl_rule(duthost, "202.2.2.100/32", str(UNPROVISIONED_VNI), rewrite_mac_2, rule_name_2)
+        setup_acl_rule(duthost, f"{ip_cfg['partial_vni_ip']}/{ip_cfg['host_bits']}", str(UNPROVISIONED_VNI),
+                       rewrite_mac_2, rule_name_2, match_field=ip_cfg['match_field'])
         _send_and_verify_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
-            "202.2.2.100", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
+            ip_cfg['partial_vni_ip'], ip_cfg['route_ip'], original_inner_src_mac,
             rewrite_mac_2, ACL_TABLE_NAME, rule_name_2,
             expect_rewrite=False,
             test_description="IP matches but VNI does not",
@@ -1126,7 +1231,7 @@ def test_partial_match(setUp):
             logger.warning(f"Cleanup failed: {e}")
 
 
-def test_multiple_acl_rules(setUp):
+def test_multiple_acl_rules(setUp, ip_version):
     """
     Test two ACL rules with different source IPs and the same VNI.
     Validates that each rule matches only its configured source IP and that their
@@ -1136,6 +1241,7 @@ def test_multiple_acl_rules(setUp):
     duthost = setUp['duthost']
     ptfadapter = setUp['ptfadapter']
     scenario = setUp['test_scenarios']['multi_vni_test']
+    ip_cfg = IP_VERSION_CONFIG[ip_version]
 
     ptf_port_1 = setUp['ptf_port_1']
     ptf_port_2 = setUp['ptf_port_2']
@@ -1148,23 +1254,25 @@ def test_multiple_acl_rules(setUp):
     rewrite_mac_2 = scenario['second_modified_mac']
 
     # Test parameters
-    test_src_ip_1 = "203.1.1.100"
-    test_src_ip_2 = "203.1.1.200"  # Different source IP
-    test_dst_ip = VNET_PRIMARY_ROUTE_IP
+    test_src_ip_1 = ip_cfg['multi_ip_1']
+    test_src_ip_2 = ip_cfg['multi_ip_2']  # Different source IP
+    test_dst_ip = ip_cfg['route_ip']
     test_vni = str(VXLAN_VNI)  # Same VNI for both rules
     rule_name_1 = "rule_multi_1"
     rule_name_2 = "rule_multi_2"
 
     try:
-        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE, match_field=ip_cfg['match_field'])
         setup_acl_table(duthost, bind_ports)
 
         logger.info("Creating two ACL rules with different source IPs and the same VNI")
         logger.info(f"Rule 1: src_ip={test_src_ip_1}, VNI={test_vni}, MAC={rewrite_mac_1}")
         logger.info(f"Rule 2: src_ip={test_src_ip_2}, VNI={test_vni}, MAC={rewrite_mac_2}")
 
-        setup_acl_rule(duthost, f"{test_src_ip_1}/32", test_vni, rewrite_mac_1, rule_name_1)
-        setup_acl_rule(duthost, f"{test_src_ip_2}/32", test_vni, rewrite_mac_2, rule_name_2)
+        setup_acl_rule(duthost, f"{test_src_ip_1}/{ip_cfg['host_bits']}", test_vni, rewrite_mac_1, rule_name_1,
+                       match_field=ip_cfg['match_field'])
+        setup_acl_rule(duthost, f"{test_src_ip_2}/{ip_cfg['host_bits']}", test_vni, rewrite_mac_2, rule_name_2,
+                       match_field=ip_cfg['match_field'])
 
         # Test Rule 1: Send packet matching first source IP
         logger.info(f"=== Testing Rule 1: {rule_name_1} with source IP {test_src_ip_1} ===")
@@ -1242,12 +1350,12 @@ def test_multiple_acl_rules(setUp):
 
 @pytest.mark.supported_completeness_level(CompletenessLevel.debug, CompletenessLevel.basic,
                                           CompletenessLevel.confident, CompletenessLevel.thorough)
-def test_scale_acl_rule(setUp, request):
+def test_scale_acl_rule(setUp, request, ip_version):
     """
     Scale test: Program ACL rules with SAME PRIORITIES and test packet forwarding.
 
-    The rule count is driven by --completeness_level (see SCALE_RULE_COUNT_LEVEL_MAP),
-    ranging from 100 rules for 'debug' up to 9000 rules for 'thorough'.
+    The rule count is driven by --completeness_level, per IP version: SCALE_RULE_COUNT_LEVEL_MAP
+    (IPv4, 100 'debug' to 9000 'thorough') or SCALE_RULE_COUNT_LEVEL_MAP_V6 (IPv6, 100 to 4500).
     It verifies that all rules become Active and tests packet forwarding functionality
     at scale.
 
@@ -1258,11 +1366,13 @@ def test_scale_acl_rule(setUp, request):
 
     All programmed rules are expected to become Active; any Inactive rule fails the test.
     """
+    ip_cfg = IP_VERSION_CONFIG[ip_version]
 
     normalized_level = CompletenessLevel.get_normalized_level(request)
-    scale_rule_count = SCALE_RULE_COUNT_LEVEL_MAP[normalized_level]
+    scale_rule_count = ip_cfg['scale_level_map'][normalized_level]
 
-    logger.info(f"=== STARTING {scale_rule_count}-RULE SCALE TEST (completeness level: {normalized_level}) ===")
+    logger.info(f"=== STARTING {scale_rule_count}-RULE {ip_version} SCALE TEST "
+                f"(completeness level: {normalized_level}) ===")
 
     # Extract test data from setUp fixture
     duthost = setUp['duthost']
@@ -1278,13 +1388,13 @@ def test_scale_acl_rule(setUp, request):
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = VNET_PRIMARY_ROUTE_IP
+    inner_dst_ip = ip_cfg['route_ip']
     vni_id = str(VXLAN_VNI)  # VNI from configuration
 
     logger.info("=== Starting ACL Source MAC Rewrite Scale Test ===")
     logger.info(f"Target: {scale_rule_count} ACL rules")
     logger.info(f"Using VNI: {vni_id}")
-    logger.info(f"IP range: {SCALE_IP_BASE}/{SCALE_IP_PREFIX}")
+    logger.info(f"IP range: {ip_cfg['scale_ip_base']}/{ip_cfg['scale_ip_prefix']}")
 
     try:
         # ===================================================================
@@ -1293,7 +1403,7 @@ def test_scale_acl_rule(setUp, request):
         logger.info("STEP 1: Verifying VXLAN/VNET infrastructure")
 
         logger.info("Verifying VNET route")
-        pytest_assert(_check_vnet_route(duthost), "VNET route not found")
+        pytest_assert(_check_vnet_route(duthost, prefix=ip_cfg['route_prefix']), "VNET route not found")
 
         logger.info("Verifying VXLAN tunnel")
         pytest_assert(_check_vxlan_tunnel_config(duthost, vxlan_tunnel_name),
@@ -1310,14 +1420,14 @@ def test_scale_acl_rule(setUp, request):
         hwsku = duthost.facts.get('hwsku', 'unknown')
         logger.info(f"Platform: {hwsku}, ASIC: {asic_type}")
 
-        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
+        setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE, match_field=ip_cfg['match_field'])
         setup_acl_table(duthost, bind_ports)
 
         # Setup ACL rules with bulk JSON operation
         logger.info(f"Programming {scale_rule_count} ACL rules...")
         start_time = time.time()
 
-        setup_bulk_acl_rules(duthost, scale_rule_count, vni_id, start_index=0)
+        setup_bulk_acl_rules(duthost, scale_rule_count, vni_id, start_index=0, ip_version=ip_version)
 
         setup_time = time.time() - start_time
         logger.info(f"ACL rule programming completed in {setup_time:.2f} seconds")
@@ -1343,7 +1453,7 @@ def test_scale_acl_rule(setUp, request):
 
         for i in range(test_rule_count):
             rule_name = f"scale_rule_{i + 1:04d}"
-            inner_src_ip = generate_ip_address(i, SCALE_IP_BASE, SCALE_IP_PREFIX)
+            inner_src_ip = generate_ip_address(i, ip_cfg['scale_ip_base'], ip_cfg['scale_ip_prefix'])
             expected_new_src_mac = generate_mac_address(i)
 
             logger.info(f"Testing rule {i+1}/{test_rule_count}: {rule_name}")
