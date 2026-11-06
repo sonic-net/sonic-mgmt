@@ -1,0 +1,41 @@
+{
+  "record_type": "gnmi_benchmark",
+  "schema_version": 10,
+  "cid": {{ cid | tojson }},
+  "marker": {{ marker | tojson }},
+  "started_ts": {{ started_ts | tojson }},
+  "finished_ts": {{ finished_ts | tojson }},
+  "device": {{ device | tojson }},
+  "benchmark": {
+    "client": "grpcio",
+    "blaster": {{ blaster | tojson }},
+    "profile": {{ profile | tojson }},
+    "protocol": "gnmi",
+    "connection_type": {{ connection_type | tojson }},
+    "auth_mode": "normal",
+    "connections": 1,
+    "connection_policy": "single_persistent_channel",
+    "connection_setup": {{ execution.connection_setup | tojson }},
+    "workload_model": {{ ("open" if execution.traffic_pattern == "open-loop" else "closed") | tojson }},
+    "rpc_timeout_scope": "per_rpc",
+    "rpc_latency_measurement": {
+      "source": "python_perf_counter_ns",
+      "start": "immediately_before_stub_call",
+      "end": "stub_return_after_protobuf_decoding",
+      "excludes_response_error_inspection": true,
+      "sample_population": "successful_calls_of_each_method"
+    },
+    "backend_path": "unverified",
+    "response_validation": "per_rpc_grpc_status_and_set_response_errors",
+    "histogram_profile": "grpc_a66_latency_ms_v1"
+  },
+  "load": {{ load | tojson }},
+  "requests": {{ requests | tojson }},
+  "execution": {{ execution | tojson }},
+  "resources": {{ resources | tojson }},
+  "sampling": {
+    "method": "boundary_snapshots",
+    "sample_positions": ["before_benchmark", "after_benchmark"],
+    "measurement_window_sampled": false
+  }
+}
