@@ -1,6 +1,7 @@
 import logging
 import pexpect
 import os
+import select
 import time
 
 CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
@@ -43,6 +44,7 @@ class ConserverConsoleConn():
             console_cli.expect(CONSERVER_CLI_PROMPT)
 
         self.console_cli = console_cli
+        self._console_cli_usable = True
 
     def send_command(
         self,
@@ -75,20 +77,121 @@ class ConserverConsoleConn():
 
     def read_until_pattern(self, pattern, read_timeout=None):
         timeout = read_timeout if read_timeout is not None else self.default_timeout
-        self.console_cli.expect(pattern, timeout=timeout)
+        try:
+            self.console_cli.expect(pattern, timeout=timeout)
+        except pexpect.EOF:
+            raise RuntimeError(self._session_lost(
+                "waiting for {!r}".format(pattern))) from None
 
     def disconnect(self):
         assert self.console_cli.isalive()
-        self.console_cli.sendline('\x05c.')
-        self.console_cli.close(force=True)
+        try:
+            if getattr(self, "_console_cli_usable", True):
+                self.console_cli.sendline('\x05c.')
+        finally:
+            self.console_cli.close(force=True)
         self.logger.debug("Conserver connection closed.")
+
+    def _drain_console_output(self):
+        """Read whatever the child has produced without blocking, and append it
+        to pexpect's buffer so later expect()/read_until_pattern() calls still see it.
+        """
+        cli = self.console_cli
+        try:
+            chunk = cli.read_nonblocking(65536, timeout=0)
+        except pexpect.TIMEOUT:
+            return 0
+        cli.buffer += chunk
+        return len(chunk)
+
+    def _session_lost(self, context):
+        self._console_cli_usable = False
+        cli = self.console_cli
+        cli.isalive()  # reaps the child so exitstatus/signalstatus are set
+        return ("Conserver client exited ({}), exitstatus={}, signalstatus={},"
+                "last output: {!r}".format(
+                    context, cli.exitstatus, cli.signalstatus, cli.buffer[-500:]))
+
+    def _sendline_with_timeout(self, cmd, timeout):
+        """Send one command line to conserver without an unbounded PTY write.
+
+        pexpect.sendline() can block inside os.write() before read_timeout is
+        applied. Use nonblocking partial writes so the DUT still receives one
+        logical command line, while the local write path is bounded by timeout.
+        """
+        child_fd = getattr(self.console_cli, "child_fd", None)
+        if child_fd is None:
+            self.console_cli.sendline(cmd)
+            return
+
+        def to_bytes(data):
+            """Convert console data to bytes using the pexpect encoding."""
+            if isinstance(data, bytes):
+                return data
+            encoding = getattr(self.console_cli, "encoding", None) or "utf-8"
+            return str(data).encode(encoding)
+
+        data = to_bytes(cmd) + to_bytes(self.console_cli.linesep)
+        write_start = time.monotonic()
+        deadline = write_start + timeout
+        sent = 0
+        received = 0
+        was_blocking = os.get_blocking(child_fd)
+
+        os.set_blocking(child_fd, False)
+        try:
+            while sent < len(data):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._console_cli_usable = False
+                    self.logger.info(
+                        "Timed out writing console command after %s seconds "
+                        "(%s/%s bytes sent, %s bytes received while writing)",
+                        timeout, sent, len(data), received
+                    )
+                    raise TimeoutError(
+                        "Timed out writing console command after {} seconds "
+                        "({}/{} bytes sent, {} bytes received while writing)".format(
+                            timeout, sent, len(data), received)
+                    )
+
+                readable, writable, _ = select.select(
+                    [child_fd], [child_fd], [], remaining)
+                if readable:
+                    try:
+                        received += self._drain_console_output()
+                    except pexpect.EOF:
+                        self._console_cli_usable = False
+                        raise RuntimeError(self._session_lost(
+                            "{}/{} bytes sent, {} received".format(
+                                sent, len(data), received))) from None
+                if not writable:
+                    continue
+
+                try:
+                    sent += os.write(child_fd, data[sent:])
+                except (BlockingIOError, InterruptedError):
+                    continue
+                except OSError as e:
+                    self._console_cli_usable = False
+                    raise RuntimeError(
+                        "Console child closed while writing ({}/{} bytes sent)".format(
+                            sent, len(data))
+                    ) from e
+        finally:
+            os.set_blocking(child_fd, was_blocking)
+
+        self.logger.info(
+            "Console command write completed in %.1fs, %d bytes sent",
+            time.monotonic() - write_start, sent
+        )
 
     def send_command_timing(self, cmd, read_timeout=30, last_read=1.0):
         """Send command and read output until no data for 'last_read' seconds."""
         self.logger.debug("send_command_timing: cmd='%s'", cmd[:80])
 
         start_time = time.monotonic()
-        self.console_cli.sendline(cmd)
+        self._sendline_with_timeout(cmd, read_timeout)
 
         output = ""
         deadline = start_time + read_timeout
@@ -100,8 +203,10 @@ class ConserverConsoleConn():
             except pexpect.TIMEOUT:
                 break
             except pexpect.EOF:
+                self._console_cli_usable = False
                 self.logger.warning("send_command_timing: connection closed")
-                break
+                raise RuntimeError(self._session_lost(
+                    "{} bytes collected".format(len(output)))) from None
 
         elapsed = time.monotonic() - start_time
         self.logger.debug("send_command_timing: finished in %.1fs, %d bytes collected",
