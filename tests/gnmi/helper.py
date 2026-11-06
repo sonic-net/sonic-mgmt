@@ -16,8 +16,7 @@ from tests.common.helpers.gnmi_utils import (
     GNMIEnvironment,
     add_gnmi_client_common_name,
     del_gnmi_client_common_name,
-    dump_gnmi_log,
-    dump_system_status,
+    dump_gnmi_debug_state,
 )
 from tests.common.helpers.ntp_helper import (  # noqa: F401
     NtpDaemon,
@@ -86,12 +85,11 @@ def apply_cert_config(duthost, vrf_name=None):
 
     server_started = wait_until(GNMI_SERVER_START_WAIT_TIME * 2, 3, 5, _gnmi_server_listening)
     if not server_started:
-        # Dump listening port status and gnmi log
         output = duthost.shell('sudo ss -ltnp | grep ":{} "'.format(env.gnmi_port), module_ignore_errors=True)
         logger.info("TCP port status: " + output["stdout"])
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        pytest.fail("Failed to start gnmi server")
+        error = pytest.fail.Exception("Failed to start gnmi server")
+        dump_gnmi_debug_state(duthost, error=error)
+        raise error
     if duthost.facts["platform"] != "x86_64-kvm_x86_64-r0":
         is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
         assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
@@ -282,9 +280,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     combined = f"{stdout}\n{stderr}"
 
     if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")  # noqa: E231
+        error = Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")  # noqa: E231
+        dump_gnmi_debug_state(duthost, error=error)
+        raise error
 
 
 def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db", raw=False):
@@ -326,10 +324,10 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
     msg = output["stdout"].replace("\\", "")
     error = "GRPC error\n"
     if error in msg:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
         result = msg.split(error, 1)
-        raise Exception("GRPC error:" + result[1])
+        get_error = Exception("GRPC error:" + result[1])
+        dump_gnmi_debug_state(duthost, error=get_error)
+        raise get_error
     if raw:
         return msg
     mark = "The GetResponse is below\n" + "-" * 25 + "\n"
@@ -338,9 +336,9 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
         msg_list = result[1].split("-" * 25)[0:-1]
         return [msg.strip("\n") for msg in msg_list]
     else:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception("error:" + msg)
+        get_error = Exception("error:" + msg)
+        dump_gnmi_debug_state(duthost, error=get_error)
+        raise get_error
 
 
 def _bracket_ipv6(ip):
