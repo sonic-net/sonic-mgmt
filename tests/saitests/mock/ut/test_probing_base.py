@@ -683,6 +683,28 @@ class TestProbingBaseTearDown:
 class TestProbingBaseRunTest:
     """Test runTest() template method"""
 
+    @pytest.mark.parametrize('blocked', [False, True])
+    def test_mellanox_initial_scheduler(self, blocked):
+        pb = ConcreteProbingBase()
+        pb.get_probe_config = Mock(return_value=ProbeConfig([1], Mock(), 'mellanox'))
+        pb.get_dut_port = Mock(return_value='Ethernet96')
+        scheduler = 'scheduler.block_data_plane' if blocked else 'scheduler_q0_uplink'
+        pb.get_queue_scheduler_name = Mock(return_value={'Ethernet96': {0: scheduler}})
+        pb.sai_thrift_port_tx_enable = Mock()
+        pb.stream_mgr = Mock()
+        pb.setup_traffic = Mock()
+        with patch.object(mock_sai_base, 'BLOCK_DATA_PLANE_SCHEDULER_NAME', 'scheduler.block_data_plane'), \
+                patch('probing_base.BufferOccupancyController') as controller:
+            if blocked:
+                with pytest.raises(AssertionError, match='inherited blocking scheduler'):
+                    pb.runTest()
+                pb.setup_traffic.assert_not_called()
+            else:
+                pb.runTest()
+                pb.setup_traffic.assert_called_once()
+                assert controller.call_args.kwargs['drain_buf_fn'] is pb.sai_thrift_port_tx_enable
+        pb.sai_thrift_port_tx_enable.assert_not_called()
+
     @pytest.mark.order(961)
     def test_runTest_workflow(self):
         """Test runTest() executes full workflow"""
