@@ -10,6 +10,15 @@
 
 # ... and check ASIC DB if it is set
 - name: Get WRED objects
-  shell: docker exec database redis-cli -n 1 --eval {{ tmp_dir }}/get_red_min.lua , {{ item }} | grep {{ item }}
+  shell: >-
+    docker exec database redis-cli
+    {% if ecn_asic_redis.port | default(6379) | int == 0 %}
+    -s {{ ecn_asic_redis.unix_socket_path | quote }}
+    {% else %}
+    -h {{ ecn_asic_redis.hostname | default('localhost') | quote }}
+    -p {{ ecn_asic_redis.port | default(6379) }}
+    {% endif %}
+    -n {{ ecn_asic_db.id }} --eval {{ (tmp_dir ~ '/get_red_min.lua') | quote }} , {{ item | quote }}
+    | grep {{ item | quote }}
   register: wred_objects
   failed_when: wred_objects.rc != 0

@@ -33,7 +33,7 @@ SUCCESS_CODE = 0
 
 
 def get_feature_facts(module):
-    rc, stdout, stderr = module.run_command(r'sonic-db-cli CONFIG_DB keys FEATURE\*')
+    rc, stdout, stderr = module.run_command(r'sonic-db-cli -s CONFIG_DB keys FEATURE\*')
     if rc != SUCCESS_CODE:
         module.fail_json(msg='Failed to get feature names, rc=%s, stdout=%s, stderr=%s' % (
             rc, stdout, stderr))
@@ -43,7 +43,7 @@ def get_feature_facts(module):
     for line in output_lines:
         feature_name = line.split('|')[1]
         rc, stdout, stderr = module.run_command(
-            'sonic-db-cli CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name))
+            'sonic-db-cli -s CONFIG_DB HGET "FEATURE|{}" state'.format(feature_name))
         if rc != SUCCESS_CODE:
             module.fail_json(msg='Failed to get feature status, rc=%s, stdout=%s, stderr=%s' % (
                 rc, stdout, stderr))
