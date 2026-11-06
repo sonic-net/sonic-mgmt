@@ -134,7 +134,8 @@ class HeadroomPoolProbing(ProbingBase):
     def get_probe_config(self):
         """Return standardized probe configuration."""
         return ProbeConfig(
-            probing_port_ids=self.probing_port_ids,
+            src_port_ids=self.probing_port_ids[:-1],
+            dst_port_ids=self.probing_port_ids[-1:],
             thrift_client=self.dst_client,
             asic_type=self.asic_type
         )
@@ -168,9 +169,8 @@ class HeadroomPoolProbing(ProbingBase):
             return
 
         # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
-        dut_idx = next(iter(self.test_port_ips))
-        asic_idx = next(iter(self.test_port_ips[dut_idx]))
-        port_ips = self.test_port_ips[dut_idx][asic_idx]
+        src_port_ips = self.test_port_ips[self.src_dut_index][self.src_asic_index]
+        dst_port_ips = self.test_port_ips[self.dst_dut_index][self.dst_asic_index]
 
         # N src -> 1 dst: Last port is dst, all others are src
         src_port_ids = self.probing_port_ids[:-1]
@@ -180,8 +180,8 @@ class HeadroomPoolProbing(ProbingBase):
         dstport = PortInfo(
             dst_port_id,
             mac=self.dataplane.get_mac(0, dst_port_id),
-            ip=port_ips[dst_port_id]["peer_addr"],
-            vlan=port_ips[dst_port_id].get("vlan_id", None)
+            ip=dst_port_ips[dst_port_id]["peer_addr"],
+            vlan=dst_port_ips[dst_port_id].get("vlan_id", None)
         )
 
         # Create src ports list
@@ -190,8 +190,8 @@ class HeadroomPoolProbing(ProbingBase):
             srcport = PortInfo(
                 spid,
                 mac=self.dataplane.get_mac(0, spid),
-                ip=port_ips[spid]["peer_addr"],
-                vlan=port_ips[spid].get("vlan_id", None)
+                ip=src_port_ips[spid]["peer_addr"],
+                vlan=src_port_ips[spid].get("vlan_id", None)
             )
             srcports.append(srcport)
 
