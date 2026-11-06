@@ -1,4 +1,4 @@
-run_when: tbinfo["topo"]["type"] in []
+run_when: tbinfo["topo"]["type"] in ["t0", "t1"]
 
 performance_meter:
   reboot_by_cmd_to_bgp_up:
