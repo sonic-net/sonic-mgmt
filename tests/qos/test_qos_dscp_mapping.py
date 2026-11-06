@@ -144,9 +144,12 @@ def dscp_config_pipe(rand_selected_dut, loganalyzer):
     duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
 
-    if asic_type != 'broadcom':
-        # TODO: Remove this skip for other vendors/platforms that want to validate
-        # pipe mode DSCP preservation without queue mapping verification.
+    # Vendors/platforms opted-in to validate pipe mode DSCP preservation
+    # (packet-level DSCP preservation, without egress queue remapping).
+    PIPE_DSCP_PRESERVATION_ASICS = ('broadcom', 'marvell-teralynx')
+    if asic_type not in PIPE_DSCP_PRESERVATION_ASICS:
+        # TODO: Add other vendors/platforms here to validate pipe mode DSCP
+        # preservation without queue mapping verification.
         pytest.skip(f"{asic_type} pipe mode DSCP-only check not needed:"
                     " covered by test_dscp_to_queue_mapping[pipe]")
 
