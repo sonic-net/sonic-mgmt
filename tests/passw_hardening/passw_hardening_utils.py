@@ -57,7 +57,7 @@ def get_passw_policies(duthost):
     Returns a dict keyed by CONFIG_DB field names, or None when the key is absent or
     the output cannot be parsed (in which case the caller should skip restoration).
     """
-    result = duthost.shell('sonic-db-cli CONFIG_DB hgetall "PASSW_HARDENING|POLICIES"',
+    result = duthost.shell('sonic-db-cli -s CONFIG_DB hgetall "PASSW_HARDENING|POLICIES"',
                            module_ignore_errors=True)
     output = result['stdout'].strip()
     if result['rc'] != 0 or not output:

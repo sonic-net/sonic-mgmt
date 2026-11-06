@@ -463,7 +463,7 @@ def is_queue_counter_polling_enabled(duthost):
         duthost: DUT fixture
     """
     status = duthost.shell(
-        "sonic-db-cli CONFIG_DB hget 'FLEX_COUNTER_TABLE|QUEUE' FLEX_COUNTER_STATUS",
+        "sonic-db-cli -s CONFIG_DB hget 'FLEX_COUNTER_TABLE|QUEUE' FLEX_COUNTER_STATUS",
         module_ignore_errors=True
     )['stdout'].strip()
     return status != "disable"
@@ -678,11 +678,11 @@ def get_acl_rule_counts(duthost):
     for asic in asic_instances:
         if duthost.is_multi_asic:
             namespace = asic.get_asic_namespace()
-            config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
-            asic_cmd = "sonic-db-cli -n {} ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*".format(namespace)
+            config_cmd = "sonic-db-cli -s -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
+            asic_cmd = "sonic-db-cli -s -n {} ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*".format(namespace)
         else:
-            config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
-            asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+            config_cmd = "sonic-db-cli -s CONFIG_DB KEYS *ACL_RULE*"
+            asic_cmd = "sonic-db-cli -s ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
 
         config_count = len(asic.shell(config_cmd)['stdout_lines'])
         asic_count = len(asic.shell(asic_cmd)['stdout_lines'])
@@ -1060,7 +1060,7 @@ class BaseEverflowTest(object):
             str: The ASIC command string.
         """
         per_asic_index = f"-n asic{asic_index} " if asic_index is not None else ""
-        command = (f"sonic-db-cli {per_asic_index}CONFIG_DB HSET "
+        command = (f"sonic-db-cli -s --authenticate {per_asic_index}CONFIG_DB HSET "
                    f"'MIRROR_SESSION|{session_info['session_name']}' "
                    f"'dscp' '{session_info['session_dscp']}' "
                    f"'dst_ip' '{session_info['session_dst_ipv6']}' "
@@ -1202,7 +1202,7 @@ class BaseEverflowTest(object):
             rate_limit = rate_limit * 1.25
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
-                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
                 command = ("{} CONFIG_DB hmset \"POLICER|{}\" "
                            "meter_type packets mode sr_tcm cir {} cbs {} "
                            "red_packet_action drop").format(sonic_db_cmd, policer_name, rate_limit, rate_limit)
@@ -1213,7 +1213,7 @@ class BaseEverflowTest(object):
     def remove_policer_config(self, duthost, policer_name, config_method):
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
-                sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+                sonic_db_cmd = "sonic-db-cli -s {}".format("-n " + namespace if namespace else "")
                 command = "{} CONFIG_DB del \"POLICER|{}\"".format(sonic_db_cmd, policer_name)
             elif config_method == CONFIG_MODE_CONFIGLET:
                 pass

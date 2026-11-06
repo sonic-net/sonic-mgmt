@@ -281,13 +281,13 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
         # Wait for the subscribe client to connect before triggering the change,
         # otherwise the on-change update can be missed.
         wait_until(60, 1, 0, _gnmi_client_connected, duthost, ptfhost)
-        cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, new_state)
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, new_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
         client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
     finally:
         # Restore the original neighbor state.
-        cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, original_state)
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, original_state)
         cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
         duthost.shell(cmd)
 

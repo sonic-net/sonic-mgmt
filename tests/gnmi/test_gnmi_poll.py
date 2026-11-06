@@ -21,9 +21,9 @@ pytestmark = [
 
 
 def _verify_route_table_status(duthost, namespace, expected_status, is_ipv6_only):
-    cmd_prefix = "sonic-db-cli"
+    cmd_prefix = "sonic-db-cli -s"
     if duthost.is_multi_asic:
-        cmd_prefix = "sonic-db-cli -n {}".format(namespace)
+        cmd_prefix = "sonic-db-cli -s -n {}".format(namespace)
     if is_ipv6_only:
         cmd = cmd_prefix + ' APPL_DB exists "ROUTE_TABLE:::/0"'
     else:
@@ -38,9 +38,9 @@ def _gnmi_client_connected(duthost, ptfhost):
 
 
 def _modify_fake_appdb_table(duthost, namespace, add=True, entries=1):
-    cmd_prefix = "sonic-db-cli"
+    cmd_prefix = "sonic-db-cli -s"
     if duthost.is_multi_asic:
-        cmd_prefix = "sonic-db-cli -n {}".format(namespace)
+        cmd_prefix = "sonic-db-cli -s -n {}".format(namespace)
     for entry in range(entries):
         if add:
             cmd = cmd_prefix + " APPL_DB hset FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0} val".format(entry)

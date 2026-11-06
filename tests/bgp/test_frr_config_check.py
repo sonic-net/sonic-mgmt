@@ -529,7 +529,7 @@ def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend
 
     # --- Skip conditions ---
     mode = duthost.shell(
-        "sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' docker_routing_config_mode",
+        "sonic-db-cli -s CONFIG_DB hget 'DEVICE_METADATA|localhost' docker_routing_config_mode",
         module_ignore_errors=True)['stdout'].strip()
     if mode not in ('separated', 'unified', ''):
         pytest.skip("docker_routing_config_mode '{}' not supported — test requires separated or unified".format(mode))

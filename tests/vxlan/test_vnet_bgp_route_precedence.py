@@ -16,6 +16,7 @@ from ptf import mask
 from scapy.all import Ether, IP, VXLAN, IPv6, UDP
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from collections import defaultdict
+from tests.common.helpers.sonic_db import redis_cli_command
 
 
 Logger = logging.getLogger(__name__)
@@ -24,7 +25,8 @@ ecmp_utils = Ecmp_Utils()
 
 def _check_redis_key_gone(duthost, db_num, key):
     """Check that a redis key no longer exists."""
-    result = duthost.shell(f"redis-cli -n {db_num} EXISTS \"{key}\"", module_ignore_errors=True)
+    command = redis_cli_command(duthost, db_num) + f' EXISTS "{key}"'
+    result = duthost.shell(command, module_ignore_errors=True)
     return result['stdout'].strip() == '0'
 
 
@@ -60,7 +62,7 @@ def _get_app_route_key(duthost, prefix):
     # fpmsyncd may omit the mask for a host route.
     for suffix in (str(network), str(network.network_address)):
         key = "ROUTE_TABLE:{}".format(suffix)
-        nexthops = duthost.shell("sonic-db-cli APPL_DB HGET '{}' nexthop".format(key))['stdout'].strip()
+        nexthops = duthost.shell("sonic-db-cli -s APPL_DB HGET '{}' nexthop".format(key))['stdout'].strip()
         if any(nh not in ('', '0.0.0.0', '::') for nh in nexthops.split(',')):
             return key
     return None
@@ -86,12 +88,12 @@ def _get_t0_nexthop(setup, prefix):
 def _get_asic_route_nexthops(duthost, prefix):
     """Snapshot exact route keys (including VR) and next hops for a prefix."""
     keys = duthost.shell(
-        "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*'".format(prefix))['stdout_lines']
+        "sonic-db-cli -s ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*'".format(prefix))['stdout_lines']
     routes = {}
     for key in keys:
         if json.loads(key.split(':', 2)[2])['dest'] == prefix:
             routes[key] = duthost.shell(
-                "sonic-db-cli ASIC_DB HGET '{}' SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID".format(key))['stdout'].strip()
+                "sonic-db-cli -s ASIC_DB HGET '{}' SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID".format(key))['stdout'].strip()
     return routes
 
 
@@ -356,13 +358,13 @@ def fixture_setUp(duthosts,
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
-        data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
+        data['duthost'].shell("sonic-db-cli -s --authenticate CONFIG_DB del \"VNET|{}\"".format(vnet))
 
     for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VNET|{vnet}")
     for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
-            "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
+            "sonic-db-cli -s --authenticate CONFIG_DB del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     for tunnel in list(tunnel_names.values()):
         wait_until(10, 1, 0, _check_redis_key_gone, data['duthost'], 4, f"VXLAN_TUNNEL|{tunnel}")
 
@@ -442,14 +444,14 @@ class Test_VNET_BGP_route_Precedence():
 
     def create_bgp_profile(self, name, community):
         # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
-        self.duthost.shell("sonic-db-cli APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
                            .format(name, community))
         if hasattr(self, "_test_bgp_profiles"):
             self._test_bgp_profiles.add(name)
 
     def remove_bgp_profile(self, name):
         # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
-        self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
+        self.duthost.shell("sonic-db-cli -s --authenticate APPL_DB DEL 'BGP_PROFILE_TABLE:{}' ".format(name))
         if hasattr(self, "_test_bgp_profiles"):
             self._test_bgp_profiles.discard(name)
 
@@ -827,7 +829,7 @@ class Test_VNET_BGP_route_Precedence():
             "'VNET_MONITOR_TABLE|{}|{}'".format(nh, prefix) for nh in routes[vnet][address]
         ]
         request.addfinalizer(
-            lambda: duthost.shell("sonic-db-cli STATE_DB DEL {}".format(' '.join(monitor_keys))))
+            lambda: duthost.shell("sonic-db-cli -s --authenticate STATE_DB DEL {}".format(' '.join(monitor_keys))))
         request.addfinalizer(
             lambda: _configure_static_route(duthost, prefix, competing_nexthop, False))
 
@@ -839,7 +841,7 @@ class Test_VNET_BGP_route_Precedence():
             monitor = "VNET_MONITOR_TABLE:{}:{}".format(nh, prefix)
             py_assert(wait_until(
                 30, 2, 0, lambda: duthost.shell(
-                    "sonic-db-cli APPL_DB HGET '{}' packet_type".format(monitor))['stdout'].strip() == 'vxlan'),
+                    "sonic-db-cli -s APPL_DB HGET '{}' packet_type".format(monitor))['stdout'].strip() == 'vxlan'),
                 "VNET monitor {} was not created".format(monitor))
         self.update_monitors_state(routes, "Up")
         py_assert(wait_until(30, 2, 0, _get_asic_route_nexthops, duthost, prefix),
@@ -858,7 +860,7 @@ class Test_VNET_BGP_route_Precedence():
                 py_assert(_get_asic_route_nexthops(duthost, prefix) == expected_routes,
                           "{} removed or changed the active VNET ASIC route".format(stage))
                 for key in monitor_keys:
-                    state = duthost.shell("sonic-db-cli STATE_DB HGET {} state".format(key))['stdout'].strip()
+                    state = duthost.shell("sonic-db-cli -s STATE_DB HGET {} state".format(key))['stdout'].strip()
                     py_assert(state == 'up', "VNET monitor changed state during {}".format(stage))
                 self.verify_tunnel_route_with_traffic(setUp, duthost, encap_type, routes)
                 if time.monotonic() >= deadline:

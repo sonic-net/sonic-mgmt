@@ -208,11 +208,11 @@ def _get_asic_db_route_count(duthost):
     total = 0
     for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
         if namespace:
-            cmd = ("sonic-db-cli -n {} ASIC_DB eval "
+            cmd = ("sonic-db-cli -s --authenticate -n {} ASIC_DB eval "
                    "\"return #redis.call('keys','ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*')\" 0"
                    ).format(namespace)
         else:
-            cmd = ("sonic-db-cli ASIC_DB eval "
+            cmd = ("sonic-db-cli -s --authenticate ASIC_DB eval "
                    "\"return #redis.call('keys','ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*')\" 0")
         try:
             result = duthost.shell(cmd, verbose=False)

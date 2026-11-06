@@ -803,7 +803,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
     """
     test_data = [
         {'info': 'Remove the ecmp_hash entry via redis cli and check if there is an error in the log',
-         'command': "redis-cli -n 4 HDEL 'SWITCH_HASH|GLOBAL' 'ecmp_hash@'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HDEL 'SWITCH_HASH|GLOBAL' 'ecmp_hash@'",
          'expected_regex': [
              'ERR swss#orchagent:.*setSwitchHash: Failed to remove switch ECMP hash configuration: '
              'operation is not supported.*',
@@ -812,7 +812,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
              'diverged.*']},
         # noqa:E501
         {'info': 'Remove the lag_hash entry via redis cli and check if there is an error in the log',
-         'command': "redis-cli -n 4 HDEL 'SWITCH_HASH|GLOBAL' 'lag_hash@'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HDEL 'SWITCH_HASH|GLOBAL' 'lag_hash@'",
          'expected_regex': [
              'ERR swss#orchagent:.*setSwitchHash: Failed to remove switch LAG hash configuration: '
              'operation is not supported.*',
@@ -821,7 +821,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
              'diverged.*']},
         # noqa:E501
         {'info': 'Remove the ecmp_hash_algorithm entry via redis cli and check if there is an error in the log',
-         'command': "redis-cli -n 4 HDEL 'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HDEL 'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm'",
          'expected_regex': [
              'ERR swss#orchagent:.*setSwitchHash: Failed to remove switch ECMP hash algorithm configuration: '
              'operation is not supported.*',
@@ -830,7 +830,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
              'diverged.*']},
         # noqa:E501
         {'info': 'Remove the lag_hash_algorithm entry via redis cli and check if there is an error in the log',
-         'command': "redis-cli -n 4 HDEL 'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HDEL 'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm'",
          'expected_regex': [
              'ERR swss#orchagent:.*setSwitchHash: Failed to remove switch LAG hash algorithm configuration: '
              'operation is not supported.*',
@@ -840,14 +840,14 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
         # noqa:E501
         {'info': 'Update the ecmp hash fields with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "redis-cli -n 4 HSET 'SWITCH_HASH|GLOBAL' 'ecmp_hash@' 'INVALID_FIELD'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'ecmp_hash@' 'INVALID_FIELD'",
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashFieldList: Failed to parse field\\(ecmp_hash\\): '
              'invalid value\\(INVALID_FIELD\\).*']},
         # noqa:E501
         {'info': 'Update the lag hash fields with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "redis-cli -n 4 HSET 'SWITCH_HASH|GLOBAL' 'lag_hash@' 'INVALID_FIELD'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'lag_hash@' 'INVALID_FIELD'",
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashFieldList: Failed to parse field\\(lag_hash\\): '
              'invalid value\\(INVALID_FIELD\\).*']
@@ -855,7 +855,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
          },
         {'info': 'Update the ecmp hash algorithm with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "redis-cli -n 4 HSET 'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm' 'INVALID_FIELD'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'ecmp_hash_algorithm' 'INVALID_FIELD'",
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashAlgorithm: Failed to parse field\\(ecmp_hash_algorithm\\): '
              'invalid value\\(INVALID_FIELD\\).*']
@@ -863,14 +863,14 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
          },
         {'info': 'Update the lag hash algorithm with an invalid value via redis cli and check if there '
                  'is an error in the log.',
-         'command': "redis-cli -n 4 HSET 'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm' 'INVALID_FIELD'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB HSET 'SWITCH_HASH|GLOBAL' 'lag_hash_algorithm' 'INVALID_FIELD'",
          'expected_regex': [
              'ERR swss#orchagent:.*parseSwHashAlgorithm: Failed to parse field\\(lag_hash_algorithm\\): '
              'invalid value\\(INVALID_FIELD\\).*']
          # noqa:E501
          },
         {'info': 'Remove the SWITCH_HASH|GLOBAL key via redis cli and check if there is an error in the log.',
-         'command': "redis-cli -n 4 DEL 'SWITCH_HASH|GLOBAL'",
+         'command': "sonic-db-cli -s --authenticate CONFIG_DB DEL 'SWITCH_HASH|GLOBAL'",
          'expected_regex': [
              'ERR swss#orchagent:.*doCfgSwitchHashTableTask: Failed to remove switch hash: '
              'operation is not supported: ASIC and CONFIG DB are diverged.*']

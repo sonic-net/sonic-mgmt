@@ -44,7 +44,7 @@ def ensure_dut_readiness(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 def is_valid_fec_state_db(duthost, value, port, namespace=None):
     namespace_prefix = '' if namespace is None else '-n ' + namespace
-    read_supported_fecs_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format(
+    read_supported_fecs_cli = 'sonic-db-cli -s {} STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format(
         namespace_prefix, port)
     supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
     if supported_fecs_str:
@@ -70,7 +70,7 @@ def fec_exists_on_config_db(duthost, port, namespace=None):
         bool: True if FEC exists on the CONFIG_DB for the given port, False otherwise.
     """
     namespace_prefix = '' if namespace is None else '-n ' + namespace
-    read_fec = 'sonic-db-cli {} CONFIG_DB hget "PORT|{}" fec'.format(namespace_prefix, port)
+    read_fec = 'sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" fec'.format(namespace_prefix, port)
     read_fec_str = duthost.shell(read_fec)['stdout']
     if read_fec_str:
         return True
@@ -80,7 +80,7 @@ def fec_exists_on_config_db(duthost, port, namespace=None):
 
 def is_valid_speed_state_db(duthost, value, port, namespace=None):
     namespace_prefix = '' if namespace is None else '-n ' + namespace
-    read_supported_speeds_cli = 'sonic-db-cli {} STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(
+    read_supported_speeds_cli = 'sonic-db-cli -s {} STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format(
         namespace_prefix, port)
     supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
     supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
@@ -473,13 +473,13 @@ def test_update_valid_index(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    output = duthost.shell('sonic-db-cli {} CONFIG_DB keys "PORT|"\\*'.format(cli_namespace_prefix))["stdout"]
+    output = duthost.shell('sonic-db-cli -s {} CONFIG_DB keys "PORT|"\\*'.format(cli_namespace_prefix))["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
 
     for line in output.split('\n'):
         if line.startswith('PORT|Ethernet'):
             interface = line[line.index('Ethernet'):].strip()
-            index = duthost.shell('sonic-db-cli {} CONFIG_DB hget "PORT|{}" index'.format(
+            index = duthost.shell('sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" index'.format(
                 cli_namespace_prefix, interface))["stdout"]
             interfaces[interface] = index
             if len(interfaces) == 2:
@@ -652,7 +652,7 @@ def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_fronten
 
     # Read current configured speed from CONFIG_DB so we can choose a *different* speed.
     current_speed = duthost.shell(
-        'sonic-db-cli {} CONFIG_DB hget "PORT|{}" speed'.format(namespace_prefix, port)
+        'sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" speed'.format(namespace_prefix, port)
     )['stdout'].strip()
 
     target_speed = next(
@@ -673,7 +673,7 @@ def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_fronten
     # Speed changes may involve lane changes; include lanes in the patch to ensure
     # full port configuration is updated (ASIC programming does remove + readd).
     current_lanes = duthost.shell(
-        'sonic-db-cli {} CONFIG_DB hget "PORT|{}" lanes'.format(namespace_prefix, port)
+        'sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" lanes'.format(namespace_prefix, port)
     )['stdout'].strip()
 
     logger.info("Testing GCU speed change on port {} from {} to {} (lanes: {})".format(
@@ -681,7 +681,7 @@ def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_fronten
 
     # Determine whether admin_status already exists in CONFIG_DB (use 'add' vs 'replace').
     existing_admin = duthost.shell(
-        'sonic-db-cli {} CONFIG_DB hget "PORT|{}" admin_status'.format(namespace_prefix, port)
+        'sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" admin_status'.format(namespace_prefix, port)
     )['stdout'].strip()
     admin_op = "replace" if existing_admin else "add"
 
@@ -728,7 +728,7 @@ def test_port_speed_change_oper_status(duthosts, enum_rand_one_per_hwsku_fronten
 
         # Verify lanes are preserved in CONFIG_DB after speed change.
         updated_lanes = duthost.shell(
-            'sonic-db-cli {} CONFIG_DB hget "PORT|{}" lanes'.format(namespace_prefix, port)
+            'sonic-db-cli -s {} CONFIG_DB hget "PORT|{}" lanes'.format(namespace_prefix, port)
         )['stdout'].strip()
         pytest_assert(
             updated_lanes,

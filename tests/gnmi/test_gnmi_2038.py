@@ -48,7 +48,7 @@ def test_gnmi_capabilities_2038(duthosts, rand_one_dut_hostname, localhost, ptfh
         duthost.copy(src="gnmiCA.pem", dest="/etc/sonic/telemetry/gnmiCA.cer")
         duthost.copy(src="gnmiserver.crt", dest="/etc/sonic/telemetry/gnmiserver.cer")
         duthost.shell(
-            'sonic-db-cli CONFIG_DB hset "GNMI|certs" '
+            'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs" '
             "ca_crt /etc/sonic/telemetry/gnmiCA.cer "
             "server_crt /etc/sonic/telemetry/gnmiserver.cer "
             "server_key /etc/sonic/telemetry/gnmiserver.key"

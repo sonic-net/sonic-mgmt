@@ -65,7 +65,7 @@ def get_namespace_option():
 @pytest.fixture(scope="module", autouse=True)
 def set_sonic_db_cli(set_namespace):
     global sonic_db_cli
-    sonic_db_cli = f"sonic-db-cli {get_namespace_option()}"
+    sonic_db_cli = f"sonic-db-cli -s {get_namespace_option()}"
 
 
 @pytest.fixture(scope="module")

@@ -76,7 +76,7 @@ def bgpmon_setup_info(rand_selected_front_end_dut):
 def bgpmon_cleanup_config(duthost, cli_namespace_prefix):
     """ Clean up BGPMONITOR config to make sure t0 is not broken by other tests
     """
-    cmds = 'sonic-db-cli {} CONFIG_DB keys "BGP_MONITORS|*" | xargs -r sonic-db-cli CONFIG_DB del'.format(
+    cmds = 'sonic-db-cli -s {} CONFIG_DB keys "BGP_MONITORS|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'.format(
         cli_namespace_prefix)
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "bgpmon cleanup config failed")

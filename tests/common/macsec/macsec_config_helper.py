@@ -547,7 +547,7 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
 
             for db_name, sep in (("APPL_DB", ":"), ("STATE_DB", "|")):
                 pattern = f"MACSEC_*{sep}{interface}*"
-                cmd = f"sonic-db-cli {ns_prefix} {db_name} KEYS '{pattern}'"
+                cmd = f"sonic-db-cli -s {ns_prefix} {db_name} KEYS '{pattern}'"
 
                 try:
                     result = host.command(cmd, verbose=False)

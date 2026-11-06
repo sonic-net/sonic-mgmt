@@ -83,7 +83,7 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         ipv6_intf_info = rand_selected_dut.show_and_parse('show ipv6 interface')
         ifname, nexthop = get_random_uplink_port(rand_selected_dut, upstream_links, ipv6_intf_info)
         logger.info(f"Selected uplink interface and nexthop: {ifname}, nexthop: {nexthop}")
-        rand_selected_dut.command(f"sonic-db-cli CONFIG_DB HSET STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
+        rand_selected_dut.command(f"sonic-db-cli -s --authenticate CONFIG_DB HSET STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16 "
                                   f"nexthop {nexthop} ifname {ifname}")
 
     with allure.step('Enable SRv6 counterpoll'):
@@ -134,7 +134,7 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         wait_until(10, 1, 0, verify_srv6_crm_status, rand_selected_dut, used_mysid_num, available_mysid_num)
 
     with allure.step('Delete static route for SRv6'):
-        rand_selected_dut.command(f"sonic-db-cli CONFIG_DB DEL STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16")
+        rand_selected_dut.command(f"sonic-db-cli -s --authenticate CONFIG_DB DEL STATIC_ROUTE\\|default\\|{ROUTE_BASE}::/16")
 
     rand_selected_dut.shell('sudo config save -y')
 
@@ -180,7 +180,7 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
                 logger.info("Using portchannel interface: {}".format(dut_port))
                 break
 
-    sonic_db_cli = "sonic-db-cli" + cli_options
+    sonic_db_cli = "sonic-db-cli -s" + cli_options
 
     # add a locator configuration entry
     duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")

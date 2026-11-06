@@ -26,6 +26,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
+from tests.common.helpers.sonic_db import redis_cli_command
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx', 't0-2vlans'),
@@ -58,7 +59,7 @@ def wait_all_bgp_up(duthost):
 
 def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     # new counter table
-    # sonic-db-cli STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
+    # sonic-db-cli -s STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
     # {'TX': "{'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0','Confirm':'0','Renew':'0','Rebind':'0',
     #  'Reply':'0', 'Release':'0','Decline':'0','Reconfigure':'0','Information-Request':'0','Relay-Forward':'0',
     #  'Relay-Reply':'0','Malformed':'0'}", 'RX': "{'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0',
@@ -66,13 +67,13 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     #  'Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0','Malformed':'0'}"}
     #
     # old counter table
-    # sonic-db-cli STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
+    # sonic-db-cli -s STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
     # {'Unknown':'0','Solicit':'0','Advertise':'0','Request':'0','Confirm':'0','Renew':'0','Rebind':'0','Reply':'0',
     #  'Release':'0','Decline':'0','Reconfigure':'0','Information-Request':'0','Relay-Forward':'0','Relay-Reply':'0',
     #  'Malformed':'0'}
     #
-    cmd_new_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, dir)
-    cmd_old_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, type)
+    cmd_new_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, dir)
+    cmd_old_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(ifname, type)
     output_new = duthost.shell(cmd_new_version)['stdout']
     if len(output_new) != 0:
         counters = eval(output_new)
@@ -86,17 +87,17 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
 
 
 def init_counter(duthost, ifname, types):
-    cmd_new_version = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" RX'.format(ifname)
+    cmd_new_version = 'sonic-db-cli -s STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" RX'.format(ifname)
     output_new = duthost.shell(cmd_new_version)['stdout']
     if len(output_new) != 0:
         counters_str = NEW_COUNTER_VALUE_FORMAT
-        cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "RX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
-        cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
+        cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" "TX" "{}"'.format(ifname, str(counters_str))
         duthost.shell(cmd)
     else:
         for type in types:
-            cmd = 'sonic-db-cli STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
+            cmd = 'sonic-db-cli -s --authenticate STATE_DB hmset "DHCPv6_COUNTER_TABLE|{}" {} 0'.format(ifname, type)
             duthost.shell(cmd)
 
 
@@ -115,10 +116,11 @@ def testing_config(duthosts, rand_one_dut_hostname, tbinfo):
 
 def get_subtype_from_configdb(duthost):
     # HEXISTS returns 1 if the key exists, otherwise 0
-    subtype_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "DEVICE_METADATA|localhost" "subtype"')["stdout"])
+    subtype_exist = int(duthost.shell((redis_cli_command(duthost, 'CONFIG_DB') +
+                        ' HEXISTS "DEVICE_METADATA|localhost" "subtype"'))["stdout"])
     subtype_value = ""
     if subtype_exist:
-        subtype_value = duthost.shell('redis-cli -n 4 HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
+        subtype_value = duthost.shell('sonic-db-cli -s CONFIG_DB HGET "DEVICE_METADATA|localhost" "subtype"')["stdout"]
     return subtype_exist, subtype_value
 
 

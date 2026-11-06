@@ -76,7 +76,7 @@ def _get_dpu_neighbor_ip(role_index, dpu_index):
 
 def _get_appl_db_neighbor_key(duthost, neighbor_ip):
     result = duthost.shell(
-        f'sonic-db-cli APPL_DB KEYS "NEIGH_TABLE:*:{neighbor_ip}"',
+        f'sonic-db-cli -s APPL_DB KEYS "NEIGH_TABLE:*:{neighbor_ip}"',
         module_ignore_errors=True,
     )
     if result.get("rc", 0) != 0:
@@ -104,7 +104,7 @@ def wait_for_dpu_neighbor_resolution(duthost, role_index, dpu_index, timeout=120
             return False
 
         neigh_result = duthost.shell(
-            f'sonic-db-cli APPL_DB HGET "{neighbor_key}" neigh',
+            f'sonic-db-cli -s APPL_DB HGET "{neighbor_key}" neigh',
             module_ignore_errors=True,
         )
         if neigh_result.get("rc", 0) != 0:

@@ -32,7 +32,7 @@ def main():
 
 class BFDNotifier:
     def get_asic_db_bfd_session_id(self):
-        asic_db = swsscommon.DBConnector("ASIC_DB", 0, True)
+        asic_db = swsscommon.DBConnector("ASIC_DB", 0, False)
         tbl = swsscommon.Table(asic_db, "ASIC_STATE:SAI_OBJECT_TYPE_BFD_SESSION")
         entries = set(tbl.getKeys())
         result = {}
@@ -51,7 +51,7 @@ class BFDNotifier:
             "Up":          "SAI_BFD_SESSION_STATE_UP"
         }
 
-        asic_db = swsscommon.DBConnector("ASIC_DB", 0, True)
+        asic_db = swsscommon.DBConnector("ASIC_DB", 0, False)
         ntf = swsscommon.NotificationProducer(asic_db, "NOTIFICATIONS")
         fvp = swsscommon.FieldValuePairs()
         for bfd_id in bfd_ids:

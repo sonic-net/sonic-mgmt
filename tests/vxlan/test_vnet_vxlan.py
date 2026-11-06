@@ -142,11 +142,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     elif request.param == "Enabled":
         duthost.shell("sonic-clear fdb all")
         result = duthost.shell(
-            "redis-cli -n 4 HGET \"VLAN_MEMBER|{}|{}\" tagging_mode ".format(attached_vlan, vlan_member))
+            "sonic-db-cli -s CONFIG_DB HGET \"VLAN_MEMBER|{}|{}\" tagging_mode ".format(attached_vlan, vlan_member))
         if result["stdout_lines"] is not None:
             vlan_tagging_mode = result["stdout_lines"][0]
             duthost.shell(
-                "redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
+                "sonic-db-cli -s --authenticate CONFIG_DB del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
         if duthost.facts["asic_type"] == "vpp":
             start_ptf_vnet_arp_responder(ptfhost, mg_facts, vnet_config,
@@ -158,7 +158,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
         vxlan_enabled = True
     elif request.param == "Cleanup" and vnet_test_params[CLEANUP_KEY]:
         if vlan_tagging_mode != "":
-            duthost.shell("redis-cli -n 4 hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(
+            duthost.shell("sonic-db-cli -s --authenticate CONFIG_DB hset \"VLAN_MEMBER|{}|{}\" tagging_mode {} ".format(
                 attached_vlan, vlan_member, vlan_tagging_mode))
 
         vxlan_enabled = True

@@ -599,7 +599,7 @@ def get_port_fec(duthost, cli_namespace_prefix, selected_random_port):
     Returns:
         str: FEC value from CONFIG_DB.
     """
-    cmd = 'sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' fec'.format(
+    cmd = 'sonic-db-cli -s {} CONFIG_DB hget \'PORT|{}\' fec'.format(
         cli_namespace_prefix, selected_random_port)
     return duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
@@ -617,7 +617,7 @@ def get_port_lanes(duthost, cli_namespace_prefix, selected_random_port):
         list: Lane indices as strings.
     """
     out = duthost.shell(
-        'sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
+        'sonic-db-cli -s {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
             cli_namespace_prefix, selected_random_port),
         module_ignore_errors=True,
     )
@@ -643,7 +643,7 @@ def get_supported_port_fecs(duthost, cli_namespace_prefix, selected_random_port)
     Returns:
         list: Supported FEC mode strings.
     """
-    cmd = "sonic-db-cli {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_fecs\"".format(
+    cmd = "sonic-db-cli -s {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_fecs\"".format(
         cli_namespace_prefix, selected_random_port)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     valid_fecs = [fec for fec in output.split(',') if fec]
@@ -1217,11 +1217,11 @@ def verify_port_speed_in_dbs(duthost, cli_namespace_prefix, port, expected_speed
     Returns:
         None
     """
-    cmd = "sonic-db-cli {} CONFIG_DB HGET \"PORT|{}\" \"speed\"".format(
+    cmd = "sonic-db-cli -s {} CONFIG_DB HGET \"PORT|{}\" \"speed\"".format(
         cli_namespace_prefix, port)
     port_speed_config_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
-    cmd = "sonic-db-cli {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(
+    cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(
         cli_namespace_prefix, port)
     port_speed_appl_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
@@ -1692,7 +1692,7 @@ def test_port_speed_upgrade(tbinfo, duthosts, ptfadapter, setup_port_speed_upgra
                 initial_pg_lossless_profile_name
             )
         )
-        cmd = "sonic-db-cli {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(
+        cmd = "sonic-db-cli -s {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(
             cli_namespace_prefix
         )
         current_buffer_profile_info_appl_db = duthost.shell(cmd)["stdout"]
@@ -1707,7 +1707,7 @@ def test_port_speed_upgrade(tbinfo, duthosts, ptfadapter, setup_port_speed_upgra
         with setup_gnmi_streaming_context(False, duthost, localhost, ptfhost, gnxi_path):
             env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
             duthost.shell(
-                'sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
+                'sonic-db-cli -s CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
                 module_ignore_errors=False
             )
             duthost.shell(

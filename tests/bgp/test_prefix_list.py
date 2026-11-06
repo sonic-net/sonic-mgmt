@@ -73,7 +73,7 @@ def verify_prefix_in_fib_table(duthost, prefix):
     # Check whether prefix in FIB table
     for asic_index in duthost.get_frontend_asic_ids():
         asic_ns = f"-n asic{asic_index}" if duthost.is_multi_asic else ""
-        cmd = f"sonic-db-cli {asic_ns} APPL_DB hgetall \"ROUTE_TABLE:{prefix}\""
+        cmd = f"sonic-db-cli -s {asic_ns} APPL_DB hgetall \"ROUTE_TABLE:{prefix}\""
         output = duthost.shell(cmd)["stdout"].strip().replace("'", "\"")
         route_info = json.loads(output) if output else {}
         if route_info == {} or ("blackhole" in route_info and route_info["blackhole"] == "true"):

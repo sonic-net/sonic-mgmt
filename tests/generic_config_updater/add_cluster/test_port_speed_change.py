@@ -191,17 +191,17 @@ def move_key_last(d, key):
 
 
 def get_port_speed(duthost, cli_namespace_prefix, selected_random_port):
-    cmd = 'sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' speed'.format(cli_namespace_prefix, selected_random_port)
+    cmd = 'sonic-db-cli -s {} CONFIG_DB hget \'PORT|{}\' speed'.format(cli_namespace_prefix, selected_random_port)
     return duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
 
 def get_port_fec(duthost, cli_namespace_prefix, selected_random_port):
-    cmd = 'sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' fec'.format(cli_namespace_prefix, selected_random_port)
+    cmd = 'sonic-db-cli -s {} CONFIG_DB hget \'PORT|{}\' fec'.format(cli_namespace_prefix, selected_random_port)
     return duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
 
 def get_port_lanes(duthost, cli_namespace_prefix, selected_random_port):
-    out = duthost.shell('sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
+    out = duthost.shell('sonic-db-cli -s {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
         cli_namespace_prefix, selected_random_port))
     return out["stdout_lines"][0].split(',')
 
@@ -286,7 +286,7 @@ def get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_s
 
 
 def get_supported_port_speeds(duthost, cli_namespace_prefix, selected_random_port):
-    cmd = "sonic-db-cli {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_speeds\"".format(
+    cmd = "sonic-db-cli -s {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_speeds\"".format(
         cli_namespace_prefix, selected_random_port)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     valid_speeds = output.split(',')
@@ -295,7 +295,7 @@ def get_supported_port_speeds(duthost, cli_namespace_prefix, selected_random_por
 
 
 def get_supported_port_fecs(duthost, cli_namespace_prefix, selected_random_port):
-    cmd = "sonic-db-cli {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_fecs\"".format(
+    cmd = "sonic-db-cli -s {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_fecs\"".format(
         cli_namespace_prefix, selected_random_port)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     valid_fecs = output.split(',')
@@ -309,13 +309,13 @@ def verify_port_speed_in_dbs(duthost, enum_rand_one_frontend_asic_index, cli_nam
     port_speed_appl_db = ""
     port_speed_asic = "N/A"
 
-    cmd = "sonic-db-cli {} CONFIG_DB HGET \"PORT|{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
+    cmd = "sonic-db-cli -s {} CONFIG_DB HGET \"PORT|{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
     port_speed_config_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
-    cmd = "sonic-db-cli {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
+    cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"speed\"".format(cli_namespace_prefix, selected_random_port)
     port_speed_appl_db = duthost.shell(cmd, module_ignore_errors=True)['stdout']
 
-    cmd = "sonic-db-cli {} APPL_DB HGET \"PORT_TABLE:{}\" \"core_port_id\"".format(
+    cmd = "sonic-db-cli -s {} APPL_DB HGET \"PORT_TABLE:{}\" \"core_port_id\"".format(
         cli_namespace_prefix, selected_random_port)
     core_port_id = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     asic_type = duthost.facts['asic_type']
@@ -372,7 +372,7 @@ def get_fec_for_speed(duthost, speed):
 
 
 def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, port):
-    cmd = "sudo sonic-db-cli -n {} CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(enum_rand_one_asic_namespace,
+    cmd = "sudo sonic-db-cli -s -n {} CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(enum_rand_one_asic_namespace,
                                                                                   acl_table)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     ports_in_acl_table = output.split(',')
@@ -384,7 +384,7 @@ def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table
 
 
 def _get_config_db_keys(duthost, cli_namespace_prefix, key_pattern):
-    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{key_pattern}'"
+    cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys '{key_pattern}'"
     output = duthost.shell(cmd)['stdout']
     return [k.strip() for k in output.splitlines() if k.strip()]
 
@@ -1005,7 +1005,7 @@ def test_port_speed_change(tbinfo,
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info,
                       "Expected buffer profile {} was not created in CONFIG_DB.".format(
                           initial_pg_lossless_profile_name))
-        cmd = "sonic-db-cli -n {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(enum_rand_one_asic_namespace)
+        cmd = "sonic-db-cli -s -n {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(enum_rand_one_asic_namespace)
         current_buffer_profile_info_appl_db = duthost.shell(cmd)["stdout"]
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info_appl_db,
                       "Expected buffer profile {} was not created in APPL_DB.".format(
@@ -1016,7 +1016,7 @@ def test_port_speed_change(tbinfo,
             GNMI_SERVER_START_WAIT_TIME = 15
             env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
             # Set up telemetry server
-            duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
+            duthost.shell('sonic-db-cli -s CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
                           module_ignore_errors=False)
             duthost.shell('docker exec %s supervisorctl reload' % (env.gnmi_container),
                           module_ignore_errors=False)

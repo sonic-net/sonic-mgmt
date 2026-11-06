@@ -23,11 +23,11 @@ import ast, json, subprocess, sys
 af = sys.argv[1]  # 'ipv4' or 'ipv6'
 ns = sys.argv[2] if len(sys.argv) > 2 else ''  # ASIC namespace (multi-ASIC)
 
-db_cmd = ['sonic-db-cli', '-n', ns, 'APPL_DB'] if ns else ['sonic-db-cli', 'APPL_DB']
+db_cmd = ['sonic-db-cli', '-s', '-n', ns, 'APPL_DB'] if ns else ['sonic-db-cli', '-s', 'APPL_DB']
 
 result = subprocess.run(
     db_cmd + ['KEYS', 'ROUTE_TABLE:*'],
-    capture_output=True, text=True
+    capture_output=True, text=True, check=True
 )
 all_keys = [k for k in result.stdout.strip().split('\\n') if k]
 checked = 0
@@ -47,7 +47,7 @@ for key in all_keys:
 
     r = subprocess.run(
         db_cmd + ['HGETALL', key],
-        capture_output=True, text=True
+        capture_output=True, text=True, check=True
     )
     # Parse the python dict string output safely
     try:

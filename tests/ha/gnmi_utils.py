@@ -18,7 +18,7 @@ GNMI_CLIENT_CERT_ROLE = (
 
 def _set_gnmi_client_cert_role(my_duthost):
     role_cmd = (
-        'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "{}" "{}"'
+        'sudo sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "{}" "{}"'
     )
     my_duthost.shell(role_cmd.format(GNMI_CLIENT_CERT_CN, "role@", GNMI_CLIENT_CERT_ROLE))
     # Some platform images still read "role" instead of "role@".
@@ -27,7 +27,7 @@ def _set_gnmi_client_cert_role(my_duthost):
 
 def _clear_gnmi_client_cert_role(my_duthost):
     my_duthost.shell(
-        'sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(GNMI_CLIENT_CERT_CN),
+        'sudo sonic-db-cli -s --authenticate CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(GNMI_CLIENT_CERT_CN),
         module_ignore_errors=True,
     )
 

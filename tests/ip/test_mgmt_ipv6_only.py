@@ -97,7 +97,7 @@ def log_dut_tacacs(duthost, ptfhost):
         logging.debug(f"Checking ping_result [{ping_result}]")
 
     # Print debug info for mgmt interfaces and forced mgmt routes
-    mgmt_interface_keys = duthost.command("sonic-db-cli CONFIG_DB keys 'MGMT_INTERFACE|*'")['stdout']
+    mgmt_interface_keys = duthost.command("sonic-db-cli -s CONFIG_DB keys 'MGMT_INTERFACE|*'")['stdout']
     logging.debug(f"mgmt_interface_keys: {mgmt_interface_keys}")
     for intf_key in mgmt_interface_keys.split('\n'):
         logging.debug(f"interface key: {intf_key}")
@@ -105,7 +105,7 @@ def log_dut_tacacs(duthost, ptfhost):
         if len(intf_values) != 3:
             logging.debug(f"Unexpected interface key: {intf_key}")
             continue
-        forced_mgmt_rte = duthost.command(f"sonic-db-cli CONFIG_DB HGET '{intf_key}' forced_mgmt_routes@")['stdout']
+        forced_mgmt_rte = duthost.command(f"sonic-db-cli -s CONFIG_DB HGET '{intf_key}' forced_mgmt_routes@")['stdout']
         logging.debug(f"forced_mgmt_routes: {forced_mgmt_rte}, interface address: {intf_values[2]}")
 
 
@@ -239,7 +239,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
 
     def verify_telemetry_output_ipv6_only(dut):
         env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
-        user_auth_cmd = 'sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
+        user_auth_cmd = 'sonic-db-cli -s CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
         default_user_auth = dut.shell(user_auth_cmd, module_ignore_errors=False)['stdout']
 
         try:
@@ -247,7 +247,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
                 # Refresh the environment after the context has created any missing
                 # GNMI configuration so that connection parameters are current.
                 env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
-                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" user_auth none'
                           % (env.gnmi_config_table), module_ignore_errors=False)
                 dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
                 dut.service(name=env.gnmi_container, state="restarted")
@@ -274,10 +274,10 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
                               "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
         finally:
             if default_user_auth:
-                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth %s'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HSET "%s|gnmi" user_auth %s'
                           % (env.gnmi_config_table, default_user_auth), module_ignore_errors=False)
             else:
-                dut.shell('sonic-db-cli CONFIG_DB HDEL "%s|gnmi" user_auth'
+                dut.shell('sonic-db-cli -s --authenticate CONFIG_DB HDEL "%s|gnmi" user_auth'
                           % (env.gnmi_config_table), module_ignore_errors=False)
             dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
             dut.service(name=env.gnmi_container, state="restarted")

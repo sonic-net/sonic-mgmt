@@ -101,7 +101,7 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     if output['rc'] == 0 and output['stdout'].strip():
         ports = json.loads(output['stdout'])
 
-    pc_output = duthost.shell("sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
+    pc_output = duthost.shell("sonic-db-cli -s CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
                               module_ignore_errors=True)
     lag_members = set()
     for key in pc_output.get('stdout_lines', []):
@@ -269,11 +269,11 @@ def _cleanup_test_tables(duthost, table_prefix):
     so transient inconsistency between tests is acceptable.
     """
     duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_TABLE|{}*' | xargs -r -n1 sonic-db-cli -s --authenticate CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
     duthost.shell(
-        "sonic-db-cli CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli CONFIG_DB del".format(
+        "sonic-db-cli -s CONFIG_DB keys 'ACL_RULE|{}*' | xargs -r -n1 sonic-db-cli -s --authenticate CONFIG_DB del".format(
             table_prefix),
         module_ignore_errors=True)
 

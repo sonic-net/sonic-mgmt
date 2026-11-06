@@ -115,7 +115,7 @@ def test_pygnmi_get_interface_mtu(gnmi_tls):  # noqa: F811
 
     # Read the compared value from the same DUT the fixture targets, so
     # multi-DUT runs cannot cross-compare against a different device.
-    expected_mtu = int(gnmi_tls.duthost.shell("sonic-db-cli CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip())
+    expected_mtu = int(gnmi_tls.duthost.shell("sonic-db-cli -s CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip())
 
     result = gnmi_tls.pygnmi_client.get(path)
     logger.info("GET mtu response: %s (expected mtu=%d)", result, expected_mtu)

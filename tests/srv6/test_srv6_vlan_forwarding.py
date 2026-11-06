@@ -66,7 +66,7 @@ def proxy_arp_enabled(rand_selected_dut):
     pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'),
                    "Proxy ARP command does not exist on device")
 
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_check_cmd = 'sonic-db-cli -s CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
     proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
     vlans = config_facts['VLAN']
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
@@ -82,7 +82,7 @@ def proxy_arp_enabled(rand_selected_dut):
 
     yield
 
-    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_del_cmd = 'sonic-db-cli -s --authenticate CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
     for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
         if 'enabled' not in proxy_arp_val:
             # Disable proxy_arp explicitly

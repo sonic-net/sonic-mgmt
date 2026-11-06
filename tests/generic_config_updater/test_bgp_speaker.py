@@ -88,7 +88,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
 def bgp_speaker_config_cleanup(duthost):
     """ Clean up bgp speaker config to avoid ip range conflict
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "bgp speaker config cleanup failed.")
 

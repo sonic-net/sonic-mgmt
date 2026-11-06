@@ -323,7 +323,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                 readd_id = loops + ACL_RULE_NUMS
                 ip_addr1 = readd_id % 256
                 ip_addr2 = int(readd_id / 256)
-                rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
+                rand_selected_dut.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
                                         "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
                                         .format(readd_id, ip_addr2, ip_addr1, readd_id))
                 acl_rule_list.append(readd_id)
@@ -333,7 +333,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                              acl_rule_list, 0, "drop", dst_ip_addr=dst_ip_addr)
 
             del_rule_id = random.choice(acl_rule_list)
-            rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
+            rand_selected_dut.shell('sonic-db-cli -s --authenticate CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
             acl_rule_list.remove(del_rule_id)
 
             wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)

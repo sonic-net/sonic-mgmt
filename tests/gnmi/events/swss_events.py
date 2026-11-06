@@ -128,7 +128,7 @@ def generate_pfc_storm(duthost, tbinfo):
     assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
 
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
-    duthost.shell('sonic-db-cli COUNTERS_DB HSET "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(queue_oid))
+    duthost.shell('sonic-db-cli -s --authenticate COUNTERS_DB HSET "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(queue_oid))
     duthost.shell(
         "pfcwd start --action drop {} {} --restoration-time {}".format(
             PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME
@@ -136,7 +136,7 @@ def generate_pfc_storm(duthost, tbinfo):
     )
     time.sleep(WAIT_TIME)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
-    duthost.shell('sonic-db-cli COUNTERS_DB HDEL "COUNTERS:{}" "DEBUG_STORM"'.format(queue_oid))
+    duthost.shell('sonic-db-cli -s --authenticate COUNTERS_DB HDEL "COUNTERS:{}" "DEBUG_STORM"'.format(queue_oid))
 
 
 def trigger_crm_threshold_exceeded(duthost, tbinfo):

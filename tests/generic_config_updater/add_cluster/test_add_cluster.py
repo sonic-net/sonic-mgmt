@@ -463,7 +463,7 @@ def _portchannel_member_exists(duthost, cli_namespace_prefix, portchannel, membe
     """
     Return True if a PortChannel member key exists in CONFIG_DB.
     """
-    cmd = "sonic-db-cli {} CONFIG_DB EXISTS 'PORTCHANNEL_MEMBER|{}|{}'".format(
+    cmd = "sonic-db-cli -s {} CONFIG_DB EXISTS 'PORTCHANNEL_MEMBER|{}|{}'".format(
         cli_namespace_prefix, portchannel, member
     )
     output = duthost.shell(cmd, module_ignore_errors=True)
@@ -474,7 +474,7 @@ def _get_portchannel_min_links_from_dut(duthost, cli_namespace_prefix, portchann
     """
     Read PortChannel min_links from running CONFIG_DB.
     """
-    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORTCHANNEL|{}' min_links".format(
+    cmd = "sonic-db-cli -s {} CONFIG_DB HGET 'PORTCHANNEL|{}' min_links".format(
         cli_namespace_prefix, portchannel
     )
     return duthost.shell(cmd, module_ignore_errors=True)["stdout"].strip()
@@ -484,7 +484,7 @@ def _get_config_db_keys(duthost, cli_namespace_prefix, pattern):
     """
     Return CONFIG_DB keys matching a sonic-db-cli KEYS pattern.
     """
-    cmd = "sonic-db-cli {} CONFIG_DB KEYS '{}'".format(cli_namespace_prefix, pattern)
+    cmd = "sonic-db-cli -s {} CONFIG_DB KEYS '{}'".format(cli_namespace_prefix, pattern)
     output = duthost.shell(cmd, module_ignore_errors=True)
     return [
         key.strip()
@@ -497,7 +497,7 @@ def _get_port_admin_status_from_dut(duthost, cli_namespace_prefix, port):
     """
     Read a port's admin_status from running CONFIG_DB.
     """
-    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' admin_status".format(
+    cmd = "sonic-db-cli -s {} CONFIG_DB HGET 'PORT|{}' admin_status".format(
         cli_namespace_prefix,
         port
     )
@@ -645,7 +645,7 @@ def _db_hget(duthost, cli_namespace_prefix, db_name, key, field):
     """
     Return one Redis DB hash field value, or None on command failure.
     """
-    cmd = "sonic-db-cli {} {} HGET {} {}".format(
+    cmd = "sonic-db-cli -s {} {} HGET {} {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(key),
@@ -670,7 +670,7 @@ def _db_hgetall(duthost, cli_namespace_prefix, db_name, key):
     """
     Return one Redis DB hash as a dictionary, or None on command/parse failure.
     """
-    cmd = "sonic-db-cli {} {} HGETALL {}".format(
+    cmd = "sonic-db-cli -s {} {} HGETALL {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(key),
@@ -716,7 +716,7 @@ def _db_keys(duthost, cli_namespace_prefix, db_name, pattern):
     """
     Return Redis keys matching a pattern.
     """
-    cmd = "sonic-db-cli {} {} KEYS {}".format(
+    cmd = "sonic-db-cli -s {} {} KEYS {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(pattern),
@@ -739,7 +739,7 @@ def _db_key_exists(duthost, cli_namespace_prefix, db_name, key):
     """
     Return True when a Redis DB key exists.
     """
-    cmd = "sonic-db-cli {} {} EXISTS {}".format(
+    cmd = "sonic-db-cli -s {} {} EXISTS {}".format(
         cli_namespace_prefix,
         db_name,
         shlex.quote(key),
@@ -1805,14 +1805,14 @@ def remove_external_portchannels_for_chassis_packet(config_facts,
     # Now delete all collected entries
     logger.info(f"PORTCHANNEL_INTERFACE entries to delete: {pc_if_entries_to_delete}")
     for entry_key in pc_if_entries_to_delete:
-        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry_key}'"
+        cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry_key}'"
         run_and_check(json_namespace, cmd, f"Deleting external PORTCHANNEL_INTERFACE {entry_key}")
 
     # PORTCHANNEL_MEMBER - Remove only external PortChannel members
     for pc_name in config_facts.get("PORTCHANNEL_MEMBER", {}).keys():
         if pc_name in external_portchannels:
             for member in config_facts["PORTCHANNEL_MEMBER"][pc_name].keys():
-                cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_MEMBER|{pc_name}|{member}'"
+                cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL_MEMBER|{pc_name}|{member}'"
                 run_and_check(json_namespace, cmd, f"Deleting external PORTCHANNEL_MEMBER {pc_name}|{member}")
         else:
             logger.info(f"Preserving internal PORTCHANNEL_MEMBER: {pc_name}")
@@ -1820,7 +1820,7 @@ def remove_external_portchannels_for_chassis_packet(config_facts,
     # PORTCHANNEL - Remove only external PortChannels
     for pc_name in config_facts.get("PORTCHANNEL", {}).keys():
         if pc_name in external_portchannels:
-            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL|{pc_name}'"
+            cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORTCHANNEL|{pc_name}'"
             run_and_check(json_namespace, cmd, f"Deleting external PORTCHANNEL {pc_name}")
         else:
             logger.info(f"Preserving internal PORTCHANNEL: {pc_name}")
@@ -1879,8 +1879,8 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
         for table in ["BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA"]:
             cmd = (
-                f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
-                f"| xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
+                f"| xargs -r -n1 sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del"
             )
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
@@ -1896,12 +1896,12 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                 asic_interface_keys.append(interface_key)
             for iface in asic_interface_keys:
                 run_and_check(json_namespace,
-                              f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
+                              f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
                               f"Deleting INTERFACE {iface}")
 
         # ACL
         for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
-            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
+            cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
             run_and_check(json_namespace, cmd, f"Removing ACL_TABLE {acl_table} ports")
 
         # PortChannel handling: Selective removal (preserving internal BP PortChannels)
@@ -1918,7 +1918,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                 logger.info(f"Skipping cable length change for BP interface: {iface}")
                 continue
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset \
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset \
                             'CABLE_LENGTH|AZURE' {iface} '{lowest}m'",
                           f"Set cable length for {iface}"
                           )
@@ -1929,7 +1929,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                 logger.info(f"Skipping admin down for BP interface: {iface}")
                 continue
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
                           f"Set {iface} admin down")
 
         # BUFFER_PG handling: Selective removal (preserving BP interfaces)
@@ -1939,7 +1939,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
             exclusion_prefixes = ["Ethernet-IB", "Ethernet-Rec", "Ethernet-BP"]
             if not any(interface.startswith(prefix) for prefix in exclusion_prefixes):
                 run_and_check(json_namespace,
-                              f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'BUFFER_PG|{bp_key}'",
+                              f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'BUFFER_PG|{bp_key}'",
                               f"Deleting BUFFER_PG {bp_key}")
 
         # QUEUE - only for external interfaces
@@ -1947,7 +1947,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         for queue_key in queue_dict:
             if not _is_queue_for_internal_port(queue_key):
                 cmd = (
-                    f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB "
+                    f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB "
                     f"del 'QUEUE|{queue_key}'"
                 )
                 run_and_check(json_namespace, cmd, f"Deleting QUEUE {queue_key}")
@@ -1956,7 +1956,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         for iface in active_interfaces:
             if not iface.startswith("Ethernet-BP"):
                 run_and_check(json_namespace,
-                              f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORT_QOS_MAP|{iface}'",
+                              f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORT_QOS_MAP|{iface}'",
                               f"Deleting PORT_QOS_MAP for {iface}")
 
     ######################
@@ -1966,12 +1966,12 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     # BGP_NEIGHBOR
     for entry in config_facts["BGP_NEIGHBOR"].keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'BGP_NEIGHBOR|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'BGP_NEIGHBOR|{entry}'",
                       f"Deleting localhost BGP_NEIGHBOR {entry}")
     # DEVICE_NEIGHBOR_METADATA
     for entry in config_facts["DEVICE_NEIGHBOR_METADATA"].keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{entry}'",
                       f"Deleting localhost DEVICE_NEIGHBOR_METADATA {entry}")
     # INTERFACE
     localhost_interface_keys = []
@@ -1988,7 +1988,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         localhost_interface_keys.append(key_to_remove)
     for iface in localhost_interface_keys:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'INTERFACE|{iface}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'INTERFACE|{iface}'",
                       f"Deleting localhost INTERFACE {iface}")
     # PORTCHANNEL_INTERFACE - Remove only external PortChannels
     # Handle both base entry and IP prefix entries
@@ -2011,7 +2011,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     logger.info(f"Localhost PORTCHANNEL_INTERFACE entries to delete: {localhost_pc_if_entries_to_delete}")
     for entry_key in localhost_pc_if_entries_to_delete:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry_key}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry_key}'",
                       f"Deleting localhost PORTCHANNEL_INTERFACE {entry_key}")
 
     # PORTCHANNEL_MEMBER - Remove only external PortChannels
@@ -2021,7 +2021,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
             for member_key, _value in localhost_pc_member_dict[pc_key].items():
                 key_to_remove = pc_key + '|' + member_key
                 run_and_check("localhost",
-                              f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_MEMBER|{key_to_remove}'",
+                              f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL_MEMBER|{key_to_remove}'",
                               f"Deleting localhost PORTCHANNEL_MEMBER {key_to_remove}")
         elif pc_key not in external_portchannels:
             logger.info(f"Preserving localhost internal PORTCHANNEL_MEMBER: {pc_key}")
@@ -2029,14 +2029,14 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     # ACL localhost - need to remove only the entries from asic namespace
     for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
+                      f"sudo sonic-db-cli -s CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
                       f"Removing localhost ACL_TABLE {acl_table} ports")
 
     # PORTCHANNEL - Remove only external PortChannels
     for entry in config_facts.get("PORTCHANNEL", {}).keys():
         if entry in external_portchannels:
             run_and_check("localhost",
-                          f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
+                          f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL|{entry}'",
                           f"Deleting localhost PORTCHANNEL {entry}")
         else:
             logger.info(f"Preserving localhost internal PORTCHANNEL: {entry}")
@@ -2305,8 +2305,8 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
         for table in ["BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA"]:
             cmd = (
-                f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
-                f"| xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
+                f"| xargs -r -n1 sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del"
             )
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
@@ -2319,26 +2319,26 @@ def remove_cluster_via_sonic_db_cli(config_facts,
             asic_interface_keys.append(interface_key)
         for iface in asic_interface_keys:
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
                           f"Deleting INTERFACE {iface}")
 
         # PORTCHANNEL_INTERFACE, PORTCHANNEL_MEMBER
         for table in ["PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER"]:
             cmd = (
-                f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
-                f"| xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys '{table}*' "
+                f"| xargs -r -n1 sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del"
             )
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # ACL
         for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
-            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
+            cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
             run_and_check(json_namespace, cmd, f"Removing ACL_TABLE {acl_table} ports")
 
         # PORTCHANNEL
         cmd = (
-            f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'PORTCHANNEL*' "
-            f"| xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+            f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys 'PORTCHANNEL*' "
+            f"| xargs -r -n1 sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del"
         )
         run_and_check(json_namespace, cmd, "Clearing table PORTCHANNEL")
 
@@ -2347,25 +2347,25 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         lowest = min(int(v.rstrip("m")) for v in initial.values())
         for iface in active_interfaces:
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset \
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset \
                             'CABLE_LENGTH|AZURE' {iface} '{lowest}m'",
                           f"Set cable length for {iface}"
                           )
         # PORT
         for iface in active_interfaces:
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
                           f"Set {iface} admin down")
         # BUFFER_PG
         cmd = (
-            f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'BUFFER_PG*' "
-            f"| xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+            f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys 'BUFFER_PG*' "
+            f"| xargs -r -n1 sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del"
         )
         run_and_check(json_namespace, cmd, "Clearing table BUFFER_PG")
 
         # QUEUE
         cmd = (
-            f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB "
+            f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB "
             f"keys 'QUEUE|*' | xargs -r -n1 sudo sonic-db-cli "
             f"{cli_namespace_prefix} CONFIG_DB del"
         )
@@ -2374,7 +2374,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         # PORT_QOS_MAP
         for iface in active_interfaces:
             run_and_check(json_namespace,
-                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORT_QOS_MAP|{iface}'",
+                          f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB del 'PORT_QOS_MAP|{iface}'",
                           f"Deleting PORT_QOS_MAP for {iface}")
 
     ######################
@@ -2384,12 +2384,12 @@ def remove_cluster_via_sonic_db_cli(config_facts,
     # BGP_NEIGHBOR
     for entry in config_facts["BGP_NEIGHBOR"].keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'BGP_NEIGHBOR|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'BGP_NEIGHBOR|{entry}'",
                       f"Deleting localhost BGP_NEIGHBOR {entry}")
     # DEVICE_NEIGHBOR_METADATA
     for entry in config_facts["DEVICE_NEIGHBOR_METADATA"].keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{entry}'",
                       f"Deleting localhost DEVICE_NEIGHBOR_METADATA {entry}")
     # INTERFACE
     localhost_interface_keys = []
@@ -2406,12 +2406,12 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         localhost_interface_keys.append(key_to_remove)
     for iface in localhost_interface_keys:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'INTERFACE|{iface}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'INTERFACE|{iface}'",
                       f"Deleting localhost INTERFACE {iface}")
     # PORTCHANNEL_INTERFACE
     for entry in config_facts.get("PORTCHANNEL_INTERFACE", {}).keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry}'",
                       f"Deleting localhost PORTCHANNEL_INTERFACE {entry}")
     # PORTCHANNEL_MEMBER
     pc_keys = config_facts.get("PORTCHANNEL", {}).keys()
@@ -2424,17 +2424,17 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                 localhost_pc_member_keys.append(key_to_remove)
     for entry in localhost_pc_member_keys:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_MEMBER|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL_MEMBER|{entry}'",
                       f"Deleting localhost PORTCHANNEL_MEMBER {entry}")
     # ACL localhost - need to remove only the entries from asic namespace
     for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
+                      f"sudo sonic-db-cli -s CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
                       f"Removing localhost ACL_TABLE {acl_table} ports")
     # PORTCHANNEL
     for entry in config_facts.get("PORTCHANNEL", {}).keys():
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
+                      f"sudo sonic-db-cli -s CONFIG_DB del 'PORTCHANNEL|{entry}'",
                       f"Deleting localhost PORTCHANNEL {entry}")
 
     # Partial Verification
@@ -2444,7 +2444,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         "PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER", "PORTCHANNEL"
     ]
     for table in tables_to_check:
-        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*'"
+        cmd = f"sudo sonic-db-cli -s {cli_namespace_prefix} CONFIG_DB keys '{table}*'"
         res = duthost.shell(cmd, module_ignore_errors=True)
         if res["stdout"].strip():
             logger.warning(f"{table} still contains entries: {res['stdout']}")

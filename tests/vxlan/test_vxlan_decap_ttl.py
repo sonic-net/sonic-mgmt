@@ -45,9 +45,9 @@ def configure_vxlan_global(duthost):
         Fixture to configure global VxLAN parameters before a test and restore previous values after the test.
     """
     logger.info("Configuring global VxLAN parameters...")
-    prev_vxlan_port = duthost.shell("sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_port'")["stdout"].strip()
+    prev_vxlan_port = duthost.shell("sonic-db-cli -s APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_port'")["stdout"].strip()
     prev_vxlan_router_mac = \
-        duthost.shell("sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")["stdout"].strip()
+        duthost.shell("sonic-db-cli -s APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")["stdout"].strip()
     router_mac = duthost.facts["router_mac"]
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_DST_PORT, dutmac=router_mac)
     yield
@@ -55,16 +55,16 @@ def configure_vxlan_global(duthost):
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port), dutmac=prev_vxlan_router_mac)
     else:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac)
-        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
     if not prev_vxlan_router_mac:
-        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
+        duthost.shell("sonic-db-cli -s --authenticate APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
 def is_vxlan_tunnel_in_app_db(duthost, vxlan_tunnel):
     """
         Function to check if VXLAN_TUNNEL_TABLE:<vxlan_tunnel> exists in APP DB.
     """
-    result = duthost.shell(f"sonic-db-cli APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"]
+    result = duthost.shell(f"sonic-db-cli -s APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"]
     return bool(result)
 
 
@@ -72,9 +72,9 @@ def is_a_vxlan_tunnel_in_asic_db(duthost):
     """
         Function to check if at least one VxLAN tunnel is present in ASIC DB.
     """
-    tunnel_keys = duthost.shell("sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
+    tunnel_keys = duthost.shell("sonic-db-cli -s ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
     for key in tunnel_keys:
-        tunnel_type = duthost.shell(f"sonic-db-cli ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
+        tunnel_type = duthost.shell(f"sonic-db-cli -s ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
         if tunnel_type == "SAI_TUNNEL_TYPE_VXLAN":
             return True
     return False
@@ -92,7 +92,7 @@ def create_vxlan_tunnel(duthost, tbinfo, outer_ip_version, configure_vxlan_globa
                   "The VxLAN tunnel is not created in APP DB.")
     yield vxlan_tunnel
     # Clean-up
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
+    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
     pytest_assert(wait_until(10, 2, 0, lambda: not is_vxlan_tunnel_in_app_db(duthost, vxlan_tunnel)),
                   "The VxLAN tunnel is not removed from APP DB.")
 
@@ -110,7 +110,7 @@ def create_vnet(duthost, create_vxlan_tunnel):
                   "The VxLAN tunnel is not created in ASIC DB.")
     yield vnet
     # Clean-up
-    duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VNET|{vnet}\"")
+    duthost.shell(f"sonic-db-cli -s --authenticate CONFIG_DB DEL \"VNET|{vnet}\"")
     pytest_assert(wait_until(10, 2, 0, lambda: not is_a_vxlan_tunnel_in_asic_db(duthost)),
                   "The VxLAN tunnel is not removed from ASIC DB.")
 

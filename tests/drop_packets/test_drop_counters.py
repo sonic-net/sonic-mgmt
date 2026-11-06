@@ -100,7 +100,7 @@ def enable_counters(duthosts):
         dut.shell_cmds(cmds=cmd_list)
         namespace_list = dut.get_asic_namespace_list() if dut.is_multi_asic else ['']
         for namespace in namespace_list:
-            cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
+            cmd_get_cnt_status = "sonic-db-cli -s -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
             cnt_status = {
                 item: dut.command(cmd_get_cnt_status.format(namespace, item.upper()))["stdout"]
                 for item in ["port", "rif"]
@@ -278,7 +278,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 raise Exception("Unsupported interface parameter - {}".format(iface))
 
             cls.mtu = duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hget \"{}|{}\" mtu".format(
+                "sonic-db-cli -s -n '{}' CONFIG_DB hget \"{}|{}\" mtu".format(
                     namespace, cls.key, iface
                 )
             )["stdout"]
@@ -288,14 +288,14 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
             def get_port_count_for_mtu():
                 CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-                cmd = CMD_PREFIX + 'sonic-db-dump -n ASIC_DB -y -k "*SAI_OBJECT_TYPE_ROUTER_INTERFACE*" \
+                cmd = CMD_PREFIX + 'sonic-db-dump -t unix_socket -n ASIC_DB -y -k "*SAI_OBJECT_TYPE_ROUTER_INTERFACE*" \
                     | grep -c \'"SAI_ROUTER_INTERFACE_ATTR_MTU": "{}"\' || true'.format(mtu)
                 return int(duthost.shell(cmd)["stdout"])
 
             initial_ports_count_for_mtu = get_port_count_for_mtu()
 
             duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                "sonic-db-cli -s --authenticate -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, iface, mtu
                 )
             )["stdout"]
@@ -318,7 +318,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 cls.asic_index
             ) if duthost.is_multi_asic else ''
             duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                "sonic-db-cli -s --authenticate -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, cls.iface, cls.mtu
                 )
             )["stdout"]

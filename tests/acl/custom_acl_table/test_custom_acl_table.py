@@ -160,9 +160,9 @@ def setup_and_cleanup_custom_acl_table(rand_selected_dut, rand_unselected_dut, t
     if "dualtor-aa" in tbinfo["topo"]["name"]:
         rand_unselected_dut.shell(cmd_remove_table)
     # Remove custom type
-    rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
+    rand_selected_dut.shell("sonic-db-cli -s --authenticate CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
+        rand_unselected_dut.shell("sonic-db-cli -s --authenticate CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
 
 
 @pytest.fixture(scope='function')

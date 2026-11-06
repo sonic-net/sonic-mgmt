@@ -55,10 +55,10 @@ def get_sample_ports_for_pg_profiles(duthost, pg_lossless_profiles, cli_namespac
     """
     sample_ports_with_pg_lossless_profile = []
     for pg_lossless_profile in pg_lossless_profiles:
-        keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BUFFER_PG|*"'
+        keys = duthost.shell('sonic-db-cli -s {} CONFIG_DB keys "BUFFER_PG|*"'
                              .format(cli_namespace_prefix))["stdout_lines"]
         for key in keys:
-            port_pg_profile = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" profile'
+            port_pg_profile = duthost.shell('sonic-db-cli -s {} CONFIG_DB hget "{}" profile'
                                             .format(cli_namespace_prefix, key))["stdout"]
             if port_pg_profile == pg_lossless_profile:
                 # Found port with pg_lossless_profile. key format - BUFFER_PG|EthernetX|X-X.
@@ -89,7 +89,7 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
     def _confirm_value_in_appl_db_and_asic_db():
         for pg_lossless_profile in pg_lossless_profiles:
             # Retrieve dynamic_th from APPL_DB
-            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli {} APPL_DB hget BUFFER_PROFILE_"
+            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli -s {} APPL_DB hget BUFFER_PROFILE_"
                                                   "TABLE:{} dynamic_th"
                                                   .format(cli_namespace_prefix,
                                                           pg_lossless_profile))["stdout"]
@@ -107,17 +107,17 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
             return False
 
         for port in sample_ports_with_pg_lossless_profile:
-            ingress_priority_group_oid = duthost.shell('sonic-db-cli {} COUNTERS_DB hget COUNTERS_PG_NAME_MAP "{}"'
+            ingress_priority_group_oid = duthost.shell('sonic-db-cli -s {} COUNTERS_DB hget COUNTERS_PG_NAME_MAP "{}"'
                                                        .format(cli_namespace_prefix, port))["stdout"]
 
-            buffer_profile_oid = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_INGRESS_"
+            buffer_profile_oid = duthost.shell("sonic-db-cli -s {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_INGRESS_"
                                                "PRIORITY_GROUP:{} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE"
                                                .format(cli_namespace_prefix, ingress_priority_group_oid))["stdout"]
 
-            xoff_val = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+            xoff_val = duthost.shell("sonic-db-cli -s {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
                                      "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
                                      .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
-            dynamic_th_in_asic_db = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+            dynamic_th_in_asic_db = duthost.shell("sonic-db-cli -s {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
                                                   "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
                                                   .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
             if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
@@ -142,7 +142,7 @@ def get_pg_lossless_profiles(duthost, cli_namespace_prefix):
     duthost: DUT host object
     cli_namespace_prefix: fixture for the formatted cli namespace
     """
-    pg_lossless_profiles_str = duthost.shell("sonic-db-cli {} APPL_DB KEYS *BUFFER_PROFILE_TABLE:pg_lossless*"
+    pg_lossless_profiles_str = duthost.shell("sonic-db-cli -s {} APPL_DB KEYS *BUFFER_PROFILE_TABLE:pg_lossless*"
                                              .format(cli_namespace_prefix))["stdout_lines"]
     pg_lossless_profiles_lst = []
 

@@ -31,30 +31,30 @@ _SHOW_CONFIGURATION = "show dropcounters configuration"
 _SHOW_PERSISTENT_DROPS = "show dropcounters persistent-drops {}"
 
 _CONFIG_DB_GLOBAL_MONITOR_STATUS = (
-    "sonic-db-cli CONFIG_DB HGET 'DEBUG_DROP_MONITOR|CONFIG' status"
+    "sonic-db-cli -s CONFIG_DB HGET 'DEBUG_DROP_MONITOR|CONFIG' status"
 )
 _CONFIG_DB_COUNTER_FIELD = (
-    "sonic-db-cli CONFIG_DB HGET 'DEBUG_COUNTER|{}' {}"
+    "sonic-db-cli -s CONFIG_DB HGET 'DEBUG_COUNTER|{}' {}"
 )
 _DROP_MONITOR_CLI_PROBE = "config dropcounters enable-monitor --help"
 _FLEX_COUNTER_DB_MONITOR_PLUGIN = (
-    "sonic-db-cli FLEX_COUNTER_DB HGET"
+    "sonic-db-cli -s FLEX_COUNTER_DB HGET"
     " 'FLEX_COUNTER_GROUP_TABLE:DEBUG_MONITOR_COUNTER' PORT_PLUGIN_LIST"
 )
 _COUNTERS_DB_MONITOR_STAT_KEYS = (
-    "sonic-db-cli COUNTERS_DB KEYS 'DEBUG_DROP_MONITOR_STATS|{}|*'"
+    "sonic-db-cli -s COUNTERS_DB KEYS 'DEBUG_DROP_MONITOR_STATS|{}|*'"
 )
 _COUNTERS_DB_INCIDENT_COUNT = (
-    "sonic-db-cli COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
+    "sonic-db-cli -s COUNTERS_DB LLEN 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
 )
 _COUNTERS_DB_INCIDENT_CLEAR = (
-    "sonic-db-cli COUNTERS_DB DEL 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
+    "sonic-db-cli -s --authenticate COUNTERS_DB DEL 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents'"
 )
 _COUNTERS_DB_FIRST_INCIDENT = (
-    "sonic-db-cli COUNTERS_DB LINDEX 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents' 0"
+    "sonic-db-cli -s COUNTERS_DB LINDEX 'DEBUG_DROP_MONITOR_STATS|{}|{}|incidents' 0"
 )
 _COUNTERS_DB_PREV_DROP_COUNT = (
-    "sonic-db-cli COUNTERS_DB HGET 'DEBUG_DROP_MONITOR_STATS|{}|{}' prev_drop_count"
+    "sonic-db-cli -s COUNTERS_DB HGET 'DEBUG_DROP_MONITOR_STATS|{}|{}' prev_drop_count"
 )
 _DUT_UNIX_TIME = "date +%s"
 

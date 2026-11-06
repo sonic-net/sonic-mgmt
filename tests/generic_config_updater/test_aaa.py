@@ -78,7 +78,7 @@ def aaa_add_init_config_without_table(duthost):
     admin@vlab-01:~$ show run all | grep AAA
     admin@vlab-01:~$
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "AAA|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "AAA|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
 
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "AAA init config failed")
@@ -104,7 +104,7 @@ def tacacs_add_init_config_without_table(duthost):
     admin@vlab-01:~/cacl$ show run all | grep -w TACPLUS
     admin@vlab-01:~$
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "TACPLUS|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
 
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "TACACS init config failed")
@@ -113,7 +113,7 @@ def tacacs_add_init_config_without_table(duthost):
 def cleanup_tacacs_server(duthost):
     """ Clean up tacacs server
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "TACPLUS_SERVER|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "TACPLUS_SERVER|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
 
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "Cleanup TACPLUS_SERVER failed")
@@ -167,7 +167,7 @@ def radius_add_init_config_without_table(duthost):
     admin@vlab-01:~/cacl$ show run all | grep -w RADIUS
     admin@vlab-01:~$
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "RADIUS|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "RADIUS|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "RADIUS init config failed")
 

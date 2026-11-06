@@ -82,7 +82,7 @@ def check_interface_status(duthost, relay_agent="isc-relay-agent"):
 def restart_standby_dhcp_service(duthost):
     """Restore dhcpmon without assuming the selected ToR's relay mode."""
     sonic_relay_enabled = duthost.shell(
-        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"'
+        'sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"'
     )["stdout"].strip() == "True"
     relay_type = "sonic" if sonic_relay_enabled else "isc"
     restart_dhcp_service(duthost, [relay_type])
@@ -105,14 +105,14 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
         """
         try:
             # Read and cache the original deployment_id
-            default_deployment_id = duthost.shell('sonic-db-cli CONFIG_DB hget '    # noqa: F841
+            default_deployment_id = duthost.shell('sonic-db-cli -s CONFIG_DB hget '    # noqa: F841
                                                   '"DEVICE_METADATA|localhost" "deployment_id"',
                                                   module_ignore_errors=True)["stdout"].strip()
-            duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "8"',
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "8"',
                           module_ignore_errors=True)
             yield
         finally:
-            duthost.shell(f'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost"'
+            duthost.shell(f'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost"'
                           f' "deployment_id" "{default_deployment_id}"', module_ignore_errors=True)
     else:
         """

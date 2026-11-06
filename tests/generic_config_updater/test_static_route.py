@@ -27,9 +27,9 @@ def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     asic_index = enum_frontend_asic_index
     asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
     if duthost.is_multi_asic:
-        sonic_db_cli = "sonic-db-cli" + " -n " + asic_namespace
+        sonic_db_cli = "sonic-db-cli -s" + " -n " + asic_namespace
     else:
-        sonic_db_cli = "sonic-db-cli"
+        sonic_db_cli = "sonic-db-cli -s"
     # add a static route to create the STATIC_ROUTE table
     duthost.command(sonic_db_cli + " CONFIG_DB HSET STATIC_ROUTE\\|default\\|fcbb:bbbb::/32\
         nexthop 'fc00::1' ifname 'Ethernet0'")
@@ -129,9 +129,9 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     asic_index = enum_frontend_asic_index
     asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
     if duthost.is_multi_asic:
-        sonic_db_cli = "sonic-db-cli" + " -n " + asic_namespace
+        sonic_db_cli = "sonic-db-cli -s" + " -n " + asic_namespace
     else:
-        sonic_db_cli = "sonic-db-cli"
+        sonic_db_cli = "sonic-db-cli -s"
 
     json_patch = [
         {

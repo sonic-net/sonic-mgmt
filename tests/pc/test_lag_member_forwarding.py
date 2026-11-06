@@ -228,7 +228,7 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
             member_port_oids = set()
             for member_name in portchannel_members:
                 port_oid = asichost.shell(
-                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
+                    "sonic-db-cli -s COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
                         member_name),
                     module_ignore_errors=True
                 )["stdout"].strip()
@@ -242,17 +242,17 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
             # Find LAG_MEMBER entries whose PORT_ID matches our member ports
             all_member_keys = asichost.shell(
-                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+                "sonic-db-cli -s ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
             )["stdout_lines"]
 
             matched = 0
             for key in all_member_keys:
                 port_id = asichost.shell(
-                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
+                    "sonic-db-cli -s ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
                 )["stdout"].strip()
                 if port_id in member_port_oids:
                     egress_disable = asichost.shell(
-                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
+                        "sonic-db-cli -s ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
                             key)
                     )["stdout"].strip()
                     if egress_disable != "true":

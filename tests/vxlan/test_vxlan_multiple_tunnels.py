@@ -45,9 +45,9 @@ def configure_vxlan_global(duthost):
         Fixture to configure global VxLAN parameters before a test and restore previous values after the test.
     """
     logger.info("Configuring global VxLAN parameters...")
-    prev_vxlan_port = duthost.shell("sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_port'")["stdout"].strip()
+    prev_vxlan_port = duthost.shell("sonic-db-cli -s APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_port'")["stdout"].strip()
     prev_vxlan_router_mac = \
-        duthost.shell("sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")["stdout"].strip()
+        duthost.shell("sonic-db-cli -s APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'")["stdout"].strip()
     router_mac = duthost.facts["router_mac"]
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_DST_PORT, dutmac=router_mac)
     yield
@@ -56,9 +56,9 @@ def configure_vxlan_global(duthost):
                                           dutmac=prev_vxlan_router_mac or None)
     else:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac or None)
-        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
+        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
     if not prev_vxlan_router_mac:
-        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
+        duthost.shell("sonic-db-cli -s APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
 def are_all_vxlan_tunnels_in_app_db(duthost, vxlan_tunnels, check_exist=True):
@@ -68,7 +68,7 @@ def are_all_vxlan_tunnels_in_app_db(duthost, vxlan_tunnels, check_exist=True):
     """
     for vxlan_tunnel in vxlan_tunnels:
         result = duthost.shell(
-            f"sonic-db-cli APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"].strip()  # noqa: E231
+            f"sonic-db-cli -s APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"].strip()  # noqa: E231
         if check_exist ^ bool(result):
             return False
     return True
@@ -78,10 +78,10 @@ def are_vxlan_tunnels_in_asic_db(duthost, count):
     """
         Function to check if at least <count> VxLAN tunnels are present in ASIC DB.
     """
-    tunnel_keys = duthost.shell("sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
+    tunnel_keys = duthost.shell("sonic-db-cli -s ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
     matched = 0
     for key in tunnel_keys:
-        tunnel_type = duthost.shell(f"sonic-db-cli ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
+        tunnel_type = duthost.shell(f"sonic-db-cli -s ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
         if tunnel_type == "SAI_TUNNEL_TYPE_VXLAN":
             matched += 1
     return matched >= count
@@ -91,9 +91,9 @@ def is_no_vxlan_tunnel_in_asic_db(duthost):
     """
         Function to check if no VxLAN tunnel is present in ASIC DB.
     """
-    tunnel_keys = duthost.shell("sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
+    tunnel_keys = duthost.shell("sonic-db-cli -s ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_TUNNEL:oid*'")["stdout_lines"]
     for key in tunnel_keys:
-        tunnel_type = duthost.shell(f"sonic-db-cli ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
+        tunnel_type = duthost.shell(f"sonic-db-cli -s ASIC_DB HGET '{key}' 'SAI_TUNNEL_ATTR_TYPE'")["stdout"].strip()
         if tunnel_type == "SAI_TUNNEL_TYPE_VXLAN":
             return False
     return True
@@ -105,7 +105,7 @@ def are_vnet_routes_in_asic_db(duthost, dests, check_exist=True):
         If check_exist is False, check if no VNET route to any dest in dests is present in ASIC DB.
     '''
     for dest in dests:
-        result = duthost.shell(f"sonic-db-cli ASIC_DB KEYS \
+        result = duthost.shell(f"sonic-db-cli -s ASIC_DB KEYS \
                                'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]  # noqa: E231
         if check_exist ^ bool(result):
             return False
@@ -166,7 +166,7 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     yield tunnels
     # Clean-up
     for vxlan_tunnel in tunnels.keys():
-        duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
+        duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL \"VXLAN_TUNNEL|{vxlan_tunnel}\"")
     pytest_assert(wait_until(10, 2, 0, are_all_vxlan_tunnels_in_app_db, duthost, tunnels.keys(), False),
                   "VxLAN tunnels are not removed from APP DB.")
 
@@ -205,7 +205,7 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
     yield vnets
     # Clean-up
     for vnet in vnets.values():
-        duthost.shell(f"sonic-db-cli CONFIG_DB DEL \"VNET|{vnet}\"")
+        duthost.shell(f"sonic-db-cli -s CONFIG_DB DEL \"VNET|{vnet}\"")
     pytest_assert(wait_until(10, 2, 0, is_no_vxlan_tunnel_in_asic_db, duthost),
                   "VxLAN tunnels are not removed from ASIC DB.")
 

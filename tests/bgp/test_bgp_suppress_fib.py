@@ -835,7 +835,7 @@ def _parse_bgp_suppress_fib_output(stdout):
 def _read_swss_zmq_status_for_namespace(duthost, namespace=None, module_ignore_errors=True):
     """Read swss_zmq status from CONFIG_DB for a single ASIC namespace."""
     cmd = duthost.get_cli_cmd_for_namespace(
-        'sonic-db-cli CONFIG_DB HGET "SYSTEM_DEFAULTS|swss_zmq" "status"',
+        'sonic-db-cli -s CONFIG_DB HGET "SYSTEM_DEFAULTS|swss_zmq" "status"',
         namespace)
     rets = duthost.shell(cmd, module_ignore_errors=module_ignore_errors)
     if rets['rc'] != 0:
@@ -846,7 +846,7 @@ def _read_swss_zmq_status_for_namespace(duthost, namespace=None, module_ignore_e
 def _set_swss_zmq_status_for_namespace(duthost, status, namespace=None):
     """Write swss_zmq status to CONFIG_DB for a single ASIC namespace."""
     cmd = duthost.get_cli_cmd_for_namespace(
-        'sonic-db-cli CONFIG_DB HSET "SYSTEM_DEFAULTS|swss_zmq" "status" "{}"'.format(status),
+        'sonic-db-cli -s CONFIG_DB HSET "SYSTEM_DEFAULTS|swss_zmq" "status" "{}"'.format(status),
         namespace)
     duthost.shell(cmd)
 

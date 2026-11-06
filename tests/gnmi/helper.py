@@ -35,7 +35,7 @@ GNMI_SERVER_START_WAIT_TIME = 15
 
 
 def is_mgmt_vrf_enabled(duthost):
-    res = duthost.shell('sudo sonic-db-cli CONFIG_DB HGET "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')["stdout"]
+    res = duthost.shell('sudo sonic-db-cli -s CONFIG_DB HGET "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')["stdout"]
     return res == "true"
 
 

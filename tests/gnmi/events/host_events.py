@@ -214,14 +214,14 @@ def stop_container(duthost, tbinfo):
 
     duthost.shell("config feature autorestart {} disabled".format(container))
     duthost.shell("docker stop {}".format(container))
-    output = duthost.shell('sonic-db-cli STATE_DB hget "FEATURE|{}" "container_id"'.format(container))["stdout"]
+    output = duthost.shell('sonic-db-cli -s STATE_DB hget "FEATURE|{}" "container_id"'.format(container))["stdout"]
     if output:
-        duthost.shell('sonic-db-cli STATE_DB hset "FEATURE|{}" "container_id" ""'.format(container))
+        duthost.shell('sonic-db-cli -s --authenticate STATE_DB hset "FEATURE|{}" "container_id" ""'.format(container))
 
     time.sleep(30)  # Wait 30 seconds for container_checker to fire event
 
     if output:
-        duthost.shell('sonic-db-cli STATE_DB hset "FEATURE|{}" "container_id" {}'.format(container, output))
+        duthost.shell('sonic-db-cli -s --authenticate STATE_DB hset "FEATURE|{}" "container_id" {}'.format(container, output))
 
     duthost.shell("config feature autorestart {} enabled".format(container))
     duthost.shell("systemctl restart {}".format(container))

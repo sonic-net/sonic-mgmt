@@ -681,7 +681,7 @@ def configure_unnumbered_bgp(request, setup_info):
         # until sonic-buildimage#26960 is implemented.
         logger.info("Configure unnumbered BGP on DUT via CONFIG_DB on %s", dut_intf)
         duthost.shell(
-            'sonic-db-cli CONFIG_DB HSET "BGP_NEIGHBOR|{}" "asn" "{}" "name" "{}"'.format(
+            'sonic-db-cli -s --authenticate CONFIG_DB HSET "BGP_NEIGHBOR|{}" "asn" "{}" "name" "{}"'.format(
                 dut_intf, neigh_asn, setup_info['neigh_name']),
             module_ignore_errors=True)
         # Give bgpcfgd time to process the CONFIG_DB change

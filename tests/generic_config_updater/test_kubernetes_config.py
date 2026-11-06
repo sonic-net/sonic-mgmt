@@ -255,7 +255,7 @@ def get_k8s_table(duthost):
 def k8s_config_cleanup(duthost):
     """ Clean up k8s config to avoid conflict
     """
-    cmds = 'sonic-db-cli CONFIG_DB keys "KUBERNETES_MASTER|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    cmds = 'sonic-db-cli -s CONFIG_DB keys "KUBERNETES_MASTER|*" | xargs -r sonic-db-cli -s --authenticate CONFIG_DB del'
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "k8s config cleanup failed.")
 
@@ -263,7 +263,7 @@ def k8s_config_cleanup(duthost):
 def k8s_empty_ip_config_setup(duthost):
     """ Set up k8s config with empty ip
     """
-    cmds = 'sonic-db-cli CONFIG_DB hmset "KUBERNETES_MASTER|SERVER" "disable" "true" "ip" ""'
+    cmds = 'sonic-db-cli -s --authenticate CONFIG_DB hmset "KUBERNETES_MASTER|SERVER" "disable" "true" "ip" ""'
     output = duthost.shell(cmds)
     pytest_assert(not output['rc'], "k8s config setup failed.")
 

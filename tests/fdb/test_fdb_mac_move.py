@@ -330,7 +330,7 @@ def _apply_mac_move_guard_config(duthost, config):
 
 
 def _remove_mac_move_guard_config(duthost):
-    duthost.shell('sonic-db-cli CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"',
+    duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB DEL "MAC_MOVE_GUARD|GLOBAL"',
                   module_ignore_errors=True)
     duthost.shell("rm -f {}".format(MMG_CONFIG_REMOTE_PATH), module_ignore_errors=True)
 
@@ -359,7 +359,7 @@ def _remove_vlan_with_tagged_members(duthost, vlan_id, members):
 def _get_port_oper_status(duthost, port_name):
     """Return APPL_DB PORT_TABLE oper_status for the given DUT port (or '' if unset)."""
     res = duthost.shell(
-        'sonic-db-cli APPL_DB HGET "PORT_TABLE:{}" oper_status'.format(port_name),
+        'sonic-db-cli -s APPL_DB HGET "PORT_TABLE:{}" oper_status'.format(port_name),
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip()
 
@@ -488,14 +488,14 @@ def _parse_sonic_db_cli_hash(raw):
 
 def _asic_db_key_exists(duthost, key):
     res = duthost.shell(
-        'sonic-db-cli ASIC_DB EXISTS "{}"'.format(key),
+        'sonic-db-cli -s ASIC_DB EXISTS "{}"'.format(key),
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip() == '1'
 
 
 def _asic_db_hgetall(duthost, key):
     res = duthost.shell(
-        'sonic-db-cli ASIC_DB HGETALL "{}"'.format(key),
+        'sonic-db-cli -s ASIC_DB HGETALL "{}"'.format(key),
         module_ignore_errors=True)
     return _parse_sonic_db_cli_hash(res.get('stdout'))
 
@@ -503,7 +503,7 @@ def _asic_db_hgetall(duthost, key):
 def _asic_db_keys(duthost, pattern):
     """Return the list of ASIC_DB keys matching ``pattern`` (Redis KEYS glob)."""
     res = duthost.shell(
-        "sonic-db-cli ASIC_DB KEYS '{}'".format(pattern),
+        "sonic-db-cli -s ASIC_DB KEYS '{}'".format(pattern),
         module_ignore_errors=True)
     out = (res.get('stdout') or '').strip()
     return [k.strip() for k in out.splitlines() if k.strip()] if out else []
@@ -564,7 +564,7 @@ def _get_orchagent_loglevel(duthost):
     """Return the current LOGLEVEL_DB value for orchagent, or '' if unset
     (i.e., the binary's compiled-in default — NOTICE)."""
     res = duthost.shell(
-        'sonic-db-cli LOGLEVEL_DB HGET "orchagent" "LOGLEVEL"',
+        'sonic-db-cli -s LOGLEVEL_DB HGET "orchagent" "LOGLEVEL"',
         module_ignore_errors=True)
     return (res.get('stdout') or '').strip()
 
@@ -575,11 +575,11 @@ def _set_orchagent_loglevel(duthost, level):
     or '' to clear the override (reverts to the binary default)."""
     if level:
         duthost.shell(
-            'sonic-db-cli LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
+            'sonic-db-cli -s --authenticate LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
             module_ignore_errors=True)
     else:
         duthost.shell(
-            'sonic-db-cli LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
+            'sonic-db-cli -s --authenticate LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
             module_ignore_errors=True)
 
 
@@ -603,7 +603,7 @@ def _mmg_action_supported(duthost, action):
               or the capability publish step has not run yet)
     """
     res = duthost.shell(
-        'sonic-db-cli STATE_DB HGETALL "MMG_CAPABILITY_TABLE|ACTIONS"',
+        'sonic-db-cli -s STATE_DB HGETALL "MMG_CAPABILITY_TABLE|ACTIONS"',
         module_ignore_errors=True)
     parsed = _parse_sonic_db_cli_hash(res.get('stdout'))
     if not parsed:

@@ -88,13 +88,13 @@ def test_mimic_hwproxy_cert_rotation(
                 # set gnmi table
                 port = gnmi_tls.port
                 set_table = (
-                    f'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" '
+                    f'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|gnmi" '
                     f'client_auth "true" '
                     f'log_level "2" '
                     f'port "{port}"'
                 )
                 duthost.command(set_table, module_ignore_errors=True)
-                set_table_cert = 'sonic-db-cli CONFIG_DB hset "GNMI|certs"   \
+                set_table_cert = 'sonic-db-cli -s --authenticate CONFIG_DB hset "GNMI|certs"   \
                     ca_crt "/etc/sonic/telemetry/gnmiCA.cer"   \
                     server_crt "/etc/sonic/telemetry/gnmiserver.cer"   \
                     server_key "/etc/sonic/telemetry/gnmiserver.key"'

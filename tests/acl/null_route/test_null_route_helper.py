@@ -168,9 +168,9 @@ def apply_pre_defined_rules(rand_selected_dut, create_acl_table):
     time.sleep(5)
     yield
     # Clear ACL rules
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'
+    rand_selected_dut.shell('sonic-db-cli -s CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli -s --authenticate CONFIG_DB del'
                             .format(ACL_TABLE_NAME_V4))
-    rand_selected_dut.shell('sonic-db-cli CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli CONFIG_DB del'
+    rand_selected_dut.shell('sonic-db-cli -s CONFIG_DB keys "ACL_RULE|{}*" | xargs sonic-db-cli -s --authenticate CONFIG_DB del'
                             .format(ACL_TABLE_NAME_V6))
 
 

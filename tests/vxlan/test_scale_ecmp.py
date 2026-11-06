@@ -60,7 +60,7 @@ def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni, mac_address=N
         f"with {len(endpoints)} endpoints, vni={vni}, mac={mac_address}"
     )
     cmd = (
-        f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
+        f"sonic-db-cli -s --authenticate CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
         f"endpoint '{ep_str}' vni '{vni}'"
     )
     if mac_address:
@@ -233,7 +233,7 @@ def clean_vnet_route(one_vnet_setup_teardown):
 
     # Delete the entire route entry to ensure clean state
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
+        f"sonic-db-cli -s --authenticate CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
     )
     time.sleep(2)
 

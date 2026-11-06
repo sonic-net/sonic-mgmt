@@ -90,15 +90,15 @@ def setup_vrf_configuration(duthosts, rand_one_dut_hostname, vrf_config):
     try:
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell("sudo systemctl stop snmpd snmp-subagent", module_ignore_errors=True)
-            duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"')
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "true"')
             duthost.shell("sudo systemctl start snmpd snmp-subagent", module_ignore_errors=True)
         yield vrf_config
 
     finally:
         if vrf_name == MGMT_VRF_NAME and not mgmt_vrf_enabled:
             duthost.shell("sudo systemctl stop snmpd snmp-subagent", module_ignore_errors=True)
-            duthost.shell('sonic-db-cli CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
-            duthost.shell('sonic-db-cli CONFIG_DB hdel "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled" "false"')
+            duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')
             # setup_gnmi_server saves while the management VRF is enabled.
             duthost.shell("sudo config save -y")
             duthost.shell("sudo systemctl start snmpd snmp-subagent", module_ignore_errors=True)
@@ -131,7 +131,7 @@ def get_first_interface(duthost, excluded_interfaces=[]):
 
 
 def get_interface_status(duthost, field, interface="Ethernet0"):
-    cmds = 'sonic-db-cli CONFIG_DB hget "PORT|{}" {}'.format(interface, field)
+    cmds = 'sonic-db-cli -s CONFIG_DB hget "PORT|{}" {}'.format(interface, field)
     output = duthost.shell(cmds)
     assert not output["rc"], "No output"
     return output["stdout"]
@@ -282,10 +282,10 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
             if not run_flag.value:
                 break
             time.sleep(0.5)
-            cmd = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" bgp_asn '
+            cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hdel "DEVICE_METADATA|localhost" bgp_asn '
             duthost.shell(cmd, module_ignore_errors=True)
             time.sleep(0.5)
-            cmd = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" bgp_asn ' + str(i + 1000)
+            cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" bgp_asn ' + str(i + 1000)
             duthost.shell(cmd, module_ignore_errors=True)
 
     client_task = multiprocessing.Process(
@@ -318,7 +318,7 @@ def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, pt
             if not run_flag.value:
                 break
             time.sleep(0.5)
-            cmd = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" bgp_asn ' + str(i + 1000)
+            cmd = 'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" bgp_asn ' + str(i + 1000)
             duthost.shell(cmd, module_ignore_errors=True)
 
     client_task = multiprocessing.Process(

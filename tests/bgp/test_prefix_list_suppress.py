@@ -137,7 +137,7 @@ def verify_config_db_entry(duthost, prefix_type, prefix, present):
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
         ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
-        cmd = 'sonic-db-cli {} CONFIG_DB keys "{}"'.format(ns, key).strip()
+        cmd = 'sonic-db-cli -s {} CONFIG_DB keys "{}"'.format(ns, key).strip()
         out = duthost.shell(cmd)["stdout"].strip()
         has_key = key in out
         if has_key != present:
@@ -155,7 +155,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
     for asic_index in duthost.get_frontend_asic_ids():
         ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
-            'sonic-db-cli {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
+            'sonic-db-cli -s --authenticate {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
         )
 
 
@@ -164,7 +164,7 @@ def delete_config_db_key_directly(duthost, prefix_type, prefix):
     for asic_index in duthost.get_frontend_asic_ids():
         ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
-            'sonic-db-cli {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
+            'sonic-db-cli -s --authenticate {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
             module_ignore_errors=True,
         )
 
@@ -1235,7 +1235,7 @@ class TestPrefixListNegative:
         duthost = rand_one_frontend_duthost
         before = {
             asic_index: duthost.shell(
-                'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
+                'sonic-db-cli -s {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
                     namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
@@ -1250,7 +1250,7 @@ class TestPrefixListNegative:
 
         after = {
             asic_index: duthost.shell(
-                'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
+                'sonic-db-cli -s {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
                     namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
@@ -1290,7 +1290,7 @@ class TestPrefixListNegative:
 
         # CONFIG_DB on the supervisor must not have grown a PREFIX_LIST entry.
         sup_keys = duthost.shell(
-            'sonic-db-cli CONFIG_DB keys "PREFIX_LIST|*"',
+            'sonic-db-cli -s CONFIG_DB keys "PREFIX_LIST|*"',
             module_ignore_errors=True,
         )["stdout"]
         pytest_assert(

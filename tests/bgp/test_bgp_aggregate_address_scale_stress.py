@@ -194,7 +194,7 @@ def setup_teardown(duthost):
 
     # Ensure the BGP_AGGREGATE_ADDRESS table exists so GCU "add" ops work.
     keys_out = duthost.shell(
-        f"sonic-db-cli CONFIG_DB keys '{BGP_AGGREGATE_ADDRESS}|*'",
+        f"sonic-db-cli -s CONFIG_DB keys '{BGP_AGGREGATE_ADDRESS}|*'",
         module_ignore_errors=True,
     )["stdout"].strip()
     if not keys_out:
@@ -328,7 +328,7 @@ class TestGroup7CapacityStress:
         After a rollback or bulk removal, the table may be gone.
         """
         keys_out = duthost.shell(
-            f"sonic-db-cli CONFIG_DB keys '{BGP_AGGREGATE_ADDRESS}|*'",
+            f"sonic-db-cli -s CONFIG_DB keys '{BGP_AGGREGATE_ADDRESS}|*'",
             module_ignore_errors=True,
         ).get("stdout", "").strip()
         if not keys_out:
@@ -350,7 +350,7 @@ class TestGroup7CapacityStress:
             # bgpcfgd does not have to process thousands of entries on restart,
             # which can overwhelm the system and trigger a reboot.
             duthost.shell(
-                "sonic-db-cli CONFIG_DB eval "
+                "sonic-db-cli -s CONFIG_DB eval "
                 "\"local keys = redis.call('keys','BGP_AGGREGATE_ADDRESS|*') "
                 "for _,k in ipairs(keys) do redis.call('del',k) end "
                 "return #keys\" 0",
@@ -901,10 +901,10 @@ class TestGroup7CapacityStress:
         # Pre-compute direct DB commands for add/remove (bypass GCU overhead)
         db_key = f"BGP_AGGREGATE_ADDRESS|{cfg.prefix}"
         db_add_cmd = (
-            f"sonic-db-cli CONFIG_DB HSET '{db_key}' "
+            f"sonic-db-cli -s CONFIG_DB HSET '{db_key}' "
             f"'bbr-required' 'false' 'summary-only' 'false' 'as-set' 'false'"
         )
-        db_del_cmd = f"sonic-db-cli CONFIG_DB DEL '{db_key}'"
+        db_del_cmd = f"sonic-db-cli -s CONFIG_DB DEL '{db_key}'"
 
         # Use a single M2 neighbor for fast verification
         neighbor = upstream[0]
