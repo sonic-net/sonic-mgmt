@@ -296,30 +296,33 @@ def client_auth(dut, **kwargs):
     """
     st.log("Configuring gNMI authentication.")
     docker_name = "telemetry"
-    command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth')
     if 'auth_type' in kwargs:
         if kwargs.get('auth_type'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "TELEMETRY|gnmi" client_auth "{}"'.format(kwargs.get('auth_type')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|gnmi" client_auth')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "TELEMETRY|gnmi" client_auth')
         st.config(dut, command, on_cr_recover="retry5")
     if 'server_key' in kwargs:
         if kwargs.get('server_key'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_key "{}"'.format(kwargs.get('server_key')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_key "{}"'.format(kwargs.get('server_key')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_key')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_key')
         st.config(dut, command, on_cr_recover="retry5")
     if 'server_crt' in kwargs:
         if kwargs.get('server_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_crt "{}"'.format(kwargs.get('server_crt')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "TELEMETRY|certs" server_crt "{}"'.format(kwargs.get('server_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_crt')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "TELEMETRY|certs" server_crt')
         st.config(dut, command, on_cr_recover="retry5")
     if 'ca_crt' in kwargs:
         if kwargs.get('ca_crt'):
-            command = redis.build(dut, redis.CONFIG_DB, 'hmset "TELEMETRY|certs" ca_crt "{}"'.format(kwargs.get('ca_crt')))
+            command = redis.build_sonic_db_cli(
+                redis.CONFIG_DB, 'hmset "TELEMETRY|certs" ca_crt "{}"'.format(kwargs.get('ca_crt')))
         else:
-            command = redis.build(dut, redis.CONFIG_DB, 'hdel "TELEMETRY|certs" ca_crt')
+            command = redis.build_sonic_db_cli(redis.CONFIG_DB, 'hdel "TELEMETRY|certs" ca_crt')
         st.config(dut, command, on_cr_recover="retry5")
     if kwargs.get('restart'):
         docker_operation(dut, docker_name, 'restart')
