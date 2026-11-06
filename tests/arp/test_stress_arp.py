@@ -119,7 +119,8 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
         # Add a short delay to avoid packet loss
-        time.sleep(0.01)
+        if ip_num % 100 == 0:
+            time.sleep(0.01)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
@@ -223,7 +224,8 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available):
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
         # Add a short delay to avoid packet loss
-        time.sleep(0.01)
+        if entry % 100 == 0:
+            time.sleep(0.01)
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
     logger.info("Sending {} ipv6 neighbor entries".format(nd_available))
 
