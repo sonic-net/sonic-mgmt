@@ -178,7 +178,7 @@ def _wait_for_smartswitch_dpu_states(sonic_host):
     """
     # Get all CHASSIS_MODULE keys from config_db
     output = sonic_host.shell(
-        'redis-cli -n 4 keys "CHASSIS_MODULE|*"',
+        'sonic-db-cli -s CONFIG_DB keys "CHASSIS_MODULE|*"',
         module_ignore_errors=True
     )
     if output['rc'] != 0 or not output['stdout'].strip():
@@ -195,7 +195,7 @@ def _wait_for_smartswitch_dpu_states(sonic_host):
         # entry is like "CHASSIS_MODULE|DPU0"
         dpu_name = entry.split('|', 1)[1] if '|' in entry else entry
         admin_output = sonic_host.shell(
-            'redis-cli -n 4 hget "%s" "admin_status"' % entry,
+            'sonic-db-cli -s CONFIG_DB hget "%s" "admin_status"' % entry,
             module_ignore_errors=True
         )
         admin_status = admin_output['stdout'].strip() if admin_output['rc'] == 0 else ''
@@ -289,7 +289,7 @@ def _reapply_golden_link_training(sonic_host, golden_config_path):
     lt_ports = _golden_config_link_training(sonic_host, golden_config_path)
     if not lt_ports:
         return
-    keys = sonic_host.shell('sonic-db-cli CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
+    keys = sonic_host.shell('sonic-db-cli -s CONFIG_DB keys "PORT|*"', module_ignore_errors=True)
     present = {line.split('|', 1)[1] for line in keys.get('stdout_lines', []) if '|' in line}
     cmds = []
     for port in sorted(lt_ports):
@@ -297,7 +297,7 @@ def _reapply_golden_link_training(sonic_host, golden_config_path):
             logger.warning("Golden config sets link_training=%s on %s, which is not in the reloaded "
                            "PORT table; skipping", lt_ports[port], port)
             continue
-        cmds.append('sonic-db-cli CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
+        cmds.append('sonic-db-cli -s --authenticate CONFIG_DB hset "PORT|{}" link_training {}'.format(port, lt_ports[port]))
     if not cmds:
         return
     logger.info("Re-applying link_training from golden config on %d ports after minigraph reload", len(cmds))
@@ -411,7 +411,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
-            output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
+            output = sonic_host.shell('sonic-db-cli -s CONFIG_DB hget "DEVICE_METADATA|localhost" buffer_model',
                                       module_ignore_errors=True)
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
@@ -432,7 +432,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if zebra_nexthop:
             logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
             sonic_host.shell(
-                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         if is_dut and not golden_override:
             _reapply_golden_link_training(sonic_host, golden_config_path)

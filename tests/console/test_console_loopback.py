@@ -28,7 +28,7 @@ def _read_orig_console_port(host, line):
     def _hget(field, default):
         try:
             res = host.command(
-                "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(line, field),
+                "sonic-db-cli -s CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(line, field),
                 module_ignore_errors=True)
             val = (res.get('stdout') or '').strip()
             return val if val else default

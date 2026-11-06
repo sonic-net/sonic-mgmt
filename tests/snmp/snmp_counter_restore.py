@@ -15,7 +15,7 @@ class SnmpCounterFieldRestorer:
         self._snapshots = {}
 
     def _command(self, operation, interface_oid, counter_name, *values):
-        args = ["sudo", "redis-cli", "-e", "--raw", "-n", "2", operation,
+        args = ["sudo", "sonic-db-cli", "-s", "COUNTERS_DB", operation,
                 f"COUNTERS:{interface_oid}", counter_name]
         args.extend(str(value) for value in values)
         result = self._duthost.command(
@@ -33,6 +33,13 @@ class SnmpCounterFieldRestorer:
         if operation == "HGET":
             return reply[:-1] if reply.endswith("\n") else reply
         reply = reply.strip()
+        if operation == "HEXISTS":
+            # sonic-db-cli renders this integer reply using redis-py booleans.
+            if reply not in {"True", "False"}:
+                raise CounterCommandError(
+                    f"Unexpected Redis reply for {operation} "
+                    f"{interface_oid}.{counter_name}: {reply!r}")
+            return "1" if reply == "True" else "0"
         if reply not in {"0", "1"}:
             raise CounterCommandError(
                 f"Unexpected Redis reply for {operation} "

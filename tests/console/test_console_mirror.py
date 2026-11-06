@@ -185,7 +185,7 @@ def _stop_mirror(
 
 def _get_state_db(duthost, line: str) -> dict[str, str]:
     result = duthost.shell(
-        f"sonic-db-cli STATE_DB HGETALL 'CONSOLE_MIRROR|{line}'",
+        f"sonic-db-cli -s STATE_DB HGETALL 'CONSOLE_MIRROR|{line}'",
         module_ignore_errors=True,
     )
     pytest_assert(

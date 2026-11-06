@@ -83,7 +83,7 @@ def get_oid_for_interface(duthost, table_name, interface_name):
     :param interface_name: interface name
     :return: oid for specific interface
     """
-    return duthost.command(f"docker exec -i database redis-cli --raw -n 2 HMGET "
+    return duthost.command(f"docker exec -i database sonic-db-cli -s COUNTERS_DB HMGET "
                            f"{table_name} {interface_name}")["stdout"]
 
 
@@ -95,7 +95,7 @@ def set_counters_value(duthost, interface_oid, counter_name, counter_value):
     :param counter_name: counter name
     :param counter_value: counter value
     """
-    duthost.command(f"sudo redis-cli -n 2 hset COUNTERS:{interface_oid} {counter_name} {counter_value}")
+    duthost.command(f"sudo sonic-db-cli -s --authenticate COUNTERS_DB hset COUNTERS:{interface_oid} {counter_name} {counter_value}")
 
 
 def get_port_interface_counter(duthost, interface_name):
@@ -127,9 +127,9 @@ def collect_all_facts(duthost, ports_list, namespace=None):
         host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
 
     if not namespace:
-        sonic_db_cmd = "sonic-db-cli"
+        sonic_db_cmd = "sonic-db-cli -s"
     else:
-        sonic_db_cmd = "sonic-db-cli -n {}".format(namespace)
+        sonic_db_cmd = "sonic-db-cli -s -n {}".format(namespace)
 
     for name in ports_list:
         key = name

@@ -10,7 +10,6 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.platform_api import bmc
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError, get_bughandler_instance
 from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
@@ -238,7 +237,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_se
     if is_ipv6_only_topology(tbinfo):
         SESSION_INFO['src_ip'] = IPV6_IPS['src_ip']
         SESSION_INFO['dst_ip'] = IPV6_IPS['dst_ip']
-        cmd = "redis-cli -n 4 hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
+        cmd = "sonic-db-cli -s --authenticate CONFIG_DB hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
 
     cmd = cmd.format(
         SESSION_INFO['name'],
@@ -373,8 +372,7 @@ def gen_dump_file(duthost, since):
     return tar_file
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu,  # noqa F811
-                     platform_api_conn):     # noqa F811
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname, skip_on_dpu):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
@@ -688,7 +686,9 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # amd elba dpu specific check; if not, default will be executed in else
     if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
-        cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
+        cmd_output = duthost.shell(
+            'sonic-db-dump -t unix_socket -n STATE_DB -k "EEPROM_INFO|0x24" -y | grep Value'
+        )['stdout_lines'][0]
         router_mac = cmd_output.split('"')[3]
         mac = '.'.join(re.findall('.{4}', router_mac.replace(':', '').lower()))
 

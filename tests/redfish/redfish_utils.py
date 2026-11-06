@@ -301,7 +301,7 @@ def configured_port(duthost):
 
 def db_get(duthost, db, key, field):
     """Read one hash field from a database on the BMC."""
-    res = duthost.shell('sonic-db-cli {db} hget "{key}" {field}'.format(
+    res = duthost.shell('sonic-db-cli -s {db} hget "{key}" {field}'.format(
         db=db, key=key, field=field), module_ignore_errors=True)
     return res["stdout"].strip()
 
@@ -309,13 +309,13 @@ def db_get(duthost, db, key, field):
 def db_set(duthost, db, key, **fields):
     """Write hash fields to a database on the BMC."""
     pairs = " ".join('{} "{}"'.format(f, v) for f, v in fields.items())
-    duthost.shell('sonic-db-cli {db} hset "{key}" {pairs}'.format(
+    duthost.shell('sonic-db-cli -s {db} hset "{key}" {pairs}'.format(
         db=db, key=key, pairs=pairs))
 
 
 def db_hdel(duthost, db, key, field):
     """Remove one hash field. Redis drops the key when its last field goes."""
-    best_effort(duthost.shell, 'sonic-db-cli {db} hdel "{key}" {field}'.format(
+    best_effort(duthost.shell, 'sonic-db-cli -s {db} hdel "{key}" {field}'.format(
         db=db, key=key, field=field), module_ignore_errors=True)
 
 
@@ -324,7 +324,7 @@ def snapshot_redfish_config(duthost):
     snapshot = {}
     for table, fields in OWNED_FIELDS.items():
         for field in fields:
-            command = 'sonic-db-cli CONFIG_DB {{}} "{}" {}'.format(table, field)
+            command = 'sonic-db-cli -s CONFIG_DB {{}} "{}" {}'.format(table, field)
             exists = duthost.shell(command.format("hexists"))["stdout"].strip() == "1"
             snapshot[table, field] = duthost.shell(command.format("hget"))["stdout"].rstrip("\n") if exists else None
     return snapshot
@@ -340,10 +340,10 @@ def restore_redfish_config(duthost, snapshot):
     """
     for (table, field), value in sorted(snapshot.items()):
         if value is not None:
-            duthost.shell("sonic-db-cli CONFIG_DB hset {} {} {}".format(
+            duthost.shell("sonic-db-cli -s CONFIG_DB hset {} {} {}".format(
                 shlex.quote(table), shlex.quote(field), shlex.quote(value)))
         else:
-            duthost.shell('sonic-db-cli CONFIG_DB hdel "{}" {}'.format(table, field))
+            duthost.shell('sonic-db-cli -s CONFIG_DB hdel "{}" {}'.format(table, field))
 
 
 def cert_status(duthost, field):

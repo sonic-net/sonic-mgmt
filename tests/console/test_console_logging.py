@@ -72,7 +72,7 @@ def get_db_console_port_field(duthost, line, field):
     Read one CONSOLE_PORT field; returns '' when the field is absent.
     """
     res = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'CONSOLE_PORT|{}' {}".format(line, field),
+        "sonic-db-cli -s CONFIG_DB HGET 'CONSOLE_PORT|{}' {}".format(line, field),
         module_ignore_errors=True)
     return res['stdout'].strip() if res['rc'] == 0 else ''
 
@@ -83,7 +83,7 @@ def clear_logging_option_fields(duthost, line):
     'enable' only fills fields that are missing; values already in CONFIG_DB are kept as-is.
     """
     duthost.shell(
-        "sudo sonic-db-cli CONFIG_DB HDEL 'CONSOLE_PORT|{}' log_file logrotate_size logrotate_count".format(line),
+        "sudo sonic-db-cli -s CONFIG_DB HDEL 'CONSOLE_PORT|{}' log_file logrotate_size logrotate_count".format(line),
         module_ignore_errors=True)
 
 
@@ -397,12 +397,12 @@ def preserve_logging_config(duthost, target_line):
     for field, value in saved.items():
         if value:
             duthost.shell(
-                "sudo sonic-db-cli CONFIG_DB HSET 'CONSOLE_PORT|{}' {} '{}'".format(
+                "sudo sonic-db-cli -s CONFIG_DB HSET 'CONSOLE_PORT|{}' {} '{}'".format(
                     target_line, field, value),
                 module_ignore_errors=True)
         else:
             duthost.shell(
-                "sudo sonic-db-cli CONFIG_DB HDEL 'CONSOLE_PORT|{}' {}".format(target_line, field),
+                "sudo sonic-db-cli -s CONFIG_DB HDEL 'CONSOLE_PORT|{}' {}".format(target_line, field),
                 module_ignore_errors=True)
 
     if not logrotate_conf_existed:

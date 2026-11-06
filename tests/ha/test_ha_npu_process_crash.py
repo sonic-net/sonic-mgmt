@@ -328,7 +328,7 @@ class TestNpuProcessCrash:
                 approval_deadline = time.time() + BGP_HA_CONVERGENCE_TIMEOUT
                 while time.time() < approval_deadline:
                     state_res = crash_duthost.shell(
-                        f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+                        f'sonic-db-cli -s STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
                     )["stdout"].strip()
                     logger.info(f"HA state on {crash_duthost.hostname}: {state_res}")
                     if state_res == expected_ha_state_after_crash:
@@ -336,10 +336,10 @@ class TestNpuProcessCrash:
                         break
 
                     ids_str = crash_duthost.shell(
-                        f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_ids'
+                        f'sonic-db-cli -s STATE_DB HGET "{db_key}" pending_operation_ids'
                     )["stdout"].strip()
                     types_str = crash_duthost.shell(
-                        f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_types'
+                        f'sonic-db-cli -s STATE_DB HGET "{db_key}" pending_operation_types'
                     )["stdout"].strip()
                     all_ids = [i.strip() for i in ids_str.split(",") if i.strip()]
                     all_types = [t.strip() for t in types_str.split(",") if t.strip()]
@@ -403,7 +403,7 @@ class TestNpuProcessCrash:
                         time.sleep(10)
                 else:
                     state_res = crash_duthost.shell(
-                        f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+                        f'sonic-db-cli -s STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
                     )["stdout"].strip()
                     assert state_res == expected_ha_state_after_crash, (
                         f"{crash_duthost.hostname}: HA scope '{crash_scope_key}' "

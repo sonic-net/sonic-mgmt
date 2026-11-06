@@ -169,9 +169,9 @@ def check_database_status(duthost):
 
 def check_redis_db_is_reachable(duthost, asic_index=None):
     if asic_index is not None:
-        cmd = f"sonic-db-cli -n asic{asic_index} PING"
+        cmd = f"sonic-db-cli -s -n asic{asic_index} PING"
     else:
-        cmd = "sonic-db-cli PING"
+        cmd = "sonic-db-cli -s PING"
 
     out = duthost.shell(cmd, module_ignore_errors=True)
     if "PONG" not in out['stdout']:

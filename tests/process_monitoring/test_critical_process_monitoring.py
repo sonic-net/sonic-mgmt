@@ -747,7 +747,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             # accepting connections.  Probe redis directly so the subsequent
             # config_reload (which runs "config reload -h" against redis) does not crash
             # with "Unable to connect to redis - Connection refused".
-            redis_ping = duthost.shell("sonic-db-cli PING", module_ignore_errors=True)
+            redis_ping = duthost.shell("sonic-db-cli -s PING", module_ignore_errors=True)
             if redis_ping["rc"] != 0 or "PONG" not in redis_ping["stdout"]:
                 return False
             return True

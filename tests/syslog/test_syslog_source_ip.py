@@ -152,7 +152,7 @@ def skip_ssip_reboot_test_when_dut_mgmt_network_is_sub_network_forced_mgmt(dutho
     assert dut_mgmt_network, "Not find mgmt interface eth0"
 
     cmd_get_forced_mgmt_network_info = \
-        f'redis-cli -n 4 hget \"MGMT_INTERFACE|eth0|{dut_mgmt_network}\" forced_mgmt_routes@'
+        f'sonic-db-cli -s CONFIG_DB hget \"MGMT_INTERFACE|eth0|{dut_mgmt_network}\" forced_mgmt_routes@'
     forced_mgmt_routes_info = duthost.shell(cmd_get_forced_mgmt_network_info)["stdout"]
     forced_mgmt_routes_info_list = forced_mgmt_routes_info.split(",") if forced_mgmt_routes_info else []
 
@@ -832,7 +832,7 @@ class TestSSIP:
                 port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
 
         with allure.step("Configure protocol and verify"):
-            self.duthost.shell('sonic-db-cli CONFIG_DB hset "SYSLOG_SERVER|{0}" "protocol" "tcp"'
+            self.duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset "SYSLOG_SERVER|{0}" "protocol" "tcp"'
                                .format(default_vrf_rsyslog_ip))
 
         with allure.step("Check interface of {} send syslog msg ".format(routed_interfaces[0])):
@@ -851,7 +851,7 @@ class TestSSIP:
             filter_regex = 'sonic'
             logging_data = [(logger_flags, filter_regex)]
             self.duthost.shell(
-                'sonic-db-cli CONFIG_DB hset "SYSLOG_SERVER|{0}" '
+                'sonic-db-cli -s --authenticate CONFIG_DB hset "SYSLOG_SERVER|{0}" '
                 '"filter_type" "include" "filter_regex" {1}'
                 .format(default_vrf_rsyslog_ip, filter_regex)
             )
@@ -866,13 +866,13 @@ class TestSSIP:
                                              is_set_source=is_set_source, logging_data=logging_data)
 
         with allure.step("Remove include filter and verify"):
-            self.duthost.shell('sonic-db-cli CONFIG_DB hdel '
+            self.duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel '
                                '"SYSLOG_SERVER|{0}" "filter_type"'.format(default_vrf_rsyslog_ip))
 
         with allure.step("Configure exclude filter and verify"):
             filter_regex = 'aa'
             self.duthost.shell(
-                'sonic-db-cli CONFIG_DB hset'
+                'sonic-db-cli -s --authenticate CONFIG_DB hset'
                 ' "SYSLOG_SERVER|{0}" "filter_type" "exclude" "filter_regex" {1}'
                 .format(default_vrf_rsyslog_ip, filter_regex)
             )
@@ -887,11 +887,11 @@ class TestSSIP:
                                           is_set_source=is_set_source, logging_data=logging_data)
 
         with allure.step("Remove exclude filter and verify"):
-            self.duthost.shell('sonic-db-cli CONFIG_DB hdel '
+            self.duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hdel '
                                '"SYSLOG_SERVER|{0}" "filter_type"'.format(default_vrf_rsyslog_ip))
 
         with allure.step("Change severity level to notice"):
-            self.duthost.shell('sonic-db-cli CONFIG_DB hset'
+            self.duthost.shell('sonic-db-cli -s --authenticate CONFIG_DB hset'
                                ' "SYSLOG_SERVER|{0}" "severity" "notice"'.format(default_vrf_rsyslog_ip))
 
         with allure.step("Check interface of {} will not send syslog msg due to severity level".format(

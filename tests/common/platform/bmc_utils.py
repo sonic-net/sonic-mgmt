@@ -249,7 +249,7 @@ def get_sensor_data(duthost, sensor_name):
     """
     Return LIQUID_COOLING_INFO|<sensor_name> from STATE_DB as a field dict.
 
-    Reads via ``sonic-db-cli STATE_DB HGETALL`` and parses the result into a
+    Reads via ``sonic-db-cli -s STATE_DB HGETALL`` and parses the result into a
     Python dictionary (e.g. leaking, leak_severity, leak_sensor_status).
     Returns an empty dict when the key is absent.
     """

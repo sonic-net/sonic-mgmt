@@ -457,7 +457,7 @@ def leak_sensor(bmc_duthost, redfish_client, redfish_feature_enabled):
 
     def _hset(fields):
         pairs = " ".join("{} {}".format(k, shlex.quote(v)) for k, v in fields.items())
-        bmc_duthost.shell("sonic-db-cli STATE_DB HSET {} {}".format(shlex.quote(LEAK_SENSOR_KEY), pairs))
+        bmc_duthost.shell("sonic-db-cli -s STATE_DB HSET {} {}".format(shlex.quote(LEAK_SENSOR_KEY), pairs))
 
     seed = dict(LEAK_STATES["OK"], leak_sensor_status="Good", type="leak", location="rmc-test")
     _hset(seed)
@@ -476,7 +476,7 @@ def leak_sensor(bmc_duthost, redfish_client, redfish_feature_enabled):
 
     yield _set_state
 
-    bmc_duthost.shell("sonic-db-cli STATE_DB DEL {}".format(shlex.quote(LEAK_SENSOR_KEY)), module_ignore_errors=True)
+    bmc_duthost.shell("sonic-db-cli -s STATE_DB DEL {}".format(shlex.quote(LEAK_SENSOR_KEY)), module_ignore_errors=True)
     _restart_bridge(bmc_duthost, module_ignore_errors=True)
 
 

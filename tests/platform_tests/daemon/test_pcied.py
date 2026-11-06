@@ -57,7 +57,7 @@ def get_pcie_devices_tbl_key(duthosts, rand_one_dut_hostname, setup):
     skip_release(duthost, ["201811", "201911"])
     pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost),
                   "PCIE_DEVICES table is empty")
-    command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
+    command_output = duthost.shell("sonic-db-cli -s STATE_DB KEYS '*' | grep PCIE_DEVICES")
 
     global pcie_devices_status_tbl_key
     pcie_devices_status_tbl_key = command_output["stdout"]
@@ -83,17 +83,17 @@ def check_expected_daemon_status(duthost, expected_daemon_status):
 
 
 def check_pcie_devices_table_ready(duthost):
-    if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
+    if duthost.shell("sonic-db-cli -s STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
     return False
 
 
 def collect_data(duthost):
-    keys = duthost.shell('sonic-db-cli STATE_DB KEYS "PCIE_DEVICE|*"')['stdout_lines']
+    keys = duthost.shell('sonic-db-cli -s STATE_DB KEYS "PCIE_DEVICE|*"')['stdout_lines']
 
     dev_data = {}
     for k in keys:
-        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        data = duthost.shell('sonic-db-cli -s STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
 
