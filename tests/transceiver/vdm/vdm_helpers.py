@@ -348,6 +348,7 @@ def validate_vdm_thresholds(primary_ports, rows_by_severity, plan_by_port):
         plan = plan_by_port[port]
         port_failures = list(plan["errors"])
         unread_tables = []
+        reported_config_attrs = set()
         for severity, table in VDM_THRESHOLD_TABLES:
             row = rows_by_severity[severity].get(port)
             if row is None:
@@ -382,8 +383,10 @@ def validate_vdm_thresholds(primary_ports, rows_by_severity, plan_by_port):
             expected_values = {}
             if equality is not None:
                 expected_values, config_errors = _parse_vdm_threshold_range(equality)
-                port_failures.extend("{}: {}".format(field, error) for error in config_errors)
                 if config_errors:
+                    if equality.source_attr not in reported_config_attrs:
+                        reported_config_attrs.add(equality.source_attr)
+                        port_failures.extend(config_errors)
                     continue
             ordered = [
                 (severity, numeric[severity]) for severity, _ in VDM_THRESHOLD_TABLES
