@@ -25,6 +25,7 @@ power_on_event = threading.Event()
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
+SSH_WAIT_RETRY_DELAY = 5
 ANSIBLE_READY_INTERVAL = 10
 
 REBOOT_TYPE_WARM = "warm"
@@ -834,15 +835,31 @@ def collect_console_log(duthost, localhost, cancel_event=None):
 
 
 def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
-    res = localhost.wait_for(host=host_ip,
-                             port=port,
-                             state='started',
-                             search_regex=search_regex,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    is_connected = not (res.is_failed or ('msg' in res and 'Timeout' in res['msg']))
-    return is_connected, res
+    # wait_for ignores only the errors of the TCP connect. A socket error after the port accepts
+    # the connection (for example "[Errno 113] No route to host" while the DUT is still booting)
+    # fails the module long before its timeout, so keep waiting until the timeout in that case.
+    deadline = time.monotonic() + timeout
+    while True:
+        res = localhost.wait_for(host=host_ip,
+                                 port=port,
+                                 state='started',
+                                 search_regex=search_regex,
+                                 delay=delay,
+                                 timeout=timeout,
+                                 module_ignore_errors=True)
+        msg = str(res['msg']) if 'msg' in res else ''
+        is_connected = not (res.is_failed or 'Timeout' in msg)
+        if is_connected or 'Timeout when waiting' in msg:
+            return is_connected, res
+        # Pause between tries, but leave at least one second for the last one.
+        pause = min(SSH_WAIT_RETRY_DELAY, deadline - time.monotonic() - 1)
+        if pause <= 0:
+            return is_connected, res
+        logger.warning("Waiting for {}:{} failed before the timeout: {}. Waiting {}s more".format(
+            host_ip, port, msg or res, int(deadline - time.monotonic())))
+        time.sleep(pause)
+        delay = 0
+        timeout = max(int(deadline - time.monotonic()), 1)
 
 
 def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
