@@ -23,6 +23,7 @@ from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
 
 DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
@@ -712,6 +713,9 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         restore_vxlan_port: fixture to restore vxlan port to default
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
+    if reboot_type == "warm":
+        if is_mellanox_device(rand_selected_dut) and not is_issu_enabled(rand_selected_dut):
+            pytest.skip("Warm reboot is not supported on the dut, skipping the test")
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
     skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
     with allure.step('Randomly select an ecmp hash field to test '
