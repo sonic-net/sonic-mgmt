@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import ptf
 import logging
 import random
@@ -15,7 +16,15 @@ class PfcWdBackgroundTrafficTest(BaseTest):
 
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
-        self.router_mac = self.test_params['router_mac']
+        self.router_mac = self.test_params.get('router_mac')
+        self.ptf_test_port_map = {}
+        try:
+            with open(self.test_params['ptf_test_port_map']) as port_map_file:
+                self.ptf_test_port_map = json.load(port_map_file)
+        except (KeyError, OSError):
+            if not self.router_mac:
+                raise
+            logging.warning("PTF test port map is unavailable; using router_mac for destination packets")
         self.pkt_count = int(self.test_params['pkt_count'])
         self.src_ports = self.test_params['src_ports']
         self.dst_ports = self.test_params['dst_ports']
@@ -55,6 +64,14 @@ class PfcWdBackgroundTrafficTest(BaseTest):
                 ip_ttl=ttl
             )
 
+    def _get_target_dest_mac(self, port):
+        target_dest_mac = self.ptf_test_port_map.get(str(port), {}).get('target_dest_mac')
+        if target_dest_mac:
+            return target_dest_mac
+        if self.router_mac:
+            return self.router_mac
+        raise KeyError("No destination MAC found for PTF port {}".format(port))
+
     def runTest(self):
         ttl = 64
         pkts_dict = {}
@@ -70,21 +87,23 @@ class PfcWdBackgroundTrafficTest(BaseTest):
                 pkts_dict[dst_port] = []
             src_mac = self.dataplane.get_mac(0, src_port)
             dst_mac = self.dataplane.get_mac(0, dst_port)
+            forward_dst_mac = self._get_target_dest_mac(src_port)
             is_ipv6 = self._is_ipv6(self.src_ips[i]) or self._is_ipv6(self.dst_ips[i])
             for queue in self.queues:
                 print(f"traffic from {src_port} to {dst_port}: {queue} ")
                 logging.info(f"traffic from {src_port} to {dst_port}: {queue} ")
                 pkt = self._build_udp_pkt(
-                    eth_src=src_mac, eth_dst=self.router_mac,
+                    eth_src=src_mac, eth_dst=forward_dst_mac,
                     ip_src=self.src_ips[i], ip_dst=self.dst_ips[i],
                     dscp=queue, ttl=ttl, is_ipv6=is_ipv6
                 )
                 pkts_dict[src_port].append(pkt)
                 if self.bidirection:
+                    reverse_dst_mac = self._get_target_dest_mac(dst_port)
                     print(f"traffic from {dst_port} to {src_port}: {queue} ")
                     logging.info(f"traffic from {dst_port} to {src_port}: {queue} ")
                     pkt = self._build_udp_pkt(
-                        eth_src=dst_mac, eth_dst=self.router_mac,
+                        eth_src=dst_mac, eth_dst=reverse_dst_mac,
                         ip_src=self.dst_ips[i], ip_dst=self.src_ips[i],
                         dscp=queue, ttl=ttl, is_ipv6=is_ipv6
                     )
