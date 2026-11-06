@@ -1,0 +1,78 @@
+# Testbed-specific configuration for tests/ha/test_ha_planned_shutdown_stress.py
+#
+# This is the DEFAULT/example config (values match the MtFuji reference
+# testbed). Copy and edit it for your own testbed, then point the test at it:
+#
+#   pytest test_ha_planned_shutdown_stress.py ... \
+#       --ha_stress_config=/abs/path/to/my_testbed.yaml
+#
+# If --ha_stress_config is not given, this file is used.
+#
+# DUT-indexed lists (dut_ips, dut_gateways, ...) are ordered to match the DUT
+# order passed on the command line via -d/--host-pattern, i.e. index 0 ==
+# duthosts[0], index 1 == duthosts[1]. HA is a 2-DUT feature, so exactly two
+# entries are expected.
+
+# --- Direct physical link: each DUT <-> L3 fanout ---------------------------
+# A dedicated cabled link that carries all the heavy traffic classes (ingress,
+# GRE/NVGRE return, HA flow-sync, DPU-down re-encap), bypassing the rate-limited
+# T2 cEOS uplinks.
+direct_link:
+  # DUT port cabled to the fanout (same port name on every DUT).
+  dut_interface: Ethernet96
+  # Device side of each point-to-point /30 (one per DUT).
+  dut_ips:
+    - 10.99.2.2/30      # duthosts[0]
+    - 10.99.3.2/30      # duthosts[1]
+  # Fanout side (next-hop) of each /30 (one per DUT).
+  dut_gateways:
+    - 10.99.2.1         # duthosts[0]
+    - 10.99.3.1         # duthosts[1]
+
+# --- SONiC L3 fanout (reached over the mgmt network via paramiko SSH) -------
+fanout:
+  ip: 1.2.31.91
+  user: admin
+  password: password
+  # Each fanout port, the /30 it owns, and what it connects to. The
+  # ``connects_to`` tag is used to build the fanout routing table:
+  #   dut<N>  -> the /30 facing duthosts[N]
+  #   ixia_tx -> Ixia transmit port
+  #   ixia_rx -> Ixia receive port (GRE/NVGRE return is routed here)
+  interfaces:
+    - {port: Ethernet224, ip: 10.99.1.1/30, connects_to: ixia_tx}
+    - {port: Ethernet208, ip: 10.99.2.1/30, connects_to: dut0}
+    - {port: Ethernet216, ip: 10.99.3.1/30, connects_to: dut1}
+    - {port: Ethernet240, ip: 10.99.4.1/30, connects_to: ixia_rx}
+
+# --- Ixia (IxNetwork) L3 emulation addresses --------------------------------
+# Only used to bootstrap ARP on the fanout (the test pings these from the
+# fanout). Configure the matching topology in IxNetwork manually.
+ixia:
+  tx_ip: 10.99.1.2      # port 3.1, gateway = fanout ixia_tx interface
+  rx_ip: 10.99.4.2      # port 3.2, gateway = fanout ixia_rx interface
+
+# --- Underlay prefixes steered over the direct link -------------------------
+# Most values are derived automatically; override only if your topology differs.
+addressing:
+  # Inbound VxLAN outer-dst, ECMP'd to every DUT. null -> use pl.APPLIANCE_VIP.
+  appliance_vip: null
+  # GRE/NVGRE return outer-dst, routed to the Ixia RX port. null -> use pl.PE_PA.
+  pe_pa: null
+  # Peer DPU PA /24 (steady-state HA DP/CP flow-sync channel). One prefix per
+  # DUT, ordered to match the -d DUT list: entry i is duthosts[i]'s PEER subnet
+  # (the /24 its partner DUT's DPUs live in). The generate_golden_config_db
+  # convention is 20.0.<200+dut_index>.0/24, so for a 2-DUT pair the peers are
+  # the swapped pair below. Adjust to match your testbed's DPU PA addressing.
+  peer_dpu_pa_prefixes:
+    - 20.0.201.0/24     # duthosts[0]'s peer = duthosts[1] DPU PA subnet
+    - 20.0.200.0/24     # duthosts[1]'s peer = duthosts[0] DPU PA subnet
+  # Peer NPU Loopback0 /32 (DPU-down VxLAN re-encap target). "auto" reads each
+  # DUT's Loopback0 from CONFIG_DB. To override, give one /32 per DUT.
+  peer_npu_loopbacks: auto
+
+# --- Stress loop pacing -----------------------------------------------------
+stress:
+  iterations: 5
+  pre_action_settle_s: 5      # let Ixia traffic flow before each shutdown
+  post_action_settle_s: 10    # let traffic stabilize after each HA state change
