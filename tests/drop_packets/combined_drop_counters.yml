@@ -34,6 +34,7 @@ l2_l3:
     - "x86_64-nexthop*"
     - "x86_64-micas_m2-w6940.*"
     - "x86_64-kvm_x86_64-r0"  # VPP
+    - "x86_64-micas_m2-w6950-128oc-r0"
 
 acl_l2:
     - "x86_64-mlnx"
