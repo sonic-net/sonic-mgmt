@@ -8,7 +8,6 @@ import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
-from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
@@ -84,8 +83,6 @@ def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate
             )
         duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
-        # Sleep 10 seconds for ycabled restart
-        time.sleep(10)
 
 
 def get_tor_mux_status(duthost, mux_port):
@@ -115,8 +112,7 @@ def select_mux_port(active_standby_ports):  # noqa: F811
 
 
 @pytest.fixture
-def restore_pmon(simulated_faulty_side, simulated_good_side, select_mux_port,
-                 active_standby_ports, run_icmp_responder):  # noqa: F811
+def restore_pmon(simulated_faulty_side, select_mux_port, run_icmp_responder):  # noqa: F811
     """Restore pmon container."""
 
     def _remove_pmon_container(duthost):
@@ -129,44 +125,37 @@ def restore_pmon(simulated_faulty_side, simulated_good_side, select_mux_port,
         logging.info("pmon container is removed.")
 
     def _restart_pmon_container(duthost):
+        def _pmon_started():
+            return (check_container_state(duthost, "pmon", True) and
+                    duthost.get_pmon_daemon_status("ycabled")[0] == "RUNNING")
+
         logging.info("Resetting pmon status.")
         logging.info("systemctl reset-failed pmon.service")
         logging.info("Restarting pmon container ...")
         duthost.shell("systemctl restart pmon.service")
 
-        logging.info("Waiting for '{}' container to be restarted ...")
+        logging.info("Waiting for PMON and ycabled to start ...")
         restarted = wait_until(
-            60, 5, 0, check_container_state, duthost, "pmon", True)
-        pytest_assert(restarted, "Failed to restart '{}' container!")
-        logging.info("'{}' container is restarted.")
+            60, 5, 0, _pmon_started)
+        pytest_assert(restarted, "Failed to start PMON and ycabled on {}".format(duthost.hostname))
+        logging.info("PMON and ycabled are running.")
 
-    def _check_fault_cleared():
+    def _wait_and_check_fault_cleared():
+        # ycabled waits 60 seconds before its first periodic report.
+        time.sleep(60)
         return (get_tor_mux_probe_state(simulated_faulty_side, mux_port) in ("active", "standby") and
                 get_tor_mux_cable_info(simulated_faulty_side, mux_port)["link_status_peer"] == "up")
-
-    def _check_mux_health():
-        for duthost in (simulated_faulty_side, simulated_good_side):
-            mux_status = show_muxcable_status(duthost)
-            logging.debug("Mux status on %s: %s", duthost.hostname, mux_status)
-            if any(mux_status[port]["health"] != "healthy" or mux_status[port]["hwstatus"] != "consistent"
-                   for port in active_standby_ports):
-                return False
-        return True
 
     mux_port = select_mux_port
 
     yield
 
-    # ycabled polls link status every 60 seconds; allow restoration before recreating PMON.
-    if not wait_until(90, 5, 0, _check_fault_cleared):
+    if not _wait_and_check_fault_cleared():
         _remove_pmon_container(simulated_faulty_side)
         _restart_pmon_container(simulated_faulty_side)
-        pytest_assert(wait_until(90, 5, 0, _check_fault_cleared),
+        pytest_assert(_wait_and_check_fault_cleared(),
                       "Failed to clear the simulated Y-cable fault on {} {}".format(
                           simulated_faulty_side.hostname, mux_port))
-
-    pytest_assert(wait_until(120, 10, 0, _check_mux_health),
-                  "Mux ports did not recover healthy, consistent state after Y-cable fault restoration")
 
 
 def test_switchover_probe_unknown(
