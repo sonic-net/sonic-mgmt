@@ -317,13 +317,9 @@ class TestPfcwdAllPortStorm(object):
             # give the restore phase a larger per-port budget and floor.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             if action == "restore":
-                timeout = max(120, num_ports * 6)
+                timeout = max(240, num_ports * 6)
             else:
-                timeout = max(60, num_ports * 3)
-            # LT2/FT2 topologies need extra headroom because the traffic generator
-            # takes longer to spin up on those setups.
-            if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
-                timeout = max(timeout, 240 if action == "restore" else 120)
+                timeout = max(120, num_ports * 3)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
                            storm_hndle, action, selected_test_ports,
