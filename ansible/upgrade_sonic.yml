@@ -153,6 +153,10 @@
     - name: Wait for SONiC initialization
       pause: seconds=60
 
+    - name: Provision an opted-in Switch-Host BMC USB link after image installation
+      include_role:
+        name: bmc_usb_link
+
     - name: Set all bgp interfaces admin-up
       become: true
       shell: config bgp startup all
