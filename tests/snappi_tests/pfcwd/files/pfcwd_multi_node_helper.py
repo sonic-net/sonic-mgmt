@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, \
+    start_pfcwd, enable_packet_aging, get_pfcwd_timers, \
     sec_to_nanosec                                                                                # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
@@ -103,9 +103,9 @@ def run_pfcwd_multi_node_test(api,
         start_pfcwd(duthost, asic)
         enable_packet_aging(duthost)
 
-    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'],
-                                            asic_value=rx_port['asic_value']) / 1000.0
+    timers = get_pfcwd_timers(egress_duthost, rx_port['peer_port'], rx_port['asic_value'])
+    poll_interval_sec = timers['poll_interval']
+    detect_time_sec = timers['detection_time']
 
     if trigger_pfcwd:
         pfc_storm_dur_sec = poll_interval_sec + detect_time_sec
