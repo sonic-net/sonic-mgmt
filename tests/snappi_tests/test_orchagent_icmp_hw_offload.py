@@ -117,7 +117,7 @@ from tests.common.dualtor.dual_tor_utils import tor_mux_intfs  # noqa: F401, E40
 # Import Snappi/IXIA fixtures and utilities
 from tests.common.snappi_tests.snappi_fixtures import (  # noqa: F401, E402
     snappi_api_serv_ip, snappi_api_serv_port,
-    snappi_api, snappi_testbed_config)
+    snappi_api, snappi_testbed_config, is_pfc_enabled)
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: E402
 from tests.common.fixtures.conn_graph_facts import (  # noqa: F401, E402
     conn_graph_facts, fanout_graph_facts)
