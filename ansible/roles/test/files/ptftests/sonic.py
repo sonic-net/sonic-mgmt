@@ -1,6 +1,7 @@
 import datetime
 import time
 import threading
+import queue as Queue
 import json
 import re
 from collections import defaultdict
@@ -37,9 +38,10 @@ class Sonic(host_device.HostDevice):
         self.reboot_type = test_params['reboot_type']
         self.bgp_v4_v6_time_diff = test_params['bgp_v4_v6_time_diff']
         self.port_channel_intf_idx = test_params['port_channel_intf_idx']
-        self.port_channel_last_lacp_pdu_time = None
+        self.csonic_lag_backend = test_params.get('csonic_lag_backend', 'teamd')
         self.port_channel_last_lacp_pdu_time_lock = threading.Lock()
-        self.lacp_pdu_timings = list()
+        self.lacp_pdu_timings_by_member = defaultdict(list)
+        self.reboot_lacp_boundary = None
 
     def log(self, msg):
         if self.log_cb is not None:
@@ -101,12 +103,13 @@ class Sonic(host_device.HostDevice):
             self.conn.close()
             self.conn = None
 
-    def lacp_packet_callback(self, pkt):
+    def lacp_packet_callback(self, pkt, intf_idx):
         with self.port_channel_last_lacp_pdu_time_lock:
-            self.port_channel_last_lacp_pdu_time = time.time()
+            self.lacp_pdu_timings_by_member[intf_idx].append(time.time())
 
     def monitor_lacp_packets(self, intf_idx):
-        scapyall.sniff(prn=self.lacp_packet_callback, iface="eth{}".format(intf_idx),
+        callback = lambda pkt: self.lacp_packet_callback(pkt, intf_idx)  # noqa: E731
+        scapyall.sniff(prn=callback, iface="eth{}".format(intf_idx),
                        filter="ether proto 0x8809", store=0)
 
     def run(self):
@@ -131,16 +134,17 @@ class Sonic(host_device.HostDevice):
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
             if not quit_enabled:
-                cmd = self.queue.get()
+                try:
+                    cmd = self.queue.get(timeout=1)
+                except Queue.Empty:
+                    cmd = None
                 if cmd == 'quit':
                     quit_enabled = True
                     continue
-                elif cmd == 'cpu_down' or cmd == 'cpu_going_up' or cmd == 'cpu_up':
-                    last_lacppdu_time_before_reboot = None
-                    with self.port_channel_last_lacp_pdu_time_lock:
-                        last_lacppdu_time_before_reboot = self.port_channel_last_lacp_pdu_time
-                    if last_lacppdu_time_before_reboot is not None:
-                        self.lacp_pdu_timings.append(last_lacppdu_time_before_reboot)
+                elif cmd == 'cpu_down':
+                    # Keep only the reboot boundary. Packet samples themselves
+                    # are recorded directly by each member's packet callback.
+                    self.reboot_lacp_boundary = time.time()
 
             cur_time = time.time()
             info = {}
@@ -220,11 +224,17 @@ class Sonic(host_device.HostDevice):
         self.log('Checking BGP GR peer status on VM')
         self.check_gr_peer_status(data)
         cli_data = {}
-        # cli_data['lacp']   = self.check_series_status(data, "lacp",         "LACP session")
-        cli_data['lacp'] = (0, 0)
+        if self.csonic_lag_backend == 'userspace_ovs':
+            cli_data['lacp'] = self.check_ovs_lacp_series_status(data)
+        else:
+            cli_data['lacp'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
-        cli_data['po'] = (0, total_lag_flaps)
+        if self.csonic_lag_backend == 'userspace_ovs':
+            cli_data['po'] = (0, cli_data['lacp'][0])
+            log_data['PortChannel was down (seconds)'] = cli_data['lacp'][1]
+        else:
+            cli_data['po'] = (0, total_lag_flaps)
 
         if 'route_timeout' in log_data:
             route_timeout = log_data['route_timeout']
@@ -243,8 +253,16 @@ class Sonic(host_device.HostDevice):
             self.fails.add('More than one port channel flap occurred!')
 
         self.log('Finishing run()')
+        capture_end = time.time()
+        with self.port_channel_last_lacp_pdu_time_lock:
+            lacp_by_member = {
+                str(member): list(timestamps)
+                for member, timestamps in self.lacp_pdu_timings_by_member.items()
+            }
         return self.fails, self.info, cli_data, log_data, {
-            "lacp_all": list(set(self.lacp_pdu_timings))
+            "lacp_by_member": lacp_by_member,
+            "reboot_boundary": self.reboot_lacp_boundary,
+            "capture_end": capture_end,
             }
 
     def extract_from_logs(self, regexp, data, min_timestamp=None):
@@ -301,7 +319,14 @@ class Sonic(host_device.HostDevice):
                     break
                 estab_time = result_bgp[ip][-1][0]
 
-        po_carrier_data = [k for k in data["teamd#teamd_PortChannel1"] if "carrier changed to" in k[1]]
+        # cSONiC's userspace-OVS LAG backend intentionally stops teamd, so
+        # there is no teamd_PortChannel1 log stream.  Absence of that optional
+        # log means there are no teamd carrier events to report; LACP packet
+        # timing and the OVS state checks remain the continuity signals.
+        po_carrier_data = [
+            event for event in data.get("teamd#teamd_PortChannel1", [])
+            if "carrier changed to" in event[1]
+        ]
 
         if len(po_carrier_data) > 0:
             # first state is down, last state is up
@@ -344,6 +369,18 @@ class Sonic(host_device.HostDevice):
         return 0, num_lag_flaps
 
     def parse_lacp(self, output):
+        if self.csonic_lag_backend == 'userspace_ovs':
+            statuses = [
+                status.strip()
+                for status in re.findall(r'^\s*status:\s*(.+)$', output, re.MULTILINE)
+            ]
+            members = [
+                state.strip()
+                for state in re.findall(r'^member:\s+\S+:\s+(.+)$', output, re.MULTILINE)
+            ]
+            return bool(statuses) and bool(members) \
+                and all(status == 'active negotiated' for status in statuses) \
+                and all(state == 'current attached' for state in members)
         return output.find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
@@ -414,7 +451,10 @@ class Sonic(host_device.HostDevice):
         return set(expects).issubset(prefixes)
 
     def parse_supported_show_lacp_command(self):
-        show_lacp_command = "show interface portchannel"
+        if self.csonic_lag_backend == 'userspace_ovs':
+            show_lacp_command = "sudo ovs-appctl -t ovs-vswitchd lacp/show"
+        else:
+            show_lacp_command = "show interface portchannel"
         self.log("show lacp command is '{}'".format(show_lacp_command))
         return show_lacp_command
 
@@ -541,6 +581,31 @@ class Sonic(host_device.HostDevice):
                     datetime.time(second=self.min_bgp_gr_timeout):
                 self.fails.add("graceful restart timer is almost finished. Less then %d seconds left"
                                % self.min_bgp_gr_timeout)
+
+    def check_ovs_lacp_series_status(self, output):
+        sorted_keys = sorted(output.keys())
+        if not output[sorted_keys[0]]["lacp"]:
+            self.fails.add("OVS LACP session must be up when the test starts")
+        down_count = 0
+        down_start = None
+        downtime = 0
+        previous = output[sorted_keys[0]]["lacp"]
+        for when in sorted_keys[1:]:
+            current = output[when]["lacp"]
+            if previous and not current:
+                down_count += 1
+                down_start = when
+            elif not previous and current and down_start is not None:
+                downtime += when - down_start
+                down_start = None
+            previous = current
+        if down_start is not None:
+            downtime += sorted_keys[-1] - down_start
+        if not output[sorted_keys[-1]]["lacp"]:
+            self.fails.add("OVS LACP session must be up when the test stops")
+        if down_count > 1:
+            self.info.add("OVS LACP session must be down just for once")
+        return down_count, downtime
 
     def check_series_status(self, output, entity, what):
         # find how long anything was down

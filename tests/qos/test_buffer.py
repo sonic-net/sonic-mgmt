@@ -56,6 +56,8 @@ LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED = False
 LOSSLESS_MTU = None
 SMALL_PACKET_PERCENTAGE = None
 
+SPECTRUM6_HEADROOM_COMPENSATION = 18 * 1024
+
 KEY_2_LOSSLESS_QUEUE = "2_lossless_queues"
 KEY_4_LOSSLESS_QUEUE = "4_lossless_queues"
 
@@ -499,6 +501,23 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
             pg for pg in lossless_pgs if pg[16:-4] in PORTS_WITH_8LANES]
         return len(lossless_pgs_8lane) * 2 * 9216
 
+    def _fetch_headroom_compensation_difference(duthost):
+        """Extra +2KB xoff per lossless PG when SHP is disabled."""
+        global LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED, SMALL_PACKET_PERCENTAGE
+        if not LOSSLESS_TRAFFIC_PATTERN_KEYS_LOADED:
+            detect_lossless_traffic_pattern_keys(duthost)
+        if SMALL_PACKET_PERCENTAGE == 100:
+            return 0
+
+        total = 0
+        for pg in duthost.shell('redis-cli keys "BUFFER_PG_TABLE:Ethernet*:3-4"')['stdout'].split():
+            if not pg:
+                continue
+            ok, data = mellanox_calculate_headroom_data(duthost, pg.split(':')[1])
+            if ok:
+                total += 2 * data.get('xoff_compensation', 0)
+        return total
+
     logging.debug("Kwargs {}".format(kwargs))
 
     if duthost.facts['asic_type'] == 'mellanox':
@@ -517,6 +536,8 @@ def check_pool_size(duthost, ingress_lossless_pool_oid, **kwargs):
                     expected_pool_size = expected_pool_size - \
                         _fetch_size_difference_for_8lane_ports(
                             duthost, conn_graph_facts_kwargs)
+                    expected_pool_size = expected_pool_size - \
+                        _fetch_headroom_compensation_difference(duthost)
                 expected_pool_size = expected_pool_size / DEFAULT_INGRESS_POOL_NUMBER
             else:
                 expected_shp_size = curr_shp_size * old_ratio / new_ratio
@@ -937,7 +958,7 @@ def mtu_to_test(request):
     return request.param
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def port_to_test(request, duthosts, rand_one_dut_hostname):
     """Used to parametrized test cases for port
 
@@ -1715,10 +1736,11 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell('config buffer shared-headroom-pool size 0')
         check_buffer_profiles_for_shp(duthost, shp_enabled=False)
     finally:
+        # The CLI removes the field on 0, which is how an unset original value is restored
         duthost.shell('config buffer shared-headroom-pool over-subscribe-ratio {}'.format(
-            original_over_subscribe_ratio), module_ignore_errors=True)
+            original_over_subscribe_ratio or '0'), module_ignore_errors=True)
         duthost.shell('config buffer shared-headroom-pool size {}'.format(
-            original_configured_shp_size), module_ignore_errors=True)
+            original_configured_shp_size or '0'), module_ignore_errors=True)
         duthost.shell('config interface cable-length {} {}'.format(port_to_test,
                       original_cable_len), module_ignore_errors=True)
         ensure_pool_size(duthost, 60, pool_size_before_shp,
@@ -3430,7 +3452,8 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     bytes_on_cable = 2 * (float(cable_length)) * port_speed * \
         1000000000 / speed_of_light / (8 * 1000)
 
-    if get_chip_type(duthost) in ["spectrum4", "spectrum5"]:
+    chip_type = get_chip_type(duthost)
+    if chip_type in ["spectrum4", "spectrum5"]:
         kb_on_tile = port_speed / 1000 * 120 / 8
     else:
         kb_on_tile = 0
@@ -3442,12 +3465,28 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     # Calculate the xoff and xon and then round up at 1024 bytes
     xoff_value = LOSSLESS_MTU + propagation_delay * byte_num_in_headroom_per_byte_on_cable
     xoff_value = math.ceil(xoff_value / 1024) * 1024
+
+    # Spectrum-6 requires additional headroom for ASIC packet-buffer accounting.
+    if chip_type == "spectrum6":
+        xoff_value += SPECTRUM6_HEADROOM_COMPENSATION
+
     xon_value = pipeline_latency
     xon_value = math.ceil(xon_value / 1024) * 1024
 
     if shp_enabled:
         headroom_size = xon_value
+        xoff_compensation = 0
     else:
+        # Compensate headroom calculated with a reduced small-packet percentage
+        # when it remains more than 2 kB below the worst case.
+        xoff_compensation = 0
+        if SMALL_PACKET_PERCENTAGE != 100:
+            headroom_compensation = 2 * 1024
+            full_small_packet_xoff = LOSSLESS_MTU + propagation_delay * worst_case_factor
+            full_small_packet_xoff = math.ceil(full_small_packet_xoff / 1024) * 1024
+            if xoff_value + headroom_compensation < full_small_packet_xoff:
+                xoff_value += headroom_compensation
+                xoff_compensation = headroom_compensation
         headroom_size = xoff_value + xon_value + speed_overhead
 
     headroom_size = math.ceil(headroom_size / 1024) * 1024
@@ -3455,6 +3494,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['size'] = int(headroom_size)
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
+    head_room_data['xoff_compensation'] = xoff_compensation
     return True, head_room_data
 
 

@@ -115,5 +115,6 @@ def setup_gnmi_streaming_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path
         yield
     finally:
         restore_gnmi_forpyclient(duthost, default_client_auth)
+        wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
         if not has_gnmi_config:
             delete_gnmi_config(duthost)

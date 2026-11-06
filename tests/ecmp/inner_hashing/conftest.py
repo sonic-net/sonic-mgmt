@@ -279,7 +279,7 @@ def symmetric_hashing(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     symmetric_hashing = False
 
-    if duthost.facts['asic_type'] in ["mellanox"]:
+    if duthost.facts['asic_type'] in ["mellanox", "vpp"]:
         symmetric_hashing = True
 
     return symmetric_hashing

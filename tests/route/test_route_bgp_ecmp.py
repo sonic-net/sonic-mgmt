@@ -74,6 +74,28 @@ def check_route(duthost, route, operation):
             pytest.fail("Route is not withdrawn")
 
 
+def get_exabgp_endpoints(tbinfo, default_nexthop):
+    props = tbinfo['topo']['properties']
+    data = props.get('convergence_data', {})
+    csonic_multi_vrf = (props.get('topo_is_multi_vrf', False)
+                        and data.get('vrf_name_mapping'))
+    if not csonic_multi_vrf:
+        return [
+            (EXABGP_BASE_PORT, default_nexthop),
+            (EXABGP_BASE_PORT + 1, default_nexthop),
+        ]
+
+    endpoints = []
+    for peer, offset in sorted(
+            data['vm_offset_mapping'].items(), key=lambda item: item[1]):
+        address = data['ptf_backplane_addrs'].get(peer, {}).get('ipv4')
+        if address:
+            endpoints.append((EXABGP_BASE_PORT + offset, address.split('/')[0]))
+        if len(endpoints) == 2:
+            break
+    return endpoints
+
+
 def test_route_bgp_ecmp(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
                         loganalyzer, setup_and_teardown):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
@@ -87,21 +109,26 @@ def test_route_bgp_ecmp(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostn
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
-    logger.info("ptf_ip = %s" % ptf_ip)
-    logger.info("nexthop = %s" % nexthop)
+    endpoints = get_exabgp_endpoints(tbinfo, nexthop)
+    if len(endpoints) < 2:
+        pytest.fail("BGP ECMP requires two ExaBGP IPv4 endpoints")
+    logger.info("ptf_ip = %s", ptf_ip)
+    logger.info("ExaBGP endpoints = %s", endpoints)
 
     try:
         logger.info("Announce route")
-        announce_route(ptf_ip, TEST_ROUTE, nexthop, EXABGP_BASE_PORT, TEST_AS_PATH)
-        announce_route(ptf_ip, TEST_ROUTE, nexthop, EXABGP_BASE_PORT + 1, TEST_AS_PATH)
+        for port, endpoint_nexthop in endpoints:
+            announce_route(
+                ptf_ip, TEST_ROUTE, endpoint_nexthop, port, TEST_AS_PATH)
         logger.info("Sleep 5 seconds and check if route is announced")
         time.sleep(5)
         check_route(duthost, TEST_ROUTE, ANNOUNCE)
 
     finally:
         logger.info("Withdraw route")
-        withdraw_route(ptf_ip, TEST_ROUTE, nexthop, EXABGP_BASE_PORT, TEST_AS_PATH)
-        withdraw_route(ptf_ip, TEST_ROUTE, nexthop, EXABGP_BASE_PORT + 1, TEST_AS_PATH)
+        for port, endpoint_nexthop in endpoints:
+            withdraw_route(
+                ptf_ip, TEST_ROUTE, endpoint_nexthop, port, TEST_AS_PATH)
         logger.info("Sleep 5 seconds and check if route is withdrawn")
         time.sleep(5)
         check_route(duthost, TEST_ROUTE, WITHDRAW)

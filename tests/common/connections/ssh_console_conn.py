@@ -1,6 +1,6 @@
 import time
 import re
-from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
+from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_CISCO_CONFIG, BaseConsoleConn, CONSOLE_SSH
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
@@ -279,6 +279,13 @@ class SSHConsoleConn(BaseConsoleConn):
         # Digi config menu has a unique prompt terminator (----->)
         if self.console_type == CONSOLE_SSH_DIGI_CONFIG:
             self.set_base_prompt(">")
+        elif self.console_type == CONSOLE_SSH_CISCO_CONFIG:
+            # Cisco IOS lands at '>' after login but may already be at '#'
+            # (leftover privileged session). set_base_prompt() only supports
+            # a single fixed terminator, so detect either here; elevation to
+            # '#' happens later in duthost_clear_console_port() if needed.
+            prompt = self.find_prompt(pattern=r"(?:>|\#|\$)")
+            self.base_prompt = prompt[:-1] if len(prompt) > 1 else prompt
         else:
             self.set_base_prompt()
 

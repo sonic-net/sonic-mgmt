@@ -12,11 +12,12 @@ from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY, \
     VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
 
 from .vnet_utils import generate_dut_config_files, safe_open_template, \
-    apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
+    apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes, \
+    start_ptf_vnet_arp_responder
 
 from tests.common.flow_counter.flow_counter_utils \
     import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa: F401
-from tests.common.arp_utils import set_up, tear_down, testWrArp
+from tests.common.arp_utils import set_up, tear_down, testWrArp as run_wr_arp
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,10 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
             duthost.shell(
                 "redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(attached_vlan, vlan_member))
 
-        apply_dut_config_files(duthost, vnet_test_params, num_routes)
+        if duthost.facts["asic_type"] == "vpp":
+            start_ptf_vnet_arp_responder(ptfhost, mg_facts, vnet_config,
+                                         "/tmp/vnet_arpresponder.conf")
+        apply_dut_config_files(duthost, vnet_test_params, num_routes, vnet_config)
         # Check arp table status in a loop with delay.
         pytest_assert(wait_until(120, 20, 10, is_neigh_reachable,
                       duthost, vnet_config), "Neighbor is unreachable")
@@ -164,7 +168,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     elif request.param == "WR_ARP":
         route, ptfIp, gwIp = set_up(duthost, ptfhost, tbinfo)
         try:
-            testWrArp(request, duthost, ptfhost, creds)
+            run_wr_arp(request, duthost, ptfhost, creds)
         finally:
             tear_down(duthost, route, ptfIp, gwIp)
 
@@ -224,7 +228,8 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         "dut_host": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host'],
         "vxlan_udp_sport": vnet_test_params[VXLAN_UDP_SPORT_KEY],
         "vxlan_udp_sport_mask": vnet_test_params[VXLAN_UDP_SPORT_MASK_KEY],
-        "vxlan_range_enable": vnet_test_params[VXLAN_RANGE_ENABLE_KEY]
+        "vxlan_range_enable": vnet_test_params[VXLAN_RANGE_ENABLE_KEY],
+        "is_vpp": duthost.facts["asic_type"] == "vpp"
         }
 
     if scenario == "Cleanup":

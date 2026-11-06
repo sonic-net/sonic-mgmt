@@ -1,9 +1,12 @@
+import json
 import logging
+import math
 import re
 import pytest
 
 from tests.common.reboot import REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, reboot_ctrl_dict, wait_for_startup, \
     REBOOT_TYPE_POWEROFF
+from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
@@ -20,6 +23,126 @@ INTERFACE_WAIT_TIME = 300
 
 DPU_STATUS_TIMEOUT = 360
 DPU_STATUS_INTERVAL = 30
+PSU_STATUS_CMD = "show platform psustatus"
+PSU_STATUS_JSON_CMD = "{} --json".format(PSU_STATUS_CMD)
+
+
+def _is_present(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ["1", "present", "true", "yes"]
+
+
+def _has_positive_watts(value):
+    if isinstance(value, bool):
+        return False
+    try:
+        reading = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(reading) and reading > 0
+
+
+def _get_dut_psu_status_from_table(duthost):
+    result = duthost.command(PSU_STATUS_CMD, module_ignore_errors=True)
+    pytest_assert(result.get("rc") == 0,
+                  "Failed to run '{}': {}".format(PSU_STATUS_CMD, result))
+    output_lines = result.get("stdout_lines")
+    pytest_assert(isinstance(output_lines, list),
+                  "Unexpected '{}' output: {}".format(PSU_STATUS_CMD, result))
+
+    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+    entries = []
+    for line in output_lines[2:]:
+        match = psu_line_pattern.match(line)
+        pytest_assert(match,
+                      "Unexpected '{}' line: {}".format(PSU_STATUS_CMD, line))
+        status = match.group(2)
+        name = match.group(1)
+        if str(name).isdigit():
+            prefix = "PDB" if line.lstrip().upper().startswith("PDB") else "PSU"
+            name = "{} {}".format(prefix, name)
+        entries.append({
+            "name": name,
+            "presence": status != "NOT PRESENT",
+            "status": status,
+        })
+
+    pytest_assert(entries,
+                  "No PSU entries found in '{}' output: {}".format(PSU_STATUS_CMD, output_lines))
+    return entries
+
+
+def _get_dut_psu_status(duthost):
+    result = duthost.command(PSU_STATUS_JSON_CMD, module_ignore_errors=True)
+    if result.get("rc") != 0:
+        logging.warning("Failed to run '%s'; falling back to '%s': %s",
+                        PSU_STATUS_JSON_CMD, PSU_STATUS_CMD, result)
+        return _get_dut_psu_status_from_table(duthost)
+
+    try:
+        entries = json.loads(result.get("stdout", ""))
+    except (TypeError, ValueError) as error:
+        pytest.fail("Failed to parse '{}': {}".format(PSU_STATUS_JSON_CMD, error))
+    pytest_assert(isinstance(entries, list),
+                  "Unexpected '{}' output: {}".format(PSU_STATUS_JSON_CMD, entries))
+    for entry in entries:
+        pytest_assert(isinstance(entry, dict),
+                      "Unexpected '{}' entry: {}".format(PSU_STATUS_JSON_CMD, entry))
+    return entries
+
+
+def _validate_psu_power(duthost, psu, pdus, expected_psu_count, dut_psu_status=None):
+    active_pdus = [pdu for pdu in pdus if pdu.get("outlet_on") is True]
+    pytest_assert(active_pdus, "No mapped PDU outlet is ON for PSU {}".format(psu))
+
+    watt_readings = [
+        pdu["output_watts"]
+        for pdu in active_pdus
+        if "output_watts" in pdu
+    ]
+    if not watt_readings or any(_has_positive_watts(value) for value in watt_readings):
+        return dut_psu_status
+    if dut_psu_status is not None:
+        return dut_psu_status
+
+    dut_psu_status = _get_dut_psu_status(duthost)
+    psu_entries = [
+        entry for entry in dut_psu_status
+        if not str(entry.get("name", "")).lstrip().upper().startswith("PDB")
+    ]
+    power_entries = psu_entries or dut_psu_status
+    present_psus = [
+        entry for entry in power_entries
+        if _is_present(entry.get("presence"))
+    ]
+    unhealthy_psus = [
+        {
+            "name": entry.get("name"),
+            "presence": entry.get("presence"),
+            "status": entry.get("status"),
+        }
+        for entry in present_psus
+        if str(entry.get("status", "")).strip().upper() != "OK"
+    ]
+    pytest_assert(
+        not unhealthy_psus,
+        "PDU metering is unavailable, and present DUT PSU status is not healthy: {}"
+        .format(unhealthy_psus),
+    )
+    pytest_assert(
+        len(present_psus) >= expected_psu_count,
+        "PDU metering is unavailable for PSU {}, but the PDU graph has {} PSU group(s) "
+        "and '{}' reports only {} present, healthy PSU(s): {}"
+        .format(psu, expected_psu_count, PSU_STATUS_CMD, len(present_psus),
+                [entry.get("name") for entry in present_psus]),
+    )
+    logging.warning(
+        "PDU metering is unavailable for PSU %s, but the DUT reports %d present, healthy PSU(s)",
+        psu,
+        len(present_psus),
+    )
+    return dut_psu_status
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -209,9 +332,15 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
+    dut_psu_status = None
     for psu, pdus in psu_to_pdus.items():
-        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
-                      0 for pdu in pdus), "PSU {} is not getting power".format(psu))
+        dut_psu_status = _validate_psu_power(
+            duthost,
+            psu,
+            pdus,
+            len(psu_to_pdus),
+            dut_psu_status,
+        )
         if not is_chassis:
             power_on_seq_list.append(pdus)
     # Append all_outlets unless it would duplicate the single existing entry

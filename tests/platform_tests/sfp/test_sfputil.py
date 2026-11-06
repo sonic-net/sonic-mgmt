@@ -721,11 +721,12 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
 
     namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    admin_up_ports = set(duthost.get_admin_up_ports())
     # TODO Remove this logic when minigraph facts supports namespace in multi_asic
-    up_ports = mg_facts["minigraph_ports"]
+    up_ports = {k: v for k, v in mg_facts["minigraph_ports"].items() if k in admin_up_ports}
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
-        up_ports = {k: v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
+        up_ports = {k: v for k, v in up_ports.items() if k in portmap}
     all_intf_up = wait_until(100, 10, 0, check_interfaces_up, duthost, namespace, up_ports)
     if not all_intf_up:
         intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]

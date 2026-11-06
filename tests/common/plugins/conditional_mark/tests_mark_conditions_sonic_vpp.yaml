@@ -93,13 +93,11 @@ configlet/test_add_rack.py::test_add_rack:
 #######################################
 #####           COPP              #####
 #######################################
-copp:
+copp/test_copp.py:
   skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
+    reason: "CoPP on VPP is currently validated only on the t1-lag topology"
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (topo_type != 't1' or topo_name != 't1-lag')"
 
 #######################################
 #####           Decap             #####
@@ -122,6 +120,16 @@ drop_packets/test_configurable_drop_counters.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
+
+#######################################
+#####          Dualtor            #####
+#######################################
+dualtor_io/test_normal_op.py::test_upstream_standby_rx_drop_check:
+  xfail:
+    reason: "VPP counts ACL drops, including the standby mux port ingress drop ACL, in RX_DRP.
+             See https://github.com/sonic-net/sonic-buildimage/issues/29335"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/29335 and asic_type in ['vpp']"
 
 #######################################
 #####          DUT Console        #####
@@ -532,17 +540,6 @@ snmp/test_snmp_psu.py:
 #####          Stress             #####
 #######################################
 stress/test_stress_routes.py::test_announce_withdraw_route:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####        Subport Interfaces   #####
-#######################################
-sub_port_interfaces/test_sub_port_l2_forwarding.py:
   skip:
     reason: >
             Failed/Errored: To be included

@@ -3,6 +3,7 @@ import json
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.cli.util import get_skip_mod_list
+from tests.common.helpers.sonic_db import get_chassis_db_address_from_dut
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh')
@@ -10,12 +11,7 @@ pytestmark = [
 
 
 def get_chassis_db_ip(duthost):
-    out = duthost.command("cat /etc/sonic/chassisdb.conf")['stdout_lines']
-    for line in out:
-        if "chassis_db_address" in line.split("="):
-            chassis_db_ip = line.split("=")[1]
-            break
-    return chassis_db_ip
+    return get_chassis_db_address_from_dut(duthost)
 
 
 def get_expected_num_thermals(duts, dutname=None):

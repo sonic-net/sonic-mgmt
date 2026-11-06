@@ -155,7 +155,7 @@ def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, log
     if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost, ignore_loganalyzer=loganalyzer)
+        config_reload(duthost, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module", autouse=True)

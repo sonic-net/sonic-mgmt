@@ -452,8 +452,9 @@ def wait_rsyslogd_restart(duthost, service_name, old_pid):
             time.sleep(1)
             continue
 
-        # Confirm rsyslog accepts messages before declaring success.
-        test_cmd = "docker exec -i {} bash -c 'echo test | logger -t rate-limit-test'".format(service_name)
+        # logger otherwise returns success when /dev/log is still missing during startup.
+        test_cmd = "docker exec -i {} bash -c 'echo test | logger --socket-errors=on -t rate-limit-test'".format(
+            service_name)
         result = duthost.command(test_cmd, module_ignore_errors=True)
         if result.get('rc', 1) != 0:
             logger.info('Rsyslog not ready yet, test log failed')

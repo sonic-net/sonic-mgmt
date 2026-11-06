@@ -443,6 +443,14 @@
       ptf_portchannel_action: start
     when: "'bmc' not in topo"
 
+  - name: Patch exabgp in PTF container
+    include_tasks: patch_exabgp.yml
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+      - not 'cable' in topo
+      - not 'bmc' in topo
+
   - name: Announce routes
     include_tasks: announce_routes.yml
     when:
@@ -465,7 +473,6 @@
 
   - name: Start tacacs+ daily daemon
     include_tasks: start_tacacs_daily_daemon.yml
-    when: not (ptf_use_docker_network | default(false))
 
   when: container_type == "PTF"
 

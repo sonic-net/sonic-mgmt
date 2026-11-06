@@ -347,8 +347,8 @@ class QosParamCisco(object):
         mantissa_len = 5
         exponent = max(thr.bit_length() - mantissa_len, 0)
         mantissa = thr >> exponent
-        if is_lossy and self.dutAsic in ["gr2"]:
-            # gr2 (not gr2x) lossy egress drop threshold is 1 off due to queue occupancy quantization
+        if is_lossy and self.dutAsic in ["gr2", "gr2x"]:
+            # gr2/gr2x lossy egress drop threshold is 1 off due to queue occupancy quantization
             mantissa += 1
         return mantissa, exponent
 

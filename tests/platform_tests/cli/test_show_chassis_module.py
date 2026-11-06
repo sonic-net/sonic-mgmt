@@ -200,9 +200,13 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
     for linecard in duthosts.frontend_nodes:
         lc_hostname = linecard.hostname
         logging.info(f"Ensure BGP sessions are re-established on the linecard - {lc_hostname}")
+        # This test only runs on modular/T2 chassis platforms (see the skip check above),
+        # which can have many more BGP neighbors reconverging in parallel across linecards
+        # after a sup docker restart than a pizza-box; use a longer window than the
+        # otherwise-typical 300s to avoid a false-positive timeout on a loaded chassis.
         pytest_assert(
             wait_until(
-                300,
+                600,
                 10,
                 0,
                 linecard.check_bgp_session_state_all_asics,

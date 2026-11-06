@@ -3,9 +3,22 @@
         "op": "add",
         "path": "/ACL_RULE",
         "value": {
-            "DYNAMIC_ACL_TABLE|NDP_RULE": {
+            "DYNAMIC_ACL_TABLE|RULE_9100": {
+                "PRIORITY": "900",
                 "IP_PROTOCOL": "58",
-                "PRIORITY": "897",
+                "ICMPV6_TYPE": "133",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_9101": {
+                "PRIORITY": "899",
+                "IP_PROTOCOL": "58",
+                "ICMPV6_TYPE": "135",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_9102": {
+                "PRIORITY": "898",
+                "IP_PROTOCOL": "58",
+                "ICMPV6_TYPE": "136",
                 "PACKET_ACTION": "FORWARD"
             }
         }

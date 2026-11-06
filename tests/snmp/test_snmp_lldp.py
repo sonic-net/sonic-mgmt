@@ -5,7 +5,8 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'uma', 'lma',
+                         'lt2', 'ft2', 'c0'),
     pytest.mark.device_type('vs')
 ]
 

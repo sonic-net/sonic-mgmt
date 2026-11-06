@@ -1,6 +1,13 @@
 csonic_image: "{{ lookup('env', 'SONIC_MGMT_CSONIC_DOCKER_IMAGE') | default('docker-sonic-vs', true) }}"
 csonic_image_pull: false
 
+# PortChannel implementation used inside cSONiC neighbors. Keep the existing
+# teamd path as the default; userspace_ovs removes the VM-host kernel's team
+# module requirement. The latter derives a local image containing OVS from
+# csonic_image during add-topo.
+csonic_lag_backend: "{{ lookup('env', 'SONIC_MGMT_CSONIC_LAG_BACKEND') | default('teamd', true) }}"
+csonic_userspace_ovs_image: "{{ csonic_image }}-userspace-ovs"
+
 # Net base container holds the network namespace that the cSONiC container
 # joins (network_mode: container:net_...). It only needs to stay alive and
 # carry net_admin; any maintained, small base image works.
