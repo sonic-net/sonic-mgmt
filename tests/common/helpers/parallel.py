@@ -1,3 +1,4 @@
+import copy
 import ansible
 import datetime
 import logging
@@ -218,12 +219,13 @@ def parallel_run(
             if init_result:
                 init_result["host"] = node.hostname
                 results[node.hostname] = init_result
-            kwargs['node'] = node
-            kwargs['results'] = results
+            process_kwargs = copy.deepcopy(kwargs)
+            process_kwargs['node'] = node
+            process_kwargs['results'] = results
             process_name = "{}--{}".format(target.__name__, node)
             worker = SonicProcess(
                         name=process_name, target=target, args=args,
-                        kwargs=kwargs
+                        kwargs=process_kwargs
                     )
             worker.start()
             tasks_running += 1
