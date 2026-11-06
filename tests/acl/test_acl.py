@@ -27,6 +27,7 @@ from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # no
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -252,6 +253,9 @@ def get_t2_info(duthosts, tbinfo):
     upstream_port_id_to_router_mac_map, downstream_port_id_to_router_mac_map = {}, {}
     downstream_port_ids, upstream_port_ids = [], []
     port_channels = dict()
+    # Standard T2 topologies use T3 uplinks, while isolated T2 topologies use PT1 peers.
+    # PT1 names also contain "T1", so classify upstream neighbors before downstream T1 neighbors.
+    upstream_neigh_type = get_upstream_neigh_type(tbinfo) or "T3"
 
     for duthost in duthosts:
         if duthost.is_supervisor_node():
@@ -269,14 +273,14 @@ def get_t2_info(duthosts, tbinfo):
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
-                    downstream_ports_per_dut[namespace].append(interface)
-                    downstream_port_ids.append(port_id)
-                    downstream_port_id_to_router_mac_map[port_id] = router_mac
-                elif "T3" in neighbor["name"]:
+                if upstream_neigh_type in neighbor["name"]:
                     upstream_ports_per_dut[namespace].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = router_mac
+                elif "T1" in neighbor["name"] or "LT2" in neighbor["name"]:
+                    downstream_ports_per_dut[namespace].append(interface)
+                    downstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = router_mac
                 mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
 
             port_channels[namespace] = mg_facts["minigraph_portchannels"]

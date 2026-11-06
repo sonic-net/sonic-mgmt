@@ -12,11 +12,12 @@ pytestmark = [
 ]
 
 FRR_USER_UID = '300'
-RESTRICTED_ACCESS_PORTS = ['2605', '2616']
-UID_RESTRICTED_PORTS = ['2601', '2620']
+RESTRICTED_ACCESS_PORTS = ['2601', '2605', '2616']
+UID_RESTRICTED_PORTS = ['2620']
 
 
 def generate_iptables_rule():
+    # Keep Zebra's TCP/2601 ACL rules as defense in depth without a listener.
     iptables_rules = []
     iptables_rules.append("-o lo -p tcp -m tcp --dport 2601 -j DROP")
     iptables_rules.append("-o lo -p tcp -m tcp --dport 2620 -j DROP")
@@ -50,12 +51,19 @@ def setup_iptables_rule(duthost, action="add"):
 def verify_daemon_tcp_ports(duthost):
     # Capture local address/port to verify restrictions
     netstat_outputs = duthost.shell("sudo netstat -tlnp |  awk '{print $4}'", module_ignore_errors=True)["stdout"]
+    listening_ports = set()
+    for address in netstat_outputs.splitlines():
+        # Split at the last colon to separate the port from an IPv4 or IPv6 address.
+        address_parts = address.rsplit(":", 1)
+        port = address_parts[-1]
+        listening_ports.add(port)
 
+    # Set membership compares complete port strings, so 26010 does not match 2601.
     for port in RESTRICTED_ACCESS_PORTS:
-        pytest_assert(port not in netstat_outputs, "port {} is accessable".format(port))
+        pytest_assert(port not in listening_ports, "port {} is accessable".format(port))
 
     for port in UID_RESTRICTED_PORTS:
-        pytest_assert(port in netstat_outputs, "port {} is not accessable".format(port))
+        pytest_assert(port in listening_ports, "port {} is not accessable".format(port))
 
 
 def verify_iptables_rules_exist(duthost):

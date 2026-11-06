@@ -1477,6 +1477,7 @@ platform_tests/test_cont_warm_reboot.py:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
       - "is_smartswitch==True"
 
 #######################################
@@ -1630,6 +1631,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "is_smartswitch==True"
       - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1657,6 +1659,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1741,10 +1744,10 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Skipped on mellanox and nvidia asic from 202411 and later / This test is not run on this topology currently"
+    reason: "Skipped on mellanox, nvidia, and cisco-8000 asic from 202411 and later / This test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'nvidia']"
+      - "asic_type in ['mellanox', 'nvidia', 'cisco-8000']"
       - "topo_type not in ['t0']"
 
 ##########################################
@@ -1755,6 +1758,15 @@ platform_tests/test_sfp_thermal_state_db.py:
     reason: "SFP thermal state DB test is not supported on BMC"
     conditions:
       - "'bmc' in topo_type"
+
+#######################################
+#####      test_tmpfiles.py        #####
+#######################################
+platform_tests/test_tmpfiles.py::test_tmpfiles_age_disabled:
+  skip:
+    reason: "These older SONiC releases predate the Debian 13 tmpfiles aging policy"
+    conditions:
+      - "release < '202511'"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####

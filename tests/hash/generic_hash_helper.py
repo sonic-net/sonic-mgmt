@@ -5,11 +5,13 @@ import logging
 import pytest
 import ipaddress
 import re
+import shlex
+from contextlib import contextmanager
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.conftest import get_testbed_metadata
+from tests.conftest import get_specified_duts, get_tbinfo, get_testbed_metadata
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa:F401
 from tests.common.dualtor.constants import UPPER_TOR
@@ -155,26 +157,131 @@ def mg_facts(rand_selected_dut, tbinfo):
     return mg_facts
 
 
+def running_config_matches(duthost, snapshot):
+    command = (
+        "import json, subprocess, sys; "
+        "saved = json.load(open(sys.argv[1])); "
+        "running = json.loads(subprocess.check_output(['sonic-cfggen', '-d', '--print-data'])); "
+        "print(saved == running)"
+    )
+    result = duthost.shell(f"python3 -c {shlex.quote(command)} {shlex.quote(snapshot)}")['stdout'].strip()
+    pytest_assert(result in ('True', 'False'), "Could not compare the hash test's running configuration.")
+    return result == 'True'
+
+
+def track_hash_interface(recovery, config, interface):
+    if recovery is None:
+        return
+    recovery['interfaces'].add(interface)
+    for portchannel, members in config.get('PORTCHANNEL_MEMBER', {}).items():
+        if interface == portchannel or interface in members:
+            recovery['interfaces'].add(portchannel)
+            recovery['members'].update(
+                (portchannel, member) for member in members if interface in (portchannel, member))
+
+
+def check_hash_interfaces(duthost, recovery):
+    for interface in sorted(recovery['interfaces']):
+        if not duthost.is_interface_status_up(interface):
+            logger.info("Hash test interface %s is not operationally up.", interface)
+            return False
+    for portchannel in sorted({portchannel for portchannel, _ in recovery['members']}):
+        ports = duthost.get_port_channel_status(portchannel).get('ports', {})
+        for pc, member in sorted(recovery['members']):
+            if pc != portchannel:
+                continue
+            state = ports.get(member, {})
+            if state.get('link', {}).get('up') is not True or state.get('runner', {}).get('selected') is not True:
+                logger.info("Hash test member %s is not linked and selected in %s.", member, portchannel)
+                return False
+    return True
+
+
+@contextmanager
+def preserve_hash_config(duthost, loganalyzer=None, preserve_running=True):
+    """Keep private, reboot-persistent snapshots of running and saved configuration."""
+    initial_hash_config = get_global_hash_config(duthost)
+    if not preserve_running:
+        try:
+            yield
+        finally:
+            restore_hash_config(duthost, initial_hash_config)
+        return
+    backup_dir = duthost.shell("mktemp -d /host/generic-hash.XXXXXX")['stdout'].strip()
+    saved = shlex.quote(f"{backup_dir}/config_db.json")
+    running = f"{backup_dir}/running.json"
+    duthost.shell(f"cp -p /etc/sonic/config_db.json {saved} && "
+                  f"sonic-cfggen -d --print-data > {shlex.quote(running)}")
+    recovery = {'interfaces': set(), 'members': set(), 'failed': False}
+    try:
+        yield recovery
+    except BaseException:
+        recovery['failed'] = True
+        raise
+    finally:
+        try:
+            try:
+                restore_hash_config(duthost, initial_hash_config)
+            finally:
+                # Deleting hash fields is unsupported by orchagent. Reload the original
+                # running config to restore absent fields and failed operational recovery.
+                needs_reload = not running_config_matches(duthost, running)
+                if recovery['interfaces']:
+                    needs_reload = needs_reload or recovery['failed'] or not wait_until(
+                        30, 2, 0, check_hash_interfaces, duthost, recovery)
+                if needs_reload:
+                    duthost.shell(f"cp {shlex.quote(running)} /etc/sonic/config_db.json")
+                    # Scope expected service-restart logs to recovery, not the test.
+                    config_reload(duthost, safe_reload=True, check_intf_up_ports=True,
+                                  ignore_loganalyzer=loganalyzer)
+                    pytest_assert(running_config_matches(duthost, running),
+                                  f"Hash test configuration was not restored; snapshots remain in {backup_dir}.")
+                    if recovery['interfaces']:
+                        pytest_assert(wait_until(120, 2, 0, check_hash_interfaces, duthost, recovery),
+                                      f"Hash test interfaces/members were not restored; "
+                                      f"snapshots remain in {backup_dir}.")
+        finally:
+            duthost.shell(f"cp -p {saved} /etc/sonic/config_db.json && "
+                          f"cmp -s {saved} /etc/sonic/config_db.json")
+        duthost.shell(f"rm {saved} {shlex.quote(running)} && rmdir {shlex.quote(backup_dir)}")
+        logger.info("Restored the initial running configuration and exact saved config_db.json.")
+
+
+def restore_hash_config(duthost, initial_hash_config):
+    ecmp_fields, ecmp_algorithm, lag_fields, lag_algorithm = initial_hash_config
+    if ecmp_fields:
+        duthost.set_switch_hash_global('ecmp', ecmp_fields)
+    if lag_fields:
+        duthost.set_switch_hash_global('lag', lag_fields)
+    if ecmp_algorithm and ecmp_algorithm != 'N/A':
+        duthost.set_switch_hash_global_algorithm('ecmp', ecmp_algorithm)
+    if lag_algorithm and lag_algorithm != 'N/A':
+        duthost.set_switch_hash_global_algorithm('lag', lag_algorithm)
+
+
 @pytest.fixture(scope='function', autouse=True)
-def restore_init_hash_config(rand_selected_dut):
-    """ Fixture to restore the initial generic hash configurations after the test. """
-    logger.info("Store the initial generic hash configurations")
-    init_ecmp_hash_fields, init_ecmp_hash_algo, init_lag_hash_fields, init_lag_hash_algo = \
-        get_global_hash_config(rand_selected_dut)
-    yield
-    if init_ecmp_hash_fields:
-        rand_selected_dut.set_switch_hash_global('ecmp', init_ecmp_hash_fields)
-    if init_lag_hash_fields:
-        rand_selected_dut.set_switch_hash_global('lag', init_lag_hash_fields)
-    if init_ecmp_hash_algo and init_ecmp_hash_algo != 'N/A':
-        rand_selected_dut.set_switch_hash_global_algorithm('ecmp', init_ecmp_hash_algo)
-    if init_lag_hash_algo and init_lag_hash_algo != 'N/A':
-        rand_selected_dut.set_switch_hash_global_algorithm('lag', init_lag_hash_algo)
-    logger.info("The initial generic hash configurations have been restored.")
+def restore_init_hash_config(rand_selected_dut, loganalyzer, tbinfo, request):
+    preserve_running = rand_selected_dut.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag'
+    if preserve_running:
+        validate_vpp_hash_metadata(get_testbed_metadata(request), get_specified_duts(request))
+        # Collection generates unselected functions too; validate only the executing reboot case.
+        if 'reboot_type' in request.fixturenames:
+            reboot_type = request.getfixturevalue('reboot_type')
+            if reboot_type not in VPP_SUPPORTED_REBOOT_TYPES:
+                pytest.fail(f"Invalid value of the '--reboot' option for VPP: {reboot_type!r}. "
+                            f"Supported reboot types: {', '.join(VPP_SUPPORTED_REBOOT_TYPES)}.")
+    with preserve_hash_config(rand_selected_dut, loganalyzer, preserve_running=preserve_running) as recovery:
+        try:
+            yield recovery
+        finally:
+            # Pytest reports call failures separately instead of throwing them into fixture generators.
+            report = getattr(request.node, 'rep_call', None) if preserve_running else None
+            if recovery is not None and report is not None and report.failed:
+                recovery['failed'] = True
 
 
 @pytest.fixture(scope='function')
-def reload(rand_selected_dut):
+def reload(rand_selected_dut, restore_init_hash_config):
     """ Fixture to do the config reload after the test. """
     yield
     config_reload(rand_selected_dut, safe_reload=True)
@@ -213,7 +320,7 @@ def restore_configuration(rand_selected_dut):
 
 
 @pytest.fixture(scope='function')
-def restore_interfaces(rand_selected_dut):
+def restore_interfaces(rand_selected_dut, restore_init_hash_config):
     """ Fixture to startup interfaces after the flap test in case the test fails and some
         interfaces are shutdown during the test. The interfaces to start are from a global variable """
 
@@ -406,6 +513,31 @@ def check_vpp_fib_paths(duthost, expected_path_count, destination='0.0.0.0/0'):
     return False
 
 
+def check_vpp_nexthop_paths(duthost, tbinfo, expected_path_count, ip_version):
+    """Check resolved forwarding paths, not the uRPF list, around a nexthop flap."""
+    if duthost.facts['asic_type'] != 'vpp' or tbinfo['topo']['name'] != 't1-lag':
+        return check_vpp_fib_paths(duthost, expected_path_count)
+    pytest_assert(ip_version in ('ipv4', 'ipv6'), f"Unsupported VPP hash IP version: {ip_version}")
+    cli, destination = ('ip6', '::/0') if ip_version == 'ipv6' else ('ip', '0.0.0.0/0')
+    result = duthost.shell(f"docker exec syncd vppctl show {cli} fib {destination}", module_ignore_errors=True)
+    if result['rc'] != 0:
+        return False
+    sections = result['stdout'].split('forwarding:')
+    if len(sections) != 2:
+        logger.info("Expected one VPP forwarding section for %s.", destination)
+        return False
+    buckets = re.findall(r'^\s+\[\d+(?:-\d+)?\]\s+\[@\d+\]: (.+)$', sections[1], re.MULTILINE)
+    paths = [re.fullmatch(rf'{ip_version} via (\S+) ([^:\s]+):.*', bucket) for bucket in buckets]
+    if not paths or not all(paths):
+        logger.info("VPP %s has missing, unresolved or non-adjacency forwarding buckets: %s", destination, buckets)
+        return False
+    # VPP can replicate an adjacency across buckets; replicas are not additional nexthops.
+    nexthops = {(path.group(1), path.group(2)) for path in paths}
+    logger.info("VPP %s: expected %d resolved nexthops, got %d: %s",
+                destination, expected_path_count, len(nexthops), sorted(nexthops))
+    return len(nexthops) == expected_path_count
+
+
 def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     """
     Get the ptf port indices for the interfaces under test.
@@ -431,7 +563,18 @@ def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     return sending_ports, expected_port_groups
 
 
-def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
+def ignore_expected_vpp_link_churn(duthost, tbinfo, loganalyzer, interfaces):
+    if not loganalyzer or duthost.facts['asic_type'] != 'vpp' or tbinfo['topo']['name'] != 't1-lag':
+        return
+    # The shared VS netlink listener sees Linux-CP TAP names outside its lane map.
+    # Match only this known message for ports deliberately disrupted by this test.
+    for interface in interfaces:
+        loganalyzer[duthost.hostname].ignore_regex.append(
+            rf".*syncd.*syncOnLinkMsg: skipping newlink for {re.escape(interface)}, name not found in map\]?$")
+    logger.info("Expect VPP hostif link-churn messages only for disrupted ports: %s", interfaces)
+
+
+def flap_interfaces(duthost, interfaces, portchannels=[], times=3, tbinfo=None, recovery=None):
     """
     Flap the specified interfaces. Assert when any of the interfaces is not up after the flapping.
     Args:
@@ -441,10 +584,13 @@ def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
         times: flap times, every interface will be shutdown/startup for the value number times
     """
     logger.info(f"Flap the interfaces {interfaces} for {times} times.")
+    target = tbinfo and duthost.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag'
+    if target and recovery is None:
+        recovery = {'interfaces': set(), 'members': set()}
     # Flap the interface
     for _ in range(times):
         for interface in interfaces:
-            shutdown_interface(duthost, interface)
+            shutdown_interface(duthost, interface, tbinfo=tbinfo, recovery=recovery)
             startup_interface(duthost, interface)
     # Check the interfaces status are up
     for interface in interfaces:
@@ -453,9 +599,12 @@ def flap_interfaces(duthost, interfaces, portchannels=[], times=3):
     for portchannel in portchannels:
         pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, portchannel),
                       f"The portchannel {portchannel} is not up after the flapping.")
+    if target:
+        pytest_assert(wait_until(30, 2, 0, check_hash_interfaces, duthost, recovery),
+                      "Disrupted interfaces/members are not up and selected after the flapping.")
 
 
-def remove_add_portchannel_member(duthost, interface, portchannel):
+def remove_add_portchannel_member(duthost, interface, portchannel, tbinfo=None, recovery=None):
     """
     Remove and then add the specified members. Assert when any of the interfaces is not up after the remove/add.
     Args:
@@ -464,9 +613,27 @@ def remove_add_portchannel_member(duthost, interface, portchannel):
         portchannel: the portchannel which the member belongs to
     """
     logger.info(f"Remove the member {interface} from the portchannel {portchannel}.")
-    duthost.shell(f"config portchannel member del {portchannel} {interface}")
-    logger.info(f"Add back {interface} to {portchannel}.")
-    duthost.shell(f"config portchannel member add {portchannel} {interface}")
+    if tbinfo and duthost.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag':
+        config = duthost.get_running_config_facts()
+        pytest_assert(
+            interface in config.get('PORTCHANNEL_MEMBER', {}).get(portchannel, {}),
+            f"{interface} is not initially a member of {portchannel}.")
+        if recovery is None:
+            recovery = {'interfaces': set(), 'members': set()}
+        track_hash_interface(recovery, config, interface)
+        try:
+            duthost.shell(f"config portchannel member del {portchannel} {interface}")
+        finally:
+            members = duthost.get_running_config_facts().get('PORTCHANNEL_MEMBER', {}).get(portchannel, {})
+            if interface not in members:
+                logger.info(f"Add back {interface} to {portchannel}.")
+                duthost.shell(f"config portchannel member add {portchannel} {interface}")
+        pytest_assert(wait_until(30, 2, 0, check_hash_interfaces, duthost, recovery),
+                      f"The member {interface} is not up and selected in {portchannel} after remove/add.")
+    else:
+        duthost.shell(f"config portchannel member del {portchannel} {interface}")
+        logger.info(f"Add back {interface} to {portchannel}.")
+        duthost.shell(f"config portchannel member add {portchannel} {interface}")
     # Check the portchannel is up
     pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, portchannel),
                   f"The portchannel {portchannel} is not up after the member remove/add.")
@@ -571,6 +738,17 @@ def get_updated_balancing_test_times_and_range(uplink_interfaces):
     return balancing_test_times, balancing_range
 
 
+def validate_vpp_hash_metadata(metadata, duts):
+    if not metadata or not duts or any(
+            not metadata.get(dut, {}).get('asic_type') for dut in duts):
+        pytest.fail("Missing ASIC metadata for the selected DUTs. Run "
+                    "test_pretest.py::test_update_testbed_metadata before running VPP t1-lag hash tests.")
+    asic_types = {metadata[dut]['asic_type'] for dut in duts}
+    if asic_types != {'vpp'}:
+        pytest.fail(f"VPP t1-lag hash tests require vpp metadata for selected DUTs, got {sorted(asic_types)}. "
+                    "Run test_pretest.py::test_update_testbed_metadata to refresh the metadata.")
+
+
 def get_asic_type(request):
     metadata = get_testbed_metadata(request)
     if metadata is None:
@@ -579,7 +757,13 @@ def get_asic_type(request):
         logger.warning("Using the default hash capabilities for asic type is unknown.")
         asic_type = 'unknown'
     else:
-        # Always get the asic type from the first dut
+        _, tbinfo = get_tbinfo(request)
+        if tbinfo['topo']['name'] == 't1-lag':
+            duts = get_specified_duts(request)
+            if any(metadata.get(dut, {}).get('asic_type') == 'vpp' for dut in duts):
+                validate_vpp_hash_metadata(metadata, duts)
+                return 'vpp'
+        # Preserve legacy collection outside known VPP t1-lag; do not query a DUT here.
         dut_info = metadata[list(metadata.keys())[0]]
         asic_type = dut_info.get('asic_type', "")
     return asic_type
@@ -697,8 +881,6 @@ def get_reboot_type_from_option(request, reboot_option):
         return supported_reboot_types[:]
     elif reboot_option == 'random':
         return [random.choice(supported_reboot_types)]
-    elif reboot_option in supported_reboot_types:
-        return [reboot_option]
     else:
         return [reboot_option]
 
@@ -796,15 +978,25 @@ def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_inte
     time.sleep(10)
 
 
-def shutdown_interface(duthost, interface):
+def shutdown_interface(duthost, interface, tbinfo=None, recovery=None):
     """
     Shutdown interface and add it to the global variable.
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
         interface: interface to shutdown
     """
-    duthost.shutdown(interface)
-    interfaces_to_startup.append(interface)
+    if tbinfo and duthost.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag':
+        config = duthost.get_running_config_facts()
+        table = 'PORTCHANNEL' if interface.startswith('PortChannel') else 'PORT'
+        pytest_assert(config.get(table, {}).get(interface, {}).get('admin_status') == 'up',
+                      f"Refusing to flap initially administratively down interface {interface}.")
+        track_hash_interface(recovery, config, interface)
+        if interface not in interfaces_to_startup:
+            interfaces_to_startup.append(interface)
+        duthost.shutdown(interface)
+    else:
+        duthost.shutdown(interface)
+        interfaces_to_startup.append(interface)
 
 
 def startup_interface(duthost, interface):
@@ -826,6 +1018,15 @@ def get_vlan_intf_mac(duthost):
     return vlan_intf_mac
 
 
+def get_hash_balance_expectations(asic_type, topology, hash_field, ecmp_hash, lag_hash):
+    if asic_type == 'vpp' and topology == 't1-lag' and hash_field == 'IP_PROTOCOL' and lag_hash:
+        pytest_assert(ecmp_hash, "VPP does not support LAG balancing with IP_PROTOCOL alone.")
+        logger.info("VPP IP_PROTOCOL: validate ECMP balance and exactly one receiving member per LAG, "
+                    "not LAG balance. SAI advertises one shared field list for both operations.")
+        return True, False
+    return ecmp_hash, lag_hash
+
+
 def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipver, encap_type, uplink_interfaces,
                          downlink_interfaces, ecmp_hash, lag_hash, is_l2_test=False):
     """
@@ -843,6 +1044,8 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         encap_type: the encapsulation type when testing inner fields
         is_l2_test: if L2 traffic is should be used in test
     """
+    ecmp_hash, lag_hash = get_hash_balance_expectations(
+        duthost.facts['asic_type'], tbinfo['topo']['name'], hash_field, ecmp_hash, lag_hash)
     src_ip_range, dst_ip_range, inner_src_ip_range, inner_dst_ip_range = get_ip_range(ipver, inner_ipver)
     # Get the ptf src and dst ports
     ptf_sending_ports, ptf_expected_port_groups = get_ptf_port_indices(
@@ -870,6 +1073,11 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
                   "ecmp_hash": ecmp_hash,
                   "lag_hash": lag_hash,
                   "is_l2_test": is_l2_test}
+    if duthost.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag' and hash_field == 'IP_PROTOCOL':
+        ptf_params['protocol_domain_validation'] = True
+    if (duthost.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag'
+            and hash_field in ('SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT') and ecmp_hash and lag_hash):
+        ptf_params['require_all_expected_ports'] = True
     if "INNER" in hash_field:
         ptf_params['inner_ipver'] = inner_ipver
         ptf_params['inner_src_ip_range'] = ",".join(inner_src_ip_range)

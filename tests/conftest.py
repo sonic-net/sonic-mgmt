@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+import argparse
 import enum
 import os
 import json
@@ -64,10 +65,14 @@ from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
+from tests.common.sonic_inventory import get_sonic_neighbor_vars
+from tests.common.sonic_inventory import register_neighbor_inventory_host
 from tests.common.utilities import safe_filename
+from tests.common.utilities import flush_permanent_neighbors
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
+    select_proxy_env, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
     get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
@@ -104,6 +109,16 @@ from ptf.mask import Mask
 
 from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
 from tests.common.helpers.yang_utils import run_yang_validation
+
+
+def _csonic_lacp_multiplier(value):
+    try:
+        multiplier = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be an integer from 1 to 255")
+    if not 1 <= multiplier <= 255:
+        raise argparse.ArgumentTypeError("cSONiC LACP multiplier must be from 1 to 255")
+    return multiplier
 
 
 logger = logging.getLogger(__name__)
@@ -183,9 +198,12 @@ def pytest_addoption(parser):
                      choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
-    # ceos neighbor lacp multiplier
+    # neighbor LACP receive multipliers used during advanced reboot
     parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
                      help="LACP multiplier for ceos neighbors")
+    parser.addoption("--csonic_neighbor_lacp_multiplier", action="store", default=3,
+                     type=_csonic_lacp_multiplier,
+                     help="LACP receive multiplier (1-255) for cSONiC userspace OVS neighbors")
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
@@ -485,19 +503,77 @@ def converge_topo_if_needed(config):
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
 
-        # The converged (multi-VRF) peer model is implemented for cEOS neighbors
-        # only (see ansible/testbed-cli.sh::converge_topo_if_needed and the
-        # cEOS startup-config templates). For SONiC-VS / cisco / csonic
-        # neighbors there is no converged render path, so reshaping the in-memory
-        # topology here would make tbinfo disagree with the actually-deployed
-        # (unconverged) testbed. Gate on neighbor_type so non-cEOS runs keep the
-        # historical, byte-identical behavior.
+        # cSONiC has a separate T0-only converger. Keep the cEOS path below
+        # unchanged; the pytest option defaults to eos, so infer cSONiC from the
+        # testbed only when the command line did not explicitly select a backend.
+        requested_neighbor_type = config.getoption("--neighbor_type")
+        neighbor_type_overridden = any(
+            arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+            for arg in config.invocation_params.args
+        )
+        is_csonic = requested_neighbor_type == "csonic" or (
+            not neighbor_type_overridden and tb_config.get('vm_type') == "csonic"
+        )
+        if is_csonic:
+            topo_name = tb_config.get('topo', '').strip()
+            if topo_name != "t0":
+                logger.info(
+                    "cSONiC converged peers currently support topo=t0 only; "
+                    f"skipping topo='{topo_name}'")
+                return
+
+            logger.info(
+                f"use_converged_peers=True for cSONiC testbed '{tbname}', "
+                "starting converge...")
+            tests_dir = os.path.dirname(os.path.abspath(__file__))
+            ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+            vars_dir = os.path.join(ansible_dir, "vars")
+            topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+            backup_file = f"{topo_file}.bak"
+
+            if not os.path.exists(topo_file):
+                logger.warning(f"Topo file not found: {topo_file}")
+                return
+
+            original_stat = os.stat(topo_file)
+            original_mode = original_stat.st_mode
+            original_uid = original_stat.st_uid
+            original_gid = original_stat.st_gid
+
+            if os.path.exists(backup_file):
+                logger.info("Backup file exists, recovering original topo file")
+                shutil.copy(backup_file, topo_file)
+            else:
+                logger.info(f"Creating backup: {backup_file}")
+                shutil.copy(topo_file, backup_file)
+
+            converger_path = os.path.join(ansible_dir, "csonic_topo_converger.py")
+            spec = importlib.util.spec_from_file_location(
+                "csonic_topo_converger", converger_path)
+            csonic_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(csonic_module)
+
+            csonic_module.converge_testbed(backup_file, topo_file)
+            logger.info(f"cSONiC topology '{topo_name}' converged successfully")
+
+            os.chmod(topo_file, original_mode)
+            os.chown(topo_file, original_uid, original_gid)
+            logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+            config.cache.set("converged_topo_file", topo_file)
+            config.cache.set("converged_topo_backup", backup_file)
+            return
+
+        # cSONiC T0 is handled by its dedicated branch above. Keep this existing
+        # cEOS path strict: SONiC-VS and cisco neighbors have no equivalent
+        # renderer, so changing tbinfo for them would disagree with the deployed
+        # unconverged peers.
         neighbor_type = config.getoption("--neighbor_type")
         if neighbor_type not in ("eos", "ceos"):
             logger.info(
                 f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
-                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
-                f"model is cEOS-only)")
+                f"'{neighbor_type}' is not eligible for the cEOS convergence path; "
+                "skipping converge")
             return
 
         logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
@@ -1185,12 +1261,42 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             # SSH-based SONiC family (sonic, vsonic) to SonicHost.
             vm_set_name = tbinfo.get('group-name', '')
             container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {
+                    'vrf': data['vrf_name_mapping'][neighbor_name],
+                    'logical_peer': neighbor_name,
+                    'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                    'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                    'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                    'primary_host': multi_vrf_primary_host,
+                    'primary_host_asn': primary_asn,
+                    'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                    'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                    'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name]),
                 }
-            )
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(
+                            container_name,
+                            bgp_vrf=multi_vrf_data['vrf'],
+                            intf_map=multi_vrf_data['orig_intf_map'],
+                            bgp_prime_asn=multi_vrf_data['primary_host_asn'],
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                        'is_multi_vrf_peer': True,
+                        'multi_vrf_data': multi_vrf_data,
+                    }
+                )
+            else:
+                device = NeighborDevice(
+                    {
+                        'host': CsonicHost(container_name),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
@@ -1217,7 +1323,11 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
             )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
+        # Keep the real Ansible inventory hostname. For converged cSONiC,
+        # CsonicHost.hostname identifies the logical peer as container:VRF and
+        # therefore cannot be used for Ansible inventory variable lookup.
+        register_neighbor_inventory_host(
+            devices, neighbor_name, device, vm_name)
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     servers = []
@@ -1475,11 +1585,18 @@ def eos():
 
 
 @pytest.fixture(scope='session')
-def sonic():
-    """ read and yield sonic configuration """
-    with open('sonic/sonic.yml') as stream:
-        eos = yaml.safe_load(stream)
-        return eos
+def sonic(request):
+    """Return SONiC settings visible to a specific neighbor inventory host."""
+    inv_files = get_inventory_files(request)
+
+    def _neighbor_vars(nbrhosts, neighbor_name):
+        try:
+            return get_sonic_neighbor_vars(
+                inv_files, nbrhosts, neighbor_name, get_host_visible_vars)
+        except ValueError as error:
+            pytest.fail(str(error))
+
+    return _neighbor_vars
 
 
 @pytest.fixture(scope='session')
@@ -1491,8 +1608,8 @@ def pdu(ansible_root):
 
 
 @pytest.fixture(scope="session")
-def creds(duthost):
-    return creds_on_dut(duthost)
+def creds(duthost, ipv6_only_mgmt_enabled):
+    return select_proxy_env(creds_on_dut(duthost), ipv6_only_mgmt_enabled)
 
 
 @pytest.fixture(scope="session")
@@ -1529,10 +1646,13 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo, ansible_root):
 
 
 @pytest.fixture(scope='module')
-def creds_all_duts(duthosts):
+def creds_all_duts(duthosts, ipv6_only_mgmt_enabled):
     creds_all_duts = dict()
     for duthost in duthosts.nodes:
-        creds_all_duts[duthost.hostname] = creds_on_dut(duthost)
+        creds_all_duts[duthost.hostname] = select_proxy_env(
+            creds_on_dut(duthost),
+            ipv6_only_mgmt_enabled
+        )
     return creds_all_duts
 
 
@@ -1737,7 +1857,7 @@ def clear_neigh_entries(duthosts, tbinfo):
 
     if 'dualtor' in tbinfo['topo']['name']:
         for dut in duthosts:
-            dut.command("sudo ip neigh flush nud permanent")
+            flush_permanent_neighbors(dut)
 
 
 @pytest.fixture(scope="module")
@@ -2106,6 +2226,14 @@ def generate_port_lists(request, port_scope, with_completeness_level=False):
         if 'intf_status' not in val:
             continue
         for intf, status in list(val['intf_status'].items()):
+            # Skip internal ports (recirculation / inband / backplane). They
+            # match the 'Ethernet' scope (e.g. 'Ethernet-Rec0', 'Ethernet-IB0',
+            # 'Ethernet-BP0') and can be oper/admin up, but they are not
+            # front-panel test ports and have no fanout/TGEN mapping, so tests
+            # that pick one (e.g. via rand_one_dut_portname_oper_up) fail to
+            # resolve a port id.
+            if intf.startswith(("Ethernet-Rec", "Ethernet-IB", "Ethernet-BP")):
+                continue
             if scope in intf and (not state or status[state] == 'up'):
                 dut_port_pairs.append(encode_dut_port_name(dut, intf))
         dut_port_map[dut] = dut_port_pairs

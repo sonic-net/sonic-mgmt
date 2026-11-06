@@ -3081,13 +3081,17 @@ class QosSaiBase(QosBase):
                         saiQosTest = "sai_qos_tests.ARPpopulate"
 
         if saiQosTest:
-            testParams = dutTestParams["basicParams"]
+            testParams = dict(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"],
-                "ip_type": ip_type
+                "ip_type": ip_type,
+                # On t2-family topologies ARPpopulate pings from the DUT and needs to know
+                # whether either side is multi-asic to pick the right network namespace.
+                "src_is_multi_asic": get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic,
+                "dst_is_multi_asic": get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams

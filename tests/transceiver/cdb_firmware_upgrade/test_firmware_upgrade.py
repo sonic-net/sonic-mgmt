@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def test_firmware_upgrade_distinct_version(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
+    port_peers,
 ):
     """Upgrade every qualifying module to the fully distinct firmware version."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -22,6 +22,7 @@ def test_firmware_upgrade_distinct_version(
         firmware_operations.distinct_version_upgrade_op,
         lport_to_first_subport_mapping,
         verify_post_operation=True,
+        port_peers=port_peers,
     )
     logger.info("Firmware upgrade to distinct version exercised %d port(s)", num_ports)
     if all_failures:
@@ -31,7 +32,7 @@ def test_firmware_upgrade_distinct_version(
 def test_firmware_upgrade_stress(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
+    port_peers,
 ):
     """Verify repeated full firmware upgrades succeed without drift."""
     all_failures, num_ports = firmware_operations.execute_on_ports(
@@ -41,6 +42,7 @@ def test_firmware_upgrade_stress(
         firmware_operations.upgrade_stress_op,
         lport_to_first_subport_mapping,
         verify_post_operation=True,
+        port_peers=port_peers,
     )
     logger.info("Firmware upgrade stress exercised %d port(s)", num_ports)
     if all_failures:
@@ -50,7 +52,7 @@ def test_firmware_upgrade_stress(
 def test_firmware_upgrade_from_old_gold(
     duthost, port_attributes_dict, cdb_firmware_qualifying_ports, get_lport_to_pport_mapping,
     required_firmware_metadata_for_all_transceivers, lport_to_first_subport_mapping,
-    dom_polling_disabled,
+    port_peers,
 ):
     """Downgrade to the old gold firmware, then upgrade to the current gold."""
     old_gold_firmware_ports = [
@@ -69,6 +71,7 @@ def test_firmware_upgrade_from_old_gold(
         firmware_operations.old_gold_upgrade_op,
         lport_to_first_subport_mapping,
         verify_post_operation=True,
+        port_peers=port_peers,
     )
     logger.info("Old-gold to gold firmware upgrade exercised %d port(s)", num_ports)
     if all_failures:

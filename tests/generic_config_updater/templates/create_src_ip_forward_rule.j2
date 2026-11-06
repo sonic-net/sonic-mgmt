@@ -1,0 +1,13 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|RULE_1": {
+                "SRC_IP": "{{ ipv4_subnet }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]

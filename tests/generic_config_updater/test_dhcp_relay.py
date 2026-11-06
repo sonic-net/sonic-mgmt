@@ -161,8 +161,12 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
             "dhcp relay info should be the same after rollback"
         )
 
-        logger.info("Rolled back to original checkpoint")
-        rollback_or_reload(duthost)
+        try:
+            # Rollback restarts relay asynchronously; wait before removing its VLANs.
+            wait_dhcp_relay_ready(duthost, ['isc'])
+        finally:
+            logger.info("Rolled back to original checkpoint")
+            rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
         delete_checkpoint(duthost)

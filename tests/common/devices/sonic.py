@@ -51,6 +51,7 @@ class ConsoleLineStatus(TypedDict):
 
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
+    "nbrmgrd": "swss",
     "orchagent": "swss",
     "syncd": "syncd"
 }
@@ -573,7 +574,11 @@ class SonicHost(AnsibleHostBase):
                   ' && cat /etc/supervisor/critical_processes"'.format(service)
 
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+        response = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)
+        if response.get('unreachable') or not isinstance(response.get('results'), list):
+            raise RuntimeError("Unable to read critical process definitions on {}: {}".format(
+                self.hostname, response.get('msg') or 'shell_cmds returned no valid results list'))
+        results = response['results']
 
         # Re-run any commands hit by the transient `docker exec` runc-setns race.
         # The target container is still running; only the new exec failed.

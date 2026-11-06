@@ -21,6 +21,7 @@ VPP_TOPOLOGY_CHECKERS = {
     "t0-vpp": "t0-vpp_checker",
     "t1-lag-vpp": "t1-lag-vpp_checker",
     "dualtor-aa-vpp": "dualtor-aa-vpp_checker",
+    "dualtor-vpp": "dualtor-vpp_checker",
 }
 
 

@@ -117,7 +117,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
 def test_gnmi_zmq(duthosts,
                   rand_one_dut_hostname,
                   ptfhost,
-                  setup_gnmi_insecure,
+                  setup_gnmi_tls,
                   enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 

@@ -45,6 +45,32 @@
             > config-metadata.json
     when: '"hwsku" not in configuration[hostname]'
 
+  # frr_mgmt_framework_config decides whether frrcfgd or bgpcfgd reads CONFIG_DB
+  # on this image; configdb.j2 must write the BGP tables in that daemon's schema.
+  - name: read the FRR config mode this image will boot with
+    shell: jq -r '.DEVICE_METADATA.localhost.frr_mgmt_framework_config // "false"' /etc/sonic/init_cfg.json
+    register: neighbour_frr_mgmt_config
+    changed_when: false
+
+  - name: use the image's mode to pick the BGP schema written below
+    set_fact:
+      vsonic_frr_mgmt_config: "{{ neighbour_frr_mgmt_config.stdout | trim | lower == 'true' }}"
+
+  # bgpd.main.conf.j2 (bgpcfgd) only renders the confederation block for
+  # disaggregated-T2 device types; sonic-cfggen --preset empty leaves LeafRouter.
+  # LT2 neighbours are lower spine routers, so type confed members as such.
+  # Non-confed neighbours keep the default. frrcfgd has no such gate.
+  - name: mark confederation members as disaggregated-T2 for bgpd confed rendering
+    shell: >
+            jq '.DEVICE_METADATA.localhost.type="LowerSpineRouter"'
+            config-metadata.json > config-metadata.tmp
+            && mv config-metadata.tmp config-metadata.json
+    when: >
+            configuration[hostname]['bgp']['confed_asn'] is defined and
+            configuration[hostname]['bgp']['confed_peers'] is defined and
+            (configuration[hostname]['bgp']['confed_asn'] | string | length) > 0 and
+            (configuration[hostname]['bgp']['confed_peers'] | string | length) > 0
+
   - name: create interface config for {{ configuration[hostname]['hwsku'] }}
     shell: >
             sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ configuration[hostname]['hwsku'] }}/port_config.ini -k {{ configuration[hostname]['hwsku'] }} --print-data

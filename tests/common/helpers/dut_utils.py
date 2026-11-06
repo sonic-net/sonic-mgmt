@@ -41,6 +41,20 @@ BASI_PATH = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
 
+def select_proxy_env(creds, ipv6_only_mgmt):
+    """Select the proxy configuration matching the management network mode."""
+    if not ipv6_only_mgmt or "proxy_env_ipv6" not in creds:
+        return creds
+
+    proxy_env_ipv6 = creds["proxy_env_ipv6"]
+    if not isinstance(proxy_env_ipv6, dict):
+        raise ValueError("proxy_env_ipv6 must be a dictionary")
+
+    selected_creds = dict(creds)
+    selected_creds["proxy_env"] = dict(proxy_env_ipv6)
+    return selected_creds
+
+
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
      @param inv_files: List of inventory file paths, In tests,
@@ -572,6 +586,62 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_dut_ports_with_checksum_modifying_fanouts(duthost, localhost):
+    """
+    Identifies and returns the set of DUT interface ports connected to fanout devices
+    that modify packet checksums. Some platforms, when used as a fanout, recalculate
+    and correct the checksum of transit packets, causing the DUT to receive packets
+    with a valid checksum instead of the intended invalid one.
+    """
+    checksum_modifying_fanout_skus = {"DellEMC-Z9332f-O32", "NH-5010-F-O64", "Arista-7280R4K-32QF-32DF-64O"}
+    unsupported_dut_ports = set()
+
+    # Virtual testbeds (VS and VPP/KVM) have no physical fanout to inspect; short-circuit
+    # to avoid unnecessary/failing connection-graph lookups (consistent with is_mellanox_fanout).
+    if is_virtual_platform(duthost):
+        return unsupported_dut_ports
+
+    try:
+        dut_facts = localhost.conn_graph_facts(host=duthost.hostname,
+                                               filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason: %s", e.results.get('msg', e))
+        return unsupported_dut_ports
+
+    try:
+        dev_conn = dut_facts["device_conn"][duthost.hostname]
+    except KeyError:
+        logger.info("device_conn missing for %s in connection graph", duthost.hostname)
+        return unsupported_dut_ports
+
+    device_info = dut_facts.get("device_info", {})
+    fanout_sku_cache = {}
+
+    for dut_port, conn_metadata in dev_conn.items():
+        fanout_host = conn_metadata.get("peerdevice")
+        if not fanout_host:
+            continue
+
+        if fanout_host in fanout_sku_cache:
+            fanout_sku = fanout_sku_cache[fanout_host]
+        else:
+            fanout_sku = device_info.get(fanout_host, {}).get("HwSku")
+            if fanout_sku is None:
+                try:
+                    fanout_facts = localhost.conn_graph_facts(
+                        host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+                    fanout_sku = fanout_facts["device_info"][fanout_host]["HwSku"]
+                except (RunAnsibleModuleFail, KeyError):
+                    fanout_sku_cache[fanout_host] = None
+                    continue
+            fanout_sku_cache[fanout_host] = fanout_sku
+
+        if fanout_sku in checksum_modifying_fanout_skus:
+            unsupported_dut_ports.add(dut_port)
+
+    return unsupported_dut_ports
+
+
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
     """
     Returns the supervisor duthost for a given linecard duthost.
@@ -764,6 +834,7 @@ def creds_on_dut(duthost):
     cred_vars = [
         "sonicadmin_user",
         "sonicadmin_password",
+        "sonic_password",
         "docker_registry_host",
         "docker_registry_username",
         "docker_registry_password",
