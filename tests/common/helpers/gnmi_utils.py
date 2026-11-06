@@ -1,6 +1,7 @@
 import ipaddress
 import logging
 import re
+import shlex
 from datetime import datetime, timedelta, timezone
 
 from cryptography import x509
@@ -198,7 +199,8 @@ def get_ptf_crl_server_ip(duthost, ptfhost):
         return ptfhost.mgmt_ip
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
+def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None,
+                                ca_cert="gnmiCA.pem", ca_key="gnmiCA.key"):
     create_client_key(localhost, revoke=True)
 
     create_client_csr(localhost, revoke=True)
@@ -208,7 +210,7 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
     crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
-    sign_client_certificate(localhost, revoke=True, extension_file="crlext.cnf")
+    sign_client_certificate(localhost, revoke=True, extension_file="crlext.cnf", ca_cert=ca_cert, ca_key=ca_key)
 
     # create crl config file
     local_command = "rm -f gnmi/crl/index.txt"
@@ -224,19 +226,19 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     # revoke cert CRL
     local_command = "openssl ca \
                         -revoke gnmiclient.revoked.crt \
-                        -keyfile gnmiCA.key \
-                        -cert gnmiCA.pem \
-                        -config gnmi/crl/crl.cnf"
+                        -keyfile {} \
+                        -cert {} \
+                        -config gnmi/crl/crl.cnf".format(shlex.quote(ca_key), shlex.quote(ca_cert))
 
     localhost.shell(local_command)
 
     # re-create CRL
     local_command = "openssl ca \
                         -gencrl \
-                        -keyfile gnmiCA.key \
-                        -cert gnmiCA.pem \
+                        -keyfile {} \
+                        -cert {} \
                         -out sonic.crl.pem \
-                        -config gnmi/crl/crl.cnf"
+                        -config gnmi/crl/crl.cnf".format(shlex.quote(ca_key), shlex.quote(ca_cert))
 
     localhost.shell(local_command)
 
@@ -384,7 +386,8 @@ def create_client_csr(localhost, revoke=False):
     localhost.shell(local_command)
 
 
-def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None):
+def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None,
+                            ca_cert="gnmiCA.pem", ca_key="gnmiCA.key"):
     """Sign a (regular or revoked) client CSR with the CA, backdated.
 
     `extension_file` is the cnf written by create_ca_conf when caller wants
@@ -395,8 +398,8 @@ def sign_client_certificate(localhost, days="825", revoke=False, extension_file=
     revoke_suffix = "revoked." if revoke else ""
     csr_path = "gnmiclient.{}csr".format(revoke_suffix)
     out_path = "gnmiclient.{}crt".format(revoke_suffix)
-    ca_cert = _load_pem_certificate("gnmiCA.pem")
-    ca_key = _load_pem_private_key("gnmiCA.key")
+    ca_cert = _load_pem_certificate(ca_cert)
+    ca_key = _load_pem_private_key(ca_key)
     csr = _load_pem_csr(csr_path)
     not_before, not_after = _cert_validity_period(days)
     builder = (
