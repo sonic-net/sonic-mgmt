@@ -2610,7 +2610,7 @@ generic_config_updater/add_cluster/test_port_speed_upgrade.py:
     conditions:
       - "topo_type != 't2'"
       - "switch_type != 'chassis-packet'"
-      - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
+      - "platform not in ['x86_64-88_lc0_36fh-r0']"
 
 generic_config_updater/test_apply_patch_perf.py:
   skip:

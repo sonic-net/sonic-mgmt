@@ -12,11 +12,10 @@ import ptf.packet as packet
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import clear_counters, get_queue_count_all_prio
-from tests.common.utilities import wait_until
+from tests.common.utilities import get_neighbor_exabgp_vm_offset, wait_until
+from tests.generic_config_updater.add_cluster.constants import EXABGP_BASE_PORT, INTERNAL_PORT_PREFIXES
 
 logger = logging.getLogger(__name__)
-
-INTERNAL_PORT_PREFIXES = ("Ethernet-BP", "Ethernet-IB", "Ethernet-Rec")
 
 
 def format_sonic_interface_dict(interface_dict, single_entry=True):
@@ -125,6 +124,38 @@ def get_portchannel_min_links(config_facts, portchannel):
     return str(min_links) if min_links is not None else None
 
 
+def get_asic_interface_status_map(duthost, asic_namespace=None):
+    """
+    Return parsed show interface status rows keyed by interface name.
+    """
+    if asic_namespace:
+        cmd = f"show interface status -n {asic_namespace}"
+    else:
+        cmd = "show interface status"
+    rows = duthost.show_and_parse(cmd)
+    return {
+        row['interface']: row
+        for row in rows
+        if row.get('interface')
+    }
+
+
+def filter_oper_up_ports(ports, status_map):
+    """
+    Return ports that are admin up and oper up.
+    """
+    oper_up_ports = []
+    for port in ports:
+        status = status_map.get(port)
+        if not status:
+            continue
+        admin_status = status.get('admin', '').lower()
+        oper_status = status.get('oper', '').lower()
+        if admin_status == 'up' and oper_status == 'up':
+            oper_up_ports.append(port)
+    return oper_up_ports
+
+
 def parse_portchannel_status_output(output, portchannels_to_check=None):
     """
     Parse ``show interfaces portchannel`` output into operational status.
@@ -169,12 +200,86 @@ def get_portchannel_status_map(duthost, asic_namespace=None,
     ), result
 
 
+def find_portchannels_by_member_speed(config_facts,
+                                      interface_status_map,
+                                      portchannel_status_map,
+                                      speed,
+                                      min_member_count=2,
+                                      require_min_links=True,
+                                      require_portchannel_up=True):
+    """
+    Return external PortChannels whose members all match the requested speed.
+
+    Args:
+        config_facts: Running config facts for one ASIC namespace.
+        interface_status_map: Output from get_asic_interface_status_map().
+        portchannel_status_map: Output from get_portchannel_status_map().
+        speed: Required member speed in Mbps, such as "400000" or "100000".
+        min_member_count: Minimum external members required on the PortChannel.
+        require_min_links: Require a configured min_links value when True.
+        require_portchannel_up: Require the PortChannel oper state to be up.
+
+    Returns:
+        list: Dictionaries with portchannel, members, and original_min_links.
+    """
+    matching_portchannels = []
+    required_speed = str(speed)
+
+    for portchannel in sorted(config_facts.get("PORTCHANNEL", {})):
+        original_min_links = get_portchannel_min_links(
+            config_facts,
+            portchannel,
+        )
+        if require_min_links and original_min_links is None:
+            continue
+
+        members = get_external_portchannel_members(config_facts, portchannel)
+        if len(members) < min_member_count:
+            continue
+
+        matching_members = []
+        for member in members:
+            port_config = config_facts.get("PORT", {}).get(member, {})
+            port_role = port_config.get("role")
+            if port_role and port_role != "Ext":
+                continue
+            if port_config.get("admin_status", "up") != "up":
+                continue
+            if str(port_config.get("speed", "")) != required_speed:
+                continue
+            matching_members.append(member)
+
+        if len(matching_members) != len(members):
+            continue
+
+        oper_up_members = filter_oper_up_ports(
+            matching_members,
+            interface_status_map,
+        )
+        if len(oper_up_members) != len(matching_members):
+            continue
+        if (
+            require_portchannel_up and
+            portchannel_status_map.get(portchannel) != "up"
+        ):
+            continue
+
+        matching_portchannels.append({
+            "portchannel": portchannel,
+            "members": matching_members,
+            "original_min_links": original_min_links,
+        })
+
+    return matching_portchannels
+
+
 # -----------------------------
 # Static Route Helper Functions
 # -----------------------------
 
-def get_exabgp_port_for_neighbor(tbinfo, neigh_name, exabgp_base_port=5000):
-    offset = tbinfo['topo']['properties']['topology']['VMs'][neigh_name]['vm_offset']
+def get_exabgp_port_for_neighbor(tbinfo, neigh_name, exabgp_base_port=EXABGP_BASE_PORT, nbrhosts=None):
+    """Resolve the ExaBGP port, using original logical offsets on converged topologies."""
+    offset = get_neighbor_exabgp_vm_offset(nbrhosts or {}, tbinfo, neigh_name)
     exabgp_port = exabgp_base_port + offset
     return exabgp_port
 
