@@ -239,31 +239,27 @@ def duthost_bgp_config(duthost,
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
-        intf_config = (
-            "sudo config interface ip remove %s %s/%s \n"
-            "sudo config interface ip remove %s %s/%s \n"
-        )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
-        logger.info('Removing configured IP and IPv6 Address from %s' %
-                    (tgen_ports[i]['peer_port']))
-        duthost.shell(intf_config)
+        peer_port = tgen_ports[i]['peer_port']
+        asic = duthost.get_port_asic_instance(peer_port)
+        logger.info('Removing configured IP and IPv6 Address from %s' % peer_port)
+        asic.config_ip_intf(peer_port, "%s/%s" %
+                            (tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix']), 'remove')
+        asic.config_ip_intf(peer_port, "%s/%s" %
+                            (tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix']), 'remove')
 
     for i in range(0, port_count):
-        portchannel_config = (
-            "sudo config portchannel add PortChannel%s \n"
-            "sudo config portchannel member add PortChannel%s %s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-        )
-        portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]
-                               ['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'],
-                               tgen_ports[i]['ipv6_prefix'])
+        peer_port = tgen_ports[i]['peer_port']
+        asic = duthost.get_port_asic_instance(peer_port)
+        portchannel = "PortChannel{}".format(i + 1)
         logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (
-            tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
-        duthost.shell(portchannel_config)
+            peer_port, i + 1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
+        asic.config_portchannel(portchannel, 'add')
+        asic.config_portchannel_member(portchannel, peer_port, 'add')
+        asic.config_ip_intf(portchannel, "%s/%s" %
+                            (tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix']), 'add')
+        asic.config_ip_intf(portchannel, "%s/%s" %
+                            (tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix']), 'add')
     bgp_config = (
-        "vtysh "
         "-c 'configure terminal' "
         "-c 'router bgp %s' "
         "-c 'no bgp ebgp-requires-policy' "
@@ -272,11 +268,15 @@ def duthost_bgp_config(duthost,
         "-c 'exit' "
     )
     bgp_config %= (DUT_AS_NUM, port_count-1)
-    duthost.shell(bgp_config)
+    configured_asics = set()
+    for i in range(0, port_count):
+        asic = duthost.get_port_asic_instance(tgen_ports[i]['peer_port'])
+        if asic.asic_index not in configured_asics:
+            asic.run_vtysh(bgp_config)
+            configured_asics.add(asic.asic_index)
     if route_type == 'IPv4':
         for i in range(1, port_count):
             bgp_config_neighbor = (
-                "vtysh "
                 "-c 'configure terminal' "
                 "-c 'router bgp %s' "
                 "-c 'neighbor %s remote-as %s' "
@@ -287,11 +287,11 @@ def duthost_bgp_config(duthost,
             bgp_config_neighbor %= (
                 DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'])
             logger.info('Configuring BGP v4 Neighbor %s' % tgen_ports[i]['ip'])
-            duthost.shell(bgp_config_neighbor)
+            asic = duthost.get_port_asic_instance(tgen_ports[i]['peer_port'])
+            asic.run_vtysh(bgp_config_neighbor)
     else:
         for i in range(1, port_count):
             bgp_config_neighbor = (
-                "vtysh "
                 "-c 'configure terminal' "
                 "-c 'router bgp %s' "
                 "-c 'neighbor %s remote-as %s' "
@@ -303,7 +303,8 @@ def duthost_bgp_config(duthost,
                 DUT_AS_NUM, tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
             logger.info('Configuring BGP v6 Neighbor %s' %
                         tgen_ports[i]['ipv6'])
-            duthost.shell(bgp_config_neighbor)
+            asic = duthost.get_port_asic_instance(tgen_ports[i]['peer_port'])
+            asic.run_vtysh(bgp_config_neighbor)
 
 
 def __tgen_bgp_config(snappi_api,
