@@ -17,7 +17,7 @@ adapter.capabilities(duthost) -> {capability: true | explanation}
 
 Only advertise a capability when the operation is supported and safe. A missing adapter or capability is reported as a pytest skip with a `BLOCKED` reason. Do not send unsupported, malformed, registration, permission, administrative or state-changing TAM operations just to force a result.
 
-The adapter contract covers authorized fixed SUDI health, non-root arbitrary-signing denial, broker/socket sandbox policy, offline missing/malformed/untrusted/mismatched-certificate regressions, safe registration/permissions denial, safe admin denial, isolated PCR length tests, and an optional supported read-only PCR read. A PCR timeout is `BLOCKED`; this suite never issues PCR extend/reset or malformed live input.
+The adapter contract covers authorized fixed SUDI health, non-root arbitrary-signing denial, broker/socket sandbox policy, offline missing/malformed/untrusted/mismatched-certificate regressions, safe registration/permissions denial, safe admin denial, isolated PCR length tests, and an optional supported read-only PCR read. For the health request, the test also passes sonic-mgmt's `ansible_adhoc` fixture; the platform adapter must create a separate `ansible_adhoc(become=False, host_pattern=duthost.hostname)` session, verify `id -u` is nonzero, and then send exactly one fixed request. A PCR timeout is `BLOCKED`; this suite never issues PCR extend/reset or malformed live input.
 
 Certificate fault injection and PCR parser/callout unit tests belong in the owning platform/security package test suites; they do not mutate a live DUT. The sonic-mgmt adapter must report those offline results without reading or exporting private keys, credentials, certificates or signatures.
 

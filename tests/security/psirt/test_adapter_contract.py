@@ -31,10 +31,10 @@ def _duthost(duthosts, enum_rand_one_per_hwsku_hostname):
     return duthosts[enum_rand_one_per_hwsku_hostname]
 
 
-def test_authorized_sudi_health_request(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
+def test_authorized_sudi_health_request(duthosts, enum_rand_one_per_hwsku_hostname, ansible_adhoc, psirt_adapter):
     duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
     require_capability(psirt_adapter, duthost, "sudi_health")
-    assert psirt_adapter.sudi_health(duthost) == "OK\n"
+    assert psirt_adapter.sudi_health(duthost, ansible_adhoc) == "OK\n"
 
 
 def test_unauthorized_arbitrary_sudi_signing_is_denied(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
