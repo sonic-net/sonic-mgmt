@@ -549,10 +549,10 @@ def test_rate_limiting_flow(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo)
     bandwidth. DSCP value is dynamically determined from DUT's QoS configuration.
 
     Traffic rates (all in bytes per second):
-    - CIR: 500,000 bytes/s (500 KBps, 4.0 Mbps) - rate limiting threshold
-    - PIR: 750,000 bytes/s (750 KBps, 6.0 Mbps) - rate limiting threshold
-    - Low traffic: 500,000 bytes/s (500 KBps, 4.0 Mbps, at CIR, should pass)
-    - High traffic: 1,500,000 bytes/s (1.5 MBps, 12.0 Mbps, above PIR, should be dropped)
+    - CIR: 250,000 bytes/s (250 KBps, 2.0 Mbps) - rate limiting threshold
+    - PIR: 375,000 bytes/s (375 KBps, 3.0 Mbps) - rate limiting threshold
+    - Low traffic: 250,000 bytes/s (250 KBps, 2.0 Mbps, at CIR, should pass)
+    - High traffic: 750,000 bytes/s (750 MBps, 6.0 Mbps, above PIR, should be dropped)
 
     Args:
         duthosts: DUT hosts fixture
