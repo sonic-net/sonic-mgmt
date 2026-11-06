@@ -2,6 +2,7 @@ import ipaddress
 import logging
 import re
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
+GNMI_LOG_TAIL_LINES = 500
 
 # Backdate notBefore on test certs to absorb clock skew between the
 # sonic-mgmt runner, the DUT, and the PTF docker. Without this, even a
@@ -463,20 +465,60 @@ def dump_gnmi_log(duthost):
     return res['stdout']
 
 
-def dump_system_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI process: " + res['stdout'])
-    dut_command = "docker exec %s date" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("System time: " + res['stdout'] + res['stderr'])
-
-
 def verify_tcp_port(localhost, ip, port):
     command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
     res = localhost.shell(command, module_ignore_errors=True)
     logger.info("TCP: " + res['stdout'] + res['stderr'])
+
+
+def dump_gnmi_debug_state(duthost, localhost=None, error: Optional[BaseException] = None,
+                          gnmi_log_lines: Optional[int] = None) -> None:
+    """
+    Log the gNMI server's processes and logs, and if localhost is given, probe its port.
+
+    Logs the last gnmi_log_lines lines of /root/gnmi.log, or all of it if None; the syslogs are always tailed.
+    If the dump succeeds and error is given, mark error so the failure hook doesn't dump it again.
+    Never raises, so that a failing dump cannot hide the failure being debugged.
+    """
+    try:
+        logger.info("Dumping gNMI state for DUT %s", duthost.hostname)
+        env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+        read_gnmi_log = "cat" if gnmi_log_lines is None else f"tail -n {gnmi_log_lines}"
+        commands = [
+            ("GNMI process", f"docker exec {env.gnmi_container} ps -efwww"),
+            ("System time", f"docker exec {env.gnmi_container} date"),
+            # Written by the server that apply_cert_config starts with -v=10.
+            ("GNMI log", f"docker exec {env.gnmi_container} {read_gnmi_log} /root/gnmi.log"),
+            ("gnmi-native syslog", f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/gnmi.log"),
+            ("Telemetry/dialout syslog", f"sudo tail -n {GNMI_LOG_TAIL_LINES} /var/log/telemetry.log"),
+        ]
+        # One round trip; ";" so that a failing command doesn't stop the rest.
+        script = "; ".join(f"echo '=== {title} ==='; {command} 2>&1" for title, command in commands)
+        res = duthost.shell(script, module_ignore_errors=True)
+        logger.info("gNMI state for DUT %s:\n%s%s", duthost.hostname, res["stdout"], res["stderr"])
+        if localhost is not None:
+            verify_tcp_port(localhost, duthost.mgmt_ip, env.gnmi_port)
+        if error is not None:
+            error._gnmi_state_dumped = True
+    except Exception as e:
+        logger.warning("Failed to dump gNMI state for DUT %s: %s", duthost.hostname, e)
+
+
+def gnmi_state_dumped(error: BaseException) -> bool:
+    """
+    Whether gNMI state was dumped for error, or for an exception in the chain that pytest reports with it.
+
+    A failure raised while handling a dumped one, e.g. in cleanup, counts too: it is usually a wrapper or a
+    consequence of the first failure, which is the one to debug.
+    """
+    seen = set()
+    while error is not None and id(error) not in seen:
+        if getattr(error, "_gnmi_state_dumped", False):
+            return True
+        seen.add(id(error))
+        # Follow the chain the way Python prints it: "raise ... from None" hides the context.
+        error = error.__cause__ or (None if error.__suppress_context__ else error.__context__)
+    return False
 
 
 def gnmi_capabilities(duthost, localhost):
@@ -494,9 +536,7 @@ def gnmi_capabilities(duthost, localhost):
     cmd += "-logtostderr -capabilities"
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        verify_tcp_port(localhost, ip, port)
+        dump_gnmi_debug_state(duthost, localhost)
         return -1, output['stderr']
     else:
         return 0, output['stdout']

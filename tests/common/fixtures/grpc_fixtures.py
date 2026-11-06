@@ -26,7 +26,7 @@ from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, dump_gnmi_debug_state
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
 from tests.common.pygnmi_client import PygnmiClient
@@ -259,7 +259,12 @@ def gnmi_tls(request, duthosts, ptfhost):
     transport = getattr(request, 'param', 'tls')
 
     if transport == 'uds':
-        yield from _gnmi_uds_flow(duthost)
+        try:
+            yield from _gnmi_uds_flow(duthost)
+        # As in the TLS flow below, only setup failures get here; tests outside tests/gnmi have no failure hook.
+        except (Exception, pytest.fail.Exception) as e:
+            dump_gnmi_debug_state(duthost, error=e)
+            raise
         return
 
     yield from _gnmi_tls_flow(duthost, ptfhost)
@@ -329,6 +334,11 @@ def _gnmi_tls_flow(duthost, ptfhost, strict_cleanup=False):
         logger.info("gNOI TLS server setup completed successfully")
         yield fixture
 
+    # Only setup failures get here: pytest never throws a test's exception into a fixture generator.
+    except (Exception, pytest.fail.Exception) as e:
+        # Dump now: the rollback in the finally below restores the server before any failure hook runs.
+        dump_gnmi_debug_state(duthost, error=e)
+        raise
     finally:
         # 6. Cleanup: close the reused gNMI channel, then rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")

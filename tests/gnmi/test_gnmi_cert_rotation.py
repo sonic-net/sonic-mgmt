@@ -3,7 +3,11 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import (
+    GNMIEnvironment,
+    dump_gnmi_debug_state,
+    gnmi_state_dumped,
+)
 from tests.common.utilities import wait_tcp_connection, wait_until
 from tests.gnmi.conftest import rotate_gnmi_certs
 
@@ -97,6 +101,11 @@ def test_gnmi_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, localhost)
         pytest_assert(
             wait_until(30, 5, 0, _gnmi_get_ok, duthost, ptfhost), "gnmi request should complete after cert rotation"
         )
+    except (Exception, pytest.fail.Exception) as e:
+        # Dump now: the recovery below restarts the gNMI server and truncates its log.
+        if not gnmi_state_dumped(e):
+            dump_gnmi_debug_state(duthost, error=e)
+        raise
     finally:
         # Guarantee recovery no matter where the test failed: drop the archive
         # left by archive_gnmi_certs, re-establish a valid matched cert pair

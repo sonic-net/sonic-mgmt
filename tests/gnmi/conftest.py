@@ -6,17 +6,22 @@ from collections.abc import Iterator
 import pytest
 
 from tests.common.devices.duthosts import DutHosts
+from tests.common.devices.multi_asic import MultiAsicSonicHost
+from tests.common.devices.sonic import SonicHost
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import (
+    GNMI_LOG_TAIL_LINES,
     copy_certificate_to_dut,
     copy_certificate_to_ptf,
     create_gnmi_certs,
     create_revoked_cert_and_crl,
     delete_gnmi_certs,
+    dump_gnmi_debug_state,
     gnmi_container,
+    gnmi_state_dumped,
     prepare_client_cert,
     prepare_root_cert,
     prepare_server_cert,
@@ -38,6 +43,56 @@ SETUP_ENV_CP = "test_setup_checkpoint"
 VRF_SCENARIOS = [
     {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
 ]
+
+
+@pytest.hookimpl(hookwrapper=True)  # type: ignore[misc]
+def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
+    """
+    Dump gNMI debug state from every DUT when a gNMI test fails, unless a helper already dumped it.
+
+    This runs after the failed phase, so the dump goes to the session log, not the test's captured log.
+    It also runs after the test's own cleanup: a test whose cleanup restarts the server must dump before it,
+    as test_gnmi_queue_buffer_cnt does.
+    Teardown failures are dumped too, e.g. recover_cert_config failing, though by then cleanup may have
+    restored the server.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    if not report.failed or call.excinfo is None:
+        return
+    # Code after the yield runs inside pluggy: an exception here would abort the whole session.
+    try:
+        dump_all_gnmi_states(item, call.when, call.excinfo.value)
+    except Exception as e:
+        logger.warning("Failed to dump gNMI state for %s: %s", item.nodeid, e)
+
+
+def dump_all_gnmi_states(item: pytest.Function, phase: str, error: BaseException) -> None:
+    """Log which DUTs the failed test selected, then gNMI server state for every DUT, unless error was dumped."""
+    # Skips errors a helper dumped before raising, and cached module-scoped fixture failures:
+    # pytest re-raises the same exception object for each later test in the module.
+    if gnmi_state_dumped(error):
+        return
+
+    duthosts = item.funcargs.get("duthosts")
+    if duthosts is None:
+        logger.warning("%s failed in %s before duthosts was set up; no gNMI state to dump", item.nodeid, phase)
+        return
+
+    # Fixtures that picked a DUT, e.g. rand_one_dut_hostname or enum_rand_one_per_hwsku_hostname.
+    hostnames = {duthost.hostname for duthost in duthosts}
+    selection = []
+    for name, value in item.funcargs.items():
+        if isinstance(value, (MultiAsicSonicHost, SonicHost)):
+            value = value.hostname
+        if isinstance(value, str) and value in hostnames:
+            selection.append("{}={}".format(name, value))
+    logger.info("%s failed in %s; DUT selection: %s", item.nodeid, phase, ", ".join(selection) or "none")
+
+    localhost = item.funcargs.get("localhost")
+    for duthost in duthosts:
+        # Tail: this can run for every failing test in a module, while that module's -v=10 log keeps growing.
+        dump_gnmi_debug_state(duthost, localhost, error, gnmi_log_lines=GNMI_LOG_TAIL_LINES)
 
 
 @pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
