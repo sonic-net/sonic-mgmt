@@ -11,6 +11,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueValueDict
 from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
+from tests.snappi_tests.files.helper import get_number_of_streams
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ def run_pfcwd_burst_storm_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
+                  number_of_streams=get_number_of_streams(ingress_duthost, tx_port, rx_port),
                   low_rate=low_rate)
 
     flows = testbed_config.flows
@@ -135,6 +137,7 @@ def __gen_traffic(testbed_config,
                   data_pkt_size,
                   prio_list,
                   prio_dscp_map,
+                  number_of_streams=1,
                   low_rate=False):
     """
     Generate flow configurations
@@ -190,7 +193,7 @@ def __gen_traffic(testbed_config,
             src_port = random.randint(5000, 6000)
             udp.src_port.increment.start = src_port
             udp.src_port.increment.step = 1
-            udp.src_port.increment.count = 1
+            udp.src_port.increment.count = number_of_streams
 
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
@@ -220,7 +223,8 @@ def __gen_traffic(testbed_config,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pause_pps = 1000 if low_rate else int(2 / pause_dur)
+    pause_calc_pps = int(2 / pause_dur)
+    pause_pps = int(pause_calc_pps / 8) if low_rate else pause_calc_pps
     pause_pkt_cnt = pause_pps * pause_flow_dur_sec
 
     for id in range(pause_flow_count):

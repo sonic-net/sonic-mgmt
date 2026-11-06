@@ -21,7 +21,7 @@ def number_of_tx_rx_ports():
     yield (1, 1)
 
 
-@pytest.mark.parametrize('low_rate', [False, True])
+@pytest.mark.parametrize('traffic_rate', ['low_traffic', 'high_traffic'])
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     # noqa: F811
                                                 duthosts,
                                                 lossless_prio_list,             # noqa: F811
@@ -30,7 +30,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
                                                 tgen_port_info,                 # noqa: F811
                                                 number_of_tx_rx_ports,          # noqa: F811
                                                 prio_dscp_map,                  # noqa: F811
-                                                low_rate,
+                                                traffic_rate,
                                                 ):
 
     """
@@ -48,7 +48,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
         tbinfo (pytest fixture): fixture provides information about testbed
         tgen_port_info (pytest fixture): fixture provides list of interfaces of appropriate speed and sub-type.
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
-        low_rate (bool): selects standard or low-rate traffic profile
+        traffic_rate (str): selects low- or high-rate traffic profile
 
     Returns:
         N/A
@@ -69,6 +69,6 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                     
                                prio_list=[lossless_prio],
                                prio_dscp_map=prio_dscp_map,
                                snappi_extra_params=snappi_extra_params,
-                               low_rate=low_rate)
+                               low_rate=(traffic_rate == 'low_traffic'))
 
     cleanup_config(duthosts, snappi_ports)
