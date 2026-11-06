@@ -538,6 +538,31 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
     )
 
 
+def get_directly_connected_nexthop(duthost, tbinfo, ipv6=False):
+    """Pick a T1-facing PortChannel interface and its real BGP neighbor IP as a
+    directly-connected nexthop.
+
+    Unlike a VLAN member port (whose SVI stays up as long as any other member is
+    still up), a PortChannel uplink is a point-to-point L3 interface: shutting it
+    down removes its connected subnet from the RIB entirely, regardless of how
+    many physical members back it. The peer address is already live (it is the
+    real, BGP-peered T1 neighbor), so no ptfhost-side IP/ARP setup is needed.
+
+    Returns:
+        tuple: (nexthop_addr, dut_ifname)
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    version = 6 if ipv6 else 4
+    pc_pairs = [
+        (pc['peer_addr'], pc['attachto'])
+        for pc in mg_facts['minigraph_portchannel_interfaces']
+        if ipaddress.ip_address(pc['peer_addr']).version == version
+    ]
+    pytest_require(pc_pairs, "No {} T1-facing PortChannel interface found".format("ipv6" if ipv6 else "ipv4"))
+
+    return random.choice(pc_pairs)
+
+
 def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
                       setup_standby_ports_on_rand_unselected_tor, # noqa F811
                       toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
@@ -1046,3 +1071,122 @@ def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route, tbinfo
             f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
         logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
         logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231
+
+
+@pytest.mark.parametrize("ipv6", [False, True], ids=["ipv4", "ipv6"])
+def test_static_route_bgp_withdraw_on_interface_down(rand_selected_dut, ptfadapter, ptfhost, tbinfo, ipv6):
+    """A directly-resolved static route must be withdrawn from BGP when its nexthop-owning
+    interface goes down, and re-advertised once the interface comes back up.
+    """
+    duthost = rand_selected_dut
+    pytest_require(tbinfo["topo"]["type"] == "t0", "Only supported on t0 topology")
+    pytest_require(not is_dualtor(tbinfo), "Not supported on dualtor topology")
+    if not ipv6 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology")
+
+    prefix = "6000:1::/64" if ipv6 else "60.60.60.0/24"
+    nexthop_addr, dut_ifname = get_directly_connected_nexthop(duthost, tbinfo, ipv6=ipv6)
+
+    clear_arp_ndp(duthost, ipv6=ipv6)
+
+    try:
+        apply_static_route_config(duthost, None, prefix, [nexthop_addr], op="add")
+        duthost.shell("timeout 1 ping{} -c 1 -w 1 {}".format(" -6" if ipv6 else "", nexthop_addr),
+                      module_ignore_errors=True)
+
+        check_static_route(duthost, prefix, [nexthop_addr], ipv6=ipv6)
+        check_route_redistribution(duthost, prefix, ipv6=ipv6)
+
+        duthost.shutdown(dut_ifname)
+        try:
+            pytest_assert(
+                wait_until(60, 5, 0, check_static_route_removed, duthost, prefix, ipv6),
+                "Static route {} still installed after nexthop interface {} was shut down".format(
+                    prefix, dut_ifname)
+            )
+            check_route_redistribution(duthost, prefix, ipv6=ipv6, removed=True)
+        finally:
+            duthost.no_shutdown(dut_ifname)
+
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: not check_static_route_removed(duthost, prefix, ipv6)),
+            "Static route {} was not reinstalled after nexthop interface {} came back up".format(
+                prefix, dut_ifname)
+        )
+        check_static_route(duthost, prefix, [nexthop_addr], ipv6=ipv6)
+        check_route_redistribution(duthost, prefix, ipv6=ipv6)
+    finally:
+        apply_static_route_config(duthost, None, prefix, op="del")
+        check_route_redistribution(duthost, prefix, ipv6=ipv6, removed=True)
+        clear_arp_ndp(duthost, ipv6=ipv6)
+
+
+@pytest.mark.parametrize("ipv6", [False, True], ids=["ipv4", "ipv6"])
+def test_recursive_static_route_bgp_withdraw_on_interface_down(rand_selected_dut, ptfadapter, ptfhost, tbinfo, ipv6):
+    """A recursive static route (resolved over another static route) must be withdrawn from BGP
+    once the directly connected nexthop behind the chain becomes unreachable, and re-advertised
+    once the interface backing that nexthop comes back up.
+    """
+    duthost = rand_selected_dut
+    pytest_require(tbinfo["topo"]["type"] == "t0", "Only supported on t0 topology")
+    pytest_require(not is_dualtor(tbinfo), "Not supported on dualtor topology")
+    if not ipv6 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology")
+
+    if ipv6:
+        inner_prefix, inner_nh_for_outer, outer_prefix = "7000:1::1/128", "7000:1::1", "8000:1::/64"
+    else:
+        inner_prefix, inner_nh_for_outer, outer_prefix = "70.70.70.1/32", "70.70.70.1", "80.80.80.0/24"
+
+    nexthop_addr, dut_ifname = get_directly_connected_nexthop(duthost, tbinfo, ipv6=ipv6)
+
+    clear_arp_ndp(duthost, ipv6=ipv6)
+
+    try:
+        # Inner route: directly connected nexthop. Outer route: recursively resolved via inner route.
+        apply_static_route_config(duthost, None, inner_prefix, [nexthop_addr], op="add")
+        apply_static_route_config(duthost, None, outer_prefix, [inner_nh_for_outer], op="add")
+
+        duthost.shell("timeout 1 ping{} -c 1 -w 1 {}".format(" -6" if ipv6 else "", nexthop_addr),
+                      module_ignore_errors=True)
+
+        check_static_route(duthost, inner_prefix, [nexthop_addr], ipv6=ipv6)
+        check_static_route(duthost, outer_prefix, [inner_nh_for_outer], ipv6=ipv6)
+        check_route_redistribution(duthost, inner_prefix, ipv6=ipv6)
+        check_route_redistribution(duthost, outer_prefix, ipv6=ipv6)
+
+        duthost.shutdown(dut_ifname)
+        try:
+            pytest_assert(
+                wait_until(60, 5, 0, check_static_route_removed, duthost, inner_prefix, ipv6),
+                "Inner static route {} still installed after nexthop interface {} was shut down".format(
+                    inner_prefix, dut_ifname)
+            )
+            pytest_assert(
+                wait_until(60, 5, 0, check_static_route_removed, duthost, outer_prefix, ipv6),
+                "Recursive static route {} still installed after nexthop interface {} was shut down".format(
+                    outer_prefix, dut_ifname)
+            )
+            check_route_redistribution(duthost, inner_prefix, ipv6=ipv6, removed=True)
+            check_route_redistribution(duthost, outer_prefix, ipv6=ipv6, removed=True)
+        finally:
+            duthost.no_shutdown(dut_ifname)
+
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: not check_static_route_removed(duthost, inner_prefix, ipv6)),
+            "Inner static route {} was not reinstalled after nexthop interface {} came back up".format(
+                inner_prefix, dut_ifname)
+        )
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: not check_static_route_removed(duthost, outer_prefix, ipv6)),
+            "Recursive static route {} was not reinstalled after nexthop interface {} came back up".format(
+                outer_prefix, dut_ifname)
+        )
+        check_route_redistribution(duthost, inner_prefix, ipv6=ipv6)
+        check_route_redistribution(duthost, outer_prefix, ipv6=ipv6)
+    finally:
+        apply_static_route_config(duthost, None, outer_prefix, op="del")
+        apply_static_route_config(duthost, None, inner_prefix, op="del")
+        check_route_redistribution(duthost, inner_prefix, ipv6=ipv6, removed=True)
+        check_route_redistribution(duthost, outer_prefix, ipv6=ipv6, removed=True)
+        clear_arp_ndp(duthost, ipv6=ipv6)
