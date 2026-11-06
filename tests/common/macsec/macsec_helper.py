@@ -692,7 +692,10 @@ def get_macsec_counters(duthost, port):
 
 
 def clear_macsec_counters(duthost):
-    assert duthost.command("sonic-clear macsec")["failed"] is False
+    # don't let a raw RunAnsibleModuleFail hide the real error - assert with a readable message below
+    result = duthost.command("sonic-clear macsec", module_ignore_errors=True)
+    assert not result["failed"], \
+        "'sonic-clear macsec' failed on {}: {}".format(duthost.hostname, result.get("stderr", ""))
 
 
 __origin_dp_poll = testutils.dp_poll
