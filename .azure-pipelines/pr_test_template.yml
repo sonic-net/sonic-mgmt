@@ -194,6 +194,7 @@ jobs:
           KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           VM_TYPE: "csonic"
+          SETUP_CONTAINER_PARAMS: "-e SONIC_MGMT_CSONIC_LAG_BACKEND=userspace_ovs"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --neighbor_type=csonic "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
