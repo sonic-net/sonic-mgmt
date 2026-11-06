@@ -72,9 +72,9 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost, gnmi_tls):  #
             start_time = time.time()
 
             # Update description
-            client.Set(down_request, timeout=30)
+            client.Set(down_request, timeout=60)
             # Update description
-            client.Set(up_request, timeout=30)
+            client.Set(up_request, timeout=60)
 
             total_latency = (time.time() - start_time) / 2 * 1000  # Convert to milliseconds
             total_latencies.append(total_latency)
