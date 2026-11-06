@@ -3,10 +3,9 @@ from math import ceil
 import logging
 import random
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    get_pfcwd_timers, enable_packet_aging, start_pfcwd, sec_to_nanosec           # noqa: F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
+    enable_packet_aging, start_pfcwd, sec_to_nanosec, get_pfcwd_timers   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueValueDict
@@ -27,12 +26,11 @@ SNAPPI_POLL_DELAY_SEC = 2
 def run_pfcwd_burst_storm_test(api,
                                testbed_config,
                                port_config_list,
-                               conn_data,
-                               fanout_data,
                                dut_port,
                                prio_list,
                                prio_dscp_map,
-                               snappi_extra_params=None):
+                               snappi_extra_params=None,
+                               low_rate=False):
     """
     Test PFC watchdog under bursty PFC storms
 
@@ -40,29 +38,28 @@ def run_pfcwd_burst_storm_test(api,
         api (obj): SNAPPI session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        duthost (Ansible host instance): device under test
         dut_port (str): DUT port to test
         prio_list (list): priorities to generate PFC storms and data traffic
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        low_rate (bool): use the low-rate traffic profile
 
     Returns:
         N/A
     """
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
+    if low_rate:
+        pytest_assert(snappi_extra_params is not None,
+                      'Snappi port selection is required for low-rate test')
+    else:
+        if snappi_extra_params is None:
+            snappi_extra_params = SnappiTestParams()
 
-    # Traffic flow:
-    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
-
-    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    rx_port_id = rx_port["port_id"]
+    # Traffic flow: TGEN -> ingress DUT -> egress DUT -> TGEN
+    rx_port, tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[:2]
+    rx_port_id = rx_port['port_id']
+    tx_port_id = tx_port['port_id']
     egress_duthost = rx_port['duthost']
-
-    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
-    tx_port_id = tx_port["port_id"]
     ingress_duthost = tx_port['duthost']
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
@@ -102,12 +99,16 @@ def run_pfcwd_burst_storm_test(api,
                       warm_up_traffic_dur_sec, data_flow_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  low_rate=low_rate)
 
     flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
-    exp_dur_sec = BURST_EVENTS * poll_interval_sec + 1
+    if low_rate:
+        exp_dur_sec = BURST_EVENTS * 5 * poll_interval_sec + 1
+    else:
+        exp_dur_sec = BURST_EVENTS * poll_interval_sec + 1
 
     flow_stats = __run_traffic(api=api,
                                config=testbed_config,
@@ -133,7 +134,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  low_rate=False):
     """
     Generate flow configurations
 
@@ -168,7 +170,8 @@ def __gen_traffic(testbed_config,
         rx_mac = tx_port_config.gateway_mac
 
     """ Generate long-lived data flows, one for each priority """
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = (0.0000002 / len(prio_list) if low_rate
+                              else int(100 / len(prio_list)))
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
 
@@ -217,7 +220,7 @@ def __gen_traffic(testbed_config,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pause_pps = int(2 / pause_dur)
+    pause_pps = 1000 if low_rate else int(2 / pause_dur)
     pause_pkt_cnt = pause_pps * pause_flow_dur_sec
 
     for id in range(pause_flow_count):
