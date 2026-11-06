@@ -15,6 +15,7 @@ This is the restorative counterpart to
 port startup through :mod:`tests.transceiver.common.cli_helpers`. The caller
 performs final link verification after all post-session checks.
 """
+import json
 import logging
 
 from tests.common.platform.interface_utils import get_dut_interfaces_status
@@ -22,6 +23,8 @@ from tests.transceiver.attribute_parser.attribute_keys import SYSTEM_ATTRIBUTES_
 from tests.transceiver.common import cli_helpers, scenario_ops
 
 logger = logging.getLogger(__name__)
+
+_PMON_DAEMON_CONTROL_BACKUP_PATH = "/tmp/pmon_daemon_control.json.bak"
 
 
 def post_state_restoration(duthost, port_attributes_dict):
@@ -127,3 +130,63 @@ def post_state_restoration(duthost, port_attributes_dict):
     )
 
     return summary
+
+
+def enable_pmon_skip_xcvrd(duthost):
+    """Back up ``pmon_daemon_control.json`` and set ``"skip_xcvrd": true`` in it.
+
+    Used by the System Event Handling "CMIS boot-up low power mode" test:
+    disabling xcvrd before a reboot lets a freshly-booted CMIS module's
+    default (low) power state be observed before xcvrd's init sequence would
+    otherwise bring it up. :func:`restore_pmon_daemon_control` reverts this.
+
+    Returns an error string, or ``None`` on success.
+    """
+    config_path = "/usr/share/sonic/device/{}/pmon_daemon_control.json".format(
+        duthost.facts["platform"]
+    )
+    backup_result = duthost.shell(
+        "cp {src} {dst} 2>/dev/null || echo '{{}}' > {dst}".format(
+            src=config_path, dst=_PMON_DAEMON_CONTROL_BACKUP_PATH,
+        ),
+        module_ignore_errors=True,
+    )
+    if backup_result.get("rc", 1) != 0:
+        return "failed to back up {}: {}".format(
+            config_path, (backup_result.get("stderr") or "").strip()
+        )
+
+    read_result = duthost.shell(
+        f"cat {_PMON_DAEMON_CONTROL_BACKUP_PATH}", module_ignore_errors=True
+    )
+    try:
+        daemon_dict = json.loads(read_result.get("stdout") or "{}")
+    except ValueError:
+        daemon_dict = {}
+    daemon_dict["skip_xcvrd"] = True
+
+    write_result = duthost.copy(
+        content=json.dumps(daemon_dict, indent=4) + "\n", dest=config_path,
+    )
+    if write_result.get("failed"):
+        return f"failed to write {config_path} with skip_xcvrd=true"
+    return None
+
+
+def restore_pmon_daemon_control(duthost):
+    """Revert ``pmon_daemon_control.json`` to the backup :func:`enable_pmon_skip_xcvrd` made.
+
+    Returns an error string, or ``None`` on success.
+    """
+    config_path = "/usr/share/sonic/device/{}/pmon_daemon_control.json".format(
+        duthost.facts["platform"]
+    )
+    result = duthost.shell(
+        f"cp {_PMON_DAEMON_CONTROL_BACKUP_PATH} {config_path}",
+        module_ignore_errors=True,
+    )
+    if result.get("rc", 1) != 0:
+        return "failed to restore {}: {}".format(
+            config_path, (result.get("stderr") or "").strip()
+        )
+    return None
