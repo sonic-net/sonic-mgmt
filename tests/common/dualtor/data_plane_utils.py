@@ -314,9 +314,12 @@ def cleanup(ptfadapter, duthosts_list, ptfhost):
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
         logger.info('Clearing arp entries on DUT  {}'.format(duthost.hostname))
-        # add show arp and neighbor check here to help debug
-        duthost.shell('show arp')
-        duthost.shell('dualtor_neighbor_check.py -o STDOUT')
+        for command in ('show arp', 'dualtor_neighbor_check.py -o STDOUT'):
+            result = duthost.shell(command, module_ignore_errors=True)
+            if result['rc'] != 0:
+                logger.warning("Diagnostic %s failed on %s (rc=%s): %s",
+                               command, duthost.hostname, result['rc'],
+                               result.get('stderr') or result.get('stdout'))
         duthost.shell('sonic-clear arp')
 
 
