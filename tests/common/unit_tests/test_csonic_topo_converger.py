@@ -97,7 +97,13 @@ def test_prime_allocation_counts_front_panel_links_not_logical_peers(tmp_path):
 
 def test_stock_t1_lag_converges_to_two_16_link_role_primes(tmp_path):
     topo_path = REPO_ROOT / "ansible" / "vars" / "topo_t1-lag.yml"
-    topology = CONVERGER.yaml.safe_load(topo_path.read_text())
+    # The session startup hook converges this shared file before collection on
+    # converged testbeds. Its backup is the canonical stock topology this unit
+    # test is intended to exercise; ordinary unit runs have no backup.
+    source_topo_path = topo_path.with_name(topo_path.name + ".bak")
+    if not source_topo_path.exists():
+        source_topo_path = topo_path
+    topology = CONVERGER.yaml.safe_load(source_topo_path.read_text())
     converger = CONVERGER.CsonicTopoConverger(
         topology, str(tmp_path / "converged.yml"))
     converger.parse_properties()
