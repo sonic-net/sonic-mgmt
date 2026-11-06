@@ -62,7 +62,7 @@ def _configure_global(node, net):
     _run(node, "sudo config isis enable")
     _run(node, "sudo config isis net {}".format(net))
     _run(node, "sudo config isis level level-2")
-    _run(node, "sudo config isis hostname enabled")
+    _run(node, "sudo config isis hostname enable")
     _run(node, "sudo config isis timer lsp-mtu 1400")
     _run(node, "sudo config isis timer lsp-refresh 900")
     _run(node, "sudo config isis timer lsp-lifetime 1200")
@@ -79,7 +79,12 @@ def _configure_interfaces(node, interfaces):
 
 
 def _up_neighbor_count(node):
-    output = _run(node, "sudo show isis neighbor", check=False)
+    result = node.shell("sudo show isis neighbor", module_ignore_errors=True)
+    # A failed show command must never look like a successful withdrawal.
+    if result.get("rc", 1) != 0:
+        logger.warning("Failed to read IS-IS neighbors: %s", result)
+        return -1
+    output = result.get("stdout", "")
     return sum(1 for line in output.splitlines() if re.search(r"\bUp\b", line, re.IGNORECASE))
 
 
@@ -117,9 +122,9 @@ def isis_force10_fabric(rand_selected_dut, nbrhosts):
     try:
         # Remove stale IS-IS state from a previous interrupted run.
         for name, node in nodes.items():
-            _run(node, "sudo config isis disable", check=False)
             for interface in NODE_INTERFACES[name] + ["Loopback0"]:
-                _run(node, "sudo config interface isis disable {}".format(interface), check=False)
+                _run(node, "sudo config interface isis disable {}".format(interface))
+            _run(node, "sudo config isis disable")
 
         for name, node in nodes.items():
             _configure_global(node, NODE_NETS[name])
@@ -165,7 +170,7 @@ def test_isis_cli_establishes_adjacencies_and_routes(isis_force10_fabric):
         actual = _up_neighbor_count(nodes[name])
         pytest_assert(actual >= expected,
                       "{} has {} Up IS-IS neighbors, expected at least {}".format(name, actual, expected))
-        database = _run(nodes[name], "sudo show isis database")
+        database = _run(nodes[name], "sudo show isis database detail")
         pytest_assert(database, "IS-IS database is empty on {}".format(name))
 
     prefix = "100.1.0.31/32"  # PE3 Loopback0 from the community 7nodes_force10 profile.
@@ -174,27 +179,92 @@ def test_isis_cli_establishes_adjacencies_and_routes(isis_force10_fabric):
 
 
 def test_isis_cli_interface_disable_enable(isis_force10_fabric):
-    """Verify interface-level CLI changes withdraw and restore one adjacency."""
+    """Verify removal and enable-only binding before restoring the p2p attributes."""
     p1 = isis_force10_fabric["P1"]
-    _run(p1, "sudo config interface isis disable Ethernet112")
-    pytest_assert(wait_until(60, 3, 0, _neighbor_count_is, p1, EXPECTED_NEIGHBORS["P1"] - 1),
-                  "Disabling IS-IS on Ethernet112 did not remove one P1 adjacency")
+    try:
+        _run(p1, "sudo config interface isis disable Ethernet112")
+        pytest_assert(_run(p1, "sudo sonic-db-cli CONFIG_DB EXISTS 'ISIS_INTERFACE|Ethernet112'") == "0",
+                      "Interface disable left an IS-IS row behind")
+        pytest_assert(wait_until(60, 3, 0, _neighbor_count_is, p1, EXPECTED_NEIGHBORS["P1"] - 1),
+                      "Disabling IS-IS on Ethernet112 did not remove one P1 adjacency")
 
-    _run(p1, "sudo config interface isis enable Ethernet112")
-    _run(p1, "sudo config interface isis circuit-type Ethernet112 p2p")
-    _run(p1, "sudo config interface isis metric Ethernet112 10")
-    pytest_assert(wait_until(90, 3, 0, _neighbor_count_is, p1, EXPECTED_NEIGHBORS["P1"]),
-                  "Enabling IS-IS on Ethernet112 did not restore the P1 adjacency")
+        _run(p1, "sudo config interface isis enable Ethernet112")
+        pytest_assert(wait_until(30, 2, 0, _interface_is_bound, p1, "Ethernet112"),
+                      "An enable-only row did not bind Ethernet112 in FRR")
+        # LAN is the default; restore p2p before expecting this peer to converge.
+        _run(p1, "sudo config interface isis circuit-type Ethernet112 p2p")
+        _run(p1, "sudo config interface isis metric Ethernet112 10")
+        pytest_assert(wait_until(90, 3, 0, _neighbor_count_is, p1, EXPECTED_NEIGHBORS["P1"]),
+                      "Enabling IS-IS on Ethernet112 did not restore the P1 adjacency")
+    finally:
+        _configure_interfaces(p1, NODE_INTERFACES["P1"])
+
+
+def _interface_is_bound(node, interface):
+    output = _run(node, "sudo show isis interface")
+    return bool(re.search(r"\b{}\b".format(re.escape(interface)), output))
 
 
 def test_isis_cli_global_disable_enable(isis_force10_fabric):
-    """Verify global process disable and re-enable through the config CLI."""
+    """Require interface cleanup before deleting and rebuilding a process."""
     p1 = isis_force10_fabric["P1"]
-    _run(p1, "sudo config isis disable")
-    pytest_assert(wait_until(60, 3, 0, _neighbor_count_is, p1, 0),
-                  "Global IS-IS disable did not clear P1 adjacencies")
-
-    _configure_global(p1, NODE_NETS["P1"])
-    _configure_interfaces(p1, NODE_INTERFACES["P1"])
+    blocked = p1.shell("sudo config isis disable", module_ignore_errors=True)
+    pytest_assert(blocked.get("rc", 0) != 0 and
+                  "Disable IS-IS on interface" in blocked.get("stdout", "") + blocked.get("stderr", ""),
+                  "Process deletion should refuse while IS-IS interface rows remain")
+    pytest_assert(_config_value(p1, "ISIS_GLOBALS|default", "enabled") == "true",
+                  "Rejected process deletion changed its enable state")
+    try:
+        for interface in NODE_INTERFACES["P1"] + ["Loopback0"]:
+            _run(p1, "sudo config interface isis disable {}".format(interface))
+        _run(p1, "sudo config isis disable")
+        for key in ("ISIS_GLOBALS|default", "ISIS_GLOBALS_TIMERS|default"):
+            pytest_assert(_run(p1, "sudo sonic-db-cli CONFIG_DB EXISTS '{}'".format(key)) == "0",
+                          "Process deletion left {} behind".format(key))
+        pytest_assert(wait_until(60, 3, 0, _neighbor_count_is, p1, 0),
+                      "Global IS-IS disable did not clear P1 adjacencies")
+    finally:
+        _configure_global(p1, NODE_NETS["P1"])
+        _configure_interfaces(p1, NODE_INTERFACES["P1"])
     pytest_assert(wait_until(90, 3, 0, _neighbor_count_is, p1, EXPECTED_NEIGHBORS["P1"]),
                   "Global IS-IS re-enable did not restore P1 adjacencies")
+
+
+def test_isis_cli_reset_and_repeated_enable(isis_force10_fabric):
+    """Reset removes fields, preserves siblings and supports subsequent timer commands."""
+    p1 = isis_force10_fabric["P1"]
+    try:
+        _run(p1, "sudo config isis enable")
+        pytest_assert(_config_value(p1, "ISIS_GLOBALS|default", "net_title") == NODE_NETS["P1"],
+                      "Repeated enable discarded the configured NET")
+        _run(p1, "sudo config interface isis metric Ethernet112 30")
+        _run(p1, "sudo config interface isis enable Ethernet112")
+        pytest_assert(_config_value(p1, "ISIS_INTERFACE|Ethernet112", "metric") == "30",
+                      "Repeated interface enable discarded the metric")
+        _run(p1, "sudo config interface isis reset Ethernet112 metric")
+        pytest_assert(_run(p1, "sudo sonic-db-cli CONFIG_DB HEXISTS 'ISIS_INTERFACE|Ethernet112' metric") == "0",
+                      "Metric reset did not remove the field")
+        pytest_assert(_config_value(p1, "ISIS_INTERFACE|Ethernet112", "circuit_type") == "p2p",
+                      "Metric reset discarded the circuit type")
+
+        _run(p1, "sudo config isis timer lsp-lifetime 1500")
+        _run(p1, "sudo config isis timer lsp-refresh 1000")
+        rejected = p1.shell("sudo config isis reset lsp-lifetime", module_ignore_errors=True)
+        pytest_assert(rejected.get("rc", 0) != 0,
+                      "Reset accepted a lifetime smaller than refresh + 300")
+        _run(p1, "sudo config isis reset lsp-refresh")
+        _run(p1, "sudo config isis reset lsp-lifetime")
+        for field in ("lsp_refresh_interval", "lsp_lifetime"):
+            pytest_assert(_run(p1, "sudo sonic-db-cli CONFIG_DB HEXISTS 'ISIS_GLOBALS_TIMERS|default' {}".
+                               format(field)) == "0", "Reset did not remove {}".format(field))
+        pytest_assert(_config_value(p1, "ISIS_GLOBALS_TIMERS|default", "lsp_mtu") == "1400",
+                      "Timer reset discarded the MTU")
+        _run(p1, "sudo config isis timer lsp-refresh 900")
+        _run(p1, "sudo config isis timer lsp-lifetime 1200")
+    finally:
+        # Set lifetime first so restoration also works after a failed reset.
+        _run(p1, "sudo config isis timer lsp-lifetime 1500")
+        _configure_global(p1, NODE_NETS["P1"])
+        _configure_interfaces(p1, NODE_INTERFACES["P1"])
+    pytest_assert(wait_until(90, 3, 0, _fabric_neighbors_up, isis_force10_fabric),
+                  "IS-IS adjacencies did not recover after reset validation")
