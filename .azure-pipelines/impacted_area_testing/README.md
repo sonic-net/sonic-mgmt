@@ -55,6 +55,7 @@ As files in other feature folders remain unaffected and do not require testing.
 
 We can determine the impcated area using command `git diff`.
 In a PR build, the diff is taken against the first parent of the PR's merge commit, which is the target branch tip.
+The diff uses `--no-renames`, so it lists both the old path and the new path of a moved file.
 Files excluded from the PR trigger in `azure-pipelines.yml` (`.github`, `docs`, `sdn_tests`, `LICENSE` and `*.md`) cannot affect test results, so they are left out of the impacted area.
 
 ### Distribute scripts to PR checkers

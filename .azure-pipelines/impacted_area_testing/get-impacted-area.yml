@@ -63,7 +63,9 @@ steps:
     if [[ -z "$DIFF_BASE" ]]; then
       echo "##vso[task.logissue type=warning]Cannot determine the diff base, running all test scripts."
     else
-      CHANGED_FILES=$(git diff --name-only "$DIFF_BASE" HEAD)
+      # --no-renames also lists the old path of a moved file. So a file moved from tests/
+      # to an excluded path, such as docs/, still adds its old folder to the impacted area.
+      CHANGED_FILES=$(git diff --name-only --no-renames "$DIFF_BASE" HEAD)
       echo "Changed files:"
       echo "$CHANGED_FILES"
 
