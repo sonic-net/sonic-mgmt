@@ -1,4 +1,3 @@
-import ast
 import logging
 import pytest
 import re
@@ -11,6 +10,8 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
 from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
+from tests.common.helpers.sonic_db import redis_get_keys_all_asics, redis_hgetall_all_asics
+from tests.common.platform.transceiver_utils import wait_for_transceiver_tables_sync, are_transceiver_tables_in_sync
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -198,6 +199,19 @@ def snmp_physical_entity_and_sensor_info(duthosts, enum_rand_one_per_hwsku_hostn
     :return:
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    if not are_transceiver_tables_in_sync(duthost):
+        # Wait for transceiver tables to be synchronized
+        wait_for_transceiver_tables_sync(duthost)
+    # When the tables are just populated/synched the snmp-subagent takes ~60 seconds
+    # before the interface map is repopulated through reinit_data. Allow 60 extra
+    # seconds as buffer. Always wait since it's possible the test is run immediately after
+    # STATE_DB becomes in-sync.
+    # Restarting the snmp-subagent could work as well through
+    # "docker exec snmp supervisorctl restart snmp-subagent" but could potentially
+    # mask issues. Hence waiting for the mapping to populate automatically
+    time.sleep(120)
+
     return get_entity_and_sensor_mib(duthost, localhost, creds_all_duts)
 
 
@@ -273,17 +287,17 @@ def test_fabric_card_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not duthost.is_supervisor_node():
         pytest.skip("Not supported on non supervisor node")
-    keys = redis_get_keys(
+    keys = redis_get_keys_all_asics(
         duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format('FABRIC-CARD*'))
     # Ignore the test if the platform does not support fan drawer
     if not keys:
         pytest.skip(
             'Fabric Card information does not exist in DB, skipping this test')
     for key in keys:
-        fc_info = redis_hgetall(duthost, STATE_DB, key)
+        fc_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_FABRIC_CARD + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, (
@@ -387,17 +401,17 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    keys = redis_get_keys(
+    keys = redis_get_keys_all_asics(
         duthost, STATE_DB, FAN_DRAWER_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not support fan drawer
     if not keys:
         pytest.skip(
             'Fan drawer information does not exist in DB, skipping this test')
     for key in keys:
-        drawer_info = redis_hgetall(duthost, STATE_DB, key)
+        drawer_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, (
@@ -497,15 +511,15 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have fans (e.g Line card)
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
     for key in keys:
-        fan_info = redis_hgetall(duthost, STATE_DB, key)
+        fan_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
         if parent_name and 'psu' in parent_name.lower():
@@ -513,7 +527,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         elif parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
-            parent_entity_info = redis_hgetall(
+            parent_entity_info = redis_hgetall_all_asics(
                 duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
             if 'FABRIC-CARD' in parent_name:
@@ -736,15 +750,15 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not duthost.is_supervisor_node():
         pytest.skip("Not supported on non supervisor node")
-    keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:
         pytest.skip('PSU information does not exist in DB, skipping this test')
     for key in keys:
-        psu_info = redis_hgetall(duthost, STATE_DB, key)
+        psu_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
         if psu_info['presence'] != 'true':
@@ -1030,16 +1044,16 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
     assert keys, "Thermal information does not exist in DB: {}".format(keys)
 
     for key in keys:
-        thermal_info = redis_hgetall(duthost, STATE_DB, key)
+        thermal_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         if is_null_str(thermal_info['temperature']):
             continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         if not entity_info or entity_info['parent_name'] != CHASSIS_KEY:
             continue
         position = int(entity_info['position_in_parent'])
@@ -1176,7 +1190,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     """
     snmp_physical_entity_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have interfaces (e.g Supervisor)
     if not keys:
         pytest.skip('Transceiver information does not exist in DB, skipping this test')
@@ -1197,7 +1211,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
             "SNMP facts: {}"
         ).format(name, name_to_snmp_facts)
 
-        transceiver_info = redis_hgetall(duthost, STATE_DB, key)
+        transceiver_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         transceiver_snmp_fact = name_to_snmp_facts[name]
         assert transceiver_snmp_fact['entPhysDescr'] is not None, (
             "Transceiver description is missing in SNMP physical entity MIB.\n"
@@ -1393,7 +1407,7 @@ class SensorData(object):
 
 def _get_transceiver_sensor_data(duthost, name):
     key = XCVR_DOM_KEY_TEMPLATE.format(name)
-    sensor_info = redis_hgetall(duthost, STATE_DB, key)
+    sensor_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
     sensor_data_list = []
     for field, value in list(sensor_info.items()):
         for pattern, data in list(XCVR_SENSOR_PATTERN.items()):
@@ -1480,19 +1494,19 @@ def _check_psu_status_after_power_off(duthost, localhost, creds_all_duts):
     entity_mib_info = snmp_physical_entity_and_sensor_info["entity_mib"]
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
-    keys = redis_get_keys(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, PSU_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have psus (e.g Line card)
     if not keys:
         pytest.skip('PSU information does not exist in DB, skipping this test {}'.format(
             duthost.hostname))
     power_off_psu_found = False
     for key in keys:
-        psu_info = redis_hgetall(duthost, STATE_DB, key)
+        psu_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         if psu_info['presence'] == 'false' or psu_info['status'] == 'true':
             continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_PSU + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in entity_mib_info, (
@@ -1545,7 +1559,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
         FAN_MOCK_WAIT_TIME))
     time.sleep(FAN_MOCK_WAIT_TIME)
 
-    keys = redis_get_keys(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
+    keys = redis_get_keys_all_asics(duthost, STATE_DB, FAN_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have fans (e.g Line card)
     if not keys:
         pytest.skip('Fan information does not exist in DB, skipping this test')
@@ -1556,12 +1570,12 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
     entity_sensor_mib_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
 
     for key in keys:
-        fan_info = redis_hgetall(duthost, STATE_DB, key)
+        fan_info = redis_hgetall_all_asics(duthost, STATE_DB, key)
         if fan_info['presence'] == 'True':
             continue
         name = key.split(TABLE_NAME_SEPARATOR_VBAR)[-1]
         entity_info_key = PHYSICAL_ENTITY_KEY_TEMPLATE.format(name)
-        entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
+        entity_info = redis_hgetall_all_asics(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
         if 'PSU' in parent_name:
@@ -1569,7 +1583,7 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
         if parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
         else:
-            parent_entity_info = redis_hgetall(
+            parent_entity_info = redis_hgetall_all_asics(
                 duthost, STATE_DB, PHYSICAL_ENTITY_KEY_TEMPLATE.format(parent_name))
             parent_position = int(parent_entity_info['position_in_parent'])
             parent_oid = MODULE_TYPE_FAN_DRAWER + parent_position * MODULE_INDEX_MULTIPLE
@@ -1594,65 +1608,6 @@ def test_remove_insert_fan_and_check_fan_info(duthosts, enum_rand_one_per_hwsku_
                     'Absence fan tachometers info should not be present in the mib, but it is. '
                     'Tachometers OID: {}. Entity MIB: {}'
                 ).format(tachometers_oid, entity_mib_info)
-
-
-def redis_get_keys(duthost, db_id, pattern):
-    """
-    Get all keys for a given pattern in given redis database
-    :param duthost: DUT host object
-    :param db_id: ID of redis database
-    :param pattern: Redis key pattern
-    :return: A list of key name in string
-    """
-    totalOutput = []
-
-    def run_cmd_store_output(cmd):
-        logging.debug('Getting keys from redis by command: {}'.format(cmd))
-        output = duthost.shell(cmd)['stdout'].strip()
-        if output:
-            totalOutput.extend(output.split('\n'))
-
-    if duthost.is_multi_asic:
-        # Search the namespaces as well on LCs
-        for asic in duthost.frontend_asics:
-            cmd = 'sonic-db-cli -n {} {} KEYS \"{}\"'.format(asic.namespace, db_id, pattern)
-            run_cmd_store_output(cmd)
-
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
-    run_cmd_store_output(cmd)
-    return totalOutput if totalOutput else None
-
-
-def redis_hgetall(duthost, db_id, key):
-    """
-    Get all field name and values for a given key in given redis dataabse
-    :param duthost: DUT host object
-    :param db_id: ID of redis database
-    :param key: Redis Key
-    :return: A dictionary, key is field name, value is field value
-    """
-
-    def run_cmd(cmd):
-        output = duthost.shell(cmd)['stdout'].strip()
-        if not output:
-            return {}
-        # fix to make literal_eval() work with nested dictionaries
-        content = output.replace('\x00', '').replace("'{", '"{').replace("}'", '}"')
-        return ast.literal_eval(content)
-
-    if duthost.is_multi_asic:
-        # Search the namespaces as well on LCs
-        for asic in duthost.frontend_asics:
-            cmd = 'sonic-db-cli -n {} {} HGETALL \"{}\"'.format(asic.namespace, db_id, key)
-            output = run_cmd(cmd)
-            if output:
-                return output
-
-    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
-    output = run_cmd(cmd)
-    if output:
-        return output
-    return {}
 
 
 def is_null_str(value):
