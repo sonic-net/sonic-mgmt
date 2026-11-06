@@ -367,7 +367,8 @@ def validate_platform_dump_files(duthost, dump_folder_path, platform_dump_folder
 
 def gen_dump_file(duthost, since):
     logger.debug("Running show techsupport ... ")
-    wait_until(300, 20, 0, execute_command, duthost, str(since))
+    pytest_assert(wait_until(300, 20, 0, execute_command, duthost, str(since)),
+                  "show techsupport command failed to succeed within timeout")
     tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
     return tar_file
 
