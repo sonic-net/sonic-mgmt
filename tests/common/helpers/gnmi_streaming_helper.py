@@ -1,102 +1,51 @@
 import logging
 from contextlib import contextmanager
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.helpers.sonic_db import CONFIG_DB, redis_hdel, redis_hset
 from tests.common.utilities import wait_until, get_mgmt_ipv6, wait_tcp_connection
 
 logger = logging.getLogger(__name__)
 
 
-def check_gnmi_config(duthost):
-    cmd = 'sonic-db-cli CONFIG_DB HGET "GNMI|gnmi" port'
-    port = duthost.shell(cmd, module_ignore_errors=False)['stdout']
-    return port != ""
-
-
-def create_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
-          "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
-          "server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
-          "server_key /etc/sonic/telemetry/streamingtelemetryserver.key"
-    duthost.shell(cmd, module_ignore_errors=True)
-
-
-def delete_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_crt"
-    duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
-    duthost.shell(cmd, module_ignore_errors=True)
-
-
-def setup_gnmi_forpyclient(duthost):
-    """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
-        Restart the gnmi container.
-    """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-
-    if client_auth == "true":
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
-                      module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-        duthost.service(name=env.gnmi_container, state="restarted")
-        # Wait until the gnmi container was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
-                  "%s not started." % (env.gnmi_container))
-        logger.info("gnmi container restarted")
-    else:
-        logger.info('client auth is false. No need to restart gnmi')
-
-    return client_auth
-
-
-def restore_gnmi_forpyclient(duthost, default_client_auth):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-    if client_auth != default_client_auth:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
-                      % (env.gnmi_config_table, default_client_auth),
-                      module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-        duthost.service(name=env.gnmi_container, state="restarted")
-
-
 @contextmanager
 def setup_gnmi_streaming_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path):
     """
-    @summary: Post setting up the gnmi streaming subscription before running the test.
-    """
-    try:
-        has_gnmi_config = check_gnmi_config(duthost)
-        if not has_gnmi_config:
-            create_gnmi_config(duthost)
-        env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-        default_client_auth = setup_gnmi_forpyclient(duthost)
+    Run credential-free gNMI clients over TLS using the testbed's telemetry certs.
 
-        # Wait until the TCP port was opened
-        dut_ip = duthost.mgmt_ip
-        if is_ipv6:
-            dut_ip = get_mgmt_ipv6(duthost)
-        wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
+    A port alone is not a complete TLS/authentication profile. Apply the whole
+    temporary profile before restarting, then restore each field's original
+    value or absence before the cleanup restart, including when setup fails.
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    config = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    original = config.get(env.gnmi_config_table, {})
+    settings = {
+        "gnmi": {
+            "port": original.get("gnmi", {}).get("port", "50052"),
+            "client_auth": "false",
+            "user_auth": "none",
+        },
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key",
+        },
+    }
+    dut_ip = get_mgmt_ipv6(duthost) if is_ipv6 else duthost.mgmt_ip
+    port = int(settings["gnmi"]["port"])
+    try:
+        for table, fields in settings.items():
+            key = "{}|{}".format(env.gnmi_config_table, table)
+            result = redis_hset(duthost, CONFIG_DB, key, **fields)
+            py_assert(result["rc"] == 0, "Failed to configure {}".format(key))
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started." % (env.gnmi_container))
+
+        py_assert(wait_tcp_connection(localhost, dut_ip, port, timeout_s=60),
+                  "Failed to establish TCP connection to {}:{}".format(dut_ip, port))
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
         if is_ipv6:
@@ -106,15 +55,24 @@ def setup_gnmi_streaming_context(is_ipv6, duthost, localhost, ptfhost, gnxi_path
         else:
             file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
             py_assert(file_exists["stat"]["exists"] is True)
-    except RunAnsibleModuleFail as e:
-        logger.info("Error happens in the setup period of setup_gnmi_streaming_context, recover the gnmi config.")
-        restore_gnmi_forpyclient(duthost, default_client_auth)
-        raise e
 
-    try:
         yield
     finally:
-        restore_gnmi_forpyclient(duthost, default_client_auth)
-        wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
-        if not has_gnmi_config:
-            delete_gnmi_config(duthost)
+        logger.info("Restoring the original gNMI TLS and authentication configuration")
+        for table, fields in settings.items():
+            key = "{}|{}".format(env.gnmi_config_table, table)
+            original_fields = {
+                field: original[table][field]
+                for field in fields if field in original.get(table, {})
+            }
+            absent_fields = [field for field in fields if field not in original.get(table, {})]
+            if original_fields:
+                result = redis_hset(duthost, CONFIG_DB, key, **original_fields)
+                py_assert(result["rc"] == 0, "Failed to restore {}".format(key))
+            if absent_fields:
+                result = redis_hdel(duthost, CONFIG_DB, key, *absent_fields)
+                py_assert(result["rc"] == 0, "Failed to remove temporary fields from {}".format(key))
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
+                  "%s not started after restoring configuration." % (env.gnmi_container))

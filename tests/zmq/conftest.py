@@ -14,6 +14,8 @@ def setup_gnmi_tls(duthosts, rand_one_dut_hostname, backup_and_restore_config_db
 
     Keep credentials under the container-mounted telemetry directory across
     enable_zmq's config reloads. The backup fixture restores the startup config.
+    The test client supplies neither a client certificate nor user credentials;
+    restore both authentication settings along with the TLS profile on exit.
     """
     duthost = duthosts[rand_one_dut_hostname]
     service = gnmi_container(duthost)
@@ -25,7 +27,7 @@ def setup_gnmi_tls(duthosts, rand_one_dut_hostname, backup_and_restore_config_db
         state="directory", path="/etc/sonic/telemetry", prefix="zmq-gnmi-",
     )["path"]
     settings = {
-        "GNMI|gnmi": {"port": "8080", "client_auth": "false"},
+        "GNMI|gnmi": {"port": "8080", "client_auth": "false", "user_auth": "none"},
         "GNMI|certs": {
             "server_crt": tls_dir + "/server.crt",
             "server_key": tls_dir + "/server.key",

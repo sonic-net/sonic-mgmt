@@ -9,8 +9,6 @@ from tests.common.utilities import (
     get_mgmt_ipv6,
     check_output,
     run_show_features,
-    wait_tcp_connection,
-    wait_until,
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import run_bgp_facts
@@ -238,53 +236,19 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
     def verify_telemetry_output_ipv6_only(dut):
-        env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
-        user_auth_cmd = 'sonic-db-cli CONFIG_DB HGET "%s|gnmi" user_auth' % (env.gnmi_config_table)
-        default_user_auth = dut.shell(user_auth_cmd, module_ignore_errors=False)['stdout']
+        with setup_gnmi_streaming_context(True, dut, localhost, ptfhost, gnxi_path):
+            env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
+            dut_ip = get_mgmt_ipv6(dut)
+            port = "Ethernet0"
+            if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
+                port = "Ethernet1"
+            cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
+                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
 
-        try:
-            with setup_gnmi_streaming_context(True, dut, localhost, ptfhost, gnxi_path):
-                # Refresh the environment after the context has created any missing
-                # GNMI configuration so that connection parameters are current.
-                env = GNMIEnvironment(dut, GNMIEnvironment.GNMI_MODE)
-                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth none'
-                          % (env.gnmi_config_table), module_ignore_errors=False)
-                dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
-                dut.service(name=env.gnmi_container, state="restarted")
-                pytest_assert(
-                    wait_until(100, 10, 0, dut.is_service_fully_started, env.gnmi_container),
-                    "%s not started." % (env.gnmi_container)
-                )
-
-                dut_ip = get_mgmt_ipv6(dut)
-                pytest_assert(
-                    wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60),
-                    "Failed to establish TCP connection to %s:%s"
-                    % (dut_ip, env.gnmi_port)
-                )
-                port = "Ethernet0"
-                if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
-                    port = "Ethernet1"
-                cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
-                    [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
-
-                result = str(dut.shell(cmd)['stdout'])
-                inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-                pytest_assert(inerrors_match is not None,
-                              "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
-        finally:
-            if default_user_auth:
-                dut.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" user_auth %s'
-                          % (env.gnmi_config_table, default_user_auth), module_ignore_errors=False)
-            else:
-                dut.shell('sonic-db-cli CONFIG_DB HDEL "%s|gnmi" user_auth'
-                          % (env.gnmi_config_table), module_ignore_errors=False)
-            dut.shell("systemctl reset-failed %s" % (env.gnmi_container))
-            dut.service(name=env.gnmi_container, state="restarted")
-            pytest_assert(
-                wait_until(100, 10, 0, dut.is_service_fully_started, env.gnmi_container),
-                "%s not started after restoring user authentication." % (env.gnmi_container)
-            )
+            result = str(dut.shell(cmd)['stdout'])
+            inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+            pytest_assert(inerrors_match is not None,
+                          "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
 
     nodes_per_hwsku = get_nodes_per_hwsku(duthosts_ipv6_mgmt_only, request)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
