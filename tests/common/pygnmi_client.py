@@ -13,14 +13,18 @@ request surface.
 from __future__ import annotations
 
 import logging
+import multiprocessing
 import os
 import sys
 import time
 from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from enum import Enum
 
 import grpc
 from pygnmi.client import gNMIclient, gNMIException
+
+from tests.pygnmi_subscription import isolated_subscribe
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +80,45 @@ class PygnmiClientTimeoutError(PygnmiClientError):
 
 class PygnmiClientCallError(PygnmiClientError):
     """Validation or RPC execution errors (bad args, server-side failures)."""
+
+
+class _IsolatedSubscription:
+    """Serial access to a child-owned subscriber; used inside its owning context."""
+
+    def __init__(self, pipe, timeout):
+        self._pipe = pipe
+        self._timeout = timeout
+        self._failed = False
+
+    def _request(self, command, timeout=None):
+        if self._failed:
+            raise PygnmiClientCallError("Subscription transport failed; exit the owning context")
+        try:
+            self._pipe.send((command, timeout))
+            if not self._pipe.poll((timeout if timeout is not None else self._timeout) + 5):
+                self._failed = True
+                raise PygnmiClientTimeoutError("Subscription worker did not respond")
+            kind, result = self._pipe.recv()
+        except (EOFError, OSError) as exc:
+            self._failed = True
+            raise PygnmiClientCallError("Subscription worker exited without a response") from exc
+        if kind == "timeout":
+            raise PygnmiClientTimeoutError("Subscription update timed out")
+        return result
+
+    def get_update(self, timeout=15):
+        """Return an update; idle POLL reads the automatic snapshot without a Poll."""
+        return self._request("update", timeout)
+
+    def peek(self):
+        """Whether the child's application queue currently contains an update."""
+        return self._request("peek")
+
+    @property
+    def terminal_status(self):
+        """Original gRPC status, or None while no terminal error is recorded."""
+        code = self._request("status")
+        return grpc.StatusCode[code] if code is not None else None
 
 
 def _normalize_paths(paths: str | dict | Iterable) -> list:
@@ -194,6 +237,10 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
+        return gNMIclient(**self._connection_options())
+
+    def _connection_options(self):
+        """Serializable connection settings, without opening a channel."""
         kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
         if self.plaintext:
             kwargs["insecure"] = True
@@ -201,7 +248,64 @@ class PygnmiClient:
             kwargs["path_root"] = self.ca_cert
             kwargs["path_cert"] = self.client_cert
             kwargs["path_key"] = self.client_key
-        return gNMIclient(**kwargs)
+        return kwargs
+
+    @contextmanager
+    def isolated_subscription(self, subscription: dict):
+        """Own a child-process subscription across parent Ansible calls.
+
+        Accept a native pygnmi SubscriptionList dict. STREAM/ONCE use subscribe2;
+        POLL uses the generated public stub and never sends Poll requests. Its
+        supported fields are mode, encoding, prefix, updates_only, subscription
+        (path, mode, sample_interval). Initial POLL snapshot returns coalesced
+        update entries and sync only, not the full notification metadata.
+        Unlike subscribe(), this
+        session stays open until context exit and leaves observation/collection
+        policy to the caller. Use get_update(), peek() and terminal_status
+        serially; no live client or DUT object crosses the process boundary.
+        A transport timeout or worker disconnect makes the session unusable;
+        exit the context. A reported get_update timeout alone is recoverable.
+        Cleanup failures and forced termination raise even after a successful
+        body. Existing in-process subscribe() behavior is unchanged.
+        """
+        context = multiprocessing.get_context("spawn")
+        parent, child = context.Pipe()
+        options = self._connection_options()
+        options["grpc_options"] = [("grpc.enable_retries", 0)]
+        process = context.Process(target=isolated_subscribe, args=(options, subscription, child))
+        started = False
+        try:
+            process.start()
+            started = True
+            child.close()
+            if not parent.poll(self.timeout + 10):
+                raise PygnmiClientTimeoutError("Subscription worker did not connect")
+            try:
+                parent.recv()
+            except EOFError as exc:
+                raise PygnmiClientCallError("Subscription worker exited before connecting") from exc
+            yield _IsolatedSubscription(parent, self.timeout)
+        finally:
+            try:
+                if started:
+                    try:
+                        parent.send(("close", None))
+                    except (BrokenPipeError, OSError):
+                        pass
+                    process.join(self.timeout + 5)
+                    forced = process.is_alive()
+                    if forced:
+                        process.terminate()
+                        process.join(5)
+                    if process.is_alive():
+                        process.kill()
+                        process.join(5)
+                    if forced or process.exitcode != 0:
+                        raise PygnmiClientCallError("Subscription worker did not exit cleanly")
+            finally:
+                parent.close()
+                child.close()
+                process.close()
 
     def _ensure_client(self) -> gNMIclient:
         """
