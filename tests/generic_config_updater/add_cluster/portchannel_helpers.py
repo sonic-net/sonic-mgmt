@@ -4,11 +4,14 @@ import ast
 import ipaddress
 import json
 import logging
+import re
 import shlex
 
+import pytest
 import requests
 
 from tests.common.config_reload import config_reload
+from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.add_cluster.constants import (
@@ -26,6 +29,74 @@ from tests.generic_config_updater.add_cluster.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_peer_portchannel_min_links(peer, portchannel):
+    """Read the explicit EOS LAG threshold; None preserves an unset default."""
+    result = peer.eos_command(commands=["show running-config interfaces {}".format(portchannel)])
+    pytest_assert(not result.get("failed", False), "Cannot read peer LAG {}".format(portchannel))
+    output = result.get("stdout", [])
+    pytest_assert(output and isinstance(output[0], str), "Missing peer LAG config for {}".format(portchannel))
+    pytest_assert(
+        any(line.strip().lower() == "interface {}".format(portchannel).lower() for line in output[0].splitlines()),
+        "Missing interface stanza in peer LAG config for {}".format(portchannel),
+    )
+    for line in output[0].splitlines():
+        line = line.strip()
+        if line.startswith("port-channel min-links"):
+            match = re.fullmatch(r"port-channel min-links ([1-9][0-9]*)", line)
+            pytest_assert(match is not None, "Unrecognized peer threshold: {}".format(line))
+            return int(match.group(1))
+    return None
+
+
+def get_portchannel_peer_context(runtime, nbrhosts):
+    """Resolve all selected LAG members to one EOS peer LAG before mutation."""
+    neighbors = runtime["config_facts"].get("DEVICE_NEIGHBOR", {})
+    members = [runtime["selected_member_port"]] + runtime["remaining_member_ports"]
+    peer_context = None
+    for member in members:
+        neighbor = neighbors.get(member, {})
+        name, interface = neighbor.get("name"), neighbor.get("port")
+        pytest_assert(name in nbrhosts and interface, "No usable peer for member {}".format(member))
+        peer = nbrhosts[name]["host"]
+        if not isinstance(peer, EosHost):
+            pytest.skip("Peer min_links setup requires an EOS neighbor; {} is unsupported".format(name))
+        portchannel = peer.get_portchannel_by_member(interface)
+        pytest_assert(portchannel, "Cannot resolve peer LAG for {}:{}".format(name, interface))
+        if peer_context is None:
+            peer_context = {
+                "host": peer,
+                "name": name,
+                "portchannel": portchannel,
+                "original_min_links": get_peer_portchannel_min_links(peer, portchannel),
+                "changed": False,
+            }
+        else:
+            pytest_assert(
+                (name, portchannel) == (peer_context["name"], peer_context["portchannel"]),
+                "Selected DUT LAG members do not terminate on one peer LAG",
+            )
+    return peer_context
+
+
+def set_peer_portchannel_min_links(context, min_links):
+    """Update only the selected peer LAG and verify its running configuration."""
+    command = "no port-channel min-links" if min_links is None else "port-channel min-links {}".format(min_links)
+    result = context["host"].eos_config(lines=[command], parents=["interface {}".format(context["portchannel"])])
+    pytest_assert(not result.get("failed", False), "Cannot configure peer LAG {}".format(context["portchannel"]))
+    pytest_assert(
+        get_peer_portchannel_min_links(context["host"], context["portchannel"]) == min_links,
+        "Peer {} {} min_links read-back does not match {}".format(context["name"], context["portchannel"], min_links),
+    )
+    logger.info("Peer %s %s min_links=%s", context["name"], context["portchannel"], min_links)
+
+
+def restore_peer_portchannel_min_links(context):
+    """Restore the exact original peer setting, including an unset threshold."""
+    if context["changed"]:
+        set_peer_portchannel_min_links(context, context["original_min_links"])
+        context["changed"] = False
 
 
 def restore_dut_via_minigraph(duthost, loganalyzer=None):

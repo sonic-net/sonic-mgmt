@@ -9,10 +9,15 @@ PortChannel member back to a T2 chassis linecard using Generic Config Updater
 The test starts from a minigraph-derived PortChannel with at least two external
 400G member ports. Setup removes one member's port-scoped configuration and
 sets that port admin down, then lowers the PortChannel `min_links` value to the
-remaining member count. The test body restores the removed member and the
-original `min_links` value with GCU. After the restore patch, the test validates
-control-plane, ASIC, counter, ACL/Mirror binding, and dataplane behavior for the
-restored LAG member.
+remaining member count. Setup saves and reloads that prepared configuration so
+teamd uses the reduced threshold. The test body restores the removed member and the
+original running `CONFIG_DB` `min_links` value with GCU. After the restore patch,
+the test validates control-plane, ASIC, counter, ACL/Mirror binding, and
+dataplane behavior for the restored LAG member.
+Teardown always reloads minigraph and saves the regenerated running
+configuration, restoring both runtime state and the on-disk config DB files.
+Setup also lowers the peer LAG threshold when needed to permit the reduced
+member count; cleanup restores that peer setting to its original value.
 
 Test module:
 
@@ -52,8 +57,15 @@ all of the following conditions:
 3. All external members are admin up and oper up.
 4. The PortChannel is oper up before setup starts.
 5. The original PortChannel config has `min_links` configured.
+6. That value is greater than the remaining member count, so setup genuinely
+   reduces it rather than increasing it or applying an unchanged value.
 
 Internal and backplane member ports are excluded from selection.
+
+The selected members must terminate on one EOS neighbor PortChannel. Setup
+uses the existing neighbor inventory and `get_portchannel_by_member` API to
+resolve that LAG. Unsupported neighbor types skip before either side is
+modified; missing or inconsistent peer membership is a setup failure.
 
 If no PortChannel satisfies these conditions for a HWSKU parameter, that
 parameter is skipped before any GCU patch is applied. Other HWSKU parameters can
@@ -78,7 +90,9 @@ that member was moved to the default admin-down state:
 1. Remove one external member from `PORTCHANNEL_MEMBER`.
 2. Remove the selected port's port-scoped cluster configuration.
 3. Set the selected port admin down.
-4. Lower `min_links` to the remaining member count.
+4. Lower `min_links` to the remaining member count and reload the prepared
+   configuration. Require the reduced-member LAG to be operational before GCU
+   member addition starts.
 5. Add the selected member and port-scoped config back using GCU.
 6. Restore the original PortChannel `min_links` value using GCU.
 7. Verify the final selected-port `CONFIG_DB` entries, member existence, port
@@ -97,6 +111,13 @@ that member was moved to the default admin-down state:
 
 ### 4.1 Setup patch: remove one member
 
+Before changing the DUT, snapshot the peer LAG's explicit `min-links` setting.
+If it exceeds the remaining member count, lower it to that count using the
+neighbor's configuration API and verify running-config read-back. This avoids
+the peer keeping the reduced-member LAG unsynchronized. An absent or already
+low-enough setting is left unchanged. Peer changes are test preparation, not
+part of the DUT GCU patch.
+
 The setup fixture applies GCU patches that:
 
 - remove the selected `PORTCHANNEL_MEMBER` entry
@@ -110,9 +131,15 @@ The setup fixture applies GCU patches that:
 - set `PORT|<member>/admin_status` to `down`
 - set `PORTCHANNEL|<portchannel>/min_links` to the remaining member count
 
-The test waits for the PortChannel to come up after lowering `min_links`. Per
-test requirement, timeout does not fail the test; it logs an error with the last
-PortChannel status command output and continues.
+The test saves the prepared running configuration and uses the common safe
+config reload helper. Config-file backups are not needed: the minigraph
+finalizer is registered before any patch and restores running and saved
+configuration after both successful tests and setup/test failures. YANG
+validation remains enabled.
+
+After this setup reload, the PortChannel must be operationally up, teamd's
+active `min_ports` must equal the remaining member count, and every remaining
+member must be selected. Failure stops the test before the GCU add patch.
 
 ### 4.2 Test patch: add the member back
 
@@ -133,24 +160,37 @@ The test body applies one GCU patch that:
 Each patch is first validated with `config apply-patch -d` before the real GCU
 apply.
 
+The restored original `min_links` value is required in running `CONFIG_DB`.
+The test does not require a hot update of teamd's threshold: its active
+`min_ports` may remain at the prepared value or match the original value on
+implementations that support runtime updates. All expected members must be
+selected and the PortChannel must be up. There is no save, reload, or reboot
+between the GCU restore patch and these assertions. Minigraph reload and save
+run afterward as teardown, not as validation of GCU persistence or hitless forwarding.
+
 ## 5. Test Procedure
 
 ```mermaid
 flowchart TD
     A[Select T2 frontend LC and ASIC] --> B[Select up PortChannel with 400G members]
     B --> C[Save original member and min_links config]
-    C --> D[Dry-run and apply GCU member remove patch]
+    C --> C1[Resolve peer LAG and snapshot its threshold]
+    C1 --> C2[Lower peer threshold when needed and verify read-back]
+    C2 --> D[Dry-run and apply GCU member remove patch]
     D --> E[Verify member absent and port admin down]
     E --> F[Dry-run and apply GCU min_links update]
-    F --> G[Log error if PortChannel does not come up]
-    G --> H[Dry-run and apply GCU member add plus min_links restore]
+    F --> G[Save prepared running config]
+    G --> G1[Reload prepared config]
+    G1 --> G2[Require LAG up, reduced active threshold, and remaining members selected]
+    G2 --> H[Dry-run and apply GCU member add plus min_links restore]
     H --> I[Verify member-scoped config, port admin, and min_links restored]
     I --> J[Assert PortChannel comes up]
     J --> K[Verify teamd, ASIC_DB, COUNTERS_DB, and ACL/Mirror bindings]
     K --> L[Select unused test route and send PTF traffic to restored member]
     L --> M[Verify restored member counters increase]
-    M --> N[GCU cleanup restores selected member if needed]
-    N --> O[Fallback minigraph reload only if GCU cleanup fails]
+    M --> N[Always reload minigraph and save regenerated configuration]
+    N --> O[Wait for services and BGP recovery]
+    O --> P[Restore and verify original peer threshold]
 ```
 
 ### 5.1 Select DUT, ASIC, PortChannel, and member
@@ -166,13 +206,24 @@ flowchart TD
 
 ### 5.2 Prepare base state
 
-1. Register GCU cleanup before applying any patch.
+Resolve the peer PortChannel for every selected DUT member and snapshot its
+actual configured threshold, rather than assuming it equals the member count.
+Register peer recovery before lowering its threshold to the remaining member
+count. The fixture dependency keeps the peer threshold reduced through DUT
+cleanup and restores it afterward, including when DUT cleanup raises an error.
+
+1. Register unconditional minigraph cleanup before applying any patch.
 2. Dry-run and apply the selected-member removal patch.
 3. Verify the removed member is absent from `CONFIG_DB` and the member port is
    admin down.
 4. Dry-run and apply the `min_links` update to match remaining member count.
 5. Verify the reduced `min_links` value in `CONFIG_DB`.
-6. Poll PortChannel operational state and log an error if it does not come up.
+6. Save the prepared running configuration and reload it through the common
+   safe reload helper. The already-registered minigraph finalizer restores the
+   on-disk files after the test, including on setup failures.
+7. Recheck the reduced-member config, require aggregate operational state up,
+   and verify teamd's active threshold equals the remaining member count with
+   every remaining member selected.
 
 ### 5.3 Add the member back
 
@@ -189,8 +240,9 @@ flowchart TD
 8. Verify `lag_facts`/teamd state reports:
    - the aggregate PortChannel is up
    - all expected members are configured
-   - the restored member is selected
-   - the restored `min_links` value is active
+   - every expected member, including the restored member, is selected
+   - the active threshold is either the prepared reduced value or the original
+     value; CONFIG_DB restoration is checked separately
 9. Verify ASIC_DB has one `SAI_OBJECT_TYPE_LAG_MEMBER` entry for every expected
    member, none of those members are egress-disabled, and all expected member
    entries reference the same SAI LAG object.
@@ -225,21 +277,30 @@ route candidate lists and their own DUT selection and GCU patch flows.
 Cleanup runs after normal completion, assertion failure, or partial setup
 failure:
 
-1. Dry-run and apply the same member-add/original-`min_links` GCU patch if the
-   selected PortChannel member is not already restored.
-2. Verify the selected member, selected port-scoped `CONFIG_DB` entries,
-   selected port admin status, and PortChannel `min_links` are back to their
-   original values.
-3. Fall back to `config reload` from minigraph with `safe_reload=True` and
-   `wait_for_bgp=True` only if the GCU cleanup path fails.
+1. Always invoke the existing minigraph recovery helper for the selected DUT,
+   even when the GCU test passed and CONFIG_DB already matches the saved values.
+2. Use the common `config_reload` helper with `config_source="minigraph"`,
+   `safe_reload=True`, and `wait_for_bgp=True`. Its minigraph path runs
+   `config load_minigraph -y` and then `config save -y`, regenerating and saving
+   the host and ASIC config DB files from the minigraph-derived configuration.
+3. Surface recovery errors rather than silently leaving the prepared baseline
+   or an unhealthy DUT behind. No additional GCU patch is applied in teardown.
+4. Override the shared module-level `setup_env` fixture for this test only.
+   Otherwise, its later backup/checkpoint restore could overwrite the minigraph
+   configuration just recovered by the function finalizer. Other add-cluster
+   tests retain the shared fixture unchanged.
+5. The peer fixture restores its exact original `min-links` setting and verifies
+   running-config read-back, independently of DUT recovery success. It does
+   not save the temporary peer configuration. Peer restoration errors fail
+   teardown instead of being silently ignored.
 
 ## 6. Loganalyzer Handling
 
 During GCU apply, the test registers selective loganalyzer ignores for expected
 transient LAG and buffer-programming errors on the selected DUT.
 
-If teardown falls back to config reload, the common `config_reload` helper
-handles reload-time stabilization.
+During unconditional minigraph teardown, the common `config_reload` helper
+handles reload-time stabilization and expected reload log handling.
 
 ## 7. Pass Criteria
 
@@ -248,13 +309,15 @@ The test passes when:
 1. A qualifying 400G external PortChannel is selected, or unsupported testbeds
    are skipped.
 2. The setup GCU patches remove the selected member, set it admin down, and
-   lower `min_links`.
+   lower `min_links`. The setup reload produces an operational reduced-member
+   LAG with the reduced active teamd threshold before member addition.
 3. The test GCU patch adds the selected member back and restores original
    `min_links`.
 4. `CONFIG_DB` shows the expected final member existence, selected-port config,
    admin status, and `min_links` value.
 5. PortChannel operational state is up after the final member restore.
-6. teamd/lag state reports the restored member selected.
+6. teamd/lag state reports every expected member selected and an active
+   threshold matching either the prepared or original value.
 7. ASIC_DB exposes SAI LAG_MEMBER objects for the expected LAG members and none
    of those members are egress-disabled.
 8. COUNTERS_DB exposes readable restored-member TX counters, and LAG counters
@@ -262,13 +325,16 @@ The test passes when:
 9. Existing ACL and Mirror bindings for the restored LAG remain present.
 10. PTF traffic can hash to the restored member and the restored member TX
     counters increase.
-11. Cleanup restores the selected PortChannel member config through GCU, with
-   minigraph reload reserved as a fallback.
+11. Teardown restores the selected DUT from minigraph and saves the regenerated
+    configuration to disk, then waits for services and BGP recovery.
+12. If the peer threshold was changed, teardown restores its exact original
+    setting and confirms read-back.
 
-PortChannel operational state timeout after the setup `min_links` reduction is
-logged as an error and is not a pass or fail criterion. Aggregate PortChannel
-operational state after the final member restore is a pass criterion and is
-checked through `show interfaces portchannel`.
+Aggregate PortChannel operational state is required both after the setup reload
+and after final member restore, through `show interfaces portchannel` and teamd
+read-back. Running `CONFIG_DB` must contain the original `min_links` after GCU.
+An active teamd threshold remaining at the prepared value is not evidence of
+successful runtime threshold restoration; that capability is outside this test.
 
 ## 8. Out of Scope
 

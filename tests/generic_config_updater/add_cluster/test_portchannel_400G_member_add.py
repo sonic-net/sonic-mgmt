@@ -3,10 +3,12 @@ Validate adding a removed 400G PortChannel member back with GCU.
 
 The test runs on T2 chassis linecards. It scans frontend linecards and selects
 a PortChannel whose external members are all 400G and which has at least two
-oper-up members. Setup removes one member's port-scoped cluster config, sets
-that port admin down, and lowers the PortChannel min_links to the remaining
-member count. The test then restores the removed member and the original
-PortChannel min_links with GCU.
+oper-up members. Setup lowers the peer LAG threshold when needed, then
+removes one member's port-scoped cluster config, sets
+that port admin down, and reloads the prepared config with min_links equal to
+the remaining member count. The test then restores the removed member and the
+original CONFIG_DB min_links with GCU. After validation, teardown reloads
+minigraph, saves its regenerated configuration, and restores the peer threshold.
 """
 
 import ast
@@ -18,6 +20,7 @@ import shlex
 
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.gu_utils import (
     apply_patch,
     delete_tmpfile,
@@ -63,14 +66,17 @@ from tests.generic_config_updater.add_cluster.portchannel_helpers import (
     get_interface_neighbor_and_intfs as _get_interface_neighbor_and_intfs,
     get_member_counter_snapshot as _get_member_counter_snapshot,
     get_portstat_counter as _get_portstat_counter,
+    get_portchannel_peer_context,
     normalize_acl_ports as _normalize_acl_ports,
     queue_key_matches_port as _queue_key_matches_port,
     remove_static_route_no_proxy as _remove_static_route_no_proxy,
     restore_dut_via_minigraph as _restore_dut_via_minigraph,
+    restore_peer_portchannel_min_links,
     route_uses_portchannel,
     runner_member_selected as _runner_member_selected,
     select_ptf_source_port as _select_ptf_source_port,
     select_unused_portchannel_traffic_dst_ip,
+    set_peer_portchannel_min_links,
     wait_for_portchannel_up_or_log as _wait_for_portchannel_up_or_log,
 )
 
@@ -247,6 +253,10 @@ def _collect_portchannel_member_add_options(candidates, speed,
                 require_min_links=True,
                 require_portchannel_up=True,
             )
+            portchannel_options = [
+                option for option in portchannel_options
+                if int(option["original_min_links"]) > len(option["members"]) - 1
+            ]
 
             if portchannel_options:
                 asic_options[asic_index] = {
@@ -1075,11 +1085,18 @@ def _expected_portchannel_members(runtime):
 
 
 def verify_teamd_lag_member_state(duthost, portchannel, expected_members,
-                                  restored_member, expected_min_links):
+                                  restored_member, expected_min_links,
+                                  alternate_min_links=None):
     """
-    Verify teamdctl/lag_facts reports the restored member selected.
+    Verify the active threshold and selection of every expected LAG member.
+
+    After GCU restore, alternate_min_links permits the prepared threshold on
+    teammgr versions that do not hot-update min_links on an existing LAG.
     """
     last_summary = {}
+    expected_min_ports = {str(expected_min_links)}
+    if alternate_min_links is not None:
+        expected_min_ports.add(str(alternate_min_links))
 
     def _lag_state_matches():
         nonlocal last_summary
@@ -1096,6 +1113,11 @@ def verify_teamd_lag_member_state(duthost, portchannel, expected_members,
         configured_ports = set(po_config.get("ports", {}).keys())
         member_stats = po_stats.get("ports", {})
         missing_members = sorted(set(expected_members) - configured_ports)
+        unexpected_members = sorted(configured_ports - set(expected_members))
+        unselected_members = [
+            member for member in expected_members
+            if not _runner_member_selected(member_stats.get(member, {}))
+        ]
         runner_config = po_config.get("runner", {})
         min_ports = runner_config.get("min_ports")
         restored_member_state = member_stats.get(restored_member, {})
@@ -1104,16 +1126,19 @@ def verify_teamd_lag_member_state(duthost, portchannel, expected_members,
             "po_intf_stat": lag_info.get("po_intf_stat"),
             "configured_ports": sorted(configured_ports),
             "missing_members": missing_members,
+            "unexpected_members": unexpected_members,
+            "unselected_members": unselected_members,
             "min_ports": min_ports,
+            "expected_min_ports": sorted(expected_min_ports),
             "restored_member_state": restored_member_state,
         }
         logger.info("teamd/lag_facts summary for %s: %s", portchannel, last_summary)
         return (
             lag_info.get("po_intf_stat") == "Up" and
             not missing_members and
-            str(min_ports) == str(expected_min_links) and
-            restored_member in member_stats and
-            _runner_member_selected(restored_member_state)
+            not unexpected_members and
+            not unselected_members and
+            str(min_ports) in expected_min_ports
         )
 
     pytest_assert(
@@ -1123,8 +1148,8 @@ def verify_teamd_lag_member_state(duthost, portchannel, expected_members,
             0,
             _lag_state_matches,
         ),
-        "teamd/lag_facts did not report {} restored in {}; last_state={}".format(
-            restored_member,
+        "teamd/lag_facts did not report expected members {} selected in {}; last_state={}".format(
+            expected_members,
             portchannel,
             last_summary,
         ),
@@ -1670,6 +1695,15 @@ def verify_post_restore_operational_state(duthost, runtime, tbinfo, ptfadapter, 
             expected_members,
             restored_member,
             runtime["original_min_links"],
+            alternate_min_links=runtime["base_min_links"],
+        )
+        logger.info(
+            "CONFIG_DB min_links restored to %s for %s; teamd may retain " +
+            "the prepared min_ports=%s. Runtime threshold restoration and " +
+            "save/reload persistence are not asserted.",
+            runtime["original_min_links"],
+            portchannel,
+            runtime["base_min_links"],
         )
 
     with allure.step("Verify restored LAG member in ASIC_DB"):
@@ -1742,8 +1776,11 @@ def portchannel_member_add_context(duthosts,
     )
     if selected_context is None:
         pytest.skip(
-            "No T2 chassis frontend DUT with HWSKU {} has a 400G oper-up "
-            "PortChannel with at least two oper-up external members".format(
+            (
+                "No T2 chassis frontend DUT with HWSKU {} has a 400G oper-up " +
+                "PortChannel with at least two oper-up external members and " +
+                "min_links greater than the remaining member count"
+            ).format(
                 selected_hwsku
             )
         )
@@ -1780,6 +1817,39 @@ def ignore_portchannel_member_add_loganalyzer_exceptions(
         )
 
 
+def _reload_prepared_portchannel_config(duthost, loganalyzer):
+    """Save and reload the baseline; the registered finalizer restores minigraph."""
+    duthost.command("config save -y")
+    config_reload(
+        duthost,
+        config_source="config_db",
+        safe_reload=True,
+        wait_for_bgp=True,
+        ignore_loganalyzer=loganalyzer,
+    )
+
+
+@pytest.fixture(scope="module", autouse=True, name="setup_env")
+def use_function_scoped_minigraph_cleanup():
+    """Override the shared checkpoint teardown, which would undo minigraph recovery."""
+    yield
+
+
+@pytest.fixture(scope="function")
+def portchannel_peer_min_links(request, portchannel_member_add_context, nbrhosts):
+    """Permit the single-member baseline on the peer and always restore its setting."""
+    context = get_portchannel_peer_context(portchannel_member_add_context, nbrhosts)
+    request.addfinalizer(lambda: restore_peer_portchannel_min_links(context))
+    remaining_members = len(portchannel_member_add_context["remaining_member_ports"])
+    original_min_links = context["original_min_links"]
+    if original_min_links is not None and original_min_links > remaining_members:
+        # Register recovery before a CLI call that might partially apply and fail.
+        context["changed"] = True
+        with allure.step("Lower peer PortChannel min_links for the reduced-member baseline"):
+            set_peer_portchannel_min_links(context, remaining_members)
+    yield context
+
+
 @pytest.fixture(scope="function")
 def setup_portchannel_member_add(
     request,
@@ -1787,9 +1857,10 @@ def setup_portchannel_member_add(
     portchannel_member_add_context,
     loganalyzer,
     ignore_portchannel_member_add_loganalyzer_exceptions,
+    portchannel_peer_min_links,
 ):
     """
-    Remove one PortChannel member and lower min_links before the add test.
+    Remove one member, lower min_links, and reload an operational baseline.
     """
     selected_context = portchannel_member_add_context
     duthost = duthosts[selected_context["selected_dut_hostname"]]
@@ -1799,60 +1870,11 @@ def setup_portchannel_member_add(
     portchannel = selected_context["selected_portchannel"]
     port = selected_context["selected_member_port"]
     remaining_min_links = len(selected_context["remaining_member_ports"])
-    saved_admin_status_exists, saved_admin_status = (
-        _saved_admin_status_expectation(
-            selected_context["config_facts"],
-            port,
-        )
-    )
+    selected_context["base_min_links"] = remaining_min_links
 
     def cleanup():
-        def restored_state_matches():
-            return _portchannel_member_state_matches(
-                duthost,
-                cli_namespace_prefix,
-                selected_context["config_facts"],
-                portchannel,
-                port,
-                member_should_exist=True,
-                expected_admin_status=saved_admin_status,
-                expected_admin_status_exists=saved_admin_status_exists,
-                expected_min_links=selected_context["original_min_links"],
-            )
-
-        with allure.step(
-            "Restore selected PortChannel member config via GCU"
-        ):
-            try:
-                restore_patch = build_portchannel_member_add_ops(
-                    selected_context["config_facts"],
-                    json_namespace,
-                    portchannel,
-                    port,
-                    selected_context["original_min_links"],
-                )
-                _apply_patch_with_dry_run(
-                    duthost,
-                    restore_patch,
-                    f"cleanup restore {port} to {portchannel}",
-                    operation_completed=restored_state_matches,
-                )
-                if not restored_state_matches():
-                    raise RuntimeError(
-                        "GCU cleanup restore for {} member {} completed but "
-                        "CONFIG_DB state still does not match saved config".format(
-                            portchannel,
-                            port,
-                        )
-                    )
-            except Exception:
-                logger.exception(
-                    "GCU cleanup failed for %s member %s; falling back to "
-                    "minigraph config reload",
-                    portchannel,
-                    port,
-                )
-                _restore_dut_via_minigraph(duthost, loganalyzer)
+        with allure.step("Restore running and saved DUT configuration from minigraph"):
+            _restore_dut_via_minigraph(duthost, loganalyzer)
 
     request.addfinalizer(cleanup)
 
@@ -1919,7 +1941,7 @@ def setup_portchannel_member_add(
                 expected_min_links=remaining_min_links,
             ),
         )
-    with allure.step("Verify base PortChannel config after min_links update"):
+    with allure.step("Verify prepared PortChannel config before saving and reloading"):
         verify_portchannel_member_state(
             duthost,
             cli_namespace_prefix,
@@ -1931,11 +1953,37 @@ def setup_portchannel_member_add(
             expected_admin_status_exists=True,
             expected_min_links=remaining_min_links,
         )
-        _wait_for_portchannel_up_or_log(
+
+    with allure.step("Reload prepared config to activate reduced teamd min_ports"):
+        _reload_prepared_portchannel_config(duthost, loganalyzer)
+
+    with allure.step("Verify reduced-member PortChannel baseline is operational"):
+        verify_portchannel_member_state(
             duthost,
-            asic_namespace,
+            cli_namespace_prefix,
+            selected_context["config_facts"],
             portchannel,
-            operation_description="min_links update",
+            port,
+            member_should_exist=False,
+            expected_admin_status="down",
+            expected_admin_status_exists=True,
+            expected_min_links=remaining_min_links,
+        )
+        pytest_assert(
+            _wait_for_portchannel_up_or_log(
+                duthost,
+                asic_namespace,
+                portchannel,
+                operation_description="prepared config reload",
+            ),
+            "PortChannel {} did not come up after prepared config reload".format(portchannel),
+        )
+        verify_teamd_lag_member_state(
+            duthost,
+            portchannel,
+            selected_context["remaining_member_ports"],
+            selected_context["remaining_member_ports"][0],
+            remaining_min_links,
         )
 
     yield selected_context
