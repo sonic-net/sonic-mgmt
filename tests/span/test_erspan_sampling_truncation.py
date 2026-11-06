@@ -35,6 +35,11 @@ TRUNCATION_PROBE_COUNT = 1000
 SEND_BATCH_SIZE = 1000
 SEND_SOCKET_TIMEOUT_MS = 30000
 
+OUTER_ETH_HDR_LEN = 14
+OUTER_IPV4_HDR_LEN = 20
+OUTER_HDRS_LEN = OUTER_ETH_HDR_LEN + OUTER_IPV4_HDR_LEN
+INNER_SEARCH_WINDOW = 48
+
 
 def _assert_mirror_len(observed_len, original_len, truncate_size):
     '''
@@ -77,9 +82,10 @@ def _send_sampled_traffic_and_collect(ptfadapter, erspan_session, inject_index,
     '''
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, inject_index)
+    dst_mac = eth_dst or 'ff:ff:ff:ff:ff:ff'
     total_packets = count if count is not None else NUM_SAMPLES * erspan_session['sample_rate']
     pkt = testutils.simple_tcp_packet(
-        pktlen=pktlen, eth_src=src_mac, eth_dst=eth_dst or 'ff:ff:ff:ff:ff:ff'
+        pktlen=pktlen, eth_src=src_mac, eth_dst=dst_mac
     )
 
     ptfadapter.dataplane.flush()
@@ -91,8 +97,33 @@ def _send_sampled_traffic_and_collect(ptfadapter, erspan_session, inject_index,
         remaining -= batch
     logger.info("Sent %d packets (pktlen=%d) from PTF port %d", total_packets, pktlen, inject_index)
 
-    return collect_erspan_packets(
+    packets = collect_erspan_packets(
         ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=timeout)
+    probe_eth_hdr = _mac_to_bytes(dst_mac) + _mac_to_bytes(src_mac)   # Ethernet order: dst, src
+    probes = [p for p in packets if _is_probe_frame(p, probe_eth_hdr)]
+    logger.info("Dropped %d non-probe mirrored frames (e.g. DUT-originated ND/LLDP)",
+                len(packets) - len(probes))
+    if packets and not probes:
+        logger.warning("No probe frames among %d ERSPAN frames; head of first frame: %s",
+                       len(packets), bytes(packets[0])[:80].hex())
+    return probes
+
+
+def _mac_to_bytes(mac):
+    '''Accept 'aa:bb:..' as str or bytes (ptf dataplane.get_mac returns bytes).'''
+    if isinstance(mac, bytes):
+        mac = mac.decode()
+    return bytes.fromhex(mac.replace(':', ''))
+
+
+def _is_probe_frame(erspan_frame, probe_eth_hdr):
+    '''
+    True if the dst+src MAC pair of the probe is found right after the outer headers, i.e. the
+    mirrored frame is our probe. Egress sampling also mirrors DUT-originated control-plane
+    traffic (ND, LLDP) leaving the source port; it must not be length-checked as a probe.
+    '''
+    window = bytes(erspan_frame)[OUTER_HDRS_LEN:OUTER_HDRS_LEN + INNER_SEARCH_WINDOW]
+    return probe_eth_hdr in window
 
 
 def _assert_sampled_count(mirrored_count, sample_rate, label=None):
