@@ -693,7 +693,7 @@ class TestProbingBaseRunTest:
         pb.sai_thrift_port_tx_enable = Mock()
         pb.stream_mgr = Mock()
         pb.setup_traffic = Mock()
-        with patch.object(mock_sai_base, 'BLOCK_DATA_PLANE_SCHEDULER_NAME', 'scheduler.block_data_plane'), \
+        with patch('probing_base.sai_base_test.BLOCK_DATA_PLANE_SCHEDULER_NAME', 'scheduler.block_data_plane'), \
                 patch('probing_base.BufferOccupancyController') as controller:
             if blocked:
                 with pytest.raises(AssertionError, match='inherited blocking scheduler'):
