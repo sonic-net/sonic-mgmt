@@ -693,6 +693,8 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    FT2_INNER_LENGTH_TEST_MAX_SAMPLES = 1000
+
     def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
         """
         @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
@@ -849,7 +851,11 @@ class IPinIPHashTest(HashTest):
             # The length of inner_frame is not used as hash key for IPinIP packet.
             # The test generates IPinIP packets with random inner_frame_length, and then verify the egress path.
             # The egress port should never change
-            for _ in range(0, self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))):
+            test_times = self.balancing_test_times * len(list(itertools.chain(*exp_port_lists)))
+            if self.topo_type == 'ft2':
+                # This checks egress invariance, not distribution across ECMP members.
+                test_times = min(test_times, self.FT2_INNER_LENGTH_TEST_MAX_SAMPLES)
+            for _ in range(0, test_times):
                 logging.info('Checking hash key {}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                              .format(hash_key, exp_port_lists, outer_src_ip, outer_dst_ip))
                 (matched_index, _) = self.check_ip_route(hash_key,
