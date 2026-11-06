@@ -9,6 +9,7 @@ import yaml
 from collections import OrderedDict
 from datetime import datetime
 from .errors import HDDThresholdExceeded, RAMThresholdExceeded, CPUThresholdExceeded
+from tests.common.utilities import create_proxy_from_ssh_args
 
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,13 @@ class DUTMonitorPlugin(object):
     def dut_ssh(self, duthosts, rand_one_dut_hostname, creds):
         """Establish SSH connection with DUT"""
         duthost = duthosts[rand_one_dut_hostname]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+        ssh_common_args = hostvars.get("ansible_ssh_common_args", "")
+        port = hostvars.get("ansible_port", 22)
+        proxy_sock = create_proxy_from_ssh_args(ssh_common_args, duthost.hostname, port)
         ssh = DUTMonitorClient(host=duthost.hostname, user=creds["sonicadmin_user"],
-                               password=creds["sonicadmin_password"])
+                               password=creds["sonicadmin_password"],
+                               sock=proxy_sock)
         yield ssh
 
     @pytest.fixture(autouse=True, scope="function")
@@ -232,11 +238,12 @@ class DUTMonitorClient(object):
         - start/stop hardware resources monitoring on DUT
         - automatically restart monitoring script on the DUT in case of lose network connectivity (device reboot, etc.)
     """
-    def __init__(self, host, user, password):
+    def __init__(self, host, user, password, sock=None):
         self.running = False
         self.user = user
         self.password = password
         self.host = host
+        self.sock = sock
         self.init()
         self.run_channel = None
         self._thread = threading.Thread(name="Connection tracker", target=self._track_connection)
@@ -279,7 +286,11 @@ class DUTMonitorClient(object):
         logger.debug("Trying to establish connection ...")
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(self.host, username=self.user, password=self.password, timeout=5)
+        connect_kwargs = dict(hostname=self.host, username=self.user,
+                              password=self.password, timeout=5)
+        if self.sock is not None:
+            connect_kwargs['sock'] = self.sock
+        self.ssh.connect(**connect_kwargs)
 
     def close(self):
         """
