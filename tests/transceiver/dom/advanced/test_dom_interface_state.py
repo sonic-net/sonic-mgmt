@@ -13,9 +13,14 @@ from tests.transceiver.common.topology import (
     resolve_remote_peer,
 )
 from tests.transceiver.dom.advanced.helpers import (
+    active_lanes_from_group_mask,
     build_dom_deviation_checks,
     dom_rx_power_flag_candidates,
     dom_tx_los_hostlane_candidates,
+    max_system_wait,
+    parse_required_number,
+    parse_required_positive_int,
+    ports_for_primary,
     read_dom_interface_state_tables,
     validate_appl_port_down_time,
     validate_dom_baseline_flags,
@@ -27,15 +32,10 @@ from tests.transceiver.dom.advanced.helpers import (
     wait_for_dom_sensor_update,
 )
 from tests.transceiver.dom.dom_helpers import (
-    active_lanes_from_group_mask,
     build_dom_sensor_plan,
     dom_field_available,
     dom_field_in_operational_range,
     format_dom_port_failure,
-    max_system_wait,
-    parse_required_number,
-    parse_required_positive_int,
-    ports_for_primary,
     validate_dom_plan_fields,
 )
 

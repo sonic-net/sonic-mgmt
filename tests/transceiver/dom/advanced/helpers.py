@@ -15,6 +15,12 @@ from tests.transceiver.common.db_helpers import (
     parse_update_time,
     resolve_port_namespace,
 )
+from tests.transceiver.common.attribute_helpers import resolve_breakout_lanes
+from tests.transceiver.attribute_parser.attribute_keys import (
+    BASE_ATTRIBUTES_KEY,
+    DOM_ATTRIBUTES_KEY,
+    SYSTEM_ATTRIBUTES_KEY,
+)
 from tests.transceiver.dom.dom_helpers import (
     DEVIATION_SUFFIX,
     DomMappedField,
@@ -42,6 +48,59 @@ APPL_DB_PORT_TABLE = "PORT_TABLE"
 
 DOM_EVENT_TIME_TOLERANCE_SEC = 5
 DOM_RECOVERY_POLL_INTERVAL_SEC = 20
+
+
+def ports_for_primary(primary_port, port_attributes_dict, lport_to_first_subport_mapping):
+    """Return logical subports that share ``primary_port`` as their first subport."""
+    mapping = lport_to_first_subport_mapping or {}
+    return sorted(
+        port for port in port_attributes_dict if mapping.get(port, port) == primary_port
+    ) or [primary_port]
+
+
+def active_lanes_from_group_mask(primary_port, port_attributes_dict, lport_to_first_subport_mapping, mask_key):
+    """Return active lanes and errors from a breakout group's lane masks."""
+    selection = resolve_breakout_lanes(
+        primary_port,
+        port_attributes_dict,
+        lport_to_first_subport_mapping,
+        mask_key,
+    )
+    return selection.active_lanes, selection.errors
+
+
+def parse_required_number(attrs, attr_name, category_name=DOM_ATTRIBUTES_KEY):
+    """Return ``(value, error)`` for a required finite numeric attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value):
+        return None, "{} must be configured as a finite number in {} (got {!r})".format(
+            attr_name, category_name, raw_value,
+        )
+    return value, None
+
+
+def parse_required_positive_int(attrs, attr_name, minimum=1):
+    """Return ``(value, error)`` for a required integer attribute."""
+    raw_value = attrs.get(attr_name)
+    value = parse_numeric(raw_value)
+    if value is None or not math.isfinite(value) or int(value) != value or value < minimum:
+        return None, "{} must be an integer >= {} (got {!r})".format(attr_name, minimum, raw_value)
+    return int(value), None
+
+
+def max_system_wait(port_attributes_dict, ports, attr_name):
+    """Return ``(wait_sec, errors)`` for a system timing attribute across ports."""
+    values = []
+    errors = []
+    for port in ports:
+        system_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
+        value, error = parse_required_positive_int(system_attrs, attr_name, minimum=0)
+        if error:
+            errors.append("{} {}".format(port, error))
+        else:
+            values.append(value)
+    return (max(values) if values else None), errors
 
 INTERFACE_STATE_TABLES = (
     ("sensor", STATE_DB_SENSOR_TABLE),
