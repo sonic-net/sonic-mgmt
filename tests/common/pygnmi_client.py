@@ -336,7 +336,8 @@ class PygnmiClient:
     def set(self, update: list | None = None, replace: list | None = None,
             delete: list | None = None,
             encoding: Encoding = Encoding.JSON_IETF,
-            target: str | None = None, prefix: str = "") -> dict:
+            target: str | None = None, prefix: str = "",
+            metadata: Iterable[tuple[str, str]] | None = None) -> dict:
         """
         Issue a gNMI Set RPC against the target device.
 
@@ -348,6 +349,7 @@ class PygnmiClient:
                 Encoding.JSON_IETF.
             target: Optional gNMI target used to route the request.
             prefix: Optional gNMI prefix applied to all paths.
+            metadata: Additional gRPC metadata for this Set call only.
 
         Returns:
             pygnmi's native set response dict (timestamp plus per-operation
@@ -363,6 +365,12 @@ class PygnmiClient:
             raise PygnmiClientCallError("set requires at least one of update, replace, delete")
         try:
             gc = self._ensure_client()
+            if metadata:
+                # pygnmi 0.8.15 has no public per-call metadata argument. Keep
+                # this adapter here so callers use the normal Set API and path
+                # encoding. connect() has already completed Capabilities; the
+                # client is closed below, so metadata cannot leak to later RPCs.
+                gc._gNMIclient__metadata = list(gc._gNMIclient__metadata) + list(metadata)
             return gc.set(update=update, replace=replace, delete=delete,
                           prefix=prefix, encoding=str(encoding), target=target)
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,

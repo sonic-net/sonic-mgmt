@@ -5,10 +5,13 @@ All tests automatically run with TLS server configuration by default.
 Users don't need to worry about TLS configuration.
 """
 
+import base64
+import hashlib
 import logging
 
 import pytest
 
+import tests.gnmi.helper as gnoi_helper
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -18,6 +21,72 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("any"),
 ]
+
+AUTHZ_FILE_CONTENT = b"sonic-mgmt write authorization sentinel\n"
+AUTHZ_REPLACEMENT_CONTENT = b"authorized replacement\n"
+
+
+def _file_transfer_to_remote(client, path):
+    # No remote_download: cannot download even on a vulnerable DUT.
+    return client.call_unary("gnoi.file.File", "TransferToRemote", {"localPath": path})
+
+
+def _file_put(client, path):
+    return client.call_client_streaming(
+        "gnoi.file.File",
+        "Put",
+        [
+            {"open": {"remoteFile": path, "permissions": 420}},
+            {"contents": base64.b64encode(AUTHZ_REPLACEMENT_CONTENT).decode()},
+            {
+                "hash": {
+                    "method": "MD5",
+                    "hash": base64.b64encode(hashlib.md5(AUTHZ_REPLACEMENT_CONTENT).digest()).decode(),
+                }
+            },
+        ],
+    )
+
+
+def _file_remove(client, path):
+    return client.call_unary("gnoi.file.File", "Remove", {"remoteFile": path})
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.parametrize("role,error_pattern", gnoi_helper.GNOI_ROLE_CASES)
+@pytest.mark.parametrize(
+    "operation,validation_error,writer_content",
+    [
+        pytest.param(
+            _file_transfer_to_remote, "remote_download cannot be nil", AUTHZ_FILE_CONTENT, id="TransferToRemote"
+        ),
+        pytest.param(_file_put, None, AUTHZ_REPLACEMENT_CONTENT, id="Put"),
+        pytest.param(_file_remove, None, None, id="Remove"),
+    ],
+)
+def test_gnoi_file_write_authorization(
+    gnmi_tls, role, error_pattern, operation, validation_error, writer_content, request  # noqa: F811
+):
+    """Run the same File RPC with write access or expect role-based denial."""
+    duthost = gnmi_tls.duthost
+    directory = duthost.tempfile(state="directory", path="/tmp", prefix="gnoi_authz_")["path"]
+    path = directory + "/sentinel"
+    try:
+        duthost.copy(content=AUTHZ_FILE_CONTENT.decode(), dest=path)
+        gnoi_helper.verify_gnoi_role_access(
+            gnmi_tls, role, lambda: operation(gnmi_tls.grpc, path), error_pattern, validation_error
+        )
+        expected_content = AUTHZ_FILE_CONTENT if error_pattern else writer_content
+        if expected_content is None:
+            pytest_assert(
+                not duthost.stat(path=path)["stat"]["exists"], "Authorized Remove did not remove the sentinel"
+            )
+        else:
+            content = base64.b64decode(duthost.slurp(src=path)["content"])
+            pytest_assert(content == expected_content, "Unexpected sentinel content after RPC")
+    finally:
+        duthost.file(path=directory, state="absent")
+    logger.info("AUTHZ_VERIFIED node=%s role=%s scope=test-body", request.node.nodeid, role)
 
 
 def test_file_stat(gnmi_tls):  # noqa: F811

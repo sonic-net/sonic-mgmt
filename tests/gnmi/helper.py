@@ -5,6 +5,7 @@ import time
 
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import (
     check_container_state,
     get_container_processes,
@@ -23,7 +24,9 @@ from tests.common.helpers.ntp_helper import (  # noqa: F401
     check_ntp_sync_status,
     get_ntp_daemon_in_use,
 )
+from tests.common.helpers.sonic_db import CONFIG_DB, redis_hget, redis_hset
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
+from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -32,6 +35,30 @@ GNMI_PROGRAM_NAME = ""
 GNMI_PORT = 0
 # Base wait unit (seconds) for GNMI server startup; the listening-port poll allows up to 2x this
 GNMI_SERVER_START_WAIT_TIME = 15
+
+GNOI_ROLE_CASES = [
+    pytest.param("gnoi_readwrite", None, id="with-access"),
+    pytest.param("gnoi_readonly", r"does not have access.*gnoi_readonly", id="without-access"),
+]
+
+
+def verify_gnoi_role_access(env, role, operation, error_pattern, validation_error=None):
+    """Invoke an RPC under the requested role and check its outcome.
+
+    validation_error is only for non-mutating writer probes that intentionally
+    stop at request validation. Transport/backend errors never count as denial.
+    The function-scoped gnmi_tls fixture owns checkpoint/rollback of CONFIG_DB.
+    """
+    duthost = env.duthost
+    role_key = "GNMI_CLIENT_CERT|test.client.gnmi.sonic"
+    redis_hset(duthost, CONFIG_DB, role_key, **{"role@": role})
+    pytest_assert(redis_hget(duthost, CONFIG_DB, role_key, "role@") == role, "Certificate role was not applied")
+    env.grpc.configure_max_time(30)
+    if error_pattern or validation_error:
+        with pytest.raises(PtfGrpcError, match=error_pattern or validation_error):
+            operation()
+        return None
+    return operation()
 
 
 def is_mgmt_vrf_enabled(duthost):
