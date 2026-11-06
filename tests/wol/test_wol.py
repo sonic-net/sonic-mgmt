@@ -1,11 +1,14 @@
 import binascii
+from collections import defaultdict
 import shlex
 import logging
 import pytest
 import time
 import ipaddress
+from pathlib import Path
 from socket import inet_aton
-from scapy.all import Ether, UDP, Raw
+import uuid
+from scapy.all import Ether, UDP, Raw, PcapNgReader
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
 from ptf.dataplane import match_exp_pkt
@@ -21,6 +24,8 @@ DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
 ERR_MARGIN = 250  # millisecond
+PTF_CAPTURE_DIR = Path(__file__).resolve().parents[1] / "logs"
+WOL_RECEIVER_CONTEXT = None
 
 
 def p2b(password: str) -> bytes:
@@ -71,6 +76,10 @@ def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_num
 
 
 def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
+    if count >= 2 and interval is not None and WOL_RECEIVER_CONTEXT is not None:
+        verify_active_receiver_capture(verifier, ports, count, interval)
+        return
+
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
                   "Received packets on ports other than expected {}, got: {}".format(ports,
@@ -87,6 +96,10 @@ def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_n
 
 
 def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
+    if count >= 2 and interval is not None and WOL_RECEIVER_CONTEXT is not None:
+        verify_active_receiver_capture(verifier, ports, count, interval, any_port=True)
+        return
+
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
                   "Received packets on ports other than expected {}, got: {}".format(ports,
@@ -142,7 +155,129 @@ def get_wol_poll_duration(count=None, interval=None):
     return max(2, int(((count - 1) * interval + ERR_MARGIN) / 1000) + 2)
 
 
+def start_ptf_receiver_capture(ptfhost, ports, capture_filter, duration):
+    # pcapng records kernel capture timestamps on each PTF ingress interface before NN forwarding.
+    capture_id = uuid.uuid4().hex
+    remote_dir = "/root/wol-receiver-{}".format(capture_id)
+    remote_pcap = "{}/{}.pcapng".format(remote_dir, capture_id)
+    remote_log = "{}/dumpcap.log".format(remote_dir)
+    PTF_CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
+    local_pcap = PTF_CAPTURE_DIR / "{}.pcapng".format(capture_id)
+
+    ptfhost.shell("mkdir -p {}".format(shlex.quote(remote_dir)))
+    interfaces = " ".join(
+        "-i eth{port} -f {capture_filter}".format(
+            port=port, capture_filter=shlex.quote(capture_filter))
+        for port in sorted(ports)
+    )
+    command = (
+        "nohup timeout -s INT -k 5 {timeout} dumpcap {interfaces} -a duration:{duration} "
+        "-w {pcap} > {log} 2>&1 < /dev/null & echo $!"
+    ).format(timeout=duration + 10, interfaces=interfaces, duration=duration + 5,
+             pcap=shlex.quote(remote_pcap), log=shlex.quote(remote_log))
+    result = ptfhost.shell(command)
+    pid = int(result["stdout"].strip())
+    ready = ptfhost.shell(
+        "for i in $(seq 1 50); do grep -q 'Capturing on' {log} && exit 0; "
+        "kill -0 {pid} >/dev/null 2>&1 || break; sleep 0.1; done; cat {log}; exit 1".format(
+            log=shlex.quote(remote_log), pid=pid),
+        module_ignore_errors=True)
+    if ready["rc"] != 0:
+        ptfhost.shell("kill -INT {}".format(pid), module_ignore_errors=True)
+        ptfhost.shell("rm -rf {}".format(shlex.quote(remote_dir)), module_ignore_errors=True)
+        pytest.fail("PTF receiver capture failed to start: {}".format(ready))
+    return {
+        "pid": pid,
+        "remote_dir": remote_dir,
+        "remote_pcap": remote_pcap,
+        "remote_log": remote_log,
+        "local_pcap": local_pcap,
+        "stopped": False,
+        "log_output": "",
+    }
+
+
+def stop_ptf_receiver_capture(ptfhost, capture, fetch=True):
+    if capture["stopped"]:
+        return
+    ptfhost.shell("kill -INT {}".format(capture["pid"]), module_ignore_errors=True)
+    ptfhost.shell(
+        "for i in $(seq 1 50); do kill -0 {pid} >/dev/null 2>&1 || exit 0; sleep 0.1; "
+        "done; exit 1".format(pid=capture["pid"]),
+        module_ignore_errors=True)
+    if fetch:
+        ptfhost.fetch(src=capture["remote_pcap"], dest=str(PTF_CAPTURE_DIR) + "/", flat=True)
+    capture["log_output"] = ptfhost.shell(
+        "cat {}".format(shlex.quote(capture["remote_log"])),
+        module_ignore_errors=True)["stdout"]
+    ptfhost.shell("rm -rf {}".format(shlex.quote(capture["remote_dir"])))
+    capture["stopped"] = True
+
+
+def verify_ptf_receiver_capture(ptfhost, capture, verifier, ports, count, interval, any_port=False):
+    try:
+        stop_ptf_receiver_capture(ptfhost, capture)
+        received = defaultdict(list)
+        with PcapNgReader(str(capture["local_pcap"])) as packets:
+            for packet in packets:
+                interface = getattr(packet, "sniffed_on", "")
+                if not interface.startswith("eth"):
+                    continue
+                port = int(interface[3:])
+                if verifier(bytes(packet)):
+                    received[port].append(packet)
+
+        if any_port:
+            pytest_assert(set(received).issubset(ports),
+                          "Received packets on ports other than expected {}, got: {}".format(
+                              ports, list(received)))
+            pytest_assert(sum(map(len, received.values())) == count,
+                          "Did not receive exactly {} packets on any of {}: received {} total {}; capture {}"
+                          .format(count, ports, sum(map(len, received.values())),
+                                  received, capture["log_output"]))
+            timestamps = sorted(float(packet.time) for packets in received.values() for packet in packets)
+            intervals = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
+            logging.info("PTF receiver timestamps ports=%s timestamps=%s intervals=%s",
+                         sorted(received), timestamps, intervals)
+            pytest_assert(all(abs(diff * 1000 - interval) < ERR_MARGIN for diff in intervals),
+                          "Unexpected intervals {}, expected {}, timestamps {}".format(
+                              intervals, interval, timestamps))
+        else:
+            pytest_assert(set(received) == (set(ports) if count != 0 else set()),
+                          "Received packets on ports other than expected {}, got: {}".format(
+                              ports, list(received)))
+            pytest_assert(all(len(packets) == count for packets in received.values()),
+                          "Did not receive exactly {} packets on all {}: received {} total {}; capture {}"
+                          .format(count, ports, sum(map(len, received.values())),
+                                  received, capture["log_output"]))
+            for packets in received.values():
+                timestamps = [float(packet.time) for packet in packets]
+                intervals = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
+                logging.info("PTF receiver timestamps interface=%s timestamps=%s intervals=%s",
+                             packets[0].sniffed_on, timestamps, intervals)
+                pytest_assert(all(abs(diff * 1000 - interval) < ERR_MARGIN for diff in intervals),
+                              "Unexpected interval {}".format(intervals))
+    finally:
+        if capture["local_pcap"].exists():
+            capture["local_pcap"].unlink()
+        ptfhost.shell("rm -rf {}".format(shlex.quote(capture["remote_dir"])), module_ignore_errors=True)
+
+
 def run_wol_async(duthost, cmd):
+    if WOL_RECEIVER_CONTEXT is not None and "--count" in cmd and "--interval" in cmd:
+        pytest_assert(WOL_RECEIVER_CONTEXT["capture"] is None, "PTF receiver capture is already active")
+        tokens = shlex.split(cmd)
+        capture_filter = "ether proto 0x0842"
+        if "-u" in tokens or "--udp" in tokens:
+            udp_port = DEFAULT_PORT
+            if "--udp-port" in tokens:
+                udp_port = int(tokens[tokens.index("--udp-port") + 1])
+            capture_filter = "udp dst port {}".format(udp_port)
+        capture_ports = WOL_RECEIVER_CONTEXT["ptfadapter"].ptfagents[0].ptf_port_set.keys()
+        WOL_RECEIVER_CONTEXT["capture"] = start_ptf_receiver_capture(
+            WOL_RECEIVER_CONTEXT["ptfhost"], capture_ports, capture_filter, 30)
+        WOL_RECEIVER_CONTEXT["duthost"] = duthost
+
     # shlex.quote keeps cmd intact even if it ever contains shell metacharacters.
     inner = "{}; echo $? > /tmp/wol_async_rc".format(cmd)
     duthost.shell("rm -f /tmp/wol_async_rc; nohup bash -lc {} >/tmp/wol_async.log 2>&1 &".format(
@@ -150,9 +285,45 @@ def run_wol_async(duthost, cmd):
 
 
 def verify_wol_async_done(duthost):
-    res = duthost.shell("cat /tmp/wol_async_rc", module_ignore_errors=True)
+    res = duthost.shell(
+        "for i in $(seq 1 100); do [ -f /tmp/wol_async_rc ] && cat /tmp/wol_async_rc && exit 0; "
+        "sleep 0.1; done; cat /tmp/wol_async.log; exit 1",
+        module_ignore_errors=True)
     pytest_assert(res["rc"] == 0 and res["stdout"].strip() == "0",
                   "WOL command did not complete successfully: {}".format(res))
+
+
+def verify_active_receiver_capture(verifier, ports, count, interval, any_port=False):
+    capture = WOL_RECEIVER_CONTEXT["capture"]
+    pytest_assert(capture is not None, "PTF receiver capture was not started")
+    try:
+        verify_wol_async_done(WOL_RECEIVER_CONTEXT["duthost"])
+        WOL_RECEIVER_CONTEXT["ptfhost"].shell("sleep 3")
+        verify_ptf_receiver_capture(
+            WOL_RECEIVER_CONTEXT["ptfhost"], capture, verifier, ports, count, interval, any_port)
+    finally:
+        stop_ptf_receiver_capture(WOL_RECEIVER_CONTEXT["ptfhost"], capture, fetch=False)
+        WOL_RECEIVER_CONTEXT["ptfadapter"].dataplane.flush()
+        WOL_RECEIVER_CONTEXT["capture"] = None
+
+
+@pytest.fixture
+def wol_receiver_context(ptfhost, ptfadapter):
+    global WOL_RECEIVER_CONTEXT
+    pytest_assert(WOL_RECEIVER_CONTEXT is None, "PTF receiver context is already active")
+    WOL_RECEIVER_CONTEXT = {
+        "ptfhost": ptfhost,
+        "ptfadapter": ptfadapter,
+        "capture": None,
+        "duthost": None,
+    }
+    try:
+        yield
+    finally:
+        capture = WOL_RECEIVER_CONTEXT["capture"]
+        if capture is not None:
+            stop_ptf_receiver_capture(ptfhost, capture, fetch=False)
+        WOL_RECEIVER_CONTEXT = None
 
 
 class TestWOLSendFromInterface:
@@ -163,6 +334,7 @@ class TestWOLSendFromInterface:
         self,
         duthost,
         ptfadapter,
+        wol_receiver_context,
         random_intf_pair,
         password,
         broadcast,
@@ -213,6 +385,7 @@ class TestWOLSendFromInterface:
         self,
         duthost,
         ptfadapter,
+        wol_receiver_context,
         loganalyzer,
         random_intf_pair_to_remove_under_vlan,
         dst_ip_intf,
@@ -245,6 +418,7 @@ class TestWOLSendFromVlan:
         self,
         duthost,
         ptfadapter,
+        wol_receiver_context,
         loganalyzer,
         random_vlan,
         random_intf_pair_to_remove_under_vlan,
@@ -298,6 +472,7 @@ class TestWOLSendFromVlan:
         self,
         duthost,
         ptfadapter,
+        wol_receiver_context,
         loganalyzer,
         random_vlan,
         random_intf_pair_to_remove_under_vlan,
