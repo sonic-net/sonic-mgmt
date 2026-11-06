@@ -246,8 +246,16 @@ def test_gnmi_audit_log_remote_forwarding(
     duthost = gnmi_tls.duthost
     syslog_vrf = "mgmt" if is_mgmt_vrf_enabled(duthost) else None
 
+    use_ipv6 = duthost.get_mgmt_ip()["version"] == "v6"
+    destination = ptfhost.mgmt_ipv6 if use_ipv6 else ptfhost.mgmt_ip
+    pytest_assert(
+        destination,
+        "PTF has no {} management address for remote syslog".format(
+            "IPv6" if use_ipv6 else "IPv4"
+        ),
+    )
     with capture_remote_syslog(
-        duthost, ptfhost.mgmt_ip, vrf=syslog_vrf
+        duthost, ptfhost, destination, vrf=syslog_vrf
     ) as (capture_result, capture_file):
         offset = get_audit_log_offset(duthost)
         with allure.step("Generate a {} audit record".format(method)):
@@ -258,7 +266,7 @@ def test_gnmi_audit_log_remote_forwarding(
                 duthost, offset, method, CLIENT_PRINCIPAL
             )
             forwarded_payloads = read_syslog_payloads(
-                duthost, capture_result, capture_file
+                ptfhost, capture_result, capture_file
             )
             pytest_assert(
                 any(RPC_COMPLETION_PREFIX in payload
