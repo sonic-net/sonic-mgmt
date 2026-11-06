@@ -34,6 +34,7 @@ def table_summary(output):
         # cannot accidentally make a malformed table match the expected schema.
         headers = [label if label in TABLE_FIELDS else "<unexpected>" for label in labels]
         resources, lane_rows = [], []
+        datapath_lanes = set()
         for line in lines[index + 1:]:
             if not line.strip():
                 break
@@ -89,6 +90,16 @@ def table_summary(output):
                 if key in records.setdefault(name, {}):
                     raise ValueError("Duplicate TX lane row")
                 records[name][key] = cells[2] == "true"
+            elif headers == ["Interface", "Lane", "Data Path State"]:
+                lane = re.fullmatch(r"Lane ([1-9]\d*)", cells[1])
+                if not lane:
+                    raise ValueError("Malformed datapath lane")
+                key = (name, int(lane[1]) - 1)
+                if key in datapath_lanes:
+                    raise ValueError("Duplicate datapath lane")
+                datapath_lanes.add(key)
+                # Return the exact public-state comparison, not arbitrary text.
+                lane_rows.append({"port": name, "lane": key[1], "activated": cells[2] == "DataPathActivated"})
             elif headers == ["Interface", "Lane", "Configured Application", "Active Application"]:
                 lane = re.fullmatch(r"Lane ([1-9]\d*)", cells[1])
                 if not lane:

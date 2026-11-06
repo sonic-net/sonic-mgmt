@@ -552,7 +552,7 @@ def test_cpoutil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn
 
 
 def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Check the two public lane tables for all connected CPO interfaces."""
+    """Check both lane tables and require connected OE lanes to be DataPathActivated."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     tables = run_cpoutil(duthost, "show interface lane-status", optional=True)["table"]["tables"]
     assert [table["headers"] for table in tables] == [
@@ -561,3 +561,7 @@ def test_cpoutil_lane_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     ], "Expected only the OE datapath and ELS lane tables"
     for table in tables:
         assert set(connected_cpo_ports) <= set(table["resources"]), "Connected CPO port missing from lane table"
+    for port in connected_cpo_ports:
+        rows = [row for row in tables[0]["lane_rows"] if row["port"] == port]
+        assert rows, "OE datapath lanes missing for " + port
+        assert all(row["activated"] for row in rows), "Expected DataPathActivated for all OE lanes: " + port

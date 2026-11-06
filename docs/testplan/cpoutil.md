@@ -41,7 +41,7 @@ separate from the cpoutil text output being tested.
 | OE / ELS low-power | Snapshot all associated endpoints, invert all supported modes, verify, restore and verify |
 | TX control | Snapshot all associated OE banks and their siblings, invert supported/restorable banks, verify, restore and verify |
 | OE / ELS reset | Command success, module becomes readable, connected interfaces present and prior up links recover |
-| Lane status | Exactly the OE datapath and ELS lane tables, public headers and connected-port rows |
+| Lane status | Exactly the OE datapath and ELS lane tables, public headers/connected-port rows; every displayed OE lane of connected ports must be DataPathActivated |
 
 The map case parses default text and checks each connected port. OE/ELS must
 exist with their expected device types, and the OE/bank/ELS tuple must appear
@@ -63,6 +63,13 @@ The default table displays selected Application descriptions; the JSON-only
 Advertisement dictionary is outside this text test. It does not compare
 configured/active AppSel equality, advertisement membership,
 specific interface types or actual link speed.
+
+Lane status requires the exact public `DataPathActivated` state for every OE
+lane row displayed for connected CPO ports. Other states, empty/N/A and
+arbitrary nonempty text fail; malformed/duplicate datapath lane rows fail.
+Only port/lane identifiers and an activation boolean leave the DUT filter.
+ELS table headers and connected-port rows retain their existing checks,
+including unresolved-laser N/A output; no new ELS state requirement is added.
 
 EEPROM sanity has two cases, OE and ELS. It reads each distinct associated
 endpoint once and each connected port's interface alias. The CLI selects its
