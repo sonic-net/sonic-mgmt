@@ -310,11 +310,6 @@ gnmi/test_gnmi.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-gnmi/test_gnmi_appldb.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnmi_configdb.py:
   skip:
     conditions:
