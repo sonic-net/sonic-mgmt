@@ -60,6 +60,10 @@ STORM_MOVES_PER_SEC_PER_MAC = STORM_MOVE_RATE_MARGIN * int(math.ceil(
     float(MAC_MOVE_GUARD_THRESHOLD) / MAC_MOVE_GUARD_DETECT_INTERVAL))
 # Each move costs two frames: one on each of the two storm interfaces.
 STORM_PPS = STORM_MOVES_PER_SEC_PER_MAC * STORM_NUM_MACS * 2
+# VPP reports L2 MAC moves from an FDB scan every 10 ms. Keep each side visible
+# for two scan intervals; back-to-back A/B frames can otherwise collapse into
+# one final FDB state without a MOVE notification.
+VPP_STORM_SIDE_DWELL_SECONDS = 0.02
 # Action interval used by the DISABLE_LEARN_ON_MAC_WITH_ACL test. Kept high so
 # the bad MAC is not auto-released while we drive the storm and observe
 # orchagent quiescence. The test reconfigures this to a small value after the
@@ -280,7 +284,7 @@ def _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts):
 
 
 def _start_storm_sender(ptfhost, iface_a, iface_b, router_mac, vlan_tag=None,
-                        pps=STORM_PPS):
+                        pps=STORM_PPS, side_dwell=0.0):
     """Copy the storm script to ptfhost and launch it in background. Returns the pid.
 
     If ``vlan_tag`` is provided, frames are 802.1Q-tagged with that VID.
@@ -293,12 +297,12 @@ def _start_storm_sender(ptfhost, iface_a, iface_b, router_mac, vlan_tag=None,
     vlan_arg = "--vlan-tag {} ".format(vlan_tag) if vlan_tag is not None else ""
     cmd = (
         "nohup python3 {script} --iface-a {ia} --iface-b {ib} --router-mac {rmac} "
-        "--num-macs {n} --mac-base {base} --report-interval {ri} --pps {pps} {vlan}"
-        "> {log} 2>&1 & echo $!"
+        "--num-macs {n} --mac-base {base} --report-interval {ri} --pps {pps} "
+        "--side-dwell {side_dwell} {vlan}> {log} 2>&1 & echo $!"
     ).format(
         script=STORM_SENDER_REMOTE_PATH, ia=iface_a, ib=iface_b, rmac=router_mac,
         n=STORM_NUM_MACS, base=STORM_MAC_BASE, ri=STORM_REPORT_INTERVAL,
-        vlan=vlan_arg, pps=pps,
+        vlan=vlan_arg, pps=pps, side_dwell=side_dwell,
         log=STORM_SENDER_LOG,
     )
     res = ptfhost.shell(cmd)
@@ -417,7 +421,10 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
 
     pid = None
     try:
-        pid = _start_storm_sender(ptfhost, iface_a, iface_b, router_mac)
+        side_dwell = (VPP_STORM_SIDE_DWELL_SECONDS
+                      if duthost.facts.get("asic_type") == "vpp" else 0.0)
+        pid = _start_storm_sender(
+            ptfhost, iface_a, iface_b, router_mac, side_dwell=side_dwell)
         logger.info("MAC-move storm sender started on ptfhost (pid={})".format(pid))
 
         # Phase 1: wait for the guard to disable one of the two ports.
@@ -740,8 +747,11 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
 
     pid = None
     try:
-        pid = _start_storm_sender(ptfhost, iface_a, iface_b, router_mac,
-                                  vlan_tag=STORM_VLAN_TAG)
+        side_dwell = (VPP_STORM_SIDE_DWELL_SECONDS
+                      if duthost.facts.get("asic_type") == "vpp" else 0.0)
+        pid = _start_storm_sender(
+            ptfhost, iface_a, iface_b, router_mac, vlan_tag=STORM_VLAN_TAG,
+            side_dwell=side_dwell)
         logger.info("MAC-move storm sender started on ptfhost (pid=%s, vlan_tag=%d)",
                     pid, STORM_VLAN_TAG)
 

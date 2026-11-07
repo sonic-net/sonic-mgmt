@@ -52,6 +52,12 @@ def open_raw_socket(iface):
     return sock
 
 
+def side_period_seconds(num_macs, pps, side_dwell):
+    """Return the minimum time from one side's burst to the next side's burst."""
+    rate_side_period = (float(num_macs) / pps) if pps > 0 else 0.0
+    return max(rate_side_period, side_dwell)
+
+
 _running = True
 
 
@@ -81,6 +87,10 @@ def main():
                              "pacing keeps the CPU-punted copies of the storm under the "
                              "CoPP ARP policer so the kernel netlink consumers in the "
                              "swss container are not overrun.")
+    parser.add_argument("--side-dwell", type=float, default=0.0,
+                        help="minimum seconds each MAC remains on one interface before "
+                             "moving to the other; useful for dataplanes that report "
+                             "MAC moves by periodically scanning their FDB")
     args = parser.parse_args()
 
     signal.signal(signal.SIGTERM, _stop)
@@ -99,42 +109,41 @@ def main():
 
     sys.stdout.write(
         "storm started: iface_a={} iface_b={} num_macs={} router_mac={} vlan_tag={} "
-        "pps={}\n".format(
+        "pps={} side_dwell={}\n".format(
             args.iface_a, args.iface_b, n, args.router_mac, args.vlan_tag,
-            args.pps if args.pps > 0 else "unlimited"))
+            args.pps if args.pps > 0 else "unlimited", args.side_dwell))
     sys.stdout.flush()
 
-    # One round sends every MAC on both interfaces (2 * n frames) and produces
-    # exactly one MAC move per MAC on the DUT, so the round period that yields
-    # the requested rate is (2 * n) / pps. Pacing per round rather than per
-    # packet keeps the per-frame cost negligible.
-    round_period = (2.0 * n / args.pps) if args.pps > 0 else 0.0
+    # Send all MACs on one side, then hold that state before moving all of them
+    # to the other side. Sending A and B back-to-back can be invisible to a
+    # dataplane that reports moves from periodic FDB scans: every scan may see
+    # only the final B state. The rate limit supplies a per-side period of
+    # n / pps; side_dwell can extend it when the scan cadence needs more time.
+    side_period = side_period_seconds(n, args.pps, args.side_dwell)
 
     sent = 0
     last_report = time.time()
-    next_round = time.time()
+    next_side = time.time()
     while _running:
-        # One round: each MAC is sent on iface_a immediately followed by iface_b,
-        # producing one FDB MAC-move event per MAC per round on the DUT.
-        next_round += round_period
-        for i in range(n):
-            if not _running:
-                break
-            try:
-                sock_a.send(pkts[i])
-                sock_b.send(pkts[i])
-                sent += 2
-            except OSError as e:
-                sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
-                time.sleep(0.01)
-        if round_period:
-            delay = next_round - time.time()
-            if delay > 0:
-                time.sleep(delay)
-            elif delay < -round_period:
-                # Fell behind by more than one full round; re-anchor instead of
-                # bursting to catch up.
-                next_round = time.time()
+        for sock in (sock_a, sock_b):
+            next_side += side_period
+            for i in range(n):
+                if not _running:
+                    break
+                try:
+                    sock.send(pkts[i])
+                    sent += 1
+                except OSError as e:
+                    sys.stderr.write("send error on mac index {}: {}\n".format(i, e))
+                    time.sleep(0.01)
+            if side_period:
+                delay = next_side - time.time()
+                if delay > 0:
+                    time.sleep(delay)
+                elif delay < -side_period:
+                    # Fell behind by more than one side period; re-anchor instead
+                    # of bursting to catch up.
+                    next_side = time.time()
         now = time.time()
         elapsed = now - last_report
         if elapsed >= args.report_interval:
