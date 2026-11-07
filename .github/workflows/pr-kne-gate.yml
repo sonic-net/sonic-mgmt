@@ -1,0 +1,88 @@
+name: pr-kne-gate
+
+# Every PR picks a free slot per lab (namespace == TOPO_ID == 172.31.<slot>.0/24),
+# brings up t0, t1, and t1-lag from ansible/kne/topologies, runs ci/kne/tests.txt
+# on each, and tears them down. Needs a self-hosted runner labeled kne.
+# Set SONIC_MGMT_SONIC_PASSWORD in the runner environment. It is not stored here.
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# A new push to the same PR cancels the previous run; teardown still runs (always()).
+concurrency:
+  group: kne-gate-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  kne:
+    # This job checks out the PR and runs those scripts with kubectl on the shared
+    # Kind host. A fork can change ci/kne/*.sh before they run, so only pull
+    # requests from this repository reach the runner. workflow_dispatch is local.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, kne]
+    timeout-minutes: 240
+    env:
+      KNE_RUN_ID: ${{ github.run_id }}
+      KNE_TOPOS: t0 t1 t1-lag
+    steps:
+      # Pytest runs as root in the CI container. A job that dies first leaves
+      # root-owned files, and the next checkout cannot delete them.
+      - name: Return workspace ownership to the runner
+        run: |
+          set -euo pipefail
+          if [[ -d "${GITHUB_WORKSPACE}" ]] && [[ -n "$(ls -A "${GITHUB_WORKSPACE}" 2>/dev/null || true)" ]]; then
+            docker run --rm -u 0 \
+              -v "${GITHUB_WORKSPACE}:/work" \
+              sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
+              chown -R "$(id -u):$(id -g)" /work
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Bring up the lab and run tests
+        run: ci/kne/run_gate.sh
+
+      - name: Test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ github.run_id }}
+          path: tests/logs/junit-*.xml
+          if-no-files-found: ignore
+
+      - name: Teardown
+        if: always()
+        run: |
+          if [[ -f ci/kne/teardown_run.sh ]]; then
+            ci/kne/teardown_run.sh
+          else
+            echo "checkout did not finish; nothing to tear down"
+          fi
+
+  # If the runner dies during bring-up, the step above never starts and the
+  # labs stay up. This job is scheduled after kne finishes, including failure.
+  kne-teardown:
+    needs: kne
+    if: always()
+    runs-on: [self-hosted, kne]
+    timeout-minutes: 30
+    env:
+      KNE_RUN_ID: ${{ github.run_id }}
+    steps:
+      - name: Return workspace ownership to the runner
+        run: |
+          set -euo pipefail
+          if [[ -d "${GITHUB_WORKSPACE}" ]] && [[ -n "$(ls -A "${GITHUB_WORKSPACE}" 2>/dev/null || true)" ]]; then
+            docker run --rm -u 0 \
+              -v "${GITHUB_WORKSPACE}:/work" \
+              sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
+              chown -R "$(id -u):$(id -g)" /work
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Tear down labs from this run
+        run: ci/kne/teardown_run.sh
