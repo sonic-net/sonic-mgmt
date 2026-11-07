@@ -5,11 +5,33 @@ from tests.platform_tests.mellanox.interface_utils import get_physical_index_to_
 
 SC_ENABLED = 1
 
+SERVICE_PORTS_BY_PLATFORM = {
+    "x86_64-nvidia_sn5600-r0": ["Ethernet512"],
+    "x86_64-nvidia_sn5600_simx-r0": ["Ethernet512"],
+    "x86_64-nvidia_sn5640-r0": ["Ethernet512", "Ethernet520"],
+    "x86_64-nvidia_sn5640_simx-r0": ["Ethernet512", "Ethernet520"],
+    "x86_64-nvidia_sn6600-r0": ["Ethernet512", "Ethernet520", "Ethernet528", "Ethernet536"],
+    "x86_64-nvidia_sn6600_simx-r0": ["Ethernet512", "Ethernet520", "Ethernet528", "Ethernet536"],
+    "x86_64-nvidia_sn5810_ld-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn5810_ld_simx-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6600_ld-r0": ["Ethernet512", "Ethernet513"],
+    "x86_64-nvidia_sn6600_ld_simx-r0": ["Ethernet512", "Ethernet513"],
+}
+
 PLATFORM_FOLDER_PATH = "/usr/share/sonic/device/"
 SAI_PROFILE_FILE_NAME = "sai.profile"
 SC_SAI_ATTRIBUTE_NAME = "SAI_INDEPENDENT_MODULE_MODE"
 
 PLATFORM_GENERATION = ['4280', '4700', '5600', '5610', '5640']
+
+
+def get_service_ports(platform):
+    """
+    @summary: This method is for getting the service ports of a platform
+    @param: platform: DUT platform name, e.g. duthost.facts['platform']
+    @return: list of the platform's service ports, empty if it has none
+    """
+    return list(SERVICE_PORTS_BY_PLATFORM.get(platform, []))
 
 
 def check_sc_sai_attribute_value(duthost):
