@@ -8,7 +8,6 @@ The idea is
     4. The PFC will be triggered
 
 '''
-import re
 import sys
 import time
 import socket
@@ -178,26 +177,11 @@ def parse_priority(x):
 
 def get_log_ports(handle, args):
     log_ports = []
-    if args.label_port_list:
-        label_log_port_map = get_label_log_port_map(handle)
-        for port_index in args.label_port_list.split(','):
-            label_port = re.findall(r'\d+', port_index)[0]
-            matched_str_list = re.findall(r'[a-z]?', port_index)
-            index_str_list = list(filter(None, matched_str_list))
-            if index_str_list == []:
-                log_port_index = 0
-            else:
-                log_port_index = ord(index_str_list[0]) - ord('a')
-            log_ports.append(label_log_port_map[int(label_port)][log_port_index])
-    else:
-        portmap = get_port_map(handle)
-        print(portmap)
-        port_name_dict = build_port_name_dict()
-        for port in args.interface_list.split(','):
-            p, sp = port_name_dict[port]
-            log_port = portmap[p][sp]
-            print(log_port)
-            log_ports.append(log_port)
+    for port in args.interface_list.split(','):
+        sysfs_path = '/sys/module/sx_netdev/{}/log_port'.format(port)
+        with open(sysfs_path, 'r') as f:
+            log_port = f.read().strip()
+        log_ports.append(int(log_port, 16))
     return log_ports
 
 
