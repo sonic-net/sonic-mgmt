@@ -1,0 +1,7 @@
+---
+# Run against the Switch-Host inventory entry, never the paired BMC.
+- name: Provision an explicitly opted-in Switch-Host BMC USB link
+  hosts: all
+  gather_facts: false
+  roles:
+    - bmc_usb_link
