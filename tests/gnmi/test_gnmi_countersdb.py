@@ -7,6 +7,7 @@ import pytest
 from tests.common import config_reload
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.gnmi_utils import dump_gnmi_debug_state, gnmi_state_dumped
 from tests.common.pygnmi_client import (
     PygnmiClientCallError,
     PygnmiClientError,
@@ -220,6 +221,11 @@ def test_gnmi_queue_buffer_cnt(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
             pytest_assert(pre_del_cnt == post_del_cnt, "Queue counter count changed on static-queue Broadcom-DNX")
         else:
             pytest_assert(pre_del_cnt > post_del_cnt, "Number of queue counters count differs from expected")
+    except (Exception, pytest.fail.Exception) as e:
+        # Dump now: the config reload below restarts the gNMI server and truncates its log.
+        if not gnmi_state_dumped(e):
+            dump_gnmi_debug_state(duthost, error=e)
+        raise
     finally:
         duthost.shell("mv {} {}".format(config_backup, config_path))
         config_reload(
