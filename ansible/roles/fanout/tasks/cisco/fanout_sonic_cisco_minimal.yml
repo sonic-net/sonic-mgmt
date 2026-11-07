@@ -69,7 +69,9 @@
   become: yes
 
 - name: Reload configuration to apply changes
-  shell: config reload -y
+  # -f as above: this soon after the first reload, the unforced checks can still fail (swss must be
+  # up for 120 s, and 202205 also waits for the delayed services), and poll: 0 would hide it.
+  shell: config reload -y -f
   become: yes
   async: 600
   poll: 0
@@ -94,6 +96,9 @@
   # run and is not needed. Extend the substring list when new
   # non-Silicon-One Cisco fanout hwsku families appear.
   when: "'Cisco-C8220TG' not in local_hwsku"
+  # Like the other tasks here: without it, a run without -b reloads the fanout and then fails here,
+  # leaving the default traps armed.
+  become: yes
   block:
     - name: Copy cisco_fanout_traps_clear.py to the device
       copy:
@@ -114,9 +119,34 @@
         daemon_reload: yes
       ignore_errors: yes
 
-    - name: Enable and start cisco_fanout_traps_clear.service
+    - name: Enable cisco_fanout_traps_clear.service
       systemd:
         name: cisco_fanout_traps_clear
         enabled: yes
-        state: restarted
         daemon_reload: yes
+
+    - name: Wait for syncd to be active before starting cisco_fanout_traps_clear.service
+      # BindsTo=syncd.service implies Requires=: starting the service while syncd is down would start
+      # syncd on its own, before swss, and swss would then flush ASIC_DB under that syncd. If syncd
+      # stays down, the enabled service runs with syncd's next start.
+      shell: systemctl is-active syncd
+      register: syncd_state
+      until: syncd_state.stdout == 'active'
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Start cisco_fanout_traps_clear.service
+      systemd:
+        name: cisco_fanout_traps_clear
+        state: restarted
+
+    - name: Wait for cisco_fanout_traps_clear.service to clear the traps
+      # The service retries for up to 30 minutes (TRAPS_CLEAR_TIMEOUT), then fails.
+      shell: systemctl show cisco_fanout_traps_clear -p SubState --value
+      register: traps_clear_state
+      until: traps_clear_state.stdout in ['exited', 'failed']
+      retries: 140
+      delay: 15
+      changed_when: false
+      failed_when: traps_clear_state.stdout != 'exited'
