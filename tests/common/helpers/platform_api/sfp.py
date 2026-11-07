@@ -6,13 +6,26 @@ transceivers connected to the DUT via platform API
 import json
 import logging
 
+from tests.common.helpers.platform_api import chassis
+
 logger = logging.getLogger(__name__)
+
+# (host, index) -> 'sfp' or 'cpo': the chassis component that holds the port
+_port_components = {}
 
 
 def sfp_api(conn, index, name, args=None):
     if args is None:
         args = []
-    conn.request('POST', '/platform/chassis/sfp/{}/{}'.format(index, name), json.dumps({'args': args}))
+    key = (conn.host, index)
+    if key not in _port_components:
+        _port_components[key] = 'sfp'
+        # A CPO port is not an SFP object; reach it through chassis.get_cpo() when the chassis has it
+        if chassis.get_sfp(conn, index) is None and 'get_cpo' in chassis.chassis_api(conn, '__dir__') and \
+                chassis.chassis_api(conn, 'get_cpo', [index]) is not None:
+            _port_components[key] = 'cpo'
+    conn.request('POST', '/platform/chassis/{}/{}/{}'.format(_port_components[key], index, name),
+                 json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
     logger.info('Executing sfp API: "{}", index: {}, arguments: "{}", result: "{}"'.format(name, index, args, res))
