@@ -20,7 +20,10 @@ from tests.common.helpers.dut_utils import get_available_tech_support_files, get
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import wait_until
-from tests.common.helpers.srv6_helper import SRv6
+from tests.common.mellanox_data import is_mellanox_device, get_chip_type
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.helpers.srv6_helper import SRv6, create_srv6_locator, create_srv6_sid, del_srv6_locator, \
+    del_srv6_sid, is_bgp_route_synced
 
 logger = logging.getLogger(__name__)
 LOCATOR_NUM = 128
@@ -59,6 +62,79 @@ class MySIDs(MyLocators):
         [locator_name, sid, SRv6.uN, 'default']
         for locator_name, sid, _ in MyLocators.my_locator_list
     ]
+
+
+# Chips known not to support SRv6 warm-reboot.
+SRV6_WARM_REBOOT_UNSUPPORTED_CHIPS = ("spectrum6",)
+
+
+def is_srv6_warm_reboot_support(duthost):
+    """Return True for Mellanox chips not in the unsupported list; non-Mellanox is not supported."""
+    if not is_mellanox_device(duthost):
+        return False
+    chip_type = get_chip_type(duthost)
+    return chip_type not in SRV6_WARM_REBOOT_UNSUPPORTED_CHIPS
+
+
+def create_all_srv6_locators_and_sids(duthost, decap_dscp_mode):
+    """
+    Create all SRv6 locators and SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, locator_prefix, _ in MyLocators.my_locator_list:
+        create_srv6_locator(duthost, locator_name, locator_prefix)
+
+    create_all_srv6_sids(duthost, decap_dscp_mode)
+
+
+def create_all_srv6_sids(duthost, decap_dscp_mode):
+    """
+    Create all SRv6 SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, ip_addr, action, vrf in MySIDs.MY_SID_LIST:
+        create_srv6_sid(
+            duthost,
+            locator_name,
+            ip_addr,
+            action,
+            vrf,
+            decap_dscp_mode=decap_dscp_mode
+        )
+
+
+def delete_all_srv6_sids(duthost):
+    """
+    Delete all SRv6 SIDs defined for SRv6 dataplane tests.
+    """
+    for locator_name, ip_addr, _, _ in MySIDs.MY_SID_LIST:
+        del_srv6_sid(duthost, locator_name, ip_addr)
+
+
+def delete_all_srv6_locators_and_sids(duthost):
+    """
+    Delete all SRv6 locators and SIDs defined for SRv6 dataplane tests.
+    """
+    delete_all_srv6_sids(duthost)
+
+    for locator_name, _, _ in MyLocators.my_locator_list:
+        del_srv6_locator(duthost, locator_name)
+
+
+def rebuild_all_srv6_locators_and_sids(duthost, decap_dscp_mode):
+    """
+    Rebuild SRv6 config by deleting all entries then creating new ones.
+    """
+    logger.info("Rebuild SRv6 config: delete all locators/SIDs then create all")
+    delete_all_srv6_locators_and_sids(duthost)
+    create_all_srv6_locators_and_sids(duthost, decap_dscp_mode)
+
+
+def rebuild_all_srv6_sids(duthost, decap_dscp_mode):
+    """
+    Rebuild SRv6 SID config by deleting and recreating all SIDs only.
+    """
+    logger.info("Rebuild SRv6 config: delete all SIDs then create all")
+    delete_all_srv6_sids(duthost)
+    create_all_srv6_sids(duthost, decap_dscp_mode)
 
 
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
@@ -955,12 +1031,16 @@ def collect_warmboot_diagnostics(duthost, sonic_db_cli="sonic-db-cli"):
         logger.info("=== {} ===\n{}".format(command, output))
 
 
-def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
+def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh, request=None):
     """
     Verify that packets sent to a SID which is not programmed are dropped.
 
     The drop relies on the fcbb:bbbb::/32 blackhole static route, so this also
     covers the persistence of that route across a disruption.
+
+    When ``request`` is provided, the check is executed once per enabled
+    ``--srv6_dscp_mode_test`` phase (with and/or without ``decap_dscp_mode``
+    configured on the uN SID).
     """
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
@@ -979,58 +1059,182 @@ def run_srv6_no_sid_blackhole_test(setup_uN, ptfadapter, ptfhost, with_srh):
         port_device, port_id = ptfadapter.dataplane.port_to_tuple(ptf_port)
         ports_by_device[port_device].append(port_id)
 
-    # Verify that the ASIC DB has the SRv6 SID entries
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB before blackhole test"
 
-    # get the drop counter before traffic test
-    if duthost.facts["asic_type"] == "broadcom":
-        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
-        before_count = int(portstat[dut_port]['rx_drp'])
-    elif duthost.facts["asic_type"] == "mellanox":
-        before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+    def _blackhole_once():
+        # Verify that the ASIC DB has the SRv6 SID entries
+        assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
+            "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB before blackhole test"
+
+        # get the drop counter before traffic test
+        if duthost.facts["asic_type"] == "broadcom":
+            portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+            before_count = int(portstat[dut_port]['rx_drp'])
+        elif duthost.facts["asic_type"] == "mellanox":
+            before_count = int(
+                duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+        else:
+            pytest.skip("Blackhole drop counter check is not supported for asic_type {}".format(
+                duthost.facts["asic_type"]))
+
+        # inject a number of packets with random payload
+        pkt_count = 100
+        payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+        if with_srh:
+            injected_pkt = simple_ipv6_sr_packet(
+                eth_dst=dut_mac,
+                eth_src=src_mac,
+                ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
+                ipv6_dst="fcbb:bbbb:3:2::",
+                srh_seg_left=1,
+                srh_nh=41,
+                inner_frame=IPv6(
+                    dst=neighbor_ip,
+                    src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") / UDP(
+                    dport=4791) / Raw(load=payload)
+            )
+        else:
+            injected_pkt = Ether(dst=dut_mac, src=src_mac) \
+                           / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
+                                  dst="fcbb:bbbb:3:2::") \
+                           / IPv6(dst=neighbor_ip,
+                                  src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
+                           / UDP(dport=4791) / Raw(load=payload)
+
+        expected_pkt = injected_pkt.copy()
+        expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
+        expected_pkt['IPv6'].hlim -= 1
+        logger.debug("Expected packet: {}".format(expected_pkt.summary()))
+
+        expected_pkt = Mask(expected_pkt)
+        expected_pkt.set_do_not_care_packet(Ether, "dst")
+        expected_pkt.set_do_not_care_packet(Ether, "src")
+        testutils.send(ptfadapter, (device, port), injected_pkt, count=pkt_count)
+        for pd, ports in ports_by_device.items():
+            verify_no_packet_any(ptfadapter, expected_pkt, ports, device_number=pd, timeout=1)
+
+        # verify that the RX_DROP counter is incremented
+        if duthost.facts["asic_type"] == "broadcom":
+            portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
+            after_count = int(portstat[dut_port]['rx_drp'])
+            assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
+        elif duthost.facts["asic_type"] == "mellanox":
+            after_count = int(
+                duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+            assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
+
+    if request is None:
+        _blackhole_once()
     else:
-        pytest.skip("Blackhole drop counter check is not supported for asic_type {}".format(
-            duthost.facts["asic_type"]))
-
-    # inject a number of packets with random payload
-    pkt_count = 100
-    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-    if with_srh:
-        injected_pkt = simple_ipv6_sr_packet(
-            eth_dst=dut_mac,
-            eth_src=src_mac,
-            ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
-            ipv6_dst="fcbb:bbbb:3:2::",
-            srh_seg_left=1,
-            srh_nh=41,
-            inner_frame=IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") / UDP(
-                dport=4791) / Raw(load=payload)
+        run_srv6_dscp_mode_phases(
+            request, setup_uN, _blackhole_once,
+            dscp_mode_step='Validate SRv6 no SID blackhole with decap_dscp_mode configured',
+            no_dscp_mode_step='Validate SRv6 no SID blackhole without decap_dscp_mode configured'
         )
+
+
+# ---------------------------------------------------------------------------
+# DSCP-mode phase helpers used by the SRv6 uN resilience/blackhole tests.
+# They let a test run once per enabled dscp_mode configuration (both /
+# dscp_mode / no_dscp_mode) and share the uN SID reconfiguration across tests.
+# ---------------------------------------------------------------------------
+
+
+def _get_srv6_dscp_mode_test_flags(request):
+    dscp_mode_test = request.config.getoption("--srv6_dscp_mode_test")
+    run_dscp_mode = dscp_mode_test in ("both", "dscp_mode")
+    run_no_dscp_mode = dscp_mode_test in ("both", "no_dscp_mode")
+    return run_dscp_mode, run_no_dscp_mode
+
+
+def _reconfigure_un_sid(duthost, sonic_db_cli, decap_dscp_mode=SRv6.pipe_mode):
+    """Rewrite the uN SID used by the resilience/blackhole tests with (or without) decap_dscp_mode."""
+    duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
+    if decap_dscp_mode:
+        duthost.command(sonic_db_cli +
+                        f" CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN "
+                        f"decap_dscp_mode {decap_dscp_mode}")
     else:
-        injected_pkt = Ether(dst=dut_mac, src=src_mac) \
-                       / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
-                       / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
-                       / UDP(dport=4791) / Raw(load=payload)
+        duthost.command(sonic_db_cli +
+                        " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN")
+    duthost.command("config save -y")
+    pytest_assert(wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli),
+                  "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB")
+    pytest_assert(wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
+                             "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True),
+                  "SID is missing in APPL_DB")
 
-    expected_pkt = injected_pkt.copy()
-    expected_pkt['IPv6'].dst = "fcbb:bbbb:3:2::"
-    expected_pkt['IPv6'].hlim -= 1
-    logger.debug("Expected packet: {}".format(expected_pkt.summary()))
 
-    expected_pkt = Mask(expected_pkt)
-    expected_pkt.set_do_not_care_packet(Ether, "dst")
-    expected_pkt.set_do_not_care_packet(Ether, "src")
-    testutils.send(ptfadapter, (device, port), injected_pkt, count=pkt_count)
-    for port_device, ports in ports_by_device.items():
-        verify_no_packet_any(ptfadapter, expected_pkt, ports, device_number=port_device, timeout=1)
+def _get_enabled_un_sid_modes(request):
+    run_dscp_mode, run_no_dscp_mode = _get_srv6_dscp_mode_test_flags(request)
+    modes = []
+    if run_dscp_mode:
+        modes.append((SRv6.pipe_mode, 'with decap_dscp_mode configured'))
+    if run_no_dscp_mode:
+        modes.append((None, 'without decap_dscp_mode configured'))
+    return modes
 
-    # verify that the RX_DROP counter is incremented
-    if duthost.facts["asic_type"] == "broadcom":
-        portstat = parse_portstat(duthost.command(f'portstat -i {dut_port}')['stdout_lines'])
-        after_count = int(portstat[dut_port]['rx_drp'])
-        assert after_count >= (before_count + pkt_count), "RX_DRP counter is not incremented as expected"
-    elif duthost.facts["asic_type"] == "mellanox":
-        after_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
-        assert after_count >= (before_count + pkt_count), "RIF RX_ERR counter is not incremented as expected"
+
+def _verify_un_forwarding(setup_uN, ptfadapter, ptfhost, with_srh):
+    run_srv6_traffic_test(
+        setup_uN['duthost'], setup_uN['dut_mac'], setup_uN['ptf_src_ports'],
+        setup_uN['neighbor_ip'], ptfadapter, ptfhost, with_srh
+    )
+
+
+def _wait_for_srv6_un_ready(duthost, sonic_db_cli, neighbor_ip):
+    pytest_assert(wait_until(180, 2, 0, verify_appl_db_sid_entry_exist, duthost, sonic_db_cli,
+                             "SRV6_MY_SID_TABLE:32:16:0:0:fcbb:bbbb:1::", True),
+                  "SID is missing in APPL_DB")
+    pytest_assert(wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli),
+                  "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB")
+    pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
+    pytest_assert(wait_until(60, 5, 0, get_neighbor_mac, duthost, neighbor_ip),
+                  "IP table not updating MAC for neighbour")
+
+
+def run_srv6_resilience_test(request, setup_uN, ptfadapter, ptfhost, with_srh,
+                             disruptive_action_fn, disruptive_step):
+    """Run a disruptive action once; pre/post forwarding checks per enabled dscp mode."""
+    duthost = setup_uN['duthost']
+    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
+    neighbor_ip = setup_uN['neighbor_ip']
+    dscp_mode_test = request.config.getoption("--srv6_dscp_mode_test")
+    current_mode = [None if dscp_mode_test == "no_dscp_mode" else SRv6.pipe_mode]
+
+    def _set_mode(decap_dscp_mode):
+        if current_mode[0] != decap_dscp_mode:
+            _reconfigure_un_sid(duthost, sonic_db_cli, decap_dscp_mode)
+            current_mode[0] = decap_dscp_mode
+
+    for decap_dscp_mode, label in _get_enabled_un_sid_modes(request):
+        with allure.step(f'Pre-check forwarding {label}'):
+            _set_mode(decap_dscp_mode)
+            _verify_un_forwarding(setup_uN, ptfadapter, ptfhost, with_srh)
+
+    with allure.step(disruptive_step):
+        disruptive_action_fn()
+        _wait_for_srv6_un_ready(duthost, sonic_db_cli, neighbor_ip)
+
+    for decap_dscp_mode, label in _get_enabled_un_sid_modes(request):
+        with allure.step(f'Post-check forwarding {label}'):
+            _set_mode(decap_dscp_mode)
+            _verify_un_forwarding(setup_uN, ptfadapter, ptfhost, with_srh)
+
+
+def run_srv6_dscp_mode_phases(request, setup_uN, test_fn, dscp_mode_step="", no_dscp_mode_step=""):
+    """Run a lightweight test function once per enabled dscp mode configuration."""
+    run_dscp_mode, run_no_dscp_mode = _get_srv6_dscp_mode_test_flags(request)
+    duthost = setup_uN['duthost']
+    sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
+
+    if run_dscp_mode:
+        with allure.step(dscp_mode_step or 'Run test with decap_dscp_mode configured'):
+            test_fn()
+
+    if run_no_dscp_mode:
+        if run_dscp_mode:
+            with allure.step('Change the SRv6 configuration to no dscp_mode'):
+                _reconfigure_un_sid(duthost, sonic_db_cli, decap_dscp_mode=None)
+        with allure.step(no_dscp_mode_step or 'Run test without decap_dscp_mode configured'):
+            test_fn()
