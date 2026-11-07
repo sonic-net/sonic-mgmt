@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from tests.transceiver.cdb_firmware_upgrade.firmware_operations import select_distinct_version
 
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
@@ -60,6 +61,7 @@ def required_firmware_metadata_for_all_transceivers(
     port_attributes_dict,
     transceiver_firmware_info_parser,
     cdb_firmware_qualifying_ports,
+    cdb_firmware_attribute_invariants,
 ):
     return get_required_firmware_metadata_for_all_transceivers(
         port_attributes_dict,
@@ -196,3 +198,44 @@ def firmware_files_cleanup(
     except Exception as e:
         logger.error(f"Error during firmware files cleanup: {e}")
         # Don't raise the exception to avoid masking test failures
+
+
+@pytest.fixture(scope="session")
+def cdb_firmware_attribute_invariants(
+    port_attributes_dict, cdb_firmware_qualifying_ports,
+):
+    """Skip the package when CDB firmware inventory invariants are invalid."""
+    errors = []
+    for port in cdb_firmware_qualifying_ports:
+        attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+        versions = attrs.get("firmware_versions") or []
+        gold = attrs.get("gold_firmware_version")
+
+        if len(versions) != 3:
+            errors.append(
+                f"{port}: firmware_versions must contain exactly 3 entries, got {len(versions)}"
+            )
+            continue
+        if gold != versions[-1]:
+            errors.append(
+                f"{port}: gold_firmware_version {gold!r} must equal firmware_versions[-1] {versions[-1]!r}"
+            )
+        if attrs.get("dual_bank_supported", True):
+            inactive = attrs.get("inactive_firmware_version")
+            if inactive != versions[-2]:
+                errors.append(
+                    f"{port}: inactive_firmware_version {inactive!r} must equal "
+                    f"firmware_versions[-2] {versions[-2]!r}"
+                )
+        if select_distinct_version(versions, gold) is None:
+            errors.append(
+                f"{port}: no firmware version differs from gold in both minor and point numbers"
+            )
+        old_gold = attrs.get("old_gold_firmware_version")
+        if old_gold and old_gold == gold:
+            errors.append(
+                f"{port}: old_gold_firmware_version must differ from gold_firmware_version"
+            )
+
+    if errors:
+        pytest.skip("CDB firmware attribute invariant violation:\n" + "\n".join(errors))
