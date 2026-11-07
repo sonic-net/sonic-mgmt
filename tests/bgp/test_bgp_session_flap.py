@@ -29,6 +29,8 @@ BGP_POLL_INTERVAL = 10
 BGP_RECOVERY_DELAY = 30
 FLAP_THREAD_STOP_TIMEOUT = 120
 
+MAX_FLAP_WORKERS = 8
+
 pytestmark = [pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0', 'lma', 'uma')]
 
 
@@ -134,15 +136,22 @@ def stop_flap_workers(workers, stop_event, neighbors):
     return errors
 
 
-def start_flap_worker(neigh, stop_event):
+def start_flap_worker(neighbors, stop_event):
     flap_completed = threading.Event()
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=(neigh, stop_event, flap_completed)
+        args=(neighbors, stop_event, flap_completed)
     )
     thread.daemon = True
     thread.start()
     return thread, flap_completed
+
+
+def split_neighbors_for_workers(neighbors, max_workers=MAX_FLAP_WORKERS):
+    """Split neighbors round-robin into at most max_workers groups."""
+    neighbors = list(neighbors)
+    group_count = min(max_workers, len(neighbors))
+    return [neighbors[i::group_count] for i in range(group_count)]
 
 
 def assert_flap_workers_succeeded(workers, errors, test_exception=None):
@@ -362,13 +371,17 @@ def setup(
     )
 
 
-def flap_neighbor_session(neigh, stop_event, flap_completed):
+def flap_neighbor_session(neighbors, stop_event, flap_completed):
+    """Flap the given neighbors one after another until stop_event is set."""
     while not stop_event.is_set():
-        result = neigh.kill_bgpd()
-        validate_bgp_command_result(neigh, "stop", result)
-        result = neigh.start_bgpd()
-        validate_bgp_command_result(neigh, "start", result)
-        flap_completed.set()
+        for neigh in neighbors:
+            if stop_event.is_set():
+                break
+            result = neigh.kill_bgpd()
+            validate_bgp_command_result(neigh, "stop", result)
+            result = neigh.start_bgpd()
+            validate_bgp_command_result(neigh, "start", result)
+            flap_completed.set()
 
 
 def test_bgp_single_session_flaps(setup):
@@ -382,7 +395,7 @@ def test_bgp_single_session_flaps(setup):
     workers = []
     test_exception = None
     try:
-        workers.append(start_flap_worker(setup['neighhost'], stop_event))
+        workers.append(start_flap_worker([setup['neighhost']], stop_event))
         for i in range(10):
             stats.append(get_cpu_stats(setup['duthost']))
             index = len(stats) - 1
@@ -425,8 +438,8 @@ def test_bgp_multiple_session_flaps(setup):
     workers = []
     test_exception = None
     try:
-        for neigh in neighbors:
-            workers.append(start_flap_worker(neigh, stop_event))
+        for group in split_neighbors_for_workers(neighbors):
+            workers.append(start_flap_worker(group, stop_event))
         for i in range(10):
             stats.append(get_cpu_stats(setup['duthost']))
             index = len(stats) - 1

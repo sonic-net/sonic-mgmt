@@ -36,6 +36,7 @@ HELPERS = {
     "restore_neighbor_bgp",
     "stop_flap_workers",
     "start_flap_worker",
+    "split_neighbors_for_workers",
     "assert_flap_workers_succeeded",
     "wait_for_peer_memory_recovery",
     "flap_neighbor_session",
@@ -112,6 +113,7 @@ def flap_helpers():
         "BGP_POLL_INTERVAL": 10,
         "BGP_SESSION_TIMEOUT": 300,
         "FLAP_THREAD_STOP_TIMEOUT": 2,
+        "MAX_FLAP_WORKERS": 8,
         "InterruptableThread": CapturingThread,
         "cpuSpike": 10,
         "get_cpu_stats": lambda duthost: [0] * 9,
@@ -137,7 +139,7 @@ def flap_helpers():
 def test_single_worker_performs_flap_and_stops_cleanly(flap_helpers):
     neighbor = FakeNeighbor()
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
 
     assert worker[1].wait(1), "worker did not complete a flap"
     errors = flap_helpers["stop_flap_workers"](
@@ -153,7 +155,7 @@ def test_multiple_workers_receive_neighbor_objects(flap_helpers):
     neighbors = [FakeNeighbor(), FakeNeighbor(), FakeNeighbor()]
     stop_event = threading.Event()
     workers = [
-        flap_helpers["start_flap_worker"](neighbor, stop_event)
+        flap_helpers["start_flap_worker"]([neighbor], stop_event)
         for neighbor in neighbors
     ]
 
@@ -239,8 +241,8 @@ def test_multiple_session_test_passes_neighbor_objects(flap_helpers):
     received_neighbors = []
     stopped_neighbors = []
 
-    def record_worker(neighbor, stop_event):
-        received_neighbors.append(neighbor)
+    def record_worker(worker_neighbors, stop_event):
+        received_neighbors.extend(worker_neighbors)
         completed = threading.Event()
         completed.set()
         return CapturingThread(), completed
@@ -476,7 +478,7 @@ def test_partial_start_reports_primary_and_worker_failures(flap_helpers):
 def test_worker_exception_fails_after_neighbor_restore(flap_helpers):
     neighbor = FakeNeighbor(fail_kill=True)
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
     worker[0].join(timeout=1, suppress_exception=True)
 
     errors = flap_helpers["stop_flap_workers"](
@@ -493,7 +495,7 @@ def test_worker_returned_failure_fails_after_neighbor_restore(flap_helpers):
         kill_result={"rc": 1, "stderr": "supervisor stop failed"}
     )
     stop_event = threading.Event()
-    worker = flap_helpers["start_flap_worker"](neighbor, stop_event)
+    worker = flap_helpers["start_flap_worker"]([neighbor], stop_event)
     worker[0].join(timeout=1, suppress_exception=True)
 
     errors = flap_helpers["stop_flap_workers"](
