@@ -4,7 +4,10 @@ import pytest
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.mellanox_data import SPC4_HWSKUS, SPC5_HWSKUS, SPC6_HWSKUS
 from .bug_handler_helper import get_bughandler_instance
+
+SPC4_PLUS_HWSKUS = SPC4_HWSKUS + SPC5_HWSKUS + SPC6_HWSKUS
 
 
 def _cleanup_orphaned_ansible_processes(timed_out_duts):
@@ -208,5 +211,37 @@ def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
                     [
                         r".*ERR swss#orchagent.*verifyPortSupportsAllPhyAttr.*PORT_PHY_ATTR.*"
                         r"does not support.*attribute.*"
+                    ]
+                )
+
+
+@pytest.fixture(autouse=True)
+def ignore_mlnx_fec_alignment_lock_errors(duthosts, loganalyzer):
+    """Ignore FEC alignment lock ERR on Mellanox non-SPC4+ platforms.
+
+    Mellanox SAI on SPC1/SPC2/SPC3 logs ERR when syncd queries the
+    FEC_ALIGNMENT_LOCK port attribute, which is only supported on SPC4+.
+    These are harmless hardware limitation logs, not functional errors.
+    Only applied when the HWSKU is NOT in the SPC4+/SPC5/SPC6 lists so that
+    any real FEC issues on newer platforms are not masked.
+    """
+    SPC4_PLUS = SPC4_PLUS_HWSKUS
+    if loganalyzer:
+        for duthost in duthosts:
+            hwsku = duthost.facts.get("hwsku", "")
+            if duthost.facts.get("asic_type") == "mellanox" and hwsku not in SPC4_PLUS:
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        r".*ERR syncd#SDK: \[SAI_PORT\.ERR\].*mlnx_sai_port\.c.*"
+                        r"FEC alignment lock only supported on SPC4\+",
+                        r".*ERR syncd#SDK: \[SAI_UTILS\.ERR\].*get_dispatch_attribs_handler:.*"
+                        r"FEC_ALIGNMENT_LOCK.*",
+                        # This pattern is broader than ideal — matches any SAI utils
+                        # attribute-get failure, not just FEC. Narrowing isn't feasible
+                        # because the generic error lacks "FEC" context. Scoped to
+                        # non-SPC4+ Mellanox only, limiting blast radius.
+                        # See ADO #37689505 for context.
+                        r".*ERR syncd#SDK: \[SAI_UTILS\.ERR\].*mlnx_sai_utils\.c.*"
+                        r"sai_get_attributes: Failed to get attribute",
                     ]
                 )
