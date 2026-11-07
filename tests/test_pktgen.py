@@ -46,23 +46,23 @@ def get_port_list(duthost, tbinfo):
     return list(mg_facts["minigraph_ports"].keys())
 
 
+def _run_cleanup(duthost):
+    for cmd in CLEANUP_CMDS:
+        duthost.shell(cmd, module_ignore_errors=True)
+    for asichost in duthost.asics:
+        for cmd in CLEANUP_ASIC_CMDS:
+            asichost.shell(cmd, module_ignore_errors=True)
+
+
 @pytest.fixture(scope='function', autouse='True')
 def clear_pktgen(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
-    for cmd in CLEANUP_CMDS:
-        duthost.shell(cmd)
-    for asichost in duthost.asics:
-        for cmd in CLEANUP_ASIC_CMDS:
-            asichost.command(cmd)
+    _run_cleanup(duthost)
     duthost.shell("sonic-clear counters")
 
     yield
 
-    for cmd in CLEANUP_CMDS:
-        duthost.shell(cmd)
-    for asichost in duthost.asics:
-        for cmd in CLEANUP_ASIC_CMDS:
-            asichost.command(cmd)
+    _run_cleanup(duthost)
 
 
 def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer):
