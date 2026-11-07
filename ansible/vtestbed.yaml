@@ -622,6 +622,23 @@
   neighbor_mode: prefix-route
   comment: Active-Active Dual-TOR VPP testbed
 
+- conf-name: vms-l2tri
+  group-name: vms7-1
+  topo: t0-l2tri
+  ptf_image_name: docker-ptf
+  ptf: ptf-l2tri
+  ptf_ip: 10.250.0.130/24
+  ptf_ipv6:
+  server: server_1
+  vm_base:
+  dut:
+    - vlab-03
+    - vlab-04
+    - vlab-05
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Three SONiC bridges in a triangle, for the L2 cases that need more than one bridge
+
 - conf-name: vms-kvm-urh
   group-name: vms6-1
   topo: urh_min
