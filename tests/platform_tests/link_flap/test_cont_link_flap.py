@@ -36,6 +36,10 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
+    # Allow limited error/drop counter noise from control-plane traffic during convergence.
+    COUNTER_ABS_TOLERANCE = 2000
+    COUNTER_REL_TOLERANCE = 0.05
+
     @staticmethod
     def get_candidates(duthost, fanouthosts, completeness_level="confident"):
         candidates = build_test_candidates(duthost, fanouthosts, 'all_ports', completeness_level=completeness_level)
@@ -104,6 +108,75 @@ class TestContLinkFlap(object):
         else:
             return value
 
+    def save_counter_values(self, dut, stage):
+        self.drop_counters[stage] = dut.show_and_parse(show_cmd="show dropcounter count")
+        self.intf_counters[stage] = dut.show_and_parse(show_cmd="show interfaces counters")
+
+    def check_all_counters(self, dut, tbinfo):
+        pytest_assert(
+            all(stage in self.drop_counters and stage in self.intf_counters for stage in ("pre", "post")),
+            "Checking counters without collecting both pre- and post-test values.")
+
+        is_t2 = "t2" in tbinfo["topo"]["name"]
+        backplane_ports = dut.get_backplane_ports() if is_t2 else set()
+
+        def front_panel_counters(counters):
+            return [counter for counter in counters
+                    if counter["iface"] not in backplane_ports and
+                    not (is_t2 and counter["iface"].startswith("Ethernet-BP"))]
+
+        # First drop counter's check.
+        def compare_counters(counter_type, pre_list, post_list):
+            failed_counters = []
+            if counter_type == "drop":
+                check_list = ['rx_err', 'rx_drops', 'tx_err', 'tx_drops']
+            elif counter_type == "intf":
+                check_list = ['rx_drp', 'rx_err', 'tx_drp', 'tx_err']
+            else:
+                raise ValueError(f"unknown counter_type {counter_type!r}")
+
+            pre_by_iface = {entry['iface']: entry for entry in pre_list}
+            post_by_iface = {entry['iface']: entry for entry in post_list}
+            pytest_assert(
+                len(pre_by_iface) == len(pre_list),
+                f"Duplicate interface in pre-test {counter_type} counters")
+            pytest_assert(
+                len(post_by_iface) == len(post_list),
+                f"Duplicate interface in post-test {counter_type} counters")
+            missing_interfaces = pre_by_iface.keys() - post_by_iface.keys()
+            added_interfaces = post_by_iface.keys() - pre_by_iface.keys()
+            pytest_assert(
+                not missing_interfaces and not added_interfaces,
+                f"Interface mismatch in {counter_type} counters: missing after test "
+                f"{sorted(missing_interfaces)}, added after test {sorted(added_interfaces)}")
+
+            for iface, pre_line in pre_by_iface.items():
+                post_line = post_by_iface[iface]
+                # drop Counters: line format:
+                # {'iface': 'Ethernet0', 'state': 'X', 'rx_err': '0', 'rx_drops': '0', 'tx_err': '0', 'tx_drops': '0'}
+                for entry in check_list:
+                    if not math.isclose(
+                            int(pre_line[entry].replace(",", "")),
+                            int(post_line[entry].replace(",", "")),
+                            abs_tol=TestContLinkFlap.COUNTER_ABS_TOLERANCE,
+                            rel_tol=TestContLinkFlap.COUNTER_REL_TOLERANCE):
+                        failed_counters.append(
+                            f"{counter_type}:{iface}:"
+                            f"{entry}:pre_value({pre_line[entry]}) post_value({post_line[entry]})")
+
+            pytest_assert(
+                failed_counters == [],
+                f"Mismatches found: {failed_counters}")
+
+        compare_counters(
+            'drop',
+            front_panel_counters(self.drop_counters['pre']),
+            front_panel_counters(self.drop_counters['post']))
+        compare_counters(
+            'intf',
+            front_panel_counters(self.intf_counters['pre']),
+            front_panel_counters(self.intf_counters['post']))
+
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
@@ -118,8 +191,11 @@ class TestContLinkFlap(object):
                 orchagent CPU Utilization and Redis_memory.
 
         Pass Criteria: All routes must be re-learned with < 10% increase in Redis/FRR memory usage and
-            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
+            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps. Error and drop
+            counter deltas must remain within the configured tolerances.
         """
+        self.drop_counters = {}
+        self.intf_counters = {}
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.command("sonic-clear arp")
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
@@ -166,6 +242,9 @@ class TestContLinkFlap(object):
                       "Orch CPU utilization {} > orch cpu threshold {} before link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
+
+        # Save the counter values for all interfaces.
+        self.save_counter_values(duthost, "pre")
 
         # Flap randomly sampled interfaces one by one on DUT
         for iteration in range(3):
@@ -286,3 +365,7 @@ class TestContLinkFlap(object):
                       "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
+
+        # check counter values
+        self.save_counter_values(duthost, "post")
+        self.check_all_counters(duthost, tbinfo)
