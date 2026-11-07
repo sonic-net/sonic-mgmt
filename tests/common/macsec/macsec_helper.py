@@ -33,6 +33,12 @@ __all__ = [
     'get_sci',
     'getns_prefix',
     'get_ipnetns_prefix',
+    'get_macsec_cli_ns_option',
+    'get_macsec_sessions',
+    'get_macsec_sessions_for_ns',
+    'DEFAULT_NS_KEY',
+    'MACSEC_ENABLE_RE',
+    'MACSEC_PORT_RE',
 ]
 
 logger = logging.getLogger(__name__)
@@ -693,6 +699,56 @@ def get_macsec_counters(duthost, port):
 
 def clear_macsec_counters(duthost):
     assert duthost.command("sonic-clear macsec")["failed"] is False
+
+
+# ---------------------------------------------------------------------------
+# "show macsec" session parsing (multi-ASIC aware)
+# ---------------------------------------------------------------------------
+
+MACSEC_PORT_RE = re.compile(r"\s*MACsec port\((.+)\)")
+MACSEC_ENABLE_RE = re.compile(r"\s*enable\s+true\b")
+# Dictionary key used for the default namespace (single-asic DUTs)
+DEFAULT_NS_KEY = "default"
+
+
+def get_macsec_cli_ns_option(namespace):
+    """CLI namespace option (" -n <ns>") for a namespace; empty for the default (single-asic) namespace."""
+    return " -n {}".format(namespace) if namespace else ""
+
+
+def get_macsec_sessions_for_ns(duthost, namespace):
+    """
+    Return the sorted list of ports that have an enabled MACsec session
+    (i.e. an egress SA is present) in one namespace, parsed from ``show macsec``.
+    """
+    out = duthost.shell("show macsec{}".format(get_macsec_cli_ns_option(namespace)))['stdout']
+    ns_key = namespace or DEFAULT_NS_KEY
+    logger.debug("show macsec (%s): %s", ns_key, out)
+    sess_list = []
+    current_port = None
+    enabled = False
+    for line in out.splitlines():
+        port_match = MACSEC_PORT_RE.match(line)
+        if port_match:
+            current_port = port_match.group(1)
+            enabled = False
+        elif MACSEC_ENABLE_RE.match(line):
+            enabled = True
+        elif enabled and current_port and "MACsec Egress SA" in line:
+            sess_list.append(current_port)
+    logger.debug("macsec sessions (%s): %s", ns_key, sess_list)
+    return sorted(sess_list)
+
+
+def get_macsec_sessions(duthost):
+    """
+    Return ``{namespace: sorted list of ports with a MACsec session}`` for every
+    frontend asic of the DUT.  Single-asic DUTs have one entry keyed ``DEFAULT_NS_KEY``.
+    """
+    return {
+        (ns or DEFAULT_NS_KEY): get_macsec_sessions_for_ns(duthost, ns)
+        for ns in duthost.get_frontend_asic_namespace_list()
+    }
 
 
 __origin_dp_poll = testutils.dp_poll
