@@ -9,7 +9,13 @@ test -z "$(virsh list --state-running --name)" || virsh list --state-running --n
 test -z "$(virsh list --state-paused --name)" || virsh list --state-paused --name | xargs -I % virsh destroy %
 
 # undefine all VMs
+{% if use_uefi | default(false) | bool %}
+for domain in $(virsh list --all --name); do
+    virsh undefine --nvram "$domain" || virsh undefine "$domain"
+done
+{% else %}
 test -z "$(virsh list --all --name)" || virsh list --all --name | xargs -I % virsh undefine %
+{% endif %}
 
 # remove all VM disks
 rm -f {{ root_path }}/disks/*
