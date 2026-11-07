@@ -12,7 +12,7 @@ class TcpServer(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(
-            socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
+            socket.SOL_SOCKET, SO_BINDTODEVICE, vrf_src.encode())
         self.sock.settimeout(10)
         self.sock.bind((src_ip, src_port))
         self.sock.listen(5)
@@ -26,7 +26,7 @@ class TcpClient(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(
-            socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
+            socket.SOL_SOCKET, SO_BINDTODEVICE, vrf_src.encode())
         self.sock.settimeout(10)
         self.sock.bind((src_ip, src_port))
         self.sock.connect((dst_ip, dst_port))
@@ -37,7 +37,7 @@ class UdpServer(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(
-            socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
+            socket.SOL_SOCKET, SO_BINDTODEVICE, vrf_src.encode())
         self.sock.settimeout(10)
         self.sock.bind((src_ip, src_port))
 
@@ -50,7 +50,7 @@ class UdpClient(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(
-            socket.SOL_SOCKET, SO_BINDTODEVICE, b'{}'.format(vrf_src))
+            socket.SOL_SOCKET, SO_BINDTODEVICE, vrf_src.encode())
         self.server_address = (dst_ip, dst_port)
         self.sock.settimeout(10)
         self.sock.bind((src_ip, src_port))
@@ -58,9 +58,9 @@ class UdpClient(object):
 
 def udp_event_loop(udp_server, udp_client):
     try:
-        udp_client.sock.sendto("ping", udp_client.server_address)
+        udp_client.sock.sendto(b"ping", udp_client.server_address)
         _, address = udp_server.sock.recvfrom(4096)
-        udp_server.sock.sendto("pong", address)
+        udp_server.sock.sendto(b"pong", address)
         udp_client.sock.recvfrom(4096)
     except Exception as e:
         print(e)
