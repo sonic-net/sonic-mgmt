@@ -4,9 +4,26 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# UHD Connect API schema versions. 4.0 flattened connection endpoints, moved the
+# endpoint VLAN and the outgoing tunnel header onto the function, and made endpoint
+# tags positional (one per function).
+UHD_API_V3 = '3.0'
+UHD_API_V4 = '4.0'
+UHD_API_VERSIONS = (UHD_API_V3, UHD_API_V4)
+
 
 class NetworkConfigSettings:
-    def __init__(self, vxlan_endpoint_vni=1000):
+    def __init__(self, vxlan_endpoint_vni=1000, uhd_api_version=UHD_API_V4):
+        """
+        Addressing constants and the UHD Connect API version used to build the UHD config.
+        Args:
+            vxlan_endpoint_vni (int): first client VLAN / VXLAN VNI (ENI_L2R_STEP)
+            uhd_api_version (str): UHD Connect API schema version, one of UHD_API_VERSIONS (default 4.0)
+        """
+        if uhd_api_version not in UHD_API_VERSIONS:
+            raise ValueError("unsupported uhd_api_version {!r}, expected one of {}".format(
+                uhd_api_version, UHD_API_VERSIONS))
+        self.uhd_api_version = uhd_api_version
         self.ipp = ipaddress.ip_address
         self.maca = macaddress.MAC
 
@@ -296,448 +313,266 @@ def create_front_panel_ports(count, config, cards_dict):
                 fp_list.append(new_dict)
             data_index += 1
 
-    # l47 Front Panel DPU
-    dpu_ports_length = len(cards_dict['dpu_ports'])
-    dpu_port = 0
-    switchover_port = 0
-    for i in range(1, dpu_ports_length + 1):
-        if cards_dict['dpu_ports'][i - 1]['SwitchOverPort'] == 'True':
-            switchover_port = int(cards_dict['dpu_ports'][i - 1]['FrontPanel'])
-        else:
-            dpu_port = int(cards_dict['dpu_ports'][i - 1]['FrontPanel'])
-
-    if switchover_port == 0:
-        for x, dpu in enumerate(cards_dict['dpu_ports']):
-            dpu_port_ = {"name": f"l47_dpuPort_{x + 1}", "choice": "port_group", "front_panel_port": {
-                "front_panel_port": int(cards_dict['dpu_ports'][x]['FrontPanel']),
-                "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])
-            }
-            }
-            fp_list.append(dpu_port_)
+    # l47 Front Panel DPU: one port group per DPU port, or a single group carrying the switchover port
+    dpu_profile = config.layer1_profile_names[3]
+    dpu_ports = [int(p['FrontPanel']) for p in cards_dict['dpu_ports'] if p['SwitchOverPort'] != 'True']
+    switchover_ports = [int(p['FrontPanel']) for p in cards_dict['dpu_ports'] if p['SwitchOverPort'] == 'True']
+    if switchover_ports:
+        fp_list.append(_port_group("l47_dpuPort_1", dpu_ports[-1], dpu_profile, switchover_ports[-1]))
     else:
-        dpu_port_1 = {"name": "l47_dpuPort_1", "choice": "port_group",
-                      "port_group":  # noqa: E128
-                          {  # noqa: E127
-                              "ports": [
-                                  {  # noqa: E122
-                                      "front_panel_port": dpu_port, "layer_1_profile_name": "{}".format(  # noqa: E122
-                                      config.layer1_profile_names[3]),  # noqa: E122
-                                      "switchover_port": {"front_panel_port": switchover_port,  # noqa: E122
-                                                          "layer_1_profile_name": "{}".format(
-                                                              config.layer1_profile_names[3])}
-                                  }
-                              ]
-                          }
-                      }
-
-        fp_list.append(dpu_port_1)
+        for x, port in enumerate(dpu_ports):
+            fp_list.append(_port_group("l47_dpuPort_{}".format(x + 1), port, dpu_profile))
 
     return fp_list
 
 
+def _port_group(name, front_panel_port, profile, switchover_port=None):
+    """
+    Build a single-port port_group entry for front_panel_ports.
+    Args:
+        name (str): port group name referenced by connection endpoints
+        front_panel_port (int): DPU-facing front panel port number
+        profile (str): layer 1 profile name
+        switchover_port (int): optional HA switchover front panel port, same profile
+    Returns:
+        dict: front_panel_ports entry
+    """
+    port = {"front_panel_port": front_panel_port, "layer_1_profile_name": profile}
+    if switchover_port is not None:
+        port["switchover_port"] = {"front_panel_port": switchover_port, "layer_1_profile_name": profile}
+    return {"name": name, "choice": "port_group", "port_group": {"ports": [port]}}
+
+
+def build_tunnel_connection(name, vlan_port, vlan, tunnel, tunnel_port, header, tunnel_settings, udp_ports, config):
+    """
+    Build a connect_vlan_vxlan / connect_vlan_nvgre connection in the schema of the configured UHD API version.
+    Args:
+        name (str): connection name
+        vlan_port (str): name of the VLAN-side front panel port (traffic generator)
+        vlan (dict): VlanIdOption matched on the VLAN side
+        tunnel (str): 'vxlan' or 'nvgre'
+        tunnel_port (str): name of the tunnel-side front panel port (DPU)
+        header (dict): outgoing tunnel header (src_mac, dst_mac, src_ip, dst_ip)
+        tunnel_settings (dict): vni/vsid, protocols and routing settings
+        udp_ports (dict): VXLAN udp_src_port/udp_dst_port overrides, or {}
+        config (NetworkConfigSettings): carries uhd_api_version
+    Returns:
+        dict: connection entry
+    """
+    function = "connect_vlan_{}".format(tunnel)
+    tunnel_key = "{}_endpoint_settings".format(tunnel)
+    header_key = "outgoing_{}_header".format(tunnel)
+    header = dict(header)
+    tunnel_settings = dict(tunnel_settings)
+    if config.uhd_api_version == UHD_API_V4:
+        header.update(udp_ports)
+        tunnel_settings[header_key] = header
+        body = {"vlan_endpoint_settings": {"vlan": vlan}, tunnel_key: tunnel_settings}
+        endpoints = [{"port_name": vlan_port, "tags": ["vlan"]},
+                     {"port_name": tunnel_port, "tags": [tunnel]}]
+    else:
+        tunnel_settings.update(udp_ports)
+        body = {"vlan_endpoint_settings": {header_key: header}, tunnel_key: tunnel_settings}
+        endpoints = [{"choice": "front_panel", "front_panel": {"port_name": vlan_port, "vlan": vlan}, "tags": ["vlan"]},
+                     {"choice": "front_panel", "front_panel": {"port_name": tunnel_port}, "tags": [tunnel]}]
+    return {"name": name, "functions": [{"choice": function, function: body}], "endpoints": endpoints}
+
+
+def build_passthrough_connection(name, function, port1, vlan1, port2, vlan2, config):
+    """
+    Build a connect_arp / connect_ethernet connection between two front panel ports.
+    Args:
+        name (str): connection name
+        function (str): 'connect_arp' or 'connect_ethernet'
+        port1 (str): first front panel port name
+        vlan1 (dict): VlanIdOption matched on port1
+        port2 (str): second front panel port name
+        vlan2 (dict): VlanIdOption matched on port2
+        config (NetworkConfigSettings): carries uhd_api_version
+    Returns:
+        dict: connection entry
+    """
+    if config.uhd_api_version == UHD_API_V4:
+        body = {"vlan_endpoint_settings_port1": {"vlan": vlan1}, "vlan_endpoint_settings_port2": {"vlan": vlan2}}
+        endpoints = [{"port_name": port1, "tags": ["vlan"]}, {"port_name": port2, "tags": ["vlan"]}]
+    else:
+        body = {}
+        endpoints = [{"choice": "front_panel", "front_panel": {"port_name": port1, "vlan": vlan1}},
+                     {"choice": "front_panel", "front_panel": {"port_name": port2, "vlan": vlan2}}]
+    return {"name": name, "functions": [{"choice": function, function: body}], "endpoints": endpoints}
+
+
+def _vlan(vlan_id):
+    return {"choice": "vlan", "vlan": vlan_id}
+
+
+def _vlan_range(start, count):
+    return {"choice": "vlan_range", "vlan_range": {"start": start, "count": count, "step": 1}}
+
+
+def _udp_ports(vxlan_port, vxlan_src_port):
+    """VXLAN UDP port overrides; empty when both are 0 so UHD keeps its defaults. Mapping kept from the original."""
+    if vxlan_port == 0 and vxlan_src_port == 0:
+        return {}
+    return {"udp_src_port": vxlan_port, "udp_dst_port": vxlan_src_port}
+
+
+def _tunnel_header(config, src_mac, src_ip, dst_ip):
+    return {"src_mac": {"choice": "mac", "mac": src_mac},
+            "dst_mac": {"choice": "mac", "mac": config.dut_mac},
+            "src_ip": src_ip, "dst_ip": dst_ip}
+
+
+def _eth_bypass_connections(config, ethpass_ports):
+    """
+    Ethernet bypass between the two EthernetPass front panel ports.
+    Args:
+        config (NetworkConfigSettings): carries uhd_api_version
+        ethpass_ports (list): CSV rows with EthernetPass == 'True'
+    Returns:
+        list: [Eth Bypass connection], or [] when no EthernetPass ports are configured
+    """
+    if not ethpass_ports:
+        return []
+    if len(ethpass_ports) != 2:
+        raise ValueError("Eth Bypass needs exactly two EthernetPass ports, got {}".format(len(ethpass_ports)))
+    non_vlan = {"choice": "non_vlan"}
+    port1, port2 = ["l47_port_11{}".format(p['FrontPanel']) for p in ethpass_ports]
+    return [build_passthrough_connection("Eth Bypass", "connect_ethernet", port1, non_vlan, port2, non_vlan, config)]
+
+
 def create_arp_bypass_pl(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
-
-    connections_list = []
-    ethpass_ports = cards_dict['ethpass_ports']
-    # num_cps_cards = cards_dict['num_cps_cards']
-    # first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
-
-    # eth_bypass set here
-    connections_list.append(_get_eth_bypass_dict(config, ethpass_ports))
-
-    return connections_list
+    """PrivateLink bypass connections: only the Ethernet bypass, no per-ENI ARP bypass."""
+    return _eth_bypass_connections(config, cards_dict['ethpass_ports'])
 
 
 def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dict, arp_bypass_list,
                           vxlan_port, vxlan_src_port):
-
-    connections_list = arp_bypass_list
-    num_cps_cards = cards_dict['num_cps_cards']
-    first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
-
-    ip6_step = int(config.NVGRE_IP_STEP)
+    """
+    PrivateLink connections: per CPS card one NVGRE server connection and one VXLAN client connection,
+    each covering NVGRE_COUNT VLANs with ranges.
+    """
+    connections_list = list(arp_bypass_list)
     nvgre_count = config.NVGRE_COUNT
-    nvgre_eni = config.ENI_START
-    vtep_ip = config.VTEP_IP
-    vtep_ip_tmp = 0
-    underlay_ip = config.PAL_PL
-    underlay_ip_tmp = 0
-    vlan_endpoint_ip = config.PAR_PL
-    vlanEP_ip_tmp = 0
-    client_vlan_start = config.ENI_L2R_STEP + 1
-    client_vlan_tmp = 0
-    # vxlan_vni_start = config.ENI_L2R_STEP * 2
-    vxlan_vni_start = config.ENI_L2R_STEP
-    vxlan_vni_tmp = 0
-    nvgre_ip = "2603:100:%s:0::0" % (config.dec2hex(config.ENI_VNI_NVGRE_START))
-    nvgre_ip_tmp = 0
+    ip6_step = int(config.NVGRE_IP_STEP)
+    nvgre_ip = ipaddress.ip_address("2603:100:%s:0::0" % config.dec2hex(config.ENI_VNI_NVGRE_START))
+    client_ip_step = int(ipaddress.ip_address('8.0.0.0'))
+    udp_ports = _udp_ports(vxlan_port, vxlan_src_port)
 
-    for port in range(num_cps_cards):
+    for port in range(cards_dict['num_cps_cards']):
+        offset = nvgre_count * port
+        vtep_ip = {"choice": "ipv4", "ipv4": str(config.VTEP_IP + port)}
 
-        server_dict_temp = {
-            'name': 'l47 Server {}'.format(port+1),
-            'functions': [],
-            'endpoints': []
+        server_header = _tunnel_header(
+            config, config.l47_tg_servermac,
+            {"choice": "ipv4_range", "ipv4_range": {"start": str(config.PAL_PL + offset), "count": nvgre_count,
+                                                    "step": "0.0.0.1"}},
+            vtep_ip)
+        server_settings = {
+            "vsid": {"choice": "vsid", "vsid": config.NVGRE_VSID},
+            "protocols": {"accept": ["tcp"]},
+            "routing_method": "ip_routing",
+            "ip_routing": {"destination_ips": {"choice": "ipv6_range", "ipv6_range": {
+                "start": str(nvgre_ip + ip6_step * offset), "subnet_bits": config.NVGRE_SUBMASK,
+                "count": nvgre_count, "step": str(ipaddress.ip_address(ip6_step))}}},
         }
+        connections_list.append(build_tunnel_connection(
+            "l47 Server {}".format(port + 1), "l47_port_{}s".format(port + 1),
+            _vlan_range(config.ENI_START + offset, nvgre_count), "nvgre", "l47_dpuPort_1",
+            server_header, server_settings, {}, config))
 
-        client_dict_temp = {
-            'name': 'l47 Client {}'.format(port+1),
-            'functions': [],
-            'endpoints': []
+        client_header = _tunnel_header(
+            config, config.l47_tg_clientmac,
+            {"choice": "ipv4_range", "ipv4_range": {"start": str(config.PAR_PL + offset), "count": nvgre_count,
+                                                    "step": "0.0.0.1"}},
+            vtep_ip)
+        client_settings = {
+            "vni": {"choice": "vni_range", "vni_range": {"start": config.ENI_L2R_STEP + offset,
+                                                         "count": nvgre_count, "step": 1}},
+            "protocols": {"accept": ["tcp"]},
+            "routing_method": "ip_routing",
+            "ip_routing": {"destination_ips": {"choice": "ipv4_range", "ipv4_range": {
+                "start": str(config.IP_L_START + client_ip_step * port), "count": nvgre_count, "step": "0.64.0.0"}}},
         }
-
-        # client_vlan = build_node_vlan(eni, config, nodetype="client")
-        # server_vlan = build_node_vlan(eni, config, nodetype="server")
-
-        # client_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
-        # client_cps_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
-        # server_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
-
-        # Server side
-        """
-        if server_vlan == 256:
-            overlay_ip_addr = 0
-        else:
-            overlay_ip_addr = eni+1
-        """
-        # overlay_ip_addr = eni
-
-        # if server_vlan <= 128:
-        #    lb_ip = 1
-        # else:
-        #    lb_ip = 2
-
-        # vni_index = 1000
-
-        nvgre_ip_tmp = str(ipaddress.ip_address(nvgre_ip) + (ip6_step * (port * nvgre_count)))
-        vtep_ip_tmp = vtep_ip + (1 * port)
-        underlay_ip_tmp = underlay_ip + (config.NVGRE_COUNT * port)
-        server_conn_tmp = {
-            "choice": "connect_vlan_nvgre",
-            "connect_vlan_nvgre": {
-                "vlan_endpoint_settings": {
-                    "outgoing_nvgre_header": {
-                        "src_mac": {"choice": "mac", "mac": "{}".format(config.l47_tg_servermac)},
-                        "dst_mac": {"choice": "mac", "mac": "{}".format(config.dut_mac)},
-                        "src_ip": {"choice": "ipv4_range", "ipv4_range": {'start': "{}".format(underlay_ip_tmp),
-                                                                          'count': nvgre_count, 'step': '0.0.0.1'}},
-                        "dst_ip": {"choice": "ipv4", "ipv4": "{}".format(vtep_ip_tmp)},
-                    }
-                },
-                "nvgre_endpoint_settings": {
-                    "vsid": {"choice": "vsid", "vsid": config.NVGRE_VSID},
-                    "protocols": {"accept": ["tcp"]}, "routing_method": "ip_routing",  # noqa: E128
-                    "ip_routing": {"destination_ips": {"choice": "ipv6_range",
-                    "ipv6_range": {'start': "{}".format(ipaddress.ip_address(nvgre_ip_tmp)),  # noqa: E128
-                                   'subnet_bits': config.NVGRE_SUBMASK, 'count': nvgre_count,
-                                   'step': "{}".format(str(ipaddress.ip_address(ip6_step)))}}}
-                }
-            }
-        }
-        server_dict_temp['functions'].append(server_conn_tmp)
-        nvgre_eni_temp = nvgre_eni + (nvgre_count * port)
-        server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {
-                "port_name": "l47_port_{}s".format(port + 1),  # noqa: E122
-                "vlan": {"choice": "vlan_range", "vlan_range": {"start": nvgre_eni_temp, "count": 32, "step": 1}}},
-             "tags": ["vlan"]},
-        )
-        server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(1)},
-             "tags": ["nvgre"]}
-        )
-
-        # Client Side
-        client_start = config.IP_L_START
-        ip_tmp = client_start + (int(ipaddress.ip_address('8.0.0.0')) * port)
-        vlanEP_ip_tmp = vlan_endpoint_ip + (nvgre_count * port)
-        vxlan_vni_tmp = vxlan_vni_start + (nvgre_count * port)
-
-        client_conn_tmp = {
-            "choice": "connect_vlan_vxlan",
-            "connect_vlan_vxlan": {
-                "vlan_endpoint_settings": {
-                    "outgoing_vxlan_header": {
-                        "src_mac": {"choice": "mac", "mac": f"{config.l47_tg_clientmac}"},
-                        "dst_mac": {"choice": "mac", "mac": f"{config.dut_mac}"},
-                        "src_ip": {
-                            "choice": "ipv4_range",
-                            "ipv4_range": {
-                                "start": f"{vlanEP_ip_tmp}",
-                                "count": nvgre_count,
-                                "step": "0.0.0.1",
-                            },
-                        },
-                        "dst_ip": {"choice": "ipv4", "ipv4": f"{vtep_ip_tmp}"},
-                    }
-                },
-                "vxlan_endpoint_settings": {
-                    "vni": {
-                        "choice": "vni_range",
-                        "vni_range": {
-                            "start": vxlan_vni_tmp,
-                            "count": nvgre_count,
-                            "step": 1,
-                        },
-                    },
-                    "protocols": {"accept": ["tcp"]},
-                    "routing_method": "ip_routing",
-                    "ip_routing": {
-                        "destination_ips": {
-                            "choice": "ipv4_range",
-                            "ipv4_range": {
-                                "start": f"{ip_tmp}",
-                                "count": config.NVGRE_COUNT,
-                                "step": "0.64.0.0",
-                            },
-                        }
-                    },
-                },
-            },
-        }
-
-        if not (vxlan_port == 0 and vxlan_src_port == 0):
-            vxlan_settings = client_conn_tmp["connect_vlan_vxlan"]["vxlan_endpoint_settings"]
-            vxlan_settings["udp_src_port"] = vxlan_port
-            vxlan_settings["udp_dst_port"] = vxlan_src_port
-
-        client_vlan_tmp = client_vlan_start + (nvgre_count * port)
-        client_dict_temp['functions'].append(client_conn_tmp)
-        client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {
-                "port_name": "l47_port_{}c".format(port+1),
-                "vlan": {"choice": "vlan_range", "vlan_range": {'start': client_vlan_tmp, 'count': nvgre_count,
-                                                                'step': 1}}}, "tags": ["vlan"]},
-        )
-
-        client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(1)},
-             "tags": ["vxlan"]}
-        )
-
-        # Add server and client settings to connections_list
-        connections_list.append(server_dict_temp)
-        connections_list.append(client_dict_temp)
+        connections_list.append(build_tunnel_connection(
+            "l47 Client {}".format(port + 1), "l47_port_{}c".format(port + 1),
+            _vlan_range(config.ENI_L2R_STEP + 1 + offset, nvgre_count), "vxlan", "l47_dpuPort_1",
+            client_header, client_settings, udp_ports, config))
 
     return connections_list
 
 
-def _get_eth_bypass_dict(config, ethpass_ports):
-    eth_bypass_dict = {
-        'name': "Eth Bypass",
-        'functions': [{"choice": "connect_ethernet", "connect_ethernet": {}}],
-        'endpoints': []
-    }
-    for port in ethpass_ports:
-        eth_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_11{}'.format(port['FrontPanel']),
-                                                      'vlan': {'choice': 'non_vlan'}}}
-        )
-
-    return eth_bypass_dict
-
-
 def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
-
-    connections_list = []
-    num_cps_cards = cards_dict['num_cps_cards']
-    ethpass_ports = cards_dict['ethpass_ports']
+    """vnet2vnet bypass connections: the Ethernet bypass plus one connect_arp per ENI between its two l47 ports."""
+    connections_list = _eth_bypass_connections(config, cards_dict['ethpass_ports'])
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
 
-    """
-    if cards_dict['num_cps_cards'] > 0:
-        first_cps_card = 1
-        if cards_dict['num_tcpbg_cards'] > 0:
-            first_tcpbg_card = cards_dict['num_cps_cards'] + 1
-        else:
-            first_tcpbg_card = 0
-    """
-
-    """
-    eth_bypass_dict = {
-        'name': "Eth Bypass",
-        'functions': [{"choice": "connect_ethernet", "connect_ethernet": {}}],
-        'endpoints': []
-    }
-
-    if len(ethpass_ports) > 0:
-        for port in ethpass_ports:
-            eth_bypass_dict['endpoints'].append(
-                {'choice': 'front_panel', 'front_panel':
-                    {'port_name': 'l47_port_11{}'.format(port['FrontPanel']), 'vlan': {'choice': 'non_vlan'}}}
-            )
-        connections_list.append(eth_bypass_dict)
-    """
-    # eth_bypass set here
-    connections_list.append(_get_eth_bypass_dict(config, ethpass_ports))
-
     for eni, ip in enumerate(ip_list):
-
-        arp_bypass_dict = {
-            'name': "ARP Bypass {}".format(eni+1),
-            'functions': [{"choice": "connect_arp", "connect_arp": {}}],
-            'endpoints': []
-        }
-
         client_vlan = build_node_vlan(eni, config, nodetype="client")
         server_vlan = build_node_vlan(eni, config, nodetype="server")
-
-        client_card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
-        find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
-        # server_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
-
-        if cards_dict['num_tcpbg_cards'] > 0:
-            client_role, server_role = find_testrole(test_role, server_vlan)
-        else:
-            client_role = 'c'
-            server_role = 's'
-
-        arp_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(client_card,
-                                        server_role), 'vlan': {'choice': 'vlan', 'vlan': server_vlan}}}  # noqa: E128
-        )
-        arp_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(client_card,
-                                        client_role), 'vlan': {'choice': 'vlan', 'vlan': client_vlan}}}  # noqa: E128
-        )
-
-        connections_list.append(arp_bypass_dict)
+        card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
+        client_role, server_role = find_testrole(test_role, server_vlan)
+        connections_list.append(build_passthrough_connection(
+            "ARP Bypass {}".format(eni + 1), "connect_arp",
+            "l47_port_{}{}".format(card, server_role), _vlan(server_vlan),
+            "l47_port_{}{}".format(card, client_role), _vlan(client_vlan), config))
 
     return connections_list
 
 
 def create_connections(fp_ports_list, ip_list, subnet_mask, config, cards_dict, arp_bypass_list,
                        vxlan_port=0, vxlan_src_port=0):
-
-    connections_list = arp_bypass_list
-
+    """vnet2vnet connections: per ENI one VXLAN server connection and one VXLAN client connection."""
+    connections_list = list(arp_bypass_list)
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
+    udp_ports = _udp_ports(vxlan_port, vxlan_src_port)
+    vni_index = 1000
 
     for eni, ip in enumerate(ip_list):
-
-        server_dict_temp = {
-            'name': 'l47 Server {}'.format(eni+1),
-            'functions': [],
-            'endpoints': []
-        }
-
-        client_dict_temp = {
-            'name': 'l47 Client {}'.format(eni+1),
-            'functions': [],
-            'endpoints': []
-        }
-
-        client_vlan = ip_list[eni]['vlan_client']
-        server_vlan = ip_list[eni]['vlan_server']
-
-        client_card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
-        # client_cps_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
-        server_card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
-
-        # dpu_port = 1 if server_vlan <= 128 else 2
-        # dpu_port = 1
-
-        # Server side
-        """
-        if server_vlan == 256:
-            overlay_ip_addr = 0
-        else:
-            overlay_ip_addr = eni+1
-        """
-        # overlay_ip_addr = eni
-
-        """
-        if server_vlan <= 128:
-            lb_ip = 1
-        else:
-            lb_ip = 2
-        """
-
+        client_vlan = ip['vlan_client']
+        server_vlan = ip['vlan_server']
+        card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
         client_role, server_role = find_testrole(test_role, server_vlan)
+        dpu_port = "l47_dpuPort_{}".format(ip['dpu_port'])
+        lb_ip = {"choice": "ipv4", "ipv4": ip['lb_ip']}
 
-        vni_index = 1000
+        server_header = _tunnel_header(config, config.l47_tg_servermac,
+                                       {"choice": "ipv4", "ipv4": ip['underlay_ip_l']}, lb_ip)
+        server_settings = {
+            "vni": {"choice": "vni", "vni": server_vlan + vni_index},
+            "protocols": {"accept": ["tcp"]},
+            "routing_method": "ip_routing",
+            "ip_routing": {"destination_ips": {"choice": "ipv4", "ipv4": ip['ip_server']}},
+        }
+        connections_list.append(build_tunnel_connection(
+            "l47 Server {}".format(eni + 1), "l47_port_{}{}".format(card, server_role), _vlan(server_vlan),
+            "vxlan", dpu_port, server_header, server_settings, udp_ports, config))
 
-        server_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
-            "vlan_endpoint_settings": {
-                "outgoing_vxlan_header": {
-                    "src_mac": {"choice": "mac", "mac": "{}".format(config.l47_tg_servermac)},
-                    "dst_mac": {"choice": "mac", "mac": "{}".format(config.dut_mac)},
-                    "src_ip": {"choice": "ipv4", "ipv4": "{}".format(ip_list[eni]['underlay_ip_l'])},
-                    "dst_ip": {"choice": "ipv4", "ipv4": "{}".format(ip_list[eni]['lb_ip'])},
-                }
-            },
-            "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": server_vlan + vni_index},
-                    "protocols": {"accept": ["tcp"]}, "routing_method": "ip_routing",  # noqa: E128
-                    "ip_routing": {"destination_ips": {"choice": "ipv4",
-                    "ipv4": "{}".format(ip_list[eni]['ip_server'])}}}  # noqa: E128
-        }}
-
-        if not (vxlan_port == 0 and vxlan_src_port == 0):
-            server_vxlan_settings = server_conn_tmp["connect_vlan_vxlan"]["vxlan_endpoint_settings"]
-            server_vxlan_settings["udp_src_port"] = vxlan_port
-            server_vxlan_settings["udp_dst_port"] = vxlan_src_port
-
-        server_dict_temp['functions'].append(server_conn_tmp)
-        server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {
-            "port_name": "l47_port_{}{}".format(server_card, server_role),  # noqa: E122
-            "vlan": {"choice": "vlan", "vlan": server_vlan}}, "tags": ["vlan"]},  # noqa: E122
-        )
-        server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(ip_list[eni]['dpu_port'])},
-             "tags": ["vxlan"]}
-        )
-
-        # Client Side
-        client_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
-            "vlan_endpoint_settings": {
-                "outgoing_vxlan_header": {
-                    "src_mac": {"choice": "mac", "mac": "{}".format(config.l47_tg_clientmac)},
-                    "dst_mac": {"choice": "mac", "mac": "{}".format(config.dut_mac)},
-                    "src_ip": {"choice": "ipv4", "ipv4": "{}".format(ip_list[eni]['underlay_ip_r'])},
-                    "dst_ip": {"choice": "ipv4", "ipv4": "{}".format(ip_list[eni]['lb_ip'])},
-                }
-            },
-            "vxlan_endpoint_settings": {"vni": {"choice": "vni", "vni": client_vlan}, "protocols": {"accept": ["tcp"]},
-                                        "routing_method": "ip_routing",
-                                        "ip_routing": {"destination_ips": {"choice": "ipv4_range",
-                                        "ipv4_range": {  # noqa: E128
-                                            "start": "{}".format(ip_list[eni]['network_broadcast']),
-                                            "count": 1, "subnet_bits": subnet_mask
-                                        }}}}
-        }}
-
-        if not (vxlan_port == 0 and vxlan_src_port == 0):
-            client_vxlan_settings = client_conn_tmp["connect_vlan_vxlan"]["vxlan_endpoint_settings"]
-            client_vxlan_settings["udp_src_port"] = vxlan_port
-            client_vxlan_settings["udp_dst_port"] = vxlan_src_port
-
-        client_dict_temp['functions'].append(client_conn_tmp)
-        client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {
-                "port_name": "l47_port_{}{}".format(client_card, client_role),
-                "vlan": {"choice": "vlan", "vlan": client_vlan}}, "tags": ["vlan"]},
-        )
-
-        client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(ip_list[eni]['dpu_port'])},
-             "tags": ["vxlan"]}
-        )
-
-        # Add server and client settings to connections_list
-        connections_list.append(server_dict_temp)
-        connections_list.append(client_dict_temp)
+        client_header = _tunnel_header(config, config.l47_tg_clientmac,
+                                       {"choice": "ipv4", "ipv4": ip['underlay_ip_r']}, lb_ip)
+        client_settings = {
+            "vni": {"choice": "vni", "vni": client_vlan},
+            "protocols": {"accept": ["tcp"]},
+            "routing_method": "ip_routing",
+            "ip_routing": {"destination_ips": {"choice": "ipv4_range", "ipv4_range": {
+                "start": ip['network_broadcast'], "count": 1, "subnet_bits": subnet_mask}}},
+        }
+        connections_list.append(build_tunnel_connection(
+            "l47 Client {}".format(eni + 1), "l47_port_{}{}".format(card, client_role), _vlan(client_vlan),
+            "vxlan", dpu_port, client_header, client_settings, udp_ports, config))
 
     return connections_list
 
 
 def set_first_stateful_cards(cards_dict):
-
-    if cards_dict['num_cps_cards'] > 0:
-        first_cps_card = 1
-        if cards_dict['num_tcpbg_cards'] > 0:
-            first_tcpbg_card = cards_dict['num_cps_cards'] + 1
-        else:
-            first_tcpbg_card = 0
+    """
+    First card slot used by CPS traffic and by TCP background traffic.
+    Args:
+        cards_dict (dict): card counts, reads num_cps_cards and num_tcpbg_cards
+    Returns:
+        tuple: (first_cps_card, first_tcpbg_card); first_tcpbg_card is 0 when there are no TCP BG cards
+    """
+    first_cps_card = 1
+    first_tcpbg_card = cards_dict['num_cps_cards'] + 1 if cards_dict['num_tcpbg_cards'] > 0 else 0
 
     return first_cps_card, first_tcpbg_card
