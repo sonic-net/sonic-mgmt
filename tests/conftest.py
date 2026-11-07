@@ -189,6 +189,11 @@ def pytest_addoption(parser):
     parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True,
                      help="Swap syncd container with syncd-rpc container")
 
+    # pfcwd: registered at the root so run_tests.sh -e reaches the prepare step too.
+    parser.addoption("--pfcwd-recovery-modes", action="store", default="native", type=str,
+                     help="PFC watchdog recovery mechanisms the pfcwd suite runs under: 'native' (the one the DUT "
+                          "boots into, default) or a comma separated list of hardware,software")
+
     # Kubernetes master options
     parser.addoption("--kube_master", action="store", default=None, type=str,
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
