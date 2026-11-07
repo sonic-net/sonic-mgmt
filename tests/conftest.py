@@ -135,6 +135,7 @@ RUNTIME_MANAGED_CONFIG_RESTORE_TIMEOUT = 120
 RUNTIME_MANAGED_CONFIG_RESTORE_INTERVAL = 10
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
+                  'tests.common.plugins.redis_protection',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
