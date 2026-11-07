@@ -189,8 +189,11 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
         )
 
     if cable_type == CableType.active_active:
+        # VPP can expose separate route-withdrawal and mux-switchover gaps.
+        allowed_disruption = 2 if upper_tor_host.facts.get("asic_type") == "vpp" else 1
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+            allowed_disruption=allowed_disruption,
             action=lambda: shutdown_bgp_sessions(upper_tor_host)
         )
 
