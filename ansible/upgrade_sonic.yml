@@ -7,6 +7,8 @@
 #   Note: image_path must be an absolute path. Tilde (~) is not expanded by Ansible's copy module.
 #   The file must be accessible from the Ansible controller (e.g. if running inside a sonic-mgmt container,
 #   ensure the path is mounted into the container).
+# SONiC upgrades preserve saved config_db.json by default. For an intentional minigraph rebuild,
+# add -e "config_source=minigraph". This policy does not apply to ONIE reimages.
 # upgrade via onie:
 #   ansible-playbook upgrade_sonic.yml -i lab -l devicename -e "upgrade_type=onie" -e "image_url='http://8.8.8.8/sonic-broadcom.bin'"
 # upgrade DUTs listed in testbed
@@ -125,6 +127,7 @@
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url | default(omit) }}'
             save_as: '{{ "/host/downloaded-sonic-image" if image_path is defined else omit }}'
+            config_source: '{{ config_source | default("config_db") }}'
             required_space: '{{ 1500 if "slim" in (image_url | default(image_path)) or "2018" in (image_url | default(image_path)) or "2019" in (image_url | default(image_path)) else 1600 }}'
 
         # Reboot may need some time to update firmware firstly.

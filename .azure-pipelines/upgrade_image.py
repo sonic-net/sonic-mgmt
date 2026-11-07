@@ -261,7 +261,8 @@ def main(args):
                 localhost,
                 args.prev_image_url,
                 upgrade_type=args.upgrade_type,
-                onie_pause_time=args.onie_pause_time
+                onie_pause_time=args.onie_pause_time,
+                config_source=args.config_source
             )
 
             if not upgrade_success:
@@ -287,7 +288,8 @@ def main(args):
             localhost,
             args.image_url,
             upgrade_type=args.upgrade_type,
-            onie_pause_time=args.onie_pause_time
+            onie_pause_time=args.onie_pause_time,
+            config_source=args.config_source
         )
         if not upgrade_success:
             logger.error("Upgrade to target image {} failed".format(args.image_url))
@@ -478,6 +480,14 @@ if __name__ == "__main__":
         required=False,
         default="sonic",
         help="Upgrade type."
+    )
+
+    parser.add_argument(
+        "--config-source",
+        choices=["config_db", "minigraph"],
+        default="config_db",
+        help="Saved configuration for both SONiC upgrades. minigraph explicitly rebuilds configuration. "
+             "Does not apply to ONIE or DPU reimages."
     )
 
     parser.add_argument(
