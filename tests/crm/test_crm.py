@@ -291,20 +291,25 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
     config_file = "/etc/rsyslog.conf"
 
     def restart_rsyslog():
+        rsyslogd_start = rf"{swss_container}#rsyslogd: \[.+\] start"
+        first_line_to_check = current_syslog_line_number(duthost)
+
         duthost.shell(
             "docker exec {} supervisorctl restart rsyslogd".format(swss_container)
         )
 
-        def is_rsyslog_running():
-            status = duthost.shell(
-                "docker exec {} supervisorctl status rsyslogd".format(swss_container),
-                module_ignore_errors=True
+        def has_rsyslog_restarted():
+            # rsyslog loses all messages while restarting until it shows itself as
+            # ready in the syslog
+            return syslog_contains_pattern(
+                duthost=duthost,
+                first_line=first_line_to_check,
+                pattern=rsyslogd_start
             )
-            return status.get("rc") == 0 and "RUNNING" in status.get("stdout", "")
 
         pytest_assert(
-            wait_until(10, 1, 0, is_rsyslog_running),
-            "SWSS rsyslogd did not return to RUNNING state"
+            wait_until(40, 1, 0, has_rsyslog_restarted),
+            "SWSS rsyslogd did not restart"
         )
 
     rate_limit_syntaxes = [
@@ -368,7 +373,8 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
                 config_file
             )
         )
-        restart_rsyslog()
+        with DisableLogrotateCronContext(duthost):
+            restart_rsyslog()
 
     try:
         if rate_limit_enabled:
@@ -380,27 +386,39 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
             set_interval(0, original_interval)
 
 
+def syslog_contains_pattern(duthost, first_line, pattern):
+    result = duthost.shell(
+        "sudo tail -n +{} /var/log/syslog".format(first_line),
+        module_ignore_errors=True)
+    return re.search(pattern, result.get("stdout", "")) is not None
+
+
+def current_syslog_line_number(duthost):
+    result = duthost.shell(
+        "sudo wc -l /var/log/syslog | awk '{print $1}'",
+        module_ignore_errors=True
+    )
+    pytest_assert(
+        result.get("rc", 1) == 0 and result.get("stdout", "").strip().isdigit(),
+        "Failed to determine the current syslog position"
+    )
+    return int(result["stdout"].strip()) + 1
+
+
 def wait_for_threshold_log(loganalyzer, duthost, asichost, cmd):
     """Apply CRM thresholds and wait for the expected syslog message."""
     expect_regex = loganalyzer.expect_regex[0]
 
     def has_expected_log(first_line):
-        result = duthost.shell(
-            "sudo tail -n +{} /var/log/syslog".format(first_line),
-            module_ignore_errors=True)
-        return re.search(expect_regex, result.get("stdout", "")) is not None
+        return syslog_contains_pattern(
+            duthost=duthost,
+            first_line=first_line,
+            pattern=expect_regex
+        )
 
     with DisableLogrotateCronContext(duthost):
         marker = loganalyzer.init()
-        result = duthost.shell(
-            "sudo wc -l /var/log/syslog | awk '{print $1}'",
-            module_ignore_errors=True
-        )
-        pytest_assert(
-            result.get("rc", 1) == 0 and result.get("stdout", "").strip().isdigit(),
-            "Failed to determine the current syslog position"
-        )
-        first_line = int(result["stdout"].strip()) + 1
+        first_line = current_syslog_line_number(duthost)
         asichost.command(cmd)
         observed = wait_until(
             CRM_THRESHOLD_LOG_TIMEOUT,
