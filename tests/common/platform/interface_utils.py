@@ -173,7 +173,10 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
                 "Status is not expected, presence status: %s" % str({intf: interface_presence})
 
     logging.info("Check interface status using the interface_facts module")
-    intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
+    # Only require ports from the caller-provided interface set to be up.
+    # Admin-down ports may still appear in minigraph and must not fail this check.
+    expected_up_ports = {k: v for k, v in mg_ports.items() if k in interfaces}
+    intf_facts = dut.interface_facts(up_ports=expected_up_ports, namespace=namespace)["ansible_facts"]
     down_ports = intf_facts["ansible_interface_link_down_ports"]
     if len(down_ports) != 0:
         logging.info("Some interfaces are down: %s" % str(down_ports))

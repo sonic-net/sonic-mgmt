@@ -89,8 +89,11 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 def load_minigraph_with_golden_empty_input(duthost, wait_for_bgp):
-    """Test Golden Config with empty input
+    """Compare an empty golden override against the plain minigraph baseline.
     """
+    # Setup applies the deployed golden config, including golden-only defaults.
+    config_reload(duthost, config_source="minigraph", safe_reload=True,
+                  override_config=False, wait_for_bgp=wait_for_bgp)
     initial_host_config = get_running_config(duthost)
     initial_asic0_config = get_running_config(duthost, "asic0")
 

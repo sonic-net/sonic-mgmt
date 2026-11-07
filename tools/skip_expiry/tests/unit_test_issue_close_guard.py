@@ -4,6 +4,7 @@ from pathlib import Path
 from tools.skip_expiry.skip_issue_expiry_impl.config import SkipExpiryConfig
 from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import MANUAL_CLOSE_COMMENT
 from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import build_branches_to_scan
+from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import collect_tracked_issues
 from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import enforce_issue_close_guard
 from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import load_closed_issue_from_event
 from tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard import resolve_release_branches
@@ -125,3 +126,37 @@ def test_run_issue_close_guard_reopens_tracked_closed_issue(tmp_path: Path, monk
     assert did_reopen is True
     assert api.reopened == [tracked_issue]
     assert api.comments == [(tracked_issue, MANUAL_CLOSE_COMMENT)]
+
+
+def test_collect_tracked_issues_scans_master_and_releases_for_target_repo(tmp_path: Path, monkeypatch) -> None:
+    tracked_issue = IssueRef(owner="sonic-net", repo="sonic-mgmt", number=77)
+    cross_repo_issue = IssueRef(owner="sonic-net", repo="sonic-buildimage", number=99)
+    scanned = {}
+
+    def fake_collect(**kwargs):
+        scanned["branches"] = list(kwargs["branches"])
+        return {tracked_issue, cross_repo_issue}
+
+    monkeypatch.setattr(
+        "tools.skip_expiry.skip_issue_expiry_impl.issue_close_guard.collect_issues_from_branches",
+        fake_collect,
+    )
+
+    api = FakeGuardApiClient(branches=["master", "202305", "202405", "202411", "feature/abc"])
+    config = SkipExpiryConfig(
+        maintainers=["maintainer"],
+        expiry_days=90,
+        release_includes=[r"^202\d{3}$"],
+        release_excludes=["202305"],
+    )
+
+    tracked = collect_tracked_issues(
+        api_client=api,
+        config=config,
+        repo_root=tmp_path,
+        conditional_mark_dir="tests/common/plugins/conditional_mark",
+        target_repo="SONiC-Net/sonic-mgmt",
+    )
+
+    assert scanned["branches"] == ["master", "202405", "202411"]
+    assert tracked == {tracked_issue}

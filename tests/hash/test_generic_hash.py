@@ -9,7 +9,8 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
-    get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths
+    get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths, ignore_expected_vpp_link_churn, \
+    check_vpp_nexthop_paths
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
     get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, skip_lag_tests_on_no_lag_topos  # noqa:F401
@@ -73,14 +74,22 @@ def pytest_generate_tests(metafunc):
     if 'params' in metafunc.fixturenames:
         metafunc.parametrize("params", params)
 
-    reboot_types = get_reboot_type_from_option(metafunc, metafunc.config.getoption("--reboot"))
     if 'reboot_type' in metafunc.fixturenames:
+        reboot_types = get_reboot_type_from_option(metafunc, metafunc.config.getoption("--reboot"))
         metafunc.parametrize("reboot_type", reboot_types)
 
 
 @pytest.fixture(scope='function')
-def fine_params(params, global_hash_capabilities):  # noqa:F811
-    hash_algorithm, _, _, _, _ = params.split('-')
+def fine_params(params, global_hash_capabilities, request, rand_selected_dut, record_property, tbinfo):  # noqa:F811
+    hash_algorithm, hash_field, _, _, _ = params.split('-')
+    if (rand_selected_dut.facts['asic_type'] == 'vpp' and tbinfo['topo']['name'] == 't1-lag'
+            and hash_field == 'IP_PROTOCOL'):
+        if request.node.originalname in ('test_lag_member_flap', 'test_lag_member_remove_add'):
+            pytest.skip("VPP IP_PROTOCOL supplies ECMP entropy, not LAG-member entropy; "
+                        "member disruption is covered by the four address/port fields.")
+        record_property("hash_validation_scope",
+                        "VPP fixed ECMP hash; exhaustive protocol domain, 1% family-wise binomial tails; "
+                        "stable flows and exactly one receiving member per LAG")
     all_supported_hash_algorithms = set(global_hash_capabilities['ecmp_algo']).\
         union(set(global_hash_capabilities['ecmp_algo']))
     if hash_algorithm not in all_supported_hash_algorithms:
@@ -350,7 +359,8 @@ def is_bgp_session_established(duthost, neighbor_ip):
 
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor, duthost):                             # noqa:F811
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost, loganalyzer,                  # noqa:F811
+                      restore_init_hash_config):                                                    # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -393,7 +403,8 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
                       'The default route is not available or some nexthops are missing.')
         if rand_selected_dut.facts['asic_type'] == 'vpp':
             expected_path_count = len(ptf_params['expected_port_groups'])
-            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+            pytest_assert(wait_until(120, 10, 0, check_vpp_nexthop_paths,
+                                     rand_selected_dut, tbinfo, expected_path_count, ipver),
                           f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
@@ -413,10 +424,12 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         origin_ptf_expected_port_groups = ptf_params['expected_port_groups']
         _, ptf_params['expected_port_groups'] = get_ptf_port_indices(
             mg_facts, downlink_interfaces=[], uplink_interfaces=remaining_uplink_interfaces)
-        shutdown_interface(rand_selected_dut, interface)
+        ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, uplink_interfaces[interface])
+        shutdown_interface(rand_selected_dut, interface, tbinfo=tbinfo, recovery=restore_init_hash_config)
     if rand_selected_dut.facts['asic_type'] == 'vpp':
         expected_path_count = len(ptf_params['expected_port_groups'])
-        pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+        pytest_assert(wait_until(120, 10, 0, check_vpp_nexthop_paths,
+                                 rand_selected_dut, tbinfo, expected_path_count, ipver),
                       f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
@@ -432,7 +445,7 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         )
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(rand_selected_dut, interface)
-        flap_interfaces(rand_selected_dut, [interface], times=3)
+        flap_interfaces(rand_selected_dut, [interface], times=3, tbinfo=tbinfo, recovery=restore_init_hash_config)
         ip_intfs = duthost.show_and_parse('show ip interface')
         ip_intf = next((intf for intf in ip_intfs if intf['interface'] == interface), None)
         neighbor_ip = ip_intf['neighbor ip']
@@ -441,7 +454,8 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
         if rand_selected_dut.facts['asic_type'] == 'vpp':
             expected_path_count = len(ptf_params['expected_port_groups'])
-            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+            pytest_assert(wait_until(120, 10, 0, check_vpp_nexthop_paths,
+                                     rand_selected_dut, tbinfo, expected_path_count, ipver),
                           f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
@@ -459,7 +473,8 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
 
 def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
                          restore_interfaces, global_hash_capabilities, restore_vxlan_port,                  # noqa:F811
-                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):          # noqa:F811
+                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor,            # noqa:F811
+                         loganalyzer, restore_init_hash_config):                                            # noqa:F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -540,7 +555,9 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
             interface = random.choice(uplink_interfaces[portchannel])
             interfaces.append(interface)
         # Flap the members 3 more times
-        flap_interfaces(rand_selected_dut, interfaces, uplink_interfaces.keys(), times=3)
+        ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, interfaces)
+        flap_interfaces(rand_selected_dut, interfaces, uplink_interfaces.keys(), times=3, tbinfo=tbinfo,
+                        recovery=restore_init_hash_config)
 
     if not is_l2_test:
         with allure.step('Wait for the default route to recover'):
@@ -567,7 +584,8 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
 def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                 # noqa:F811
                                restore_configuration, restore_interfaces,                                 # noqa:F811
                                global_hash_capabilities, restore_vxlan_port,                              # noqa:F811
-                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor,    # noqa:F811
+                               loganalyzer, restore_init_hash_config):                                    # noqa:F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -646,7 +664,9 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
         # Randomly choose the members to remove/add
         for portchannel in uplink_interfaces:
             interface = random.choice(uplink_interfaces[portchannel])
-            remove_add_portchannel_member(rand_selected_dut, interface, portchannel)
+            ignore_expected_vpp_link_churn(rand_selected_dut, tbinfo, loganalyzer, [interface])
+            remove_add_portchannel_member(rand_selected_dut, interface, portchannel, tbinfo=tbinfo,
+                                          recovery=restore_init_hash_config)
 
     if not is_l2_test:
         with allure.step('Wait for the default route to recover'):

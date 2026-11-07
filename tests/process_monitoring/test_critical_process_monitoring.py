@@ -6,6 +6,7 @@ from collections import defaultdict
 import re
 import time
 import logging
+import os
 
 import pytest
 
@@ -14,8 +15,8 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.reboot import wait_for_startup
-from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
+from tests.common.reboot import REBOOT_TYPE_POWEROFF, reboot_ctrl_dict, wait_for_startup
+from tests.common.utilities import get_plt_reboot_ctrl, pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
@@ -695,9 +696,11 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                 raise
 
         logger.info("Waiting for DUT to boot up after power cycle...")
-        # Wait for DUT to come back up after power cycle
-        # Get timeout values based on chassis type
-        timeout = 300
+        # Wait for DUT to come back up after power cycle. Like tests.common.reboot.reboot(), use the
+        # power-off reboot timeout and its platform override (plt_reboot_dict) from the inventory.
+        tc_name = os.environ.get("PYTEST_CURRENT_TEST", "").split(" ")[0]
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, REBOOT_TYPE_POWEROFF)
+        timeout = plt_reboot_ctrl.get("timeout", reboot_ctrl_dict[REBOOT_TYPE_POWEROFF]["timeout"])
         wait_time = 120
         if duthost.facts.get("modular_chassis"):
             wait_time = max(wait_time, 600)
