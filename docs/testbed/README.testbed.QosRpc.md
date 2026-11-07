@@ -20,7 +20,6 @@ make ENABLE_SYNCD_RPC=y target/docker-syncd-${platform_rpc}-rpc.gz
 
 Replace ${platform_rpc} with the appropriate value for your platform:
 
-- Barefoot: bfn
 - Broadcom: brcm
 - Centec: centec
 - Mellanox: mlnx
