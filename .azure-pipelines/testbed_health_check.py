@@ -492,6 +492,10 @@ class TestbedHealthChecker:
         logger.info("======================= check_bgp_session_state starts =======================")
 
         for sonichost in self.sonichosts:
+            if self.sonichosts.get_host_visible_var(sonichost.hostname, "device_type") == "ocs":
+                logger.info("Skip check_bgp_session_state on OCS host: {}".format(sonichost.hostname))
+                continue
+
             if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_bgp_session_state on Supervisor.")
@@ -582,6 +586,10 @@ class TestbedHealthChecker:
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
 
         for sonichost in self.sonichosts:
+            if self.sonichosts.get_host_visible_var(sonichost.hostname, "device_type") == "ocs":
+                logger.info("Skip check_interface_status_of_up_ports on OCS host: {}".format(sonichost.hostname))
+                continue
+
             if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_interface_status_of_up_ports on Supervisor.")
