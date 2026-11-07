@@ -178,7 +178,7 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
         Steps:
         1. Get standardized config from subclass
-        2. Enable TX on all probing ports
+        2. Check Mellanox schedulers or enable TX on other ASICs
         3. Setup traffic streams (subclass)
         4. Initialize BufferOccupancyController
         5. Execute probing logic (subclass)
@@ -192,11 +192,18 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # Step 1: Get config from subclass (ensures standardized param names)
         config = self.get_probe_config()
 
-        # Step 2: Enable TX on all probing ports
-        self.sai_thrift_port_tx_enable(
-            config.thrift_client, config.asic_type,
-            config.probing_port_ids, last_port=False
-        )
+        # Initial Mellanox enable would replace custom schedulers with legacy defaults.
+        if config.asic_type == 'mellanox':
+            dut_ports = [self.get_dut_port(port) for port in config.probing_port_ids]
+            for port, schedulers in self.get_queue_scheduler_name(dut_ports).items():
+                assert sai_base_test.BLOCK_DATA_PLANE_SCHEDULER_NAME not in schedulers.values(), (
+                    f"Probing port {port} has an inherited blocking scheduler"
+                )
+        else:
+            self.sai_thrift_port_tx_enable(
+                config.thrift_client, config.asic_type,
+                config.probing_port_ids, last_port=False
+            )
 
         # Step 3: Setup traffic streams (abstract method)
         self.setup_traffic()
