@@ -47,7 +47,6 @@ import pytest
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import (
     generate_config_patch,
@@ -425,7 +424,7 @@ def run_scratch(duthosts, rand_one_dut_hostname):
 def setup_env(duthosts, rand_one_dut_hostname):
     """Setup and teardown fixture for dt2 single-ASIC test.
 
-    Teardown restores the original minigraph and reloads config.
+    Restore pre-test configuration, then wait for previously established BGP peers.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -435,20 +434,46 @@ def setup_env(duthosts, rand_one_dut_hostname):
     if duthost.get_facts().get("modular_chassis"):
         pytest.skip("This test is for single-ASIC dt2 devices only; use test_multiasic_addcluster for modular chassis")
 
-    create_checkpoint(duthost)
-    yield
+    for path in (MINIGRAPH_BACKUP, DUT_GOLDEN_OVERRIDE):
+        pytest_assert(not duthost.stat(path=path)["stat"]["exists"],
+                      f"Refusing to overwrite a leftover restoration artifact: {path}")
+
+    established_bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="established")
+    config_db = "/etc/sonic/config_db.json"
+    backup_dir = duthost.tempfile(state="directory", prefix="dt2-addcluster-restore-")["path"]
+    saved_config = f"{backup_dir}/config_db.json"
+    running_config = f"{backup_dir}/running_config.json"
+    logger.info("Preserving pre-test configuration in %s", backup_dir)
+    duthost.shell(f"cp -p {config_db} {saved_config}")
+    duthost.shell(f"sonic-cfggen -d --print-data > {running_config}")
+
     try:
-        if duthost.stat(path=MINIGRAPH_BACKUP)["stat"]["exists"]:
-            logger.info(f"Restoring original minigraph from {MINIGRAPH_BACKUP}")
-            duthost.shell(f"sudo cp {MINIGRAPH_BACKUP} {MINIGRAPH}")
-            duthost.shell(f"sudo rm -f {MINIGRAPH_BACKUP}")
-
-        duthost.shell(f"sudo rm -f {DUT_GOLDEN_OVERRIDE}")
-
-        logger.info("Reloading minigraph to restore original configuration")
-        config_reload(duthost)
+        yield
     finally:
-        delete_checkpoint(duthost)
+        config_reloaded = False
+        try:
+            if duthost.stat(path=MINIGRAPH_BACKUP)["stat"]["exists"]:
+                logger.info("Restoring original minigraph from %s", MINIGRAPH_BACKUP)
+                duthost.shell(f"cp -p {MINIGRAPH_BACKUP} {MINIGRAPH}")
+                # Minigraph reload saved the without-T1 state; load the full pre-test
+                # snapshot instead, including tables that minigraph cannot represent.
+                duthost.shell(f"cp {running_config} {config_db}")
+                logger.info("Restoring pre-test running configuration")
+                config_reload(duthost, config_source="config_db", safe_reload=True)
+                config_reloaded = True
+        finally:
+            # The original saved file may intentionally differ from the running state.
+            duthost.shell(f"cp -p {saved_config} {config_db}")
+
+        if config_reloaded:
+            logger.info("Waiting for pre-test established BGP sessions after cleanup")
+            pytest_assert(
+                wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, established_bgp_neighbors),
+                "Pre-test established BGP sessions did not recover after cleanup")
+
+        # Keep restoration artifacts available if restoring configuration failed.
+        duthost.shell(f"sudo rm -f {MINIGRAPH_BACKUP} {DUT_GOLDEN_OVERRIDE}")
+        duthost.file(path=backup_dir, state="absent")
 
 
 def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, run_scratch):
@@ -476,8 +501,7 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer, r
     duthost = duthosts[rand_one_dut_hostname]
     local_dir, dut_dir = run_scratch
 
-    # Platform skips live in setup_env so that a skipped run never reaches
-    # create_checkpoint() and therefore never side-effects the DUT.
+    # Platform skips live in setup_env, before creating any configuration backups.
 
     # Cache minigraph facts
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
