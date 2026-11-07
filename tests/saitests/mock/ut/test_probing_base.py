@@ -703,6 +703,7 @@ class TestProbingBaseRunTest:
 
         # Verify BufferOccupancyController was created
         assert mock_boc.called, "BufferOccupancyController should be initialized"
+        mock_boc.return_value.drain_all_buffers.assert_called_once_with()
         assert pb.stream_mgr is not None, "stream_mgr should be set"
 
         print("[OK] runTest() workflow executed successfully")
@@ -733,7 +734,9 @@ class TestProbingBaseRunTest:
 
         def tracked_buffer_ctrl_init(*args, **kwargs):
             call_order.append('BufferOccupancyController')
-            return Mock()
+            controller = Mock()
+            controller.drain_all_buffers.side_effect = lambda: call_order.append('drain_all_buffers')
+            return controller
 
         def tracked_probe():
             call_order.append('probe')
@@ -761,7 +764,8 @@ class TestProbingBaseRunTest:
             'setup_traffic',                 # Line 30
             'BufferOccupancyController',     # Line 31
             'probe',                         # Line 33
-            'assert_probing_result'          # Line 33 (implied)
+            'assert_probing_result',         # Line 33 (implied)
+            'drain_all_buffers'
         ]
 
         print(f"  Expected sequence: {expected_sequence}")
@@ -771,6 +775,28 @@ class TestProbingBaseRunTest:
             f"Call sequence mismatch!\nExpected: {expected_sequence}\nActual: {call_order}"
 
         print("[OK] runTest() call sequence verified (matches lines 28-33)")
+
+    @pytest.mark.parametrize("stage,error_type", [
+        ("probe", RuntimeError),
+        ("assert_probing_result", AssertionError)
+    ])
+    def test_runTest_restores_buffers_on_failure(self, stage, error_type):
+        pb = ConcreteProbingBase()
+        setattr(pb, stage, Mock(side_effect=error_type("probe failed")))
+
+        with patch('probing_base.BufferOccupancyController') as mock_boc:
+            with pytest.raises(error_type, match="probe failed"):
+                pb.runTest()
+
+        mock_boc.return_value.drain_all_buffers.assert_called_once_with()
+
+    def test_runTest_propagates_cleanup_failure(self):
+        pb = ConcreteProbingBase()
+
+        with patch('probing_base.BufferOccupancyController') as mock_boc:
+            mock_boc.return_value.drain_all_buffers.side_effect = RuntimeError("TX restore failed")
+            with pytest.raises(RuntimeError, match="TX restore failed"):
+                pb.runTest()
 
 
 class TestProbingBaseGetRxPort:
