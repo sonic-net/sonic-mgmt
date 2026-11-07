@@ -89,7 +89,7 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
     #
     # Probing Configuration (can be overridden by subclasses)
     #
-    PRECISION_TARGET_RATIO = 0.05        # 5% precision for binary search
+    PRECISION_TARGET_RATIO = 0.04878     # precision for binary search that guarantees a range of 5%
     ENABLE_PRECISE_DETECTION = False     # Disable Phase 4 by default (PfcXoff/IngressDrop don't need it)
     PRECISE_DETECTION_RANGE_LIMIT = 100  # Max range for precise detection
     POINT_PROBING_STEP_SIZE = 1          # Step size for point probing (1, 2, 4, etc.)
