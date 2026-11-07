@@ -852,6 +852,9 @@ t0-vpp:
   - route/test_static_route.py
   - sflow/test_sflow.py
   - span/test_port_mirroring.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - ssh/test_ssh_stress.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
@@ -1043,6 +1046,9 @@ dualtor-aa-vpp:
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
 
 dualtor-vpp:
   - arp/test_arp_dualtor.py
