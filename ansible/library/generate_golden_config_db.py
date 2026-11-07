@@ -1294,6 +1294,16 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config, indent=4)
 
+    def _yang_model_has_leaf(self, yang_file, leaf):
+        """Return True if the installed YANG model defines the leaf.
+
+        Older images may lack newer leaves; writing them into golden_config_db.json
+        makes "config load_minigraph --override_config" fail YANG validation.
+        """
+        rc, yang_content, _ = self.module.run_command(
+            "sudo cat /usr/local/yang-models/{}".format(yang_file))
+        return rc == 0 and re.search(r"\bleaf\s+{}\b".format(re.escape(leaf)), yang_content) is not None
+
     def generate_dualtor_golden_config_db(self):
         """
         Generate golden config for dualtor topology with prober_type and
@@ -1317,13 +1327,20 @@ class GenerateGoldenConfigDBModule(object):
             mux_cable_config = copy.deepcopy(ori_config_db["MUX_CABLE"])
             port_config = copy.deepcopy(ori_config_db["PORT"])
 
-            for intf_name, intf_config in mux_cable_config.items():
-                # Set prober_type only when explicitly provided
-                if self.prober_type and self.prober_type != "":
-                    intf_config["prober_type"] = self.prober_type
-                # Set neighbor_mode only when explicitly provided
-                if self.neighbor_mode and self.neighbor_mode != "":
-                    intf_config["neighbor_mode"] = self.neighbor_mode
+            # Set prober_type/neighbor_mode only when explicitly provided and supported by
+            # the installed image, e.g. a DUT left on an older image by a downgrade test.
+            mux_cable_overrides = {}
+            for field, value in (("prober_type", self.prober_type), ("neighbor_mode", self.neighbor_mode)):
+                if not value:
+                    continue
+                if self._yang_model_has_leaf("sonic-mux-cable.yang", field):
+                    mux_cable_overrides[field] = value
+                else:
+                    self.module.warn("Skip MUX_CABLE {}={}: not supported by the YANG model of the "
+                                     "installed image".format(field, value))
+
+            for intf_config in mux_cable_config.values():
+                intf_config.update(mux_cable_overrides)
 
             golden_config_db["MUX_CABLE"] = mux_cable_config
             golden_config_db["PORT"] = port_config
