@@ -819,7 +819,10 @@ def run_traffic(duthost,
                     {'arg1': 52, 'arg2': 'FF FF FF FF'}
                 ]
 
-    clear_macsec_counters(duthost)
+    if ptype:
+        # only MACsec runs configure the macsec feature on the DUT; "sonic-clear macsec"
+        # does not exist on DUTs without MACsec support
+        clear_macsec_counters(duthost)
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
     cs = api.control_state()
