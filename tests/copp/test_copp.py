@@ -356,6 +356,170 @@ class TestCOPP(object):
             "Installing {} trap fail".format(self.trap_id))
 
 
+class TestCoppStats:
+    """
+    COPP Statistics end-to-end validation tests.
+
+    Skipped on DUTs that report
+    STATE_DB:SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE false.
+    """
+
+    # Stats these tests parse; must be in COPP_POLICER_STATS_SUPPORTED when published.
+    REQUIRED_POLICER_STATS = {"SAI_POLICER_STAT_RED_PACKETS"}
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_copp_policer_stats_unsupported(
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        """Authoritative DUT-side gate for COPP policer stats."""
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # SWITCH_CAPABILITY is per-namespace on multi-ASIC; every frontend ASIC must be capable.
+        for asic in copp_utils.get_frontend_asics(duthost):
+            result = duthost.shell(
+                '{} STATE_DB HGET "SWITCH_CAPABILITY|switch" '
+                '"COPP_POLICER_STATS_CAPABLE"'.format(asic.sonic_db_cli),
+                module_ignore_errors=True,
+            )
+            val = (result.get('stdout') or '').strip().lower()
+            if val != 'true':
+                pytest.skip(
+                    "COPP policer per-color stats are not supported on {}: "
+                    "SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE='{}'"
+                    .format(asic.namespace or duthost.hostname, val or '<unset>')
+                )
+
+            # A capable SAI may advertise a subset; Red Pkts renders N/A when unadvertised.
+            # An absent list means an older orchagent, so gate on the boolean alone.
+            result = duthost.shell(
+                '{} STATE_DB HGET "SWITCH_CAPABILITY|switch" '
+                '"COPP_POLICER_STATS_SUPPORTED"'.format(asic.sonic_db_cli),
+                module_ignore_errors=True,
+            )
+            supported_csv = (result.get('stdout') or '').strip()
+            if supported_csv:
+                missing = self.REQUIRED_POLICER_STATS - set(supported_csv.split(','))
+                if missing:
+                    pytest.skip(
+                        "SAI on {} does not advertise policer stats required by these "
+                        "tests: {} (COPP_POLICER_STATS_SUPPORTED='{}')"
+                        .format(asic.namespace or duthost.hostname, sorted(missing), supported_csv)
+                    )
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_default_enabled(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        """
+        Verify COPP_STATS FlexCounter is enabled by default after system boot.
+
+        Validates:
+        - COPP_STAT appears in 'counterpoll show' with 'enable' status
+        - COUNTERS_POLICER_NAME_MAP is populated in COUNTERS_DB
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        for asic in copp_utils.get_frontend_asics(duthost):
+            ns = asic.namespace or duthost.hostname
+            rows = duthost.show_and_parse("counterpoll show {}".format(asic.cli_ns_option))
+            copp_rows = [row for row in rows if row.get("type") == "COPP_STAT"]
+            pytest_assert(copp_rows, "COPP_STAT not in counterpoll show on {}".format(ns))
+            pytest_assert(copp_rows[0].get("status") == "enable",
+                          "COPP_STAT is not enabled by default on {}: {}".format(ns, copp_rows[0]))
+
+            name_map_len = duthost.shell(
+                "{} COUNTERS_DB HLEN COUNTERS_POLICER_NAME_MAP".format(asic.sonic_db_cli))['stdout'].strip()
+            pytest_assert(name_map_len.isdigit() and int(name_map_len) > 0,
+                          "COUNTERS_POLICER_NAME_MAP is empty on {}".format(ns))
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_traffic_single_asic(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                            ptfhost, copp_testbed, dut_type):
+        """
+        Verify Red packet counters increment when traffic exceeds policer rate.
+
+        Test Flow:
+        1. Record initial Red packet count for queue4_group2 (ARP trap group)
+        2. Send ARP traffic at 2000 pps to 600 pps policer (using existing infrastructure)
+        3. Verify Red packets increased by ~20% of sent packets
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        initial_red = self._get_red_packets(duthost, "queue4_group2")
+        logger.info(f"Initial Red packets: {initial_red}")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)  # Wait for FlexCounter update - interval is 10s
+
+        updated_red = self._get_red_packets(duthost, "queue4_group2")
+        red_increase = updated_red - initial_red
+        logger.info(f"Red packet increase: {red_increase}")
+
+        # With 100k packets at 2000 pps to 600 pps policer, expect 20% drops as baseline to check.
+        total_packets_sent = 2000 * 50
+        red_drops = total_packets_sent // 5
+        pytest_assert(red_increase > red_drops,
+                      f"Red packet increase ({red_increase}) below expected minimum {red_drops}")
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_traffic_multi_asic(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                           ptfhost, copp_testbed, dut_type):
+        """
+        Verify aggregate display shows data from all ASICs with ASIC ID column.
+
+        Test Flow:
+        1. Send traffic to trigger policer drops
+        2. Run 'show copp stats' (no namespace filter)
+        3. Verify output includes ASIC identification and data from all ASICs
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if not duthost.is_multi_asic:
+            pytest.skip("Test only applicable to multi-ASIC platforms")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)
+
+        rows = duthost.show_and_parse("show copp stats")
+        pytest_assert(rows, "No trap group data in multi-ASIC output")
+        pytest_assert(all("asic id" in row for row in rows),
+                      f"Multi-ASIC output missing ASIC ID column: {rows[0]}")
+
+        expected = set(duthost.get_frontend_asic_namespace_list())
+        seen = {row["asic id"] for row in rows}
+        pytest_assert(expected <= seen, f"Missing ASICs in output: {sorted(expected - seen)}")
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_namespace_filter(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                         ptfhost, copp_testbed, dut_type):
+        """
+        Verify 'show copp stats -n <namespace>' filters correctly to specific ASIC.
+
+        Test Flow:
+        1. Send traffic to trigger policer drops
+        2. For each ASIC namespace, run 'show copp stats -n <namespace>'
+        3. Verify each namespace returns valid output with trap group data
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if not duthost.is_multi_asic:
+            pytest.skip("Test only applicable to multi-ASIC platforms")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)
+
+        for namespace in duthost.get_frontend_asic_namespace_list():
+            rows = duthost.show_and_parse(f"show copp stats -n {namespace}")
+
+            pytest_assert(rows, f"Empty output for {namespace}")
+            other = {row.get("asic id") for row in rows} - {namespace}
+            pytest_assert(not other, f"'-n {namespace}' output includes other ASICs: {sorted(other)}")
+
+            logger.info(f"Verified namespace filter for {namespace}")
+
+    def _get_red_packets(self, duthost, trap_group, namespace=None):
+        """Red packet count for a trap group, summed across ASICs on multi-ASIC."""
+        cmd = "show copp stats" + (f" -n {namespace}" if namespace else "")
+        rows = duthost.show_and_parse(cmd)
+        return sum(int(row["red pkts"]) for row in rows if row.get("trap group") == trap_group)
+
+
 @pytest.mark.disable_loganalyzer
 def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
