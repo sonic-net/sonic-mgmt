@@ -148,7 +148,7 @@ class LabGraph(object):
         return port_alias_to_name_map
 
     def _port_alias_to_name(self, device, port):
-        hwsku = self.graph_facts["devices"][device]["HwSku"]
+        hwsku = self._get_port_map_hwsku(device)
         if self.graph_facts["devices"][device].get("Os", "").lower() != "sonic":
             return port
         return self._get_port_alias_to_name_map(hwsku).get(port, port)
@@ -171,19 +171,32 @@ class LabGraph(object):
         """
         Retrive port name set of a specific hwsku.
         """
-        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
+        hwsku = self._get_port_map_hwsku(device_hostname)
         return set(self._get_port_name_to_alias_map(hwsku).keys())
 
     def _get_port_alias_set(self, device_hostname):
         """
         Retrive port alias set of a specific hwsku.
         """
-        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
+        hwsku = self._get_port_map_hwsku(device_hostname)
         return set(self._get_port_alias_to_name_map(hwsku).keys())
+
+    def _get_port_map_hwsku(self, device_hostname):
+        device = self.graph_facts["devices"][device_hostname]
+        return device.get("PortMapHwSku") or device["HwSku"]
 
     def csv_to_graph_facts(self):
         devices = {}
         for entry in self.csv_facts["devices"]:
+            port_map_hwsku = entry.get("PortMapHwSku")
+            if port_map_hwsku:
+                if port_map_hwsku != port_map_hwsku.strip():
+                    raise ValueError("PortMapHwSku for '{}' must not contain surrounding whitespace".format(
+                        entry["Hostname"]))
+                port_alias_to_name_map, _, _ = get_port_alias_to_name_map(port_map_hwsku, strict=True)
+                self._cache_port_alias_to_name[port_map_hwsku] = port_alias_to_name_map
+            else:
+                entry.pop("PortMapHwSku", None)
             management_ip = entry["ManagementIp"]
             if len(management_ip.split("/")) > 1:
                 iface = ipaddress.ip_interface(six.text_type(management_ip))
@@ -498,7 +511,7 @@ class LabGraph(object):
             else:
                 device_vlan_map_list[hostname] = {}
 
-                sorted_port_name_list = self._get_sorted_port_name_list(device["HwSku"])
+                sorted_port_name_list = self._get_sorted_port_name_list(self._get_port_map_hwsku(hostname))
 
                 for host_vlan in vlan_list:
                     found_port_for_vlan = False
