@@ -46,9 +46,9 @@ class LpmDict():
         def get_last_ip(self):
             return str(self._end)
 
-        def get_random_ip(self):
+        def get_random_ip(self, rng=None):
             diff = self.length()
-            return str(self._start + random.randint(0, diff))
+            return str(self._start + (random if rng is None else rng).randint(0, diff))
 
         def __str__(self):
             return str(self._start) + ' - ' + str(self._end)

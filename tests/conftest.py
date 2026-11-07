@@ -186,6 +186,10 @@ def pytest_addoption(parser):
     # qos_sai options
     parser.addoption("--ptf_portmap", action="store", default=None, type=str,
                      help="PTF port index to DUT port alias map")
+    parser.addoption("--hash-seed", action="store", default=None, type=int,
+                     help="Replay IPinIP hash packet generation with this integer seed")
+    parser.addoption("--hash-debug", action="store_true", default=False,
+                     help="Log IPinIP protocol distribution and ASIC_DB hash/ECMP diagnostics")
     parser.addoption("--qos_swap_syncd", action="store", type=str2bool, default=True,
                      help="Swap syncd container with syncd-rpc container")
 
