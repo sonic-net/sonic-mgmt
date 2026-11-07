@@ -297,7 +297,7 @@ class TestPfcwdAllTimer(object):
                     logger.info("Configuring detect time for broadcom DUT")
                     config_detect_time = (
                         self.timers['pfc_wd_detect_time'] +
-                        self.timers['pfc_wd_poll_time'] +
+                        2 * self.timers['pfc_wd_poll_time'] +
                         (self.timers['pfc_wd_poll_time'] // 2)
                     )
                     break
