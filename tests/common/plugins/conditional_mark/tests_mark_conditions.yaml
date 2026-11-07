@@ -2800,9 +2800,9 @@ generic_config_updater/test_incremental_qos.py:
 
 generic_config_updater/test_incremental_qos.py::test_buffer_profile_create_remove_rollback:
   skip:
-    reason: "Skipped due to test issue: https://github.com/sonic-net/sonic-mgmt/issues/25395"
+    reason: "Lossless buffer profiles are not supported on lossy-only topologies"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/25395 and asic_type in ['mellanox']"
+      - *lossyTopos
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
