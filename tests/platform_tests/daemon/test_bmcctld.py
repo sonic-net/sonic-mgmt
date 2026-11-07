@@ -25,7 +25,14 @@ from tests.common.helpers.sonic_db import (
     redis_hgetall,
     redis_hset,
 )
-from tests.common.reboot import reboot, REBOOT_TYPE_COLD
+from tests.common.reboot import (
+    ANSIBLE_READY_INTERVAL,
+    SONIC_SSH_PORT,
+    reboot,
+    REBOOT_TYPE_COLD,
+    wait_for_shutdown,
+    wait_for_startup,
+)
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
@@ -474,6 +481,7 @@ class TestBmcctldDaemon:
             "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
         ).get('stdout', '').strip()
 
+        bmc_ready = True
         try:
             self.duthost.shell(
                 f"config chassis modules power-on-delay SWITCH-HOST {test_delay}"
@@ -514,14 +522,11 @@ class TestBmcctldDaemon:
             la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             marker_b = la.init()
 
+            bmc_ready = False
             try:
                 for outlet in outlets:
                     pytest_assert(pdu_ctrl.turn_off_outlet(outlet), f"Failed to power off PDU outlet {outlet}")
-                pytest_assert(
-                    wait_until(120, 5, 10,
-                               lambda: self.duthost.shell("true", module_ignore_errors=True).get('rc') != 0),
-                    "BMC remained reachable after removing chassis power",
-                )
+                wait_for_shutdown(self.duthost, localhost, delay=10, timeout=120)
             finally:
                 failed_outlets = []
                 for outlet in outlets:
@@ -532,9 +537,27 @@ class TestBmcctldDaemon:
                         restored = False
                     if not restored:
                         failed_outlets.append(outlet)
-                pytest_assert(not failed_outlets, f"Failed to power on PDU outlets {failed_outlets}")
+                try:
+                    pytest_assert(not failed_outlets, f"Failed to power on PDU outlets {failed_outlets}")
+                finally:
+                    # Recover before CONFIG_DB cleanup, even when power-loss checks fail.
+                    try:
+                        wait_for_startup(self.duthost, localhost, delay=10, timeout=600)
+                    finally:
+                        # A late-startup assertion must not prevent cleanup readiness.
+                        localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT,
+                                           state='started', delay=0, timeout=600)
+                        self.duthost.meta("clear_facts")
+                        pytest_assert(
+                            wait_until(
+                                600, ANSIBLE_READY_INTERVAL, 0,
+                                lambda: self.duthost.command("true", module_ignore_errors=True).is_successful,
+                            ),
+                            "BMC did not become ready for Ansible commands during recovery",
+                        )
+                        wait_critical_processes(self.duthost, timeout=600)
+                        bmc_ready = True
 
-            wait_critical_processes(self.duthost, timeout=600)
             bmc_boot_id_post = get_host_boot_id(self.duthost)
             pytest_assert(bmc_boot_id_post and bmc_boot_id_post != bmc_boot_id,
                           "BMC boot ID did not change after chassis power cycle")
@@ -581,7 +604,10 @@ class TestBmcctldDaemon:
             pytest_assert(CAUSE_POWER_LOSS in switch_cause,
                           f"Switch-Host reboot cause must be power loss, got {switch_cause!r}")
         finally:
-            if orig_delay and orig_delay.isdigit():
+            if not bmc_ready:
+                logger.error("BMC recovery failed; power_on_delay configuration was not restored on %s",
+                             self.duthost.hostname)
+            elif orig_delay and orig_delay.isdigit():
                 self.duthost.shell(
                     f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
                     module_ignore_errors=True
@@ -592,7 +618,8 @@ class TestBmcctldDaemon:
                     "'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
                     module_ignore_errors=True
                 )
-            self.duthost.shell("sudo config save -y", module_ignore_errors=True)
+            if bmc_ready:
+                self.duthost.shell("sudo config save -y", module_ignore_errors=True)
 
     def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
         """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.
