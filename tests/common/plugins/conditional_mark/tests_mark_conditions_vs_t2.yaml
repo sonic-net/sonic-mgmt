@@ -415,11 +415,6 @@ kubesonic/test_k8s_join_disjoin.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-layer1/test_port_error.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 lldp/test_lldp_syncd.py:
   skip:
     conditions:
