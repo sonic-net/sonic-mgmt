@@ -1079,15 +1079,6 @@ def extract_techsupport_tarball_file(duthost, tarball_name):
     return techsupport_folder_full_path
 
 
-def is_enabled_nat_for_dpu(duthost, request):
-    if request.config.cache.get(NAT_ENABLE_KEY.format(duthost.hostname), False):
-        logger.info("NAT is enabled")
-        return True
-    else:
-        logger.info('NAT is not enabled')
-        return False
-
-
 def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
     dpuhost_ssh_port_dict = {}
     for dpuhost_name in dpuhost_names:
@@ -1115,19 +1106,26 @@ def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
     return dpu_name_ssh_port_dict
 
 
-def check_nat_is_enabled_and_set_cache(duthost, request):
+def check_nat_is_enabled_and_set_cache(duthost, request=None):
     get_nat_iptable_output = 'sudo iptables -t nat -L'
     nat_iptable_output = duthost.shell(get_nat_iptable_output)['stdout']
     pattern_nat_result = '.*DNAT.*tcp.*anywhere.*anywhere.*tcp dpt:.* to:169.254.200.*22.*'
     if re.search(pattern_nat_result, nat_iptable_output):
         logger.info('NAT is enabled successfully')
-        request.config.cache.set(NAT_ENABLE_KEY.format(duthost.hostname), True)
+        if request:
+            request.config.cache.set(NAT_ENABLE_KEY.format(duthost.hostname), True)
         return True
     else:
         raise Exception('NAT is not enabled successfully')
 
 
-def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict=None, request=None):
+    if dpu_name_ssh_port_dict:
+        duthost.dpu_nat_port_mapping = dpu_name_ssh_port_dict
+    else:
+        dpu_name_ssh_port_dict = duthost.dpu_nat_port_mapping
+
+    logger.info(f'Enabling NAT for DPUs on {duthost.hostname} with ports: {dpu_name_ssh_port_dict}')
     is_bookworm = "bookworm" in duthost.shell("cat /etc/os-release")['stdout']
     sysctl_file = "/etc/sysctl.conf" if is_bookworm else "/usr/lib/sysctl.d/90-sonic.conf"
     enable_nat_cmds = [
