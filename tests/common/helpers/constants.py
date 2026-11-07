@@ -19,6 +19,14 @@ ERSPAN_GRE_TYPE = 0x8949
 # so the canonical value lives in one place.
 ARP_RESPONDER_DEFAULT_CONFIG = "/tmp/from_t1.json"
 
+# Readiness flag written by tests/scripts/arp_responder.py once it has bound every
+# capture socket. Starting the responder is not the same as it being able to answer:
+# it spends 10-15 seconds reinitializing scapy for libpcap first, and `supervisorctl
+# restart` returns long before that finishes. Tests that send traffic depending on a
+# responder-backed neighbor must wait for this file to appear, otherwise the neighbor
+# never resolves and traffic silently follows a less specific route instead.
+ARP_RESPONDER_READY_FLAG = "/tmp/arp_responder.ready"
+
 # Per-suffix variant used by the advanced-reboot family of tests when a logfile suffix
 # differentiates one run's responder config from another (e.g. preboot/inboot operations).
 # The format takes a single %s placeholder for the suffix and is consumed both inside the
