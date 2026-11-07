@@ -3,6 +3,7 @@
 # ansible-playbook mcx.yml -i lab --limit str-7215-10 -b --vault-password-file ~/password.txt
 # this playbook provides 2 types of config, incremental and reset. To discard old config
 # and use new, add -e "reset=y"
+# when initializing mc0, add -e "init=y"
 - hosts: [mgmt]
   gather_facts: no
   roles:
