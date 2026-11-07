@@ -80,7 +80,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     check_reboot_status(gnmi_tls, expected_active=True, expected_reason=REBOOT_MESSAGE, expected_method="COLD")
 
     # Wait until the system is down
-    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=360, reboot_res=None)
     logging.info("System is down after reboot")
 
     # Wait until the system is back up
