@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import ExitStack
 from ipaddress import ip_address, IPv4Address
 
 import natsort
@@ -24,11 +25,15 @@ from .macsec_config_helper import cleanup_macsec_multi_profile_configuration
 from .macsec_config_helper import enable_macsec_port
 from .macsec_helper import load_all_macsec_info, getns_prefix
 
+from tests.common.devices.eos import EosHost
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+# Fallback profiles are only meaningful for tests/macsec/test_fallback_cak.py.
+FALLBACK_ONLY_PROFILES = {"MACSEC_PROFILE_FALLBACK", "MACSEC_PROFILE_FALLBACK_INTEGRITY"}
 
 
 class MacsecPlugin(object):
@@ -48,7 +53,7 @@ class MacsecPlugin(object):
     def _generate_macsec_profile(self, metafunc):
         value = metafunc.config.getoption("macsec_profile")
         if value == 'all':
-            return natsort.natsorted(list(self.macsec_profiles.keys()))
+            return natsort.natsorted(name for name in self.macsec_profiles if name not in FALLBACK_ONLY_PROFILES)
         return [x for x in value.split(',') if x in self.macsec_profiles]
 
     def pytest_generate_tests(self, metafunc):
@@ -92,6 +97,7 @@ class MacsecPlugin(object):
                 policy=macsec_profile["policy"],
                 send_sci=macsec_profile["send_sci"],
                 rekey_period=macsec_profile["rekey_period"],
+                include_fallback=bool(macsec_profile.get("fallback_cak")),
             )
         return profiles
 
@@ -108,7 +114,27 @@ class MacsecPlugin(object):
         return __stop_macsec_service
 
     @pytest.fixture(scope="module")
-    def macsec_feature(self, start_macsec_service, stop_macsec_service):
+    def macsec_feature(self, request, start_macsec_service, stop_macsec_service, macsec_duthost, macsec_nbrhosts):
+        if request.node.path.name == "test_fallback_cak.py":
+            hosts = {host.hostname: host for host in
+                     [macsec_duthost] + [neighbor["host"] for neighbor in macsec_nbrhosts.values()]
+                     if not isinstance(host, EosHost)}
+            disabled = []
+            for host in hosts.values():
+                features, succeeded = host.get_feature_status()
+                assert succeeded and features.get("macsec") in (
+                    "enabled", "always_enabled", "disabled", "always_disabled"), (
+                    "Unable to determine original MACsec feature state on {}".format(host.hostname))
+                if features["macsec"] == "always_disabled":
+                    pytest.skip("MACsec is always_disabled on {}".format(host.hostname))
+                if features["macsec"] == "disabled":
+                    disabled.append(host)
+            with ExitStack() as cleanup:
+                for host in disabled:
+                    cleanup.callback(host.command, "sudo config feature state macsec disabled")
+                    enable_macsec_feature(host, {})
+                yield
+            return
         start_macsec_service()
         yield
         stop_macsec_service()
@@ -150,9 +176,10 @@ class MacsecPlugin(object):
                 setup_macsec_configuration(macsec_duthost, ctrl_links,
                                            profile['name'], profile['priority'], profile['cipher_suite'],
                                            profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                           profile['send_sci'], profile['rekey_period'], tbinfo)
+                                           profile['send_sci'], profile['rekey_period'], tbinfo,
+                                           profile.get('fallback_cak'), profile.get('fallback_ckn'))
             logger.info(
-                "Setup MACsec configuration with arguments:\n{}".format(locals()))
+                "Setup MACsec profile %s on %d controlled links", profile["name"], len(ctrl_links))
 
         return __startup_macsec
 
@@ -181,20 +208,24 @@ class MacsecPlugin(object):
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile,
+    def macsec_setup(self, request, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile,
                      port_profiles, ctrl_links):
         '''
             setup macsec links
         '''
+        if request.node.path.name == "test_fallback_cak.py":
+            # Its fixture owns missing baselines and preserves every existing endpoint binding.
+            yield
+            return
+
         shutdown = False
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-
             macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
             if not macsec_preconfigured or port_profiles is not None:
                 shutdown = True
                 startup_macsec()
             if macsec_preconfigured:
-                logger.info(f"Macsec is already configured for {macsec_profile}, skipping setup")
+                logger.info("MACsec bindings are already configured; skipping setup")
         yield
         if shutdown:
             shutdown_macsec()
@@ -210,6 +241,10 @@ class MacsecPlugin(object):
         ``get_macsec_attr`` hits APP_DB before the egress SA row (and ``sak``)
         has been written by wpa_supplicant.
         """
+
+        if request.node.path.name == "test_fallback_cak.py":
+            # This module checks effective per-port profiles and SAs, not one assumed suite profile.
+            return
 
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
             try:
