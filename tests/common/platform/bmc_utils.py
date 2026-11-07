@@ -7,7 +7,8 @@ import time
 from contextlib import contextmanager
 
 import pytest
-
+from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hgetall, redis_hset
@@ -31,6 +32,9 @@ BMC_INITIATED_REBOOT_CAUSES = (
 )
 
 MAX_BMC_CLOCK_SKEW_SECONDS = 60
+
+# bmcctld must be up before chassis-module shutdown; the CLI only writes CONFIG_DB.
+BMC_CONTROL_READY_TIMEOUT = 300
 
 
 def assert_bmc_clock_in_sync(duthost, max_skew_seconds=MAX_BMC_CLOCK_SKEW_SECONDS):
@@ -331,6 +335,47 @@ def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
 def wait_host_on(host, timeout=420, interval=10, delay=30):
     """Wait until the Switch-Host's critical services are fully started."""
     return wait_until(timeout, interval, delay, lambda: host.critical_services_fully_started())
+
+
+def wait_host_rebooted(host, boot_id_before, timeout=420, interval=10, delay=0):
+    """Wait until the host has a new kernel boot ID, then until services start."""
+    def _new_boot():
+        try:
+            boot_id = get_host_boot_id(host)
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure):
+            return False
+        return bool(boot_id) and boot_id != boot_id_before
+
+    if not wait_until(timeout, interval, delay, _new_boot):
+        return False
+    return wait_host_on(host, timeout=timeout, interval=interval)
+
+
+def bmc_control_ready(duthost):
+    """True if bmcctld is running and SWITCH-HOST is in chassis module status.
+
+    `config chassis modules shutdown` only writes CONFIG_DB. bmcctld applies it.
+    """
+    result = duthost.shell(
+        "docker exec pmon supervisorctl status bmcctld", module_ignore_errors=True)
+    if "RUNNING" not in result.get("stdout", ""):
+        return False
+    rows = duthost.show_and_parse("show chassis module status")
+    for row in rows or []:
+        if (row.get("name") or "").strip().startswith("SWITCH-HOST"):
+            return True
+    return False
+
+
+def bmc_power_off_host(duthost, host, timeout=180, interval=10, delay=30):
+    """From the BMC, shut down SWITCH-HOST and wait until it is powered off."""
+    pytest_assert(
+        wait_until(BMC_CONTROL_READY_TIMEOUT, 10, 0, bmc_control_ready, duthost),
+        "BMC control plane not ready for chassis shutdown")
+    duthost.shell("config chassis modules shutdown SWITCH-HOST")
+    pytest_assert(
+        wait_host_off(duthost, host, timeout=timeout, interval=interval, delay=delay),
+        "SWITCH-HOST did not power off")
 
 
 SWITCH_HOST_STARTUP_ACK = "Starting up chassis module SWITCH-HOST"
