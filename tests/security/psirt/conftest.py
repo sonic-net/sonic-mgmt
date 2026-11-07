@@ -20,7 +20,7 @@ def psirt_adapter(pytestconfig):
 
     module = importlib.import_module(module_name)
     factory = getattr(module, "get_psirt_adapter", None)
-    if factory is None:
+    if not callable(factory):
         pytest.fail("PSIRT adapter module must define get_psirt_adapter()")
     adapter = factory()
     if not callable(getattr(adapter, "capabilities", None)):

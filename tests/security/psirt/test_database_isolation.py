@@ -2,6 +2,11 @@ import json
 import re
 import shlex
 
+import pytest
+
+
+pytestmark = [pytest.mark.topology("any")]
+
 
 def pytest_assert(condition, message):
     assert condition, message
@@ -154,6 +159,7 @@ def test_database_container_isolation(duthosts, tbinfo):
 
 
 def test_database_device_path_detection():
+    """Recognize whole-device-directory and TPM exposure without a DUT."""
     assert is_tpm_or_dev_path("/dev")
     assert is_tpm_or_dev_path("/dev/tpm0")
     assert is_tpm_or_dev_path("/dev/tpmrm12")
@@ -163,6 +169,7 @@ def test_database_device_path_detection():
 
 
 def test_database_mapping_detection():
+    """Detect TPM exposure through device, bind and mount metadata."""
     config = {
         "Devices": [{"PathOnHost": "/dev/tpm0", "PathInContainer": "/dev/tpm0"}],
         "Binds": ["/dev:/dev:rw", "/var/run/docker.sock:/var/run/docker.sock"],
