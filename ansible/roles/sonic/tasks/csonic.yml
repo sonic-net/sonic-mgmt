@@ -368,6 +368,65 @@
     msg: "{{ daemon_status.stdout_lines }}"
   when: daemon_status.stdout_lines is defined
 
+- name: Wait for converged cSONiC FRR/frrcfgd daemons
+  become: yes
+  command: >-
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    supervisorctl status {{ item }}
+  delegate_to: "{{ VM_host[0] }}"
+  loop:
+    - frrcfgd
+    - bgpd
+    - zebra
+    - staticd
+    - mgmtd
+    - bfdd
+    - ospfd
+    - pimd
+    - pathd
+  register: converged_csonic_daemon
+  until:
+    - converged_csonic_daemon.rc == 0
+    - converged_csonic_daemon.stdout is search('RUNNING')
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: topo_is_multi_vrf | default(false) | bool
+
+- name: Verify legacy bgpcfgd is absent from converged cSONiC
+  become: yes
+  command: >-
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    supervisorctl status bgpcfgd
+  delegate_to: "{{ VM_host[0] }}"
+  register: converged_csonic_bgpcfgd
+  failed_when: >-
+    converged_csonic_bgpcfgd.rc == 0 or
+    (converged_csonic_bgpcfgd.stdout | default('')) is search('RUNNING')
+  changed_when: false
+  when: topo_is_multi_vrf | default(false) | bool
+
+- name: Wait for every converged cSONiC logical BGP instance
+  become: yes
+  shell: >-
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    vtysh -c 'show bgp vrf {{ item }} summary json' |
+    python3 -c 'import json,sys; data=json.load(sys.stdin);
+    sys.exit(0 if any(isinstance(data.get(key), dict)
+    for key in ("ipv4Unicast", "ipv6Unicast")) else 1)'
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ VM_host[0] }}"
+  loop: >-
+    {{ convergence_data['convergence_mapping'][hostname]
+       | map('extract', convergence_data['vrf_name_mapping']) | list }}
+  register: converged_csonic_bgp_instance
+  until: converged_csonic_bgp_instance.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: topo_is_multi_vrf | default(false) | bool
+
 - name: Verify BGP is running
   become: yes
   command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} vtysh -c "show bgp summary"
