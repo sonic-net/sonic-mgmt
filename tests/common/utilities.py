@@ -1093,6 +1093,17 @@ def flush_permanent_neighbors(duthost):
     )
 
 
+def is_lacp_server_sim_topology(tbinfo):
+    """
+    @summary: Check if the topology uses the PTF LACP server simulator (L3 EVPN multihoming).
+              PTF ports there are bond members with servers in per-server netns, so the
+              dualtor/T0 PTF responders and MAC/IP rewrites must not run on them.
+    @param tbinfo: Testbed information dictionary
+    @return: bool
+    """
+    return bool(tbinfo and "topo" in tbinfo and "evpn-mh" in tbinfo["topo"].get("name", ""))
+
+
 def is_ipv6_only_topology(tbinfo):
     """
     @summary: Check if the current topology is IPv6-only based on testbed info.
