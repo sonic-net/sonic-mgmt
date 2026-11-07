@@ -4,6 +4,8 @@ import pytest
 
 
 from tests.common.helpers.platform_api import liquid_cooling, leak_sensor
+from tests.common.helpers.liquid_leakage_control_test_helper import is_liquid_cooling_system_supported
+from tests.common.mellanox_data import is_mellanox_device
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.platform.device_utils import platform_api_conn    # noqa: F401
 from tests.common.platform.device_utils import start_platform_api_service    # noqa: F401
@@ -18,8 +20,12 @@ pytestmark = [
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_if_not_liquid_cooled(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Skip the module if Chassis.is_liquid_cooled() is False."""
+    """Skip the module if the DUT does not support liquid cooling."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if is_mellanox_device(duthost):
+        if not is_liquid_cooling_system_supported(duthost):
+            pytest.skip("Chassis is not liquid-cooled")
+        return
     out = duthost.shell(
         "python3 -c 'from sonic_platform.chassis import Chassis; "
         "print(Chassis().is_liquid_cooled())'",
