@@ -9,7 +9,9 @@ from tests.snmp.snmp_counter_restore import preserve_injected_snmp_rif_counter_f
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
+    # Monit must populate management-port state before the module-scoped SNMP walk.
+    pytest.mark.sanity_check(skip_pre_sanity=False)
 ]
 
 logger = logging.getLogger(__name__)
