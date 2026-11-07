@@ -66,6 +66,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT_DEFAULT = 600
 _TEST_RATE_LIMIT_MARVELL = 625
+_MONIT_MEMORY_ALIGNMENT_TOLERANCE = 2.0
+_SYSTEM_MEMORY_STABILITY_TOLERANCE = 1.0
 
 # Protocol to trap ID mapping indicating which trap
 # being for which protocol. Trap ID is used to verify
@@ -702,13 +704,100 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
     dut.command("sudo iptables -t nat -D PREROUTING -p tcp --dport 10900 -j DNAT --to-destination {}".format(ns_ip))
 
 
+def _monit_system_memory_snapshot(duthost):
+    output = duthost.command("sudo monit status", module_ignore_errors=True).get("stdout", "")
+    monit_usage = None
+    data_collected = None
+    in_system_block = False
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("System '"):
+            in_system_block = True
+            continue
+        if in_system_block and stripped.startswith("memory usage"):
+            try:
+                monit_usage = float(stripped.rsplit("[", 1)[1].split("%", 1)[0])
+            except (IndexError, ValueError):
+                return None
+            continue
+        if in_system_block and stripped.startswith("data collected"):
+            data_collected = stripped.split(None, 2)[-1]
+            break
+        if in_system_block and not stripped:
+            break
+    if monit_usage is None or data_collected is None:
+        return None
+
+    direct_output = duthost.shell(
+        "free -b | awk '/^Mem:/ {printf \"%.1f\", $3 / $2 * 100}'",
+        module_ignore_errors=True
+    ).get("stdout", "")
+    try:
+        direct_usage = float(direct_output)
+    except (TypeError, ValueError):
+        return None
+
+    return data_collected, monit_usage, direct_usage
+
+
+def _monit_and_system_memory_are_stable(duthost, state):
+    snapshot = _monit_system_memory_snapshot(duthost)
+    if not snapshot:
+        return False
+
+    data_collected, monit_usage, direct_usage = snapshot
+    if data_collected == state["data_collected"]:
+        return False
+
+    aligned = abs(monit_usage - direct_usage) <= _MONIT_MEMORY_ALIGNMENT_TOLERANCE
+    stable = (
+        state["direct_usage"] is not None
+        and abs(direct_usage - state["direct_usage"]) <= _SYSTEM_MEMORY_STABILITY_TOLERANCE
+    )
+    logger.info(
+        "Monit memory %.1f%%, direct memory %.1f%%, aligned=%s, stable=%s, data collected=%s",
+        monit_usage,
+        direct_usage,
+        aligned,
+        stable,
+        data_collected
+    )
+    state["data_collected"] = data_collected
+    state["direct_usage"] = direct_usage
+    duthost.command("sudo monit validate", module_ignore_errors=True)
+    return aligned and stable
+
+
 @pytest.fixture(scope="function", autouse=False)
-def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def backup_restore_config_db(
+    memory_utilization,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     copp_utils.backup_config_db(duthost)
 
     yield
     copp_utils.restore_config_db(duthost)
+    memory_monitors, _ = memory_utilization
+    if not memory_monitors or duthost.hostname not in memory_monitors:
+        logger.info(
+            "Skipping post-restore memory readiness on %s because memory "
+            "utilization monitoring is disabled or unsupported",
+            duthost.hostname
+        )
+        return
+
+    initial_snapshot = _monit_system_memory_snapshot(duthost)
+    state = {
+        "data_collected": initial_snapshot[0] if initial_snapshot else None,
+        "direct_usage": None
+    }
+    duthost.command("sudo monit validate", module_ignore_errors=True)
+    pytest_assert(
+        wait_until(240, 10, 0, _monit_and_system_memory_are_stable, duthost, state),
+        "Monit and direct system memory did not stabilize after restoring CONFIG_DB"
+    )
 
 
 def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa: F811
