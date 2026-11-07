@@ -257,10 +257,14 @@ class EverflowPolicerTest(BaseTest):
         payload_mask = Mask(payload)
 
         if self.mirror_stage == "egress":
-            payload['Ethernet'].src = self.router_mac
-            payload['IP'].ttl -= 1
             payload_mask.set_do_not_care_scapy(scapy.Ether, "dst")
             payload_mask.set_do_not_care_scapy(scapy.IP, "chksum")
+            if self.asic_type == "mellanox":
+                payload_mask.set_do_not_care_scapy(scapy.Ether, "src")
+                payload_mask.set_do_not_care_scapy(scapy.IP, "ttl")
+            else:
+                payload['Ethernet'].src = self.router_mac
+                payload['IP'].ttl -= 1
 
         if self.asic_type in ["mellanox"]:
             import binascii
