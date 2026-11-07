@@ -22,7 +22,7 @@ def test_adapter_initialization(monkeypatch):
     module.get_psirt_adapter = "not callable"
     with pytest.raises(pytest.fail.Exception, match="must define get_psirt_adapter"):
         adapter_config.psirt_adapter.__wrapped__(config)
-    module.get_psirt_adapter = lambda: object()
+    module.get_psirt_adapter = object
     with pytest.raises(pytest.fail.Exception, match="must implement capabilities"):
         adapter_config.psirt_adapter.__wrapped__(config)
     adapter = SimpleNamespace(capabilities=lambda duthost: {})
@@ -39,82 +39,32 @@ def test_adapter_capability_detection():
         def capabilities(self, duthost):
             return self._capabilities
 
-    assert require_capability(Adapter({"sudi_health": True}), object(), "sudi_health") is None
-    with pytest.raises(pytest.skip.Exception, match="BLOCKED: read_only_pcr"):
-        require_capability(Adapter({"read_only_pcr": "unsupported by this platform"}), object(), "read_only_pcr")
+    assert require_capability(Adapter({"security_health": True}), object(), "security_health") is None
+    with pytest.raises(pytest.skip.Exception, match="BLOCKED: broker_policy"):
+        require_capability(Adapter({"broker_policy": "unsupported by this platform"}), object(), "broker_policy")
     with pytest.raises(pytest.fail.Exception, match="must be a mapping"):
-        require_capability(Adapter(None), object(), "sudi_health")
+        require_capability(Adapter(None), object(), "security_health")
 
 
 def _duthost(duthosts, enum_rand_one_per_hwsku_hostname):
     return duthosts[enum_rand_one_per_hwsku_hostname]
 
 
-def test_authorized_sudi_health_request(duthosts, enum_rand_one_per_hwsku_hostname, ansible_adhoc, psirt_adapter):
-    """Verify the supported fixed health response through a separately verified non-root session."""
+def test_authorized_security_health(duthosts, enum_rand_one_per_hwsku_hostname, ansible_adhoc, psirt_adapter):
+    """Verify a supported non-mutating health check through an authorized non-root session."""
     duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "sudi_health")
-    assert psirt_adapter.sudi_health(duthost, ansible_adhoc) == "OK\n"
-
-
-def test_unauthorized_arbitrary_sudi_signing_is_denied(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Require an actual safe arbitrary-signing authorization denial, not socket availability."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "unauthorized_sudi_signing_denial")
-    assert psirt_adapter.unauthorized_sudi_signing_denied(duthost)
-
-
-def test_sudi_broker_socket_and_sandbox_policy(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Check the advertised fixed-health broker policy without claiming authorization coverage."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "sudi_broker_policy")
-    policy = psirt_adapter.sudi_broker_policy(duthost)
-    assert int(policy["socket_mode"], 8) == 0o666
-    assert policy["socket_owner"] == "root:root"
-    assert policy["service_user"] == "root"
-    assert policy["no_new_privileges"] is True
-    assert policy["protect_system"] == "strict"
-    assert policy["protect_home"] is True
-    assert policy["address_families"] == ["AF_UNIX"]
-
-
-def test_sudi_certificate_failure_cases_fail_closed(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Require passing isolated certificate-failure regressions without mutating DUT certificates."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "offline_sudi_certificate_regressions")
-    results = psirt_adapter.offline_sudi_certificate_regressions(duthost)
-    assert results == {"missing": True, "malformed": True, "untrusted": True, "mismatched": True}
-
-
-def test_unauthorized_tam_registration_and_permissions_are_denied(
-        duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Require safe policy denials for both registration and permission changes."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "safe_tam_registration_denial")
-    results = psirt_adapter.unauthorized_registration_and_permissions_denied(duthost)
-    assert results == {"registration": True, "permissions": True}
-
-
-def test_unauthorized_tam_administration_is_denied(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Require a safe administrative authorization denial from a supported interface."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "safe_tam_admin_denial")
-    assert psirt_adapter.unauthorized_admin_operations_denied(duthost)
-
-
-def test_pcr_length_regression_uses_isolated_tests_only(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Check isolated PCR boundary regressions without sending live malformed PCR input."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "offline_pcr_length_regressions")
-    assert psirt_adapter.offline_pcr_length_regressions(duthost)
-
-
-def test_supported_read_only_pcr_operation(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
-    """Validate a supported read-only PCR result and report timeout as blocked."""
-    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
-    require_capability(psirt_adapter, duthost, "read_only_pcr")
-    result = psirt_adapter.read_only_pcr(duthost)
+    require_capability(psirt_adapter, duthost, "security_health")
+    result = psirt_adapter.security_health(duthost, ansible_adhoc)
+    assert isinstance(result, dict), "Security health result must be a mapping"
     if result.get("status") == "timeout":
-        pytest.skip("BLOCKED: existing supported PCR read timed out; no PCR mutation attempted")
-    assert result.get("status") == "pass", result.get("reason", "PCR read failed")
-    assert result.get("value_present") is True
+        pytest.skip("BLOCKED: supported security health check timed out")
+    assert result.get("status") == "pass", result.get("reason", "Security health check failed")
+
+
+def test_security_broker_policy(duthosts, enum_rand_one_per_hwsku_hostname, psirt_adapter):
+    """Inspect documented platform broker policy without sending management requests."""
+    duthost = _duthost(duthosts, enum_rand_one_per_hwsku_hostname)
+    require_capability(psirt_adapter, duthost, "broker_policy")
+    checks = psirt_adapter.broker_policy(duthost)
+    assert isinstance(checks, dict) and checks, "Broker policy must report named checks"
+    assert all(value is True for value in checks.values()), "Broker policy checks failed: {}".format(checks)

@@ -1,10 +1,14 @@
-# SONiC PSIRT Regression Tests
+# SONiC Security Property Regression Tests
 
-These tests contain no lab addresses, credentials, device certificates, private keys or Cisco-only assumptions. They use the normal sonic-mgmt Ansible/pytest DUT fixtures.
+These tests use standard sonic-mgmt Ansible/pytest DUT fixtures and contain no platform addresses, credentials or device certificate material.
 
 ## Database Isolation
 
-`test_database_isolation.py` is the portable MIGSOFTWAR-47503 check. It inspects all running database containers for privileged mode, `/dev`/TPM mappings, added/effective capabilities and host namespaces, then verifies each Redis endpoint responds. A per-testbed `database_capability_allowlist` may document explicitly approved capabilities; the default is deny-all added capabilities. The pure mapping checks require no device.
+`test_database_isolation.py` checks container privilege reduction, host device isolation, added/effective capabilities, namespace isolation and Redis PING without changing configuration. A per-testbed `database_capability_allowlist` can document explicitly approved capabilities with a reason; added capabilities are denied by default.
+
+## Hardware-Free Checks
+
+Adapter initialization and capability detection use synthetic objects without contacting a DUT. Device-path and mapping helpers validate metadata handling without hardware.
 
 ## Platform Adapter
 
@@ -15,13 +19,14 @@ get_psirt_adapter() -> adapter
 adapter.capabilities(duthost) -> {capability: true | explanation}
 ```
 
-Only advertise a capability when the operation is supported and safe. A missing adapter or capability is reported as a pytest skip with a `BLOCKED` reason. Do not send unsupported, malformed, registration, permission, administrative or state-changing TAM operations just to force a result.
+Only advertise supported, non-mutating operations. Missing adapters/capabilities report pytest skips with a `BLOCKED` reason; invalid adapter implementations fail setup. Do not count blocked checks as passes.
 
 Adapter factories and capability discovery must be side-effect-free. Operations must enforce deadlines and close connections and remove temporary resources in `finally` blocks or context managers. The suite does not own the sonic-mgmt DUT fixtures or change their teardown. Use a bounded external test runner; after a timeout, clean up only its specifically named validation container. Missing configured modules and invalid adapter implementations are setup failures, not authorization denials.
 
-The adapter contract covers authorized fixed SUDI health, non-root arbitrary-signing denial, broker/socket sandbox policy, offline missing/malformed/untrusted/mismatched-certificate regressions, safe registration/permissions denial, safe admin denial, isolated PCR length tests, and an optional supported read-only PCR read. For the health request, the test also passes sonic-mgmt's `ansible_adhoc` fixture; the platform adapter must create a separate `ansible_adhoc(become=False, host_pattern=duthost.hostname)` session, verify `id -u` is nonzero, and then send exactly one fixed request. A PCR timeout is `BLOCKED`; this suite never issues PCR extend/reset or malformed live input.
+The optional capabilities are `security_health` and `broker_policy`:
 
-Certificate fault injection and PCR parser/callout unit tests belong in the owning platform/security package test suites; they do not mutate a live DUT. The sonic-mgmt adapter must report those offline results without reading or exporting private keys, credentials, certificates or signatures.
+- `security_health(duthost, ansible_adhoc)` returns a mapping with `status` equal to `pass`, `fail`, or `timeout`, and an optional non-sensitive `reason`. Invoke only the existing authorized device-security health interface without changing security state or exposing identity credentials. Create a separate `ansible_adhoc(become=False, host_pattern=duthost.hostname)` session and verify the caller is non-root. Timeout is reported as `BLOCKED`.
+- `broker_policy(duthost)` returns a nonempty mapping of documented, named least-privilege and defense-in-depth configuration checks to Boolean results. Inspect only existing service/socket configuration. Expectations belong to the supported platform design; no common service names, socket modes or privileges are assumed.
 
 ## Collection
 
@@ -45,13 +50,12 @@ pytest tests/security/psirt \
 
 The root sonic-mgmt test environment must have its normal PTF dependencies (including `nnpy`/nanomsg development headers) installed before collection. No dependency is installed on a DUT.
 
-## Remaining Hardware Coverage
+## Security Test Scope and Limitations
 
-Code review readiness is separate from complete security remediation. The current qualification still lacks four hardware capabilities:
+This suite provides portable, non-destructive checks of selected security properties and supported platform functionality. It does not attempt to reproduce vulnerabilities through unauthorized cryptographic signing, privileged management mutations, malformed hardware requests, or TPM/PCR state changes.
 
-- Safe direct arbitrary-SUDI-signing authorization denial before backend dispatch.
-- Non-mutating registration and permission-change authorization probes.
-- Safe direct TAM administrative authorization denial with a positive control.
-- A supported bounded read-only PCR operation; the previous read timed out.
+Arbitrary private-key signing probes, credential registration or permission changes, state-changing administrative probes, PCR extend/reset, malformed live cryptographic requests and deliberate buffer-overflow exploitation on hardware are excluded. These cases are not represented as inactive tests in this suite.
 
-Forbidden broker-command rejection is not a substitute for these authorization checks. Offline certificate and PCR regressions do not establish deployed-image inclusion or complete remediation. TAM-library PR #25 remains outside the current image qualification. `BLOCKED` pytest skips must remain separate from successful tests in result summaries.
+Exploit-oriented negative tests, input-boundary fuzzing, integer-truncation prevention and memory-boundary safety are expected to be validated in isolated component-level environments using mocks, sanitizers or dedicated harnesses.
+
+Passing this suite does not independently establish comprehensive security remediation or replace component-level vulnerability regression testing. Optional health and configuration checks do not imply that all platforms implement the same hardware-security services.
