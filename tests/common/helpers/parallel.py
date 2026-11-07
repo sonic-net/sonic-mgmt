@@ -97,6 +97,10 @@ class SonicProcess(Process):
         try:
             Process.run(self)
             self._cconn.send(None)
+        except SystemExit as e:
+            tb = traceback.format_exc()
+            self._cconn.send((e, tb))
+            raise
         except Exception as e:
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
