@@ -224,12 +224,17 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
             COUNTERS_LAG_NAME_MAP on converged-peer testbeds), find the member
             port SAI OIDs and match them against LAG_MEMBER entries.
             """
-            # Get SAI OIDs for the member ports we disabled
+            # Get SAI OIDs for the member ports we disabled.
+            # Use asichost.sonic_db_cli (which embeds the "-n <asic>" namespace
+            # flag) rather than a bare "sonic-db-cli ..." command - on a
+            # multi-ASIC linecard, COUNTERS_DB/ASIC_DB are separate Redis
+            # instances per namespace, and a query without the flag silently
+            # returns no results.
             member_port_oids = set()
             for member_name in portchannel_members:
                 port_oid = asichost.shell(
-                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
-                        member_name),
+                    "{} COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
+                        asichost.sonic_db_cli, member_name),
                     module_ignore_errors=True
                 )["stdout"].strip()
                 if port_oid:
@@ -242,18 +247,20 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
             # Find LAG_MEMBER entries whose PORT_ID matches our member ports
             all_member_keys = asichost.shell(
-                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+                "{} ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'".format(
+                    asichost.sonic_db_cli)
             )["stdout_lines"]
 
             matched = 0
             for key in all_member_keys:
                 port_id = asichost.shell(
-                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
+                    "{} ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(
+                        asichost.sonic_db_cli, key)
                 )["stdout"].strip()
                 if port_id in member_port_oids:
                     egress_disable = asichost.shell(
-                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
-                            key)
+                        "{} ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
+                            asichost.sonic_db_cli, key)
                     )["stdout"].strip()
                     if egress_disable != "true":
                         return False
