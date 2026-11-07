@@ -27,6 +27,14 @@ Options:
       choices: ['teamd', 'bond']
       default: 'teamd'
       required: False
+    - option-name: lacp_servers
+      description: |
+        List of simulated LACP servers. Each entry creates an 802.3ad bond over PTF ports (root netns).
+        Keys: bond (required), members (PTF port indexes, required), lacp_rate (slow|fast), miimon,
+        min_links, xmit_hash_policy, and optionally bond_mac (bond/LACP system ID), mac, ip (CIDR), gateway, netns.
+        When ip is set, a macvlan carrying mac/ip is moved into a per-server netns so server-to-server traffic crosses the DUTs.
+      required: False
+      default: []
 '''
 
 
@@ -194,6 +202,60 @@ def remove_bond(module, portchannel_config):
             exec_command(module, "ip link set dev {} up".format(intf), ignore_error=True)
 
 
+def server_netns(server):
+    return server.get("netns") or "srv_{}".format(server["bond"])
+
+
+def create_lacp_servers(module, servers):
+    for server in servers:
+        bond = server["bond"]
+        exec_command(module, "ip link del {}".format(bond), ignore_error=True)
+        cmd = "ip link add {} type bond mode 802.3ad lacp_rate {} miimon {} min_links {} xmit_hash_policy {}".format(
+            bond, server.get("lacp_rate", "fast"), server.get("miimon", 100),
+            server.get("min_links", 1), server.get("xmit_hash_policy", "layer3+4"))
+        exec_command(module, cmd)
+        # Set before enslaving so the bond (the LACP system ID) keeps this MAC and members adopt it
+        if server.get("bond_mac"):
+            exec_command(module, "ip link set dev {} address {}".format(bond, server["bond_mac"]))
+        for idx in server["members"]:
+            intf = "eth{}".format(idx)
+            exec_command(module, "ip link set dev {} down".format(intf))
+            exec_command(module, "ip link set dev {} master {}".format(intf, bond))
+            exec_command(module, "ip link set dev {} up".format(intf))
+        exec_command(module, "ip link set dev {} up".format(bond))
+
+        if not server.get("ip"):
+            if server.get("mac"):
+                exec_command(module, "ip link set dev {} address {}".format(bond, server["mac"]))
+            continue
+
+        # Bond stays in the root netns; the server identity lives in a macvlan inside its own netns
+        ns = server_netns(server)
+        vlan = "mv_{}".format(bond)
+        exec_command(module, "ip netns del {}".format(ns), ignore_error=True)
+        exec_command(module, "ip netns add {}".format(ns))
+        exec_command(module, "ip link add link {} name {} type macvlan mode bridge".format(bond, vlan))
+        if server.get("mac"):
+            exec_command(module, "ip link set dev {} address {}".format(vlan, server["mac"]))
+        exec_command(module, "ip link set dev {} netns {}".format(vlan, ns))
+        ns_exec = "ip netns exec {} ".format(ns)
+        exec_command(module, ns_exec + "ip link set dev lo up")
+        exec_command(module, ns_exec + "ip link set dev {} up".format(vlan))
+        exec_command(module, ns_exec + "ip addr add {} dev {}".format(server["ip"], vlan))
+        if server.get("gateway"):
+            exec_command(module, ns_exec + "ip route add default via {}".format(server["gateway"]))
+
+
+def remove_lacp_servers(module, servers):
+    for server in servers:
+        if server.get("ip"):
+            exec_command(module, "ip netns del {}".format(server_netns(server)), ignore_error=True)
+        exec_command(module, "ip link set dev {} down".format(server["bond"]), ignore_error=True)
+        exec_command(module, "ip link del {}".format(server["bond"]), ignore_error=True)
+        for idx in server["members"]:
+            exec_command(module, "ip link set dev eth{} up".format(idx), ignore_error=True)
+
+
 def setup_portchannel_conf():
     try:
         os.mkdir(portchannel_conf_path, 0o755)
@@ -207,16 +269,22 @@ def main():
             cmd=dict(required=True, choices=['start', 'stop'], type='str'),
             portchannel_config=dict(required=True, type='dict'),
             mode=dict(required=False, choices=['teamd', 'bond'], default='teamd', type='str'),
+            lacp_servers=dict(required=False, type='list', elements='dict', default=[]),
         ),
         supports_check_mode=False)
     cmd = module.params['cmd']
     mode = module.params['mode']
     portchannel_config = module.params['portchannel_config']
+    lacp_servers = module.params['lacp_servers']
     parsed_config = parse_teamd_config(module, portchannel_config)
 
     setup_portchannel_conf()
 
     try:
+        if cmd == 'start':
+            create_lacp_servers(module, lacp_servers)
+        else:
+            remove_lacp_servers(module, lacp_servers)
         if mode == 'bond':
             if cmd == 'start':
                 create_bond(module, parsed_config)
