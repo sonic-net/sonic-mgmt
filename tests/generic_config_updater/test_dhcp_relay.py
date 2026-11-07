@@ -167,6 +167,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
         finally:
             logger.info("Rolled back to original checkpoint")
             rollback_or_reload(duthost)
+            wait_dhcp_relay_ready(duthost, ['isc'])
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
         delete_checkpoint(duthost)
