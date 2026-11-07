@@ -1,0 +1,22 @@
+- name: Validate ranking ownership before the case run
+  ansible.builtin.include_tasks: validate.yml
+- name: Execute the authorized ranking case
+  when: ranking_ownership_acquired | bool
+  block:
+    - name: Prepare the authorized ranking case
+      ansible.builtin.include_tasks: prepare_case.yml
+    - name: Invoke the PTF case runner
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ ranking_ptf_runner_path }}'
+          - '--request'
+          - '{{ ranking_run_request_path }}'
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_case_run
+      failed_when: ranking_case_run.rc != 0
+      changed_when: true
+  always:
+    - name: Collect the ranking case artifacts
+      when: ranking_ownership_acquired | bool
+      ansible.builtin.include_tasks: collect.yml

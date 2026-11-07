@@ -1,0 +1,94 @@
+- name: Build the PTF ledger request
+  ansible.builtin.set_fact:
+    ranking_ptf_ledger_request:
+      action: write
+      handle: '{{ ranking_ptf_handle }}'
+      name: ledger.json
+      value:
+        schema_version: 1
+        environment_id: '{{ ranking_environment_id }}'
+        resource: '{{ ranking_ptf_resource }}'
+        attempted: []
+        completed: []
+- name: Stage the PTF ledger request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/write-ptf-ledger.json'
+    content: '{{ ranking_ptf_ledger_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Write the PTF change ledger
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/write-ptf-ledger.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_ledger_write
+  failed_when: ranking_ptf_ledger_write.rc != 0
+  changed_when: true
+- name: Build the PTF staging marker request
+  ansible.builtin.set_fact:
+    ranking_ptf_stage_request:
+      action: mark_attempt
+      handle: '{{ ranking_ptf_handle }}'
+      marker: stage:ptf
+- name: Stage the PTF staging marker request
+  ansible.builtin.copy:
+    dest: '{{ ranking_request_root }}/mark-stage-ptf.json'
+    content: '{{ ranking_ptf_stage_request | to_json }}'
+    mode: '0600'
+  delegate_to: '{{ ranking_ptf_host }}'
+- name: Mark the PTF staging attempt
+  ansible.builtin.command:
+    argv: [python3, -m, ranking.remote_agent, --request, '{{ ranking_request_root }}/mark-stage-ptf.json']
+  delegate_to: '{{ ranking_ptf_host }}'
+  register: ranking_ptf_stage_mark
+  failed_when: ranking_ptf_stage_mark.rc != 0
+  changed_when: true
+- name: Stage the ranking PTF runtime tree
+  block:
+    - name: Create the PTF runtime directories
+      ansible.builtin.file:
+        path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/{{ item }}'
+        state: directory
+        mode: '0700'
+      loop: [ptf, binding, resources, runner, requests]
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the case binding into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_execution.binding_dir }}/'
+        dest: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/binding/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the prebuilt resources into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_execution.prebuilt_dir }}/'
+        dest: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/resources/'
+        mode: preserve
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the ranking PTF runner into staging
+      ansible.builtin.copy:
+        src: '{{ ranking_package_dir | default("/opt/ranking") }}/ptf_runner.py'
+        dest: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/runner/ptf_runner.py'
+        mode: '0600'
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Copy the case binding into the PTF container
+      ansible.builtin.command:
+        argv: [docker, cp, '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/binding', '{{ ranking_runtime.ptf_container }}:/opt/ptf/binding']
+      delegate_to: '{{ ranking_ptf_host }}'
+      register: ranking_ptf_binding_cp
+      failed_when: ranking_ptf_binding_cp.rc != 0
+      changed_when: true
+    - name: Bind the case runtime locations
+      ansible.builtin.set_fact:
+        ranking_case_pythonpath: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/binding'
+        ranking_staging_binding:
+          root: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}/binding'
+          source_hash: '{{ ranking_source_hash }}'
+  rescue:
+    - name: Remove the partially staged PTF tree
+      ansible.builtin.file:
+        path: '{{ ranking_runtime.ptf_root }}/{{ ranking_environment_id }}'
+        state: absent
+      when: ranking_ptf_stage_mark.rc == 0
+      delegate_to: '{{ ranking_ptf_host }}'
+    - name: Report the failed PTF staging
+      ansible.builtin.fail:
+        msg: ranking PTF staging failed; the staged tree was removed and ownership is retained
