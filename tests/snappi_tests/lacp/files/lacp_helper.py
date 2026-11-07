@@ -610,7 +610,7 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
             flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
-                rx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
                 delta_frames = int(flow.frames_tx) - int(flow.frames_rx)
                 delta_frames_list.append(delta_frames)
                 convergence_time = 1000 * (delta_frames) / (flow.frames_tx_rate)
