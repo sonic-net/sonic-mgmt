@@ -14,16 +14,15 @@ from tests.transceiver.common.db_helpers import (
 from tests.transceiver.dom.dom_helpers import (
     CONSISTENCY_MODE_ABSOLUTE,
     CONSISTENCY_MODE_PERCENT,
+    CONSISTENCY_SUFFIX,
     STATE_DB_SENSOR_TABLE,
     build_dom_sensor_plan,
-    consistency_field_template_for_attr,
-    consistency_mode_for_attr,
-    consistency_unit_for_attr,
     dom_consistency_attributes,
     field_template_is_lane_expanded,
     format_dom_port_failure,
     format_optional_float,
     read_dom_sensor_data,
+    spec_for_attr,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,8 @@ def _consistency_check_definitions():
     return tuple(
         (
             attr_name,
-            consistency_unit_for_attr(attr_name),
-            consistency_mode_for_attr(attr_name),
+            spec_for_attr(attr_name, CONSISTENCY_SUFFIX).consistency_unit,
+            spec_for_attr(attr_name, CONSISTENCY_SUFFIX).consistency_mode,
         )
         for attr_name in dom_consistency_attributes()
     )
@@ -112,8 +111,9 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
 
         has_lane_check = any(
             attr_name in dom_attrs
-            and consistency_field_template_for_attr(attr_name)
-            and field_template_is_lane_expanded(consistency_field_template_for_attr(attr_name))
+            and field_template_is_lane_expanded(
+                spec_for_attr(attr_name, CONSISTENCY_SUFFIX).sensor_field_template
+            )
             for attr_name, _unit, _mode in consistency_checks
         )
         if has_lane_check and sensor_plan.get("errors"):
@@ -123,7 +123,7 @@ def _build_dom_consistency_plan(port_attributes_dict, dom_primary_ports, sensor_
             if attr_name not in dom_attrs:
                 continue
 
-            field_template = consistency_field_template_for_attr(attr_name)
+            field_template = spec_for_attr(attr_name, CONSISTENCY_SUFFIX).sensor_field_template
             lane_expanded = field_template_is_lane_expanded(field_template)
 
             threshold, threshold_error = _parse_non_negative_threshold(attr_name, dom_attrs[attr_name])
