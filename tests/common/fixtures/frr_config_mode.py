@@ -610,7 +610,9 @@ def pytest_sessionfinish(session, exitstatus):
         if state.applied_mode != state.original_mode:
             logger.info("Restoring FRR config mode to '%s' at session end", state.original_mode)
             _switch_mode(state, state.original_mode)
-        state.migrator.cleanup()
+        # A marker still present means no restore was verified: keep the backups for recovery.
+        if not state.migrator.interrupted_run_pending():
+            state.migrator.cleanup()
     except Exception as e:
         logger.error(
             "Failed to restore FRR config mode to '%s' on %s at session end: %s. The DUT may "
@@ -824,7 +826,18 @@ def _switch_mode(state, mode):
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
         if mode == MODE_FRR_MGMT_FRAMEWORK:
-            state.migrator.to_frr_mgmt_framework()
+            try:
+                state.migrator.to_frr_mgmt_framework()
+            except BaseException:
+                # Past the switch marker the DUT's files may already be in frr mode, so record
+                # it as switched and let the session-end restore put it back.
+                try:
+                    switched = state.migrator.interrupted_run_pending()
+                except Exception:
+                    switched = True
+                if switched:
+                    state.applied_mode = mode
+                raise
         else:
             # to_traditional() returns False when the CONFIG_DB backup is gone: it restored
             # the golden files only, and the DUT is still running translated frr config.

@@ -41,7 +41,7 @@ GOLDEN_CFG_FILE = "/etc/sonic/golden_config_db.json"
 # The mode has to be written into both files to actually persist.
 GOLDEN_CFG_ORIGIN_FILE = GOLDEN_CFG_FILE + ".origin.backup"
 _BAK_SUFFIX = ".frr_config_mode.bak"
-# Written just before the forward (traditional -> frr) switch reloads, and removed once the
+# Written before the forward (traditional -> frr) switch rewrites any file, and removed once the
 # DUT is restored. Interrupted-run recovery keys on THIS, not on the presence of the config
 # backup: capture_pristine_backup() takes that backup at session start, before any switch is
 # attempted, so on a DUT that boots frrcfgd a killed run would otherwise look like an
@@ -194,6 +194,9 @@ class FrrConfigModeMigrator(object):
         new_config = translate_config_db(config_db, running_config, peer_group_json)
         new_config = strip_unsupported_by_image(self.duthost, new_config)  # noqa: DELETE-WITH-28543
         self._set_mode_metadata(new_config, "unified", "true")
+        # Mark the DUT as switched BEFORE touching any persistent file, so a run that dies
+        # anywhere from here on is recoverable. See SWITCHED_MARKER_FILE.
+        self.duthost.shell("sudo touch {}".format(SWITCHED_MARKER_FILE))
         self._write_json_file(CONFIG_DB_FILE, new_config)
 
         # golden config must also carry the mode, else db_migrator reverts it on reload.
@@ -208,9 +211,6 @@ class FrrConfigModeMigrator(object):
             self._set_mode_metadata(origin, "unified", "true")
             self._write_json_file(GOLDEN_CFG_ORIGIN_FILE, origin)
 
-        # Mark the DUT as switched BEFORE the reload, so a run killed anywhere from here on
-        # is recoverable. See SWITCHED_MARKER_FILE.
-        self.duthost.shell("sudo touch {}".format(SWITCHED_MARKER_FILE))
         self._config_reload()
 
     def to_traditional(self):

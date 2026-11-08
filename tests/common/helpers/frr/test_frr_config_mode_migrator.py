@@ -61,7 +61,7 @@ class FakeDutHost(object):
             return {"rc": 0, "stdout": json.dumps({t: {} for t in self.backup_tables})}
         # Emulate `cp src dst` so a restore is visible to later is_file_existed calls.
         parts = cmd.split()
-        if "cp" in parts:
+        if "cp" in parts or "touch" in parts:
             self.files.add(parts[-1])
         if "rm" in parts:
             for path in parts:
@@ -231,6 +231,40 @@ def test_cleanup_removes_the_switch_marker():
     dut = FakeDutHost(files=[CONFIG_BAK, GOLDEN_BAK, SWITCHED_MARKER_FILE])
     FrrConfigModeMigrator(dut).cleanup()
     assert SWITCHED_MARKER_FILE not in dut.files
+
+
+class _SwitchingDut(FakeDutHost):
+    """FakeDutHost that can run a forward switch, recording file writes alongside shell."""
+
+    def shell(self, cmd, module_ignore_errors=False):
+        if cmd.startswith("sudo cat "):
+            self.commands.append(cmd)
+            return {"rc": 0, "stdout": "{}"}
+        if cmd.startswith("sudo vtysh"):
+            self.commands.append(cmd)
+            return {"rc": 0, "stdout": "{}"}
+        if cmd.startswith("sudo config reload"):
+            self.commands.append(cmd)
+            raise RuntimeError("config reload failed")
+        return super(_SwitchingDut, self).shell(cmd, module_ignore_errors)
+
+    def copy(self, content, dest):
+        self.commands.append("write {}".format(dest))
+
+
+def test_switch_marker_is_written_before_any_persistent_file(monkeypatch):
+    """A run that dies after rewriting config_db/golden but before the marker would leave the
+    DUT stamped frr with nothing telling the next run to recover it."""
+    from tests.common.helpers.frr import frr_config_mode_migrator as mig
+    monkeypatch.setattr(mig, "translate_config_db", lambda cfg, *a: cfg)
+    monkeypatch.setattr(mig, "strip_unsupported_by_image", lambda dut, cfg: cfg)
+    dut = _SwitchingDut(files=[CONFIG_DB_FILE, GOLDEN_CFG_FILE])
+    with pytest.raises(RuntimeError):
+        FrrConfigModeMigrator(dut).to_frr_mgmt_framework()
+    touch = dut.commands.index("sudo touch {}".format(SWITCHED_MARKER_FILE))
+    first_write = next(i for i, c in enumerate(dut.commands) if c.startswith("write "))
+    assert touch < first_write
+    assert SWITCHED_MARKER_FILE in dut.files
 
 
 def test_residue_check_ignores_frr_tables_the_backup_already_had():
