@@ -29,6 +29,10 @@ class FrrTranslationError(Exception):
     """Raised when traditional BGP config cannot be faithfully translated to frrcfgd."""
 
 
+class FrrTranslationGap(FrrTranslationError):
+    """Baseline config frrcfgd cannot express by design: the frr variant is skipped, not failed."""
+
+
 def _afi_safi(ip):
     """Return the frrcfgd afi_safi token for an address, or raise."""
     try:
@@ -660,7 +664,7 @@ def _apply_bbr(config_db, peer_group_af):
             "BGP_BBR|all has unexpected status {!r} (expected 'enabled' or 'disabled')".format(status))
 
 
-def _apply_wcmp(config_db, policy, ipv4_pg, ipv6_pg):
+def _apply_wcmp(config_db):
     """Validate ``BGP_DEVICE_GLOBAL`` W-ECMP; frrcfgd cannot express it, so warn when enabled."""
     dev = config_db.get("BGP_DEVICE_GLOBAL")
     if not dev:
@@ -733,15 +737,15 @@ def translate_config_db(config_db, running_config, peer_group_json):
     """
     result = copy.deepcopy(config_db)
     if result.get("PREFIX_LIST"):
-        # bgpcfgd's PrefixListMgr renders these (anchor aggregates); frrcfgd has no handler.
-        raise FrrTranslationError(
-            "PREFIX_LIST rows {} have no frrcfgd translation".format(sorted(result["PREFIX_LIST"])))
+        raise FrrTranslationGap(
+            "PREFIX_LIST rows {} are rendered by bgpcfgd's PrefixListMgr, which frrcfgd has no "
+            "equivalent for".format(sorted(result["PREFIX_LIST"])))
     bgp_asn = _bgp_asn(result)
     router_id = _router_id(result)
 
     ipv4_pg, ipv6_pg, all_pg_names, pg_by_neighbor = _peer_groups(peer_group_json)
     policy = _extract_policy_tables(running_config)
-    _apply_wcmp(result, policy, ipv4_pg, ipv6_pg)
+    _apply_wcmp(result)
     route_map_names = set(policy["ROUTE_MAP_SET"].keys())
 
     globals_tbl, af_network = _build_globals(result, bgp_asn, router_id, running_config)

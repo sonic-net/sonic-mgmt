@@ -6,6 +6,7 @@ import pytest
 from tests.common.helpers.frr.bgp_config_translation import (
     translate_config_db,
     FrrTranslationError,
+    FrrTranslationGap,
 )
 
 pytestmark = [
@@ -498,10 +499,10 @@ def test_device_knobs_carried_into_device_metadata(running, expected):
     assert {k: meta.get(k) for k in expected} == expected
 
 
-def test_prefix_list_rows_raise():
+def test_prefix_list_rows_are_a_gap():
     cfg = _base_config_db()
     cfg["PREFIX_LIST"] = {"ANCHOR_PREFIX|fc00:1::/48": {}}
-    with pytest.raises(FrrTranslationError, match="PREFIX_LIST"):
+    with pytest.raises(FrrTranslationGap, match="PrefixListMgr"):
         translate_config_db(cfg, "", _peer_group_json())
 
 

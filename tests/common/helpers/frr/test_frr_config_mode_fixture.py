@@ -59,6 +59,7 @@ class FakeState(object):
         self.switch_count = 0
         self.baseline_neighbors = set()
         self.baseline_fingerprint = {}
+        self.translation_gap = None
 
 
 class FakeSession(object):
@@ -229,6 +230,14 @@ def test_frr_variant_skips_early_on_a_multi_asic_dut():
 
 def test_dual_mode_frr_variant_is_left_to_the_fixture():
     fcm.pytest_runtest_setup(SetupItem(FRR, session=_session_with_state(FakeDut())))
+
+
+def test_translation_gap_skips_the_remaining_frr_variants():
+    session = _session_with_state(FakeDut())
+    getattr(session, fcm._SESSION_STATE_ATTR).translation_gap = "PREFIX_LIST gap"
+    with pytest.raises(pytest.skip.Exception, match="PREFIX_LIST gap"):
+        fcm.pytest_runtest_setup(SetupItem(FRR, session=session))
+    fcm.pytest_runtest_setup(SetupItem(TRAD, session=session))
 
 
 def test_frr_generic_falls_back_to_frr_on_a_native_frrcfgd_dut():

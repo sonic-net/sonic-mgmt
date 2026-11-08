@@ -21,6 +21,7 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
 )
 from tests.common.helpers.frr.bgp_config_translation import (
     FrrTranslationError,
+    FrrTranslationGap,
     _ROUTE_MAP_UNSUPPORTED_CLAUSES,
 )
 from tests.common.helpers.frr.frr_parity_compat import (      # noqa: DELETE-WITH-FRR-PARITY
@@ -468,7 +469,7 @@ def _skip_reason(node, duthost, state, mode):
         return ("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
                 "this DUT boots in {}, so only that mode can be exercised".format(
                     state.original_mode))
-    return None
+    return state.translation_gap
 
 
 class _FrrModeSessionState(object):
@@ -484,6 +485,7 @@ class _FrrModeSessionState(object):
         self.applied_mode = None
         self.switch_count = 0
         self.early_skips = {}
+        self.translation_gap = None
         self.baseline_neighbors = None
         self.baseline_fingerprint = None
 
@@ -672,6 +674,10 @@ def _switch_mode(state, mode):
                     "recovery ('config load_minigraph -y', or restore "
                     "/etc/sonic/config_db.json from a known-good copy) before further runs."
                     .format(mode, duthost.hostname))
+    except FrrTranslationGap as e:
+        state.translation_gap = "frr_mgmt_framework mode not supported on this DUT: {}".format(e)
+        logger.warning(state.translation_gap)
+        pytest.skip(state.translation_gap)
     except FrrTranslationError as e:
         pytest.fail("Failed to switch to '{}' mode: {}".format(mode, e))
     state.applied_mode = mode
