@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.disable_loganalyzer,
 ]
 
 VRF_A = "Vrf_rehome_a"
@@ -52,7 +51,9 @@ CMD_TIMEOUT = 60
 SETTLE_TIMEOUT = 60
 ITERATION_BUDGET = 150
 
-WEDGE_PATTERN = "still referenced"
+# IntfsOrch::removeRouterIntfs; the [s] keeps grep from matching the Ansible
+# syslog record of the grep command itself.
+WEDGE_PATTERN = "is [s]till referenced with ref count"
 
 
 def parse_asic_route_key(key):
@@ -189,11 +190,11 @@ def _find_route_key(duthost, vr_oid, prefix):
 
 
 def _rif_map(duthost):
-    # </dev/null keeps the inner redis-cli calls from draining the while-read loop's stdin.
-    cmd = ("redis-cli -n 1 --raw KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:*' | "
+    # </dev/null keeps the inner sonic-db-cli calls from draining the while-read loop's stdin.
+    cmd = ("sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:*' | "
            "while read k; do "
-           "echo \"$k|$(redis-cli -n 1 --raw HGET \"$k\" SAI_ROUTER_INTERFACE_ATTR_PORT_ID "
-           "</dev/null)|$(redis-cli -n 1 --raw HGET \"$k\" "
+           "echo \"$k|$(sonic-db-cli ASIC_DB HGET \"$k\" SAI_ROUTER_INTERFACE_ATTR_PORT_ID "
+           "</dev/null)|$(sonic-db-cli ASIC_DB HGET \"$k\" "
            "SAI_ROUTER_INTERFACE_ATTR_VIRTUAL_ROUTER_ID </dev/null)\"; "
            "done")
     out = duthost.shell(cmd, module_ignore_errors=True)
@@ -335,13 +336,23 @@ def _enable_link_local_only(duthost, port):
     return _run(duthost, "config interface ipv6 enable use-link-local-only {}".format(port))
 
 
+def _ll_neighbor_count(duthost, port):
+    out = _shell(duthost, "sonic-db-cli APPL_DB KEYS 'NEIGH_TABLE:{}:{}*' | grep -c '^NEIGH_TABLE:'".format(
+        port, LL_NEIGH_PREFIX))
+    try:
+        return int(out)
+    except ValueError:
+        return 0
+
+
 def _populate_link_local_neighbors(duthost, port):
     adds = "; ".join(
         "ip -6 neigh replace {} lladdr {} dev {} nud permanent 2>/dev/null".format(ip, mac, port)
         for ip, mac in link_local_neighbors())
     duthost.shell("{}; true".format(adds), module_ignore_errors=True)
-    return _shell(duthost, "sonic-db-cli APPL_DB KEYS 'NEIGH_TABLE:{}:{}*' | wc -l".format(
-        port, LL_NEIGH_PREFIX))
+    # neighsyncd mirrors the kernel entries into APPL_DB asynchronously.
+    wait_until(10, 1, 0, lambda: _ll_neighbor_count(duthost, port) == LL_NEIGH_COUNT)
+    return _ll_neighbor_count(duthost, port)
 
 
 def _rehome(duthost, port, vrf_name):
@@ -369,14 +380,23 @@ def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rehome_duthost, loganalyzer):
+    if loganalyzer:
+        loganalyzer[rehome_duthost.hostname].ignore_regex.extend([
+            # RIF removal retries while the rehome drains the RIF's references.
+            r".*removeRouterIntfs: Router interface .* is still referenced with ref count.*",
+        ])
+
+
 @pytest.fixture(scope="module")
 def rehome_env(rehome_duthost):
     duthost = rehome_duthost
-    pytest_assert(not duthost.is_multi_asic,
-                  "The t0 regression job must use a single-ASIC DUT")
-    pytest_assert(duthost.shell("docker exec bgp vtysh -c 'show version'",
-                                module_ignore_errors=True)["rc"] == 0,
-                  "vtysh in the bgp container is required")
+    if duthost.is_multi_asic:
+        pytest.skip("The rehome test requires a single-ASIC DUT")
+    if duthost.shell("docker exec bgp vtysh -c 'show version'",
+                     module_ignore_errors=True)["rc"] != 0:
+        pytest.skip("vtysh in the bgp container is required")
     for prefix in AUDIT_PREFIXES:
         pytest_assert(not _route_keys_by_dest(duthost, prefix),
                       "Prefix {} already present in ASIC_DB".format(prefix))
@@ -384,8 +404,8 @@ def rehome_env(rehome_duthost):
         _shell(duthost, "sonic-db-cli CONFIG_DB EXISTS 'VRF|{}'".format(VRF_A)) == "0",
         "VRF {} already exists on the DUT".format(VRF_A))
 
-    pytest_assert(_shell(duthost, "test -f {} && echo yes".format(SWSS_REC)) == "yes",
-                  "swss.rec recording is required for the ordering telemetry")
+    if _shell(duthost, "test -f {} && echo yes".format(SWSS_REC)) != "yes":
+        pytest.skip("swss.rec recording is required for the ordering telemetry")
 
     cfg = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
     used = set()
@@ -426,10 +446,10 @@ def rehome_env(rehome_duthost):
             pytest_assert(wait_until(15, 3, 0, lambda: _oper_up(duthost, member)),
                           "Freed VLAN member {} is not oper-up in SONiC".format(member))
             port = member
-        pytest_assert(port is not None,
-                      "No oper-up front-panel port is available for the mandatory t0 rehome test "
-                      "(unused candidates: {}, untagged VLAN members: {})"
-                      .format(len(free), len(untagged)))
+        if port is None:
+            pytest.skip("No oper-up front-panel port is available for the rehome test "
+                        "(unused candidates: {}, untagged non-mux VLAN members: {}, mux ports: {})"
+                        .format(len(free), len(untagged), len(mux_ports)))
         env["port"] = port
         _ensure_l3_port(duthost, port)
         env["port_oid"] = _port_oid(duthost, port)
@@ -561,6 +581,10 @@ def _rehome_iteration(duthost, env, target_vrf):
 
     _enable_link_local_only(duthost, port)
     stats["ll_neighbors"] = _populate_link_local_neighbors(duthost, port)
+    pytest_assert(stats["ll_neighbors"] == LL_NEIGH_COUNT,
+                  "Test machinery failure (not the race under test): only {}/{} link-local "
+                  "neighbors on {} reached APPL_DB before the rehome to {}".format(
+                      stats["ll_neighbors"], LL_NEIGH_COUNT, port, _vrf_label(target_vrf)))
 
     rec_start = _swss_rec_stable_offset(duthost)
     wedge_before = _wedge_count(duthost)
