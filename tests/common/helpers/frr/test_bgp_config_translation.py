@@ -964,3 +964,10 @@ def test_tor_unconditional_allowas_in_carried_without_bbr():
         row = out["BGP_PEER_GROUP_AF"][key]
         assert (row["allow_as_in"], row["allow_as_count"]) == ("true", "1")
         assert row["route_map_in"]          # the guessed route-maps survive the merge
+
+
+def test_vnet_scoped_neighbor_raises():
+    cfg = _base_config_db()
+    cfg["BGP_NEIGHBOR"]["Vnet1|10.0.0.9"] = {"admin_status": "up", "asn": "65300"}
+    with pytest.raises(FrrTranslationError, match="VNET"):
+        translate_config_db(cfg, "", _peer_group_json())

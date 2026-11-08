@@ -688,6 +688,10 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbo
             vrf, ip = key.split("|", 1)
         else:
             vrf, ip = DEFAULT_VRF, key
+        if vrf.startswith("Vnet"):
+            raise FrrTranslationError(
+                "BGP_NEIGHBOR key {!r} is scoped to VNET {!r}; frrcfgd ignores it unless "
+                "BGP_GLOBALS|{} exists, which is not translated here".format(key, vrf, vrf))
         if _INTERFACE_RE.match(ip):
             # Unnumbered: frrcfgd renders 'neighbor <intf> interface' for a non-IP key.
             afs = _UNNUMBERED_AFS.get(value.get("address_family"), ["ipv4_unicast", "ipv6_unicast"])
