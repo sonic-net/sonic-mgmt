@@ -255,3 +255,108 @@ def test_frr_generic_falls_back_to_frr_on_a_native_frrcfgd_dut():
     fcm.pytest_runtest_setup(SetupItem(FRR, [fcm.FRR_GENERIC_MARKER], session))
     with pytest.raises(pytest.skip.Exception):
         fcm.pytest_runtest_setup(SetupItem(TRAD, [fcm.FRR_GENERIC_MARKER], session))
+
+
+BASELINE_RUNNING_CONFIG = """\
+router bgp 65100
+ neighbor 10.0.0.57 remote-as 64600
+ neighbor 10.0.0.57 description ARISTA01T1
+ address-family ipv4 unicast
+  neighbor 10.0.0.57 activate
+ exit-address-family
+exit
+!
+ip prefix-list PL_LoopbackV4 seq 5 permit 10.1.0.32/32
+ip prefix-list PL_Big seq 10 deny 0.0.0.0/0 le 17
+!
+bgp community-list standard allow_list_default_community seq 5 permit no-export
+!
+route-map FROM_BGP_PEER_V4 permit 10
+ on-match next
+ set tag 100
+ set local-preference 200
+exit
+!
+route-map TO_BGP_PEER_V4 permit 100
+exit
+"""
+
+
+class RunningConfigDut(object):
+    def __init__(self, running_config):
+        self.running_config = running_config
+
+    def shell(self, cmd, module_ignore_errors=False):
+        return {"rc": 0, "stdout": self.running_config}
+
+
+def _dropped_after(running_config, image_gated_clauses=()):
+    baseline = fcm._parse_fingerprint(BASELINE_RUNNING_CONFIG)
+    return fcm._dropped_config_objects(RunningConfigDut(running_config), "frr_mgmt_framework",
+                                       baseline, image_gated_clauses=image_gated_clauses)
+
+
+def test_identical_config_drops_nothing():
+    assert _dropped_after(BASELINE_RUNNING_CONFIG) == ({}, set())
+
+
+def test_route_map_body_is_tracked_per_stanza():
+    content = fcm._parse_fingerprint(BASELINE_RUNNING_CONFIG)["content"]
+    assert content[("route_maps", "FROM_BGP_PEER_V4")] == {
+        "permit 10", "permit 10 | on-match next", "permit 10 | set tag 100",
+        "permit 10 | set local-preference 200"}
+    assert content[("route_maps", "TO_BGP_PEER_V4")] == {"permit 100"}
+
+
+def test_route_map_losing_a_translated_clause_fails():
+    dropped, _ = _dropped_after(BASELINE_RUNNING_CONFIG.replace(" set local-preference 200\n", ""))
+    assert dropped == {"route_maps content": ["FROM_BGP_PEER_V4: permit 10 | set local-preference 200"]}
+
+
+def test_route_map_losing_a_known_frrcfgd_gap_is_reported_not_failed():
+    dropped, gaps = _dropped_after(BASELINE_RUNNING_CONFIG.replace(" set tag 100\n", ""))
+    assert dropped == {}
+    assert gaps == {"route_maps FROM_BGP_PEER_V4: permit 10 | set tag 100"}
+
+
+def test_28543_gated_clause_is_a_gap_only_on_an_image_without_it():
+    running = BASELINE_RUNNING_CONFIG.replace(" on-match next\n", "")
+    assert _dropped_after(running, image_gated_clauses=("on-match ",))[0] == {}
+    assert _dropped_after(running)[0] == {
+        "route_maps content": ["FROM_BGP_PEER_V4: permit 10 | on-match next"]}
+
+
+def test_prefix_list_renumbering_is_not_a_loss_but_a_changed_entry_is():
+    renumbered = BASELINE_RUNNING_CONFIG.replace("seq 5 permit 10.1.0.32", "seq 50 permit 10.1.0.32")
+    assert _dropped_after(renumbered)[0] == {}
+    changed = BASELINE_RUNNING_CONFIG.replace("deny 0.0.0.0/0 le 17", "deny 0.0.0.0/0 le 24")
+    assert _dropped_after(changed)[0] == {
+        "prefix_lists content": ["PL_Big: ip deny 0.0.0.0/0 le 17"]}
+
+
+def test_community_list_entry_loss_fails():
+    running = BASELINE_RUNNING_CONFIG.replace("permit no-export", "permit no-advertise")
+    assert _dropped_after(running)[0] == {"community_lists content": [
+        "allow_list_default_community: bgp community-list standard "
+        "allow_list_default_community permit no-export"]}
+
+
+def test_neighbor_line_loss_is_reported_not_failed():
+    dropped, gaps = _dropped_after(BASELINE_RUNNING_CONFIG.replace("  neighbor 10.0.0.57 activate\n", ""))
+    assert dropped == {}
+    assert gaps == {"neighbors 10.0.0.57: ipv4 unicast | activate"}
+
+
+def test_accepted_gaps_appear_in_the_terminal_summary(monkeypatch):
+    monkeypatch.setattr(fcm, "_CONFIG_GAPS", {"frr_mgmt_framework: route_maps X: permit 10 | set tag 1"})
+    lines = []
+
+    class Reporter(object):
+        def section(self, title):
+            lines.append(title)
+
+        def line(self, text):
+            lines.append(text)
+
+    fcm.pytest_terminal_summary(Reporter())
+    assert lines[1] == "frr_mgmt_framework: route_maps X: permit 10 | set tag 1"

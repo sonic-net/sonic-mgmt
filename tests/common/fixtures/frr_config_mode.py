@@ -14,11 +14,11 @@ frrcfgd CONFIG_DB schema (see ``tests/common/helpers/frr``), persists the routin
 mode so it survives ``config reload``, and reloads. No on-DUT migration tool is
 required.
 
-Fail-loud guarantee: the set of BGP config objects FRR reports (neighbors,
-prefix-lists, route-maps, community-lists) is captured before the switch and
-re-checked after it. If the translation drops anything, the test fails and names
-the missing object, so reduced coverage in frr mode surfaces loudly instead of
-silently.
+Fail-loud guarantee: the BGP config objects FRR reports (neighbors, prefix-lists,
+route-maps, community-lists) and their content are captured before the switch and
+re-checked after it. If the translation drops an object, or a line of one that is not a
+known frrcfgd gap, the test fails and names it; accepted gaps are listed in the terminal
+summary.
 """
 import json
 import logging
@@ -34,9 +34,13 @@ from tests.common.helpers.frr.frr_config_mode_migrator import (
     MODE_FRR_MGMT_FRAMEWORK,
     MODE_TRADITIONAL,
 )
-from tests.common.helpers.frr.bgp_config_translation import FrrTranslationError
+from tests.common.helpers.frr.bgp_config_translation import (
+    FrrTranslationError,
+    _ROUTE_MAP_UNSUPPORTED_CLAUSES,
+)
 from tests.common.helpers.frr.frr_28543_compat import (      # noqa: DELETE-WITH-28543
     gated_globals_missing_from_image,
+    gated_route_map_clauses_missing_from_image,
 )
 from tests.common.platform.interface_utils import get_oper_up_ports
 from tests.common.utilities import wait_until
@@ -383,31 +387,61 @@ def _bgp_established_neighbors(duthost):
     return established
 
 
-def _frr_config_fingerprint(duthost):
-    """Capture the set of named BGP config objects FRR currently has, from its own
-    ``show running-config``.
+# Content categories whose lost lines fail the switch. Neighbor lines are compared and
+# reported, but not yet held to equality: bgpcfgd and frrcfgd render neighbor options from
+# different sources.
+_FATAL_CONTENT = ("route_maps", "prefix_lists", "community_lists")
+_SEQ_RE = re.compile(r" seq \d+")
+# Known frrcfgd gaps accepted during this session, printed in the terminal summary.
+_CONFIG_GAPS = set()
 
-    These primitives (``neighbor <ip> remote-as``, ``ip[v6] prefix-list <name>``,
-    ``route-map <name>``, ``bgp community-list <name>``) render identically whether
-    bgpcfgd or frrcfgd generated them, so comparing the set before vs after a mode
-    switch detects config the translation silently failed to carry over."""
+
+def _frr_config_fingerprint(duthost):
+    """Capture the BGP config objects FRR currently has, from its own ``show running-config``."""
     out = duthost.shell('sudo vtysh -c "show running-config"',
                         module_ignore_errors=True)["stdout"]
+    return _parse_fingerprint(out)
+
+
+def _parse_fingerprint(out):
+    """Named BGP objects (neighbors, prefix-lists, route-maps, community-lists), device-wide
+    globals, and each object's normalized content under ``content[(category, name)]``.
+
+    FRR renders these identically whichever daemon generated them, so a before/after
+    difference is config the translation failed to carry over."""
     fp = {"neighbors": set(), "prefix_lists": set(),
-          "route_maps": set(), "community_lists": set(), "globals": set()}
+          "route_maps": set(), "community_lists": set(), "globals": set(), "content": {}}
+
+    def add(cat, name, line):
+        fp["content"].setdefault((cat, name), set()).add(line)
+
+    route_map, af, neighbor_lines = None, "", []
     for raw in out.splitlines():
-        # Independent of the object classification below -- a line can be both a global
-        # setting and (for community-lists) a named object, and the excludes handle that.
         stripped = raw.strip()
+        if route_map and raw[:1].isspace() and stripped:
+            add("route_maps", route_map[0], "{} | {}".format(route_map[1], stripped))
+            continue
+        route_map = None
         if _is_global_setting(stripped):
             fp["globals"].add(stripped)
         parts = raw.split()
-        if len(parts) >= 3 and parts[0] == "neighbor" and parts[2] == "remote-as":
-            fp["neighbors"].add(parts[1])
+        if not parts:
+            continue
+        if parts[0] == "address-family":
+            af = " ".join(parts[1:])
+        elif parts[0] in ("exit-address-family", "router"):
+            af = ""
+        if len(parts) >= 3 and parts[0] == "neighbor":
+            neighbor_lines.append((parts[1], "{} | {}".format(af, " ".join(parts[2:]))))
+            if parts[2] == "remote-as":
+                fp["neighbors"].add(parts[1])
         elif len(parts) >= 3 and parts[0] in ("ip", "ipv6") and parts[1] == "prefix-list":
             fp["prefix_lists"].add(parts[2])
+            add("prefix_lists", parts[2], _SEQ_RE.sub("", " ".join([parts[0]] + parts[3:])))
         elif len(parts) >= 2 and parts[0] == "route-map":
             fp["route_maps"].add(parts[1])
+            route_map = (parts[1], " ".join(parts[2:]))
+            add("route_maps", parts[1], route_map[1])
         else:
             for i, p in enumerate(parts):
                 if p.endswith("community-list") and i + 1 < len(parts):
@@ -415,24 +449,34 @@ def _frr_config_fingerprint(duthost):
                     name = (parts[i + 2] if nxt in ("standard", "expanded") and i + 2 < len(parts)
                             else nxt)
                     fp["community_lists"].add(name)
+                    add("community_lists", name, _SEQ_RE.sub("", stripped))
                     break
+    for ip, line in neighbor_lines:
+        if ip in fp["neighbors"]:
+            add("neighbors", ip, line)
     return fp
 
 
-def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=frozenset()):
-    """Return ``{category: [name, ...]}`` for baseline objects FRR is not rendering now.
+def _is_known_clause_gap(line, image_gated_clauses):
+    clause = line.split(" | ", 1)[-1]
+    return any(clause.startswith(prefix) for prefix, _ in _ROUTE_MAP_UNSUPPORTED_CLAUSES) or \
+        any(clause.startswith(prefix) for prefix in image_gated_clauses)  # noqa: DELETE-WITH-28543
 
-    ``image_gated_globals`` are global lines this image cannot carry because the CONFIG_DB
-    field behind them is not in its YANG models yet (sonic-buildimage#28543). The translator
-    emits them correctly; the compat shim strips them just before they reach the DUT, so
-    their absence afterwards is expected rather than a translation miss.
+
+def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=frozenset(),
+                            image_gated_clauses=()):
+    """Return ``({category: [name or 'name: line', ...]}, gaps)`` for baseline config FRR is
+    not rendering now. ``gaps`` are the known frrcfgd gaps that are accepted instead.
+
+    ``image_gated_*`` are lines this image cannot carry because the CONFIG_DB field behind
+    them is not in its YANG models yet (sonic-buildimage#28543).
     """
     after = _frr_config_fingerprint(duthost)
-    dropped = {}
+    dropped, gaps = {}, set()
     for cat, objs in baseline_fp.items():
+        if cat == "content":
+            continue
         missing = objs - after[cat]
-        # A missing object that frrcfgd is known not to support is an expected capability
-        # gap, not a translation miss -- record it visibly but do not fail on it.
         if cat == "globals":
             # Prefix-matched: most of these carry a value (e.g. 'keep 1', 'restart-time 240').
             exempt = {o for o in missing
@@ -440,19 +484,28 @@ def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=froz
             exempt |= (missing & image_gated_globals)     # noqa: DELETE-WITH-28543
         else:
             exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
-        if exempt:
-            logger.info("Switching to '%s' mode dropped frrcfgd-unsupported %s %s "
-                        "(bgpcfgd base-template artifacts with no frrcfgd equivalent); "
-                        "ignoring -- not a translation miss.", mode, cat, sorted(exempt))
+        gaps.update("{} {}".format(cat, o) for o in exempt)
         real = sorted(missing - exempt)
         if real:
             dropped[cat] = real
-    return dropped
+    for (cat, name), lines in baseline_fp.get("content", {}).items():
+        if (cat, name) not in after["content"]:
+            continue
+        lost = lines - after["content"][(cat, name)]
+        exempt = {ln for ln in lost
+                  if cat == "route_maps" and _is_known_clause_gap(ln, image_gated_clauses)}
+        if cat not in _FATAL_CONTENT:
+            exempt = lost
+        gaps.update("{} {}: {}".format(cat, name, ln) for ln in exempt)
+        real = sorted("{}: {}".format(name, ln) for ln in lost - exempt)
+        if real:
+            dropped.setdefault(cat + " content", []).extend(real)
+    return dropped, gaps
 
 
 def _assert_config_preserved(duthost, mode, baseline_fp):
-    """Fail loudly if any BGP object present before the switch is still missing once the
-    DUT has settled.
+    """Fail loudly if any BGP object, or any line of a route-map, prefix-list or
+    community-list, present before the switch is still missing once the DUT has settled.
 
     Poll rather than sample once: BGP sessions re-establishing does not mean the config
     daemon has finished rendering. bgpcfgd/frrcfgd drain their CONFIG_DB subscriptions
@@ -461,30 +514,46 @@ def _assert_config_preserved(duthost, mode, baseline_fp):
     renders from BGP_MONITORS, routinely lag the neighbor-recovery check and made the
     switch-back to traditional mode fail spuriously.
     """
-    dropped = {}
+    dropped, gaps = {}, set()
     # Probed once, not per poll: a pre-#28543 image cannot carry these, so their absence is
     # expected. Empty once the image carries #28543, tightening the check back up by itself.
     image_gated = gated_globals_missing_from_image(duthost)   # noqa: DELETE-WITH-28543
+    image_gated_clauses = gated_route_map_clauses_missing_from_image(duthost)  # noqa: DELETE-WITH-28543
     if image_gated:
         logger.info("Image predates sonic-buildimage#28543; these globals cannot survive the "
                     "switch and are not counted as dropped: %s", sorted(image_gated))
 
     def _settled():
+        result = _dropped_config_objects(duthost, mode, baseline_fp, image_gated,
+                                         image_gated_clauses)
         dropped.clear()
-        dropped.update(_dropped_config_objects(duthost, mode, baseline_fp, image_gated))
+        dropped.update(result[0])
+        gaps.clear()
+        gaps.update(result[1])
         return not dropped
 
     wait_until(_CONFIG_SETTLE_TIMEOUT, _CONFIG_SETTLE_INTERVAL, 0, _settled)
+    if gaps:
+        logger.warning("Switching to '%s' mode lost known frrcfgd gaps: %s", mode, sorted(gaps))
+        _CONFIG_GAPS.update("{}: {}".format(mode, gap) for gap in gaps)
     pt_assert(not dropped,
-              "Switching to '{}' mode dropped BGP config objects that were present in the "
+              "Switching to '{}' mode dropped BGP config that was present in the "
               "original mode: {} (still missing after {}s). Either the bgpcfgd->frrcfgd "
-              "translation did not carry them over -- extend "
-              "tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover them "
-              "-- or this module configured them outside CONFIG_DB (vtysh, or a config file "
-              "copied into the bgp container), in which case no translation can preserve them: "
+              "translation did not carry it over -- extend "
+              "tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover it, "
+              "or list a genuine frrcfgd gap in its _ROUTE_MAP_UNSUPPORTED_CLAUSES "
+              "-- or this module configured it outside CONFIG_DB (vtysh, or a config file "
+              "copied into the bgp container), in which case no translation can preserve it: "
               "the switch runs `config reload`, which rebuilds FRR from CONFIG_DB. Such a "
               "module belongs behind the frr_bgpcfgd_only marker."
               .format(mode, dropped, _CONFIG_SETTLE_TIMEOUT))
+
+
+def pytest_terminal_summary(terminalreporter):
+    if _CONFIG_GAPS:
+        terminalreporter.section("FRR config-mode switch: known frrcfgd gaps accepted")
+        for gap in sorted(_CONFIG_GAPS):
+            terminalreporter.line(gap)
 
 
 def _current_mode(duthost):

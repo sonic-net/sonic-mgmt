@@ -66,6 +66,20 @@ GATED_GLOBAL_LINES = {
 }
 
 
+# Route-map clauses (FRR line prefixes) whose CONFIG_DB field is gated by #28543.
+GATED_ROUTE_MAP_CLAUSES = {
+    "on-match ": "set_on_match_action",
+    "set src ": "set_src",
+}
+
+
+def gated_route_map_clauses_missing_from_image(duthost):
+    """Route-map clause prefixes this image cannot carry across a switch (see above)."""
+    supported = _supported_names(duthost)
+    return tuple(prefix for prefix, field in GATED_ROUTE_MAP_CLAUSES.items()
+                 if field not in supported)
+
+
 def gated_globals_missing_from_image(duthost):
     """Global running-config lines this image cannot carry across a switch, because the
     CONFIG_DB field behind them is not in its YANG models yet.
