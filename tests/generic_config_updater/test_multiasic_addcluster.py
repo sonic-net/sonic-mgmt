@@ -29,6 +29,7 @@ import ast
 import json
 import logging
 import os
+import shlex
 import shutil
 import time
 import pytest
@@ -38,7 +39,6 @@ from datetime import datetime
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import generate_config_patch, is_front_panel_port
@@ -49,7 +49,7 @@ from .util.process_minigraph import MinigraphRefactor
 # disable_intf_up_check: Skip interface up verification during config reload - on multi-ASIC
 #   chassis systems, interfaces may take extended time to come up after GCU changes.
 # skip_config_db_check: Skip automatic config_db restoration in core_dump_and_config_check
-#   fixture - this test handles its own cleanup via checkpoint/rollback mechanism.
+#   fixture - this test restores its own pre-test configuration snapshots.
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.disable_intf_up_check,
@@ -1176,50 +1176,146 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
 
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, enum_downstream_dut_hostname):
-    """Setup and teardown fixture using a downstream-connected linecard DUT.
-
-    Uses enum_downstream_dut_hostname to ensure we get a linecard that has downstream
-    T1 neighbors connected, which is required for this test.
-
-    Teardown Strategy:
-    ------------------
-    This test uses config_reload() instead of GCU rollback for cleanup because:
-
-    1. The test modifies minigraph.xml (removes target_t1 neighbor)
-    2. Reloads config from the modified minigraph
-    3. Applies GCU patches on top of that modified config
-
-    GCU rollback would need to compute a diff from this complex state back to the
-    original checkpoint, which consistently fails due to:
-    - YANG validation errors on intermediate states
-    - Dependency ordering issues with the patch sorter
-    - References to ports/interfaces that exist in checkpoint but not in current minigraph
-
-    Since we backup the original minigraph before modification, restoring it and doing
-    a config_reload reliably returns the DUT to its original state. This achieves the
-    same cleanup goal without the fragility of GCU rollback.
-
-    Note: This test validates GCU apply_patch functionality, not rollback. Rollback
-    is tested separately in other GCU test modules.
-    """
+    """Restore minigraph, running/startup state, traffic shift and BGP readiness."""
     duthost = duthosts[enum_downstream_dut_hostname]
-    create_checkpoint(duthost)
-    yield
-    try:
-        # Restore original minigraph if it was backed up during the test.
-        # The test modifies minigraph.xml to remove target_t1, so we must
-        # restore it before config_reload to get back to the original state.
-        if duthost.stat(path=MINIGRAPH_BACKUP)["stat"]["exists"]:
-            logger.info(f"Restoring original minigraph from {MINIGRAPH_BACKUP}")
-            duthost.shell(f"sudo cp {MINIGRAPH_BACKUP} {MINIGRAPH}")
-            duthost.shell(f"sudo rm -f {MINIGRAPH_BACKUP}")
+    pytest_assert(not duthost.stat(path=MINIGRAPH_BACKUP)["stat"]["exists"],
+                  f"Refusing to overwrite a leftover restoration artifact: {MINIGRAPH_BACKUP}")
 
-        # Use config_reload instead of rollback_or_reload() for reliable cleanup.
-        # See docstring above for detailed rationale.
-        logger.info("Reloading minigraph to restore original configuration")
-        config_reload(duthost)
+    configs = [(None, "config_db.json")]
+    if duthost.is_multi_asic:
+        asic_ids = duthost.get_asic_ids()
+        pytest_assert(asic_ids and all(asic_id is not None for asic_id in asic_ids),
+                      "Cannot preserve multi-ASIC configuration without the present ASIC IDs")
+        configs.extend((f"asic{asic_id}", f"config_db{asic_id}.json") for asic_id in asic_ids)
+
+    established_bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="established")
+
+    def get_traffic_shift_states():
+        states = {}
+        for namespace, _ in configs:
+            namespace_arg = f"-n {namespace}" if namespace else ""
+            states[namespace] = duthost.shell(
+                f'sonic-db-cli {namespace_arg} CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" tsa_enabled'
+            )["stdout"].strip()
+        return states
+
+    traffic_shift_states = get_traffic_shift_states()
+    backup_dir = duthost.tempfile(state="directory", prefix="addcluster-restore-")["path"]
+    logger.info("Preserving pre-test host and ASIC configurations in %s", backup_dir)
+    snapshots = []
+    for namespace, filename in configs:
+        config_db = f"/etc/sonic/{filename}"
+        saved_config = f"{backup_dir}/{filename}"
+        running_config = f"{backup_dir}/running_{filename}"
+        namespace_arg = f"-n {namespace}" if namespace else ""
+        duthost.shell(f"cp -p {config_db} {saved_config}")
+        duthost.shell(f"sonic-cfggen {namespace_arg} -d --print-data > {running_config}")
+        snapshots.append((config_db, saved_config, running_config))
+
+    try:
+        yield
     finally:
-        delete_checkpoint(duthost)
+        config_reloaded = False
+        try:
+            if duthost.stat(path=MINIGRAPH_BACKUP)["stat"]["exists"]:
+                logger.info("Restoring original minigraph from %s", MINIGRAPH_BACKUP)
+                duthost.shell(f"cp -p {MINIGRAPH_BACKUP} {MINIGRAPH}")
+                duthost.shell_cmds(
+                    cmds=[f"cp {running} {config_db}" for config_db, _, running in snapshots],
+                    continue_on_fail=False)
+                config_reload(duthost, config_source="config_db", safe_reload=True)
+                config_reloaded = True
+        finally:
+            # Attempt every startup-file restoration even if one copy fails.
+            duthost.shell_cmds(
+                cmds=[f"cp -p {saved} {config_db}" for config_db, saved, _ in snapshots],
+                continue_on_fail=True)
+
+        if config_reloaded:
+            # Startup traffic shift can outlast BGP convergence; preserve the original intent.
+            logger.info("Waiting for pre-test traffic-shift state after cleanup")
+            pytest_assert(
+                wait_until(1200, 10, 0, lambda: get_traffic_shift_states() == traffic_shift_states),
+                "Pre-test traffic-shift state did not recover after cleanup")
+            logger.info("Waiting for pre-test established BGP sessions after cleanup")
+            pytest_assert(
+                wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, established_bgp_neighbors),
+                "Pre-test established BGP sessions did not recover after cleanup")
+
+        # Failed restoration keeps both the minigraph backup and private snapshots.
+        duthost.file(path=MINIGRAPH_BACKUP, state="absent")
+        duthost.file(path=backup_dir, state="absent")
+
+
+def get_port_profiles(duthost, from_minigraph=False):
+    """Read port profiles without letting a minigraph render reuse live PORT entries."""
+    namespaces = [f"asic{index}" for index in duthost.get_asic_ids()] if duthost.is_multi_asic else [None]
+    profiles = {}
+    init_config = from_minigraph and duthost.stat(path="/etc/sonic/init_cfg.json")["stat"]["exists"]
+    for namespace in namespaces:
+        namespace_arg = f"-n {namespace}" if namespace else ""
+        source_args = "-d"
+        if from_minigraph:
+            asic_id = namespace[4:] if namespace else None
+            script = ("from sonic_py_common import device_info; "
+                      f"print(device_info.get_path_to_port_config_file(None, {asic_id!r}))")
+            port_config = duthost.shell("python3 -c " + shlex.quote(script))["stdout"].strip()
+            pytest_assert(port_config not in ("", "None"), f"Cannot resolve native port configuration for {namespace}")
+            source_args = f"-H -m {MINIGRAPH} -p {shlex.quote(port_config)}"
+            if init_config:
+                source_args += " -j /etc/sonic/init_cfg.json"
+        result = duthost.shell(f"sonic-cfggen {namespace_arg} {source_args} --var-json PORT")
+        ports = json.loads(result["stdout"] or "{}")
+        profiles[namespace] = {
+            port: {field: attributes.get(field) for field in ("lanes", "speed", "alias", "admin_status", "fec")}
+            for port, attributes in ports.items()
+        }
+    return profiles
+
+
+def port_profile_differences(expected, actual):
+    differences = {}
+    for namespace in sorted(set(expected) | set(actual), key=str):
+        before, after = expected.get(namespace, {}), actual.get(namespace, {})
+        changed = {
+            port: {"expected": before.get(port), "actual": after.get(port)}
+            for port in sorted(set(before) | set(after)) if before.get(port) != after.get(port)
+        }
+        if changed:
+            differences[namespace] = changed
+    return differences
+
+
+def get_minigraph_refactor(target, config, namespace):
+    ports = config.get("PORT", {})
+    aliases = {port: attributes.get("alias", port) for port, attributes in ports.items()}
+    asic_names = {name: attributes["asic_port_name"]
+                  for port, attributes in ports.items() if attributes.get("asic_port_name")
+                  for name in (port, aliases[port])}
+    asic_name = config.get("DEVICE_METADATA", {}).get("localhost", {}).get("asic_name") or namespace
+    return MinigraphRefactor(target, port_name_to_alias_map=aliases,
+                             asic_port_name_maps={asic_name: asic_names} if asic_name else {})
+
+
+def target_is_operational(duthost, namespace, ports, peers):
+    if not ports or not peers:
+        logger.warning("Cannot verify target readiness with empty ports or BGP peers")
+        return False
+    namespace_arg = f"-n {namespace}" if duthost.is_multi_asic else ""
+    port_states = {
+        port: duthost.shell(
+            f'sonic-db-cli {namespace_arg} APPL_DB hget "PORT_TABLE:{port}" oper_status')["stdout"].strip()
+        for port in sorted(ports)
+    }
+    asic = duthost.asic_instance_from_namespace(namespace if duthost.is_multi_asic else None)
+    neighbors = asic.bgp_facts()["ansible_facts"]["bgp_neighbors"]
+    peer_states = {peer: neighbors.get(peer, {}).get("state") for peer in sorted(peers)}
+    ready = all(state == "up" for state in port_states.values()) and all(
+        state == "established" for state in peer_states.values())
+    if not ready:
+        logger.warning("Target readiness in %s: port oper_status=%s, BGP state=%s",
+                       namespace, port_states, peer_states)
+    return ready
 
 
 def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer):
@@ -1318,18 +1414,35 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
                           "01_initial_config_db.json",
                           "Initial CONFIG_DB state before test modifications")
 
+    # Pin the healthy target before removing it, not from the intentionally without-T1 state.
+    original_config = json.loads(duthost.shell(f"sonic-cfggen {ns_arg} -d --print-data")["stdout"])
+    target_ports = {port for port, neighbor in original_config.get("DEVICE_NEIGHBOR", {}).items()
+                    if neighbor.get("name") == target_t1}
+    target_peers = {ip for ip, neighbor in original_config.get("BGP_NEIGHBOR", {}).items()
+                    if neighbor.get("name") == target_t1}
+    if not target_is_operational(duthost, asic_id, target_ports, target_peers):
+        pytest.skip("Target ports and BGP peers must be operational before add-cluster testing")
+
+    original_port_profiles = get_port_profiles(duthost)
+    profile_changes = port_profile_differences(original_port_profiles, get_port_profiles(duthost, from_minigraph=True))
+    if profile_changes:
+        pytest.skip(f"Native minigraph port profiles differ from the working configuration: {profile_changes}")
+
     # Step 1: Backup minigraph
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
     if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
         pytest.fail(f"{MINIGRAPH} not found on DUT")
-    duthost.shell(f"sudo cp {MINIGRAPH} {MINIGRAPH_BACKUP}")
+    duthost.shell(f"sudo cp -p {MINIGRAPH} {MINIGRAPH_BACKUP}")
 
     # Step 1.1: Reload minigraph
-    logger.info("Reloading minigraph using 'config load_minigraph -y'")
-    duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
-    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
-        logger.error("Not all critical services fully started!")
-        pytest.fail("Critical services not fully started after minigraph reload")
+    logger.info("Reloading minigraph and starting BGP through config_reload")
+    config_reload(duthost, config_source="minigraph", safe_reload=True)
+
+    profile_changes = port_profile_differences(original_port_profiles, get_port_profiles(duthost))
+    pytest_assert(not profile_changes, f"Initial minigraph reload changed working port profiles: {profile_changes}")
+    pytest_assert(
+        wait_until(300, 10, 0, target_is_operational, duthost, asic_id, target_ports, target_peers),
+        "Target ports or BGP peers did not recover after the initial minigraph reload")
 
     # Step 2: Capture full running configuration
     logger.info("Capturing full running configuration")
@@ -1350,7 +1463,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     local_dir = "/tmp/minigraph_modified"
     local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
     duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
-    refactor = MinigraphRefactor(target_t1)
+    refactor = get_minigraph_refactor(target_t1, original_config, asic_id)
     success, affected_ports = refactor.process_minigraph(local_minigraph, local_minigraph)
     if not success:
         logger.info(f"Skipping test - testbed topology does not match required conditions for {target_t1}")
@@ -1359,11 +1472,8 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     duthost.copy(src=local_minigraph, dest=MINIGRAPH)
 
     # Step 4: Reload minigraph
-    logger.info("Reloading minigraph using 'config load_minigraph -y'")
-    duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
-    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
-        logger.error("Not all critical services fully started!")
-        pytest.fail("Critical services not fully started after minigraph reload")
+    logger.info("Reloading minigraph and starting BGP through config_reload")
+    config_reload(duthost, config_source="minigraph", safe_reload=True)
 
     # Step 4.1: Verify affected ports have admin_status=down after minigraph reload
     # When port interface definitions are removed from minigraph, the ports should
@@ -1535,6 +1645,11 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     else:
         logger.info("Phase 2 patch is empty (no ACL changes) - skipping")
 
+    logger.info("Requiring recovery of %d target ports and %d target BGP peers", len(target_ports), len(target_peers))
+    pytest_assert(
+        wait_until(300, 10, 0, target_is_operational, duthost, asic_id, target_ports, target_peers),
+        "Previously operational target ports or BGP peers did not recover after GCU")
+
     # Step 8: Verify operational status convergence
     # -------------------------------------------------------------------------
     # Wait for operational status to converge and verify that items which were
@@ -1673,21 +1788,29 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
             logger.info(f"Verified BGP neighbor {neighbor} exists in CONFIG_DB")
 
     # Step 12: Verify all addcluster.json changes are reflected in CONFIG_DB
+    with open(full_config_path, 'r') as file:
+        full_config = json.load(file)
+
     for table, entries in config_entries_to_check.items():
+        expected_entries = full_config[asic_id].get(table, {})
         for entry in entries:
             if table == 'CABLE_LENGTH':
                 redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
                 redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
                 cable_lengths = json.loads(redis_output.replace("'", '"'))
 
-                if entry not in cable_lengths:
-                    pytest.fail(f"Key {entry} missing in CONFIG_DB. Got: {cable_lengths}")
+                expected_present = entry in expected_entries.get('AZURE', {})
+                pytest_assert((entry in cable_lengths) == expected_present,
+                              f"CABLE_LENGTH entry {entry} presence differs from the original configuration. "
+                              f"Expected present: {expected_present}. Got: {cable_lengths}")
             else:
                 redis_key = f'sonic-db-cli {ns_arg} CONFIG_DB keys "{entry}"'
                 redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
-                pytest_assert(redis_value == entry,
-                              f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
-                logger.info(f"Verified {entry} exists in CONFIG_DB")
+                expected_key = entry if entry.partition('|')[2] in expected_entries else ""
+                pytest_assert(redis_value == expected_key,
+                              f"Key {entry} presence differs from the original configuration. "
+                              f"Expected: {expected_key!r}. Got: {redis_value!r}")
+                logger.info("Verified %s is %s in CONFIG_DB", entry, "present" if expected_key else "absent")
 
     # Step 13: capture full running configuration after applying addcluster.json
     logger.info("Capturing applied full running configuration")
@@ -1768,8 +1891,6 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
                 patched_entries[(table, key)] = True
 
     # Load configurations
-    with open(full_config_path, 'r') as file:
-        full_config = json.load(file)
     with open(applied_config_path, 'r') as file:
         applied_config = json.load(file)
 
