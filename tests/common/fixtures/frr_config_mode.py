@@ -45,10 +45,10 @@ logger = logging.getLogger(__name__)
 
 FRR_CONFIG_MODES = [MODE_TRADITIONAL, MODE_FRR_MGMT_FRAMEWORK]
 
-# Modules marked ``frr_generic`` are exercised in ONE config mode instead of both.
-# Preference order: frr_mgmt_framework first, so the newer frrcfgd path gets the
-# coverage, falling back to traditional when frr is not reachable on this DUT.
 FRR_GENERIC_MARKER = "frr_generic"
+# The ONE mode ``frr_generic`` modules run in, unless --frr-generic-mode overrides it. Falls
+# back to the other mode when this one is not reachable on the DUT.
+FRR_GENERIC_DEFAULT_MODE = MODE_TRADITIONAL
 
 # Modules marked ``frr_bgpcfgd_only`` are by design unsupported under frrcfgd: they assert
 # bgpcfgd daemon behaviour, or drive a product operation frrcfgd does not consume. Their
@@ -60,7 +60,6 @@ FRR_GENERIC_MARKER = "frr_generic"
 # needed: the frr variant skips on the marker, and the traditional variant skips in the
 # cascade below because the translator only converts traditional -> frr.
 FRR_BGPCFGD_ONLY_MARKER = "frr_bgpcfgd_only"
-_FRR_GENERIC_PREFERENCE = [MODE_FRR_MGMT_FRAMEWORK, MODE_TRADITIONAL]
 
 # bgpcfgd renders these base BGP-sentinel policy objects from its Jinja templates
 # (dockers/docker-fpm-frr/frr/bgpd/templates/sentinels/policies.conf.j2) on every DUT
@@ -499,17 +498,22 @@ def _mode_reachable(duthost, request, original_mode, mode):
     return bool(duthost.is_file_existed(GOLDEN_CFG_FILE))
 
 
+def _frr_generic_preference(config):
+    preferred = config.getoption("--frr-generic-mode") or FRR_GENERIC_DEFAULT_MODE
+    return [preferred] + [m for m in FRR_CONFIG_MODES if m != preferred]
+
+
 def _generic_mode(duthost, request, original_mode):
     """For a ``frr_generic`` module, return the single mode to exercise.
 
-    Chosen from the modes ``--frr-config-mode`` selected, in
-    ``_FRR_GENERIC_PREFERENCE`` order (frrcfgd first), restricted to modes that are
-    actually reachable on this DUT. Returns None when none is reachable, letting the
+    Chosen from the modes ``--frr-config-mode`` selected, preferring
+    ``--frr-generic-mode`` (default ``FRR_GENERIC_DEFAULT_MODE``), restricted to modes that
+    are actually reachable on this DUT. Returns None when none is reachable, letting the
     fixture's normal skip cascade produce the specific reason.
     """
     selected = request.config.getoption("--frr-config-mode")
     requested = FRR_CONFIG_MODES if selected == "both" else [selected]
-    for mode in _FRR_GENERIC_PREFERENCE:
+    for mode in _frr_generic_preference(request.config):
         if mode in requested and _mode_reachable(duthost, request, original_mode, mode):
             return mode
     return None
@@ -626,6 +630,10 @@ def pytest_addoption(parser):
              "that mode -- e.g. --frr-config-mode=frr_mgmt_framework exercises frrcfgd only and "
              "bypasses the bgpcfgd variant (the DUT is switched into frr_mgmt_framework mode "
              "for the run, or run as-is if it already boots in that mode).")
+    parser.addoption(
+        "--frr-generic-mode", action="store", default=None, choices=FRR_CONFIG_MODES,
+        help="Mode frr_generic (framework-agnostic) modules prefer when --frr-config-mode is "
+             "'both'. Default: FRR_GENERIC_DEFAULT_MODE ({}).".format(FRR_GENERIC_DEFAULT_MODE))
 
 
 def pytest_generate_tests(metafunc):
@@ -709,7 +717,7 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # frr_generic modules are mode-generic: they assert FRR / dataplane / kernel behavior
     # over config established at boot and do not exercise the bgpcfgd<->frrcfgd schema
     # translation, so running the body in both modes re-tests FRR, not the config daemon.
-    # Run them in ONE mode (frrcfgd preferred) and skip the other variant.
+    # Run them in ONE mode (see FRR_GENERIC_DEFAULT_MODE) and skip the other variant.
     #
     # Both params are deliberately kept rather than collapsing to one, so test IDs stay
     # [traditional] / [frr_mgmt_framework] (conditional_mark keys and -k selection depend

@@ -35,7 +35,7 @@ pytestmark = [
     # whole BGP_GLOBALS table is absent, which is never true once the DUT has been translated
     # to the frrcfgd schema, and the unchanged template then prefixes an already-qualified
     # neighbor key (-> BGP_NEIGHBOR|Vrf1|default|<ip>) while leaving the neighbor-AF row under
-    # 'default'. frr_generic would have run the module in frrcfgd only, so the Vrf1 variant
+    # 'default'. frr_generic could run the module in frrcfgd only, so the Vrf1 variant
     # would have had no correct mode to run in at all. Staying dual-mode keeps the default-VRF
     # case covered in both modes; the Vrf1 case skips its frr variant (see below).
     pytest.mark.topology('t1', 't2', 'lrh', 'urh'),

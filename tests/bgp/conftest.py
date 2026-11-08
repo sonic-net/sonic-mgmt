@@ -38,8 +38,8 @@ from tests.common.helpers.bgp import flatten_bgp_neighbors
 # thought about modes for would otherwise stay silently single-mode forever, with no signal
 # either way -- that is how purpose-written frrcfgd support ended up as dead code in this
 # suite. With autouse, a module that cannot work under frrcfgd FAILS, and whoever added it
-# makes an informed decision: mark it `frr_generic` (mode-irrelevant, run once, frrcfgd
-# preferred) or `frr_bgpcfgd_only(reason)` (by design unsupported, skip the frr variant).
+# makes an informed decision: mark it `frr_generic` (mode-irrelevant, run once) or
+# `frr_bgpcfgd_only(reason)` (by design unsupported, skip the frr variant).
 #
 # The cost is bounded: frr_config_mode tracks the mode per SESSION, so pytest's grouping by
 # the module-scoped param means consecutive same-mode modules cost zero extra switches and the

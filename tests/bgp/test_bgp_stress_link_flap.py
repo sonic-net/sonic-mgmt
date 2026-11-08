@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     # Deliberately NOT frr_generic. This is a mixed module: the plain flap test is
     # mode-generic, but the sentinel / monitor / sentinel+monitor tests are bgpcfgd-only and
-    # skip themselves in frr mode. frr_generic runs the module in ONE mode and prefers
-    # frrcfgd, so those three would have had their traditional variant skipped by the marker
+    # skip themselves in frr mode. frr_generic runs the module in ONE mode, which can be
+    # frrcfgd, so those three could have had their traditional variant skipped by the marker
     # and their frr variant skipped by their own guard -- zero executions each. Staying
     # dual-mode costs one extra run of the plain test and keeps the other three covered.
     pytest.mark.disable_loganalyzer,
