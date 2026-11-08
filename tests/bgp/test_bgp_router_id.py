@@ -32,22 +32,25 @@ def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
                          module_ignore_errors=module_ignore_errors)
 
 
-def read_frr_router_id(duthost, enum_asic_index):
-    """The frrcfgd router-id in this ASIC's CONFIG_DB (not always Loopback0), or None if unset."""
-    out = run_config_db_cmd(duthost, enum_asic_index,
-                            'hget "BGP_GLOBALS|default" "router_id"')
-    value = (out.get("stdout") or "").strip()
-    return value or None
+def set_custom_router_id(duthost, enum_asic_index):
+    """Set CUSTOMIZED_BGP_ROUTER_ID where the active daemon reads it; return the restore callable.
 
-
-def restore_frr_router_id(duthost, enum_asic_index, original):
-    """Put back what read_frr_router_id() captured (deleting the field if there was none)."""
-    if original:
-        run_config_db_cmd(duthost, enum_asic_index,
-                          'hset "BGP_GLOBALS|default" "router_id" "{}"'.format(original))
+    bgpcfgd reads DEVICE_METADATA bgp_router_id; frrcfgd reads BGP_GLOBALS|default router_id.
+    """
+    if duthost.get_frr_mgmt_framework_config():
+        key, field = "BGP_GLOBALS|default", "router_id"
+        original = (run_config_db_cmd(duthost, enum_asic_index,
+                                      'hget "{}" "{}"'.format(key, field)).get("stdout") or "").strip()
     else:
-        run_config_db_cmd(duthost, enum_asic_index,
-                          'hdel "BGP_GLOBALS|default" "router_id"')
+        key, field, original = "DEVICE_METADATA|localhost", "bgp_router_id", ""
+    run_config_db_cmd(duthost, enum_asic_index,
+                      'hset "{}" "{}" "{}"'.format(key, field, CUSTOMIZED_BGP_ROUTER_ID))
+
+    def restore():
+        cmd = 'hset "{}" "{}" "{}"'.format(key, field, original) if original else \
+            'hdel "{}" "{}"'.format(key, field)
+        run_config_db_cmd(duthost, enum_asic_index, cmd)
+    return restore
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
@@ -204,27 +207,12 @@ def restart_bgp(duthost, enum_asic_index, tbinfo):
 @pytest.fixture()
 def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    # bgpcfgd reads DEVICE_METADATA bgp_router_id; frrcfgd reads BGP_GLOBALS|default router_id.
-    frr_mode = duthost.get_frr_mgmt_framework_config()
-    original_router_id = None
-    if frr_mode:
-        original_router_id = read_frr_router_id(duthost, enum_frontend_asic_index)
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
-                          .format(CUSTOMIZED_BGP_ROUTER_ID))
-    else:
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+    restore_router_id = set_custom_router_id(duthost, enum_frontend_asic_index)
     restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
     yield
 
-    if frr_mode:
-        restore_frr_router_id(duthost, enum_frontend_asic_index, original_router_id)
-    else:
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    restore_router_id()
     restart_bgp(duthost, enum_frontend_asic_index, tbinfo)
 
 
@@ -232,18 +220,7 @@ def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_fron
 def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip,
                                           tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    # Mode-specific router-id table, as in router_id_setup_and_teardown.
-    frr_mode = duthost.get_frr_mgmt_framework_config()
-    original_router_id = None
-    if frr_mode:
-        original_router_id = read_frr_router_id(duthost, enum_frontend_asic_index)
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
-                          .format(CUSTOMIZED_BGP_ROUTER_ID))
-    else:
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+    restore_router_id = set_custom_router_id(duthost, enum_frontend_asic_index)
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
                       module_ignore_errors=False)
@@ -251,11 +228,7 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
 
     yield
 
-    if frr_mode:
-        restore_frr_router_id(duthost, enum_frontend_asic_index, original_router_id)
-    else:
-        run_config_db_cmd(duthost, enum_frontend_asic_index,
-                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    restore_router_id()
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
                       .format(loopback_ip))

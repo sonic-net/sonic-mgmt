@@ -458,6 +458,13 @@ def _get_af_route_maps_in(config_db, table):
     return result
 
 
+def _soft_clear_in(duthost, peer_groups, neighbors):
+    """Soft-clear inbound so the new policy applies to live sessions (as bgpcfgd does)."""
+    for target in ['peer-group ' + pg for pg in sorted(peer_groups)] + sorted(neighbors):
+        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(target), module_ignore_errors=True)
+    time.sleep(3)
+
+
 def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
     """frr_mgmt_framework path for apply_allow_list."""
     config_db, constants = read_frr_inputs(duthost, namespace)
@@ -508,14 +515,7 @@ def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
                  dest=ALLOW_LIST_FRR_STATE_FILE)
     time.sleep(3)
 
-    # Soft-clear inbound so the new policy applies to live sessions (as bgpcfgd does).
-    for pg in sorted(peer_groups):
-        duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
-                      module_ignore_errors=True)
-    for nbr in sorted(neighbors):
-        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(nbr),
-                      module_ignore_errors=True)
-    time.sleep(3)
+    _soft_clear_in(duthost, peer_groups, neighbors)
 
 
 def _remove_allow_list_frr(duthost, namespace):
@@ -564,13 +564,7 @@ def _remove_allow_list_frr(duthost, namespace):
 
     duthost.shell('rm -rf {}'.format(ALLOW_LIST_FRR_STATE_FILE), module_ignore_errors=True)
     time.sleep(3)
-    for pg in sorted(peer_groups):
-        duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
-                      module_ignore_errors=True)
-    for nbr in sorted(neighbors):
-        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(nbr),
-                      module_ignore_errors=True)
-    time.sleep(3)
+    _soft_clear_in(duthost, peer_groups, neighbors)
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):

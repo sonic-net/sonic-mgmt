@@ -291,7 +291,7 @@ class BgpDualAsn:
         # Delete test-specific BGP_PEER_RANGE entries so rollback can
         # restore BGPVac without listen-range overlap
         test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
-        if _is_frr_mode(duthost):
+        if duthost.get_frr_mgmt_framework_config():
             # Clear the native listen-range rows the test added.
             for ns in _frr_namespaces(duthost):
                 db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
@@ -331,10 +331,6 @@ class BgpDualAsn:
         )
 
 
-def _is_frr_mode(duthost):
-    return bool(duthost.get_frr_mgmt_framework_config())
-
-
 def _frr_namespaces(duthost):
     """The frontend ASIC namespaces the frr-mode helpers must program."""
     return duthost.get_frontend_asic_namespace_list() or [None]
@@ -350,7 +346,7 @@ def _frr_peer_range(duthost, name, ip_range, src_addr=None, peer_asn=None, names
 
 def bgp_peer_range_config_cleanup(duthost):
     """Clean up bgp speaker config to avoid ip range conflict"""
-    if _is_frr_mode(duthost):
+    if duthost.get_frr_mgmt_framework_config():
         # frrcfgd listen ranges live in BGP_GLOBALS_LISTEN_PREFIX; setup_env rollback restores them.
         for ns in _frr_namespaces(duthost):
             db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
@@ -381,7 +377,7 @@ def bgp_peer_range_add_config(
     peer_asn_2=None,
 ):
     """Test to add desired v4&v6 bgp peer config"""
-    if _is_frr_mode(duthost):
+    if duthost.get_frr_mgmt_framework_config():
         # Same three shapes as the GCU path below: v4+v6 pair, add-on v4, add-on v6.
         for ns in _frr_namespaces(duthost):
             if ip_range_name_2 is None:
@@ -486,7 +482,7 @@ def bgp_peer_range_add_config(
 def bgp_peer_range_delete_config(
     duthost, ip_range_name, ip_range, ipv6_range_name, ipv6_range
 ):
-    if _is_frr_mode(duthost):
+    if duthost.get_frr_mgmt_framework_config():
         for ns in _frr_namespaces(duthost):
             _frr_peer_range(duthost, ip_range_name, ip_range, namespace=ns, delete=True)
             _frr_peer_range(duthost, ipv6_range_name, ipv6_range, namespace=ns, delete=True)

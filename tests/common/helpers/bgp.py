@@ -262,10 +262,6 @@ class BGPNeighbor(object):
         self.use_vtysh = use_vtysh
         self.confed_asn = confed_asn
 
-    def _frr_mgmt_framework_mode(self):
-        """Return True if the DUT programs FRR via frrcfgd rather than bgpcfgd."""
-        return self.duthost.get_frr_mgmt_framework_config()
-
     @property
     def _afi_safi(self):
         return "ipv6_unicast" if self.is_ipv6_neighbor else "ipv4_unicast"
@@ -313,7 +309,7 @@ class BGPNeighbor(object):
                 neighbor_type=self.type
             )
 
-            if self._frr_mgmt_framework_mode():
+            if self.duthost.get_frr_mgmt_framework_config():
                 self._add_frr_mgmt_neighbor()
             else:
                 _write_variable_from_j2_to_configdb(
@@ -365,7 +361,7 @@ class BGPNeighbor(object):
             )
         elif not self.is_passive:
             asichost = self.duthost.asic_instance_from_namespace(self.namespace)
-            if self._frr_mgmt_framework_mode():
+            if self.duthost.get_frr_mgmt_framework_config():
                 asichost.run_sonic_db_cli_cmd(
                     "CONFIG_DB del 'BGP_NEIGHBOR|default|{}'".format(self.ip))
                 asichost.run_sonic_db_cli_cmd(
@@ -400,7 +396,7 @@ class BGPNeighbor(object):
                 namespace=self.namespace,
             )
         elif not self.is_passive:
-            frr_mode = self._frr_mgmt_framework_mode()
+            frr_mode = self.duthost.get_frr_mgmt_framework_config()
             for asichost in self.duthost.asics:
                 if asichost.namespace == self.namespace:
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
