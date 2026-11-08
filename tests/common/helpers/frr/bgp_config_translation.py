@@ -870,8 +870,8 @@ def _apply_wcmp(config_db, policy, ipv4_pg, ipv6_pg):
     # unmodeled leaf is actively harmful: sonic_yang validates the WHOLE CONFIG_DB, so it
     # breaks every GCU apply-patch on the DUT, not just BGP ones.
     #
-    # The frr_28543_compat shim happens to strip it today, but that file is documented for
-    # deletion once #28543 lands -- at which point the bug would come back. So treat W-ECMP
+    # The frr_parity_compat shim happens to strip it today, but that file is documented for
+    # deletion once #27192 and #28543 land -- at which point the bug would come back. So treat W-ECMP
     # as what it is: a genuine frrcfgd gap, consistent with BGP_DEVICE_GLOBAL being
     # unsupported (the TSA/IDF/W-ECMP modules are already frr_bgpcfgd_only).
     #

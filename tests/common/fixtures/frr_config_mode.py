@@ -38,7 +38,7 @@ from tests.common.helpers.frr.bgp_config_translation import (
     FrrTranslationError,
     _ROUTE_MAP_UNSUPPORTED_CLAUSES,
 )
-from tests.common.helpers.frr.frr_28543_compat import (      # noqa: DELETE-WITH-28543
+from tests.common.helpers.frr.frr_parity_compat import (      # noqa: DELETE-WITH-FRR-PARITY
     gated_globals_missing_from_image,
     gated_route_map_clauses_missing_from_image,
 )
@@ -460,7 +460,7 @@ def _parse_fingerprint(out):
 def _is_known_clause_gap(line, image_gated_clauses):
     clause = line.split(" | ", 1)[-1]
     return any(clause.startswith(prefix) for prefix, _ in _ROUTE_MAP_UNSUPPORTED_CLAUSES) or \
-        any(clause.startswith(prefix) for prefix in image_gated_clauses)  # noqa: DELETE-WITH-28543
+        any(clause.startswith(prefix) for prefix in image_gated_clauses)  # noqa: DELETE-WITH-FRR-PARITY
 
 
 def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=frozenset(),
@@ -469,7 +469,7 @@ def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=froz
     not rendering now. ``gaps`` are the known frrcfgd gaps that are accepted instead.
 
     ``image_gated_*`` are lines this image cannot carry because the CONFIG_DB field behind
-    them is not in its YANG models yet (sonic-buildimage#28543).
+    them is not in its YANG models yet (sonic-buildimage#27192 / #28543).
     """
     after = _frr_config_fingerprint(duthost)
     dropped, gaps = {}, set()
@@ -481,7 +481,7 @@ def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=froz
             # Prefix-matched: most of these carry a value (e.g. 'keep 1', 'restart-time 240').
             exempt = {o for o in missing
                       if any(o.startswith(p) for p in FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES)}
-            exempt |= (missing & image_gated_globals)     # noqa: DELETE-WITH-28543
+            exempt |= (missing & image_gated_globals)     # noqa: DELETE-WITH-FRR-PARITY
         else:
             exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
         gaps.update("{} {}".format(cat, o) for o in exempt)
@@ -515,10 +515,10 @@ def _assert_config_preserved(duthost, mode, baseline_fp):
     switch-back to traditional mode fail spuriously.
     """
     dropped, gaps = {}, set()
-    # Probed once, not per poll: a pre-#28543 image cannot carry these, so their absence is
-    # expected. Empty once the image carries #28543, tightening the check back up by itself.
-    image_gated = gated_globals_missing_from_image(duthost)   # noqa: DELETE-WITH-28543
-    image_gated_clauses = gated_route_map_clauses_missing_from_image(duthost)  # noqa: DELETE-WITH-28543
+    # Probed once, not per poll: an image without #27192 / #28543 cannot carry these, so their
+    # absence is expected. Empty once the image carries both, tightening the check back up by itself.
+    image_gated = gated_globals_missing_from_image(duthost)   # noqa: DELETE-WITH-FRR-PARITY
+    image_gated_clauses = gated_route_map_clauses_missing_from_image(duthost)  # noqa: DELETE-WITH-FRR-PARITY
     if image_gated:
         logger.info("Image predates sonic-buildimage#28543; these globals cannot survive the "
                     "switch and are not counted as dropped: %s", sorted(image_gated))

@@ -1,9 +1,10 @@
-"""TEMPORARY compatibility shim -- DELETE THIS ENTIRE FILE when sonic-buildimage#28543
-("[frrcfgd] BGP feature parity with bgpcfgd") is in the images under test.
+"""TEMPORARY compatibility shim -- DELETE THIS ENTIRE FILE once both sonic-buildimage#27192
+(PROTOCOL_ROUTE_MAP and route-map ``set src``) and sonic-buildimage#28543 ("[frrcfgd] BGP
+feature parity with bgpcfgd", everything else in ``GATED_NAMES``) are in the images under test.
 
 Removal is intentionally two steps, both trivial:
 
-  1. ``git rm tests/common/helpers/frr/frr_28543_compat.py``
+  1. ``git rm tests/common/helpers/frr/frr_parity_compat.py``
   2. in ``frr_config_mode_migrator.py``, delete the ``strip_unsupported_by_image`` import
      and the single call to it in ``to_frr_mgmt_framework()``
 
@@ -14,8 +15,8 @@ When the shim goes away the translator's real output simply reaches the DUT.
 
 Why it is needed
 ----------------
-sonic-buildimage#28543 adds both the frrcfgd handlers and the sonic-yang models for a
-handful of CONFIG_DB names (see ``GATED_NAMES``). Writing one of those into CONFIG_DB on
+sonic-buildimage#27192 and #28543 add both the frrcfgd handlers and the sonic-yang models
+for a handful of CONFIG_DB names (see ``GATED_NAMES``). Writing one of those into CONFIG_DB on
 an image that predates it is not merely inert: GCU's ``apply-patch`` runs YANG validation
 over the *whole* CONFIG_DB, so a single unmodeled leaf in an otherwise-modeled table makes
 **every** GCU operation on that DUT fail::
@@ -31,9 +32,9 @@ The tests that actually depend on these names are already skipped in frr mode vi
 
 Self-clearing
 -------------
-Support is probed from the DUT's own YANG models rather than hardcoded, so an image that
-already carries #28543 keeps the full config with no code change -- this file becomes a
-no-op before anyone gets around to deleting it.
+Support is probed per name from the DUT's own YANG models rather than hardcoded, so the
+two PRs can land in either order: an image keeps every name it models with no code change,
+and once it carries both PRs this file is a no-op before anyone gets around to deleting it.
 """
 import logging
 
@@ -41,21 +42,21 @@ logger = logging.getLogger(__name__)
 
 YANG_MODELS_DIR = "/usr/local/yang-models"
 
-# CONFIG_DB names added by sonic-buildimage#28543 -- table names and leaf names alike.
+# CONFIG_DB names added by sonic-buildimage#27192 or #28543 -- table names and leaf names alike.
 # A name is stripped unless the DUT's YANG models mention it.
 GATED_NAMES = (
-    "PROTOCOL_ROUTE_MAP",            # table: zebra 'ip[v6] protocol <proto> route-map <rm>'
-    "ebgp_requires_policy",          # BGP_GLOBALS: 'no bgp ebgp-requires-policy'
-    "set_on_match_action",           # ROUTE_MAP: 'on-match next' / 'on-match goto <seq>'
+    "PROTOCOL_ROUTE_MAP",            # #27192 table: zebra 'ip[v6] protocol <proto> route-map <rm>'
+    "ebgp_requires_policy",          # #28543 BGP_GLOBALS: 'no bgp ebgp-requires-policy'
+    "set_on_match_action",           # #28543 ROUTE_MAP: 'on-match next' / 'on-match goto <seq>'
     "set_on_match_goto",
-    "set_src",                       # ROUTE_MAP: zebra 'set src <addr>'
+    "set_src",                       # #27192 ROUTE_MAP: zebra 'set src <addr>'
     # NOTE: set_extcommunity_bandwidth_type is deliberately NOT listed. It is not added by
-    # #28543 and has no leaf in sonic-route-map.yang at all, so it must never be emitted --
+    # either PR and has no leaf in sonic-route-map.yang at all, so it must never be emitted --
     # the translator now records W-ECMP as a frrcfgd gap instead of writing the field.
 )
 
 
-# FRR running-config lines whose backing CONFIG_DB name is gated by #28543. On an image that
+# FRR running-config lines whose backing CONFIG_DB name is gated (see GATED_NAMES). On an image that
 # predates it the shim strips the field, so the line legitimately disappears across a mode
 # switch -- the fixture's globals fingerprint must not report that as a translation miss.
 # Only ebgp_requires_policy shows up as a *global*; the other gated names are route-map
@@ -66,7 +67,7 @@ GATED_GLOBAL_LINES = {
 }
 
 
-# Route-map clauses (FRR line prefixes) whose CONFIG_DB field is gated by #28543.
+# Route-map clauses (FRR line prefixes) whose CONFIG_DB field is gated (see GATED_NAMES).
 GATED_ROUTE_MAP_CLAUSES = {
     "on-match ": "set_on_match_action",
     "set src ": "set_src",
@@ -84,7 +85,7 @@ def gated_globals_missing_from_image(duthost):
     """Global running-config lines this image cannot carry across a switch, because the
     CONFIG_DB field behind them is not in its YANG models yet.
 
-    Returns an empty set once the image carries #28543, so the fingerprint tightens back up
+    Returns an empty set once the image carries #28543 (ebgp_requires_policy), so the fingerprint tightens back up
     on its own -- the same self-clearing property as strip_unsupported_by_image().
     """
     supported = _supported_names(duthost)
@@ -97,13 +98,13 @@ def _supported_names(duthost):
     SONiC YANG leaf names match their CONFIG_DB field names, so a plain word-match over
     the model files answers "will sonic_yang reject this?" without parsing YANG. On any
     probe failure return the empty set -- i.e. strip everything, which is the correct
-    (pre-#28543) behavior for an image we cannot interrogate.
+    (pre-#27192/#28543) behavior for an image we cannot interrogate.
     """
     out = duthost.shell(
         "grep -rhowE '{}' {} | sort -u".format("|".join(GATED_NAMES), YANG_MODELS_DIR),
         module_ignore_errors=True)
     if out["rc"] not in (0, 1):    # grep exits 1 for "no matches", which is a real answer
-        logger.warning("Could not read %s on %s (%s); assuming no sonic-buildimage#28543 support",
+        logger.warning("Could not read %s on %s (%s); assuming no sonic-buildimage#27192/#28543 support",
                        YANG_MODELS_DIR, duthost.hostname, out.get("stderr", "").strip())
         return set()
     return {ln.strip() for ln in out["stdout"].splitlines() if ln.strip()} & set(GATED_NAMES)
@@ -113,12 +114,12 @@ def strip_unsupported_by_image(duthost, config):
     """Remove every GATED_NAMES table/field this image has no YANG model for.
 
     Mutates and returns ``config`` (a translated CONFIG_DB dict). A no-op on an image
-    that already carries sonic-buildimage#28543.
+    that already carries both sonic-buildimage#27192 and #28543.
     """
     unsupported = set(GATED_NAMES) - _supported_names(duthost)
     if not unsupported:
-        logger.info("Image on %s models all sonic-buildimage#28543 CONFIG_DB names; "
-                    "frr_28543_compat is a no-op and this file can be deleted",
+        logger.info("Image on %s models all sonic-buildimage#27192/#28543 CONFIG_DB names; "
+                    "frr_parity_compat is a no-op and this file can be deleted",
                     duthost.hostname)
         return config
 
@@ -139,6 +140,6 @@ def strip_unsupported_by_image(duthost, config):
                 stripped.append("{}|{}.{}".format(table, key, field))
     if stripped:
         logger.info("Stripped CONFIG_DB names this image has no YANG model for (needs "
-                    "sonic-buildimage#28543): %s. Keeping them would fail whole-config YANG "
+                    "sonic-buildimage#27192/#28543): %s. Keeping them would fail whole-config YANG "
                     "validation for every GCU operation on this DUT.", sorted(stripped))
     return config

@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from tests.common.helpers.frr.frr_28543_compat import (
+from tests.common.helpers.frr.frr_parity_compat import (
     GATED_GLOBAL_LINES,
     gated_globals_missing_from_image,
 )
