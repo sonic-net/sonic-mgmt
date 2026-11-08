@@ -172,3 +172,86 @@ def test_enum_dut_hostnames_collects_this_module_and_variant_only():
     ]
     request = FakeModuleRequest(items, fixtures={"enum_upstream_dut_hostname": "dut5"})
     assert fcm._enum_dut_hostnames(request) == {"dut2", "dut5"}
+
+
+TRAD, FRR = fcm.MODE_TRADITIONAL, fcm.MODE_FRR_MGMT_FRAMEWORK
+
+
+def _items(*spec):
+    return [FakeItem(module, {"frr_config_mode": mode} if mode else None) for module, mode in spec]
+
+
+def test_items_run_traditional_block_then_frr_block():
+    """One forward switch and one restore per session, instead of two reloads per module."""
+    items = _items(("pretest", None), ("a", TRAD), ("a", FRR), ("acl", None),
+                   ("b", TRAD), ("b", FRR), ("posttest", None))
+    fcm.pytest_collection_modifyitems(None, items)
+    assert [(i.module, fcm._item_mode(i)) for i in items] == [
+        ("pretest", None), ("a", TRAD), ("b", TRAD), ("a", FRR), ("b", FRR),
+        ("acl", None), ("posttest", None)]
+
+
+def test_item_order_untouched_without_frr_items():
+    items = _items(("a", None), ("b", TRAD), ("c", None))
+    before = list(items)
+    fcm.pytest_collection_modifyitems(None, items)
+    assert items == before
+
+
+class FakeDut(object):
+    hostname = "dut1"
+
+    def __init__(self, num_asic=1):
+        self.facts = {"num_asic": num_asic}
+
+    def is_supervisor_node(self):
+        return False
+
+
+class SetupItem(object):
+    def __init__(self, mode, markers=(), session=None, **options):
+        self.callspec = type("CallSpec", (), {"params": {"frr_config_mode": mode}})()
+        self.module = type("Module", (), {"__name__": "test_mod"})
+        self.markers = {m: type("Mark", (), {"args": ()})() for m in markers}
+        self.session = session or type("Session", (), {})()
+        self.config = FakeConfig(**options)
+        self.config.option = type("Option", (), {"enable_macsec": False})()
+
+    def get_closest_marker(self, name):
+        return self.markers.get(name)
+
+
+def _session_with_state(dut, original=TRAD):
+    state = FakeState(FakeMigrator())
+    state.duthost, state.original_mode, state.early_skips = dut, original, {}
+    session = type("Session", (), {})()
+    setattr(session, fcm._SESSION_STATE_ATTR, state)
+    return session
+
+
+def test_bgpcfgd_only_frr_variant_skips_before_any_fixture_runs():
+    with pytest.raises(pytest.skip.Exception):
+        fcm.pytest_runtest_setup(SetupItem(FRR, [fcm.FRR_BGPCFGD_ONLY_MARKER]))
+
+
+def test_frr_generic_frr_variant_skips_early_on_a_bgpcfgd_dut():
+    session = _session_with_state(FakeDut())
+    with pytest.raises(pytest.skip.Exception, match="covered here in the 'traditional' mode"):
+        fcm.pytest_runtest_setup(SetupItem(FRR, [fcm.FRR_GENERIC_MARKER], session))
+    fcm.pytest_runtest_setup(SetupItem(TRAD, [fcm.FRR_GENERIC_MARKER], session))
+
+
+def test_frr_variant_skips_early_on_a_multi_asic_dut():
+    with pytest.raises(pytest.skip.Exception, match="multi-asic"):
+        fcm.pytest_runtest_setup(SetupItem(FRR, session=_session_with_state(FakeDut(num_asic=2))))
+
+
+def test_dual_mode_frr_variant_is_left_to_the_fixture():
+    fcm.pytest_runtest_setup(SetupItem(FRR, session=_session_with_state(FakeDut())))
+
+
+def test_frr_generic_falls_back_to_frr_on_a_native_frrcfgd_dut():
+    session = _session_with_state(FakeDut(), original=FRR)
+    fcm.pytest_runtest_setup(SetupItem(FRR, [fcm.FRR_GENERIC_MARKER], session))
+    with pytest.raises(pytest.skip.Exception):
+        fcm.pytest_runtest_setup(SetupItem(TRAD, [fcm.FRR_GENERIC_MARKER], session))

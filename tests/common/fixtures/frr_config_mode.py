@@ -562,15 +562,57 @@ def _is_switchless_node(duthost):
         return False
 
 
+def _skip_reason(node, duthost, state, mode):
+    """Why ``mode`` cannot or need not run for this module on this DUT, or None.
+
+    ``node`` is the module (or one of its items); a skip is decided per module and variant.
+    """
+    bgpcfgd_only = node.get_closest_marker(FRR_BGPCFGD_ONLY_MARKER)
+    if bgpcfgd_only and mode == MODE_FRR_MGMT_FRAMEWORK:
+        reason = (bgpcfgd_only.args[0] if bgpcfgd_only.args
+                  else "this module asserts bgpcfgd-specific behaviour")
+        return "frr_mgmt_framework mode not supported for this module: {}".format(reason)
+
+    # frr_generic modules re-test FRR, not the config daemon, in a second mode. Both params
+    # are kept so test IDs (conditional_mark keys, -k) stay stable and the skip names the
+    # mode that ran.
+    if node.get_closest_marker(FRR_GENERIC_MARKER):
+        chosen = _generic_mode(duthost, node, state.original_mode)
+        if chosen is not None and mode != chosen:
+            return ("Module is marked '{}' (mode-generic: it does not exercise the "
+                    "bgpcfgd<->frrcfgd config translation), so it runs in one mode only; "
+                    "covered here in the '{}' mode".format(FRR_GENERIC_MARKER, chosen))
+
+    if mode == state.original_mode:
+        return None
+    # The reload disrupts macsec-protected sessions, which re-negotiate slowly and flakily.
+    if getattr(node.config.option, "enable_macsec", False):
+        return ("FRR config-mode switching is skipped with --enable_macsec (the reload "
+                "disrupts macsec sessions); only the DUT's native '{}' mode is exercised"
+                .format(state.original_mode))
+    # Multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
+    # supervisor nodes run no bgp container.
+    if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
+        return ("FRR config-mode switching is not supported on this DUT (multi-asic or "
+                "supervisor/no-bgp node); only the DUT's native '{}' mode is "
+                "exercised".format(state.original_mode))
+    # The translator only converts traditional -> frr.
+    if state.original_mode != MODE_TRADITIONAL:
+        return ("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
+                "this DUT boots in {}, so only that mode can be exercised".format(
+                    state.original_mode))
+    return None
+
+
 class _FrrModeSessionState(object):
     """Per-session FRR config-mode state.
 
     Deliberately session-scoped rather than per-module. The mode is a property of the DUT,
     not of a test module, so tracking it per module made every parametrized module switch
     into frr and then immediately switch back -- two `config reload`s each, even when the
-    very next module wanted the same mode. pytest already groups tests by the module-scoped
-    param, so consecutive same-mode modules now cost zero extra switches and the DUT is
-    restored once, in pytest_sessionfinish.
+    very next module wanted the same mode. pytest_collection_modifyitems runs all
+    [traditional] items before all [frr_mgmt_framework] ones, so a session switches once and
+    restores once.
 
     Note the DUT cannot depend on a session-scoped fixture here: rand_one_dut_hostname is
     module-scoped, so this is stashed on the session object and initialised lazily by the
@@ -586,6 +628,7 @@ class _FrrModeSessionState(object):
         # checks compare it across a module to tell "a `config reload` happened while this
         # module ran" from "the DUT was already in this mode when the module started".
         self.switch_count = 0
+        self.early_skips = {}
         self.baseline_neighbors = None
         self.baseline_fingerprint = None
 
@@ -682,6 +725,47 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("frr_config_mode", modes, indirect=True, scope="module")
 
 
+def _item_mode(item):
+    callspec = getattr(item, "callspec", None)
+    return callspec.params.get("frr_config_mode") if callspec is not None else None
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items):
+    """Run every frr_config_mode item as one block, all [traditional] before all
+    [frr_mgmt_framework], so a session switches the DUT at most once each way."""
+    modes = [_item_mode(item) for item in items]
+    if MODE_FRR_MGMT_FRAMEWORK not in modes:
+        return
+    first = next(i for i, mode in enumerate(modes) if mode is not None)
+    block = ([item for item, mode in zip(items, modes) if mode == MODE_TRADITIONAL]
+             + [item for item, mode in zip(items, modes) if mode == MODE_FRR_MGMT_FRAMEWORK])
+    rest = [item for item, mode in zip(items[first:], modes[first:]) if mode is None]
+    items[first:] = block + rest
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    """Skip a variant already known to be unreachable before any module fixture sets up.
+
+    Without DUT state (before the first frr_config_mode module) only the marker-only case is
+    known; the fixture decides the rest.
+    """
+    mode = _item_mode(item)
+    if mode is None:
+        return
+    state = getattr(item.session, _SESSION_STATE_ATTR, None)
+    if state is None:
+        if mode == MODE_FRR_MGMT_FRAMEWORK and item.get_closest_marker(FRR_BGPCFGD_ONLY_MARKER):
+            pytest.skip(_skip_reason(item, None, None, mode))
+        return
+    key = (item.module.__name__, mode)
+    if key not in state.early_skips:
+        state.early_skips[key] = _skip_reason(item, state.duthost, state, mode)
+    if state.early_skips[key]:
+        pytest.skip(state.early_skips[key])
+
+
 @pytest.fixture(scope="module")
 def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     """Run a test in BOTH the traditional (bgpcfgd) and frr_mgmt_framework (frrcfgd)
@@ -710,7 +794,7 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     threshold would misread as a leak.
 
     Switching is expensive (a config reload), so the fixture is module-scoped --
-    pytest groups same-mode instances, switching at most twice per module -- and it
+    a session switches at most once each way (see pytest_collection_modifyitems) -- and it
     skips the switch when the DUT is already in the requested mode.
 
     Strictness: the BGP neighbors established, and the set of BGP config objects FRR
@@ -747,67 +831,9 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     # Initialising it also recovers from a previous run that died mid-switch.
     state = _session_state(request, duthost)
 
-    # frr_generic modules are mode-generic: they assert FRR / dataplane / kernel behavior
-    # over config established at boot and do not exercise the bgpcfgd<->frrcfgd schema
-    # translation, so running the body in both modes re-tests FRR, not the config daemon.
-    # Run them in ONE mode (see FRR_GENERIC_DEFAULT_MODE) and skip the other variant.
-    #
-    # Both params are deliberately kept rather than collapsing to one, so test IDs stay
-    # [traditional] / [frr_mgmt_framework] (conditional_mark keys and -k selection depend
-    # on them), the report states which mode actually ran, and -- crucially -- a DUT that
-    # cannot reach frr mode (no golden config, multi-asic, macsec, non-traditional boot)
-    # still runs the module in traditional instead of skipping it entirely.
-    bgpcfgd_only = request.node.get_closest_marker(FRR_BGPCFGD_ONLY_MARKER)
-    if bgpcfgd_only and mode == MODE_FRR_MGMT_FRAMEWORK:
-        reason = (bgpcfgd_only.args[0] if bgpcfgd_only.args
-                  else "this module asserts bgpcfgd-specific behaviour")
-        pytest.skip("frr_mgmt_framework mode not supported for this module: {}".format(reason))
-
-    if request.node.get_closest_marker(FRR_GENERIC_MARKER):
-        chosen = _generic_mode(duthost, request, state.original_mode)
-        if chosen is not None and mode != chosen:
-            pytest.skip(
-                "Module is marked '{}' (mode-generic: it does not exercise the "
-                "bgpcfgd<->frrcfgd config translation), so it runs in one mode only; "
-                "covered here in the '{}' mode".format(FRR_GENERIC_MARKER, chosen))
-
-    # macsec: the mode-switch config reload disrupts macsec-protected PortChannel/BGP
-    # sessions, which re-negotiate slowly and flakily after a reload (so the switch-back's
-    # BGP-preservation check fails even though the test bodies pass). Mode switching is
-    # orthogonal to the BGP config schema, and the generic DUT-health checks already disable
-    # themselves under --enable_macsec, so run only the DUT's native mode here too.
-    if getattr(request.config.option, "enable_macsec", False):
-        if mode == state.original_mode:
-            yield mode
-            return
-        pytest.skip("FRR config-mode switching is skipped with --enable_macsec (the reload "
-                    "disrupts macsec sessions); only the DUT's native '{}' mode is exercised"
-                    .format(state.original_mode))
-
-    # Some DUTs cannot have their BGP config-mode switched:
-    #   * multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
-    #   * supervisor/chassis-control nodes run no bgp container at all (a mode switch there
-    #     dies in the migrator's ``vtysh`` call -- "container ... is not running").
-    # Rather than skip the module outright (which would turn an otherwise-passing test into
-    # a skip on its native topology, e.g. a t2 chassis), run only the DUT's native mode as a
-    # no-op and skip the other mode variant.
-    if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
-        if mode == state.original_mode:
-            yield mode
-            return
-        pytest.skip("FRR config-mode switching is not supported on this DUT (multi-asic or "
-                    "supervisor/no-bgp node); only the DUT's native '{}' mode is "
-                    "exercised".format(state.original_mode))
-
-    # The translator only converts traditional -> frr (the reverse is a config_db
-    # backup-restore, not a translation), so a mode other than the DUT's
-    # original one is only reachable from a traditional start. A run that stays in the DUT's
-    # original mode (e.g. --frr-config-mode=frr_mgmt_framework on a DUT that already boots in
-    # frr_mgmt_framework) needs no switch and no translation, so allow it.
-    if mode != state.original_mode and state.original_mode != MODE_TRADITIONAL:
-        pytest.skip("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
-                    "this DUT boots in {}, so only that mode can be exercised".format(
-                        state.original_mode))
+    reason = _skip_reason(request.node, duthost, state, mode)
+    if reason:
+        pytest.skip(reason)
 
     if mode != state.original_mode:
         others = _enum_dut_hostnames(request) - {duthost.hostname}

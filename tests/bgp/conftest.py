@@ -41,9 +41,9 @@ from tests.common.helpers.bgp import flatten_bgp_neighbors
 # makes an informed decision: mark it `frr_generic` (mode-irrelevant, run once) or
 # `frr_bgpcfgd_only(reason)` (by design unsupported, skip the frr variant).
 #
-# The cost is bounded: frr_config_mode tracks the mode per SESSION, so pytest's grouping by
-# the module-scoped param means consecutive same-mode modules cost zero extra switches and the
-# DUT is restored once at the end of the run -- not two `config reload`s per module.
+# The cost is bounded: frr_config_mode tracks the mode per SESSION and runs all [traditional]
+# items before all [frr_mgmt_framework] ones, so a run switches the DUT once and restores it
+# once -- not two `config reload`s per module.
 @pytest.fixture(scope="module", autouse=True)
 def _frr_config_mode_autouse(frr_config_mode):
     """Parametrize every test under tests/bgp/ over the FRR config modes.

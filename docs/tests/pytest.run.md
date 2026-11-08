@@ -113,6 +113,8 @@ Notes:
   the DUT; without it, mode-switching tests skip with a clear reason.
 * Mode-switching is single-ASIC only for now; on multi-ASIC / supervisor nodes the fixture
   runs the DUT's native mode only.
+* Opted-in tests run as one block, every `[traditional]` variant before every
+  `[frr_mgmt_framework]` one, so a run switches the DUT once and restores it once.
 
 ### `frr_generic` modules: one mode instead of two
 
