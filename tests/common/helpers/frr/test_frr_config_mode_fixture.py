@@ -138,3 +138,37 @@ def test_dual_mode_module_is_left_in_its_mode(monkeypatch):
 
 def test_no_restore_when_the_dut_is_already_in_its_boot_mode(monkeypatch):
     assert _run_restore_fixture(FakeRequest(FakeState(FakeMigrator())), monkeypatch) == []
+
+
+class FakeItem(object):
+    def __init__(self, module, params=None, fixturenames=()):
+        self.module = module
+        if params is not None:
+            self.callspec = type("CallSpec", (), {"params": params})()
+        self.fixturenames = list(fixturenames)
+
+
+class FakeModuleRequest(object):
+    def __init__(self, items, module="mod", param=fcm.MODE_FRR_MGMT_FRAMEWORK, fixtures=None):
+        self.session = type("Session", (), {"items": items})()
+        self.module = module
+        self.param = param
+        self.fixtures = fixtures or {}
+
+    def getfixturevalue(self, name):
+        return self.fixtures[name]
+
+
+def test_enum_dut_hostnames_collects_this_module_and_variant_only():
+    frr = fcm.MODE_FRR_MGMT_FRAMEWORK
+    items = [
+        FakeItem("mod", {"frr_config_mode": frr, "enum_frontend_dut_hostname": "dut2"}),
+        FakeItem("mod", {"frr_config_mode": fcm.MODE_TRADITIONAL,
+                         "enum_frontend_dut_hostname": "dut3"}),
+        FakeItem("other", {"frr_config_mode": frr, "enum_frontend_dut_hostname": "dut4"}),
+        FakeItem("mod", {"frr_config_mode": frr},
+                 fixturenames=["enum_upstream_dut_hostname"]),
+        FakeItem("mod"),
+    ]
+    request = FakeModuleRequest(items, fixtures={"enum_upstream_dut_hostname": "dut5"})
+    assert fcm._enum_dut_hostnames(request) == {"dut2", "dut5"}

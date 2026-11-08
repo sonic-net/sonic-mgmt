@@ -213,9 +213,9 @@ def frr_mode_perturbed(request, since_switch_count=None):
 def skip_if_dut_not_switched(request, duthost):
     """Skip when ``duthost`` is not the DUT ``frr_config_mode`` switched.
 
-    The fixture switches ``rand_one_dut_hostname``. A module that configures or asserts FRR
-    behaviour on a DIFFERENT DUT -- one chosen by ``enum_rand_one_per_hwsku_frontend_hostname``,
-    ``enum_frontend_dut_hostname``, or its own source/destination selection -- would otherwise
+    The fixture switches ``rand_one_dut_hostname``, and itself skips modules whose ``enum_*``
+    DUT fixtures select another DUT. A module that picks its own source/destination DUTs and
+    configures or asserts FRR behaviour on a DIFFERENT one would otherwise
     report frr coverage while running against a DUT still in traditional mode. That is worse
     than no coverage when the module's read side normalises both schemas, because the
     ``[frr_mgmt_framework]`` variant then passes without having exercised frrcfgd at all.
@@ -534,6 +534,24 @@ def _generic_mode(duthost, request, original_mode):
     return None
 
 
+_ENUM_DUT_FIXTURES = ("enum_upstream_dut_hostname", "enum_downstream_dut_hostname")
+
+
+def _enum_dut_hostnames(request):
+    """Hostnames this module's tests (in this mode variant) select via ``enum_*`` fixtures."""
+    hosts = set()
+    for item in request.session.items:
+        callspec = getattr(item, "callspec", None)
+        if (item.module is not request.module or callspec is None
+                or callspec.params.get("frr_config_mode") != request.param):
+            continue
+        hosts.update(value for name, value in callspec.params.items()
+                     if name.startswith("enum_") and name.endswith("hostname"))
+        hosts.update(request.getfixturevalue(name) for name in _ENUM_DUT_FIXTURES
+                     if name in item.fixturenames)
+    return hosts
+
+
 def _is_switchless_node(duthost):
     """True for DUTs with no switchable BGP stack -- e.g. supervisor / chassis-control
     cards, which run no bgp container. A mode switch there is meaningless and the
@@ -709,12 +727,10 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     the same host.
 
     They do on a single-DUT topology, but NOT in general: a dualtor testbed has two
-    single-ASIC frontend DUTs, so the multi-ASIC no-switch branch below does not save us,
-    and a multi-DUT T2 enumerates several. Such a module must call
-    :func:`skip_if_dut_not_switched` from its setup with the DUT it operates on, so the frr
-    variant skips rather than reporting frr coverage for a DUT still in its original mode.
-    That matters most where the module's read side normalises both schemas -- the variant
-    would otherwise pass without exercising frrcfgd at all.
+    single-ASIC frontend DUTs, and a multi-DUT T2 enumerates several. So the frr variant is
+    skipped, before switching, when the module's tests select any other DUT through those
+    ``enum_*`` fixtures. A module that picks its DUTs itself must call
+    :func:`skip_if_dut_not_switched` from its setup with the DUT it operates on.
 
     Widening this to switch every DUT under test would need per-DUT migrators and baselines.
 
@@ -792,6 +808,13 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
         pytest.skip("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
                     "this DUT boots in {}, so only that mode can be exercised".format(
                         state.original_mode))
+
+    if mode != state.original_mode:
+        others = _enum_dut_hostnames(request) - {duthost.hostname}
+        if others:
+            pytest.skip("frr_config_mode switches only '{}', but this module also drives {}; "
+                        "skip rather than report frr_mgmt_framework coverage for DUTs still in "
+                        "their original mode".format(duthost.hostname, sorted(others)))
 
     if state.applied_mode != mode:
         # A mode switch persists the new mode in golden config so it survives the reload; a
