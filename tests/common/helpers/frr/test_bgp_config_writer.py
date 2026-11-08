@@ -3,6 +3,10 @@ import pytest
 from tests.common.helpers.frr.bgp_config_translation import FrrTranslationError
 from tests.common.helpers.frr.bgp_config_writer import to_frr_rows
 
+pytestmark = [
+    pytest.mark.topology('any')
+]
+
 CONFIG_DB = {
     "DEVICE_METADATA": {"localhost": {"bgp_asn": "65100"}},
     "BGP_PEER_GROUP_AF": {"default|PEER_V4|ipv4_unicast": {}, "default|PEER_V6|ipv6_unicast": {},
