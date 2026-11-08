@@ -939,3 +939,10 @@ def test_zebra_device_knobs_carried_into_device_metadata():
 def test_zebra_device_knobs_absent_leave_device_metadata_alone():
     meta = translate_config_db(_base_config_db(), "", _peer_group_json())["DEVICE_METADATA"]["localhost"]
     assert "nexthop_group_keep_time" not in meta and "zebra_nexthop" not in meta
+
+
+def test_prefix_list_rows_raise():
+    cfg = _base_config_db()
+    cfg["PREFIX_LIST"] = {"ANCHOR_PREFIX|fc00:1::/48": {}}
+    with pytest.raises(FrrTranslationError, match="PREFIX_LIST"):
+        translate_config_db(cfg, "", _peer_group_json())

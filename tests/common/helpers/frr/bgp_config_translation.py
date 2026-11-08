@@ -992,6 +992,10 @@ def translate_config_db(config_db, running_config, peer_group_json):
     :raises FrrTranslationError: on config that cannot be faithfully translated.
     """
     result = copy.deepcopy(config_db)
+    if result.get("PREFIX_LIST"):
+        # bgpcfgd's PrefixListMgr renders these (anchor aggregates); frrcfgd has no handler.
+        raise FrrTranslationError(
+            "PREFIX_LIST rows {} have no frrcfgd translation".format(sorted(result["PREFIX_LIST"])))
     bgp_asn = _bgp_asn(result)
     router_id = _router_id(result)
 
