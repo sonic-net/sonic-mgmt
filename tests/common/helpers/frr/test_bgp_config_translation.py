@@ -869,3 +869,55 @@ def test_confed_external_group_is_not_primary_and_uses_its_real_route_maps():
     assert out["BGP_PEER_GROUP_AF"]["default|PEER_V4|ipv4_unicast"]["allow_as_in"] == "true"
     assert out["BGP_NEIGHBOR_AF"]["default|10.0.0.9|ipv4_unicast"]["route_map_in"] == ["FROM_BGP_PEER_V4"]
     assert out["BGP_NEIGHBOR"]["default|10.0.0.9"]["peer_group_name"] == "PEER_EXTERNAL_V4"
+
+
+# --------------------------------------------------------------------------- #
+# BGP unnumbered (sonic-buildimage#27370)
+# --------------------------------------------------------------------------- #
+
+_UNNUMBERED_RUNNING = "\n".join([
+    "router bgp 65100",
+    " neighbor PEER_UNNUMBERED peer-group",
+    " neighbor PEER_UNNUMBERED capability extended-nexthop",
+    " neighbor Ethernet0 interface peer-group PEER_UNNUMBERED",
+    " address-family ipv4 unicast",
+    "  neighbor PEER_UNNUMBERED allowas-in 1",
+    "  neighbor PEER_UNNUMBERED route-map FROM_BGP_PEER_UNNUMBERED_V4 in",
+    "  neighbor PEER_UNNUMBERED route-map TO_BGP_PEER_UNNUMBERED_V4 out",
+    "  neighbor Ethernet0 activate",
+    " exit-address-family",
+    " address-family ipv6 unicast",
+    "  neighbor PEER_UNNUMBERED route-map FROM_BGP_PEER_UNNUMBERED_V6 in",
+    "  neighbor PEER_UNNUMBERED route-map TO_BGP_PEER_UNNUMBERED_V6 out",
+    "  neighbor Ethernet0 activate",
+    " exit-address-family",
+])
+
+
+def test_unnumbered_neighbor_translated_to_interface_neighbor():
+    cfg = _base_config_db()
+    cfg["BGP_NEIGHBOR"]["Ethernet0"] = {"admin_status": "up", "asn": "65300", "name": "T0-1"}
+    pg_json = {"PEER_UNNUMBERED": {"members": {"Ethernet0": {}},
+                                   "addressFamilyInfo": "IPv4 Unicast, IPv6 Unicast"},
+               **_peer_group_json()}
+    out = translate_config_db(cfg, _UNNUMBERED_RUNNING, pg_json)
+    assert out["BGP_NEIGHBOR"]["default|Ethernet0"]["peer_group_name"] == "PEER_UNNUMBERED"
+    assert out["BGP_NEIGHBOR_AF"]["default|Ethernet0|ipv4_unicast"]["route_map_in"] == [
+        "FROM_BGP_PEER_UNNUMBERED_V4"]
+    assert out["BGP_NEIGHBOR_AF"]["default|Ethernet0|ipv6_unicast"]["route_map_out"] == [
+        "TO_BGP_PEER_UNNUMBERED_V6"]
+    assert out["BGP_PEER_GROUP"]["default|PEER_UNNUMBERED"]["capability_ext_nexthop"] == "true"
+    v4 = out["BGP_PEER_GROUP_AF"]["default|PEER_UNNUMBERED|ipv4_unicast"]
+    assert (v4["allow_as_in"], v4["allow_as_count"]) == ("true", "1")
+    assert "default|Ethernet0" not in out["BGP_PEER_GROUP"]
+    # PEER_V4/V6 stay primary and keep their own neighbors.
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.1"]["peer_group_name"] == "PEER_V4"
+
+
+def test_unnumbered_neighbor_address_family_limits_its_afs():
+    cfg = _base_config_db()
+    cfg["BGP_NEIGHBOR"]["Ethernet4"] = {"admin_status": "up", "asn": "65300", "address_family": "v6"}
+    out = translate_config_db(cfg, "", _peer_group_json())
+    assert "default|Ethernet4|ipv4_unicast" not in out["BGP_NEIGHBOR_AF"]
+    assert "default|Ethernet4|ipv6_unicast" in out["BGP_NEIGHBOR_AF"]
+    assert "address_family" not in out["BGP_NEIGHBOR"]["default|Ethernet4"]

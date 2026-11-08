@@ -44,12 +44,17 @@ logger = logging.getLogger(__name__)
 DEFAULT_VRF = "default"
 DEFAULT_IPV4_PEER_GROUP = "PEER_V4"
 DEFAULT_IPV6_PEER_GROUP = "PEER_V6"
+DEFAULT_UNNUMBERED_PEER_GROUP = "PEER_UNNUMBERED"
+# bgpcfgd's interface-neighbor fallback (TemplateFabric.is_interface, sonic-buildimage#27370).
+_INTERFACE_RE = re.compile(r"^(Ethernet\d+|PortChannel\d+|Vlan\d+)(\.\d+)?$"
+                           r"|^Ethernet-(BP|IB|Rec)\d+$|^(Eth\d+|Po\d+)\.\d+$")
+_UNNUMBERED_AFS = {"v4": ["ipv4_unicast"], "v6": ["ipv6_unicast"]}
 
 # Fields present on a traditional BGP_NEIGHBOR row that do not belong on the frrcfgd
 # BGP_NEIGHBOR row: rrclient/nhopself are re-emitted onto the neighbor's BGP_NEIGHBOR_AF
 # row (as route-reflector-client / next-hop-self), and admin_status is carried through
 # explicitly below -- so they are stripped here only to be placed correctly.
-_NEIGHBOR_EXCLUDED_KEYS = ("nhopself", "rrclient", "admin_status")
+_NEIGHBOR_EXCLUDED_KEYS = ("nhopself", "rrclient", "admin_status", "address_family")
 
 
 class FrrTranslationError(Exception):
@@ -67,6 +72,14 @@ def _afi_safi(ip):
         raise FrrTranslationError(
             "BGP neighbor address {!r} is neither a valid IPv4 nor IPv6 address".format(ip))
     return "ipv4_unicast" if version == 4 else "ipv6_unicast"
+
+
+def _is_ip(name):
+    try:
+        ipaddress.ip_address(str(name))
+        return True
+    except ValueError:
+        return False
 
 
 def _loopback0_addrs(config_db):
@@ -134,8 +147,10 @@ def _peer_groups(peer_group_json):
         members = info.get("members", {}) if isinstance(info, dict) else {}
         for member in members:
             pg_by_neighbor[member] = name
-        has_v4 = any("." in m for m in members)
-        has_v6 = any(":" in m for m in members)
+        # Interface (unnumbered) members say nothing about the group's address family.
+        ips = [m for m in members if _is_ip(m)]
+        has_v4 = any("." in m for m in ips)
+        has_v6 = any(":" in m for m in ips)
         # Fall back to the address family declared on the group if it has no members yet.
         if not members:
             af = info.get("addressFamilyInfo", "") if isinstance(info, dict) else ""
@@ -673,8 +688,13 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbo
             vrf, ip = key.split("|", 1)
         else:
             vrf, ip = DEFAULT_VRF, key
-        af = _afi_safi(ip)
-        pg = pg_by_neighbor.get(ip) or (ipv4_pg if af == "ipv4_unicast" else ipv6_pg)
+        if _INTERFACE_RE.match(ip):
+            # Unnumbered: frrcfgd renders 'neighbor <intf> interface' for a non-IP key.
+            afs = _UNNUMBERED_AFS.get(value.get("address_family"), ["ipv4_unicast", "ipv6_unicast"])
+            pg = pg_by_neighbor.get(ip) or DEFAULT_UNNUMBERED_PEER_GROUP
+        else:
+            afs = [_afi_safi(ip)]
+            pg = pg_by_neighbor.get(ip) or (ipv4_pg if afs[0] == "ipv4_unicast" else ipv6_pg)
         # Carry the source admin_status through (default up when absent) rather than
         # forcing up -- an admin_status="down" neighbor must not silently come up.
         admin_status = value.get("admin_status", "up")
@@ -682,20 +702,21 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbo
         row.update({"vrf_name": vrf, "neighbor": ip, "admin_status": admin_status,
                     "peer_group_name": pg})
         neighbors["{}|{}".format(vrf, ip)] = row
-        rin, rout = _pg_route_maps(peer_group_af or {}, pg, af, route_map_names)
-        af_row = {
-            "admin_status": admin_status, "vrf_name": vrf, "neighbor": ip, "afi_safi": af,
-            "route_map_in": rin, "route_map_out": rout,
-        }
-        # rrclient/nhopself are AF-level in frrcfgd (route-reflector-client / next-hop-self).
-        # Re-emit them onto the neighbor's AF row when enabled so a route-reflector client
-        # or next-hop-self neighbor is not silently dropped on the switch; the no-op
-        # ("0"/"false"/absent) case needs no line.
-        if value.get("rrclient") in ("1", "true"):
-            af_row["rrclient"] = "true"
-        if value.get("nhopself") in ("1", "true"):
-            af_row["nhself"] = "true"
-        neighbor_af["{}|{}|{}".format(vrf, ip, af)] = af_row
+        for af in afs:
+            rin, rout = _pg_route_maps(peer_group_af or {}, pg, af, route_map_names)
+            af_row = {
+                "admin_status": admin_status, "vrf_name": vrf, "neighbor": ip, "afi_safi": af,
+                "route_map_in": rin, "route_map_out": rout,
+            }
+            # rrclient/nhopself are AF-level in frrcfgd (route-reflector-client / next-hop-self).
+            # Re-emit them onto the neighbor's AF row when enabled so a route-reflector client
+            # or next-hop-self neighbor is not silently dropped on the switch; the no-op
+            # ("0"/"false"/absent) case needs no line.
+            if value.get("rrclient") in ("1", "true"):
+                af_row["rrclient"] = "true"
+            if value.get("nhopself") in ("1", "true"):
+                af_row["nhself"] = "true"
+            neighbor_af["{}|{}|{}".format(vrf, ip, af)] = af_row
     return neighbors, neighbor_af
 
 
@@ -727,8 +748,8 @@ def _extract_extra_peer_groups(running_config, bgp_asn):
         if len(parts) < 2:
             continue
         name = parts[1]
-        # Skip IP neighbors (handled by _build_neighbors).
-        if "." in name or ":" in name:
+        # Skip IP and interface neighbors (handled by _build_neighbors).
+        if "." in name or ":" in name or _INTERFACE_RE.match(name):
             continue
         pg_key = "{}|{}".format(DEFAULT_VRF, name)
         row = peer_group.setdefault(pg_key, {
@@ -744,6 +765,8 @@ def _extract_extra_peer_groups(running_config, bgp_asn):
                 row["local_addr"] = parts[3]
             elif attr == "passive":
                 row["passive_mode"] = "true"
+            elif attr == "capability" and parts[3:4] == ["extended-nexthop"]:
+                row["capability_ext_nexthop"] = "true"
             elif attr == "ebgp-multihop":
                 row["ebgp_multihop"] = "true"
                 if len(parts) > 3:
@@ -761,6 +784,12 @@ def _extract_extra_peer_groups(running_config, bgp_asn):
                     af_row.setdefault("route_map_in", []).append(rm_name)
                 elif direction == "out":
                     af_row.setdefault("route_map_out", []).append(rm_name)
+            elif attr == "allowas-in":
+                af_row["allow_as_in"] = "true"
+                if parts[3:4] == ["origin"]:
+                    af_row["allow_as_origin"] = "true"
+                elif len(parts) > 3:
+                    af_row["allow_as_count"] = parts[3]
             elif attr == "soft-reconfiguration" and len(parts) > 3 and parts[3] == "inbound":
                 af_row["soft_reconfiguration_in"] = "true"
             elif attr == "activate":
