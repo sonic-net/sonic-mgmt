@@ -102,3 +102,39 @@ def test_sessionfinish_cleans_up_after_a_clean_run():
     migrator = FakeMigrator()
     fcm.pytest_sessionfinish(FakeSession(FakeState(migrator)), 0)
     assert migrator.cleaned
+
+
+class FakeNode(object):
+    def __init__(self, markers=()):
+        self.name = "test_module.py"
+        self.markers = set(markers)
+
+    def get_closest_marker(self, name):
+        return name if name in self.markers else None
+
+
+class FakeRequest(object):
+    def __init__(self, state, markers=()):
+        self.session = FakeSession(state)
+        self.node = FakeNode(markers)
+
+
+def _run_restore_fixture(request, monkeypatch):
+    switched_to = []
+    monkeypatch.setattr(fcm, "_switch_mode", lambda state, mode: switched_to.append(mode))
+    fcm._frr_mode_restore_for_other_modules.__wrapped__(request)
+    return switched_to
+
+
+def test_module_without_frr_config_mode_gets_the_boot_mode_back(monkeypatch):
+    state = FakeState(FakeMigrator(), applied=fcm.MODE_FRR_MGMT_FRAMEWORK)
+    assert _run_restore_fixture(FakeRequest(state), monkeypatch) == [fcm.MODE_TRADITIONAL]
+
+
+def test_dual_mode_module_is_left_in_its_mode(monkeypatch):
+    state = FakeState(FakeMigrator(), applied=fcm.MODE_FRR_MGMT_FRAMEWORK)
+    assert _run_restore_fixture(FakeRequest(state, ["frr_dual_mode"]), monkeypatch) == []
+
+
+def test_no_restore_when_the_dut_is_already_in_its_boot_mode(monkeypatch):
+    assert _run_restore_fixture(FakeRequest(FakeState(FakeMigrator())), monkeypatch) == []

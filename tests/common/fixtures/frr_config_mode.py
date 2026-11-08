@@ -351,6 +351,21 @@ def _frr_mode_core_dump_check(request, duthosts):
               "{}".format(new_by_host))
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _frr_mode_restore_for_other_modules(request):
+    """Put the DUT back in its boot mode before a module that does not use frr_config_mode.
+
+    The mode is otherwise only restored at session end, so later modules in the same session
+    would silently run against frr_mgmt_framework config.
+    """
+    state = getattr(request.session, _SESSION_STATE_ATTR, None)
+    if (state is not None and state.applied_mode != state.original_mode
+            and request.node.get_closest_marker("frr_dual_mode") is None):
+        logger.info("Restoring FRR config mode to '%s' before %s", state.original_mode,
+                    request.node.name)
+        _switch_mode(state, state.original_mode)
+
+
 def _bgp_established_neighbors(duthost):
     """Return the set of BGP neighbor IPs currently in the Established state."""
     out = duthost.shell('sudo vtysh -c "show bgp summary json"',
