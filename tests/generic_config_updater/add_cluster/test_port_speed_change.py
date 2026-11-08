@@ -11,6 +11,7 @@ from tests.common.utilities import wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.gnmi_streaming_helper import setup_gnmi_streaming_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch, rollback_or_reload
@@ -800,13 +801,17 @@ def port_speed_change_candidates(duthosts,
 
 
 @pytest.fixture(scope="function")
-def setup_port_speed_change(duthosts,
+def setup_port_speed_change(frr_config_mode,
+                            duthosts,
                             loganalyzer,
                             port_speed_change_candidates,
                             request):
     """
     Setup fixture to change port speed
     """
+    skip_if_frr_mgmt_framework(frr_config_mode,
+                               "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
+                               "frr_mgmt_framework support needs separate vrf-aware patch paths")
 
     direction = request.param
     selected_context = None
