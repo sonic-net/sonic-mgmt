@@ -292,8 +292,7 @@ class BgpDualAsn:
         # restore BGPVac without listen-range overlap
         test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
         if _is_frr_mode(duthost):
-            # frr mode never wrote BGP_PEER_RANGE; clear the native listen-range rows the
-            # test added so the setup_env checkpoint/rollback restores a clean baseline.
+            # Clear the native listen-range rows the test added.
             for ns in _frr_namespaces(duthost):
                 db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
                 for prefix in list(self.peer_subnets) + list(self.peer_subnets_v6):
@@ -337,14 +336,7 @@ def _is_frr_mode(duthost):
 
 
 def _frr_namespaces(duthost):
-    """The ASIC namespaces the frr-mode helpers must program.
-
-    The traditional path already iterates get_frontend_asic_namespace_list(); the frr path
-    used to write the host CONFIG_DB unconditionally. A multi-ASIC DUT booting natively in
-    frrcfgd can run this variant once the #28482 skip is lifted, and each of its frontend
-    ASICs has its own CONFIG_DB -- so programming only the default one would leave the other
-    ASICs without the listen ranges under test.
-    """
+    """The frontend ASIC namespaces the frr-mode helpers must program."""
     return duthost.get_frontend_asic_namespace_list() or [None]
 
 
@@ -359,10 +351,7 @@ def _frr_peer_range(duthost, name, ip_range, src_addr=None, peer_asn=None, names
 def bgp_peer_range_config_cleanup(duthost):
     """Clean up bgp speaker config to avoid ip range conflict"""
     if _is_frr_mode(duthost):
-        # frrcfgd expresses listen ranges through BGP_GLOBALS_LISTEN_PREFIX, not
-        # BGP_PEER_RANGE. Clear the ranges (clean slate) the way the traditional path
-        # clears BGP_PEER_RANGE; the checkpoint/rollback in setup_env restores the
-        # baseline ranges at teardown.
+        # frrcfgd listen ranges live in BGP_GLOBALS_LISTEN_PREFIX; setup_env rollback restores them.
         for ns in _frr_namespaces(duthost):
             db_cli = "sonic-db-cli {}".format(namespace_cli_arg(ns)).rstrip()
             cmds = ('{cli} CONFIG_DB keys "BGP_GLOBALS_LISTEN_PREFIX|*" '
@@ -393,9 +382,7 @@ def bgp_peer_range_add_config(
 ):
     """Test to add desired v4&v6 bgp peer config"""
     if _is_frr_mode(duthost):
-        # frrcfgd ignores runtime BGP_PEER_RANGE writes; program the equivalent native
-        # listen-range tables instead. Same three shapes as the GCU path below:
-        # first v4+v6 pair, then an add-on v4 range, then an add-on v6 range.
+        # Same three shapes as the GCU path below: v4+v6 pair, add-on v4, add-on v6.
         for ns in _frr_namespaces(duthost):
             if ip_range_name_2 is None:
                 _frr_peer_range(duthost, ip_range_name, ip_range, lo["addr"], peer_asn, namespace=ns)

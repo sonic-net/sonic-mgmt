@@ -32,25 +32,11 @@ from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 
-# Every BGP test runs in BOTH FRR config-programming modes by default.
-#
-# This is deliberately autouse (opt-OUT) rather than opt-in. A test added later that nobody
-# thought about modes for would otherwise stay silently single-mode forever, with no signal
-# either way -- that is how purpose-written frrcfgd support ended up as dead code in this
-# suite. With autouse, a module that cannot work under frrcfgd FAILS, and whoever added it
-# makes an informed decision: mark it `frr_generic` (mode-irrelevant, run once) or
-# `frr_bgpcfgd_only(reason)` (by design unsupported, skip the frr variant).
-#
-# The cost is bounded: frr_config_mode tracks the mode per SESSION and runs all [traditional]
-# items before all [frr_mgmt_framework] ones, so a run switches the DUT once and restores it
-# once -- not two `config reload`s per module.
+# Opt-out: every BGP module runs in both FRR modes unless marked frr_generic / frr_bgpcfgd_only.
+# Items are ordered by mode, so a session switches the DUT once and restores it once.
 @pytest.fixture(scope="module", autouse=True)
 def _frr_config_mode_autouse(frr_config_mode):
-    """Parametrize every test under tests/bgp/ over the FRR config modes.
-
-    Modules that also take ``frr_config_mode`` explicitly are unaffected -- they resolve to the
-    same module-scoped fixture instance.
-    """
+    """Parametrize every test under tests/bgp/ over the FRR config modes."""
     return frr_config_mode
 
 
@@ -78,9 +64,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    # frrcfgd keys BGP_NEIGHBOR by VRF, so a bare read yields VRF names instead of
-    # neighbor IPs and check_bgp_session_state() below would wait for a peer literally
-    # named 'default' and never see it come up.
+    # frrcfgd keys BGP_NEIGHBOR by VRF.
     bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
 
     @reset_ansible_local_tmp

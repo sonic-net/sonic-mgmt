@@ -20,13 +20,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-# The allow-list mode-aware writes in apply_allow_list/remove_allow_list emit the
-# frrcfgd-native tables, but the feature's baseline FROM_BGP_* route-maps rely on
-# route-map 'on-match next' (continue-flow), which frrcfgd's route-map model does not
-# yet represent -- so the allow-list behavior cannot be realized in frr_mgmt_framework
-# mode today. The mode-aware code is intentionally KEPT for when frrcfgd gains that
-# support; until then the frr variant is skipped via conditional_mark
-# (bgp/test_bgp_allow_list.py::.*[frr_mgmt_framework in tests_mark_conditions.yaml).
+# frr variant skipped via conditional mark: frrcfgd lacks route-map 'on-match next'.
 DEPLOYMENT_ID = '0'
 ALLOW_LIST = {
     'BGP_ALLOWED_PREFIXES': {

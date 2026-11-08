@@ -25,16 +25,6 @@ bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
-    # NOT frr_generic. This module tears down and rebuilds the DUT's entire BGP instance through
-    # vtysh -- `no router bgp <asn>` then `router bgp <4-byte asn>` with every neighbour,
-    # address-family and route-map -- and makes zero CONFIG_DB writes. frrcfgd drives FRR from
-    # CONFIG_DB, so that config is not carried and the 4-byte ASN never reaches the neighbour's
-    # v6 AS paths (the v4 check passes, the v6 one does not). Confirmed by widening the assertion
-    # to search the whole output: the ASN is genuinely absent, not merely mis-positioned.
-    #
-    # frr_generic was harmful here for the same reason as in test_ipv6_nlri_over_ipv4: it ran the
-    # module in frrcfgd mode *only* -- the one mode it cannot work in -- so the traditional run,
-    # which passes, was skipped.
     pytest.mark.frr_bgpcfgd_only(
         "this module rebuilds the DUT's BGP instance via vtysh rather than CONFIG_DB, so frrcfgd "
         "does not carry the 4-byte ASN and it never appears in the neighbour's v6 AS paths"),
@@ -210,11 +200,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
     neighbors = dict()
 
-    # BGP can still be converging when this module runs immediately after an FRR config-mode
-    # switch (the switch restarts BGP), and the loop below asserts on a single instantaneous
-    # bgp_facts snapshot with no retry -- a transient then fails setup outright. Poll until the
-    # eBGP sessions this test cares about are up, then take the snapshot. This is mode-agnostic:
-    # it makes the setup robust rather than special-casing frrcfgd.
+    # BGP may still be converging after an FRR mode switch; wait before the one-shot snapshot.
     def _ebgp_sessions_established():
         facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
         return all(v['state'] == 'established'

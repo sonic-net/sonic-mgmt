@@ -40,12 +40,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('lma', 'uma'),
-    # Mode-generic: every assertion here reads FRR's own state via vtysh (running config, bgp
-    # summary, routes, advertised prefixes) over confederation config established at boot, so
-    # running the body in both config modes re-tests FRR rather than the config daemon.
-    # Confederation membership itself IS carried across a mode switch -- the translator maps
-    # 'bgp confederation identifier'/'peers' onto frrcfgd's confed_id/confed_peers -- so the
-    # frrcfgd variant is a valid place to run it.
+    # Assertions read FRR state via vtysh; confed config is translated to confed_id/confed_peers.
     pytest.mark.frr_generic,
 ]
 

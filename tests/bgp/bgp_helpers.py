@@ -68,8 +68,7 @@ PREFIX_LISTS = {
     'DISALLOWED_V6': ['2000:172:16:50::/64']
 }
 ALLOW_LIST_PREFIX_JSON_FILE = '/tmp/allow_list.json'
-# frr_mgmt_framework (frrcfgd) mode: file on the DUT used to stash the peer-group
-# AF inbound route-maps we override, so remove_allow_list can restore them.
+# frr_mgmt_framework mode: DUT file stashing overridden inbound route-maps for teardown.
 ALLOW_LIST_FRR_STATE_FILE = '/tmp/allow_list_frr_state.json'
 DROP_COMMUNITY = ''
 DEFAULT_ACTION = ''
@@ -430,9 +429,6 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
-# BGP allow-list in frr_mgmt_framework mode: bgp_config_writer converts BGP_ALLOWED_PREFIXES
-# into the prefix-lists, community-lists and route-maps bgpcfgd would render. Attaching the
-# route-map inbound (and restoring it) is done here, see _apply_allow_list_frr.
 def _route_map_calls(config_db, rm_name):
     """Every ``call_route_map`` target across the statements of route-map ``rm_name``."""
     calls = set()
@@ -446,13 +442,7 @@ def _route_map_calls(config_db, rm_name):
 
 
 def _get_af_route_maps_in(config_db, table):
-    """Return {AF_key: (afi_safi, member, [current route_map_in])} for every entry
-    of ``table`` (BGP_PEER_GROUP_AF or BGP_NEIGHBOR_AF) that has an inbound
-    route-map. ``AF_key`` is the INNER key (``default|PEER_V4|ipv4_unicast``), not the
-    full Redis key -- it is used both as a sonic-cfggen table key and, re-prefixed with
-    the table name, for the direct CONFIG_DB writes in teardown. ``member`` is the
-    peer-group name / neighbor IP, used to target the ``clear bgp ... soft in``
-    re-evaluation."""
+    """Return {inner AF key: (afi_safi, member, [route_map_in])} for rows of ``table`` with an inbound map."""
     result = {}
     for key, row in list(config_db.get(table, {}).items()):
         fields = key.split('|')
@@ -469,7 +459,7 @@ def _get_af_route_maps_in(config_db, table):
 
 
 def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
-    """frr_mgmt_framework path for apply_allow_list (see comment block above)."""
+    """frr_mgmt_framework path for apply_allow_list."""
     config_db, constants = read_frr_inputs(duthost, namespace)
     tables, _, _ = to_frr_rows(allow_list, config_db, constants)
     created_keys = [(table, key) for table, rows in tables.items() for key in rows]
@@ -478,18 +468,8 @@ def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
         rm = key.split('|')[0]
         rms_by_af['ipv4_unicast' if rm.endswith('_V4') else 'ipv6_unicast'].add(rm)
 
-    # Attach the allow-list route-map inbound on every inbound-filtered peer-group
-    # AND neighbor AF (a neighbor-level route-map overrides the peer-group one in
-    # FRR, and the frr migrator sets route_map_in at both levels, so we must cover
-    # both), stashing the originals so remove_allow_list can restore them.
-    #
-    # Targeted, not blanket: an AF row is rewritten only when its current inbound
-    # route-map CALLS the allow-list map generated for this policy -- the same linkage
-    # bgpcfgd uses to decide which peer-groups a deployment id owns
-    # (BGPAllowListMgr.__get_peer_group_to_restart). Overwriting every non-empty
-    # route_map_in instead would replace inbound policy that has nothing to do with the
-    # allow-list under test, and with more than one generated map there is no defensible
-    # way to pick which one to attach.
+    # Attach the allow-list map inbound on peer-group and neighbor AFs whose current inbound
+    # map calls it (bgpcfgd's linkage), stashing the originals for remove_allow_list.
     stash = {}
     peer_groups = set()
     neighbors = set()
@@ -515,25 +495,20 @@ def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
         "inbound policy instead would test something else, so this fails rather than "
         "guessing.".format(sorted(set().union(*rms_by_af.values())) if rms_by_af else []))
 
-    # Rows this helper is about to overwrite that ALREADY existed (the mode-switch
-    # translator creates the stock allow-list route-map statements, for instance). Their
-    # original contents are stashed so teardown restores them instead of deleting them.
+    # Stash pre-existing rows we overwrite so teardown restores rather than deletes them.
     pre_existing = {}
     for table, key in created_keys:
         row = config_db.get(table, {}).get(key)
         if row is not None:
             pre_existing['{}|{}'.format(table, key)] = row
 
-    # Write the decomposed frr tables (and the route_map_in overrides) in one shot.
     cfggen_write(duthost, tables, namespace)
-    # Persist the teardown state (originals + the keys we created) on the DUT.
     duthost.copy(content=json.dumps({'stash': stash, 'created_keys': created_keys,
                                      'pre_existing': pre_existing}, indent=3),
                  dest=ALLOW_LIST_FRR_STATE_FILE)
     time.sleep(3)
 
-    # Re-evaluate already-received routes so the new inbound policy takes effect on
-    # live sessions (mirrors bgpcfgd's restart_peer_groups: clear ... soft in).
+    # Soft-clear inbound so the new policy applies to live sessions (as bgpcfgd does).
     for pg in sorted(peer_groups):
         duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
                       module_ignore_errors=True)
@@ -544,8 +519,7 @@ def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
 
 
 def _remove_allow_list_frr(duthost, namespace):
-    """frr_mgmt_framework path for remove_allow_list: restore the overridden
-    peer-group inbound route-maps and delete the frr tables we created."""
+    """frr_mgmt_framework path for remove_allow_list: restore route-maps, delete created tables."""
     db_cli = get_db_cli_prefix_for_namespace(namespace)
     state_raw = duthost.shell('cat {}'.format(ALLOW_LIST_FRR_STATE_FILE),
                               module_ignore_errors=True)
@@ -570,18 +544,13 @@ def _remove_allow_list_frr(duthost, namespace):
             duthost.shell('{} CONFIG_DB HDEL "{}" "route_map_in@"'.format(db_cli, key),
                           module_ignore_errors=True)
 
-    # Delete the created tables. Order: ROUTE_MAP entries first (they reference the
-    # prefix-/community-lists), then PREFIX/PREFIX_SET, then COMMUNITY_SET.
+    # Delete created rows, referrers (ROUTE_MAP) first.
     order = {'ROUTE_MAP': 0, 'PREFIX': 1, 'PREFIX_SET': 2, 'COMMUNITY_SET': 3}
     for table, key in sorted(created_keys, key=lambda tk: order.get(tk[0], 9)):
         duthost.shell('{} CONFIG_DB del "{}|{}"'.format(db_cli, table, key),
                       module_ignore_errors=True)
 
-    # ... then put back the rows that already existed and were overwritten rather than
-    # created -- the mode-switch translator renders the stock allow-list route-map
-    # statements, so deleting every key this helper wrote left the DUT missing config it
-    # arrived with. Delete-then-rewrite (not a merge) so a field the test added does not
-    # survive into the restored row.
+    # Rewrite the pre-existing rows we overwrote (delete-then-rewrite, not a merge).
     if pre_existing:
         restore = {}
         for full_key, row in list(pre_existing.items()):

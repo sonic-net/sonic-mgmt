@@ -102,10 +102,7 @@ def enable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "enabled")
-    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively on the
-    # SAME ASIC this function just configured -- on a native-frrcfgd multi-ASIC DUT the
-    # selected T0 can live on a non-default ASIC, whose peer-group rows are not in the
-    # host CONFIG_DB.
+    # frrcfgd ignores BGP_BBR; program BBR natively on the same ASIC namespace.
     program_bbr_for_mode(duthost, enabled=True, namespace=namespace)
 
 
@@ -118,8 +115,7 @@ def disable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "disabled")
-    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively on the
-    # same ASIC (see enable_bbr).
+    # frrcfgd ignores BGP_BBR; program BBR natively (see enable_bbr).
     program_bbr_for_mode(duthost, enabled=False, namespace=namespace)
 
 
@@ -147,10 +143,7 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 
 @pytest.fixture(scope='module')
 def setup(frr_config_mode, duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
-    # BBR is driven by the bgpcfgd-only BGP_BBR table (bgpcfgd applies allowas-in from
-    # it). frrcfgd does not consume BGP_BBR but supports allowas-in natively, so in frr
-    # mode program_bbr_for_mode() realizes BBR on the peer-group AFs directly rather
-    # than skipping. See enable_bbr/disable_bbr and program_bbr_for_mode.
+    # In frr mode program_bbr_for_mode() sets allowas-in directly, since frrcfgd ignores BGP_BBR.
     duthost = duthosts[rand_one_dut_hostname]
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
@@ -441,12 +434,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
 def test_bbr_enabled_dut_asn_in_aspath(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                        config_bbr_enabled, setup, prepare_routes):
-    # allowas-in itself works in frr mode (the route is accepted), but this case also
-    # asserts the DUT re-advertises the own-ASN route. In frr mode the route flows
-    # through FROM_BGP_PEER_V4, whose allow-list-framework 'call ...; on-match next'
-    # loses its continue-flow (frrcfgd has no 'on-match next'), so the default
-    # drop-community is applied and not cleaned up, suppressing the advertisement.
-    # Skip until frrcfgd gains route-map continue-flow; re-verify then.
+    # frr variant skipped via conditional mark: no 'on-match next' suppresses re-advertisement.
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
@@ -485,8 +473,7 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
 
     # Set BBR status in config_db
     duthost.shell('redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
-    # In frr_mgmt_framework mode BGP_BBR is not consumed; realize BBR natively (in
-    # config_db, before save) so it survives the reload and shows up in running-config.
+    # frrcfgd ignores BGP_BBR; program BBR natively before save so it survives reload.
     program_bbr_for_mode(duthost, enabled=(bbr_status == 'enabled'))
     duthost.shell('sudo config save -y')
     config_reload(duthost)

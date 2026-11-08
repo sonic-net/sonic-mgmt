@@ -132,10 +132,7 @@ def common_setup_teardown(frr_config_mode, duthosts, rand_one_dut_hostname, ptfh
     logger.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
     logger.info("setup ip/routes in ptf")
     for i in [0, 1, 2]:
-        # Use 'replace' (idempotent) rather than 'add': this module-scoped fixture runs once
-        # per frr_config_mode param (traditional, then frr_mgmt_framework) and its teardown does
-        # not remove these PTF addresses, so a plain 'add' on the second run fails with
-        # "address already assigned".
+        # 'replace' is idempotent: the fixture runs once per mode and teardown keeps these addresses.
         ptfhost.shell("ip -6 addr replace %s dev %s:%d" % (nexthops_ipv6[i], ptf_ports[0], i))
 
     # Issue a ping command to populate entry for next_hop

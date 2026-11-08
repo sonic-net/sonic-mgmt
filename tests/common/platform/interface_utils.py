@@ -55,11 +55,7 @@ def get_dut_interfaces_status(duthost):
 
 
 def get_admin_up_ports(duthost):
-    """@summary: Return the list of front-panel ports CONFIG_DB has as admin_status=up.
-
-    Empty for DUTs with no front-panel PORT table to check: a vs supervisor node, and
-    SONiC BMC images (which have no PORT table at all).
-    """
+    """@summary: Return admin-up front-panel ports from CONFIG_DB (empty if there is no PORT table)."""
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return []
 
@@ -80,13 +76,7 @@ def get_admin_up_ports(duthost):
 
 
 def get_oper_up_ports(duthost):
-    """@summary: Return the set of admin-up front-panel ports that are also operationally up.
-
-    The set form of check_interface_status_of_up_ports() below, for callers that need to
-    hold a DUT to the ports it actually had up beforehand rather than to every admin-up
-    port -- some testbeds carry admin-up ports that are deliberately not connected, and
-    those must not make every check fail.
-    """
+    """@summary: Return the set of admin-up front-panel ports that are also operationally up."""
     up_ports = get_admin_up_ports(duthost)
     if not up_ports:
         return set()

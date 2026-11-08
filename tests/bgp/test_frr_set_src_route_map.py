@@ -27,8 +27,7 @@ ITERATION_LEVEL_MAP = {
 logger = logging.getLogger(__name__)
 
 
-# The frr_mgmt_framework variant is skipped via conditional_mark (see
-# tests_mark_conditions.yaml): frrcfgd's route-map model has no zebra 'set src' clause.
+# frr variant skipped via conditional mark: frrcfgd has no 'set src' route-map clause.
 def _get_frontend_bgp_docker_names(duthost):
     """Return bgp container names for frontend ASICs only."""
     if not duthost.is_multi_asic:

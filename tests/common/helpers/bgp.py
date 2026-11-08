@@ -97,27 +97,10 @@ def get_vtysh_cmd_for_asic(duthost, asic_index, cmd):
 
 
 def flatten_bgp_neighbors(bgp_neighbors):
-    """Return a flat ``{neighbor_ip: details}`` dict from ``config_facts['BGP_NEIGHBOR']``.
-
-    In traditional (bgpcfgd) mode ``config_facts['BGP_NEIGHBOR']`` is already flat
-    (``{'10.0.0.1': {...}}``). In frr_mgmt_framework (frrcfgd) mode it is VRF-keyed
-    (``{'default': {'10.0.0.1': {...}}}``). Tests that iterate neighbors by IP must
-    normalize both to the flat form, or they break in frr mode (a bare
-    ``config_facts['BGP_NEIGHBOR']`` there yields VRF names, not IPs).
-
-    This flattens across all VRFs; on the common single-``default``-VRF case that is
-    exactly the traditional flat dict. The same shape difference applies to the other
-    VRF-aware neighbor tables (``BGP_INTERNAL_NEIGHBOR``, ``BGP_VOQ_CHASSIS_NEIGHBOR``);
-    callers that iterate those by IP in frr mode should flatten them the same way. Those
-    tables only appear on multi-ASIC / VoQ-chassis DUTs, where the mode-switch fixture runs
-    the DUT's native mode only, so the divergence is limited in practice.
-    """
+    """Return ``{neighbor_ip: details}`` from BGP_NEIGHBOR, flattening frrcfgd's VRF-keyed form."""
     if not bgp_neighbors:
         return {}
-    # Structural check (no field-name sniffing): in the flat form each value is a
-    # per-neighbor detail dict whose values are scalars (asn, name, ...); in the VRF-keyed
-    # form each value is itself an {ip: details} mapping, i.e. at least one of its values is
-    # a dict. Treat "no nested dict" as already-flat.
+    # Already flat if the first value has no nested dict.
     sample = next(iter(bgp_neighbors.values()))
     if not isinstance(sample, dict) or not any(isinstance(v, dict) for v in sample.values()):
         return dict(bgp_neighbors)
@@ -223,8 +206,6 @@ def run_bgp_facts(duthost, enum_asic_index):
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
-    # BGP_NEIGHBOR is flat {ip: details} in traditional mode but VRF-keyed
-    # {'default': {ip: details}} in frr_mgmt_framework mode; flatten so we iterate by ip.
     nbrs_in_cfg_facts.update(flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {})))
     nbrs_in_cfg_facts.update(config_facts.get('BGP_INTERNAL_NEIGHBOR', {}))
     # In VoQ Chassis, we would have BGP_VOQ_CHASSIS_NEIGHBOR as well.
@@ -282,12 +263,7 @@ class BGPNeighbor(object):
         self.confed_asn = confed_asn
 
     def _frr_mgmt_framework_mode(self):
-        """Return True if the DUT programs FRR via the frr_mgmt_framework (frrcfgd)
-        rather than the traditional per-feature daemons (bgpcfgd).
-
-        The two modes consume different CONFIG_DB BGP schemas, so a test neighbor
-        added here must be written in whichever schema the active daemon understands.
-        """
+        """Return True if the DUT programs FRR via frrcfgd rather than bgpcfgd."""
         return self.duthost.get_frr_mgmt_framework_config()
 
     @property
@@ -295,19 +271,9 @@ class BGPNeighbor(object):
         return "ipv6_unicast" if self.is_ipv6_neighbor else "ipv4_unicast"
 
     def _add_frr_mgmt_neighbor(self):
-        """Add the test neighbor using the frr_mgmt_framework (frrcfgd) CONFIG_DB schema.
+        """Add the neighbor as VRF-keyed BGP_NEIGHBOR + BGP_NEIGHBOR_AF rows in PEER_V4/PEER_V6 (frrcfgd).
 
-        frrcfgd does not consume bgpcfgd's flat ``BGP_NEIGHBOR|<ip>`` row. It keys
-        neighbors by VRF (``BGP_NEIGHBOR|default|<ip>``) and only activates an address
-        family when a companion ``BGP_NEIGHBOR_AF`` row exists.
-
-        The neighbor joins the standard PEER_V4/PEER_V6 peer group (with its own
-        remote-as) so it inherits the same inbound/outbound policy the topology
-        neighbors use -- this mirrors how bgpcfgd places test neighbors in
-        PEER_V4/PEER_V6 in traditional mode, so route propagation behaves the same in
-        both modes. ``soft_reconfiguration_in`` is also set explicitly so that
-        ``show bgp neighbors <n> received-routes`` works (tests such as
-        test_bgp_update_timer inspect received-routes).
+        soft_reconfiguration_in is set so ``show bgp neighbors <n> received-routes`` works.
         """
         asichost = self.duthost.asic_instance_from_namespace(self.namespace)
         peer_group = DEFAULT_IPV6_PEER_GROUP if self.is_ipv6_neighbor else DEFAULT_IPV4_PEER_GROUP

@@ -22,14 +22,7 @@ CRM_READY_RETRY_INTERVAL = 3
 
 
 def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
-    # After a `config reload` (e.g. the frr_config_mode mode switch) CRM counters are wiped
-    # AND the polling interval reverts to the 300s default, so `crm show resources all` reads
-    # back an empty main-resources table until the next poll -- up to a full ~300s cycle, not
-    # a brief race. In this module the reads that feed assertions/logic run mid-test with CRM
-    # populated; only the informational teardown log lines hit the post-reload empty window.
-    # So retry briefly (to absorb any genuine sub-poll race), then return None with a clear
-    # warning rather than raising -- an informational read must not fail the run while CRM is
-    # merely repopulating. Real callers run when CRM is populated and get their value.
+    # CRM is empty for up to a poll cycle after a config reload: retry briefly, then return None.
     crm_resources = None
     main_resources = None
     for attempt in range(CRM_READY_RETRIES):

@@ -1263,11 +1263,7 @@ def test_addcluster_workflow(frr_config_mode, duthosts, enum_downstream_dut_host
         duthosts: DUT hosts fixture
         enum_downstream_dut_hostname: Fixture providing a linecard with downstream neighbors
     """
-    # Same VRF-scoped BGP_NEIGHBOR key problem as single-ASIC test_add_cluster: the patch
-    # paths this test builds are not valid under the frr_mgmt_framework schema. On a
-    # multi-ASIC DUT frr_config_mode takes its native-only path and never yields the frr
-    # mode, so this guard is latent today -- it is here so the two add-cluster tests stay
-    # consistent if that ever changes.
+    # Latent on multi-ASIC (native mode only); kept consistent with test_add_cluster.
     skip_if_frr_mgmt_framework(frr_config_mode,
                                "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
                                "frr_mgmt_framework support needs separate vrf-aware patch paths")

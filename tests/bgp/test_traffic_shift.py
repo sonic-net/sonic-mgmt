@@ -24,10 +24,7 @@ from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REAS
 pytestmark = [
     pytest.mark.topology('t1', 'm1', 'c0', 'uma', 'lma'),
     pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
-    # TSA/TSB legitimately produces a dplane_fpm_nl core on some platforms. Declaring it
-    # here rather than only appending to core_dump_and_config_check's pre_core_dumps lets
-    # every core-dump checker honour it -- including the focused frr_dual_mode one, which
-    # runs when skip_check_dut_health has disabled the generic check.
+    # TSA/TSB can leave a dplane_fpm_nl core; the marker lets every core-dump checker honour it.
     pytest.mark.expected_core_dumps("dplane_fpm_nl"),
 ]
 
@@ -271,8 +268,7 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
             existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
         else:
             existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
-        # duts_data is {} when the generic check is disabled (skip_check_dut_health); the
-        # expected_core_dumps marker covers that case instead.
+        # duts_data is {} when the generic check is disabled.
         if duthost.hostname in duts_data:
             for core_dump in existing_core_dumps:
                 if re.match("dplane_fpm_nl", core_dump):

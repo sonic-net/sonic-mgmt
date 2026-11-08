@@ -7,6 +7,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+TRAD, FRR = fcm.MODE_TRADITIONAL, fcm.MODE_FRR_MGMT_FRAMEWORK
+
 
 class FakeConfig(object):
     def __init__(self, **options):
@@ -17,16 +19,13 @@ class FakeConfig(object):
         return self.options[name]
 
 
-def test_frr_generic_defaults_to_traditional():
-    assert fcm.FRR_GENERIC_DEFAULT_MODE == fcm.MODE_TRADITIONAL
-    assert fcm._frr_generic_preference(FakeConfig()) == [
-        fcm.MODE_TRADITIONAL, fcm.MODE_FRR_MGMT_FRAMEWORK]
-
-
-def test_frr_generic_mode_option_overrides_the_default():
-    config = FakeConfig(**{"--frr-generic-mode": fcm.MODE_FRR_MGMT_FRAMEWORK})
-    assert fcm._frr_generic_preference(config) == [
-        fcm.MODE_FRR_MGMT_FRAMEWORK, fcm.MODE_TRADITIONAL]
+@pytest.mark.parametrize("options,expected", [
+    ({}, [TRAD, FRR]),
+    ({"--frr-generic-mode": FRR}, [FRR, TRAD]),
+], ids=["default", "option-override"])
+def test_frr_generic_preference(options, expected):
+    assert fcm.FRR_GENERIC_DEFAULT_MODE == TRAD
+    assert fcm._frr_generic_preference(FakeConfig(**options)) == expected
 
 
 class FakeMigrator(object):
@@ -52,10 +51,10 @@ class FakeMigrator(object):
 
 
 class FakeState(object):
-    def __init__(self, migrator, applied=fcm.MODE_TRADITIONAL):
+    def __init__(self, migrator, applied=TRAD):
         self.duthost = type("Dut", (), {"hostname": "dut1"})()
         self.migrator = migrator
-        self.original_mode = fcm.MODE_TRADITIONAL
+        self.original_mode = TRAD
         self.applied_mode = applied
         self.switch_count = 0
         self.baseline_neighbors = set()
@@ -75,33 +74,26 @@ def no_ports(monkeypatch):
 
 
 def test_failed_forward_switch_is_recorded_as_switched(no_ports):
-    """A reload that fails after the marker is down must still be restored at session end."""
     state = FakeState(FakeMigrator(forward_error=RuntimeError("reload failed")))
     with pytest.raises(RuntimeError):
-        fcm._switch_mode(state, fcm.MODE_FRR_MGMT_FRAMEWORK)
-    assert state.applied_mode == fcm.MODE_FRR_MGMT_FRAMEWORK
+        fcm._switch_mode(state, FRR)
+    assert state.applied_mode == FRR
 
 
 def test_sessionfinish_keeps_backups_when_restore_fails(no_ports):
-    """pytest.fail() from a failed restore is a BaseException; it must still fail the session
-    and must not delete the backups."""
+    """pytest.fail() from a failed restore is a BaseException; it must still fail the session."""
     migrator = FakeMigrator(marker=True, restores=False)
-    session = FakeSession(FakeState(migrator, applied=fcm.MODE_FRR_MGMT_FRAMEWORK))
+    session = FakeSession(FakeState(migrator, applied=FRR))
     fcm.pytest_sessionfinish(session, 0)
     assert session.exitstatus == pytest.ExitCode.INTERNAL_ERROR
     assert not migrator.cleaned
 
 
-def test_sessionfinish_skips_cleanup_while_marker_present():
-    migrator = FakeMigrator(marker=True)
+@pytest.mark.parametrize("marker", [True, False])
+def test_sessionfinish_cleans_up_only_without_marker(marker):
+    migrator = FakeMigrator(marker=marker)
     fcm.pytest_sessionfinish(FakeSession(FakeState(migrator)), 0)
-    assert not migrator.cleaned
-
-
-def test_sessionfinish_cleans_up_after_a_clean_run():
-    migrator = FakeMigrator()
-    fcm.pytest_sessionfinish(FakeSession(FakeState(migrator)), 0)
-    assert migrator.cleaned
+    assert migrator.cleaned is not marker
 
 
 class FakeNode(object):
@@ -126,18 +118,14 @@ def _run_restore_fixture(request, monkeypatch):
     return switched_to
 
 
-def test_module_without_frr_config_mode_gets_the_boot_mode_back(monkeypatch):
-    state = FakeState(FakeMigrator(), applied=fcm.MODE_FRR_MGMT_FRAMEWORK)
-    assert _run_restore_fixture(FakeRequest(state), monkeypatch) == [fcm.MODE_TRADITIONAL]
-
-
-def test_dual_mode_module_is_left_in_its_mode(monkeypatch):
-    state = FakeState(FakeMigrator(), applied=fcm.MODE_FRR_MGMT_FRAMEWORK)
-    assert _run_restore_fixture(FakeRequest(state, ["frr_dual_mode"]), monkeypatch) == []
-
-
-def test_no_restore_when_the_dut_is_already_in_its_boot_mode(monkeypatch):
-    assert _run_restore_fixture(FakeRequest(FakeState(FakeMigrator())), monkeypatch) == []
+@pytest.mark.parametrize("applied,markers,expected", [
+    (FRR, [], [TRAD]),
+    (FRR, ["frr_dual_mode"], []),
+    (TRAD, [], []),
+], ids=["non-dual-mode-module-restored", "dual-mode-module-left", "already-in-boot-mode"])
+def test_restore_fixture_switches_back_to_boot_mode(monkeypatch, applied, markers, expected):
+    state = FakeState(FakeMigrator(), applied=applied)
+    assert _run_restore_fixture(FakeRequest(state, markers), monkeypatch) == expected
 
 
 class FakeItem(object):
@@ -149,7 +137,7 @@ class FakeItem(object):
 
 
 class FakeModuleRequest(object):
-    def __init__(self, items, module="mod", param=fcm.MODE_FRR_MGMT_FRAMEWORK, fixtures=None):
+    def __init__(self, items, module="mod", param=FRR, fixtures=None):
         self.session = type("Session", (), {"items": items})()
         self.module = module
         self.param = param
@@ -160,21 +148,15 @@ class FakeModuleRequest(object):
 
 
 def test_enum_dut_hostnames_collects_this_module_and_variant_only():
-    frr = fcm.MODE_FRR_MGMT_FRAMEWORK
     items = [
-        FakeItem("mod", {"frr_config_mode": frr, "enum_frontend_dut_hostname": "dut2"}),
-        FakeItem("mod", {"frr_config_mode": fcm.MODE_TRADITIONAL,
-                         "enum_frontend_dut_hostname": "dut3"}),
-        FakeItem("other", {"frr_config_mode": frr, "enum_frontend_dut_hostname": "dut4"}),
-        FakeItem("mod", {"frr_config_mode": frr},
-                 fixturenames=["enum_upstream_dut_hostname"]),
+        FakeItem("mod", {"frr_config_mode": FRR, "enum_frontend_dut_hostname": "dut2"}),
+        FakeItem("mod", {"frr_config_mode": TRAD, "enum_frontend_dut_hostname": "dut3"}),
+        FakeItem("other", {"frr_config_mode": FRR, "enum_frontend_dut_hostname": "dut4"}),
+        FakeItem("mod", {"frr_config_mode": FRR}, fixturenames=["enum_upstream_dut_hostname"]),
         FakeItem("mod"),
     ]
     request = FakeModuleRequest(items, fixtures={"enum_upstream_dut_hostname": "dut5"})
     assert fcm._enum_dut_hostnames(request) == {"dut2", "dut5"}
-
-
-TRAD, FRR = fcm.MODE_TRADITIONAL, fcm.MODE_FRR_MGMT_FRAMEWORK
 
 
 def _items(*spec):
@@ -182,7 +164,6 @@ def _items(*spec):
 
 
 def test_items_run_traditional_block_then_frr_block():
-    """One forward switch and one restore per session, instead of two reloads per module."""
     items = _items(("pretest", None), ("a", TRAD), ("a", FRR), ("acl", None),
                    ("b", TRAD), ("b", FRR), ("posttest", None))
     fcm.pytest_collection_modifyitems(None, items)
@@ -296,8 +277,27 @@ def _dropped_after(running_config, image_gated_clauses=()):
                                        baseline, image_gated_clauses=image_gated_clauses)
 
 
-def test_identical_config_drops_nothing():
-    assert _dropped_after(BASELINE_RUNNING_CONFIG) == ({}, set())
+# dropped = hard failures; gaps = known/accepted losses that are only reported.
+@pytest.mark.parametrize("old,new,gated,dropped,gaps", [
+    ("", "", (), {}, set()),
+    (" set local-preference 200\n", "", (),
+     {"route_maps content": ["FROM_BGP_PEER_V4: permit 10 | set local-preference 200"]}, set()),
+    (" set tag 100\n", "", (), {}, {"route_maps FROM_BGP_PEER_V4: permit 10 | set tag 100"}),
+    (" on-match next\n", "", ("on-match ",), {}, {"route_maps FROM_BGP_PEER_V4: permit 10 | on-match next"}),
+    (" on-match next\n", "", (), {"route_maps content": ["FROM_BGP_PEER_V4: permit 10 | on-match next"]}, set()),
+    ("seq 5 permit 10.1.0.32", "seq 50 permit 10.1.0.32", (), {}, set()),
+    ("deny 0.0.0.0/0 le 17", "deny 0.0.0.0/0 le 24", (), {"prefix_lists content": ["PL_Big: ip deny 0.0.0.0/0 le 17"]},
+     set()),
+    ("permit no-export", "permit no-advertise", (), {"community_lists content": [
+        "allow_list_default_community: bgp community-list standard allow_list_default_community permit no-export"]},
+     set()),
+    ("  neighbor 10.0.0.57 activate\n", "", (), {}, {"neighbors 10.0.0.57: ipv4 unicast | activate"}),
+], ids=["identical", "route-map-clause-lost", "route-map-frrcfgd-gap", "28543-gated-clause-on-old-image",
+        "28543-gated-clause-on-new-image", "prefix-list-renumbered", "prefix-list-entry-changed",
+        "community-list-entry-lost", "neighbor-line-lost"])
+def test_dropped_config_objects(old, new, gated, dropped, gaps):
+    running = BASELINE_RUNNING_CONFIG.replace(old, new)
+    assert _dropped_after(running, image_gated_clauses=gated) == (dropped, gaps)
 
 
 def test_route_map_body_is_tracked_per_stanza():
@@ -306,45 +306,6 @@ def test_route_map_body_is_tracked_per_stanza():
         "permit 10", "permit 10 | on-match next", "permit 10 | set tag 100",
         "permit 10 | set local-preference 200"}
     assert content[("route_maps", "TO_BGP_PEER_V4")] == {"permit 100"}
-
-
-def test_route_map_losing_a_translated_clause_fails():
-    dropped, _ = _dropped_after(BASELINE_RUNNING_CONFIG.replace(" set local-preference 200\n", ""))
-    assert dropped == {"route_maps content": ["FROM_BGP_PEER_V4: permit 10 | set local-preference 200"]}
-
-
-def test_route_map_losing_a_known_frrcfgd_gap_is_reported_not_failed():
-    dropped, gaps = _dropped_after(BASELINE_RUNNING_CONFIG.replace(" set tag 100\n", ""))
-    assert dropped == {}
-    assert gaps == {"route_maps FROM_BGP_PEER_V4: permit 10 | set tag 100"}
-
-
-def test_28543_gated_clause_is_a_gap_only_on_an_image_without_it():
-    running = BASELINE_RUNNING_CONFIG.replace(" on-match next\n", "")
-    assert _dropped_after(running, image_gated_clauses=("on-match ",))[0] == {}
-    assert _dropped_after(running)[0] == {
-        "route_maps content": ["FROM_BGP_PEER_V4: permit 10 | on-match next"]}
-
-
-def test_prefix_list_renumbering_is_not_a_loss_but_a_changed_entry_is():
-    renumbered = BASELINE_RUNNING_CONFIG.replace("seq 5 permit 10.1.0.32", "seq 50 permit 10.1.0.32")
-    assert _dropped_after(renumbered)[0] == {}
-    changed = BASELINE_RUNNING_CONFIG.replace("deny 0.0.0.0/0 le 17", "deny 0.0.0.0/0 le 24")
-    assert _dropped_after(changed)[0] == {
-        "prefix_lists content": ["PL_Big: ip deny 0.0.0.0/0 le 17"]}
-
-
-def test_community_list_entry_loss_fails():
-    running = BASELINE_RUNNING_CONFIG.replace("permit no-export", "permit no-advertise")
-    assert _dropped_after(running)[0] == {"community_lists content": [
-        "allow_list_default_community: bgp community-list standard "
-        "allow_list_default_community permit no-export"]}
-
-
-def test_neighbor_line_loss_is_reported_not_failed():
-    dropped, gaps = _dropped_after(BASELINE_RUNNING_CONFIG.replace("  neighbor 10.0.0.57 activate\n", ""))
-    assert dropped == {}
-    assert gaps == {"neighbors 10.0.0.57: ipv4 unicast | activate"}
 
 
 def test_accepted_gaps_appear_in_the_terminal_summary(monkeypatch):

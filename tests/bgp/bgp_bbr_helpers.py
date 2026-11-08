@@ -37,10 +37,7 @@ def get_bbr_default_state(duthost):
 
 
 def program_bbr_for_mode(duthost, enabled, namespace=DEFAULT_NAMESPACE):
-    """Make BBR take effect in frr_mgmt_framework mode, where frrcfgd does not consume
-    the BGP_BBR table callers set: write its frrcfgd conversion (allowas-in on the
-    constants.yml BBR-eligible peer-group AFs of ``namespace``). No-op in traditional mode.
-    """
+    """In frr mode write BGP_BBR's frrcfgd conversion (allowas-in); no-op in traditional mode."""
     if duthost.get_frr_mgmt_framework_config():
         write_bgp_config(duthost, {"BGP_BBR": {"all": {"status": "enabled" if enabled else "disabled"}}},
                          namespace=namespace)

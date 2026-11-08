@@ -27,11 +27,6 @@ VNI_BASE = 10000
 CISCO_8000_ASIC = "cisco-8000"
 
 pytestmark = [
-    # Not frr_generic: generate_dut_config_ptf() builds VNET-qualified BGP_PEER_RANGE rows
-    # and vnet_bgp_setup() applies them after the mode has been selected. frrcfgd does not
-    # consume BGP_PEER_RANGE -- it needs BGP_PEER_GROUP / BGP_PEER_GROUP_AF /
-    # BGP_GLOBALS_LISTEN_PREFIX rows under the VNET -- so in frr mode those writes create no
-    # dynamic peers at all.
     pytest.mark.frr_bgpcfgd_only(
         "this module writes VNET-qualified BGP_PEER_RANGE rows, which frrcfgd does not "
         "consume; the frr schema for VNET listen ranges is not built here"),

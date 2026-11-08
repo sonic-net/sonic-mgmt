@@ -342,10 +342,7 @@ def test_bgp_peer_shutdown(
                     duthost, n0.namespace, n0.ip, timestamp_before_teardown
                 )
             else:
-                # No "bgpcfgd: Peer ... admin state is set to 'down'" syslog when BGP is
-                # managed via vtysh, or in frr_mgmt_framework mode (frrcfgd, not bgpcfgd,
-                # owns BGP config). The NOTIFICATION packet is still validated below;
-                # only the syslog-timestamp correlation is skipped.
+                # No bgpcfgd admin-down syslog via vtysh or under frrcfgd; NOTIFICATION still checked.
                 bgp_session_down_time = None
 
             for bgp_packet in bpg_notifications:

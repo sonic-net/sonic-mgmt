@@ -22,10 +22,7 @@ from ptf.testutils import simple_icmpv6_packet
 from ptf.mask import Mask
 
 pytestmark = [
-    # Not frr_generic: test_bgp_admin_flap drives ansible/library/check_bgp_ipv6_routes_converged.py,
-    # whose toggle_bgp_neighbors_in_parallel() hard-codes the flat 'BGP_NEIGHBOR|$ip' key. Under
-    # frrcfgd the rows are 'BGP_NEIGHBOR|default|$ip', so every EXISTS check misses and the module
-    # fails with "No BGP neighbor keys were toggled" before it can measure convergence.
+    # The ansible module is check_bgp_ipv6_routes_converged.py.
     pytest.mark.frr_bgpcfgd_only(
         "test_bgp_admin_flap toggles neighbors through an ansible module that hard-codes the "
         "flat BGP_NEIGHBOR|<ip> key, which does not exist under frrcfgd"),

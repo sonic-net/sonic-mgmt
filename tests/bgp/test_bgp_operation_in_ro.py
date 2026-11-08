@@ -15,9 +15,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.fixtures.frr_config_mode import FRR_BGP_DEVICE_GLOBAL_GAP_REASON
 
 pytestmark = [
-    # This module executes TSA and TSB, which write BGP_DEVICE_GLOBAL -- the same table the
-    # dedicated traffic-shift modules are bgpcfgd-only for. Under frrcfgd those writes have
-    # no effect, so the traffic-shift assertions here would be checking a no-op.
+    # TSA/TSB write BGP_DEVICE_GLOBAL, a no-op under frrcfgd.
     pytest.mark.frr_bgpcfgd_only(FRR_BGP_DEVICE_GLOBAL_GAP_REASON),
     pytest.mark.topology("t0", "t1"),
     pytest.mark.disable_loganalyzer

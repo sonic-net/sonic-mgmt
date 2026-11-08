@@ -1,10 +1,4 @@
-"""Mode-aware writer for bgpcfgd-format CONFIG_DB rows.
-
-``write_bgp_config`` writes the rows as-is in traditional (bgpcfgd) mode. In
-frr_mgmt_framework mode it converts them with ``to_frr_rows`` -- reusing the
-bgp_config_translation builders where one exists -- and writes the frrcfgd rows instead.
-Only the tables below are converted; any other table raises FrrTranslationError.
-"""
+"""Write bgpcfgd-format CONFIG_DB rows as-is, or converted to frrcfgd rows in frr_mgmt_framework mode."""
 import json
 import time
 
@@ -22,61 +16,10 @@ def namespace_cli_arg(namespace):
     return "-n {}".format(namespace) if namespace else ""
 
 
-# --------------------------------------------------------------------------- #
-# BGP allow-list -- traditional (bgpcfgd) vs frr_mgmt_framework (frrcfgd)
-#
-# In traditional mode bgpcfgd owns the BGP_ALLOWED_PREFIXES convenience table and
-# decomposes it into FRR prefix-lists, community-lists and a per-deployment
-# route-map (see sonic-bgpcfgd/bgpcfgd/managers_allow_list.py). frrcfgd does NOT
-# consume BGP_ALLOWED_PREFIXES, so in frr mode we reproduce exactly the FRR state
-# bgpcfgd would render, but through frrcfgd's own CONFIG_DB schema.
-#
-# For one BGP_ALLOWED_PREFIXES entry, e.g.::
-#
-#   "DEPLOYMENT_ID|0|1010:1010": {prefixes_v4: ["172.16.30.0/24"],
-#                                 prefixes_v6: ["2000:172:16:30::/64"],
-#                                 default_action: "permit"}
-#
-# we write (mirroring bgpcfgd's names/seqs):
-#
-#   PREFIX_SET|PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4  {mode: IPv4}
-#   PREFIX|PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4|10|172.16.30.0/24|exact
-#                                                                   {action: permit}
-#   COMMUNITY_SET|COMMUNITY_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010
-#           {set_type: standard, match_action: all, community_member: [1010:1010],
-#            action: permit}   -> "bgp community-list standard <name> permit 1010:1010"
-#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|10
-#           {route_operation: permit, match_prefix_set: <PL>, match_community: <CL>}
-#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|30000   (no-community deployment entry)
-#           {route_operation: permit, match_prefix_set: PL_..._empty_V4}
-#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|65535   (default rule)
-#           {route_operation: permit,
-#            set_community_inline: [<drop_community|no-export>, additive]}
-#              -> "set community <c> additive"
-#
-# route_operation/seq -> "route-map <NAME> permit <seq>" (frrcfgd.py);
-# match_prefix_set -> "match ip[v6] address prefix-list" with the af resolved from
-# the referenced PREFIX_SET (frrcfgd.py); match_community -> "match community"; and
-# set_community_inline (a space-joined list, so a trailing 'additive' element renders
-# as "set community <c> additive") (frrcfgd.py).
-#
-# The route-map is attached inbound by overwriting route_map_in on every
-# BGP_PEER_GROUP_AF that already has an inbound route-map (nbr_af_key_map
-# route_map_in, frrcfgd.py) -- this replaces the peer-group's stock inbound
-# map with our allow-list map for the duration of the test; the originals are
-# stashed and restored by remove_allow_list. bgpcfgd instead wires the map in via
-# a `call` from the stock inbound map; overwriting route_map_in is the frr-schema
-# way to reach the same inbound filtering without editing the stock map's clauses.
-# Default seq 65535 tags every not-explicitly-allowed prefix: with
-# default_action=permit that is the drop_community (routes still forwarded but
-# marked); with default_action=deny it is no-export (routes not re-advertised to
-# eBGP neighbors) -- matching bgpcfgd's __get_default_action_community.
-# --------------------------------------------------------------------------- #
+# BGP allow-list: frrcfgd ignores BGP_ALLOWED_PREFIXES, so render the PREFIX_SET/PREFIX/COMMUNITY_SET/ROUTE_MAP
+# rows bgpcfgd's managers_allow_list.py would (same names and seqs; seq 65535 tags everything else).
 def _allow_list_as_prefix_list(value):
-    """Return the prefixes as a list, accepting either a python list or a
-    comma-separated string (both shapes appear in BGP_ALLOWED_PREFIXES data).
-    Entries are whitespace-stripped, so a value written as "a, b" does not produce a
-    prefix with a leading space that no prefix-list would ever match."""
+    """Return the prefixes (list or comma-separated string) as a whitespace-stripped list."""
     if value is None:
         return []
     if isinstance(value, list):
@@ -87,24 +30,13 @@ def _allow_list_as_prefix_list(value):
 
 
 def _allow_list_default_pl_rules(al_constants, ver):
-    """The ``default_pl_rules`` bgpcfgd prepends to EVERY generated allow-list
-    prefix-list (BGPAllowListMgr.__load_constant_lists / __update_prefix_list).
-
-    These are the guards, not decoration: the v4 set is
-    ``deny 0.0.0.0/0 le 17`` + ``permit 127.0.0.1/32``, and the v6 set denies
-    ``0::/0 le 59`` and ``0::/0 ge 65``. Omitting them made a configured /17-or-shorter
-    prefix reachable and lost the loopback exception, so the frr-mode policy was strictly
-    more permissive than the bgpcfgd one it is supposed to reproduce.
-    """
+    """The ``default_pl_rules`` guards bgpcfgd prepends to every allow-list prefix-list."""
     rules = al_constants.get('default_pl_rules') or {}
     return list(rules.get('v{}'.format(ver)) or [])
 
 
 def _allow_list_prefix_rules(prefixes, ver):
-    """Convert allow-list prefixes into bgpcfgd's prefix-list rule strings
-    (BGPAllowListMgr.__to_prefix_list): a prefix that already carries ge/le is passed
-    through, a host prefix is an exact permit, and anything shorter permits more-specifics
-    up to the family's host length."""
+    """Convert allow-list prefixes into bgpcfgd's prefix-list rule strings (BGPAllowListMgr.__to_prefix_list)."""
     host_len = 32 if ver == '4' else 128
     rules = []
     for prefix in prefixes:
@@ -124,11 +56,7 @@ def _allow_list_prefix_rules(prefixes, ver):
 
 
 def _frr_prefix_key_parts(rule, ver):
-    """Parse a bgpcfgd prefix-list rule ('deny 0.0.0.0/0 le 17') into the frrcfgd PREFIX
-    row's (action, ip_prefix, masklength_range).
-
-    masklength_range follows frrcfgd's own encoding: 'ge..le', 'ge..<host-len>',
-    '<prefix-len>..le', or 'exact' when neither bound is present."""
+    """Parse a bgpcfgd prefix-list rule into the frrcfgd PREFIX row's (action, ip_prefix, masklength_range)."""
     parts = rule.split()
     action, prefix = parts[0], parts[1]
     host_len = '32' if ver == '4' else '128'
@@ -147,19 +75,7 @@ def _frr_prefix_key_parts(rule, ver):
 
 
 def _parse_allow_list_key(raw_key):
-    """Split a BGP_ALLOWED_PREFIXES key into (deployment_id, community, neighbor_type).
-
-    BGPAllowListMgr.set_handler accepts four forms, and the naming templates differ by
-    whether a neighbor type is present::
-
-        DEPLOYMENT_ID|<id>                                    -> community 'empty', no neighbor
-        DEPLOYMENT_ID|<id>|<community>                        -> community only
-        DEPLOYMENT_ID|<id>|NEIGHBOR_TYPE|<type>               -> neighbor only, community 'empty'
-        DEPLOYMENT_ID|<id>|NEIGHBOR_TYPE|<type>|<community>   -> both
-
-    Taking ``key.split('|')[2]`` as the community handled only the first two, and read the
-    literal token 'NEIGHBOR_TYPE' as the community for the other two.
-    """
+    """Split ``DEPLOYMENT_ID|<id>[|NEIGHBOR_TYPE|<type>][|<community>]`` into (id, community, neighbor_type)."""
     if not raw_key.startswith('DEPLOYMENT_ID|'):
         raise ValueError("Unsupported BGP_ALLOWED_PREFIXES key {!r}: expected it to start "
                          "with 'DEPLOYMENT_ID|'".format(raw_key))
@@ -178,10 +94,7 @@ def _parse_allow_list_key(raw_key):
 
 
 def _allow_list_names(deployment_id, community, neighbor_type, ver):
-    """The prefix-list / community-list / route-map names bgpcfgd would generate for this
-    entry (BGPAllowListMgr's *_TMPL constants). The _WITH_NEIGH templates insert
-    ``NEIGHBOR_<type>`` and are what makes a neighbor-type entry a distinct policy rather
-    than a collision with the plain one."""
+    """The prefix-list / community-list / route-map names bgpcfgd generates (BGPAllowListMgr's *_TMPL)."""
     comm_token = community if community else 'empty'
     if neighbor_type:
         return (
@@ -202,16 +115,7 @@ def _allow_list_names(deployment_id, community, neighbor_type, ver):
 
 
 def _build_allow_list_frr_config(allow_list, drop_community, al_constants):
-    """Translate the test's BGP_ALLOWED_PREFIXES dict into the frrcfgd-native
-    CONFIG_DB tables. Returns (tables, rms_by_af, created_keys).
-
-    * tables       -- {table: {key: value}} to feed to sonic-cfggen -w
-    * rms_by_af    -- {'ipv4_unicast': {<rm name>, ...}, 'ipv6_unicast': {...}} -- every
-                      generated route-map for that address family. A set, not one name:
-                      the input may carry several deployment ids / neighbor types, and
-                      keeping a single slot per AF silently dropped all but the last.
-    * created_keys -- [(table, key), ...] written by this helper
-    """
+    """Translate BGP_ALLOWED_PREFIXES into frrcfgd tables; returns (tables, rms_by_af, created_keys)."""
     tables = {'PREFIX_SET': {}, 'PREFIX': {}, 'COMMUNITY_SET': {}, 'ROUTE_MAP': {}}
     created_keys = []
     rms_by_af = {'ipv4_unicast': set(), 'ipv6_unicast': set()}
@@ -220,8 +124,7 @@ def _build_allow_list_frr_config(allow_list, drop_community, al_constants):
         tables[table][key] = value
         created_keys.append((table, key))
 
-    # Group entries by the (deployment_id, neighbor_type) policy they belong to; each
-    # policy gets one V4 + one V6 route-map, exactly as bgpcfgd names them.
+    # One V4 + one V6 route-map per (deployment_id, neighbor_type) policy.
     policies = {}
     for raw_key, data in list(allow_list.get('BGP_ALLOWED_PREFIXES', {}).items()):
         deployment_id, community, neighbor_type = _parse_allow_list_key(raw_key)
@@ -232,8 +135,7 @@ def _build_allow_list_frr_config(allow_list, drop_community, al_constants):
         for af, ver, plist_key in (('ipv4', '4', 'prefixes_v4'), ('ipv6', '6', 'prefixes_v6')):
             _, _, rm_name = _allow_list_names(deployment_id, None, neighbor_type, ver)
             rms_by_af['{}_unicast'.format(af)].add(rm_name)
-            # Community entries get seq 10.. (bgpcfgd 10..29990); no-community
-            # deployment entries get seq 30000.. (bgpcfgd 30000..65530).
+            # Community entries from seq 10, no-community entries from 30000 (as bgpcfgd).
             cur_with = 10
             cur_without = 30000
             for community, data in entries:
@@ -244,8 +146,7 @@ def _build_allow_list_frr_config(allow_list, drop_community, al_constants):
                 pl_name, cl_name, _ = _allow_list_names(
                     deployment_id, community, neighbor_type, ver)
                 add('PREFIX_SET', pl_name, {'mode': 'IPv4' if af == 'ipv4' else 'IPv6'})
-                # bgpcfgd renders constants' default_pl_rules FIRST, then the allow-list
-                # prefixes, numbering the combined list from seq 10 in steps of 10.
+                # default_pl_rules first, then the prefixes, seq 10 in steps of 10 (as bgpcfgd).
                 pl_seq = 10
                 rules = (_allow_list_default_pl_rules(al_constants, ver)
                          + _allow_list_prefix_rules(prefixes, ver))
@@ -282,13 +183,7 @@ def _allow_list_rows(rows, config_db, constants):
 
 
 def get_bbr_peer_group_afs(constants):
-    """Return the BBR-eligible ``{peer-group: [afi_safi, ...]}`` from constants.yml.
-
-    Computed the way ``BBRMgr.__read_pgs`` does: the union of
-    ``constants.bgp.peers.<peer_type>.bbr``, e.g. ``{'PEER_V4': ['ipv4_unicast'],
-    'PEER_V6': ['ipv6_unicast']}``. bgpcfgd applies ``allowas-in 1`` to exactly these
-    peer-group/address-family pairs and no others.
-    """
+    """Return the BBR-eligible ``{peer-group: [afi_safi, ...]}`` from constants.yml, as BBRMgr.__read_pgs does."""
     peers = (constants.get("constants", {}).get("bgp", {}).get("peers") or {})
     result = {}
     for value in peers.values():
@@ -298,8 +193,7 @@ def get_bbr_peer_group_afs(constants):
 
 
 def _bbr_rows(rows, config_db, constants):
-    """BGP_BBR|all -> allowas-in on the BBR-eligible BGP_PEER_GROUP_AF rows. Enabling
-    reuses _apply_bbr; disabling has to remove fields, which a cfggen write cannot."""
+    """BGP_BBR|all -> allowas-in on BBR-eligible BGP_PEER_GROUP_AF rows (disable removes the fields)."""
     eligible = get_bbr_peer_group_afs(constants)
     af_rows = {}
     for key in config_db.get("BGP_PEER_GROUP_AF", {}):
@@ -314,9 +208,7 @@ def _bbr_rows(rows, config_db, constants):
 
 
 def _peer_range_rows(rows, config_db, constants):
-    """BGP_PEER_RANGE -> listen prefix (_build_listen_prefixes) plus the peer-group and
-    AF rows bgpcfgd renders from its BGPSLBPassive template, which the translator only
-    reads back from running-config."""
+    """BGP_PEER_RANGE -> listen prefix plus the peer-group/AF rows of bgpcfgd's BGPSLBPassive template."""
     local_asn = _bgp_asn(config_db)
     tables = {"BGP_GLOBALS_LISTEN_PREFIX": _build_listen_prefixes({"BGP_PEER_RANGE": rows}),
               "BGP_PEER_GROUP": {}, "BGP_PEER_GROUP_AF": {}}
@@ -342,11 +234,7 @@ _CONVERTERS = {
 
 
 def to_frr_rows(rows, config_db, constants):
-    """Convert bgpcfgd-format ``{table: {key: row}}`` into frrcfgd rows.
-
-    Returns ``(tables, del_fields, peer_groups)``: the rows to write, the
-    ``{'TABLE|key': [field, ...]}`` to remove, and the peer-groups to soft-clear.
-    """
+    """Convert bgpcfgd-format rows; returns (tables to write, {'TABLE|key': fields} to remove, peer-groups)."""
     tables, del_fields, peer_groups = {}, {}, set()
     for table, table_rows in rows.items():
         if table not in _CONVERTERS:

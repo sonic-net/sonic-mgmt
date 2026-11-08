@@ -30,14 +30,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL
 from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
 pytestmark = [
-    # Deliberately NOT frr_generic. The default-VRF variant is mode-generic, but the
-    # USER_DEFINED_VRF one is not: setup_vrf_cfg() only creates BGP_GLOBALS|Vrf1 when the
-    # whole BGP_GLOBALS table is absent, which is never true once the DUT has been translated
-    # to the frrcfgd schema, and the unchanged template then prefixes an already-qualified
-    # neighbor key (-> BGP_NEIGHBOR|Vrf1|default|<ip>) while leaving the neighbor-AF row under
-    # 'default'. frr_generic could run the module in frrcfgd only, so the Vrf1 variant
-    # would have had no correct mode to run in at all. Staying dual-mode keeps the default-VRF
-    # case covered in both modes; the Vrf1 case skips its frr variant (see below).
+    # Not frr_generic: the USER_DEFINED_VRF variant is bgpcfgd-only and skips its frr variant.
     pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
     pytest.mark.skip_check_dut_health
 ]
@@ -1207,10 +1200,6 @@ def test_bgp_route_with_suppress(frr_config_mode,
     duthost = duthosts[enum_upstream_dut_hostname]
     asic_name = duthost.get_asic_name()
     if vrf_type == USER_DEFINED_VRF:
-        # setup_vrf_cfg() builds the VRF's BGP config in the bgpcfgd schema; under frrcfgd it
-        # neither creates BGP_GLOBALS|Vrf1 (its 'BGP_GLOBALS not in cfg' guard is already
-        # false) nor keys the neighbour rows correctly. The default-VRF variant still runs in
-        # both modes.
         skip_if_frr_mgmt_framework(
             frr_config_mode,
             "setup_vrf_cfg() writes the VRF's BGP config in the bgpcfgd schema; frrcfgd needs "

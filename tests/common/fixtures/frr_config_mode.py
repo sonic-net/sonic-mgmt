@@ -1,24 +1,9 @@
-"""Shared fixture for exercising tests in both FRR config-programming modes.
+"""Fixture for running tests in both FRR config modes: traditional (bgpcfgd) and
+frr_mgmt_framework (frrcfgd).
 
-SONiC can program FRR either through the traditional per-feature config daemons
-that render FRR config from CONFIG_DB (bgpcfgd for BGP) or through the newer
-"frr_mgmt_framework" / frrcfgd (native FRR mgmt framework driven directly from
-CONFIG_DB, in FRR "unified" routing-config mode). Which one is active is a per-DUT
-property; it governs the whole FRR stack (bgpd/ospfd/staticd/zebra), so this lives
-in tests/common rather than under tests/bgp -- OSPF and other FRR-backed protocols
-will reuse it.
-
-The bgpcfgd<->frrcfgd switch is performed entirely from sonic-mgmt by
-:class:`FrrConfigModeMigrator`, which translates the running BGP config into the
-frrcfgd CONFIG_DB schema (see ``tests/common/helpers/frr``), persists the routing
-mode so it survives ``config reload``, and reloads. No on-DUT migration tool is
-required.
-
-Fail-loud guarantee: the BGP config objects FRR reports (neighbors, prefix-lists,
-route-maps, community-lists) and their content are captured before the switch and
-re-checked after it. If the translation drops an object, or a line of one that is not a
-known frrcfgd gap, the test fails and names it; accepted gaps are listed in the terminal
-summary.
+:class:`FrrConfigModeMigrator` switches the DUT from sonic-mgmt. BGP config FRR reports is
+captured before the switch and re-checked after it; anything dropped that is not a known
+frrcfgd gap fails the test.
 """
 import json
 import logging
@@ -50,45 +35,19 @@ logger = logging.getLogger(__name__)
 FRR_CONFIG_MODES = [MODE_TRADITIONAL, MODE_FRR_MGMT_FRAMEWORK]
 
 FRR_GENERIC_MARKER = "frr_generic"
-# The ONE mode ``frr_generic`` modules run in, unless --frr-generic-mode overrides it. Falls
-# back to the other mode when this one is not reachable on the DUT.
+# Mode ``frr_generic`` modules run in (overridable by --frr-generic-mode); falls back if unreachable.
 FRR_GENERIC_DEFAULT_MODE = MODE_TRADITIONAL
 
-# Modules marked ``frr_bgpcfgd_only`` are by design unsupported under frrcfgd: they assert
-# bgpcfgd daemon behaviour, or drive a product operation frrcfgd does not consume. Their
-# frr_mgmt_framework variant is skipped with the marker's reason, so the traditional variant
-# still runs. A permanent, by-design skip -- deliberately NOT gated on an auto-lifting issue.
-#
-# The marker is the single mode-selection mechanism for these modules. It also covers the
-# native-frrcfgd DUT on its own, so no extra "skip if the DUT boots frrcfgd" fixture is
-# needed: the frr variant skips on the marker, and the traditional variant skips in the
-# cascade below because the translator only converts traditional -> frr.
+# Modules asserting bgpcfgd-only behaviour; their frr variant is permanently skipped by design.
 FRR_BGPCFGD_ONLY_MARKER = "frr_bgpcfgd_only"
 
-# bgpcfgd renders these base BGP-sentinel policy objects from its Jinja templates
-# (dockers/docker-fpm-frr/frr/bgpd/templates/sentinels/policies.conf.j2) on every DUT
-# whose image ships that template -- FROM_BGP_SENTINEL/TO_BGP_SENTINEL unconditionally,
-# and sentinel_community when the constants.bgp.sentinel_community global is set --
-# regardless of whether any BGP_SENTINELS are configured. frrcfgd does not implement the
-# BGP-sentinel feature at all (it drives FRR from its native schema, not those templates),
-# so after switching to frr mode these objects legitimately disappear. That is a true
-# frrcfgd capability gap, not a translation miss: the only test that uses sentinels
-# (test_bgp_sentinel) already self-skips in frr via is_bgp_sentinel_supported(). Exempt
-# them from the fail-loud fingerprint so it does not false-fail on this inert scaffolding.
+# BGP-sentinel objects bgpcfgd's templates always render; frrcfgd has no sentinel support.
 FRRCFGD_UNSUPPORTED_OBJECTS = {
     "route_maps": {"FROM_BGP_SENTINEL", "TO_BGP_SENTINEL"},
     "community_lists": {"sentinel_community"},
 }
 
-# Single-line FRR *settings* (as opposed to named objects) that the fingerprint tracks.
-# Named objects were never the whole story: bgpcfgd renders a set of globals from its
-# templates that frrcfgd has no field for, and because those are not objects the name-based
-# fingerprint below was structurally blind to them. Three were found by hand -- graceful
-# restart, maximum-paths, and the zebra globals -- which is three too many, hence this.
-#
-# Matched by prefix at the start of a stripped running-config line. Deliberately narrow:
-# only lines that are genuinely device-wide settings, so anything captured here is worth
-# comparing and a disappearance is a real signal rather than noise.
+# Prefixes of device-wide FRR settings (not named objects) the fingerprint also compares.
 _GLOBAL_SETTING_PREFIXES = (
     "zebra ", "no zebra ",          # zebra nexthop-group keep / nexthop kernel enable
     "fpm ", "no fpm ",              # fpm address / use-next-hop-groups
@@ -96,27 +55,14 @@ _GLOBAL_SETTING_PREFIXES = (
     "maximum-paths ", "table-map ",  # per-address-family globals
 )
 
-# ...except these, which are named objects already tracked in their own categories.
+# Named objects already tracked in their own categories.
 _GLOBAL_SETTING_EXCLUDES = (
     "bgp community-list", "bgp extcommunity-list", "bgp large-community-list",
     "bgp as-path access-list",
 )
 
-# Globals bgpcfgd renders that frrcfgd genuinely cannot express. Prefix-matched, since most
-# carry a value. Same role as FRRCFGD_UNSUPPORTED_OBJECTS: a real frrcfgd capability gap, so
-# it is recorded visibly rather than failing the switch. Each one is a behavioural difference
-# in frr mode.
-#
-# Closing these needs new frrcfgd fields (tracked on sonic-buildimage#28482). They must be
-# opt-in knobs the migrator sets, NOT changed frrcfgd defaults, so existing installations
-# keep their current behaviour -- the same treatment ebgp_requires_policy gets in #28543.
+# Globals frrcfgd cannot express yet (sonic-buildimage#28482); recorded as gaps, not failures.
 FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES = (
-    # NOT listed, because frrcfgd DOES render them (templates/frr/frr.conf.j2):
-    #   fpm address 127.0.0.1          -- hardcoded there, same as bgpcfgd
-    #   fpm use-next-hop-groups        -- driven by DEVICE_METADATA.nexthop_group
-    #   zebra nexthop-group keep, zebra nexthop kernel enable, bgp suppress-fib-pending
-    #                                  -- DEVICE_METADATA, rendered with sonic-buildimage#28543
-    # If any of them goes missing across a switch that is a real regression, so let it fail.
     "bgp graceful-restart select-defer-time ",
     "bgp graceful-restart-disable",
     "bgp long-lived-graceful-restart ",
@@ -130,22 +76,13 @@ def _is_global_setting(line):
     return any(line.startswith(p) for p in _GLOBAL_SETTING_PREFIXES)
 
 
-# How long to let the config daemon finish rendering after a mode switch before
-# declaring a baseline object lost. See _assert_config_preserved.
+# How long the config daemon gets to finish rendering after a switch.
 _CONFIG_SETTLE_TIMEOUT = 120
 _CONFIG_SETTLE_INTERVAL = 10
 
 
 def skip_if_frr_mgmt_framework(mode, reason):
-    """Skip the frr_mgmt_framework variant of a test that cannot run under frrcfgd -- e.g.
-    GCU add-cluster, whose patch paths assume the flat (non-VRF-keyed) BGP_NEIGHBOR schema.
-
-    The traditional (bgpcfgd) variant still runs, so coverage is preserved. For genuine
-    frrcfgd capability gaps prefer gating the skip via the ``conditional_mark`` plugin on a
-    tracking issue (so it auto-lifts when the issue closes); use this helper for the simpler
-    in-test case. Call it from a test or its setup fixture, passing the yielded
-    ``frr_config_mode`` value.
-    """
+    """Skip the frr_mgmt_framework variant of a test that cannot run under frrcfgd."""
     if mode == MODE_FRR_MGMT_FRAMEWORK:
         pytest.skip("frr_mgmt_framework mode not supported for this test: {}".format(reason))
 
@@ -154,11 +91,7 @@ FRR_BGP_DEVICE_GLOBAL_GAP_REASON = "frrcfgd does not consume BGP_DEVICE_GLOBAL (
 
 
 def switched_dut_hostname(request):
-    """The hostname ``frr_config_mode`` actually switched, or None if no switch happened.
-
-    None covers every no-switch path -- a native-mode run, a multi-ASIC or supervisor DUT,
-    ``--enable_macsec`` -- as well as a session where the fixture has not run yet.
-    """
+    """The hostname ``frr_config_mode`` actually switched, or None if no switch happened."""
     state = getattr(request.session, _SESSION_STATE_ATTR, None)
     if state is None or state.applied_mode == state.original_mode:
         return None
@@ -166,35 +99,14 @@ def switched_dut_hostname(request):
 
 
 def frr_mode_switch_count(request):
-    """How many FRR config-mode switches this session has performed so far.
-
-    0 when the fixture has not run yet. Capture it at module setup and re-read it at
-    teardown to tell whether a switch (and therefore a ``config reload``) happened while the
-    module was running.
-    """
+    """How many FRR config-mode switches this session has performed so far (0 if none)."""
     state = getattr(request.session, _SESSION_STATE_ATTR, None)
     return state.switch_count if state is not None else 0
 
 
 def frr_mode_perturbed(request, since_switch_count=None):
-    """True when the generic DUT-health config checks cannot be trusted right now.
-
-    Those checks compare the DUT against a testbed-wide baseline --
-    ``/etc/sonic/running_golden_config.json``, written once by
-    ``test_pretest.py::test_generate_running_golden_config`` and reused for the life of the
-    testbed -- so they answer "does the DUT still match the pretest snapshot", not "did this
-    module change anything". Two independent things make that comparison meaningless here:
-
-    * **the DUT is not in its boot config mode.** Its CONFIG_DB then differs from the pretest
-      baseline across the entire frr schema, by design rather than as drift. No amount of
-      settling fixes this, so the frr_mgmt_framework variant can never pass config-diff.
-    * **a mode switch ran during this module.** That is a ``config reload``, which regenerates
-      telemetry/gnmi certs and re-runs db_migrator -- benign, self-restoring differences any
-      reload produces, mode switch or not.
-
-    Pass the setup-time :func:`frr_mode_switch_count` as ``since_switch_count`` to cover the
-    second case; omit it to test only the first (e.g. for a pre-test check, where nothing has
-    run yet). False when the fixture never ran, so non-BGP modules are unaffected.
+    """True when generic DUT-health config checks can't be trusted: the DUT is away from its
+    boot mode, or (given the setup-time ``since_switch_count``) a switch ran during the module.
     """
     state = getattr(request.session, _SESSION_STATE_ATTR, None)
     if state is None:
@@ -205,23 +117,9 @@ def frr_mode_perturbed(request, since_switch_count=None):
 
 
 def skip_if_dut_not_switched(request, duthost):
-    """Skip when ``duthost`` is not the DUT ``frr_config_mode`` switched.
+    """Skip when ``duthost`` is not the DUT ``frr_config_mode`` switched (no-op if no switch).
 
-    The fixture switches ``rand_one_dut_hostname``, and itself skips modules whose ``enum_*``
-    DUT fixtures select another DUT. A module that picks its own source/destination DUTs and
-    configures or asserts FRR behaviour on a DIFFERENT one would otherwise
-    report frr coverage while running against a DUT still in traditional mode. That is worse
-    than no coverage when the module's read side normalises both schemas, because the
-    ``[frr_mgmt_framework]`` variant then passes without having exercised frrcfgd at all.
-
-    Those selections genuinely resolve to a different host on topologies that exist today: a
-    dualtor testbed has two single-ASIC frontend DUTs, and a multi-DUT T2 enumerates several.
-
-    A no-op when no switch was performed (see :func:`switched_dut_hostname`) -- there is no
-    mismatch to protect against then -- and a no-op when the hostnames coincide, which they do
-    on a single-DUT topology. Call it from the module's setup, passing the DUT the module
-    actually operates on. Widening the fixture to switch every DUT under test instead would
-    need per-DUT migrators and baselines.
+    For modules that pick their own DUTs; call from setup with the DUT the module operates on.
     """
     switched = switched_dut_hostname(request)
     if switched is None or duthost.hostname == switched:
@@ -232,42 +130,20 @@ def skip_if_dut_not_switched(request, duthost):
         "instead. Switching every DUT under test would need per-DUT migrators and baselines."
         .format(switched, duthost.hostname))
 
-# BGP monitors (BGP_MONITORS / bgpmon) is a legacy feature, superseded by BMP (BGP Monitoring
-# Protocol, RFC 7854) which FRR now supports natively and which the tests/bmp suite covers.
-# bgpmon predates BMP and was only added because FRR lacked BMP support at the time. frrcfgd
-# intentionally does not implement it -- it is NOT a parity gap to close (see sonic-buildimage
-# issue #28482, "Explicitly out of scope") -- so the bgpmon modules/tests are not parametrized
-# over frr_config_mode: they run in traditional (bgpcfgd) mode and skip outright on a
-# native-frrcfgd DUT. This is a permanent, by-design skip, deliberately NOT gated on an
-# auto-lifting tracking issue.
+# bgpmon is superseded by BMP and out of scope for frrcfgd (sonic-buildimage#28482); by-design skip.
 
 
 FRR_LEGACY_BGP_MONITORS_REASON = (
     "BGP monitors (BGP_MONITORS) is a legacy feature superseded by BMP and is intentionally "
     "unsupported in frr_mgmt_framework mode; use BMP (see tests/bmp) instead")
 
-# BGP sentinels (BGP_SENTINELS) is an opinionated bgpcfgd macro, not a routing primitive -- it
-# expands to a listen-range peer-group + fixed FROM_/TO_BGP_SENTINEL route-maps + a
-# sentinel_community community-list (from constants.yml), all of which are already expressible
-# via the generic CONFIG_DB tables frrcfgd renders. Teaching frrcfgd a bespoke sentinel expander
-# conflicts with its "render only generic primitives" design, so it stays bgpcfgd-only (see
-# sonic-buildimage#28482, "Explicitly out of scope") -- a permanent, by-design skip, NOT gated on
-# an auto-lifting tracking issue.
+# BGP sentinels are a bgpcfgd macro, out of scope for frrcfgd (sonic-buildimage#28482); by-design skip.
 FRR_BGPCFGD_ONLY_SENTINEL_REASON = (
     "BGP sentinels (BGP_SENTINELS) is a bgpcfgd-only macro, intentionally unsupported in "
     "frr_mgmt_framework mode (the equivalent is expressible via generic peer-group/route-map "
     "tables)")
 
-# The BGP aggregate-address suite asserts bgpcfgd's AggregateAddressMgr behavior, not just
-# "FRR advertises an aggregate": it writes BGP_AGGREGATE_ADDRESS, reads that row back out of
-# CONFIG_DB, and asserts the STATE_DB row AggregateAddressMgr derives from it -- including the
-# bbr-required gating (an aggregate goes 'inactive' when BBR is off). frrcfgd has no
-# BGP_AGGREGATE_ADDRESS handler, no STATE_DB writer, and no bbr-required concept at all; its
-# native BGP_GLOBALS_AF_AGGREGATE_ADDR table expresses only the FRR-render half, so a
-# mode-aware write would leave the CONFIG_DB/STATE_DB/BBR assertions -- most of the suite --
-# untestable. Like test_prefix_list_suppress (PrefixListMgr), this is a bgpcfgd daemon-behavior
-# suite, so its modules are not parametrized over frr_config_mode: they run in traditional mode
-# and skip outright on a native-frrcfgd DUT.
+# The aggregate-address suite asserts bgpcfgd AggregateAddressMgr behaviour frrcfgd lacks.
 FRR_BGPCFGD_ONLY_AGGREGATE_REASON = (
     "the BGP aggregate-address suite asserts bgpcfgd AggregateAddressMgr behavior "
     "(BGP_AGGREGATE_ADDRESS CONFIG_DB/STATE_DB rows and bbr-required gating), which frrcfgd "
@@ -281,15 +157,7 @@ def _core_dumps(duthost):
 
 
 def expected_core_dump_patterns(node):
-    """Regexes for core dumps a module legitimately produces, from its
-    ``pytest.mark.expected_core_dumps(...)`` markers.
-
-    Some modules knowingly generate a core as part of what they exercise -- e.g. the
-    traffic-shift modules and ``dplane_fpm_nl`` on certain platforms. They used to whitelist
-    those by appending to ``core_dump_and_config_check``'s ``pre_core_dumps``, which only
-    works while that fixture is active. Expressing it as a marker instead lets every
-    core-dump checker honour the same list.
-    """
+    """Regexes for core dumps a module expects, from its ``expected_core_dumps`` markers."""
     patterns = []
     for marker in node.iter_markers("expected_core_dumps"):
         patterns.extend(marker.args)
@@ -302,21 +170,9 @@ def _is_expected_core(core, patterns):
 
 @pytest.fixture(scope="module", autouse=True)
 def _frr_mode_core_dump_check(request, duthosts):
-    """Focused core-dump (crash) detection for frr_config_mode modules whose own markers turn
-    the generic check off.
+    """Core-dump check for ``frr_dual_mode`` modules that set ``skip_check_dut_health``.
 
-    ``core_dump_and_config_check`` does crash detection for opted-in modules as usual -- it is
-    only the running-config *comparison* the mode switch invalidates, and that is skipped on
-    its own (see ``frr_mode_perturbed``). But a module that carries ``skip_check_dut_health``
-    in its own ``pytestmark`` disables that fixture entirely, and a process crash during a
-    dual-mode BGP test must still be caught. So this runs only for ``frr_dual_mode`` modules
-    that are also ``skip_check_dut_health``: core dumps only, no config-diff and no recovery
-    reload. A no-op everywhere else, including where the generic check is active, so a crash
-    is never reported twice.
-
-    Cores a module declares via ``expected_core_dumps`` are reported but do not fail it --
-    otherwise this check would turn the traffic-shift modules' known ``dplane_fpm_nl`` core
-    into a module failure, which is precisely the whitelist the generic checker honours.
+    A no-op elsewhere, since the generic check already covers crashes there.
     """
     if (request.node.get_closest_marker("frr_dual_mode") is None
             or request.node.get_closest_marker("skip_check_dut_health") is None):
@@ -347,11 +203,7 @@ def _frr_mode_core_dump_check(request, duthosts):
 
 @pytest.fixture(scope="module", autouse=True)
 def _frr_mode_restore_for_other_modules(request):
-    """Put the DUT back in its boot mode before a module that does not use frr_config_mode.
-
-    The mode is otherwise only restored at session end, so later modules in the same session
-    would silently run against frr_mgmt_framework config.
-    """
+    """Put the DUT back in its boot mode before a module that does not use frr_config_mode."""
     state = getattr(request.session, _SESSION_STATE_ATTR, None)
     if (state is not None and state.applied_mode != state.original_mode
             and request.node.get_closest_marker("frr_dual_mode") is None):
@@ -377,9 +229,7 @@ def _bgp_established_neighbors(duthost):
     return established
 
 
-# Content categories whose lost lines fail the switch. Neighbor lines are compared and
-# reported, but not yet held to equality: bgpcfgd and frrcfgd render neighbor options from
-# different sources.
+# Content categories whose lost lines fail the switch (neighbor lines are only reported).
 _FATAL_CONTENT = ("route_maps", "prefix_lists", "community_lists")
 _SEQ_RE = re.compile(r" seq \d+")
 # Known frrcfgd gaps accepted during this session, printed in the terminal summary.
@@ -394,11 +244,7 @@ def _frr_config_fingerprint(duthost):
 
 
 def _parse_fingerprint(out):
-    """Named BGP objects (neighbors, prefix-lists, route-maps, community-lists), device-wide
-    globals, and each object's normalized content under ``content[(category, name)]``.
-
-    FRR renders these identically whichever daemon generated them, so a before/after
-    difference is config the translation failed to carry over."""
+    """Parse running-config into named BGP objects, globals, and per-object ``content``."""
     fp = {"neighbors": set(), "prefix_lists": set(),
           "route_maps": set(), "community_lists": set(), "globals": set(), "content": {}}
 
@@ -455,12 +301,7 @@ def _is_known_clause_gap(line, image_gated_clauses):
 
 def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=frozenset(),
                             image_gated_clauses=()):
-    """Return ``({category: [name or 'name: line', ...]}, gaps)`` for baseline config FRR is
-    not rendering now. ``gaps`` are the known frrcfgd gaps that are accepted instead.
-
-    ``image_gated_*`` are lines this image cannot carry because the CONFIG_DB field behind
-    them is not in its YANG models yet (sonic-buildimage#27192 / #28543).
-    """
+    """Return ``(dropped, gaps)``: baseline config FRR no longer renders, and accepted gaps."""
     after = _frr_config_fingerprint(duthost)
     dropped, gaps = {}, set()
     for cat, objs in baseline_fp.items():
@@ -468,7 +309,6 @@ def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=froz
             continue
         missing = objs - after[cat]
         if cat == "globals":
-            # Prefix-matched: most of these carry a value (e.g. 'keep 1', 'restart-time 240').
             exempt = {o for o in missing
                       if any(o.startswith(p) for p in FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES)}
             exempt |= (missing & image_gated_globals)     # noqa: DELETE-WITH-FRR-PARITY
@@ -494,19 +334,12 @@ def _dropped_config_objects(duthost, mode, baseline_fp, image_gated_globals=froz
 
 
 def _assert_config_preserved(duthost, mode, baseline_fp):
-    """Fail loudly if any BGP object, or any line of a route-map, prefix-list or
-    community-list, present before the switch is still missing once the DUT has settled.
+    """Fail if baseline BGP config is still missing once the DUT has settled.
 
-    Poll rather than sample once: BGP sessions re-establishing does not mean the config
-    daemon has finished rendering. bgpcfgd/frrcfgd drain their CONFIG_DB subscriptions
-    asynchronously after the reload, and objects with no session to establish are the
-    slowest to show up -- the bgpmon route-maps (FROM_BGPMON/TO_BGPMON), which bgpcfgd
-    renders from BGP_MONITORS, routinely lag the neighbor-recovery check and made the
-    switch-back to traditional mode fail spuriously.
+    Polls, since the config daemons render asynchronously after BGP re-establishes.
     """
     dropped, gaps = {}, set()
-    # Probed once, not per poll: an image without #27192 / #28543 cannot carry these, so their
-    # absence is expected. Empty once the image carries both, tightening the check back up by itself.
+    # Lines this image's YANG cannot carry yet (sonic-buildimage#27192 / #28543); empty once it can.
     image_gated = gated_globals_missing_from_image(duthost)   # noqa: DELETE-WITH-FRR-PARITY
     image_gated_clauses = gated_route_map_clauses_missing_from_image(duthost)  # noqa: DELETE-WITH-FRR-PARITY
     if image_gated:
@@ -552,23 +385,15 @@ def _current_mode(duthost):
 
 
 def _mode_reachable(duthost, request, original_mode, mode):
-    """Can ``mode`` actually be exercised on this DUT?
-
-    Mirrors the skip conditions in the ``frr_config_mode`` fixture below, so a
-    ``frr_generic`` module can pick a mode that will really run instead of one that
-    would skip. Staying in the DUT's boot mode is always reachable (no switch needed).
-    """
+    """Can ``mode`` actually be exercised on this DUT? Mirrors the fixture's skip conditions."""
     if mode == original_mode:
         return True
-    # macsec and multi-asic / switchless DUTs run the boot mode only (see the fixture).
     if getattr(request.config.option, "enable_macsec", False):
         return False
     if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
         return False
-    # The translator only converts traditional -> frr.
     if original_mode != MODE_TRADITIONAL:
         return False
-    # A switch persists the mode in golden config so it survives the reload.
     return bool(duthost.is_file_existed(GOLDEN_CFG_FILE))
 
 
@@ -578,13 +403,7 @@ def _frr_generic_preference(config):
 
 
 def _generic_mode(duthost, request, original_mode):
-    """For a ``frr_generic`` module, return the single mode to exercise.
-
-    Chosen from the modes ``--frr-config-mode`` selected, preferring
-    ``--frr-generic-mode`` (default ``FRR_GENERIC_DEFAULT_MODE``), restricted to modes that
-    are actually reachable on this DUT. Returns None when none is reachable, letting the
-    fixture's normal skip cascade produce the specific reason.
-    """
+    """The single reachable mode a ``frr_generic`` module runs in, or None if none is."""
     selected = request.config.getoption("--frr-config-mode")
     requested = FRR_CONFIG_MODES if selected == "both" else [selected]
     for mode in _frr_generic_preference(request.config):
@@ -612,9 +431,7 @@ def _enum_dut_hostnames(request):
 
 
 def _is_switchless_node(duthost):
-    """True for DUTs with no switchable BGP stack -- e.g. supervisor / chassis-control
-    cards, which run no bgp container. A mode switch there is meaningless and the
-    migrator's ``vtysh`` call would fail ("container ... is not running")."""
+    """True for DUTs with no bgp container (e.g. supervisor cards)."""
     try:
         return bool(duthost.is_supervisor_node())
     except Exception:
@@ -622,19 +439,14 @@ def _is_switchless_node(duthost):
 
 
 def _skip_reason(node, duthost, state, mode):
-    """Why ``mode`` cannot or need not run for this module on this DUT, or None.
-
-    ``node`` is the module (or one of its items); a skip is decided per module and variant.
-    """
+    """Why ``mode`` cannot or need not run for this module on this DUT, or None."""
     bgpcfgd_only = node.get_closest_marker(FRR_BGPCFGD_ONLY_MARKER)
     if bgpcfgd_only and mode == MODE_FRR_MGMT_FRAMEWORK:
         reason = (bgpcfgd_only.args[0] if bgpcfgd_only.args
                   else "this module asserts bgpcfgd-specific behaviour")
         return "frr_mgmt_framework mode not supported for this module: {}".format(reason)
 
-    # frr_generic modules re-test FRR, not the config daemon, in a second mode. Both params
-    # are kept so test IDs (conditional_mark keys, -k) stay stable and the skip names the
-    # mode that ran.
+    # Both params are kept for frr_generic modules so test IDs stay stable.
     if node.get_closest_marker(FRR_GENERIC_MARKER):
         chosen = _generic_mode(duthost, node, state.original_mode)
         if chosen is not None and mode != chosen:
@@ -644,18 +456,14 @@ def _skip_reason(node, duthost, state, mode):
 
     if mode == state.original_mode:
         return None
-    # The reload disrupts macsec-protected sessions, which re-negotiate slowly and flakily.
     if getattr(node.config.option, "enable_macsec", False):
         return ("FRR config-mode switching is skipped with --enable_macsec (the reload "
                 "disrupts macsec sessions); only the DUT's native '{}' mode is exercised"
                 .format(state.original_mode))
-    # Multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
-    # supervisor nodes run no bgp container.
     if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
         return ("FRR config-mode switching is not supported on this DUT (multi-asic or "
                 "supervisor/no-bgp node); only the DUT's native '{}' mode is "
                 "exercised".format(state.original_mode))
-    # The translator only converts traditional -> frr.
     if state.original_mode != MODE_TRADITIONAL:
         return ("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
                 "this DUT boots in {}, so only that mode can be exercised".format(
@@ -664,18 +472,9 @@ def _skip_reason(node, duthost, state, mode):
 
 
 class _FrrModeSessionState(object):
-    """Per-session FRR config-mode state.
+    """Per-session FRR config-mode state, stashed on the pytest session object.
 
-    Deliberately session-scoped rather than per-module. The mode is a property of the DUT,
-    not of a test module, so tracking it per module made every parametrized module switch
-    into frr and then immediately switch back -- two `config reload`s each, even when the
-    very next module wanted the same mode. pytest_collection_modifyitems runs all
-    [traditional] items before all [frr_mgmt_framework] ones, so a session switches once and
-    restores once.
-
-    Note the DUT cannot depend on a session-scoped fixture here: rand_one_dut_hostname is
-    module-scoped, so this is stashed on the session object and initialised lazily by the
-    first module-scoped frr_config_mode that runs.
+    Session-scoped so a session switches at most once each way.
     """
 
     def __init__(self, duthost):
@@ -683,9 +482,6 @@ class _FrrModeSessionState(object):
         self.migrator = FrrConfigModeMigrator(duthost)
         self.original_mode = None
         self.applied_mode = None
-        # Monotonic count of mode switches performed this session. The generic DUT-health
-        # checks compare it across a module to tell "a `config reload` happened while this
-        # module ran" from "the DUT was already in this mode when the module started".
         self.switch_count = 0
         self.early_skips = {}
         self.baseline_neighbors = None
@@ -698,9 +494,7 @@ _SESSION_STATE_ATTR = "_frr_config_mode_state"
 def _session_state(request, duthost):
     """Return this session's FRR mode state, initialising it on first use.
 
-    Initialisation also recovers from an interrupted previous run before reading the DUT's
-    "original" mode -- otherwise a run that died mid-switch would leave the DUT in frr and we
-    would record frr as the baseline to restore to, making the damage permanent.
+    Recovers an interrupted previous run first, so its mode is not taken as the original.
     """
     session = request.session
     state = getattr(session, _SESSION_STATE_ATTR, None)
@@ -713,9 +507,7 @@ def _session_state(request, duthost):
     state.applied_mode = state.original_mode
     state.baseline_neighbors = _bgp_established_neighbors(duthost)
     state.baseline_fingerprint = _frr_config_fingerprint(duthost)
-    # Back the config up here, alongside the baselines it has to agree with, rather than
-    # letting the migrator do it lazily at the first switch -- by then a module's own fixtures
-    # may already have changed CONFIG_DB, and restoring that is not a restore.
+    # Back up now, before any module's fixtures change CONFIG_DB.
     state.migrator.capture_pristine_backup()
     setattr(session, _SESSION_STATE_ATTR, state)
     logger.info("FRR config-mode session state initialised; DUT boots in '%s'",
@@ -726,17 +518,7 @@ def _session_state(request, duthost):
 def pytest_sessionfinish(session, exitstatus):
     """Restore the DUT's original FRR config mode once, at the end of the session.
 
-    Replaces the old per-module restore. This fires on a normal finish and on
-    KeyboardInterrupt, but NOT on SIGKILL / OOM / a hard DUT crash -- nothing in pytest can.
-    That residual case is covered by the migrator's setup-time
-    recover_interrupted_run(), which repairs the DUT on the next run.
-
-    A failure here is an infrastructure failure, not a test failure: the DUT may be left in
-    the wrong FRR config mode, which silently mis-runs every later module on that testbed.
-    So it forces a non-zero session exit status (``INTERNAL_ERROR``) rather than only logging
-    -- a green run whose DUT was left switched is worse than a red one, because nothing else
-    in the session reports it. The DUT is still self-repairing: the switch marker stays on
-    it, so the next run's recover_interrupted_run() restores it at setup.
+    A failure sets ``INTERNAL_ERROR`` so a run that left the DUT switched is not read as clean.
     """
     state = getattr(session, _SESSION_STATE_ATTR, None)
     if state is None:
@@ -774,10 +556,7 @@ def pytest_addoption(parser):
 
 
 def pytest_generate_tests(metafunc):
-    # Parametrize frr_config_mode over the selected mode(s). Done here (rather than via
-    # params= on the fixture) so --frr-config-mode can narrow it to a single mode, while
-    # keeping the "[traditional]" / "[frr_mgmt_framework]" param IDs that conditional_mark
-    # and -k rely on.
+    # Parametrized here, not via params=, so --frr-config-mode can narrow it.
     if "frr_config_mode" in metafunc.fixturenames:
         selected = metafunc.config.getoption("--frr-config-mode")
         modes = FRR_CONFIG_MODES if selected == "both" else [selected]
@@ -805,11 +584,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
-    """Skip a variant already known to be unreachable before any module fixture sets up.
-
-    Without DUT state (before the first frr_config_mode module) only the marker-only case is
-    known; the fixture decides the rest.
-    """
+    """Skip a variant already known to be unreachable before any module fixture sets up."""
     mode = _item_mode(item)
     if mode is None:
         return
@@ -827,67 +602,13 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def frr_config_mode(request, duthosts, rand_one_dut_hostname):
-    """Run a test in BOTH the traditional (bgpcfgd) and frr_mgmt_framework (frrcfgd)
-    config modes in a single pytest run.
+    """Run a module in both the traditional (bgpcfgd) and frr_mgmt_framework (frrcfgd) modes.
 
-    Tests (or their module-scoped setup fixtures) opt in by requesting this fixture;
-    doing so parametrizes them over the two modes and yields the active mode string.
-
-    Use ``--frr-config-mode={both,traditional,frr_mgmt_framework}`` (default ``both``) to
-    narrow the run to a single mode -- e.g. ``--frr-config-mode=frr_mgmt_framework`` exercises
-    only frrcfgd and bypasses the bgpcfgd variant.
-
-    Generic DUT-health checks: the mode switch rewrites BGP config_db mid-module and
-    reloads, which the config-diff and YANG checks would flag. They are NOT disabled by a
-    marker -- that would suppress them for every opted-in module and both mode variants,
-    including native-mode runs that reload nothing. Instead the checks themselves skip at
-    runtime, via ``frr_mode_perturbed()``, exactly while the DUT is away from its boot mode
-    or in a module a switch actually ran in; crash detection is never skipped. The switch
-    restores the DUT's original config on exit, leaving the testbed clean for later modules.
-
-    The ``disable_memory_utilization`` marker is applied automatically (by
-    ``pytest_collection_modifyitems`` in tests/conftest.py, keyed on this fixture) for
-    the same reason: the mode-switch reload makes BGP re-learn the full route table,
-    and on route-heavy DUTs that reconvergence lands inside the memory monitor's
-    before/after window -- a steady-state footprint change the percent-increase
-    threshold would misread as a leak.
-
-    Switching is expensive (a config reload), so the fixture is module-scoped --
-    a session switches at most once each way (see pytest_collection_modifyitems) -- and it
-    skips the switch when the DUT is already in the requested mode.
-
-    Strictness: the BGP neighbors established, and the set of BGP config objects FRR
-    reports, in the DUT's original mode are captured once; after every switch the
-    fixture asserts those neighbors re-establish and no config object was dropped, so
-    a translation that loses config fails loudly instead of running with reduced
-    coverage.
-
-    Scope caveat -- which DUT gets switched: this fixture switches the mode on
-    ``rand_one_dut_hostname``. A module that acts on a different DUT
-    (``enum_frontend_dut_hostname``, ``enum_rand_one_per_hwsku_frontend_hostname``,
-    ``enum_downstream_dut_hostname``/``enum_upstream_dut_hostname``, or its own
-    source/destination selection) is only meaningfully parametrized when those resolve to
-    the same host.
-
-    They do on a single-DUT topology, but NOT in general: a dualtor testbed has two
-    single-ASIC frontend DUTs, and a multi-DUT T2 enumerates several. So the frr variant is
-    skipped, before switching, when the module's tests select any other DUT through those
-    ``enum_*`` fixtures. A module that picks its DUTs itself must call
-    :func:`skip_if_dut_not_switched` from its setup with the DUT it operates on.
-
-    Widening this to switch every DUT under test would need per-DUT migrators and baselines.
-
-    Skips (with a clear reason, rather than running something wrong):
-      * multi-ASIC DUT (per-ASIC switching not supported yet);
-      * a mode that differs from the DUT's boot mode when that boot mode is not traditional
-        (we only translate traditional -> frr; a same-mode native run is allowed);
-      * no golden_config_db.json when a switch is required (needed to persist the mode
-        across config reload).
+    Yields the active mode. Only ``rand_one_dut_hostname`` is switched; modules that drive
+    other DUTs skip the frr variant (see :func:`skip_if_dut_not_switched`).
     """
     mode = request.param
     duthost = duthosts[rand_one_dut_hostname]
-    # Session-scoped state: the FRR config mode is a property of the DUT, not of a module.
-    # Initialising it also recovers from a previous run that died mid-switch.
     state = _session_state(request, duthost)
 
     reason = _skip_reason(request.node, duthost, state, mode)
@@ -902,37 +623,20 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
                         "their original mode".format(duthost.hostname, sorted(others)))
 
     if state.applied_mode != mode:
-        # A mode switch persists the new mode in golden config so it survives the reload; a
-        # no-switch native run (mode == the DUT's boot mode) does not need it.
         if not duthost.is_file_existed(GOLDEN_CFG_FILE):
             pytest.skip("{} not present on DUT; cannot persist routing mode across config "
                         "reload".format(GOLDEN_CFG_FILE))
         _switch_mode(state, mode)
 
     yield mode
-
-    # No per-module restore. The DUT is left in whatever mode this module used, so the next
-    # module wanting the same mode costs zero switches; pytest_sessionfinish restores the
-    # original mode once at the end. A per-module restore looked safer but was not -- it
-    # equally fails to run on SIGKILL / OOM / DUT crash, and only narrowed the window while
-    # paying two config reloads per module. The residual case is covered idempotently at
-    # setup by the migrator's recover_interrupted_run().
+    # No per-module restore; pytest_sessionfinish restores the original mode once.
 
 
 def _switch_mode(state, mode):
-    """Switch the DUT to ``mode``, wait for BGP to recover, and assert strictness.
+    """Switch the DUT to ``mode``, wait for BGP to recover, and assert nothing was dropped.
 
-    What we assert against depends on the direction, because the two directions do different
-    things:
-
-    * A forward switch *translates* whatever happens to be configured right now, so it is
-      compared against the state captured immediately beforehand. Comparing against the
-      session-start baseline instead blames the translation for config a test changed in
-      between -- observed on a t1, where a module replaces the DUT's BGP config from a template
-      before the switch and the fingerprint then reported the template's missing prefix-lists
-      and community-lists as a translation loss.
-    * A restore reinstates the session-start backup, so the session-start baseline is exactly
-      what should come back.
+    A forward switch is checked against the state just before it; a restore against the
+    session-start baseline.
     """
     duthost = state.duthost
     restoring = mode == state.original_mode
@@ -942,9 +646,7 @@ def _switch_mode(state, mode):
     else:
         expected_neighbors = _bgp_established_neighbors(duthost)
         expected_fingerprint = _frr_config_fingerprint(duthost)
-    # Hold the switch to the ports that were actually carrying traffic beforehand, not to
-    # every admin-up port: some testbeds keep admin-up ports deliberately unconnected, and
-    # those must not make every mode switch fail. See the recovery check below.
+    # Oper-up, not admin-up: some testbeds keep admin-up ports deliberately unconnected.
     expected_ports = get_oper_up_ports(duthost)
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
@@ -952,8 +654,7 @@ def _switch_mode(state, mode):
             try:
                 state.migrator.to_frr_mgmt_framework()
             except BaseException:
-                # Past the switch marker the DUT's files may already be in frr mode, so record
-                # it as switched and let the session-end restore put it back.
+                # Past the switch marker the DUT may already be in frr; let session end restore it.
                 try:
                     switched = state.migrator.interrupted_run_pending()
                 except Exception:
@@ -962,11 +663,7 @@ def _switch_mode(state, mode):
                     state.applied_mode = mode
                 raise
         else:
-            # to_traditional() returns False when the CONFIG_DB backup is gone: it restored
-            # the golden files only, and the DUT is still running translated frr config.
-            # Recording the mode as applied there would leave the rest of the session -- and
-            # the session-end restore, which no-ops when applied == original -- believing the
-            # DUT had been returned to traditional. Fail instead, leaving applied_mode alone.
+            # False means the CONFIG_DB backup is gone and the DUT still runs frr config.
             if not state.migrator.to_traditional():
                 pytest.fail(
                     "Failed to restore '{}' mode on {}: the pre-switch CONFIG_DB backup is "
@@ -983,10 +680,7 @@ def _switch_mode(state, mode):
     pt_assert(wait_until(180, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"),
               "bgp service did not come up after switching to '{}' mode".format(mode))
     baseline = expected_neighbors
-    # Capture the last-polled established set so the failure message reuses it instead of
-    # firing another vtysh query -- the message string is built eagerly on every (including
-    # successful) switch, so calling _bgp_established_neighbors() in .format() would run an
-    # extra query per switch.
+    # Reuse the last poll in the (eagerly built) failure message instead of another vtysh query.
     last_established = {}
 
     def _neighbors_recovered():
@@ -998,18 +692,7 @@ def _switch_mode(state, mode):
         "Switching to '{}' mode did not preserve BGP: neighbors {} were not all "
         "re-established (established now: {}).".format(
             mode, sorted(baseline), sorted(last_established.get("set", set()))))
-    # A mode switch is a full-stack reload ('config reload' stops sonic.target -- every
-    # container). BGP being established does not mean the DUT is ready: the front-panel ports
-    # come up later, and anything that reloads again before they do gets a half-initialised
-    # stack. Measured on a t2: a second reload ~90s after this one left all 10 admin-up ports
-    # oper-down, so LACP never formed, the peer subnets' connected routes stayed 'dead
-    # linkdown', and every BGP session sat in Active with "No path to specified Neighbor" --
-    # surfacing as a bogus BGP/LLDP timeout in whichever module reloaded next.
-    #
-    # Since continuing in that state is exactly what the comment above says must not happen,
-    # this fails rather than warns. It is held to the ports that were operationally up before
-    # the switch (captured above), so a testbed's intentionally-disconnected admin-up ports do
-    # not turn every switch into a failure.
+    # Ports come up after BGP; a further reload before they do leaves a half-initialised stack.
     last_ports = {}
 
     def _ports_recovered():

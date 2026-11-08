@@ -444,9 +444,7 @@ bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath\[.*frr_mgmt_framework:
       - https://github.com/sonic-net/sonic-buildimage/issues/28482
 
 
-# frr_config_mode inserts a 'traditional' / 'frr_mgmt_framework' param into the node id, so
-# this needs a regex rather than the default prefix match. Written to tolerate the mode param
-# on either side of 'enabled', and NOT to match the 'disabled' variant.
+# Regex: tolerates the frr_config_mode param on either side; must not match 'disabled'.
 bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload\[(.*-)?enabled(-.*)?\]:
   regex: true
   xfail:
@@ -583,11 +581,7 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
     conditions:
       - "'t0-isolated-v6-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-# NOTE: test_bgp_sentinel is NOT parametrized over frr_config_mode and is NOT gated here. BGP
-# sentinels is a bgpcfgd-only macro (expressible via generic peer-group/route-map tables) and is
-# intentionally unsupported in frr mode; the module runs in traditional (bgpcfgd) mode and skips
-# on a native-frrcfgd DUT via an autouse skip_module_if_frr_native() fixture (a by-design skip,
-# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
+# test_bgp_sentinel is bgpcfgd-only; it skips itself on native-frrcfgd DUTs (by design).
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:
@@ -674,8 +668,7 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
-# Regex (not the default prefix match) because frr_config_mode inserts a
-# 'traditional' / 'frr_mgmt_framework' param into the node id; tolerant of either param order.
+# Regex: tolerates the frr_config_mode param on either side.
 bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap\[(.*-)?all(-.*)?\]:
   regex: true
   xfail:
@@ -683,11 +676,7 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap\[(.*-)?all(-.*)?\]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-# NOTE: the frr_mgmt_framework variants of test_bgp_stress_link_flap_with_monitor and
-# test_bgp_stress_link_flap_with_sentinel_and_monitor are NOT gated here. BGP monitors is a
-# legacy feature superseded by BMP and intentionally unsupported in frr mode; those tests skip
-# permanently in frr mode via an in-test skip_if_frr_mgmt_framework() call (a by-design skip,
-# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
+# The *_with_monitor frr variants skip in-test (bgpmon unsupported in frr mode, by design).
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -770,11 +759,7 @@ bgp/test_bgpmon.py:
     conditions:
       - "'backend' in topo_name"
 
-# NOTE: test_bgpmon (test_bgpmon_v4 / test_bgpmon_v6) is NOT parametrized over frr_config_mode and
-# is NOT gated here. BGP monitors is a legacy feature superseded by BMP and intentionally unsupported
-# in frr mode; the module runs in traditional (bgpcfgd) mode and skips on a native-frrcfgd DUT
-# via an autouse skip_module_if_frr_native() fixture (a by-design skip, not an auto-lifting
-# tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
+# test_bgpmon is bgpcfgd-only; it skips itself on native-frrcfgd DUTs (by design).
 
 bgp/test_bgpmon.py::test_bgpmon_v4:
   skip:

@@ -91,9 +91,7 @@ def test_announce_withdraw_route(frr_config_mode, duthosts, localhost, tbinfo,
 
     # Do not check route used for vs tests because vs testbed do not have real asic
     if asic_type != "vs":
-        # get_crm_resource_status returns None if CRM is still repopulating after a config
-        # reload; guard the arithmetic so a transient empty read fails clearly rather than
-        # raising TypeError on None.
+        # CRM reads None while repopulating after a reload.
         crm_counts = (ipv4_route_used_after, ipv4_route_used_before,
                       ipv6_route_used_after, ipv6_route_used_before)
         pytest_assert(None not in crm_counts,

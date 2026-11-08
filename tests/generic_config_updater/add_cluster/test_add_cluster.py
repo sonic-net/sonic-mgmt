@@ -3804,10 +3804,6 @@ def setup_add_cluster(frr_config_mode,
     1. Restore the ACL configuration to its initial values.
     """
 
-    # GCU add-cluster builds JSON patches / sonic-db-cli commands keyed on the CONFIG_DB
-    # BGP_NEIGHBOR entries. Those keys are VRF-scoped differently in frr_mgmt_framework mode
-    # (BGP_NEIGHBOR|default|<ip> and a VRF-nested config_facts view), so the patch paths this
-    # test constructs are not valid there; frr-mode GCU support needs separate vrf-aware paths.
     skip_if_frr_mgmt_framework(frr_config_mode,
                                "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
                                "frr_mgmt_framework support needs separate vrf-aware patch paths")

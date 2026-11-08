@@ -19,9 +19,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-# This module's tests are class methods, so they can't take the ``frr_config_mode``
-# fixture as a parameter directly. Depend on it from a module-scoped autouse fixture
-# instead, which parametrizes every test in the module over both FRR config modes.
+# Class-method tests can't take frr_config_mode directly; pull it in via autouse.
 @pytest.fixture(scope="module", autouse=True)
 def _frr_config_mode_autouse(frr_config_mode):
     return frr_config_mode
@@ -43,13 +41,7 @@ class TestBfdTraffic:
         dst_dut_index = random.choice(list(range(len(dst_dut_pool))))
         src_dut = src_dut_pool[src_dut_index]
         dst_dut = dst_dut_pool[dst_dut_index]
-        # This module picks its own source and destination DUTs, while frr_config_mode
-        # switches rand_one_dut_hostname. Unlike test_bfd_static_route this module's
-        # conditional mark does not require is_multi_asic (only asic_type == cisco-8000), so
-        # the fixture's multi-ASIC native-only path is not guaranteed to apply and a switch
-        # can genuinely happen on a DUT this test does not drive. Skip the frr variant when
-        # either endpoint is not the switched DUT; when no switch happened (the usual chassis
-        # case) this is a no-op and the module runs in the DUT's native mode as before.
+        # frr_config_mode switches rand_one_dut_hostname; skip if an endpoint is not that DUT.
         skip_if_dut_not_switched(request, src_dut)
         skip_if_dut_not_switched(request, dst_dut)
         src_asic_namespace_list = src_dut.get_asic_namespace_list()

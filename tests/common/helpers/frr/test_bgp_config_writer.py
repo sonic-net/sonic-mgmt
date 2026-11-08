@@ -34,23 +34,20 @@ def test_peer_range_converts_to_listen_prefix_peer_group_and_af():
     assert (del_fields, pgs) == ({}, set())
 
 
-def test_bbr_enable_sets_allowas_in_on_eligible_afs_only():
-    tables, del_fields, pgs = to_frr_rows({"BGP_BBR": {"all": {"status": "enabled"}}},
-                                          CONFIG_DB, CONSTANTS)
-    on = {"allow_as_in": "true", "allow_as_count": "1"}
-    assert tables == {"BGP_PEER_GROUP_AF": {"default|PEER_V4|ipv4_unicast": on,
-                                            "default|PEER_V6|ipv6_unicast": on}}
-    assert del_fields == {} and pgs == {"PEER_V4", "PEER_V6"}
+_BBR_ON = {"allow_as_in": "true", "allow_as_count": "1"}
+_BBR_FIELDS = ["allow_as_in", "allow_as_count"]
 
 
-def test_bbr_disable_removes_the_fields():
-    tables, del_fields, pgs = to_frr_rows({"BGP_BBR": {"all": {"status": "disabled"}}},
-                                          CONFIG_DB, CONSTANTS)
-    assert tables == {}
-    assert del_fields == {
-        "BGP_PEER_GROUP_AF|default|PEER_V4|ipv4_unicast": ["allow_as_in", "allow_as_count"],
-        "BGP_PEER_GROUP_AF|default|PEER_V6|ipv6_unicast": ["allow_as_in", "allow_as_count"]}
-    assert pgs == {"PEER_V4", "PEER_V6"}
+# Only the AFs eligible per constants.yml (PEER_V4/ipv4, PEER_V6/ipv6) are touched.
+@pytest.mark.parametrize("status,tables,del_fields", [
+    ("enabled", {"BGP_PEER_GROUP_AF": {"default|PEER_V4|ipv4_unicast": _BBR_ON,
+                                       "default|PEER_V6|ipv6_unicast": _BBR_ON}}, {}),
+    ("disabled", {}, {"BGP_PEER_GROUP_AF|default|PEER_V4|ipv4_unicast": _BBR_FIELDS,
+                      "BGP_PEER_GROUP_AF|default|PEER_V6|ipv6_unicast": _BBR_FIELDS}),
+])
+def test_bbr_status_on_eligible_afs_only(status, tables, del_fields):
+    result = to_frr_rows({"BGP_BBR": {"all": {"status": status}}}, CONFIG_DB, CONSTANTS)
+    assert result == (tables, del_fields, {"PEER_V4", "PEER_V6"})
 
 
 def test_allow_list_converts_to_policy_tables():
