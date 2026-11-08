@@ -132,6 +132,16 @@ def test_backup_never_overwrites_a_previous_runs_backup():
     assert not dut.ran("cp {0} {1}".format(CONFIG_DB_FILE, CONFIG_BAK))
 
 
+def test_adopted_config_backup_still_takes_missing_golden_backups():
+    """Adopting a previous run's config_db backup must not skip the golden backups, or the
+    restore would leave golden stamped frr_mgmt_framework_config=true."""
+    dut = FakeDutHost(files=[CONFIG_DB_FILE, CONFIG_BAK, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE])
+    FrrConfigModeMigrator(dut)._backup()
+    assert not dut.ran("cp {0} {1}".format(CONFIG_DB_FILE, CONFIG_BAK))
+    assert GOLDEN_BAK in dut.files
+    assert ORIGIN_BAK in dut.files
+
+
 def test_restore_raises_when_frr_tables_survive():
     """A restore that leaves frr-only tables behind must fail loudly, not poison later GCU."""
     dut = FakeDutHost(

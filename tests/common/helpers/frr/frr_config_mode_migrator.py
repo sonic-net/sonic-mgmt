@@ -130,19 +130,14 @@ class FrrConfigModeMigrator(object):
     def _backup(self):
         if self._backed_up:
             return
-        if self._backup_present():
-            # A backup we did not take is a previous run's pristine pre-switch config. Never
-            # overwrite it with the current config, which may already be translated -- adopt it
-            # instead so the eventual restore still lands on real traditional config.
-            logger.warning("%s%s already exists; adopting it rather than overwriting",
-                           CONFIG_DB_FILE, _BAK_SUFFIX)
-            self._backed_up = True
-            return
-        self.duthost.shell("sudo cp {0} {0}{1}".format(CONFIG_DB_FILE, _BAK_SUFFIX))
-        if self._golden_config_present():
-            self.duthost.shell("sudo cp {0} {0}{1}".format(GOLDEN_CFG_FILE, _BAK_SUFFIX))
-        if self._golden_origin_present():
-            self.duthost.shell("sudo cp {0} {0}{1}".format(GOLDEN_CFG_ORIGIN_FILE, _BAK_SUFFIX))
+        for path in (CONFIG_DB_FILE, GOLDEN_CFG_FILE, GOLDEN_CFG_ORIGIN_FILE):
+            if self.duthost.is_file_existed(path + _BAK_SUFFIX):
+                # A backup we did not take is a previous run's pristine pre-switch copy. Never
+                # overwrite it with the current file, which may already be translated.
+                logger.warning("%s%s already exists; adopting it rather than overwriting",
+                               path, _BAK_SUFFIX)
+            elif path == CONFIG_DB_FILE or self.duthost.is_file_existed(path):
+                self.duthost.shell("sudo cp {0} {0}{1}".format(path, _BAK_SUFFIX))
         self._backed_up = True
 
     def capture_pristine_backup(self):
