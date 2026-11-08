@@ -108,8 +108,10 @@ def _peer_groups(peer_group_json):
     """From 'show bgp peer-group json', return (ipv4_pg, ipv6_pg, all_pg_names, pg_by_neighbor).
 
     A peer group is classed v4 or v6 by the address family of its members. ``ipv4_pg`` /
-    ``ipv6_pg`` are the first v4/v6 group found, used only as the *fallback* for a neighbor
-    FRR does not report as an explicit member; every discovered peer group is created.
+    ``ipv6_pg`` are PEER_V4 / PEER_V6 when present, else the first v4/v6 group found -- not
+    simply the first, since confed-external groups (PEER_EXTERNAL_V4/V6) sort ahead of them.
+    They are used only as the *fallback* for a neighbor FRR does not report as an explicit
+    member; every discovered peer group is created.
 
     ``pg_by_neighbor`` maps each explicitly-configured neighbor IP to the group it actually
     belongs to. Discarding that mapping and assigning every neighbor of an address family to
@@ -143,6 +145,9 @@ def _peer_groups(peer_group_json):
             ipv4_pgs.append(name)
         if has_v6:
             ipv6_pgs.append(name)
+    for default, pgs in ((DEFAULT_IPV4_PEER_GROUP, ipv4_pgs), (DEFAULT_IPV6_PEER_GROUP, ipv6_pgs)):
+        if default in all_names:
+            pgs.insert(0, default)
     ipv4_pg = ipv4_pgs[0] if ipv4_pgs else DEFAULT_IPV4_PEER_GROUP
     ipv6_pg = ipv6_pgs[0] if ipv6_pgs else DEFAULT_IPV6_PEER_GROUP
     return ipv4_pg, ipv6_pg, all_names, pg_by_neighbor
@@ -643,7 +648,15 @@ def _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names):
     return peer_group_af
 
 
-def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor=None):
+def _pg_route_maps(peer_group_af, pg, af, route_map_names):
+    """The peer-group AF's route-maps as read from the running config, else the guess."""
+    row = peer_group_af.get("{}|{}|{}".format(DEFAULT_VRF, pg, af), {})
+    rin, rout = _route_map_names_for_peer_group(pg, route_map_names)
+    return row.get("route_map_in", rin), row.get("route_map_out", rout)
+
+
+def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor=None,
+                     peer_group_af=None):
     """Transform the traditional BGP_NEIGHBOR table into the frrcfgd VRF-keyed
     BGP_NEIGHBOR + BGP_NEIGHBOR_AF tables.
 
@@ -669,7 +682,7 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbo
         row.update({"vrf_name": vrf, "neighbor": ip, "admin_status": admin_status,
                     "peer_group_name": pg})
         neighbors["{}|{}".format(vrf, ip)] = row
-        rin, rout = _route_map_names_for_peer_group(pg, route_map_names)
+        rin, rout = _pg_route_maps(peer_group_af or {}, pg, af, route_map_names)
         af_row = {
             "admin_status": admin_status, "vrf_name": vrf, "neighbor": ip, "afi_safi": af,
             "route_map_in": rin, "route_map_out": rout,
@@ -686,14 +699,14 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbo
     return neighbors, neighbor_af
 
 
-def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
-    """Translate non-standard peer-groups (the listen-range peer-groups a t0 baseline
-    ships, e.g. ``BGPSLBPassive`` / ``BGPVac``) from FRR ``show running-config`` into
-    frrcfgd ``BGP_PEER_GROUP`` + ``BGP_PEER_GROUP_AF`` rows.
+def _extract_extra_peer_groups(running_config, bgp_asn):
+    """Translate every peer-group's attributes and route-maps from FRR
+    ``show running-config`` into frrcfgd ``BGP_PEER_GROUP`` + ``BGP_PEER_GROUP_AF`` rows.
 
-    ``_build_peer_group_af`` / ``_build_neighbors`` only handle the primary v4/v6
-    peer-groups. A peer-group bound to a ``bgp listen range`` (no explicit BGP_NEIGHBOR
-    rows) would otherwise be dropped, and its ``neighbor <pg> remote-as`` line would
+    ``_build_peer_group_af`` only guesses the primary v4/v6 peer-groups' route-maps by name,
+    which is wrong for the confed-external groups (PEER_EXTERNAL_V4 uses FROM_BGP_PEER_V4).
+    A peer-group bound to a ``bgp listen range`` (e.g. ``BGPSLBPassive`` / ``BGPVac``, no
+    explicit BGP_NEIGHBOR rows) would otherwise be dropped, and its ``neighbor <pg> remote-as`` line would
     vanish after the switch -- which the fixture's fail-loud fingerprint catches.
     bgpcfgd renders these peer-groups' attributes from templates, so they live only in
     the running-config, not CONFIG_DB; we read them back from there.
@@ -714,9 +727,8 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
         if len(parts) < 2:
             continue
         name = parts[1]
-        # Skip IP neighbors (handled by _build_neighbors) and the primary v4/v6
-        # peer-groups (handled by _build_peer_group_af).
-        if "." in name or ":" in name or name in primary_names:
+        # Skip IP neighbors (handled by _build_neighbors).
+        if "." in name or ":" in name:
             continue
         pg_key = "{}|{}".format(DEFAULT_VRF, name)
         row = peer_group.setdefault(pg_key, {
@@ -984,17 +996,17 @@ def translate_config_db(config_db, running_config, peer_group_json):
         "suppress-fib-pending"] = suppress_fib
     peer_group = _build_peer_groups(bgp_asn, all_pg_names)
     peer_group_af = _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names)
-    _apply_bbr(result, peer_group_af)
-    # Non-standard / listen-range peer-groups (e.g. BGPSLBPassive, BGPVac). Merge AFTER
-    # _apply_bbr so BBR's allowas-in stays on the primary v4/v6 peer-groups only.
-    extra_pg, extra_pg_af = _extract_extra_peer_groups(
-        running_config, {ipv4_pg, ipv6_pg}, bgp_asn)
+    primary_af = dict(peer_group_af)
+    extra_pg, extra_pg_af = _extract_extra_peer_groups(running_config, bgp_asn)
     for key, value in extra_pg.items():
         peer_group[key] = {**peer_group.get(key, {}), **value}
-    peer_group_af.update(extra_pg_af)
+    for key, value in extra_pg_af.items():
+        peer_group_af[key] = {**peer_group_af.get(key, {}), **value}
+    # BBR's allowas-in goes on the primary v4/v6 peer-groups only.
+    _apply_bbr(result, {key: peer_group_af[key] for key in primary_af})
     listen_prefixes = _build_listen_prefixes(result)
     neighbors, neighbor_af = _build_neighbors(
-        result, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor)
+        result, ipv4_pg, ipv6_pg, route_map_names, pg_by_neighbor, peer_group_af)
     aggregates = _build_aggregate_addresses(result)
 
     result["BGP_GLOBALS"] = globals_tbl

@@ -837,3 +837,35 @@ def test_neighbor_without_a_reported_group_falls_back_to_the_family_default():
     cfg["BGP_NEIGHBOR"]["10.0.0.9"] = {"admin_status": "up", "asn": "65299"}
     out = translate_config_db(cfg, "", _peer_group_json())
     assert out["BGP_NEIGHBOR"]["default|10.0.0.9"]["peer_group_name"] == "PEER_V4"
+
+
+# --------------------------------------------------------------------------- #
+# Confed-external peer-groups (sonic-buildimage#28687)
+# --------------------------------------------------------------------------- #
+
+_CONFED_EXTERNAL_RUNNING = "\n".join([
+    "router bgp 65100",
+    " neighbor PEER_EXTERNAL_V4 peer-group",
+    " neighbor PEER_V4 peer-group",
+    " address-family ipv4 unicast",
+    "  neighbor PEER_EXTERNAL_V4 route-map FROM_BGP_PEER_V4 in",
+    "  neighbor PEER_EXTERNAL_V4 route-map TO_BGP_PEER_V4 out",
+    "  neighbor PEER_V4 route-map FROM_BGP_PEER_V4 in",
+    "  neighbor PEER_V4 route-map TO_BGP_PEER_V4 out",
+    " exit-address-family",
+])
+
+
+def test_confed_external_group_is_not_primary_and_uses_its_real_route_maps():
+    cfg = _base_config_db()
+    cfg["BGP_BBR"] = {"all": {"status": "enabled"}}
+    cfg["BGP_NEIGHBOR"]["10.0.0.9"] = {"admin_status": "up", "asn": "65300"}
+    pg_json = {"PEER_EXTERNAL_V4": {"members": {"10.0.0.9": {}}, "addressFamilyInfo": "IPv4 Unicast"},
+               **_peer_group_json()}
+    out = translate_config_db(cfg, _CONFED_EXTERNAL_RUNNING, pg_json)
+    ext = out["BGP_PEER_GROUP_AF"]["default|PEER_EXTERNAL_V4|ipv4_unicast"]
+    assert ext["route_map_in"] == ["FROM_BGP_PEER_V4"]
+    assert "allow_as_in" not in ext
+    assert out["BGP_PEER_GROUP_AF"]["default|PEER_V4|ipv4_unicast"]["allow_as_in"] == "true"
+    assert out["BGP_NEIGHBOR_AF"]["default|10.0.0.9|ipv4_unicast"]["route_map_in"] == ["FROM_BGP_PEER_V4"]
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.9"]["peer_group_name"] == "PEER_EXTERNAL_V4"
