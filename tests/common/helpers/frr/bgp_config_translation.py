@@ -1006,23 +1006,19 @@ def translate_config_db(config_db, running_config, peer_group_json):
     # and constants.yml but frrcfgd drives from BGP_GLOBALS fields -- graceful restart,
     # ebgp-requires-policy, multipath-relax. See _extract_global_flags.
     globals_tbl, af_network = _build_globals(result, bgp_asn, router_id, running_config)
-    # suppress-fib-pending lives in DEVICE_METADATA rather than BGP_GLOBALS. bgpcfgd's template
-    # renders 'bgp suppress-fib-pending' from it (bgpd.main.conf.j2).
-    #
-    # Correcting an earlier claim here: frrcfgd does NOT consume this field. Grepping the whole
-    # sonic-frr-mgmt-framework tree for suppress-fib finds nothing -- no global_key_map entry
-    # and no template line -- so the FRR line is genuinely lost in frr mode. It is recorded as
-    # a gap in the fixture's FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES and reported on
-    # sonic-buildimage#28482.
-    #
-    # The field is still carried across, because it is the CONFIG_DB source of truth
-    # independent of which daemon renders FRR: it is YANG-modeled (sonic-device_metadata.yang),
-    # it is what `config suppress-fib-pending` writes, and route_check.py reads it. Dropping it
-    # would leave CONFIG_DB inconsistent on top of the missing FRR line.
-    suppress_fib = "enabled" if any(
-        ln.strip() == "bgp suppress-fib-pending" for ln in running_config.splitlines()) else "disabled"
-    result.setdefault("DEVICE_METADATA", {}).setdefault("localhost", {})[
-        "suppress-fib-pending"] = suppress_fib
+    # Device knobs bgpcfgd renders from DEVICE_METADATA (bgpd.main.conf.j2, zebra template)
+    # and frrcfgd renders from the same fields (sonic-buildimage#28543). zebra_nexthop is
+    # written explicitly: bgpcfgd renders it when the field is absent, frrcfgd only when set.
+    lines = {ln.strip() for ln in running_config.splitlines()}
+    meta = result.setdefault("DEVICE_METADATA", {}).setdefault("localhost", {})
+    for ln in lines:
+        if ln.startswith("zebra nexthop-group keep "):
+            meta["nexthop_group_keep_time"] = ln.split()[-1]
+    if "zebra nexthop kernel enable" in lines:
+        meta["zebra_nexthop"] = "enabled"
+    elif "no zebra nexthop kernel enable" in lines:
+        meta["zebra_nexthop"] = "disabled"
+    meta["suppress-fib-pending"] = "enabled" if "bgp suppress-fib-pending" in lines else "disabled"
     peer_group = _build_peer_groups(bgp_asn, all_pg_names)
     peer_group_af = _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names)
     primary_af = dict(peer_group_af)

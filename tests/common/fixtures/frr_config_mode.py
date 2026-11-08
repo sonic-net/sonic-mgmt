@@ -105,31 +105,21 @@ _GLOBAL_SETTING_EXCLUDES = (
 # Globals bgpcfgd renders that frrcfgd genuinely cannot express. Prefix-matched, since most
 # carry a value. Same role as FRRCFGD_UNSUPPORTED_OBJECTS: a real frrcfgd capability gap, so
 # it is recorded visibly rather than failing the switch. Each one is a behavioural difference
-# in frr mode -- e.g. losing 'zebra nexthop-group keep 1' reverts zebra to FRR's 180s
-# nexthop-group retention, which surfaces much later as flaky nexthop-group/CRM counts.
+# in frr mode.
 #
 # Closing these needs new frrcfgd fields (tracked on sonic-buildimage#28482). They must be
 # opt-in knobs the migrator sets, NOT changed frrcfgd defaults, so existing installations
 # keep their current behaviour -- the same treatment ebgp_requires_policy gets in #28543.
 FRRCFGD_UNSUPPORTED_GLOBAL_PREFIXES = (
-    "zebra nexthop-group keep ",
-    "zebra nexthop kernel enable",
-    "no zebra nexthop kernel enable",
     # NOT listed, because frrcfgd DOES render them (templates/frr/frr.conf.j2):
     #   fpm address 127.0.0.1          -- hardcoded there, same as bgpcfgd
     #   fpm use-next-hop-groups        -- driven by DEVICE_METADATA.nexthop_group
-    # If either ever goes missing across a switch that is a real regression, so let it fail.
+    #   zebra nexthop-group keep, zebra nexthop kernel enable, bgp suppress-fib-pending
+    #                                  -- DEVICE_METADATA, rendered with sonic-buildimage#28543
+    # If any of them goes missing across a switch that is a real regression, so let it fail.
     "bgp graceful-restart select-defer-time ",
     "bgp graceful-restart-disable",
     "bgp long-lived-graceful-restart ",
-    # bgpcfgd renders this from DEVICE_METADATA.suppress-fib-pending
-    # (bgpd.main.conf.j2). frrcfgd does not: grepping the whole
-    # sonic-frr-mgmt-framework tree for suppress-fib finds nothing -- neither a
-    # global_key_map entry nor a template line. The translator still carries the
-    # DEVICE_METADATA field across (it is YANG-modeled, it is what
-    # `config suppress-fib-pending` writes, and route_check.py reads it), so CONFIG_DB
-    # stays consistent -- but the FRR line itself is lost in frr mode.
-    "bgp suppress-fib-pending",
 )
 
 

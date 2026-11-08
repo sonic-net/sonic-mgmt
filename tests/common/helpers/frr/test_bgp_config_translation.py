@@ -921,3 +921,21 @@ def test_unnumbered_neighbor_address_family_limits_its_afs():
     assert "default|Ethernet4|ipv4_unicast" not in out["BGP_NEIGHBOR_AF"]
     assert "default|Ethernet4|ipv6_unicast" in out["BGP_NEIGHBOR_AF"]
     assert "address_family" not in out["BGP_NEIGHBOR"]["default|Ethernet4"]
+
+
+def test_zebra_device_knobs_carried_into_device_metadata():
+    running = "\n".join([
+        "zebra nexthop-group keep 1",
+        "zebra nexthop kernel enable",
+        "router bgp 65100",
+        " bgp suppress-fib-pending",
+    ])
+    meta = translate_config_db(_base_config_db(), running, _peer_group_json())["DEVICE_METADATA"]["localhost"]
+    assert meta["nexthop_group_keep_time"] == "1"
+    assert meta["zebra_nexthop"] == "enabled"
+    assert meta["suppress-fib-pending"] == "enabled"
+
+
+def test_zebra_device_knobs_absent_leave_device_metadata_alone():
+    meta = translate_config_db(_base_config_db(), "", _peer_group_json())["DEVICE_METADATA"]["localhost"]
+    assert "nexthop_group_keep_time" not in meta and "zebra_nexthop" not in meta

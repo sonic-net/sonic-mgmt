@@ -49,6 +49,7 @@ GATED_NAMES = (
     "ebgp_requires_policy",          # #28543 BGP_GLOBALS: 'no bgp ebgp-requires-policy'
     "set_on_match_action",           # #28543 ROUTE_MAP: 'on-match next' / 'on-match goto <seq>'
     "set_on_match_goto",
+    "nexthop_group_keep_time",       # #28543 DEVICE_METADATA: 'zebra nexthop-group keep <n>'
     "set_src",                       # #27192 ROUTE_MAP: zebra 'set src <addr>'
     # NOTE: set_extcommunity_bandwidth_type is deliberately NOT listed. It is not added by
     # either PR and has no leaf in sonic-route-map.yang at all, so it must never be emitted --
@@ -59,11 +60,15 @@ GATED_NAMES = (
 # FRR running-config lines whose backing CONFIG_DB name is gated (see GATED_NAMES). On an image that
 # predates it the shim strips the field, so the line legitimately disappears across a mode
 # switch -- the fixture's globals fingerprint must not report that as a translation miss.
-# Only ebgp_requires_policy shows up as a *global*; the other gated names are route-map
-# clauses or a whole table, neither of which the globals fingerprint tracks.
+# zebra_nexthop and suppress-fib-pending are modeled already, but only frrcfgd with #28543
+# renders them, so nexthop_group_keep_time stands in for #28543 there.
 GATED_GLOBAL_LINES = {
     "bgp ebgp-requires-policy": "ebgp_requires_policy",
     "no bgp ebgp-requires-policy": "ebgp_requires_policy",
+    "zebra nexthop-group keep 1": "nexthop_group_keep_time",
+    "zebra nexthop kernel enable": "nexthop_group_keep_time",
+    "no zebra nexthop kernel enable": "nexthop_group_keep_time",
+    "bgp suppress-fib-pending": "nexthop_group_keep_time",
 }
 
 

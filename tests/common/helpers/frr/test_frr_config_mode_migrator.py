@@ -14,6 +14,7 @@ import pytest
 from tests.common.helpers.frr.frr_parity_compat import (
     GATED_GLOBAL_LINES,
     gated_globals_missing_from_image,
+    strip_unsupported_by_image,
 )
 from tests.common.helpers.frr.frr_config_mode_migrator import (
     FrrConfigModeMigrator,
@@ -332,3 +333,12 @@ def test_gated_globals_empty_once_the_image_carries_28543():
     """Self-clearing: the check tightens back up on its own, with no code change."""
     supported = sorted(set(GATED_GLOBAL_LINES.values()))
     assert gated_globals_missing_from_image(_YangProbeDut(supported)) == set()
+
+
+def test_device_knob_lines_gated_until_the_image_renders_them():
+    missing = gated_globals_missing_from_image(_YangProbeDut(["ebgp_requires_policy"]))
+    assert {"zebra nexthop-group keep 1", "zebra nexthop kernel enable",
+            "bgp suppress-fib-pending"} <= missing
+    config = {"DEVICE_METADATA": {"localhost": {"nexthop_group_keep_time": "1", "zebra_nexthop": "enabled"}}}
+    assert strip_unsupported_by_image(_YangProbeDut(["zebra_nexthop"]), config) == {
+        "DEVICE_METADATA": {"localhost": {"zebra_nexthop": "enabled"}}}
