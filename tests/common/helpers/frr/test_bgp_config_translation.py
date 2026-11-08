@@ -946,3 +946,21 @@ def test_prefix_list_rows_raise():
     cfg["PREFIX_LIST"] = {"ANCHOR_PREFIX|fc00:1::/48": {}}
     with pytest.raises(FrrTranslationError, match="PREFIX_LIST"):
         translate_config_db(cfg, "", _peer_group_json())
+
+
+def test_tor_unconditional_allowas_in_carried_without_bbr():
+    # bgpcfgd renders 'neighbor PEER_V4/V6 allowas-in 1' on every ToRRouter, BBR or not.
+    running = "\n".join([
+        "router bgp 65100",
+        " address-family ipv4 unicast",
+        "  neighbor PEER_V4 allowas-in 1",
+        " exit-address-family",
+        " address-family ipv6 unicast",
+        "  neighbor PEER_V6 allowas-in 1",
+        " exit-address-family",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    for key in ("default|PEER_V4|ipv4_unicast", "default|PEER_V6|ipv6_unicast"):
+        row = out["BGP_PEER_GROUP_AF"][key]
+        assert (row["allow_as_in"], row["allow_as_count"]) == ("true", "1")
+        assert row["route_map_in"]          # the guessed route-maps survive the merge
