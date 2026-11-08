@@ -613,7 +613,7 @@ def pytest_sessionfinish(session, exitstatus):
         # A marker still present means no restore was verified: keep the backups for recovery.
         if not state.migrator.interrupted_run_pending():
             state.migrator.cleanup()
-    except Exception as e:
+    except (Exception, pytest.fail.Exception) as e:
         logger.error(
             "Failed to restore FRR config mode to '%s' on %s at session end: %s. The DUT may "
             "still be running %s config; the next run's recover_interrupted_run() will "

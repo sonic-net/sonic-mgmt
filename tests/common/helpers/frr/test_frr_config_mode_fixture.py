@@ -82,6 +82,16 @@ def test_failed_forward_switch_is_recorded_as_switched(no_ports):
     assert state.applied_mode == fcm.MODE_FRR_MGMT_FRAMEWORK
 
 
+def test_sessionfinish_keeps_backups_when_restore_fails(no_ports):
+    """pytest.fail() from a failed restore is a BaseException; it must still fail the session
+    and must not delete the backups."""
+    migrator = FakeMigrator(marker=True, restores=False)
+    session = FakeSession(FakeState(migrator, applied=fcm.MODE_FRR_MGMT_FRAMEWORK))
+    fcm.pytest_sessionfinish(session, 0)
+    assert session.exitstatus == pytest.ExitCode.INTERNAL_ERROR
+    assert not migrator.cleaned
+
+
 def test_sessionfinish_skips_cleanup_while_marker_present():
     migrator = FakeMigrator(marker=True)
     fcm.pytest_sessionfinish(FakeSession(FakeState(migrator)), 0)
