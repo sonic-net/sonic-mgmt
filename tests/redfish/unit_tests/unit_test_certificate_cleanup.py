@@ -505,9 +505,9 @@ def native_port(tmp_path):
 
     def parse(raw):
         env = dict(os.environ, LC_ALL="C", RAW_PORT=raw or "", BMCWEB_ACTIVATE=str(activate))
+        command = 'sonic-db-cli() { printf "%s\\n" "$RAW_PORT"; }; ' + 'logger() { :; }; source "$1"'
         result = subprocess.run(
-            ["bash", "-c", 'sonic-db-cli() { printf "%s\\n" "$RAW_PORT"; }; '
-             'logger() { :; }; source "$1"', "native-port", str(launcher)],
+            ["bash", "-c", command, "native-port", str(launcher)],
             env=env, capture_output=True, text=True, timeout=5, check=True)
         captured = [line[len("CAPTURED_PORT="):] for line in result.stdout.splitlines()
                     if line.startswith("CAPTURED_PORT=")]
