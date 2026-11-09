@@ -46,7 +46,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("m1"),
+    pytest.mark.topology("m1", "uma", "lma"),
 ]
 
 # ---- Test data ----

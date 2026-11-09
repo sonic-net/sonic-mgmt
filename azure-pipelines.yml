@@ -95,7 +95,7 @@ stages:
 
         TARGET_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
         TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
-        SHIM_PATHS=("ansible/roles/vm_set/files/gobgp" "ansible/library/gobgp.py")
+        SHIM_PATHS=("ansible/roles/vm_set/files/gobgp" "ansible/library/gobgp.py" "ansible/roles/vm_set/tasks/announce_routes.yml")
 
         # Default to running the tests. A gate that cannot work out its own
         # base must not drop coverage, and must not fail the pipeline either.

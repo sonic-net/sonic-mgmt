@@ -372,7 +372,7 @@ def __tgen_bgp_config(snappi_api,
 
     def create_v4_topo():
         eth = config.devices[0].ethernets.add()
-        eth.connection.port_name = config.lags[0].name
+        eth.connection.lag_name = config.lags[0].name
         eth.name = 'Ethernet 1'
         eth.mac = "00:00:00:00:00:01"
         ipv4 = eth.ipv4_addresses.add()
@@ -390,7 +390,7 @@ def __tgen_bgp_config(snappi_api,
                 m = hex(i).split('0x')[1]
 
             ethernet_stack = config.devices[i-1].ethernets.add()
-            ethernet_stack.connection.port_name = config.lags[i-1].name
+            ethernet_stack.connection.lag_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -421,7 +421,7 @@ def __tgen_bgp_config(snappi_api,
 
     def create_v6_topo():
         eth = config.devices[0].ethernets.add()
-        eth.connection.port_name = config.lags[0].name
+        eth.connection.lag_name = config.lags[0].name
         eth.name = 'Ethernet 1'
         eth.mac = "00:00:00:00:00:01"
         ipv6 = eth.ipv6_addresses.add()
@@ -438,7 +438,7 @@ def __tgen_bgp_config(snappi_api,
             else:
                 m = hex(i).split('0x')[1]
             ethernet_stack = config.devices[i-1].ethernets.add()
-            ethernet_stack.connection.port_name = config.lags[i-1].name
+            ethernet_stack.connection.lag_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv6_stack = ethernet_stack.ipv6_addresses.add()
@@ -647,7 +647,7 @@ def get_convergence_for_local_link_failover(snappi_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
+            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002, \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
@@ -748,7 +748,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
+            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002, \
                 "Traffic has not converged after route withdraw TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
@@ -895,7 +895,7 @@ def get_rib_in_convergence(snappi_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
+            assert abs(sum(tx_frate) - sum(rx_frate)) / sum(rx_frate) < 0.00002, \
                 "Traffic has not converged, TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route advertisement")
@@ -1008,7 +1008,7 @@ def get_RIB_IN_capacity(snappi_api,
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
-            eth.connection.port_name = config.lags[0].name
+            eth.connection.lag_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv4 = eth.ipv4_addresses.add()
@@ -1024,7 +1024,7 @@ def get_RIB_IN_capacity(snappi_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i-1].ethernets.add()
-                ethernet_stack.connection.port_name = config.lags[i-1].name
+                ethernet_stack.connection.lag_name = config.lags[i-1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -1054,7 +1054,7 @@ def get_RIB_IN_capacity(snappi_api,
 
         def create_v6_topo():
             eth = config.devices[0].ethernets.add()
-            eth.connection.port_name = config.lags[0].name
+            eth.connection.lag_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv6 = eth.ipv6_addresses.add()
@@ -1070,7 +1070,7 @@ def get_RIB_IN_capacity(snappi_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i-1].ethernets.add()
-                ethernet_stack.connection.port_name = config.lags[i-1].name
+                ethernet_stack.connection.lag_name = config.lags[i-1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv6_stack = ethernet_stack.ipv6_addresses.add()

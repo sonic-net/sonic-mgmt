@@ -142,7 +142,7 @@ def start_pfcwd(duthost):
 
 
 @pytest.fixture
-def extract_pfcwd_config(duthost, start_pfcwd):
+def extract_pfcwd_config(duthost, start_pfcwd, tbinfo):
     """
     Extract pfcwd info from running config
 
@@ -158,7 +158,10 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     if duthost.is_multi_asic:
         cmd += ' -d all'
     output = duthost.command(cmd)
-    pytest_assert('Ethernet' in output['stdout'], 'No ports found in the pfcwd config')
+    if 'Ethernet' not in output['stdout']:
+        if tbinfo['topo']['type'] in ('uma', 'lma'):
+            pytest.skip("PFC watchdog is not configured on DMA topologies")
+        pytest.fail('No ports found in the pfcwd config')
 
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:

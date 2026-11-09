@@ -5,6 +5,7 @@ from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.constants import CounterpollConstants
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.utilities import parse_rif_counters, wait_until
+from tests.snmp.snmp_counter_restore import preserve_injected_snmp_rif_counter_fields
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -429,9 +430,22 @@ def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, snmp_i
                              snmp_facts, ports_list, asic.namespace)
 
 
+@pytest.fixture()
+def injected_snmp_rif_counter_fields(duthosts, enum_rand_one_per_hwsku_hostname, disable_conterpoll):
+    """Restore the two injected RIF fields, then reset the CLI counter baselines."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    try:
+        with preserve_injected_snmp_rif_counter_fields(duthost) as counter_field_restorer:
+            yield counter_field_restorer
+    finally:
+        duthost.shell('sonic-clear counters')
+        duthost.shell('sonic-clear rifcounters')
+
+
 def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
-                                       enum_asic_index, disable_conterpoll, tbinfo, mg_facts):
-    """Verify correct behaviour of port MIBs ifInError, ifOutError, IfInDiscards, IfOutDiscards """
+                                       enum_asic_index, disable_conterpoll, injected_snmp_rif_counter_fields, tbinfo,
+                                       mg_facts):
+    """Inject deterministic DUT counters and verify their real CLI and SNMP exposure."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
@@ -465,9 +479,11 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
         logger.info(f'Set port {port_interfaces[i]} {SAI_PORT_STAT_IF_OUT_ERRORS} counter to {COUNTER_VALUE}')
         set_counters_value(duthost, port_oid, SAI_PORT_STAT_IF_OUT_ERRORS, COUNTER_VALUE)
     logger.info(f'Set port {rif_interface} {SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS} counter to {COUNTER_VALUE}')
-    set_counters_value(duthost, rif_oid, SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS, COUNTER_VALUE)
+    injected_snmp_rif_counter_fields.set_counter_value(
+        rif_oid, SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS, COUNTER_VALUE)
     logger.info(f'Set port {rif_interface} {SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS} counter to {COUNTER_VALUE}')
-    set_counters_value(duthost, rif_oid, SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS, COUNTER_VALUE)
+    injected_snmp_rif_counter_fields.set_counter_value(
+        rif_oid, SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS, COUNTER_VALUE)
 
     rif_counters = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
 
@@ -503,6 +519,3 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
     pytest_assert(wait_until(60, 10, 0, verify_snmp_counter, duthost, localhost, creds_all_duts, hostip, mg_facts,
                              rif_interface, rif_counters, port_counters, num_port_intfs),
                   "SNMP counter validate Failure")
-    # clear all counters after the test
-    duthost.shell('sonic-clear counters')
-    duthost.shell('sonic-clear rifcounters')
