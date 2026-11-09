@@ -15,7 +15,11 @@ from tests.gnmi.events.event_utils import (
     verify_counter_increase,
 )
 
-pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp"),
+]
 
 EVENTS_TESTS_PATH = "./gnmi/events"
 sys.path.append(EVENTS_TESTS_PATH)

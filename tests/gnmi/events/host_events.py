@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
 
 
-def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,
@@ -38,7 +38,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,
@@ -60,7 +60,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -73,7 +73,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -86,7 +86,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -99,7 +99,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -112,7 +112,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -125,7 +125,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -144,7 +144,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,

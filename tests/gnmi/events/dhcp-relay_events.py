@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
 
 
-def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     if (
         duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"].get("is_smartswitch")
         and duthost.facts.get("router_type") == "leafrouter"
@@ -39,7 +39,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,
@@ -54,7 +54,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,
@@ -69,7 +69,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def run_test(
     duthost,
     tbinfo,
-    pygnmi_client,
+    gnxi_path,
     ptfhost,
     data_dir,
     validate_yang,
@@ -37,14 +37,14 @@ def run_test(
         # Monit emits mem-threshold events only on state transitions (healthy→alarm), so the
         # event is published exactly once ~1s after the trigger.  If gNMI subscribes after
         # that point it will miss the event entirely.
-        # timeout=30 keeps the subscription alive long enough for the event to arrive.
-        # update_count=1 (default) closes it after the single matching event.
+        # timeout=30 keeps gnmi-cli alive long enough for the event to arrive.
+        # update_count=1 (default) ensures gnmi-cli exits cleanly after the single event.
         # Heartbeat responses do not count toward update_count, so update_count=1 is correct.
         errors = []
 
         def _listen():
             try:
-                listen_for_events(duthost, pygnmi_client, ptfhost, filter_event_regex, op_file, timeout)
+                listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout)
             except Exception as e:
                 errors.append(e)
 
@@ -66,7 +66,7 @@ def run_test(
                 trigger(duthost, tbinfo)  # add events to cache
             else:
                 trigger(duthost, tbinfo, ptfadapter)
-        listen_for_events(duthost, pygnmi_client, ptfhost, filter_event_regex, op_file, timeout)  # listen from cache
+        listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout)  # listen from cache
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)

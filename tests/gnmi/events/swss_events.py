@@ -37,12 +37,12 @@ CRM_TEST_ACL_GROUP_HIGH = 0
 WAIT_TIME = 3
 
 
-def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test swss events")
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,
@@ -68,7 +68,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
         run_test(
             duthost,
             tbinfo,
-            pygnmi_client,
+            gnxi_path,
             ptfhost,
             data_dir,
             validate_yang,
@@ -81,7 +81,7 @@ def test_event(duthost, tbinfo, pygnmi_client, ptfhost, ptfadapter, data_dir, va
     run_test(
         duthost,
         tbinfo,
-        pygnmi_client,
+        gnxi_path,
         ptfhost,
         data_dir,
         validate_yang,

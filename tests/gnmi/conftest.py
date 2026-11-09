@@ -220,5 +220,5 @@ def test_eventd_healthy(
 
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
-    module.test_event(duthost, tbinfo, gnmi_tls.pygnmi_client, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
-    return gnmi_tls.pygnmi_client
+    module.test_event(duthost, tbinfo, gnmi_tls, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
+    return gnmi_tls
