@@ -8,9 +8,7 @@ In-flight TGEN TX/RX throughput (``tx_rate_mbps`` / ``rx_rate_mbps`` from ``run_
 against pause-quanta stall during the pause/data overlap window; post-traffic ingress PFC TX /
 egress PFC RX counters and ``show pfcwd stats`` on the DUT egress port are also verified.
 
-The helper enables PFC WD and packet aging on path DUTs (see pfc_storm_ingress_stall_helper); the
-disable_pfcwd autouse fixture may still run first, then the helper restores a production-like setting
-before traffic.
+The helper enables PFC WD and packet aging on path DUTs (see pfc_storm_ingress_stall_helper).
 """
 import logging
 import random
@@ -29,19 +27,15 @@ from tests.common.snappi_tests.snappi_fixtures import (  # noqa: F401
     get_snappi_ports_single_dut,
     snappi_testbed_config,
     get_snappi_ports_multi_dut,
-    is_snappi_multidut,
     snappi_port_selection,
     tgen_port_info,
     snappi_api,
-    snappi_dut_base_config,
     get_snappi_ports,
-    get_snappi_ports_for_rdma,
     cleanup_config,
 )
 from tests.common.snappi_tests.qos_fixtures import (  # noqa: F401
     prio_dscp_map,
-    lossless_prio_list,
-    disable_pfcwd,
+    lossless_prio_list
 )
 from tests.snappi_tests.files.helper import reboot_duts  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -77,7 +71,6 @@ def test_pfc_storm_quanta_sweep_constant_pps(snappi_api,                    # no
                                              lossless_prio_list,            # noqa: F811
                                              get_snappi_ports,              # noqa: F811
                                              tbinfo,                        # noqa: F811
-                                             disable_pfcwd,                 # noqa: F811
                                              tgen_port_info,                # noqa: F811
                                              pause_quanta,):
     """
@@ -89,7 +82,6 @@ def test_pfc_storm_quanta_sweep_constant_pps(snappi_api,                    # no
     Default watchdog configuration on the DUT.
     """
     testbed_config, port_config_list, snappi_ports = tgen_port_info
-    logger.info('Running test for pause_quanta:{}'.format(pause_quanta))
     pause_prio_list = list(lossless_prio_list)
     test_prio_list = list(lossless_prio_list)
     all_prio = list(prio_dscp_map.keys())
@@ -107,6 +99,11 @@ def test_pfc_storm_quanta_sweep_constant_pps(snappi_api,                    # no
     pause_sec = 18
     data_delay_sec = 1
     pause_delay_sec = 1
+
+    logger.info(
+        'Running test for interface speed:%s Gbps, Pause PPS:%s, Pause Quanta:%s',
+        speed_gbps, pps, pause_quanta,
+    )
 
     logger.info('Clearing all the DUT counters...')
     rx_port = snappi_ports[0]
@@ -177,7 +174,6 @@ def test_pfc_storm_pps_sweep_constant_quanta(snappi_api,                    # no
                                              lossless_prio_list,            # noqa: F811
                                              get_snappi_ports,              # noqa: F811
                                              tbinfo,                        # noqa: F811
-                                             disable_pfcwd,                 # noqa: F811
                                              tgen_port_info,                # noqa: F811
                                              pps_case,):
     """
@@ -218,6 +214,11 @@ def test_pfc_storm_pps_sweep_constant_quanta(snappi_api,                    # no
     tx_port = snappi_ports[1]
     for path_port in (tx_port, rx_port):
         clear_counters(path_port["duthost"], port=path_port["peer_port"])
+
+    logger.info(
+        'Running test for interface speed:%s Gbps, PPS case:%s, and Pause PPS:%s',
+        speed_gbps, pps_case, pause_pps
+    )
 
     try:
         (

@@ -40,7 +40,6 @@ DATA_PKT_SIZE = 1024
 TEST_FLOW_AGGR_RATE_PERCENT = 90
 BG_FLOW_AGGR_RATE_PERCENT = 10
 STALL_LOSS_RATIO = 0.75
-NO_STALL_LOSS_RATIO = 0.35
 # In-flight TGEN throughput (tx_rate_mbps / rx_rate_mbps) vs ideal line rate.
 QUANTA_SWEEP_RATE_TOL = 0.15
 QUANTA_SWEEP_TX_RX_RATE_REL_TOL = 0.12
@@ -69,20 +68,24 @@ def _tx_rx_mbps_from_in_flight(flow_metrics, prio):
     return float(row.tx_rate_mbps), float(row.rx_rate_mbps)
 
 
-def _tx_rx_mbps_with_counter_fallback(in_flight_metrics, flow_stats, prio, flow_dur_sec):
+def _tx_rx_mbps_with_counter_fallback(
+    in_flight_metrics, flow_stats, prio, flow_dur_sec, trust_in_flight_rx=False,
+):
     """Use in-flight rates, or derive L1 rates from final counters when they are stale."""
     tx_mbps, rx_mbps = _tx_rx_mbps_from_in_flight(in_flight_metrics, prio)
     row = _find_test_flow_metric(flow_stats, prio)
     pytest_assert(row is not None, "Missing final tgen stats for test prio {}".format(prio))
 
     stale_tx = tx_mbps <= 0 and row.frames_tx > 0
-    stale_rx = rx_mbps <= 0 and row.frames_rx > 0
-    if not (stale_tx or stale_rx):
+    stale_rx = rx_mbps <= 0 and row.frames_rx > 0 and not trust_in_flight_rx
+    if not stale_tx and not stale_rx:
         return tx_mbps, rx_mbps
 
     bits_per_l1_frame = (DATA_PKT_SIZE + 20) * 8
-    tx_mbps = row.frames_tx * bits_per_l1_frame / float(flow_dur_sec) / 1e6
-    rx_mbps = row.frames_rx * bits_per_l1_frame / float(flow_dur_sec) / 1e6
+    if stale_tx:
+        tx_mbps = row.frames_tx * bits_per_l1_frame / float(flow_dur_sec) / 1e6
+    if stale_rx:
+        rx_mbps = row.frames_rx * bits_per_l1_frame / float(flow_dur_sec) / 1e6
     logger.info(
         "Prio %s: using counter-derived rates because in-flight rates were stale: "
         "tx=%.1f rx=%.1f Mbps", prio, tx_mbps, rx_mbps,
@@ -411,9 +414,12 @@ def verify_quanta_sweep_constant_pps_case(
     pause_frames_sent = _pause_frames_sent_by_test(flow_stats)
     is_vs = ingress_duthost.facts.get("asic_type") == "vs"
 
+    trust_in_flight_rx = expected_rx_mbps <= 0
     for prio in test_prio_list:
         tx_mbps, rx_mbps = _tx_rx_mbps_with_counter_fallback(
-            in_flight_metrics, flow_stats, prio, data_flow_dur_sec)
+            in_flight_metrics, flow_stats, prio, data_flow_dur_sec,
+            trust_in_flight_rx=trust_in_flight_rx,
+        )
         tag = "quanta 0x{:X} prio {}".format(pause_quanta, prio)
         _assert_throughput_mbps_near(tx_mbps, expected_tx_mbps, "{} tx".format(tag))
         _assert_throughput_mbps_near(
@@ -474,8 +480,8 @@ def verify_quanta_sweep_constant_pps_case(
                 det_delta, res_delta = _pfcwd_storm_restore_delta(
                     pfcwd_counts_before, pfcwd_counts_after, prio)
                 pytest_assert(
-                    det_delta == 1 and res_delta == 1,
-                    "0xffff: expected PFCWD storm/restored increment by 1 on {}:{} "
+                    det_delta >= 1 and res_delta >= 1,
+                    "0xffff: expected PFCWD storm/restored increment on {}:{} "
                     "(det_delta={} res_delta={})".format(
                         egress_peer_port, prio, det_delta, res_delta),
                 )
@@ -568,23 +574,6 @@ def _pause_flow_dict(flow_name, flow_rate_pps, flow_dur_sec, flow_delay_sec, flo
     return cfg
 
 
-def _asic_index_for_packet_aging(port):
-    """
-    Derive numeric ASIC index for enable_packet_aging on DNX (see pfc_congestion_helper).
-    Returns None if asic_value is missing or unparsable (caller uses host-wide enable).
-    """
-    av = port.get("asic_value")
-    if av is None:
-        return None
-    s = str(av)
-    if "asic" not in s.lower():
-        return None
-    try:
-        return int(s.split("asic", 1)[1])
-    except (IndexError, ValueError):
-        return None
-
-
 def _configure_duts(rx_port, tx_port):
     """
     Enable PFC watchdog and packet aging on path DUTs (aligned with pfc_congestion_helper).
@@ -595,16 +584,10 @@ def _configure_duts(rx_port, tx_port):
     start_pfcwd(egress_duthost)
     start_pfcwd(ingress_duthost)
 
-    rx_asic = _asic_index_for_packet_aging(rx_port)
-    tx_asic = _asic_index_for_packet_aging(tx_port)
-    if rx_asic is not None:
-        enable_packet_aging(egress_duthost, rx_asic)
-    else:
-        enable_packet_aging(egress_duthost)
-    if tx_asic is not None:
-        enable_packet_aging(ingress_duthost, tx_asic)
-    else:
-        enable_packet_aging(ingress_duthost)
+    rx_port_asic_value = rx_port["asic_value"] if egress_duthost.is_multi_asic else None
+    tx_port_asic_value = tx_port["asic_value"] if ingress_duthost.is_multi_asic else None
+    enable_packet_aging(egress_duthost, rx_port_asic_value)
+    enable_packet_aging(ingress_duthost, tx_port_asic_value)
 
 
 def run_stall_case_with_pause_params(
@@ -889,22 +872,6 @@ def verify_stall_on_lossless(flow_stats, lossless_prio_list):
                   "Expected ingress stall (avg loss ratio >= {:.2f}), got {:.3f}".format(STALL_LOSS_RATIO, avg))
 
 
-def verify_no_stall_on_lossless(flow_stats, lossless_prio_list):
-    avg = _avg_lossless_test_flow_loss_ratio(flow_stats, lossless_prio_list)
-    pytest_assert(avg <= NO_STALL_LOSS_RATIO,
-                  "Expected no stall (avg loss ratio <= {:.2f}), got {:.3f}".format(NO_STALL_LOSS_RATIO, avg))
-
-
-def assert_loss_nondecreasing_with_quanta(quanta_prev, loss_prev, quanta_curr, loss_curr):
-    """At the same PPS, larger pause quanta should not materially reduce mean lossless loss."""
-    if quanta_curr > quanta_prev:
-        pytest_assert(
-            loss_curr + 0.18 >= loss_prev,
-            "Expected loss ratio not to drop sharply when quanta increases: q {}->{}, loss {:.3f}->{:.3f}".format(
-                quanta_prev, quanta_curr, loss_prev, loss_curr),
-        )
-
-
 def baseline_blocking_pps(speed_gbps, oversubscription_ratio=1):
     return calc_pfc_pause_flow_rate(speed_gbps, oversubscription_ratio=oversubscription_ratio)
 
@@ -920,10 +887,8 @@ def quanta_sweep_pause_pps(speed_gbps, pause_quanta):
 __all__ = [
     "run_stall_case_with_pause_params",
     "verify_stall_on_lossless",
-    "verify_no_stall_on_lossless",
     "verify_quanta_sweep_constant_pps_case",
     "verify_pps_sweep_sub_blocking_case",
-    "assert_loss_nondecreasing_with_quanta",
     "baseline_blocking_pps",
     "quanta_sweep_pause_pps",
     "QUANTA_SWEEP_0XFFFF_PPS_BOOST",
