@@ -71,6 +71,9 @@ Capability gating (skips are implemented as fixtures in `conftest.py`):
 
 ### 6.1 Port selection and roles
 
+CLI/configuration tests select one front-panel physical port, including VLAN members,
+without requiring routed peers or reachability checks. Dataplane tests use the three paths below.
+
 Ports are selected from active routed interfaces using their existing peer next hops
 and actual DUT-to-PTF mappings. LAG members are grouped as one logical path.
 - **source** - the mirror source port; the session is bound to it and its traffic is mirrored.
@@ -79,8 +82,8 @@ and actual DUT-to-PTF mappings. LAG members are grouped as one logical path.
   mirrored source port.
 
 For a collector LAG, packets are collected from all mapped member ports.
-Single-member sources are preferred. Multi-member sources are allowed for RX,
-truncation-only, and configuration tests; TX/BOTH dataplane tests require a single-member source.
+Single-member sources are preferred. Multi-member sources are allowed for RX and
+truncation-only tests; TX/BOTH dataplane tests require a single-member source.
 
 ### 6.2 Setup of DUT switch
 

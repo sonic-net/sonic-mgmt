@@ -147,7 +147,7 @@ def test_create_erspan_session_config_fields(
         request,
         duthosts,
         rand_one_dut_hostname,
-        erspan_ports,
+        erspan_config_source,
         mirror_session_cleanup,
         sampling_direction,
         create_kwargs,
@@ -165,7 +165,7 @@ def test_create_erspan_session_config_fields(
 
     create_erspan_session_config(
         duthost, session_name,
-        source_port=erspan_ports['source']['name'],
+        source_port=erspan_config_source,
         direction=sampling_direction,
         **create_kwargs)
 
@@ -176,7 +176,7 @@ def test_create_erspan_session_config_fields(
 def test_remove_erspan_session_with_sampling(
         duthosts,
         rand_one_dut_hostname,
-        erspan_ports,
+        erspan_config_source,
         mirror_session_cleanup,
         sampling_direction):
     '''
@@ -186,7 +186,7 @@ def test_remove_erspan_session_with_sampling(
     session_name = mirror_session_cleanup("test_remove_session")
     create_erspan_session_config(
         duthost, session_name, sample_rate=256,
-        source_port=erspan_ports['source']['name'],
+        source_port=erspan_config_source,
         direction=sampling_direction)
     duthost.command('config mirror_session remove {}'.format(session_name))
     pytest_assert(
@@ -270,7 +270,7 @@ def test_truncate_size_zero_disables_truncation(duthosts, rand_one_dut_hostname,
 def test_show_mirror_session_displays_new_columns(
         duthosts,
         rand_one_dut_hostname,
-        erspan_ports,
+        erspan_config_source,
         mirror_session_cleanup,
         skip_if_truncation_unsupported,
         sampling_direction):
@@ -286,7 +286,7 @@ def test_show_mirror_session_displays_new_columns(
     session_name = mirror_session_cleanup("test_show_cols")
     create_erspan_session_config(
         duthost, session_name, sample_rate=512, truncate_size=128,
-        source_port=erspan_ports['source']['name'],
+        source_port=erspan_config_source,
         direction=sampling_direction)
     output = duthost.shell("show mirror_session")['stdout']
     rows = [ln for ln in output.splitlines()
@@ -311,7 +311,7 @@ def test_show_mirror_session_displays_new_columns(
 def test_erspan_sampling_config_high_rate(
         duthosts,
         rand_one_dut_hostname,
-        erspan_ports,
+        erspan_config_source,
         mirror_session_cleanup,
         sampling_direction):
     '''
@@ -324,7 +324,7 @@ def test_erspan_sampling_config_high_rate(
     session_name = mirror_session_cleanup("test_high_rate")
     create_erspan_session_config(
         duthost, session_name, sample_rate=DEFAULT_SAMPLE_RATE,
-        source_port=erspan_ports['source']['name'],
+        source_port=erspan_config_source,
         direction=sampling_direction)
     assert_mirror_session_config_db_fields(
         duthost, session_name, {"sample_rate": DEFAULT_SAMPLE_RATE})

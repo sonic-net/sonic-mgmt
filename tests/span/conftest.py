@@ -195,14 +195,17 @@ RX_PROBE_IP = '198.18.254.1'
 TX_PROBE_IP = '198.18.254.2'
 
 
-def _select_routed_ports(active_interfaces, minigraph, status, config):
-    '''Group routed interfaces and their PTF members; select disjoint paths.'''
+def _get_routed_candidates(ip_interfaces, minigraph, status, config):
+    '''Select routed interfaces with no shared physical ports, preferring single-member interfaces.'''
     ptf_map = minigraph['minigraph_ptf_indices']
     candidates = []
     portchannels = minigraph.get('minigraph_portchannels', {})
     lag_members = {member for pc in config.get('PORTCHANNEL_MEMBER', {}).values() for member in pc}
     vlan_members = {member for vlan in config.get('VLAN_MEMBER', {}).values() for member in vlan}
-    for name, addresses in active_interfaces.items():
+    for name, addresses in ip_interfaces.items():
+        if (addresses.get('admin') != 'up' or addresses.get('oper_state') != 'up'
+                or not addresses.get('peer_ipv4')):
+            continue
         if name.startswith('PortChannel'):
             members = sorted(config.get('PORTCHANNEL_MEMBER', {}).get(name, {}))
             if not members or members != sorted(portchannels.get(name, {}).get('members', [])):
@@ -222,13 +225,14 @@ def _select_routed_ports(active_interfaces, minigraph, status, config):
                            'next_hop': addresses['peer_ipv4']})
 
     candidates.sort(key=lambda p: (len(p['members']), p['index']))
-    for source in candidates:
-        remaining = [p for p in candidates if not set(p['indices']) & set(source['indices'])]
-        for collector in remaining:
-            for peer in remaining:
-                if not set(peer['indices']) & set(collector['indices']):
-                    return {'source': source, 'gre_egress': collector, 'tx_ingress': peer}
-    return pytest.skip('ERSPAN needs three disjoint routed PTF paths')
+    disjoint = []
+    used_indices = set()
+    for candidate in candidates:
+        if used_indices.intersection(candidate['indices']):
+            continue
+        disjoint.append(candidate)
+        used_indices.update(candidate['indices'])
+    return disjoint
 
 
 def _add_route(duthost, cleanup, prefix, nexthop, interface):
@@ -431,6 +435,21 @@ def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
+def erspan_config_source(duthosts, rand_one_dut_hostname):
+    '''Select a front-panel physical source for CLI/configuration checks.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
+    config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    ports = [name for name, attrs in config.get('PORT', {}).items()
+             if name.startswith('Ethernet') and name[len('Ethernet'):].isdigit()
+             and attrs.get('role', 'Ext') == 'Ext']
+    if not ports:
+        pytest.skip('ERSPAN configuration tests require a front-panel physical port')
+    return min(ports, key=lambda name: int(name[len('Ethernet'):]))
+
+
+@pytest.fixture(scope="module")
 def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
     '''Discover existing routed paths using the common active-interface API.'''
     duthost = duthosts[rand_one_dut_hostname]
@@ -438,11 +457,20 @@ def erspan_ports(duthosts, rand_one_dut_hostname, tbinfo):
     if duthost.is_multi_asic:
         pytest.skip('ERSPAN sampling session setup currently requires a single-ASIC DUT')
     asic = duthost.asic_instance()
-    active_interfaces = asic.get_active_ip_interfaces(tbinfo, ip_type='ipv4')
+    ip_interfaces = asic.show_ip_interface()['ansible_facts']['ip_interfaces']
     minigraph = duthost.get_extended_minigraph_facts(tbinfo)
     status = duthost.show_interface(command='status')['ansible_facts']['int_status']
     config = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
-    ports = _select_routed_ports(active_interfaces, minigraph, status, config)
+    candidates = _get_routed_candidates(ip_interfaces, minigraph, status, config)
+    if len(candidates) < 3:
+        pytest.skip('ERSPAN needs three disjoint routed PTF paths')
+    candidate_interfaces = {p['l3_interface']: ip_interfaces[p['l3_interface']] for p in candidates}
+    active_interfaces = duthost.active_ip_interfaces(
+        candidate_interfaces, tbinfo, ns_arg=asic.namespace, intf_num=3, ip_type='ipv4')
+    usable = [p for p in candidates if p['l3_interface'] in active_interfaces]
+    if len(usable) < 3:
+        pytest.skip('ERSPAN needs three disjoint reachable routed PTF paths')
+    ports = dict(zip(('source', 'gre_egress', 'tx_ingress'), usable))
     ports['namespace'] = asic.namespace
     for role in ('source', 'tx_ingress'):
         port = ports[role]
@@ -460,7 +488,7 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
     with ExitStack() as cleanup:
         for prefix, port in ((ERSPAN_DST_PREFIX, erspan_ports['gre_egress']),
                              (TX_PROBE_IP + '/32', erspan_ports['source'])):
-            # get_active_ip_interfaces() already checks peer reachability.
+            # active_ip_interfaces() already checks peer reachability.
             _add_route(duthost, cleanup, prefix, port['next_hop'], port['l3_interface'])
         _setup_rx_discard(duthost, cleanup)
         yield
