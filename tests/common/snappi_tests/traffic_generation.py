@@ -951,11 +951,15 @@ def run_traffic(duthost,
             else:
                 logger.warning("'Flow Statistics' view not found, page size not changed")
             flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
+            pgid_to_tx_port = {
+                val[2]: val[0]
+                for val in snappi_extra_params.flow_name_stats_identity_map.values()
+            }
             transmit_states = [
                 int(float(metric['Tx Frame Rate']))
                 for metric in flow_metrics
-                if int(metric['PGID']) in snappi_extra_params.flow_name_prio_map.values()
-                and metric['Tx Port'] == snappi_extra_params.base_flow_config["tx_port_name"]
+                if int(metric['PGID']) in pgid_to_tx_port.keys()
+                and metric['Tx Port'] == pgid_to_tx_port[int(metric['PGID'])]
             ]
             if all(state == 0 for state in transmit_states):
                 logger.info("All test and background traffic flows stopped")
