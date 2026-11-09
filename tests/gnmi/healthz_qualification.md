@@ -7,6 +7,86 @@ controlled cases publish independent producer transitions or change an explicitl
 selected installed DLDD demo signal to create reversible fault episodes. They
 restore the selected signal and do not install or change DLDD rules.
 
+## Fresh review hardening, 2026-11-09 UTC
+
+The installed-source follow-up used host commit
+`bc1b693046220df8c067e5d468bbc5d591043faa`, management-common
+`6d5b7ef932e795a8ed3f174cceacd1e6a429c4e4`, and gNMI
+`1f40bb832ffe37e6dcd4c4e77ed0e85a624bd7b7`. The final full-model telemetry
+ELF is 58,193,024 bytes, SHA256
+`defa924760ac970f60ef993346ba5f9a36586f7bc7686c2fae25fd8044a49fac`.
+The derived installed gNMI image is
+`sha256:e0f218de0508eb173d60c1a8a4fb3be80131d1a8a4e95dc5623fbc8ee9c16956`.
+These are compatible host-file overlays and a derived image, not a newly
+built and booted full SONiC image.
+
+- All 398 scoped Python tests and five subtests passed locally and on native
+  DUT Python 3.13. These are overlapping executions of the same suite.
+  Both host-health/FEATURE integration groups passed 16 cases. Five focused
+  acceptance-test checks reject empty source qualification and distinguish
+  legitimate observations from unauthorized catalog changes.
+- The normal full-model build passed. All 21 translator tests passed normally
+  and with race instrumentation; the Healthz/artifact/auth suites passed 52
+  normal tests and 51 race tests. Full generated bindings and dependency
+  compatibility were checked. Unfiltered vet findings remain exactly two in
+  translib and 119 in gNMI, with no additions or removals.
+- Eight new private functional cases and all 19 existing safe failure groups
+  passed on the DUT. They cover action/recheck gating, async single flight,
+  dynamic discovery/replacement, timeout output, durable transition replay,
+  interrupted tiny archive staging, DSE get/action/query failures and recovery,
+  private Redis transport, file errors and emulated I2C. Vendor callbacks and
+  I2C tools are test implementations; physical ASIC/I2C recovery is unqualified.
+- Four tiny real systemd outcomes passed using the installed health checker:
+  declared normal exit 3 is healthy without restarting; failed exit 1, ordinary
+  stopped exit 0 and undeclared exit 3 remain unhealthy. The deployed DLDD unit
+  reads back `Restart=on-failure` and `SuccessExitStatus=3`. Existing unrelated
+  FEATURE/container behavior was preserved.
+- Real gNOI File.Put delivered a safe appended mock rule. Two explicit runs of
+  the installed watcher service, 31 seconds apart, respected the configured
+  30-second settle check and caused actual DLDD restart/activation. The
+  packaged five-minute timer was unchanged; its natural polling deadline was
+  not the test clock. Original inbox/active bytes, owners and modes were
+  restored through File.Put and the same watcher path afterward.
+- The final native client sent valid module-qualified component and fault
+  PathElem names. A synchronized ON_CHANGE stream contained the exact initial
+  INACTIVE episode, then post-sync ACTIVE and INACTIVE with matching origin
+  and occurrence values. Qualified GET returned both states. A fully qualified
+  component-health GET also passed using an explicit protobuf path.
+- The final image passed all 23 isolated TLS role/trust probes, read-only
+  Get/List, standard Check with `event_id` returning Unimplemented, and exact
+  retained artifact transfer. The largest transfer returned one header,
+  12,292 data frames and one trailer containing 50,347,739 bytes with SHA256
+  `83e97027055f6a307ee36a004913a45a40f4c643a8ed158a2d146210f0921d8b`.
+  Existing events, acknowledgements, archive bytes and protected identities
+  were preserved; owned mock inputs and temporary listeners were removed.
+
+Live validation exposed an earlier routing gap in common `b667b663`: valid
+qualified component names reached an empty subscription mapping before the
+notification resolver. The final shared path comparison normalizer fixes
+routing as well as key binding and preserves original qualified paths. Its
+full-entry regression fails against that earlier source and passes in the
+final native build and live server.
+
+Initial test attempts remain distinct from final passes. The first native
+Python run hit an overly tight test-only address-space cap; the corrected
+bounded run passed. An expired retained-fault fixture caused a guarded gNMI
+rollback. A 120-second activation wait was shorter than the packaged watcher
+polling interval. The first direct protocol client used unsupported GET type
+STATE; the final client uses supported ALL. The stock gnmi_get XPath parser
+rejects qualified list names locally, so that form uses `pbpath`. A local
+management-path loss occurred after the final test completed; the builder
+path verified the same boot ID and completed restoration receipts.
+
+Full scoped Ruff, Bandit, normal/strict mypy, Pyright, compilation and schema
+checks retain inherited and advisory findings. No new production normal-type,
+Ruff-correctness or Bandit findings remain; strict/style debt is not presented
+as clean. Full sonic-mgmt testbed execution, full-image boot/upgrade, forwarding,
+peak load, soak and physical vendor recovery are not qualified by these checks.
+The restored seven-rule lab baseline remains DEGRADED for three missing inputs.
+No OOM/exhaustion test or kernel-policy change was made in this follow-up.
+The DUT remains at `vm.panic_on_oom=2`, which still prevents claiming that a
+memory-cgroup OOM is contained to DLDD; a compatible platform policy is required.
+
 ## Qualified baseline, 2026-10-08 UTC
 
 The 2026-10-08 qualification used `sonic-host-services` commit

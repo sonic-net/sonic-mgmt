@@ -1,7 +1,8 @@
 """Qualify Healthz TLS roles without acknowledging any retained event.
 
-Run during an exclusive Healthz write window so catalog snapshots can detect
-mutations. The existing TLS fixture owns certificate/configuration rollback.
+Run during an exclusive Healthz write window so snapshots detect changes to
+events, acknowledgement and assessments while allowing producer observations.
+The existing TLS fixture owns certificate/configuration rollback.
 """
 
 import copy
@@ -22,13 +23,26 @@ CATALOG = "/var/lib/sonic/healthz/catalog.sqlite3"
 
 
 def _catalog(duthost):
+    # Observations advance only the consumed checkpoint and last_unhealthy;
+    # event/acknowledgement, source membership and status/count must stay stable.
     script = (
         "import json,sqlite3; "
         "db=sqlite3.connect('file:{}?mode=ro',uri=True); "
-        "print(json.dumps({{t:list(db.execute('SELECT * FROM '+t+' ORDER BY '+k)) "
-        "for t,k in [('events','seq'),('sources','producer,source_key'),"
-        "('aggregates','component'),('metadata','name'),('sqlite_sequence','name')]}},"
-        "sort_keys=True))"
+        "db.execute('BEGIN'); "
+        "queries=[('events','SELECT * FROM events ORDER BY seq'),"
+        "('sources','SELECT * FROM sources ORDER BY producer,source_key'),"
+        "('aggregates','SELECT component,status,unhealthy_count "
+        "FROM aggregates ORDER BY component'),"
+        "('metadata',\"SELECT * FROM metadata WHERE name!='healthz_checkpoint' "
+        "ORDER BY name\"),"
+        "('sqlite_sequence','SELECT * FROM sqlite_sequence ORDER BY name')]; "
+        "snapshot={{t:list(db.execute(q)) for t,q in queries}}; "
+        "has_history=db.execute(\"SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='transition_history'\").fetchone(); "
+        "snapshot.update({{'transition_history':list(db.execute("
+        "'SELECT * FROM transition_history ORDER BY seq'))}} "
+        "if has_history else {{}}); "
+        "db.close(); print(json.dumps(snapshot,sort_keys=True))"
     ).format(CATALOG)
     result = duthost.shell("sudo python3 -c " + shlex.quote(script), module_ignore_errors=True)
     assert result["rc"] == 0, "Cannot snapshot Healthz catalog: " + result.get("stderr", "")

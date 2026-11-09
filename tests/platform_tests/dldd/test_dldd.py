@@ -607,6 +607,9 @@ def test_rules_e2e_execution(
     rules_path = _validation_rules_path(duthost, dldd_capabilities)
     rules = _load_rules_document(duthost, rules_path)
     source_events = _rule_source_events(rules)
+    pytest_assert(
+        source_events, "Installed DLDD rules contain no source events to qualify"
+    )
 
     command = [
         "sudo",
