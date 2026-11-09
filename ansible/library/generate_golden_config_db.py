@@ -24,6 +24,10 @@ short_description:   Generate golden_config_db.json
 Description:
         When load_minigraph, SONiC support to use parameter --override_config to add configuration via
         golden_config_db.json. This module is to generate required /etc/sonic/golden_config_db.json
+        BMC feature policy applies only to services present in the image/minigraph or golden config.
+        A misplaced FEATURE.CONSOLE_SWITCH is relocated to the root before applying the policy,
+        with a warning. Top-level minigraph console entries override relocated entries, and
+        explicit top-level golden console entries have highest priority.
     Input:
         topo_name: Name of current topo
 '''
@@ -494,22 +498,25 @@ class GenerateGoldenConfigDBModule(object):
 
     def apply_bmc_feature_allowlist(self, config, enabled_features):
         enabled_features = set(enabled_features)
-        full_config = self.get_config_from_minigraph() if config == "{}" else config
-        ori_config_db = json.loads(full_config)
+        ori_config_db = json.loads(config)
         minigraph_config = json.loads(self.get_config_from_minigraph())
         feature_section = copy.deepcopy(minigraph_config.get("FEATURE", {}))
         feature_section.update(ori_config_db.get("FEATURE", {}))
+
+        if "CONSOLE_SWITCH" in feature_section:
+            console_section = feature_section.pop("CONSOLE_SWITCH")
+            console_section.update(minigraph_config.get("CONSOLE_SWITCH", {}))
+            console_section.update(ori_config_db.get("CONSOLE_SWITCH", {}))
+            ori_config_db["CONSOLE_SWITCH"] = console_section
+            self.module.warn(
+                "Relocated misplaced FEATURE.CONSOLE_SWITCH to top-level CONSOLE_SWITCH "
+                "before applying the BMC feature allowlist."
+            )
+
         self._apply_bmc_feature_allowlist_to_features(feature_section, enabled_features)
         ori_config_db["FEATURE"] = feature_section
 
-        if config == "{}":
-            gold_config_db = {
-                "FEATURE": copy.deepcopy(ori_config_db["FEATURE"])
-            }
-        else:
-            gold_config_db = ori_config_db
-
-        return json.dumps(gold_config_db, indent=4)
+        return json.dumps(ori_config_db, indent=4)
 
     def _apply_bmc_feature_allowlist_to_features(self, feature_section, enabled_features):
         for feature, feature_data in feature_section.items():
