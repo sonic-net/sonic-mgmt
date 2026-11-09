@@ -4,6 +4,7 @@ Shared Redfish test utilities for SONiC BMC Redfish API tests.
 import ipaddress
 import logging
 import os
+import shlex
 import socket
 import ssl
 
@@ -320,9 +321,13 @@ def db_hdel(duthost, db, key, field):
 
 def snapshot_redfish_config(duthost):
     """Record the REDFISH CONFIG_DB fields the tests are about to overwrite."""
-    return {(table, field): db_get(duthost, "CONFIG_DB", table, field)
-            for table, fields in OWNED_FIELDS.items()
-            for field in fields}
+    snapshot = {}
+    for table, fields in OWNED_FIELDS.items():
+        for field in fields:
+            command = 'sonic-db-cli CONFIG_DB {{}} "{}" {}'.format(table, field)
+            exists = duthost.shell(command.format("hexists"))["stdout"].strip() == "1"
+            snapshot[table, field] = duthost.shell(command.format("hget"))["stdout"].rstrip("\n") if exists else None
+    return snapshot
 
 
 def restore_redfish_config(duthost, snapshot):
@@ -334,10 +339,11 @@ def restore_redfish_config(duthost, snapshot):
     original value was ever saved to disk.
     """
     for (table, field), value in sorted(snapshot.items()):
-        if value:
-            db_set(duthost, "CONFIG_DB", table, **{field: value})
+        if value is not None:
+            duthost.shell("sonic-db-cli CONFIG_DB hset {} {} {}".format(
+                shlex.quote(table), shlex.quote(field), shlex.quote(value)))
         else:
-            db_hdel(duthost, "CONFIG_DB", table, field)
+            duthost.shell('sonic-db-cli CONFIG_DB hdel "{}" {}'.format(table, field))
 
 
 def cert_status(duthost, field):
@@ -400,13 +406,32 @@ BACKUP_SUFFIX = ".sonic-mgmt.bak"
 
 
 def back_up_device_state(duthost):
-    """Set aside any device state the suite would overwrite; return what was saved."""
-    saved = []
+    """Back up device state, rolling back only this attempt's partial backups."""
+    # Preflight every destination before creating any backup. A stale backup on
+    # a later path must not leave new backups behind on earlier paths.
     for path in DEVICE_STATE_FILES:
-        res = duthost.shell("test -e {0} && cp -a {0} {0}{1}".format(path, BACKUP_SUFFIX),
-                            module_ignore_errors=True)
-        if res["rc"] == 0:
-            saved.append(path)
+        backup = path + BACKUP_SUFFIX
+        pytest_assert(not duthost.stat(path=backup)["stat"]["exists"],
+                      "Device state backup already exists: {}".format(backup))
+
+    saved = []
+    created = []
+    try:
+        for path in DEVICE_STATE_FILES:
+            if duthost.stat(path=path)["stat"]["exists"]:
+                backup = path + BACKUP_SUFFIX
+                # A failed copy can leave a partial destination, so track it
+                # before copying, not only after a successful return.
+                created.append(backup)
+                duthost.shell("cp -a {} {}".format(path, backup))
+                saved.append(path)
+    except Exception:
+        for backup in created:
+            try:
+                duthost.shell("rm -f {}".format(backup))
+            except Exception:
+                logger.exception("Failed to remove partial backup: %s", backup)
+        raise
     if saved:
         logger.info("Set aside existing device state: {}".format(", ".join(saved)))
     return saved
@@ -415,8 +440,7 @@ def back_up_device_state(duthost):
 def restore_device_state(duthost, saved):
     """Put back what back_up_device_state() set aside."""
     for path in saved:
-        best_effort(duthost.shell, "mv -f {0}{1} {0}".format(path, BACKUP_SUFFIX),
-                    module_ignore_errors=True)
+        duthost.shell("mv -f {0}{1} {0}".format(path, BACKUP_SUFFIX))
 
 
 def reset_to_bootstrap(duthost, snapshot, saved=()):
@@ -428,16 +452,33 @@ def reset_to_bootstrap(duthost, snapshot, saved=()):
     back provisioned with its own certificates. Recreating the container clears
     the staged files and bmcweb's persistent configuration with them.
     """
+    # Stop the watcher before restoring files/markers: it must not reconcile a
+    # partially restored set. Failure to stop is fatal; do not race it on disk.
+    duthost.shell("systemctl stop redfish")
+    errors = []
+
+    def restore_step(fn, *args):
+        try:
+            fn(*args)
+        except Exception as error:
+            logger.error("Redfish restoration failed: %s", error)
+            errors.append(str(error))
+
     for path in DEVICE_STATE_FILES:
-        best_effort(duthost.shell, "rm -f {}".format(path), module_ignore_errors=True)
-    restore_device_state(duthost, saved)
-    restore_redfish_config(duthost, snapshot)
-    best_effort(duthost.shell, "systemctl stop redfish", module_ignore_errors=True)
-    best_effort(duthost.shell, "docker rm -f {}".format(BMCWEB_CONTAINER),
-                module_ignore_errors=True)
-    best_effort(duthost.shell, "systemctl start redfish", module_ignore_errors=True)
-    best_effort(wait_until, BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
-                _bmcweb_running, duthost)
+        if path in saved:
+            restore_step(restore_device_state, duthost, [path])
+        else:
+            restore_step(duthost.shell, "rm -f {}".format(path))
+    for key, value in snapshot.items():
+        restore_step(restore_redfish_config, duthost, {key: value})
+    restore_step(duthost.shell, "docker rm -f {}".format(BMCWEB_CONTAINER))
+    # Earlier restarts may have exhausted systemd's start limit. Clear it for
+    # this deliberate restoration start, but still report reset/start failures.
+    restore_step(duthost.shell, "systemctl reset-failed redfish.service")
+    restore_step(duthost.shell, "systemctl start redfish")
+    if not wait_until(BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0, _bmcweb_running, duthost):
+        errors.append("bmcweb did not restart after restoring device state")
+    pytest_assert(not errors, "Failed to restore Redfish device state: {}".format("; ".join(errors)))
 
 
 # --- Lifecycle helpers -------------------------------------------------------

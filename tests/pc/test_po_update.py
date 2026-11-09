@@ -89,6 +89,15 @@ def _check_ip_removed(asichost, portchannel, is_ipv6=False):
     return not int_facts['ansible_interface_facts'][portchannel].get('ipv4')
 
 
+def _check_ip_added(asichost, portchannel, ip_addr, is_ipv6=False):
+    """Check if IP address is configured on portchannel."""
+    int_facts = asichost.interface_facts()['ansible_facts']
+    intf_info = int_facts.get('ansible_interface_facts', {}).get(portchannel, {})
+    if is_ipv6:
+        return ip_addr in [info['address'] for info in intf_info.get('ipv6', [])]
+    return intf_info.get('ipv4', {}).get('address') == ip_addr
+
+
 def has_bgp_neighbors(duthost, portchannel, is_ipv6=False):
     if is_ipv6:
         return duthost.shell("show ipv6 int | grep {} | awk '{{print $4}}'".format(portchannel))['stdout'] != 'N/A'
@@ -186,15 +195,10 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
         # Step 5: Add portchannel ip to tmp portchannel
         asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "add")
-        int_facts = asichost.interface_facts()['ansible_facts']
-        if is_ipv6:
-            tmp_pc_ipv6_addrs = [ipv6_info['address']
-                                 for ipv6_info in int_facts['ansible_interface_facts'][tmp_portchannel].get('ipv6', [])]
-            pytest_assert(portchannel_ip in tmp_pc_ipv6_addrs,
-                          "IPv6 address {} not found on {}".format(portchannel_ip, tmp_portchannel))
-        else:
-            pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
+        # intfmgrd applies the IP to the kernel asynchronously, so poll for it
+        pytest_assert(wait_until(30, 5, 0, _check_ip_added, asichost, tmp_portchannel, portchannel_ip, is_ipv6),
+                      "IP address {} not found on {}".format(portchannel_ip, tmp_portchannel))
 
         pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, tmp_portchannel, True),
                       "Portchannel {} link did not come up".format(tmp_portchannel))
@@ -341,8 +345,9 @@ def test_po_update_io_no_loss(
         asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "add")
         add_tmp_pc_ip = True
 
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['ipv4']['address'] == pc_ip)
+        # intfmgrd applies the IP to the kernel asynchronously, so poll for it
+        pytest_assert(wait_until(30, 5, 0, _check_ip_added, asichost, tmp_pc, pc_ip),
+                      "IP address {} not found on {}".format(pc_ip, tmp_pc))
 
         pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, tmp_pc, True),
                       "Portchannel {} link did not come up".format(tmp_pc))
