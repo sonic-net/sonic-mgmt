@@ -259,8 +259,8 @@ class EverflowPolicerTest(BaseTest):
         if self.mirror_stage == "egress":
             payload_mask.set_do_not_care_scapy(scapy.Ether, "dst")
             payload_mask.set_do_not_care_scapy(scapy.IP, "chksum")
-            if self.asic_type == "mellanox" and self.hwsku.startswith(
-                    ("ACS-SN6600", "Mellanox-SN6600", "ACS-SN6810")):
+            # Mellanox SPC6 preserves the original inner frame for egress ACL mirroring.
+            if self.test_params.get('egress_mirror_payload_unchanged', False):
                 payload_mask.set_do_not_care_scapy(scapy.Ether, "src")
                 payload_mask.set_do_not_care_scapy(scapy.IP, "ttl")
             else:
