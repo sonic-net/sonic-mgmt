@@ -40,8 +40,10 @@ def test_streaming_forwards_request_and_metadata_and_decodes_all_frames(streamin
     assert "stdin" not in kwargs
 
 
-@pytest.mark.parametrize("output", ["", '{"header":{}}\n{"bytes":', '{"header":{}}\nnull',
-                                      '{"header":{}}\nnot JSON'])
+@pytest.mark.parametrize(
+    "output",
+    ["", '{"header":{}}\n{"bytes":', '{"header":{}}\nnull', '{"header":{}}\nnot JSON'],
+)
 def test_streaming_rejects_empty_truncated_or_non_object_frames(streaming_client, output):
     client, error = streaming_client
     client.ptfhost.command.return_value = {"rc": 0, "stdout": output}

@@ -23,7 +23,6 @@ from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.pygnmi_client import PygnmiClient, PygnmiClientCallError, StreamMode
 from tests.common.utilities import compose_dict_from_cli
 
-
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology("any")]
 SERVICE = "gnoi.healthz.Healthz"
@@ -32,10 +31,12 @@ STATE_FIELDS = {"status", "last-unhealthy", "unhealthy-count"}
 
 
 def _path(component):
-    return {"elem": [
-        {"name": "components"},
-        {"name": "component", "key": {"name": component}},
-    ]}
+    return {
+        "elem": [
+            {"name": "components"},
+            {"name": "component", "key": {"name": component}},
+        ]
+    }
 
 
 def _state_path(component):
@@ -161,18 +162,28 @@ class _Episode:
 
     def _publish(self, active, artifact_id="", observation=False):
         observed_at = int(self._run("date +%s"))
-        values = {"producer": self.producer, "source_key": self.source_key,
-                  "component": self.component, "observed_at": str(observed_at)}
+        values = {
+            "producer": self.producer,
+            "source_key": self.source_key,
+            "component": self.component,
+            "observed_at": str(observed_at),
+        }
         if observation:
             values["kind"] = "observation"
         else:
-            values.update(active=str(int(active)), transition_id=uuid.uuid4().hex,
-                          component_type="SERVICE", symptom="SYMPTOM_COMM_ERROR")
+            values.update(
+                active=str(int(active)),
+                transition_id=uuid.uuid4().hex,
+                component_type="SERVICE",
+                symptom="SYMPTOM_COMM_ERROR",
+            )
             if artifact_id:
                 values["artifact_id"] = artifact_id
         arguments = [item for pair in values.items() for item in pair]
-        self._run("sonic-db-cli STATE_DB XADD HEALTHZ_TRANSITIONS MAXLEN '=' 10000 '*' "
-                  + " ".join(shlex.quote(item) for item in arguments))
+        self._run(
+            "sonic-db-cli STATE_DB XADD HEALTHZ_TRANSITIONS MAXLEN '=' 10000 '*' "
+            + " ".join(shlex.quote(item) for item in arguments)
+        )
         return observed_at
 
     def prepare(self):
@@ -198,13 +209,13 @@ class _Episode:
             while True:
                 keys = self._run("sonic-db-cli STATE_DB KEYS " + shlex.quote(pattern)).splitlines()
                 for key in keys:
-                    row = compose_dict_from_cli(self._run(
-                        "sonic-db-cli STATE_DB HGETALL " + shlex.quote(key)))
+                    row = compose_dict_from_cli(self._run("sonic-db-cli STATE_DB HGETALL " + shlex.quote(key)))
                     if row.get("status") == "ACTIVE":
                         self.fault_key = key
                         artifact_id = row.get("healthz_artifact_id")
                         assert artifact_id and {name for name in row if name.startswith("healthz_")} == {
-                            "healthz_artifact_id"}, "DLDD must publish only its scalar artifact ID"
+                            "healthz_artifact_id"
+                        }, "DLDD must publish only its scalar artifact ID"
                         break
                 else:
                     assert time.monotonic() < deadline, "Installed demo did not create an archived DLDD fault"
@@ -216,8 +227,10 @@ class _Episode:
             self.artifact_id = artifact_id
             self._publish(True, artifact_id)
             self.duthost.copy(content="Healthz qualification payload\n", dest=self.payload, mode="0600")
-            self._call("submit_artifact", {"artifact_id": artifact_id,
-                       "paths": [{"path": self.payload, "name": "qualification.txt"}]})
+            self._call(
+                "submit_artifact",
+                {"artifact_id": artifact_id, "paths": [{"path": self.payload, "name": "qualification.txt"}]},
+            )
         else:
             self._publish(True)
             return None
@@ -253,37 +266,44 @@ class _Episode:
                     assert time.monotonic() < deadline, "Controlled source failed to recover during teardown"
                     time.sleep(1)
         finally:
-            if self.artifact_id and self._call("artifact_status", {"artifact_id": self.artifact_id})["state"] == "PENDING":
+            if (
+                self.artifact_id
+                and self._call("artifact_status", {"artifact_id": self.artifact_id})["state"] == "PENDING"
+            ):
                 self._call("fail_artifact", {"artifact_id": self.artifact_id})
             if self.signal_content is not None:
                 self.duthost.copy(content=self.signal_content, dest=self.signal, **self.signal_attributes)
-                assert base64.b64decode(self.duthost.slurp(src=self.signal)["content"]).decode("utf-8") == self.signal_content
+                assert (
+                    base64.b64decode(self.duthost.slurp(src=self.signal)["content"]).decode("utf-8")
+                    == self.signal_content
+                )
             elif not self.signal:
                 self._run("sudo rm -f -- " + shlex.quote(self.payload))
 
 
 def test_healthz_installed_baseline(healthz_tls):
     """Stored component state maps to GET; missing state never becomes healthy."""
-    gnmi_tls = healthz_tls
-    duthost = gnmi_tls.duthost
+    duthost = healthz_tls.duthost
     keys = duthost.shell("sonic-db-cli STATE_DB KEYS 'COMPONENT_HEALTH_INFO|*'")["stdout_lines"]
     for key in keys:
-        row = compose_dict_from_cli(duthost.shell(
-            "sonic-db-cli STATE_DB HGETALL {}".format(shlex.quote(key)),
-        )["stdout"])
-        component = unquote(key[len(HEALTH_PREFIX):])
-        state = _state(gnmi_tls, component)
+        row = compose_dict_from_cli(
+            duthost.shell(
+                "sonic-db-cli STATE_DB HGETALL {}".format(shlex.quote(key)),
+            )["stdout"]
+        )
+        component = unquote(key[len(HEALTH_PREFIX) :])
+        state = _state(healthz_tls, component)
         assert state["status"] == row["status"]
         assert state["unhealthy-count"] == int(row["unhealthy_count"])
         if "last_unhealthy" in row:
             assert state["last-unhealthy"] == int(row["last_unhealthy"])
         else:
             assert "last-unhealthy" not in state
-        retained = _events(gnmi_tls, component)
-        latest = _rpc(gnmi_tls, "Get", component)["component"]
+        retained = _events(healthz_tls, component)
+        latest = _rpc(healthz_tls, "Get", component)["component"]
         assert latest["id"] in {event["id"] for event in retained}
         assert latest["status"] == "STATUS_" + row["status"]
-        visible = _events(gnmi_tls, component, acknowledged=False)
+        visible = _events(healthz_tls, component, acknowledged=False)
         assert {event["id"] for event in visible} == {
             event["id"] for event in retained if not event.get("acknowledged", False)
         }
@@ -291,31 +311,39 @@ def test_healthz_installed_baseline(healthz_tls):
 
     missing = "healthz-qualification-missing-" + uuid.uuid4().hex
     with pytest.raises(PtfGrpcError, match="NotFound"):
-        _rpc(gnmi_tls, "Get", missing)
+        _rpc(healthz_tls, "Get", missing)
     with pytest.raises(PygnmiClientCallError, match="NotFound"):
-        _state(gnmi_tls, missing)
+        _state(healthz_tls, missing)
 
 
 @pytest.fixture(params=["archive", "no_archive", "dldd"])
 def healthz_episode(request):
     if not request.config.getoption("--healthz-controlled-episodes", default=False):
-        pytest.skip("Controlled {} episode requires --healthz-controlled-episodes on an exclusive lab DUT".format(
-            request.param))
+        pytest.skip(
+            "Controlled {} episode requires --healthz-controlled-episodes on an exclusive lab DUT".format(request.param)
+        )
     component = request.config.getoption("--healthz-dldd-component", default="")
     signal = request.config.getoption("--healthz-dldd-signal", default="")
     if request.param == "dldd" and not (component and signal):
-        pytest.skip("DLDD episode requires --healthz-dldd-component and --healthz-dldd-signal for an installed demo rule")
+        pytest.skip(
+            "DLDD episode requires --healthz-dldd-component and --healthz-dldd-signal for an installed demo rule"
+        )
     client = request.getfixturevalue("healthz_tls")
     client.grpc.configure_max_time(60)
     if request.param != "no_archive":
-        count = int(client.duthost.shell(
-            "sudo find /var/lib/sonic/healthz/artifacts -maxdepth 1 -type f "
-            "\\( -name 'healthz-*.tar.gz' -o -name '*.pending' \\) | wc -l"
-        )["stdout"])
+        count = int(
+            client.duthost.shell(
+                "sudo find /var/lib/sonic/healthz/artifacts -maxdepth 1 -type f "
+                "\\( -name 'healthz-*.tar.gz' -o -name '*.pending' \\) | wc -l"
+            )["stdout"]
+        )
         assert count < 20, "Archive store has no free slot; qualification must not prune retained artifacts"
-    episode = _Episode(client.duthost, request.param,
-                       component if request.param == "dldd" else "",
-                       signal if request.param == "dldd" else "")
+    episode = _Episode(
+        client.duthost,
+        request.param,
+        component if request.param == "dldd" else "",
+        signal if request.param == "dldd" else "",
+    )
     try:
         episode.prepare()
         _wait_for_event(client, episode.component, "HEALTHY", "")
@@ -336,9 +364,14 @@ def test_healthz_controlled_episode(healthz_episode):
     expected_count = baseline["unhealthy-count"] + 1
     base = client.pygnmi_client
     subscriber = PygnmiClient(
-        base.host, base.port, plaintext=base.plaintext,
-        ca_cert=base.ca_cert, client_cert=base.client_cert, client_key=base.client_key,
-        timeout=base.timeout, connect=False,
+        base.host,
+        base.port,
+        plaintext=base.plaintext,
+        ca_cert=base.ca_cert,
+        client_cert=base.client_cert,
+        client_key=base.client_key,
+        timeout=base.timeout,
+        connect=False,
     )
     synced, stop, unhealthy_received, recovery_started, healthy_received = (Event() for _ in range(5))
     notifications = []
@@ -346,7 +379,9 @@ def test_healthz_controlled_episode(healthz_episode):
     def collect():
         current = dict(baseline)
         for message in subscriber.subscribe(
-            _state_path(component), stream_mode=StreamMode.ON_CHANGE, collect_seconds=120,
+            _state_path(component),
+            stream_mode=StreamMode.ON_CHANGE,
+            collect_seconds=120,
         ):
             notifications.append(message)
             if message.get("sync_response"):
@@ -403,14 +438,18 @@ def test_healthz_controlled_episode(healthz_episode):
             _wait_for_state(client, component, {"status": "HEALTHY", "unhealthy-count": expected_count})
             state = _state(client, component)
             if episode.producer == "dldd":
-                detection = int(episode._run("sonic-db-cli STATE_DB HGET "
-                                            + shlex.quote(episode.fault_key) + " last_detection_time"))
+                detection = int(
+                    episode._run(
+                        "sonic-db-cli STATE_DB HGET " + shlex.quote(episode.fault_key) + " last_detection_time"
+                    )
+                )
                 assert state["last-unhealthy"] == detection * 1_000_000_000
             else:
                 assert state["last-unhealthy"] == last_unhealthy
             last_unhealthy = state["last-unhealthy"]
             assert {event["id"] for event in _events(client, component)} == before_ids | {
-                active["id"], recovery["id"],
+                active["id"],
+                recovery["id"],
             }
             if episode.producer == "dldd":
                 for fields in ({}, {"eventId": active["id"]}):
@@ -424,15 +463,22 @@ def test_healthz_controlled_episode(healthz_episode):
     sync_index = next(index for index, message in enumerate(notifications) if message.get("sync_response"))
     accumulated = dict(baseline)
     post_sync_states = []
-    for message in notifications[sync_index + 1:]:
+    for message in notifications[sync_index + 1 :]:
         values = _state_values(message)
         if values:
             accumulated.update(values)
             post_sync_states.append(dict(accumulated))
-    assert any(state["status"] == "UNHEALTHY" and state["unhealthy-count"] == expected_count
-               for state in post_sync_states), "Missing post-sync UNHEALTHY update"
-    assert any(state == {"status": "HEALTHY", "unhealthy-count": expected_count,
-                         "last-unhealthy": last_unhealthy}
-               for state in post_sync_states), "Missing post-sync HEALTHY recovery update"
-    logger.info("Healthz episode component=%s active=%s recovery=%s notifications=%s",
-                component, active, recovery, notifications)
+    assert any(
+        state["status"] == "UNHEALTHY" and state["unhealthy-count"] == expected_count for state in post_sync_states
+    ), "Missing post-sync UNHEALTHY update"
+    assert any(
+        state == {"status": "HEALTHY", "unhealthy-count": expected_count, "last-unhealthy": last_unhealthy}
+        for state in post_sync_states
+    ), "Missing post-sync HEALTHY recovery update"
+    logger.info(
+        "Healthz episode component=%s active=%s recovery=%s notifications=%s",
+        component,
+        active,
+        recovery,
+        notifications,
+    )

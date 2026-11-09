@@ -15,7 +15,6 @@ import pytest
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name
 
-
 pytestmark = [pytest.mark.topology("any")]
 SERVICE = "gnoi.healthz.Healthz/"
 CLIENT_NAME = "test.client.gnmi.sonic"
@@ -65,8 +64,7 @@ def test_healthz_tls_roles(healthz_tls):
     client, duthost = healthz_tls.grpc, healthz_tls.duthost
     baseline = _catalog(duthost)
     token = uuid.uuid4().hex
-    path = {"elem": [{"name": "components"},
-                     {"name": "component", "key": {"name": "healthz-auth-missing-" + token}}]}
+    path = {"elem": [{"name": "components"}, {"name": "component", "key": {"name": "healthz-auth-missing-" + token}}]}
     requests = {
         "Get": {"path": path},
         "List": {"path": path, "includeAcknowledged": True},
@@ -74,8 +72,13 @@ def test_healthz_tls_roles(healthz_tls):
         "Acknowledge": {"path": path, "id": "hz-" + token},
         "Check": {"path": path},
     }
-    allowed = {"Get": "NotFound", "List": None, "Artifact": "NotFound",
-               "Acknowledge": "NotFound", "Check": "Unimplemented"}
+    allowed = {
+        "Get": "NotFound",
+        "List": None,
+        "Artifact": "NotFound",
+        "Acknowledge": "NotFound",
+        "Check": "Unimplemented",
+    }
 
     anonymous = copy.copy(client)
     anonymous.client_cert = anonymous.client_key = None
@@ -90,9 +93,7 @@ def test_healthz_tls_roles(healthz_tls):
         for role in ("gnoi_readwrite", "gnoi_readonly", "gnoi_noaccess"):
             _set_role(duthost, role)
             for method, request in requests.items():
-                denied = role == "gnoi_noaccess" or (
-                    role == "gnoi_readonly" and method in ("Acknowledge", "Check")
-                )
+                denied = role == "gnoi_noaccess" or (role == "gnoi_readonly" and method in ("Acknowledge", "Check"))
                 _expect(_call(client, method, request), "PermissionDenied" if denied else allowed[method])
             assert _catalog(duthost) == baseline, "Healthz catalog mutated while checking " + role
     finally:
