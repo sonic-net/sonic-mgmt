@@ -66,8 +66,20 @@ and mux-cable configuration.
 Set `topo: dualtor-aa-o32v192` in the lab's testbed entry and supply the usual
 active-active `netns_mgmt_ip` and NIC simulator configuration. Confirm the port
 ordering and connection-graph/fanout wiring against this table before deployment.
-Other HWSKU interfaces are outside this topology and should not be cabled into
-the test forwarding paths. The original `dualtor-aa` topology remains unchanged.
+Fanout connector numbers are lab-specific: record the actual cable destinations
+in the connection graph and configure their breakout speeds and VLANs to match
+the DUT-facing ports. Moving a cable between fanout connectors does not change
+the DUT/PTF indices in this YAML. Additional cabled HWSKU ports do not expand
+the selected test topology.
+
+The topology uses the standard T0 EOS template with `port-channel min-links 1`
+for its single-member uplinks. Native controller aliases and golden CONFIG_DB
+generation retain all 224 ports, cabling-based admin states, the 64 native
+breakout defaults, and per-child `PORT.subport` metadata. The latter is required
+for transceiver media settings to select the correct lane slice. Breakout
+defaults come from the native HWSKU directory, not the directory of the port
+configuration file, which can resolve to `platform.json`.
+The original `dualtor-aa` topology remains unchanged.
 
 ### `dualtor-mixed` topology
 ![dualtor-mixed topology](./img/testbed_dualtor_mixed_topo.png)
