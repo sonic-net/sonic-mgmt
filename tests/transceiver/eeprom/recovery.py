@@ -16,7 +16,8 @@ Consumers:
 
   * ``eeprom/test_eeprom_scenario.py`` — S2-S7 reboot / config-reload / daemon
     restart / sfputil-reset scenarios.
-  * ``oir/test_physical_oir.py`` — post-insertion recovery.
+  * ``oir/oir_helpers.py::verify_insertion`` — recovery after a physical OIR
+    insertion or a remote reseat.
   * firmware upgrade/downgrade tests, which pass ``expected_active`` /
     ``expected_inactive`` because the installed versions deliberately differ
     from the inventory defaults.

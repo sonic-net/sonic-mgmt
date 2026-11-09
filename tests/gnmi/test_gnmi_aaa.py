@@ -7,6 +7,13 @@ import time
 import pytest
 from pygnmi.client import gNMIException
 
+from tests.common.fixtures.gnmi_aaa import (  # noqa: F401
+    gnmi_aaa_case_boundary as _gnmi_aaa_case_boundary,
+)
+from tests.common.fixtures.gnmi_aaa import (  # noqa: F401
+    gnmi_aaa_role_tls,
+    gnmi_aaa_tls_owner,
+)
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     _restart_gnoi_server,
     gnmi_tls,
@@ -60,36 +67,77 @@ AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
 
 
+@pytest.fixture(autouse=True)
+def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner, loganalyzer):  # noqa: F811
+    # Start the function log window before closing shared TLS at a transition.
+    # Autouse runs before other function fixtures, including fresh gnmi_tls.
+    # A usefixtures mark alone does not establish that dependency ordering.
+    _gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner)
+
+
 def _set_configdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Set", {
-        "prefix": {"origin": "sonic-db"},
-        "update": [{
-            "path": {"elem": [{"name": name} for name in (
-                "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost", "cloudtype",
-            )]},
-            "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
-        }],
-    })
+    env.grpc.call_unary(
+        "gnmi.gNMI",
+        "Set",
+        {
+            "prefix": {"origin": "sonic-db"},
+            "update": [
+                {
+                    "path": {
+                        "elem": [
+                            {"name": name}
+                            for name in (
+                                "CONFIG_DB",
+                                "localhost",
+                                "DEVICE_METADATA",
+                                "localhost",
+                                "cloudtype",
+                            )
+                        ]
+                    },
+                    "val": {"jsonIetfVal": base64.b64encode(b'"Public"').decode()},
+                }
+            ],
+        },
+    )
 
 
 def _get_configdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Get", {
-        "prefix": {"origin": "sonic-db"},
-        "path": [{"elem": [{"name": name} for name in (
-            "CONFIG_DB", "localhost", "DEVICE_METADATA", "localhost",
-        )]}],
-        "type": "ALL",
-        "encoding": "JSON_IETF",
-    })
+    env.grpc.call_unary(
+        "gnmi.gNMI",
+        "Get",
+        {
+            "prefix": {"origin": "sonic-db"},
+            "path": [
+                {
+                    "elem": [
+                        {"name": name}
+                        for name in (
+                            "CONFIG_DB",
+                            "localhost",
+                            "DEVICE_METADATA",
+                            "localhost",
+                        )
+                    ]
+                }
+            ],
+            "type": "ALL",
+            "encoding": "JSON_IETF",
+        },
+    )
 
 
 def _get_countersdb(env):
-    env.grpc.call_unary("gnmi.gNMI", "Get", {
-        "prefix": {"target": "COUNTERS_DB"},
-        "path": [{"elem": [{"name": "COUNTERS_PORT_NAME_MAP"}]}],
-        "type": "ALL",
-        "encoding": "JSON_IETF",
-    })
+    env.grpc.call_unary(
+        "gnmi.gNMI",
+        "Get",
+        {
+            "prefix": {"target": "COUNTERS_DB"},
+            "path": [{"elem": [{"name": "COUNTERS_PORT_NAME_MAP"}]}],
+            "type": "ALL",
+            "encoding": "JSON_IETF",
+        },
+    )
 
 
 def _get_capabilities(env):
@@ -396,23 +444,23 @@ UNMAPPED_CN_ROLE_CASES = [
     "role,operation,error_pattern",
     CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
 )
-def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
+def test_cn_role_access(gnmi_aaa_role_tls, role, operation, error_pattern):  # noqa: F811
     """Verify generic and target-specific role authorization."""
-    duthost = gnmi_tls.duthost
+    duthost = gnmi_aaa_role_tls.duthost
     if operation is _set_configdb:
         redis_hset(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", cloudtype="Private")
         pytest_assert(
             redis_hget(duthost, CONFIG_DB, "DEVICE_METADATA|localhost", "cloudtype") == "Private",
             "Failed to seed the Set authorization sentinel",
         )
-    # gnmi_tls owns restoration of both the mapping and the sentinel.
+    # The shared role-case fixture restores both the mapping and the sentinel.
     _set_client_cert_role(duthost, role)
     if error_pattern:
         error_type = PygnmiClientError if operation is _get_capabilities else PtfGrpcError
         with pytest.raises(error_type, match=error_pattern):
-            operation(gnmi_tls)
+            operation(gnmi_aaa_role_tls)
     else:
-        operation(gnmi_tls)
+        operation(gnmi_aaa_role_tls)
     if operation is _set_configdb:
         expected = "Private" if error_pattern else "Public"
         pytest_assert(
