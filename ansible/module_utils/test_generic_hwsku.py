@@ -60,6 +60,122 @@ def _snapshot(cage_count=3):
     }
 
 
+def _service_snapshot():
+    snapshot = _snapshot()
+    cables = ["5m", "10m", "20m", "30m", "40m", "50m"]
+    for device in snapshot["devices"]:
+        for number in range(2):
+            index = 12 + number
+            modes = []
+            for speed in (10000, 25000):
+                port = _port(index, [index + (100 if device["name"] == "leaf" else 0)], [0], speed)
+                port["cables"] = cables
+                modes.append({"id": "service-" + str(speed), "name": "1x25G[10G]",
+                              "group_mode": "independent", "ports": [port]})
+            device["cages"].append({"name": "service-" + str(number), "group": "service-" + str(number),
+                                    "protected_reason": "", "role": "service", "modes": modes})
+    snapshot["links"].extend({"dut_cage": "service-" + str(number), "dut_channel": 0, "leaf": "leaf",
+                              "leaf_cage": "service-" + str(number), "leaf_channel": 0, "excluded_reason": ""}
+                             for number in range(2))
+    snapshot["lookup"].extend(
+        {"speed": speed, "cable": cable, "headroom": 100} for speed in (10000, 25000) for cable in cables)
+    return snapshot
+
+
+def test_finite_service_capacity_keeps_main_n_and_reports_requested_vs_actual_coverage(settings):
+    snapshot = _service_snapshot()
+    manifest = planner.plan_scenario(snapshot, settings)
+    planner.validate_manifest(manifest, snapshot, settings)
+    assert {(row["mode"], row["speed"], row["count"]) for row in manifest["requirements"]["modes"]} == {
+        ("1x400G", 400000, 1), ("4x100G", 100000, 4)}
+    service = manifest["coverage"]["service"]
+    assert not service["complete"] and not manifest["coverage"]["complete"]
+    assert {(row["speed"], row["requested_count"], row["actual_count"]) for row in service["modes"]} == {
+        (10000, 6, 1), (25000, 6, 1)}
+    assert len(service["lookup"]) == 12 and sum(bool(row["ports"]) for row in service["lookup"]) == 2
+    assert service["warnings"][0]["code"] == "SERVICE_COVERAGE_INCOMPLETE"
+    assert len(service["warnings"][0]["missing_lookup"]) == 10
+    assert manifest["coverage"]["unselected"] == {"modes": [], "lookup": []}
+
+
+def test_service_media_limits_selection_not_advertised_requests_or_primary_coverage(settings, monkeypatch):
+    snapshot = _service_snapshot()
+    advertised = planner.plan_scenario(snapshot, settings)
+    for device in snapshot["devices"]:
+        for cage in device["cages"]:
+            if cage.get("role") == "service":
+                cage["media_speeds"] = [10000]
+    manifest = planner.plan_scenario(snapshot, settings)
+    assert manifest["requirements"]["modes"] == advertised["requirements"]["modes"]
+    assert manifest["requirements"]["service"] == advertised["requirements"]["service"]
+    assert {(row["speed"], row["requested_count"], row["actual_count"])
+            for row in manifest["coverage"]["service"]["modes"]} == {(10000, 6, 2), (25000, 6, 0)}
+    assert all(row["speed"] == 10000 for row in manifest["port_bindings"]
+               if row["dut_cage"].startswith("service-"))
+    assert manifest["coverage"]["service"]["warnings"] and manifest["traffic_cases"]
+    monkeypatch.setattr(planner._Planner, "search", lambda *args: pytest.fail("validation repeated the search"))
+    planner.validate_manifest(manifest, snapshot, settings)
+    with pytest.raises(planner.InvalidManifest, match="media-limited"):
+        planner.validate_manifest(advertised, snapshot, settings)
+
+
+def test_service_ports_can_supply_the_only_independent_traffic_path(settings):
+    snapshot = _service_snapshot()
+    snapshot["endpoints"] = [
+        {"id": "service-endpoint-" + str(number), "leaf": "leaf", "cage": "service-" + str(number),
+         "channels": [0], "ptf_index": number, "trunk": "reserved-trunk", "vlan": 300 + number,
+         "host_interface": "service" + str(number), "roles": ["access", "routed"]}
+        for number in range(2)]
+    manifest = planner.plan_scenario(snapshot, settings)
+    planner.validate_manifest(manifest, snapshot, settings)
+    assert len(manifest["endpoints"]) == 2 and len(manifest["traffic_cases"]) == 2
+    assert {row["speed"] for row in manifest["endpoints"]} == {10000, 25000}
+    assert sum(row["role"] == "routed" for row in manifest["endpoints"]) == 1
+
+
+@pytest.mark.parametrize("fault", ["service-link", "main-links"])
+def test_service_shortfall_warns_but_main_infeasibility_still_fails(settings, fault):
+    snapshot = _service_snapshot()
+    if fault == "service-link":
+        snapshot["links"] = [row for row in snapshot["links"] if row["dut_cage"] != "service-0"]
+        manifest = planner.plan_scenario(snapshot, settings)
+        planner.validate_manifest(manifest, snapshot, settings)
+        assert sum(row["actual_count"] for row in manifest["coverage"]["service"]["modes"]) == 1
+        assert manifest["coverage"]["service"]["warnings"]
+    else:
+        snapshot["links"] = [row for row in snapshot["links"] if row["dut_cage"].startswith("service-")]
+        with pytest.raises(planner.InfeasiblePlan):
+            planner.plan_scenario(snapshot, settings)
+
+
+@pytest.mark.parametrize("fault", ["complete", "warnings", "requested-count"])
+def test_service_warning_and_coverage_cannot_be_forged_without_repeating_search(settings, monkeypatch, fault):
+    snapshot = _service_snapshot()
+    manifest = planner.plan_scenario(snapshot, settings)
+    monkeypatch.setattr(planner._Planner, "search", lambda *args: pytest.fail("validation repeated the search"))
+    planner.validate_manifest(manifest, snapshot, settings)
+    if fault == "complete":
+        manifest["coverage"]["complete"] = True
+    elif fault == "warnings":
+        manifest["coverage"]["service"]["warnings"] = []
+    else:
+        manifest["requirements"]["service"]["modes"][0]["requested_count"] = 1
+    with pytest.raises(planner.InvalidManifest):
+        planner.validate_manifest(manifest, snapshot, settings)
+
+
+def test_service_budget_exhaustion_is_not_a_successful_warning(settings, monkeypatch):
+    original = planner._Planner.complete_services
+
+    def exhaust(self, state):
+        self.settings["max_search_nodes"] = self.nodes
+        return original(self, state)
+
+    monkeypatch.setattr(planner._Planner, "complete_services", exhaust)
+    with pytest.raises(planner.SearchBudgetExceeded):
+        planner.plan_scenario(_service_snapshot(), settings)
+
+
 @pytest.fixture
 def snapshot():
     return _snapshot()
@@ -148,6 +264,143 @@ def test_complete_plan_and_independent_roundtrip(snapshot, settings):
     paths = {(case["ingress"], case["egress"]) for case in manifest["traffic_cases"]}
     assert all(ingress != egress for ingress, egress in paths)
     assert {port for path in paths for port in path} == {row["dut_port"] for row in endpoints}
+
+
+def test_n_and_routed_count_are_generated_without_per_bed_settings(snapshot):
+    manifest = planner.plan_scenario(snapshot)
+    planner.validate_manifest(manifest, snapshot)
+    counts = {(row["mode"], row["speed"]): row["count"] for row in manifest["requirements"]["modes"]}
+    assert counts == {("1x400G", 400000): 1, ("4x100G", 100000): 4}
+    assert "min_subports" not in manifest["settings"] and "routed_ports" not in manifest["settings"]
+    assert manifest["requirements"]["routed_ports"] == sum(
+        row["role"] == "routed" for row in manifest["endpoints"])
+    assert any(row["role"] == "access" for row in manifest["endpoints"])
+    assert manifest["coverage"]["traffic"]["complete"]
+
+
+def test_fully_protected_scope_is_not_an_empty_success_manifest(snapshot):
+    for device in snapshot["devices"]:
+        for cage in device["cages"]:
+            cage["protected_reason"] = "Another owner's resource"
+    with pytest.raises(planner.PrerequisiteError, match="No eligible controlled DUT modes"):
+        planner.plan_scenario(snapshot)
+
+
+def test_lookup_coverage_increases_n_and_optional_override_only_adds_coverage():
+    snapshot = _snapshot(4)
+    for cable in ("20m", "30m", "40m", "50m"):
+        snapshot["lookup"].append({"speed": 100000, "cable": cable, "headroom": 1200})
+        for device in snapshot["devices"]:
+            for cage in device["cages"]:
+                for mode in cage["modes"]:
+                    for port in mode["ports"]:
+                        if port["speed"] == 100000:
+                            port["cables"].append(cable)
+    manifest = planner.plan_scenario(snapshot, {"min_subports": 2})
+    counts = {(row["mode"], row["speed"]): row["count"] for row in manifest["requirements"]["modes"]}
+    assert counts == {("1x400G", 400000): 2, ("4x100G", 100000): 6}
+    assert all(row["ports"] for row in manifest["coverage"]["lookup"])
+    planner.validate_manifest(manifest, snapshot, {"min_subports": 2})
+
+
+@pytest.mark.parametrize("transport", [False, True])
+def test_one_layout_automatically_covers_l1_and_available_packet_paths(settings, transport):
+    snapshot = _snapshot(2)
+    snapshot["endpoints"] = ([] if not transport else
+                             [row for row in snapshot["endpoints"] if row["channels"] == [0]])
+    settings.pop("routed_ports")
+    manifest = planner.plan_scenario(snapshot, settings)
+    planner.validate_manifest(json.loads(planner.canonical_json(manifest)), snapshot, settings)
+    assert all(row["ports"] for row in manifest["coverage"]["modes"] + manifest["coverage"]["lookup"])
+    assert len(manifest["port_bindings"]) == 5
+    assert manifest["coverage"]["traffic"]["unavailable"]
+    untransported = [row for row in manifest["port_bindings"] if row["transport"] is None]
+    assert all(row["role"] == "l1" and "ptf_address" not in row for row in untransported)
+    assert len(manifest["endpoints"]) == (2 if transport else 0)
+    assert not manifest["coverage"]["traffic"]["complete"]
+    paths = {port for case in manifest["traffic_cases"] for port in (case["ingress"], case["egress"])}
+    assert paths == {row["dut_port"] for row in manifest["endpoints"]}
+    expected = planner.canonical_json(manifest)
+    for key in ("devices", "links", "endpoints", "lookup"):
+        snapshot[key].reverse()
+    assert planner.canonical_json(planner.plan_scenario(snapshot, settings)) == expected
+
+
+def test_automatic_planning_never_drops_unreachable_mode_coverage(settings):
+    snapshot = _snapshot(1)
+    snapshot["endpoints"] = []
+    settings.pop("routed_ports")
+    with pytest.raises(planner.InfeasiblePlan):
+        planner.plan_scenario(snapshot, settings)
+    for device in snapshot["devices"]:
+        device["cages"][0]["modes"] = device["cages"][0]["modes"][1:]
+    snapshot["lookup"] = snapshot["lookup"][:2]
+    manifest = planner.plan_scenario(snapshot, settings)
+    assert not manifest["exclusions"]
+    settings["min_subports"] = 5
+    with pytest.raises(planner.InfeasiblePlan):
+        planner.plan_scenario(snapshot, settings)
+
+
+@pytest.mark.parametrize("endpoint_count", [0, 1])
+def test_explicit_routed_requirement_is_not_softened_when_packet_resources_are_missing(
+        settings, endpoint_count):
+    snapshot = _snapshot(2)
+    snapshot["endpoints"] = snapshot["endpoints"][:endpoint_count]
+    with pytest.raises(planner.InfeasiblePlan):
+        planner.plan_scenario(snapshot, settings)
+
+
+@pytest.mark.parametrize("field", ["routed_ports", "min_subports"])
+def test_automatic_defaults_do_not_accept_invalid_explicit_counts(snapshot, settings, field):
+    settings[field] = 0
+    with pytest.raises(planner.InvalidInput):
+        planner.plan_scenario(snapshot, settings)
+
+
+@pytest.mark.parametrize("fault", ["wire", "headroom", "budget"])
+def test_automatic_l1_preserves_physical_and_search_gates(snapshot, settings, fault):
+    settings.pop("routed_ports")
+    snapshot["endpoints"] = []
+    if fault == "wire":
+        snapshot["links"] = [row for row in snapshot["links"] if row["dut_channel"] != 3]
+    elif fault == "headroom":
+        snapshot["devices"][1]["headroom_capacity"] = 0
+    else:
+        settings["max_search_nodes"] = 1
+    expected = planner.SearchBudgetExceeded if fault == "budget" else planner.InfeasiblePlan
+    with pytest.raises(expected):
+        planner.plan_scenario(snapshot, settings)
+
+
+@pytest.mark.parametrize("fault", ["physical_peer", "traffic_witness", "qualification"])
+def test_automatic_manifest_cannot_forge_physical_or_packet_coverage(snapshot, settings, fault):
+    settings.pop("routed_ports")
+    snapshot["endpoints"] = []
+    manifest = planner.plan_scenario(snapshot, settings)
+    if fault == "physical_peer":
+        manifest["port_bindings"][0]["leaf_port"] = "invented-peer"
+    elif fault == "traffic_witness":
+        manifest["coverage"]["traffic"]["unavailable"] = []
+    else:
+        settings["routed_ports"] = 1
+    with pytest.raises(planner.InvalidManifest):
+        planner.validate_manifest(manifest, snapshot, settings)
+
+
+def test_observed_cage_credits_are_reclaimed_only_for_the_frozen_selected_cages():
+    snapshot = _snapshot(2)
+    for device in snapshot["devices"]:
+        device["port_capacity"], device["headroom_capacity"] = 0, 0
+        device["port_credits"] = {"cage-0": 4, "cage-1": 4}
+        device["headroom_credits"] = {"cage-0": 4000, "cage-1": 4000}
+    manifest = planner.plan_scenario(snapshot)
+    planner.validate_manifest(manifest, snapshot)
+    assert manifest["resources"]["available"]["dut"] == {"ports": 8, "headroom": 8000}
+    assert manifest["resources"]["headroom"]["dut"] <= 8000
+    snapshot["devices"][0]["headroom_credits"] = {"cage-0": 0, "cage-1": 0}
+    with pytest.raises(planner.InfeasiblePlan):
+        planner.plan_scenario(snapshot)
 
 
 def test_input_order_and_setting_layer_independence(snapshot, settings):
@@ -261,23 +514,20 @@ def test_cable_assignment_backtracks_within_one_layout(settings):
     assert len([row for row in manifest["layout"] if row["device"] == "dut"]) == 2
 
 
-@pytest.mark.parametrize("routed_count, feasible", [(1, False), (3, True)])
-def test_roles_and_address_capacity_are_search_constraints(settings, routed_count, feasible):
+@pytest.mark.parametrize("routed_count", [1, 3])
+def test_roles_and_address_capacity_are_search_constraints(settings, routed_count):
     """A /30 access pool has one PTF address; role allocation must fit it rather than silently overrun."""
     snapshot = _snapshot(1)
     for device in snapshot["devices"]:
         device["cages"][0]["modes"] = device["cages"][0]["modes"][1:]
     snapshot["lookup"] = snapshot["lookup"][:2]
     settings.update(access_network="198.19.0.0/30", routed_ports=routed_count)
-    if not feasible:
-        with pytest.raises(planner.InfeasiblePlan):
-            planner.plan_scenario(snapshot, settings)
-    else:
-        manifest = planner.plan_scenario(snapshot, settings)
-        assert sum(row["role"] == "routed" for row in manifest["endpoints"]) == 3
-        access = [row for row in manifest["endpoints"] if row["role"] == "access"]
-        assert access[0]["dut_address"] == "198.19.0.1/30"
-        assert access[0]["ptf_address"] == "198.19.0.2/30"
+    manifest = planner.plan_scenario(snapshot, settings)
+    assert sum(row["role"] == "routed" for row in manifest["endpoints"]) == routed_count
+    access = [row for row in manifest["endpoints"] if row["role"] == "access"]
+    assert len(access) == 1
+    assert access[0]["dut_address"] == "198.19.0.1/30"
+    assert access[0]["ptf_address"] == "198.19.0.2/30"
 
 
 def test_endpoint_role_restrictions_are_respected(settings):
@@ -385,7 +635,7 @@ def test_missing_prerequisites_are_distinct(snapshot, settings, fault):
 
 
 @pytest.mark.parametrize("fault", [
-    "duplicate_link", "duplicate_lane", "missing_setting", "bool_count",
+    "duplicate_link", "duplicate_lane", "ambiguous_profile", "bool_count",
     "bad_hash", "unknown_field", "overlapping_networks",
 ])
 def test_malformed_contract_is_rejected(snapshot, settings, fault):
@@ -395,8 +645,9 @@ def test_malformed_contract_is_rejected(snapshot, settings, fault):
     elif fault == "duplicate_lane":
         port = snapshot["devices"][0]["cages"][0]["modes"][0]["ports"][0]
         port["lanes"].append(port["lanes"][0])
-    elif fault == "missing_setting":
-        del settings["min_subports"]
+    elif fault == "ambiguous_profile":
+        snapshot["supported_profiles"].append("lossy")
+        del settings["profile"]
     elif fault == "bool_count":
         settings["min_subports"] = True
     elif fault == "bad_hash":

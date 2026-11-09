@@ -19,8 +19,12 @@ serialized = canonical_json(manifest)
 ```
 
 Settings merge field by field: DUT settings override inventory-group settings,
-which override shared defaults. All settings below are mandatory after merging;
-the planner never supplies an unapproved N, profile or address allocation.
+which override shared defaults. Planner version 4 derives coverage counts and
+the routed-port count when their optional overrides are absent. It supplies
+deterministic address/VLAN/search defaults, selecting a profile automatically
+only when the snapshot has exactly one supported profile. A live caller must
+verify that the effective addresses, VLAN and policy are usable on its reserved
+resources; offline defaults are not an allocation or execution grant.
 Inputs and manifests are JSON-compatible dictionaries; callers own artifact
 storage and must validate a saved manifest against its original snapshot before
 consuming it. Digests detect modification, not authorization or trust.
@@ -35,8 +39,8 @@ capacities and headroom costs are nonnegative integers, not booleans.
 
 | Record | Fields and meaning |
 |---|---|
-| Device | `name`, `platform`, `base_hwsku`, `realized_hwsku`, `image`, `asic_count`, `dedicated`, `port_capacity`, `headroom_capacity`, `cages` |
-| Cage | `name`, `group`, `protected_reason` (empty if eligible), `modes` |
+| Device | `name`, `platform`, `base_hwsku`, `realized_hwsku`, `image`, `asic_count`, `dedicated`, `port_capacity`, `headroom_capacity`, `cages`; optional per-cage `port_credits` and `headroom_credits` |
+| Cage | `name`, `group`, `protected_reason` (empty if eligible), `modes`; optional `role` (`data` by default, or `service`) and `media_speeds` |
 | Expansion | `id` (unique within cage), `name` (canonical advertised mode), `group_mode`, `ports` |
 | Port | `name`, `alias`, `index`, ordered `lanes`, physical `channels`, `speed`, `fec`, `autoneg`, supported `cables` |
 | Physical link | `dut_cage`, `dut_channel`, `leaf`, `leaf_cage`, `leaf_channel`, `excluded_reason` (empty if eligible) |
@@ -57,6 +61,9 @@ verified **available scenario budget after reserving unrelated baseline
 usage**, not raw ASIC maxima. `port_capacity` includes inactive children of a
 selected leaf expansion. Zero available capacity is valid for protected or
 unused devices; every selected expansion must still fit its device's budget.
+Optional per-cage credits describe verified original allocations that are
+reclaimable only when that cage is actually selected. Protected or unselected
+credits never become spare budget.
 Policy must provide conservative additive `headroom`
 costs and available per-device `headroom_capacity` for the supported profile.
 The planner sums these supplied costs on both active ends; it does not compute
@@ -72,6 +79,13 @@ logical port names and aliases remain unique, and PTF endpoint indices are
 independently allocated from reserved transport. The planner never divides
 lanes, parses a breakout string, invents
 aliases, assumes FEC, or infers connectivity from Ethernet interface numbers.
+
+`media_speeds`, when supplied, is a list of unique positive Mbps values backed
+by recorded module capabilities, separately from ASIC-supported speeds. Every
+child of a selected expansion must satisfy its cage's limit on both devices.
+An empty list prevents selecting the cage. Omission does not establish hardware
+readiness. Media limits constrain selection, not the advertised coverage
+requirements; a live caller must freeze and recheck the evidence.
 
 `group_mode` is a platform-policy compatibility token: selected expansions in
 one device's shared `group` must agree on it. Independent cages use distinct
@@ -92,17 +106,45 @@ product. A pair whose speed exists only on protected cages is explicitly
 excluded. Other unsupported rows must be moved to `excluded_lookup` with
 evidence, not silently dropped to make a plan fit.
 
+## Automatic counts and service coverage
+
+For each eligible advertised `(mode, speed)`, the requested count is:
+
+```text
+N = max(canonical same-speed child count for that mode,
+        required lookup cable-row count for that speed,
+        optional min_subports lower bound)
+```
+
+These are distinct logical children, even when they share a physical
+`PORT.index`. The minimum operating speed alone does not determine N.
+For example, four canonical children and six required cable rows request six
+instances. An override may increase but never reduce the derived requirement.
+
+Primary data-port mode/count and lookup coverage remain hard requirements.
+Explicitly source-classified, single-lane, single-child service cages are a
+separate best-effort class, not an automatic escape for constrained data ports.
+The planner first obtains a feasible primary witness, then optimizes service
+mode/speed, lookup and requested-count coverage around that witness.
+
+`requirements.service` retains the advertised requests. `coverage.service`
+records requested versus actual counts, every missing lookup row and
+`SERVICE_COVERAGE_INCOMPLETE` warnings. Any shortfall keeps overall
+`coverage.complete` false. For example, two 10G-limited service modules may
+select two 10G ports while the advertised 25G request remains visibly unmet.
+Neither media limits nor service best effort remove primary obligations.
+
 ## Settings
 
 | Field | Constraint |
 |---|---|
-| `min_subports` | N >= 1 distinct DUT children per eligible advertised mode/operating-speed combination |
-| `routed_ports` | Exact positive routed-port count; at least one separate access port is also required |
-| `access_vlan` | Reviewed DUT access VLAN, 1-4094; separate from leaf/PTF transport VLANs |
-| `routed_network` | Dedicated canonical IPv4 pool with room for one /31 DUT/PTF pair per routed port |
-| `access_network` | Nonoverlapping IPv4 pool with gateway and a separate PTF peer per access port; /30 or larger |
-| `profile` | A member of recorded `supported_profiles` |
-| `max_search_nodes` | Positive deterministic search budget; exhaustion is not proof of infeasibility |
+| `min_subports` | Optional positive lower bound; otherwise N is derived from canonical children and lookup |
+| `routed_ports` | Optional exact positive count; otherwise derive it from feasible traffic endpoints, retaining a separate access endpoint |
+| `access_vlan` | Default 100; 1-4094 and separate from selected leaf/PTF transport VLANs |
+| `routed_network` | Default `198.18.0.0/16`; canonical IPv4 pool with one /31 DUT/PTF pair per routed port |
+| `access_network` | Default `198.19.0.0/16`; nonoverlapping pool with gateway and distinct peers; /30 or larger |
+| `profile` | A member of `supported_profiles`; automatic only for an unambiguous single supported profile |
+| `max_search_nodes` | Default 100000; positive cumulative deterministic budget; exhaustion is unknown, not infeasibility |
 
 Addresses and roles are assigned while satisfying resource constraints.
 Routed ports receive stable /31 pairs; access ports share the access gateway
@@ -118,6 +160,13 @@ transport and forwarding roles. Remaining per-cage capacity provides an upper
 bound for pruning. Every child of a selected DUT expansion must be connected;
 unconnected children of selected leaf expansions remain explicitly inactive.
 The first complete solution is accepted, not a minimum-cage optimum.
+
+Physical and traffic requirements share one layout. Without an exact
+`routed_ports` override, proven traffic infeasibility may produce a complete
+physical-only plan with no packet cases; that is never a traffic pass. The
+traffic attempt, physical-only retry and best-effort service optimization share
+one cumulative node budget. Budget exhaustion never triggers a fallback or
+returns a success-shaped partial result.
 
 The manifest records schema/planner versions, source/device/image identity,
 effective settings, required coverage, exclusions, canonical layout, endpoint
@@ -136,7 +185,7 @@ results belong in separate version-bound evidence.
 
 Errors are explicit: `InvalidInput`, `PrerequisiteError`, `InfeasiblePlan`,
 `SearchBudgetExceeded` and `InvalidManifest`. No error returns a partial
-success manifest, reduces N or removes a required capability. Successful
+success manifest, reduces a primary requirement or hides a service shortfall. Successful
 offline planning is neither device readiness nor qualification acceptance.
 
 ## Offline validation
