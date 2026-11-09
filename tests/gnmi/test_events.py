@@ -1,18 +1,21 @@
 import logging
-import pytest
 import os
 import sys
 
-from tests.gnmi.events.event_utils import event_publish_tool
-from tests.gnmi.events.event_utils import reset_event_counters, read_event_counters
-from tests.gnmi.events.event_utils import verify_counter_increase, restart_eventd
-from tests.common.dualtor.mux_simulator_control \
-    import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m    # noqa: F401
+import pytest
 
-pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
-]
+from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,
+)
+from tests.gnmi.events.event_utils import (
+    event_publish_tool,
+    read_event_counters,
+    reset_event_counters,
+    restart_eventd,
+    verify_counter_increase,
+)
+
+pytestmark = [pytest.mark.topology("any"), pytest.mark.disable_loganalyzer]
 
 EVENTS_TESTS_PATH = "./gnmi/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -34,11 +37,17 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
-                test_eventd_healthy,
-                toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
-                setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m):  # noqa: F811
-    """ Run series of events inside duthost and validate that output is correct
+def test_events(
+    duthosts,
+    tbinfo,
+    rand_one_dut_hostname,
+    ptfhost,
+    ptfadapter,
+    test_eventd_healthy,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
+    setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m,
+):  # noqa: F811
+    """Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Start events testing")
@@ -46,7 +55,7 @@ def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
     # Load rest of events
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
-            module = __import__(file[:len(file)-3])
+            module = __import__(file[: len(file) - 3])
             try:
                 module.test_event(duthost, tbinfo, test_eventd_healthy, ptfhost, ptfadapter, DATA_DIR, validate_yang)
             except pytest.skip.Exception as e:
@@ -56,7 +65,7 @@ def test_events(duthosts, tbinfo, rand_one_dut_hostname, ptfhost, ptfadapter,
 
 
 def test_events_cache_overflow(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
-    """ Published events till cache overflow, stats should read events missed_to_cache"""
+    """Published events till cache overflow, stats should read events missed_to_cache"""
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Start events cache overflow testing")
 
