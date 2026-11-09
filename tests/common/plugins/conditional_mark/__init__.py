@@ -13,6 +13,7 @@ import yaml
 import glob
 import pytest
 
+from tests.common.cache import FactsCache
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 from tests.common.utilities import get_duts_from_host_pattern
@@ -47,7 +48,8 @@ MARK_CONDITIONS_CONSTANTS = {
                      't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
                      't2_single_node_min_first_6ports',
                      't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
-                     'urh_min', 'lrh_min', 'lt2-min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224']
+                     'urh_min', 'lrh_min', 'lt2-min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224',
+                     'lt2-u32d128']
 }
 
 
@@ -189,12 +191,23 @@ def load_dut_basic_facts(inv_name, dut_name):
     return results
 
 
+def get_testbed_info(session):
+    """Reuse the same testbed cache as the tbinfo fixture."""
+    testbed_name = session.config.option.testbed
+    testbed_file = session.config.option.testbed_file
+    cache = FactsCache()
+    testbed_info = cache.read(testbed_name, 'tbinfo')
+    if testbed_info is cache.NOTEXIST:
+        testbed_info = TestbedInfo(testbed_file)
+        cache.write(testbed_name, 'tbinfo', testbed_info)
+    return testbed_info
+
+
 def get_dut_name(session):
     host_pattern = session.config.option.ansible_host_pattern
     if host_pattern == 'all':
         testbed_name = session.config.option.testbed
-        testbed_file = session.config.option.testbed_file
-        tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+        tbinfo = get_testbed_info(session).testbed_topo.get(testbed_name, None)
         dut_name = tbinfo['duts'][0]
     else:
         dut_name = get_duts_from_host_pattern(host_pattern)[0]
@@ -231,9 +244,11 @@ def get_http_proxies(inv_name):
     if os.path.isfile(INV_ENV_FILE):
         try:
             with open(INV_ENV_FILE) as env_file:
-                proxy_env = yaml.safe_load(env_file)
-                if proxy_env is not None:
-                    proxy = proxy_env.get("proxy_env", {})
+                inventory_vars = yaml.safe_load(env_file)
+                # Inventory files may contain unrelated settings.
+                # Only an explicit proxy_env should override all/env.yml.
+                if inventory_vars is not None and "proxy_env" in inventory_vars:
+                    proxy = inventory_vars.get("proxy_env", {})
                     http_proxy = proxy.get('http_proxy', '')
                     proxies = {'http': http_proxy, 'https': http_proxy}
         except Exception as e:
@@ -402,13 +417,14 @@ def load_basic_facts(dut_name, session):
     testbed_name = session.config.option.testbed
     testbed_file = session.config.option.testbed_file
 
-    tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
+    testbed_info = get_testbed_info(session)
+    tbinfo = testbed_info.testbed_topo.get(testbed_name, None)
 
     if tbinfo is None:
         logger.error("Testbed '{}' not found in testbed file '{}'. "
                      "Available testbeds: {}".format(
                          testbed_name, testbed_file,
-                         list(TestbedInfo(testbed_file).testbed_topo.keys())))
+                         list(testbed_info.testbed_topo.keys())))
         raise ValueError("Testbed '{}' not found in testbed file '{}'".format(
             testbed_name, testbed_file))
 

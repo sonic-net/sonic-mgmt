@@ -410,9 +410,15 @@ def hft_influxdb(request, ptfhost, skip_unsupported_hft_test,
         # Setup failures are active here; pytest reports call-phase failures
         # separately from any teardown error raised below.
         original_error = sys.exc_info()[1]
-        cleanup_steps = [
-            ("stop OTEL collector", cleanup_stop_collector),
-        ]
+        cleanup_steps = []
+        if database_created:
+            # Let samples countersyncd still exports for this case reach this
+            # database before the next case points the collector elsewhere.
+            cleanup_steps.append(
+                (f"drain HFT export into InfluxDB database {bucket}",
+                 sink.wait_until_drained)
+            )
+        cleanup_steps.append(("stop OTEL collector", cleanup_stop_collector))
         if database_created:
             cleanup_steps.append(
                 (f"drop InfluxDB database {bucket}", sink.drop)

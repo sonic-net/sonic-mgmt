@@ -775,6 +775,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
         if vendor == "mellanox":
             send_time = "75"
 
+        if vendor == "cisco-8000":
+            everflow_tolerance = 15
+            send_time = "100"
+
         for asic in self.MIRROR_POLICER_UNSUPPORTED_ASIC_LIST:
             vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
             if vendorAsic in list(hostvars.keys()) and everflow_dut.facts['hwsku'] in hostvars[vendorAsic]:
