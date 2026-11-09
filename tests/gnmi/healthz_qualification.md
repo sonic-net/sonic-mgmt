@@ -98,8 +98,9 @@ uses a later deployed host revision that includes the retry correction.
 ## Current-source validation, 2026-11-08
 
 Functional validation on lab DUT `172.25.43.65` passed, but host OOM containment
-failed. This campaign does **not** establish that a DLDD memory-limit failure
-is isolated from the rest of the switch.
+failed under its normal kernel policy. The temporary-policy follow-up below
+does **not** establish memory-fault isolation for deployments retaining that
+normal policy.
 
 The deployed host source was
 `ba1969208273e54c4fb424f651ac00db88fbb207`, with utilities
@@ -122,7 +123,7 @@ image was built, installed or intentionally boot-qualified in this campaign.
 | TLS authorization | All 23 role/trust cases passed on an isolated loopback listener. Repeated acknowledgement preserved the campaign archive. Temporary TLS/configuration/IPC resources were cleaned, with production gNMI identity unchanged during these probes. |
 | CPU enforcement | A disposable `CPUQuota=20%` unit measured 20.0069% aggregate CPU usage. This verifies that scoped CPU test, not every deployment profile. |
 | OOM containment | **FAIL:** exhausting an isolated 64 MiB memory-limited unit caused a host kernel panic/reboot. Kernel/kdump evidence identified a memory-cgroup OOM with host `vm.panic_on_oom=2`. A unit memory limit and `OOMPolicy` do not override that host panic policy. |
-| Remaining fault injection | Task-limit exhaustion, explicit service crash/restart and live BROKEN-threshold injection were not run after the panic. They remain unqualified in this campaign. |
+| Remaining fault injection | The panic interrupted task-limit exhaustion and explicit disposable-unit crash/restart checks; the follow-up below completes them. Live BROKEN-lifetime injection remains unrun. |
 
 Normal host mypy retained 30 findings and Pyright retained 50 errors, unchanged
 from the clean baseline. The static-analysis result is not a zero-findings
@@ -134,6 +135,35 @@ were restored. The reboot is failure evidence, not successful reboot
 qualification. `/tmp`-only raw output was lost; durable `/var/tmp` fixture/RPC
 records, archives and baseline data remained available. Preserve that evidence
 and resolve the host OOM policy before repeating memory-exhaustion testing.
+
+### Capped-unit follow-up under temporary OOM policy
+
+With explicit authorization, `vm.panic_on_oom` was changed at runtime from `2`
+to `1` for the disposable-unit tests and restored to `2` afterward. No persistent
+kernel configuration changed. The detached controller had a 150-second limit
+and an independent `ExecStopPost` restoration hook. Both normal and stop-time
+cleanup verified that all five owned units were stopped and their cgroups were
+empty before restoring the original policy.
+
+All five cases passed:
+
+| Case | Observed result |
+| --- | --- |
+| CPU | `CPUQuota=20%` measured 20.099% aggregate CPU with throttling. |
+| Memory | The 64 MiB unit reached a 67,108,864-byte peak and terminated with `Result=oom-kill`, signal 9. The host remained running. |
+| Tasks | `TasksMax=16` admitted the main process plus 15 worker threads; the next thread failed and the cgroup limit counter increased. |
+| Crash cleanup | Killing only the disposable main process terminated and reaped its child, even though the child had created a new session. The cgroup was empty after stop. |
+| Restart | An exit-7 failure caused exactly one automatic restart, followed by a successful exit from a different process. |
+
+The boot ID, production service process identities and container start times
+were unchanged throughout the follow-up. No production service was deliberately
+killed or restarted. The original seven rules and vendor module remained in
+place. Local evidence contains the per-case reports, unit journals, policy
+receipts and both restoration-path receipts; its bundle SHA-256 is
+`21332003565aedd11d9b04e0b2f3e7382ca7559b2147fa165399754efe73a642`.
+
+This qualifies the scoped tests under policy `1`. The DUT now has policy `2`
+again, so the deployment blocker for service-only OOM recovery remains.
 
 ## Inputs and transport
 
