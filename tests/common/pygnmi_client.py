@@ -16,7 +16,7 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable
 from enum import Enum
 
 import grpc
@@ -442,7 +442,7 @@ class PygnmiClient:
                   target: str | None = None, extension: list | None = None,
                   collect_seconds: int | float = 10, count: int | None = None,
                   poll_count: int = 1, poll_interval: int | float = 1.0,
-                  **sub_options) -> Iterator[dict]:
+                  **sub_options) -> Generator[dict, None, None]:
         """
         Run a bounded gNMI Subscribe, yielding each notification as it arrives.
 
@@ -546,25 +546,20 @@ class PygnmiClient:
                 yield from self._iter_poll(subscriber, poll_count, poll_interval)
             else:
                 yield from self._iter_stream(subscriber, collect_seconds, count)
+            # pygnmi's receiver thread stores a failed Subscribe RPC in subscriber.error and exits,
+            # so the iterators above only see an empty queue: STREAM ends early, POLL/ONCE time out.
+            if subscriber.error is not None:
+                raise self._map_error(subscriber.error, "subscribe") from subscriber.error
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
                 TimeoutError, PygnmiClientError) as exc:
+            if subscriber is not None and subscriber.error is not None:
+                exc = subscriber.error
             raise self._map_error(exc, "subscribe") from exc
         finally:
             if close_subscriber is not None:
-                # pygnmi records receiver failures without waking get_update().
-                receiver_error = getattr(subscriber, "error", None)
                 close_subscriber()
-                self._raise_subscription_error(subscriber, receiver_error)
             else:
                 self.close()
-
-    def _raise_subscription_error(self, subscriber, receiver_error):
-        """Surface receiver failures, excluding cancellation caused by our close."""
-        error = receiver_error or getattr(subscriber, "error", None)
-        if error is not None and (
-            receiver_error is not None or not self._is_expected_subscription_shutdown(error)
-        ):
-            raise self._map_error(error, "subscribe") from error
 
     def _prepare_subscription_shutdown(self, subscriber):
         """Return a closer that drains pygnmi's receiver thread without noise.
@@ -592,10 +587,12 @@ class PygnmiClient:
 
         def close_subscriber():
             closing[0] = True
+            # Close the channel first: the receiver thread exits only then, and subscriber.close()
+            # waits up to 1s for it.
             try:
-                subscriber.close()
-            finally:
                 self.close()
+            finally:
+                subscriber.close()
                 if thread is not None:
                     thread.join(self.timeout)
                     if thread.is_alive():

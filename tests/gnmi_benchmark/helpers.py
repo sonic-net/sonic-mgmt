@@ -1,46 +1,19 @@
 """Shared helpers for request construction and device resource collection."""
 
-import json
 import ipaddress
 import shlex
 import uuid
 from contextlib import contextmanager, ExitStack
 
-import grpc
-from pygnmi.spec.v080 import gnmi_pb2, gnmi_pb2_grpc
+from pygnmi.spec.v080 import gnmi_pb2
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.helpers.gnmi_connection import build_native_set_request, gnmi_connection
+
+__all__ = ["BYPASS_METADATA", "build_native_set_request", "gnmi_connection",
+           "collect_resource_snapshot", "route_resources"]
 
 BYPASS_METADATA = (("x-sonic-ss-bypass-validation", "true"),)
-
-
-@contextmanager
-def gnmi_connection(fixture):
-    """Open one shared TLS connection and close it even if stub creation fails."""
-    certs = fixture.pygnmi_client
-    with open(certs.ca_cert, "rb") as stream:
-        ca = stream.read()
-    with open(certs.client_key, "rb") as stream:
-        key = stream.read()
-    with open(certs.client_cert, "rb") as stream:
-        certificate = stream.read()
-    credentials = grpc.ssl_channel_credentials(root_certificates=ca, private_key=key, certificate_chain=certificate)
-    host = fixture.host
-    if ":" in host and not host.startswith("["):
-        host = "[{}]".format(host)
-    with grpc.secure_channel("{}:{}".format(host, fixture.port), credentials,
-                             options=(("grpc.enable_retries", 0),)) as channel:
-        yield channel, gnmi_pb2_grpc.gNMIStub(channel)
-
-
-def build_native_set_request(parts, value):
-    request = gnmi_pb2.SetRequest()
-    update = request.update.add()
-    update.path.origin = "sonic-db"
-    for name in parts:
-        update.path.elem.add(name=name)
-    update.val.json_ietf_val = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
-    return request
 
 
 def collect_resource_snapshot(host):
@@ -79,7 +52,8 @@ def route_resources(host, distribution, routes_per_request, stub, timeout):
         raise ValueError("VNET setup requires Loopback0 IPv4 address")
     used_vnis = {str(entry.get("vni")) for entry in facts.get("VNET", {}).values()}
     available_vnis = (str(v) for v in range(10001, 16777216) if str(v) not in used_vnis)
-    namespace = "VnetBenchmark" + uuid.uuid4().hex
+    # Leave room for the VNET index within Linux's 15-character interface-name limit.
+    namespace = "Vnet" + uuid.uuid4().hex[:8]
     tunnel = "Tunnel" + namespace
     backup = "/tmp/" + namespace + ".config_db.json"
     vnets = [("{}_{}".format(namespace, index), routes)

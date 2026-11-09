@@ -59,6 +59,12 @@ We can use keyword argument `check_items` to fine tune the items to be checked i
 *
 Please refer to `sonic-mgmt/tests/common/plugins/sanity_check/checks.py` for the latest supported check items.
 
+The `bgp` check is skipped on topologies without VMs and on traffic-generator
+topologies whose names contain `tgen` or `ixia`. Their BGP sessions depend on
+the individual test's traffic-generator configuration, so they are not a
+general sanity prerequisite. This applies to both pre-test and post-test BGP
+checks; other sanity check items are unchanged.
+
 Value for `check_items` should be a tuple or list of strings. Each item in the tuple or list must be a string. The string can be name of the supported check items with optional prefix `+` or `-` or `_`. Unsupported check items will be ignored.
 
 If a supported check item is prefixed with `-` or `_`, then this item will not be checked in sanity. For items with prefix `+` or without prefixes, the item should be included in the list of items to be checked in sanity.

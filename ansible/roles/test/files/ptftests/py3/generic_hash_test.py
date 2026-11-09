@@ -6,6 +6,7 @@ Description:    This file contains the generic hash test for SONiC
 # Global imports
 # ---------------------------------------------------------------------
 import logging
+import math
 import random
 import time
 import ptf
@@ -16,6 +17,42 @@ import lpm
 from ipaddress import ip_address
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+
+
+def validate_protocol_distribution(protocol_ports, protocol_domain, port_groups, repeats):
+    """Check distinct protocol flows, not repeated packets, against an ideal-uniform ECMP model."""
+    assert set(protocol_ports) == set(protocol_domain), "Incomplete or unexpected protocol domain."
+    assert len(port_groups) > 1 and all(port_groups), "Protocol sensitivity requires multiple nonempty ECMP paths."
+    ports = sum(port_groups, [])
+    assert len(ports) == len(set(ports)), "ECMP paths must have disjoint receiving ports."
+    counts = [0] * len(port_groups)
+    members = [set() for _ in port_groups]
+    for protocol, observations in protocol_ports.items():
+        assert len(observations) == repeats, f"Protocol {protocol} is missing repeated observations."
+        assert len(set(observations)) == 1, f"Protocol {protocol} changed receiving port: {observations}."
+        port = observations[0]
+        assert port in ports, f"Protocol {protocol} reached unexpected port {port}."
+        group_index = next(index for index, group in enumerate(port_groups) if port in group)
+        counts[group_index] += 1
+        members[group_index].add(port)
+    assert all(counts), f"Protocol changes did not exercise every ECMP path: {counts}."
+    assert all(len(group) == 1 for group in members), "Protocol changes selected multiple members within a LAG."
+
+    # Two marginal binomial tails per path; Bonferroni limits the family-wise
+    # false-alarm probability to 1% under the ideal-uniform hash model.
+    n = len(protocol_domain)
+    p = 1.0 / len(port_groups)
+    tail_limit = 0.01 / (2 * len(port_groups))
+    probabilities = [math.comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(n + 1)]
+    for index, count in enumerate(counts):
+        lower_tail = sum(probabilities[:count + 1])
+        upper_tail = sum(probabilities[count:])
+        assert min(lower_tail, upper_tail) >= tail_limit, (
+            f"Protocol-domain ECMP bias on path {index}: counts={counts}, "
+            f"lower_tail={lower_tail}, upper_tail={upper_tail}, minimum_tail={tail_limit}."
+        )
+    logging.info("Protocol-domain distribution: distinct_flows=%s, path_counts=%s, family_wise_alpha=0.01", n, counts)
+    return counts
 
 
 class GenericHashTest(BaseTest):
@@ -29,6 +66,8 @@ class GenericHashTest(BaseTest):
     NVGRE_TNI = 20001
     L4_SRC_PORT = 1234
     L4_DST_PORT = 80
+    PROTOCOL_DOMAIN_REPEATS = 3
+    PROTOCOL_DUPLICATE_TIMEOUT = 0.1
 
     _required_params = [
         'sending_ports',
@@ -77,6 +116,8 @@ class GenericHashTest(BaseTest):
         self.balancing_test_times = self.test_params.get('balancing_test_times', self.BALANCING_TEST_TIMES)
         self.ecmp_hash = self.test_params['ecmp_hash']
         self.lag_hash = self.test_params['lag_hash']
+        self.protocol_domain_validation = self.test_params.get('protocol_domain_validation', False)
+        self.require_all_expected_ports = self.test_params.get('require_all_expected_ports', False)
         self.vlan_range = self.test_params.get('vlan_range', [1032, 1060])
         self.flow_lable_range = self.test_params.get('flow_label_range', [0, 1048575])
         self.ethertype_range = self.test_params.get('ethertype_range', [0x0801, 0x0900])
@@ -101,7 +142,7 @@ class GenericHashTest(BaseTest):
         logging.info(f"lag_hash:  {self.lag_hash}")
         logging.info(f"is_l2_test:  {self.is_l2_test}")
 
-    def get_ip_proto(self):
+    def get_ip_protocol_domain(self):
         # ip_proto 2 is IGMP, should not be forwarded by router
         # ip_proto 253, 254 is experimental
         # Nvidia ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
@@ -111,7 +152,10 @@ class GenericHashTest(BaseTest):
         if self.ipver == 'ipv6':
             # Skip ip_proto 0 for IPv6
             skip_protos.append(0)
-        return random.choice(list(set(range(255)) - set(skip_protos)))
+        return sorted(set(range(255)) - set(skip_protos))
+
+    def get_ip_proto(self):
+        return random.choice(self.get_ip_protocol_domain())
 
     def randomize_mac(self, base_mac):
         return base_mac[:-5] + '{0:02x}:{1:02x}'.format(random.randint(0, 255), random.randint(0, 255))
@@ -473,6 +517,9 @@ class GenericHashTest(BaseTest):
 
         def _check_ecmp_and_lag_hash_balancing():
             logging.info('Checking there is ecmp and lag hash')
+            if self.require_all_expected_ports:
+                missing_ports = [port for port in self.expected_port_list if hit_count_map.get(port, 0) <= 0]
+                assert not missing_ports, f"Traffic was not received on expected ports: {missing_ports}."
             expected_hit_cnt_per_port = self.balancing_test_times
             assert _calculate_balance(expected_hit_cnt_per_port), "The balancing result is beyond the range."
 
@@ -540,6 +587,9 @@ class GenericHashTest(BaseTest):
 
     def runTest(self):
         logging.info("=============Test Start==============")
+        if self.protocol_domain_validation:
+            self.run_protocol_domain()
+            return
         hit_count_map = {}
         for _ in range(0, self.balancing_test_times * len(self.expected_port_list)):
             src_ip = self.src_ip_interval.get_random_ip() if self.hash_field == 'SRC_IP' \
@@ -577,3 +627,38 @@ class GenericHashTest(BaseTest):
         self.print_result_summary(hit_count_map)
         # Check if the traffic is properly balanced
         self.check_balancing(hit_count_map)
+
+    def run_protocol_domain(self):
+        assert self.hash_field == 'IP_PROTOCOL' and self.ipver in ('ipv4', 'ipv6'), \
+            "Protocol-domain validation requires plain IPv4 or IPv6 IP_PROTOCOL traffic."
+        assert not self.inner_ipver and not self.is_l2_test and self.ecmp_hash and not self.lag_hash, \
+            "Protocol-domain validation requires ECMP entropy without LAG-member entropy."
+        protocol_domain = self.get_ip_protocol_domain()
+        observations = {protocol: [] for protocol in protocol_domain}
+        for repetition in range(self.PROTOCOL_DOMAIN_REPEATS):
+            ordered_protocols = protocol_domain if repetition % 2 == 0 else reversed(protocol_domain)
+            for protocol in ordered_protocols:
+                pkt, expected, summary = self.generate_pkt(
+                    self.src_ip_interval.get_first_ip(), self.dst_ip_interval.get_first_ip(),
+                    self.L4_SRC_PORT, self.L4_DST_PORT, protocol, '', '')
+                logging.info("Protocol-domain round=%s: %s", repetition, summary)
+                # No retransmission: a missing packet must fail the contract.
+                testutils.send_packet(self, self.sending_ports[0], pkt)
+                port_index, received = testutils.verify_packet_any_port(
+                    self, expected, self.expected_port_list, timeout=1)
+                assert received is not None, f"Protocol {protocol} packet was not received."
+                # --relax disables the implicit check; reject matching copies on any port.
+                extra = testutils.dp_poll(
+                    self, device_number=0, timeout=self.PROTOCOL_DUPLICATE_TIMEOUT, exp_pkt=expected)
+                assert isinstance(extra, self.dataplane.PollFailure), \
+                    f"Protocol {protocol} was duplicated: {extra.format()}"
+                port = self.expected_port_list[port_index]
+                observations[protocol].append(port)
+                assert port == observations[protocol][0], f"Protocol {protocol} changed receiving port."
+        logging.info("Protocol-domain observations: %s", observations)
+        validate_protocol_distribution(
+            observations, protocol_domain, self.expected_port_groups, self.PROTOCOL_DOMAIN_REPEATS)
+        logging.info("Protocol-domain packets: sent=%s, received=%s, retries=0, duplicates=0, "
+                     "duplicate_check_seconds=%s",
+                     len(protocol_domain) * self.PROTOCOL_DOMAIN_REPEATS,
+                     sum(len(ports) for ports in observations.values()), self.PROTOCOL_DUPLICATE_TIMEOUT)

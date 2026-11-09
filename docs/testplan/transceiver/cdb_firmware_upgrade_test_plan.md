@@ -271,7 +271,7 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 
 **Requirements for firmware upgrade tests:**
 
-1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition. DOM polling is re-enabled at the end of every test case to evaluate basic DOM data.
+1. **DOM polling must be disabled during CDB operations** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The operation runner performs pre-operation recovery verification before disabling polling, waits for `sleep_after_dom_disable_sec`, and disables polling only around CDB prefetch and per-port operations. Polling is restored before post-operation EEPROM/DOM/CMIS verification, which requires fresh publications. The same operation-scoped handling applies to version/abort-support checks and package firmware restoration. Cleanup runs on exceptions and interruption, restores only ports whose polling was changed, and reports re-enable failures explicitly. A port already disabled is not silently enabled to bypass pre-operation freshness checks.
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped if the `thermalctld_disabling_required` flag is set.
 3. **Firmware requirements:**
    - The firmware versions specified by the `firmware_versions` and `old_gold_firmware_version` test attributes must be available.
@@ -305,7 +305,7 @@ The Expected Results column in the Test Cases table references the following nam
 Firmware state is unchanged after a failed or aborted operation, and the module, port, and system remain healthy:
 
 1. Active firmware version remains unchanged.
-2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. `N/A` or `0.0.0`).
+2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. reported as `N/A`).
 3. Committed Image remains unchanged.
 4. Running Image remains unchanged.
 5. TC #3 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold for configured threshold attributes.
