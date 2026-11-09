@@ -653,17 +653,21 @@ def _switch_mode(state, mode):
     logger.info("Switching FRR config mode to '%s' on %s", mode, duthost.hostname)
     try:
         if mode == MODE_FRR_MGMT_FRAMEWORK:
+            # try/finally rather than catching BaseException: pytest.fail/skip and Ctrl-C
+            # must also record the mode, and the exception always propagates.
+            completed = False
             try:
                 state.migrator.to_frr_mgmt_framework()
-            except BaseException:
-                # Past the switch marker the DUT may already be in frr; let session end restore it.
-                try:
-                    switched = state.migrator.interrupted_run_pending()
-                except Exception:
-                    switched = True
-                if switched:
-                    state.applied_mode = mode
-                raise
+                completed = True
+            finally:
+                if not completed:
+                    # Past the switch marker the DUT may already be in frr; let session end restore it.
+                    try:
+                        switched = state.migrator.interrupted_run_pending()
+                    except Exception:
+                        switched = True
+                    if switched:
+                        state.applied_mode = mode
         else:
             # False means the CONFIG_DB backup is gone and the DUT still runs frr config.
             if not state.migrator.to_traditional():
