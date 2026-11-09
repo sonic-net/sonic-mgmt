@@ -587,7 +587,7 @@ def _configure_gnoi_tls_server(duthost):
     logger.info("TLS configuration completed")
 
 
-def _restart_gnoi_server(duthost):
+def _restart_gnoi_server(duthost, port=grpc_config.DEFAULT_TLS_PORT):
     """Restart gNOI server to pick up new TLS configuration."""
     logger.info("Restarting gNOI server process")
 
@@ -625,7 +625,7 @@ def _restart_gnoi_server(duthost):
     def _tls_listener_ready():
         status = duthost.shell(
             "sudo ss -ltn | grep -q ':{} '".format(
-                grpc_config.DEFAULT_TLS_PORT
+                port
             ),
             module_ignore_errors=True,
         )
@@ -634,20 +634,20 @@ def _restart_gnoi_server(duthost):
     if not wait_until(60, 2, 0, _tls_listener_ready):
         status = duthost.shell(
             "sudo ss -ltn | grep ':{} '".format(
-                grpc_config.DEFAULT_TLS_PORT
+                port
             ),
             module_ignore_errors=True,
         )
         raise Exception(
             "gNOI server failed to listen on port {} within 60s: {}".format(
-                grpc_config.DEFAULT_TLS_PORT,
+                port,
                 status.get('stdout', ''),
             )
         )
 
     logger.info(
         "gNOI server restart completed (supervisor RUNNING, port %s listening)",
-        grpc_config.DEFAULT_TLS_PORT,
+        port,
     )
 
 

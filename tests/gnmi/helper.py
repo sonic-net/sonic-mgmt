@@ -2,17 +2,14 @@ import ipaddress
 import json
 import logging
 import os
+import shlex
 import time
 
 import pytest
 
+from tests.common.fixtures.grpc_fixtures import _restart_gnoi_server
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import (
-    check_container_state,
-    get_container_processes,
-    kill_container_processes,
-    start_container_process,
-)
+from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import (
     GNMIEnvironment,
     add_gnmi_client_common_name,
@@ -44,40 +41,26 @@ def is_mgmt_vrf_enabled(duthost):
 
 def apply_cert_config(duthost, vrf_name=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    # Get subtype
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
-    subtype = metadata.get("subtype", None)
-    stopped_programs = []
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    if "RUNNING" in duthost.shell(dut_command, module_ignore_errors=True)["stdout"]:
-        duthost.shell("docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program))
-        logger.info("Stopped supervisord program: %s", env.gnmi_program)
-        stopped_programs.append(env.gnmi_program)
-
-    processes = get_container_processes(
-        duthost,
-        env.gnmi_container,
-        env.gnmi_process,
+    duthost.shell(
+        'sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port {} client_auth true '
+        "user_auth cert enable_crl true log_level 10".format(env.gnmi_port)
     )
-    kill_container_processes(duthost, processes)
-    gnmi_command = "/usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
-    gnmi_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt "
-    gnmi_command += "--server_key /etc/sonic/telemetry/gnmiserver.key "
-    gnmi_command += "--config_table_name GNMI_CLIENT_CERT "
-    gnmi_command += "--client_auth cert --enable_crl=true "
-    if subtype == "SmartSwitch":
-        gnmi_command += "--zmq_address=tcp://127.0.0.1:8100 "
-    if vrf_name:
-        gnmi_command += "--gnmi_vrf %s " % vrf_name
-    gnmi_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem "
-    gnmi_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1"
-    start_container_process(duthost, env.gnmi_container, gnmi_command)
+    duthost.shell(
+        'sonic-db-cli CONFIG_DB hset "GNMI|certs" '
+        "server_crt /etc/sonic/telemetry/gnmiserver.crt "
+        "server_key /etc/sonic/telemetry/gnmiserver.key "
+        "ca_crt /etc/sonic/telemetry/gnmiCA.pem"
+    )
+    if vrf_name is not None:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" vrf {}'.format(shlex.quote(vrf_name)))
+    else:
+        duthost.shell('sonic-db-cli CONFIG_DB hdel "GNMI|gnmi" vrf')
 
     # Setup gnmi client cert common name
     role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
     add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
+    _restart_gnoi_server(duthost, port=env.gnmi_port)
 
     # Poll for the listening port instead of a single fixed-delay check: the gnmi server can
     # briefly drop and rebind its listener while it hot-reloads the freshly copied cert/key pair.
@@ -96,7 +79,7 @@ def apply_cert_config(duthost, vrf_name=None):
     if duthost.facts["platform"] != "x86_64-kvm_x86_64-r0":
         is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
         assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
-    return stopped_programs
+    return []  # Preserve the existing setup fixture's return contract.
 
 
 def check_gnmi_status(duthost):
@@ -108,18 +91,8 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost, stopped_programs=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    processes = get_container_processes(
-        duthost,
-        env.gnmi_container,
-        env.gnmi_process,
-    )
-    kill_container_processes(duthost, processes)
-    # Restore only the programs that apply_cert_config explicitly stopped
-    if stopped_programs:
-        for program in stopped_programs:
-            logger.info("Restarting supervisord program: %s", program)
-            dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
-            duthost.shell(dut_command, module_ignore_errors=True)
+    # The caller has already rolled CONFIG_DB back; reload that configuration.
+    _restart_gnoi_server(duthost, port=env.gnmi_port)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")

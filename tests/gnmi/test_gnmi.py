@@ -12,17 +12,9 @@ from typing import Any
 
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    _restart_gnoi_server,
-    gnmi_tls,
-)
 from tests.common.helpers import gnmi_cli_helpers as helper
 from tests.common.helpers.dut_utils import creds_on_dut
-from tests.common.helpers.gnmi_utils import (
-    GNMIEnvironment,
-    add_gnmi_client_common_name,
-    create_revoked_cert_and_crl,
-)
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, dump_gnmi_log
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import (
     PygnmiClient,
@@ -31,6 +23,12 @@ from tests.common.pygnmi_client import (
     StreamMode,
 )
 from tests.common.utilities import paramiko_ssh, wait_until
+
+from .helper import (
+    apply_cert_config,
+    build_pygnmi_client,
+    wait_for_gnmi_server,
+)
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -51,21 +49,17 @@ def skip_non_container_test(request):
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp"),
+    pytest.mark.usefixtures(
+        "setup_gnmi_ntp_client_server", "setup_gnmi_server", "setup_gnmi_rotated_server", "check_dut_timestamp"
+    ),
 ]
 
 
-@pytest.fixture
-def pygnmi_client(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
-    """Keep the existing test API, with lifecycle owned by managed TLS."""
-    return gnmi_tls.pygnmi_client
-
-
-def test_gnmi_capabilities(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
+def test_gnmi_capabilities(pygnmi_client: PygnmiClient):
     """
     Verify GNMI capabilities
     """
-    result = gnmi_tls.pygnmi_client.capabilities()
+    result = pygnmi_client.capabilities()
 
     model_names = [model.get("name") for model in result.get("supported_models", [])]
     assert "sonic-db" in model_names, (
@@ -83,8 +77,9 @@ def test_gnmi_capabilities(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
 
 
 @pytest.fixture(scope="function")
-def setup_crl_server_on_ptf(ptfhost, localhost, gnmi_tls):  # noqa: F811
-    duthost = gnmi_tls.duthost
+def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
     # Determine which address to bind the CRL server to
     dut_facts = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
     is_mgmt_ipv6_only = dut_facts.get("is_mgmt_ipv6_only", False)
@@ -98,54 +93,29 @@ def setup_crl_server_on_ptf(ptfhost, localhost, gnmi_tls):  # noqa: F811
         bind_addr = ""
         logger.info("Binding CRL server to all interfaces (IPv4 compatible)")
 
+    ptfhost.shell("rm -f /root/crl.log")
+
+    # Start CRL server with appropriate bind address
+    if bind_addr:
+        ptfhost.shell(f"nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &")
+    else:
+        ptfhost.shell("nohup /root/env-python3/bin/python /root/crl_server.py &")
+
+    logger.warning("crl server started")
+
     # Wait untill HTTP server ready
     def server_ready_log_exist(ptfhost):
         res = ptfhost.shell("sed -n '/Ready handle request/p'  /root/crl.log", module_ignore_errors=True)
         logger.debug("crl.log: {}".format(res["stdout_lines"]))
         return len(res["stdout_lines"]) > 0
 
-    crl_started = False
-    try:
-        create_revoked_cert_and_crl(
-            localhost,
-            ptfhost,
-            duthost,
-            ca_cert=gnmi_tls.pygnmi_client.ca_cert,
-            ca_key=os.path.join(os.path.dirname(gnmi_tls.pygnmi_client.ca_cert), "gnmiCA.key"),
-        )
-        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true log_level 10')
-        add_gnmi_client_common_name(
-            duthost,
-            "test.client.revoked.gnmi.sonic",
-            "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite",
-        )
-        _restart_gnoi_server(duthost)
-        ptfhost.shell("rm -f /root/crl.log")
-        crl_started = True
-        if bind_addr:
-            ptfhost.shell(f"nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &")
-        else:
-            ptfhost.shell("nohup /root/env-python3/bin/python /root/crl_server.py &")
-        logger.warning("crl server started")
-        wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
-        logger.warning("crl server ready")
-        yield
-    finally:
-        # Stop the existing CRL server before the managed TLS fixture rolls back.
-        try:
-            if crl_started:
-                ptfhost.shell(
-                    "pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True
-                )
-        finally:
-            for filename in (
-                "gnmiclient.revoked.crt",
-                "gnmiclient.revoked.key",
-                "gnmiclient.revoked.csr",
-                "sonic.crl.pem",
-            ):
-                if os.path.isfile(filename):
-                    os.unlink(filename)
+    wait_until(60, 1, 0, server_ready_log_exist, ptfhost)
+    logger.warning("crl server ready")
+
+    yield
+
+    # pkill will use the kill signal -9 as exit code, need ignore error
+    ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
 def test_gnmi_subscribe_sample(rand_selected_dut, pygnmi_client: PygnmiClient):
@@ -207,20 +177,14 @@ def test_gnmi_subscribe_sample(rand_selected_dut, pygnmi_client: PygnmiClient):
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(
-    rand_selected_dut, pygnmi_client: PygnmiClient, setup_crl_server_on_ptf, gnmi_tls  # noqa: F811
+    rand_selected_dut, pygnmi_client: PygnmiClient, setup_crl_server_on_ptf
 ):
     """
     Verify the gNMI server rejects a Set from a client whose cert is revoked by the CRL
     """
-    # Bind the revoked identity to the same CA/endpoint as managed TLS.
-    revoked_client = PygnmiClient(
-        gnmi_tls.host,
-        gnmi_tls.port,
-        ca_cert=pygnmi_client.ca_cert,
-        client_cert=os.path.abspath("gnmiclient.revoked.crt"),
-        client_key=os.path.abspath("gnmiclient.revoked.key"),
-        connect=False,
-    )
+    # setup_gnmi_rotated_server already waited for the server to accept the rotated certs; the
+    # revoked client can't check that itself, as every RPC it makes is rejected.
+    revoked_client = build_pygnmi_client(rand_selected_dut, "gnmiclient.revoked")
     vnet = {"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}
     error: PygnmiClientError | None = None
 
@@ -232,10 +196,7 @@ def test_gnmi_authorize_failed_with_revoked_cert(
         except PygnmiClientError as e:
             error = e
         # The server replies with a generic Unauthenticated; only its log has the reason.
-        return (
-            error is not None
-            and "desc = Peer certificate revoked" in gnmi_tls.duthost.shell("sudo cat /var/log/gnmi.log")["stdout"]
-        )
+        return error is not None and "desc = Peer certificate revoked" in dump_gnmi_log(rand_selected_dut)
 
     # Retry in case the server failed to download the CRL from PTF.
     assert wait_until(
@@ -306,15 +267,7 @@ def test_on_change_updates(rand_selected_dut, pygnmi_client: PygnmiClient):
     subscribe_path = f"sonic-db:APPL_DB/localhost/_{table}/{key}"
     value = f"value-{int(time.time())}"
     # A second client: a call on pygnmi_client would close the subscription's channel.
-    mutating_client = PygnmiClient(
-        pygnmi_client.host,
-        pygnmi_client.port,
-        ca_cert=pygnmi_client.ca_cert,
-        client_cert=pygnmi_client.client_cert,
-        client_key=pygnmi_client.client_key,
-        timeout=pygnmi_client.timeout,
-        connect=False,
-    )
+    mutating_client = build_pygnmi_client(duthost)
 
     # One window for the whole exchange, starting at the first next(): the snapshot,
     # the Set below and our update must all arrive within it.
@@ -395,12 +348,7 @@ def test_telemetry_show_non_get(pygnmi_client: PygnmiClient, skip_non_container_
 
 
 def test_telemetry_show_get(
-    duthosts,
-    rand_one_dut_hostname,
-    request,
-    pygnmi_client: PygnmiClient,
-    skip_non_container_test,
-    gnmi_tls,  # noqa: F811
+    duthosts, rand_one_dut_hostname, request, pygnmi_client: PygnmiClient, skip_non_container_test
 ):
     """
     Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
@@ -421,7 +369,10 @@ def test_telemetry_show_get(
         if test_config["setup"]:
             setup_fixtures = [resolve_fixture(fx) for fx in test_config["setup_fixtures"]]
             getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
-            gnmi_tls.reconfigure_after_reboot()
+            # The setup step reboots the DUT, which drops the non-persistent gnmi
+            # cert server; re-apply it so the SHOW GET runs against the configured server.
+            apply_cert_config(duthost)
+            wait_for_gnmi_server(duthost)
 
         output = _get_val(pygnmi_client, path, "SHOW")
 
