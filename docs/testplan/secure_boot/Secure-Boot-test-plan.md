@@ -117,6 +117,33 @@ to `~/sonic-vm/images/sonic-vs.img`, while the variable store is copied to
 `~/sonic-vm/images/sonic-vs_vars.fd`. Each DUT receives its own writable copy
 of the variable store. Private PK, KEK, and DB keys must not be published.
 
+### PR Checker Image Build
+
+When impacted-area selection includes `secureboot_checker` and `INCLUDE_JOBS`
+allows `secureboot_t0_job`, the PR pipeline queues image pipeline **3442** and
+waits for success before creating the ElasticTest plan. Only the Secure Boot
+checker depends on this build; BIOS checkers keep their existing image source.
+
+The queueing job uses `System.AccessToken`. Its build-service identity needs
+permission to view, queue, and stop builds of pipeline 3442 in `mssonic/build`;
+cross-project callers also need access to that project. Fork PR token policies
+must permit this approved validation job. Do not expose a personal token to PRs.
+
+`SECURE_BOOT_BUILD_BRANCH` selects the dedicated pipeline's infrastructure
+branch (initially `refs/heads/feature/secure-boot-vs-pipeline-clean`). Deploy
+the source-selection parameters in that branch before enabling the caller.
+Buildimage PRs pass their repository URL, source ref, and exact build commit;
+the dedicated pipeline fetches that ref and rejects a commit mismatch.
+Management-only PRs build the dedicated branch without replacing its image
+source. Other source repositories are rejected rather than silently testing
+an unrelated image.
+
+ElasticTest receives the successful child build ID, pipeline ID `3442`,
+`image.secure_boot=true`, an empty image branch, and
+`add_topo_params="-e use_uefi=true"`. Build failure, timeout, or cancellation
+prevents test submission; interruption or timeout also requests child-build
+cancellation. Each image build has a six-hour wait limit.
+
 ## Automation Strategy
 
 Runtime tests should be implemented under `tests/platform_tests/secure_boot/`.

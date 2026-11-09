@@ -213,7 +213,8 @@ parameters:
     default: ""
 
 steps:
-  - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
+  # Secure Boot jobs must use the checked-out submission code, not an older master copy.
+  - ${{ if and(eq(parameters.SECURE_BOOT, false), not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt'))) }}:
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
@@ -232,7 +233,7 @@ steps:
             curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download Pr Script"
-  - ${{ else }}:
+  - ${{ elseif eq(parameters.SECURE_BOOT, false) }}:
         - script: |
             # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
             set -ex

@@ -73,11 +73,18 @@ def manager(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "options, expected",
-    [([], False), (["--secure-boot"], True), (["--secure-boot", "True"], True), (["--secure-boot", "False"], False)],
+    "options, expected, expected_build",
+    [
+        ([], False, "123"),
+        (["--secure-boot"], True, "123"),
+        (["--secure-boot", "True"], True, "123"),
+        (["--secure-boot", "False"], False, "123"),
+        (["--secure-boot", "--kvm-build-id", "456", "--kvm-image-build-pipeline-id", "3442"], True, "456"),
+        (["--kvm-build-id", "456"], False, "123"),
+    ],
 )
-def test_create_cli_sends_secure_boot_as_an_image_boolean(monkeypatch, options, expected):
-    """Preserve default BIOS mode and transmit explicit Secure Boot choices in the image."""
+def test_create_cli_sends_secure_boot_as_an_image_boolean(monkeypatch, options, expected, expected_build):
+    """Keep the child Secure Boot build authoritative without changing BIOS selection."""
     for name, value in {
         "ELASTICTEST_SCHEDULER_BACKEND_URL": "https://scheduler.example",
         "ELASTICTEST_MSAL_CLIENT_ID": "client-id",
@@ -105,8 +112,10 @@ def test_create_cli_sends_secure_boot_as_an_image_boolean(monkeypatch, options, 
     post.assert_called_once()
     image = json.loads(post.call_args.kwargs["data"])["test_option"]["image"]
     assert image["secure_boot"] is expected
-    assert image["kvm_image_build_id"] == "123"
+    assert image["kvm_image_build_id"] == expected_build
     assert image["kvm_image_branch"] == ""
+    if expected_build == "456":
+        assert image["kvm_image_build_pipeline_id"] == "3442"
 
 
 def test_pr_template_requests_secure_boot_only_for_secure_boot_checker():
@@ -153,18 +162,23 @@ def test_submission_template_omits_new_option_for_bios_jobs(mode, expected_args)
 
 
 def test_secure_boot_checker_uses_regular_pr_execution_gates():
-    """Allow shared builds while retaining impact, inclusion, success and cancellation gates."""
+    """Gate both the image build and test on impact, inclusion, success and cancellation."""
     pipeline = yaml.safe_load(MODULE_PATH.with_name("pr_test_template.yml").read_text())
     jobs = {job["job"]: job for job in pipeline["jobs"]}
     regular = jobs["impacted_area_t0_elastictest"]
     secure_boot = jobs["impacted_area_secureboot_t0_elastictest"]
+    build = jobs["build_secureboot_vs"]
 
     assert secure_boot["condition"] == regular["condition"].replace("t0_checker", "secureboot_checker")
+    assert build["condition"] == secure_boot["condition"]
+    assert build["variables"]["RUN_BY_INCLUDE_JOBS"] == secure_boot["variables"]["RUN_BY_INCLUDE_JOBS"]
+    assert "build_secureboot_vs" in secure_boot["dependsOn"]
+    assert "build_secureboot_vs" not in regular["dependsOn"]
     assert "SECURE_BOOT_IMAGE_AVAILABLE" not in secure_boot["variables"]
 
 
-def test_secure_boot_checker_uses_the_regular_build_source():
-    """Use the same build source as BIOS jobs while retaining Secure Boot and UEFI mode."""
+def test_secure_boot_checker_uses_the_child_build_source():
+    """Send only the successful dedicated build to ElasticTest, leaving BIOS jobs unchanged."""
     pipeline = yaml.safe_load(MODULE_PATH.with_name("pr_test_template.yml").read_text())
     jobs = {job["job"]: job for job in pipeline["jobs"]}
     submissions = {
@@ -177,11 +191,27 @@ def test_secure_boot_checker_uses_the_regular_build_source():
     }
     regular = submissions["impacted_area_t0_elastictest"]
     secure_boot = submissions["impacted_area_secureboot_t0_elastictest"]
-    assert secure_boot["KVM_IMAGE_BRANCH"] == regular["KVM_IMAGE_BRANCH"]
-    assert secure_boot["KVM_BUILD_ID"] == regular["KVM_BUILD_ID"]
-    assert "KVM_IMAGE_BUILD_PIPELINE_ID" not in secure_boot
+    assert secure_boot["KVM_IMAGE_BRANCH"] == ""
+    assert secure_boot["KVM_BUILD_ID"] == "$(SECURE_BOOT_BUILD_ID)"
+    assert secure_boot["KVM_IMAGE_BUILD_PIPELINE_ID"] == "3442"
+    assert regular["KVM_BUILD_ID"] == "${{ parameters.KVM_BUILD_ID }}"
+    assert regular["KVM_IMAGE_BRANCH"] == "${{ parameters.KVM_IMAGE_BRANCH }}"
+    assert jobs["impacted_area_secureboot_t0_elastictest"]["variables"]["SECURE_BOOT_BUILD_ID"] == (
+        "$[ dependencies.build_secureboot_vs.outputs['QueueSecureBootBuild.BUILD_ID'] ]"
+    )
     assert secure_boot["SECURE_BOOT"] is True
     assert secure_boot["ADD_TOPO_PARAMS"] == "-e use_uefi=true"
+
+
+def test_secure_boot_submission_keeps_checked_out_plan_script():
+    """Do not download older master code that would discard the dedicated build ID."""
+    template = yaml.safe_load(MODULE_PATH.with_name("run-test-elastictest-template.yml").read_text())
+    for step in template["steps"]:
+        for condition, nested_steps in step.items():
+            if not isinstance(nested_steps, list):
+                continue
+            if any(item.get("displayName") == "Download Test Plan Script" for item in nested_steps):
+                assert "eq(parameters.SECURE_BOOT, false)" in condition
 
 
 def test_success_resets_consecutive_poll_failures(manager, monkeypatch):

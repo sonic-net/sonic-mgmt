@@ -79,6 +79,10 @@ parameters:
   type: string
   default: ""
 
+- name: SECURE_BOOT_BUILD_BRANCH
+  type: string
+  default: "refs/heads/feature/secure-boot-vs-pipeline-clean"
+
 - name: INCLUDE_JOBS
   type: string
   default: "all"
@@ -153,13 +157,38 @@ jobs:
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
+  - job: build_secureboot_vs
+    displayName: "Build Secure Boot VS image"
+    dependsOn:
+    - get_impacted_area
+    - cancel_previous_test_plan_for_same_pr
+    variables:
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'secureboot_t0_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'secureboot_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
+    timeoutInMinutes: 370
+    cancelTimeoutInMinutes: 5
+    pool: ${{ parameters.PRE_TEST_AGENT_POOL }}
+    steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+          displayName: "Checkout sonic-mgmt repository"
+      - script: |
+          python3 .azure-pipelines/trigger_secureboot_build.py --branch "$SECURE_BOOT_BUILD_BRANCH"
+        name: QueueSecureBootBuild
+        displayName: "Queue pipeline 3442 and wait for its image"
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          SECURE_BOOT_BUILD_BRANCH: ${{ parameters.SECURE_BOOT_BUILD_BRANCH }}
+
   - job: impacted_area_secureboot_t0_elastictest
     displayName: "impacted-area-kvmtest-t0-secureboot by Elastictest"
     dependsOn:
     - get_impacted_area
     - cancel_previous_test_plan_for_same_pr
+    - build_secureboot_vs
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      SECURE_BOOT_BUILD_ID: $[ dependencies.build_secureboot_vs.outputs['QueueSecureBootBuild.BUILD_ID'] ]
       RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'secureboot_t0_job')) }}
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'secureboot_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
@@ -193,8 +222,9 @@ jobs:
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
-          KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
-          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          KVM_IMAGE_BRANCH: ""
+          KVM_BUILD_ID: $(SECURE_BOOT_BUILD_ID)
+          KVM_IMAGE_BUILD_PIPELINE_ID: "3442"
           MGMT_BRANCH: $(BUILD_BRANCH)
           ADD_TOPO_PARAMS: "-e use_uefi=true"
           SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY: "False"

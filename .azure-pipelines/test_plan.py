@@ -330,7 +330,9 @@ class TestPlanManager(object):
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
         kvm_image_branch = kwargs.get("kvm_image_branch", "")
-        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
+        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo") and not (
+            kwargs.get("secure_boot", False) and kvm_image_build_id
+        ):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
         # kvm_image_build_id and kvm_image_branch are mutually exclusive; build id takes precedence
