@@ -1,10 +1,12 @@
 import ipaddress
 import json
 import logging
+import os
 import time
 
 import pytest
 
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import (
     check_container_state,
     get_container_processes,
@@ -24,6 +26,7 @@ from tests.common.helpers.ntp_helper import (  # noqa: F401
     get_ntp_daemon_in_use,
 )
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
+from tests.common.pygnmi_client import PygnmiClient
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -173,6 +176,49 @@ def check_system_time_sync(duthost):
     else:
         logger.error("DUT %s: NTP synchronization failed. Please check manually.", duthost)
         return False
+
+
+def build_pygnmi_client(duthost, cert_name: str = "gnmiclient", timeout: int = 30) -> PygnmiClient:
+    """
+    PygnmiClient for the gNMI server configured by setup_gnmi_server, authenticating with
+    <cert_name>.crt/.key.
+
+    The client runs in the sonic-mgmt orchestrator (not on PTF) and uses the certs that
+    rotate_gnmi_certs leaves in the working directory. It connects to duthost.mgmt_ip, which is
+    the IP the server cert's SAN is signed for.
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    return PygnmiClient(
+        duthost.mgmt_ip,
+        env.gnmi_port,
+        ca_cert=os.path.abspath("gnmiCA.pem"),
+        client_cert=os.path.abspath(f"{cert_name}.crt"),
+        client_key=os.path.abspath(f"{cert_name}.key"),
+        timeout=timeout,
+        connect=False,
+    )
+
+
+def wait_for_gnmi_server(duthost) -> None:
+    """
+    Wait until the gNMI server completes a TLS handshake and an RPC with the client certs.
+
+    The server restarts its listener as it notices each new cert file, so after certs are copied
+    or the server is restarted, retry until a request succeeds. A port check (wait_tcp_connection)
+    isn't enough: the old server listens too, so it can pass before the reload.
+    """
+    # A short timeout, so a failed attempt returns in time for wait_until to retry: pygnmi waits
+    # up to twice the timeout for a channel before failing.
+    client = build_pygnmi_client(duthost, timeout=3)
+
+    def server_accepts_certs() -> bool:
+        client.capabilities()
+        return True
+
+    pytest_assert(
+        wait_until(GNMI_SERVER_START_WAIT_TIME * 2, 3, 0, server_accepts_certs),
+        "gNMI server did not accept the client certs",
+    )
 
 
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None, ip=None):
@@ -523,7 +569,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
 
 
 def gnmi_subscribe_stream_connections(
-    duthost, ptfhost, path_list, target, create_connections, update_count, namespace=None, ip=None
+    duthost, ptfhost, path_list, target, create_connections, update_count, namespace=None, ip=None, port=None
 ):
     """
     STREAM subscribe via py_gnmicli opening create_connections channels, used to
@@ -531,9 +577,9 @@ def gnmi_subscribe_stream_connections(
 
     Returns the ptfhost.shell result dict (rc / stdout / stderr).
     """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = ip or duthost.mgmt_ip
-    port = env.gnmi_port
+    if port is None:
+        port = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE).gnmi_port
     ns = "/{}".format(namespace) if namespace else ""
     cmd = "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py "
     cmd += "-t %s -p %u " % (ip, port)
