@@ -31,6 +31,7 @@ from tests.redfish.redfish_utils import (
     redfish_url,
     RedfishClient,
     reset_to_bootstrap,
+    restore_redfish_config,
     SERVER_CERT_NAME,
     SERVER_KEY_NAME,
     set_trusted_cnames,
@@ -213,7 +214,11 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
                 effective_port = number if 1 <= number <= 65535 else DEFAULT_PORT
         if effective_port != redfish_port:
             cleanup_port = str(redfish_port)
-            db_set(bmc_duthost, "CONFIG_DB", REDFISH_CONFIG_TABLE, port=cleanup_port)
+        # The snapshot strips trailing LF whereas cleanup compares raw values.
+        # Apply the test representation even when its effective port matches,
+        # so a clean first body cannot inherit an unverifiable raw port.
+        # Use the checked, quoted owned-field writer (None means absent).
+        restore_redfish_config(bmc_duthost, {(REDFISH_CONFIG_TABLE, "port"): cleanup_port})
 
     cert_dir = tmp_path_factory.mktemp("bmc_certs")
     logger.info("Generating TLS certificates in {}".format(cert_dir))

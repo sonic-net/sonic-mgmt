@@ -522,6 +522,23 @@ def native_port(tmp_path):
 @pytest.mark.parametrize("outcome", ["normal", "body_failure", "noncertificate", "setup_write_failure"])
 def test_provisioning_port_and_original_module_restoration(
         api, tmp_path, monkeypatch, native_port, raw_port, native_effective, listener, outcome):
+    _port_lifecycle(api, tmp_path, monkeypatch, native_port, raw_port, native_effective, listener, outcome)
+
+
+@pytest.mark.parametrize("raw_port,native_effective", [
+    ("8443\n", 8443), ("8443\n\n", 8443), ("8443\r\n", 443), ("\n", 443),
+    (None, 443), ("", 443), (" 8443 ", 443),
+])
+@pytest.mark.parametrize("listener", [443, 8443])
+@pytest.mark.parametrize("profile", PROFILES)
+def test_initially_clean_raw_port_all_profiles(
+        api, tmp_path, monkeypatch, native_port, raw_port, native_effective, listener, profile):
+    _port_lifecycle(api, tmp_path, monkeypatch, native_port, raw_port, native_effective,
+                    listener, "normal", clean_profile=profile)
+
+
+def _port_lifecycle(api, tmp_path, monkeypatch, native_port, raw_port, native_effective,
+                    listener, outcome, clean_profile=None):
     """Real fixture/snapshot/fallback/finalizer bodies; only hardware IO modeled.
 
     This is explicit generator lifecycle coverage, not a claim about actual
@@ -557,10 +574,15 @@ def test_provisioning_port_and_original_module_restoration(
     native_shell = device.shell
     live = {"port": listener}
 
+    port_writes = []
+
     def shell(command, **kwargs):
-        if command.startswith('sonic-db-cli CONFIG_DB hset "REDFISH|config" port'):
+        words = shlex.split(command)
+        if (words[:2] == ["sonic-db-cli", "CONFIG_DB"] and words[2] in ("hset", "hdel") and
+                words[3:5] == ["REDFISH|config", "port"]):
             assert len(finalizers) == 1, "port must not change before original finalizer registration"
-            if outcome == "setup_write_failure":
+            port_writes.append(words)
+            if outcome == "setup_write_failure" and len(port_writes) == 1:
                 raise RuntimeError("port write failed")
         return native_shell(command, **kwargs)
 
@@ -575,8 +597,16 @@ def test_provisioning_port_and_original_module_restoration(
             (directory / name).chmod(0o600)
         return "generator"
 
+    def freeze(certs, destination, port):
+        # Observe the actual raw DB value at the legitimate freeze boundary,
+        # before any body/cleanup can normalize it and hide setup drift.
+        assert port == test_raw
+        assert device.config["REDFISH"].get("config", {}).get("port") == port
+        assert len(port_writes) == 1
+        return ns["freeze_expected"](certs, destination, port)
+
     helper = ModuleType("tests.redfish.certificate_cleanup")
-    helper.freeze_expected = ns["freeze_expected"]
+    helper.freeze_expected = freeze
     for name in ("tests", "tests.redfish"):
         if name not in sys.modules:
             package = ModuleType(name)
@@ -594,8 +624,7 @@ def test_provisioning_port_and_original_module_restoration(
     selected = ns["redfish_port"].__wrapped__(device, None)
     generator = ns["bmc_tls_certs"].__wrapped__(
         request, device, "192.0.2.1", None, None, selected, SimpleNamespace(mktemp=lambda name: source))
-    mismatch = native_effective != listener
-    if outcome == "setup_write_failure" and mismatch:
+    if outcome == "setup_write_failure":
         with pytest.raises(RuntimeError, match="port write failed"):
             next(generator)
     else:
@@ -603,13 +632,15 @@ def test_provisioning_port_and_original_module_restoration(
         if outcome == "noncertificate":
             assert "cleanup_expected" not in certs
             assert device.config["REDFISH"].get("config", {}).get("port") == raw_port
+            assert port_writes == []
         else:
             frozen = certs["cleanup_expected"]
             assert json.loads(frozen["remote"])["port"] == test_raw
             assert frozen["port"] == selected == listener
-            assert device.config["REDFISH"].get("config", {}).get("port") == (test_raw if mismatch else raw_port)
-            writes = [c for c in device.events if c.startswith('sonic-db-cli CONFIG_DB hset "REDFISH|config"')]
-            assert len(writes) == int(mismatch)
+            assert device.config["REDFISH"].get("config", {}).get("port") == test_raw
+            assert len(port_writes) == 1  # one explicit provisioning write, not a cleanup write
+            assert port_writes[0][2] == ("hdel" if test_raw is None else "hset")
+            assert native_port(test_raw) == selected
 
             def inspect(dut, expectation):
                 return device.config["REDFISH"].get("config", {}).get("port") == expectation["port"]
@@ -621,12 +652,13 @@ def test_provisioning_port_and_original_module_restoration(
 
             ns.update(_inspect=inspect, restart_service=restart,
                       privileged_ready=lambda host, expectation: live["port"] == expectation["port"])
-            cleanup = ns["provisioned_on_session_port"].__wrapped__(device, certs)
+            profile = clean_profile or "configuration"
+            cleanup = ns[WRAPPERS[PROFILES.index(profile)]].__wrapped__(device, certs)
             next(cleanup)
-            # A dirty body forces the real configuration fallback and modeled
-            # restart to consume CONFIG_DB, then actual expected_ready compares
-            # it with the original selected endpoint. This catches the review bug.
-            device.config["REDFISH"].setdefault("config", {})["port"] = "9443"
+            before_cleanup = len(device.events)
+            if clean_profile is None:
+                # Dirty controls still exercise the actual configuration fallback.
+                device.config["REDFISH"].setdefault("config", {})["port"] = "9443"
             body = Mock(side_effect=RuntimeError("body failure"))
             if outcome == "body_failure":
                 with pytest.raises(RuntimeError, match="body failure"):
@@ -639,7 +671,14 @@ def test_provisioning_port_and_original_module_restoration(
             else:
                 with pytest.raises(StopIteration):
                     next(cleanup)
-            assert calls == [listener]
+            if clean_profile is None:
+                assert calls == [listener]
+            else:
+                assert calls == []
+                assert len(port_writes) == 1
+                assert len(device.events) == before_cleanup
+                for name in ("restore_delivered_certs", "supervisor", "recreate_container"):
+                    ns[name].assert_not_called()
             assert live["port"] == selected
             assert device.config["REDFISH"].get("config", {}).get("port") == test_raw
         with pytest.raises(StopIteration):
