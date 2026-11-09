@@ -360,16 +360,18 @@ def test_erspan_truncation_packet_size(
     '''
     Verify truncation with 1:1 mirroring for frames below, at and above the limit.
 
-    Require nonempty matching captures and validate every frame's length against
-    the encapsulation model and tolerance. Packet-count completeness is not checked.
+    Require one matching mirror per probe and validate every frame's length
+    against the encapsulation model and tolerance.
     '''
     truncate_size = erspan_session['truncate_size']
     packets = _send_sampled_traffic_and_collect(
         ptfadapter, erspan_session, erspan_session['source_index'],
         pktlen=pktlen, count=TRUNCATION_PROBE_COUNT, timeout=5)
     pytest_assert(
-        packets,
-        "No matching ERSPAN packets received for pktlen={}, truncate_size={}".format(pktlen, truncate_size))
+        len(packets) == TRUNCATION_PROBE_COUNT,
+        "Expected {} matching ERSPAN packets for 1:1 mirroring, got {} "
+        "(pktlen={}, truncate_size={})".format(
+            TRUNCATION_PROBE_COUNT, len(packets), pktlen, truncate_size))
 
     for pkt_bytes in packets:
         _assert_mirror_len(len(pkt_bytes), pktlen, truncate_size)

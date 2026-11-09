@@ -27,7 +27,7 @@ MIRROR_LEN_TOLERANCE = 8
 # Destination MAC (6B), source MAC (6B), and EtherType (2B).
 ETHERNET_HEADER_LEN = 14
 
-# Supported GRE layout: 22 bytes of metadata before the inner Ethernet frame.
+# Mellanox GRE payload starts with 22 bytes of metadata.
 MIRROR_GRE_PROTOCOL = 0x8949
 MIRROR_GRE_METADATA_LEN = 22
 
@@ -43,7 +43,7 @@ def expected_mirror_len(original_len, truncate_size=0):
     return ENCAP_OVERHEAD + inner
 
 
-def _matches_probe(raw, expected_probe):
+def _matches_probe(raw, expected_probe, metadata_len):
     '''Match inner IP addresses and TCP ports against the sent test packet.'''
     from scapy.layers.inet import IP, TCP, GRE
     from scapy.layers.l2 import Ether
@@ -52,7 +52,7 @@ def _matches_probe(raw, expected_probe):
     gre = outer[IP].payload
     pytest_assert(isinstance(gre, GRE) and gre.proto == MIRROR_GRE_PROTOCOL,
                   'Unsupported GRE encapsulation for inner probe matching')
-    frame = bytes(gre.payload)[MIRROR_GRE_METADATA_LEN:]
+    frame = bytes(gre.payload)[metadata_len:]
     pytest_assert(len(frame) >= ETHERNET_HEADER_LEN, 'Incomplete mirrored Ethernet header')
     inner = Ether(frame)
     if IP not in inner:
@@ -81,6 +81,7 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
         ptfadapter:           ptfadapter fixture
         gre_egress_ports:     list of PTF port indices to drain
         mirror_session_info:  dict with src_ip, dst_ip, gre_type (hex string like "0x8949")
+                              and platform-selected gre_metadata_len for probe filtering.
         timeout:              seconds to keep polling
         expected_probe:       Sent test packet used to match inner IPs/TCP ports.
                               If None, only filter by the outer mirror-session headers.
@@ -99,6 +100,9 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
     total_seen = 0
     skipped_reasons = {'parse_fail': 0, 'no_ip_gre': 0, 'wrong_ip': 0, 'wrong_gre_proto': 0}
     if expected_probe is not None:
+        pytest_assert('gre_metadata_len' in mirror_session_info,
+                      'Probe filtering requires a platform-selected GRE metadata length')
+        metadata_len = mirror_session_info['gre_metadata_len']
         skipped_reasons['not_test_traffic'] = 0
 
     end_time = time.time() + timeout
@@ -135,7 +139,7 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
             if int(gre.proto) != gre_proto:
                 skipped_reasons['wrong_gre_proto'] += 1
                 continue
-            if expected_probe is not None and not _matches_probe(raw, expected_probe):
+            if expected_probe is not None and not _matches_probe(raw, expected_probe, metadata_len):
                 skipped_reasons['not_test_traffic'] += 1
                 continue
             matched.append(bytes(raw))

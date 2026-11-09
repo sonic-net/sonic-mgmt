@@ -20,6 +20,7 @@ from erspan_helpers import (   # noqa F401
     ERSPAN_TTL,
     ERSPAN_GRE_TYPE,
     ERSPAN_DEFAULT_DIRECTION,
+    MIRROR_GRE_METADATA_LEN,
     remove_mirror_session,
     create_erspan_session_config,
 )
@@ -222,15 +223,12 @@ def _select_routed_ports(active_interfaces, minigraph, status, config):
 
     candidates.sort(key=lambda p: (len(p['members']), p['index']))
     for source in candidates:
-        # TX sampling binds to a physical port, so its route must not hash to another member.
-        if len(source['members']) != 1:
-            continue
         remaining = [p for p in candidates if not set(p['indices']) & set(source['indices'])]
         for collector in remaining:
             for peer in remaining:
                 if not set(peer['indices']) & set(collector['indices']):
                     return {'source': source, 'gre_egress': collector, 'tx_ingress': peer}
-    pytest.skip('ERSPAN needs three disjoint routed PTF paths and a single-member mirror source')
+    return pytest.skip('ERSPAN needs three disjoint routed PTF paths')
 
 
 def _add_route(duthost, cleanup, prefix, nexthop, interface):
@@ -359,6 +357,17 @@ def skip_if_truncation_unsupported(erspan_capabilities):
 
 
 @pytest.fixture(scope="module")
+def erspan_gre_metadata_len(duthosts, rand_one_dut_hostname):
+    '''Select the supported Mellanox GRE metadata layout; skip other ASICs.'''
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_type = duthost.facts.get('asic_type')
+    if asic_type != 'mellanox':
+        pytest.skip('ERSPAN probe decoding supports only Mellanox GRE 0x8949 with '
+                    '22-byte metadata; unsupported ASIC: {}'.format(asic_type))
+    return MIRROR_GRE_METADATA_LEN
+
+
+@pytest.fixture(scope="module")
 def skip_if_vs_platform(duthosts, rand_one_dut_hostname):
     '''Skip dataplane mirroring tests on the vs platform.
     '''
@@ -458,7 +467,7 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, erspan_ports):
 
 
 @pytest.fixture
-def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup_erspan_route):
+def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports):
     '''
     Create and teardown an ERSPAN mirror session with optional sample_rate/truncate_size.
 
@@ -472,6 +481,12 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
     truncate_size = params.get('truncate_size')
     src_port = erspan_ports['source']['name']
     direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
+    # A single-member source ensures TX probes leave through the mirrored port.
+    if direction in ('tx', 'both') and len(erspan_ports['source']['members']) != 1:
+        pytest.skip('TX/BOTH ERSPAN dataplane tests require a single-member routed mirror source')
+    metadata_len = request.getfixturevalue('erspan_gre_metadata_len')
+    # Check eligibility before configuring routes.
+    request.getfixturevalue('setup_erspan_route')
     request.addfinalizer(lambda: remove_mirror_session(duthost, ERSPAN_SESSION_NAME))
 
     # create_erspan_session_config pre-cleans any leftover same-named session, then
@@ -543,5 +558,6 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
             'dscp': ERSPAN_DSCP,
             'ttl': ERSPAN_TTL,
             'gre_type': ERSPAN_GRE_TYPE,
+            'gre_metadata_len': metadata_len,
         },
     }

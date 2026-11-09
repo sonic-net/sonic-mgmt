@@ -65,6 +65,7 @@ Capability gating (skips are implemented as fixtures in `conftest.py`):
   `both` requires ingress and egress sampling capabilities.
 - `skip_if_truncation_unsupported` - skips if STATE_DB does not report
   `SAMPLEPACKET_TRUNCATION_CAPABLE = true`.
+- `erspan_gre_metadata_len` - skips dataplane tests on non-Mellanox ASICs.
 
 ## 6 Setup configuration
 
@@ -78,6 +79,8 @@ and actual DUT-to-PTF mappings. LAG members are grouped as one logical path.
   mirrored source port.
 
 For a collector LAG, packets are collected from all mapped member ports.
+Single-member sources are preferred. Multi-member sources are allowed for RX,
+truncation-only, and configuration tests; TX/BOTH dataplane tests require a single-member source.
 
 ### 6.2 Setup of DUT switch
 
@@ -120,8 +123,8 @@ use TTL 1 to prevent peer routers from forwarding packets back into the test.
 Mirrored GRE packets are captured on the collector (gre_egress) port and identified by a 3-tuple
 match on the outer headers - `outer IP.src == session.src_ip`, `outer IP.dst == session.dst_ip`,
 and `GRE.proto == session.gre_type`. Inner IP addresses and TCP ports must also match
-the sent probe. The current inner parser supports the GRE `0x8949` layout with a
-22-byte metadata prefix; other encapsulation layouts require a compatible decoder.
+the sent probe. Inner parsing supports the Mellanox GRE `0x8949` layout with a
+22-byte metadata prefix.
 
 Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 10000` and `N = sample_rate`) so
 the expected mirrored count is `~NUM_SAMPLES = 10000` regardless of `N` (e.g. 1,000,000 packets at
@@ -189,10 +192,8 @@ Length checks apply to each matching mirror frame, using `MIRROR_LEN_TOLERANCE` 
 - Send `TRUNCATION_PROBE_COUNT` packets of length `pktlen` from the source port.
 - Capture ERSPAN GRE packets on the collector port.
 
-**Pass criteria:** At least one matching test mirror is received, and each mirrored
+**Pass criteria:** Exactly 1,000 matching mirrors are received for 1,000 probes, and each mirrored
 frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
-The sent and collected counts are logged for diagnosis; this case validates truncation,
-not lossless 1:1 mirror delivery. Sampling-rate cases retain their count-range assertions.
 
 #### 7.4.2 Validate RX sampled mirroring rates
 **Test:** `test_erspan_sampling_rx_direction`
