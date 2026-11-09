@@ -59,6 +59,40 @@ def test_bgp_session_flap_keeps_classic_topology_selection():
 
 class TestVppImpactedArea:
 
+    @pytest.mark.parametrize("features", ["packet_trimming", ""])
+    @pytest.mark.parametrize("with_future_module", [False, True])
+    def test_packet_trimming_modules_selected_for_t1_lag_vpp(
+        self, features, with_future_module, test_dir
+    ):
+        """Keep enrolled trimming modules selected without requiring future modules."""
+        tests_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "tests")
+        )
+        if with_future_module:
+            trimming_dir = os.path.join(tests_dir, "packet_trimming")
+            tests_dir = os.path.join(test_dir, "tests")
+            shutil.copytree(trimming_dir, os.path.join(tests_dir, "packet_trimming"))
+            _write_file(
+                tests_dir,
+                "packet_trimming/test_future_module.py",
+                "pytestmark = [pytest.mark.topology('t0')]\n",
+            )
+
+        expected = {
+            "packet_trimming/test_packet_trimming_asymmetric.py",
+            "packet_trimming/test_packet_trimming_config_asymmetric.py",
+            "packet_trimming/test_packet_trimming_config_symmetric.py",
+            "packet_trimming/test_packet_trimming_symmetric.py",
+        }
+
+        result = collect_scripts_by_topology_type(features, tests_dir)
+        selected = {
+            script for script in result.get("t1-lag-vpp_checker", [])
+            if script.startswith("packet_trimming/")
+        }
+
+        assert expected <= selected
+
     @pytest.mark.parametrize(
         "topology,checker", VPP_TOPOLOGY_CHECKERS.items()
     )
