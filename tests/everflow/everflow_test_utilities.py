@@ -46,7 +46,10 @@ EVERFLOW_V4_RULES = "ipv4_test_rules.yaml"
 EVERFLOW_DSCP_RULES = "dscp_test_rules.yaml"
 IP_TYPE_RULE_V6 = "test_rules_ip_type_v6.json"
 # Qualifiers an ASIC silently drops when programming an ACL rule.
-IGNORED_ACL_QUALIFIERS = {"vpp": {"dscp"}}
+# SwitchVppAcl::acl_rule_field_update has no case for SAI_ACL_ENTRY_ATTR_FIELD_DSCP
+# or SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE; both fall through to default and are
+# logged as unhandled while the rule is still created.
+IGNORED_ACL_QUALIFIERS = {"vpp": {"dscp", "ethertype"}}
 
 DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
