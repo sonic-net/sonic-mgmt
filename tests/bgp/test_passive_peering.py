@@ -148,7 +148,19 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
         remove_password_on_neighbor(setup_info)
 
     time.sleep(10)
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    # A line-card reload can leave unrelated inter-line-card BGP sessions down on T2.
+    for peer_group in (peer_group_v4, peer_group_v6):
+        cmd = get_vtysh_cmd_for_asic(
+            duthost, asic_index,
+            'vtysh -c "config" -c "router bgp {}" -c "no neighbor {} password" '
+            '-c "no neighbor {} passive"'.format(dut_asn, peer_group, peer_group),
+        )
+        duthost.shell(cmd)
+
+    for neigh_ip in (neigh_ip_v4, neigh_ip_v6):
+        assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
+                          check_bgp_neighbor_state, duthost, asic_index, neigh_ip), \
+            "BGP session {} not established after restoring DUT peer groups".format(neigh_ip)
 
 
 def check_bgp_neighbor_state(duthost, asic_index, neigh_ip, should_be_established=True):
