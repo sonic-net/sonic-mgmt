@@ -347,10 +347,9 @@ def test_tc1_single_fault_indication(duthost, target_vmodule, fault_injector):
     # the foreground. This mirrors the existing gNMI on_change tests and
     # guarantees no long-lived subscriber thread survives a test failure.
     #
-    # Catch BaseException, not Exception: pytest_assert calls pytest.fail(),
-    # whose Failed derives from BaseException. A bare "except Exception"
-    # lets it escape the thread unrecorded, leaving worker_result clean and
-    # the test reporting a missing STATE_DB token instead of the real cause.
+    # Capture ordinary errors and pytest assertion failures from the worker
+    # so the main thread can report the actual injection failure. pytest.fail
+    # raises an exception derived from BaseException rather than Exception.
     worker_result = {"connected": False, "injected": False, "exception": None}
 
     def _inject_worker():
@@ -361,7 +360,7 @@ def test_tc1_single_fault_indication(duthost, target_vmodule, fault_injector):
                 return
             fault_injector.inject_fault(fault_key, laser=laser)
             worker_result["injected"] = True
-        except BaseException as exc:  # noqa: BLE001
+        except (Exception, pytest.fail.Exception) as exc:
             worker_result["exception"] = "{}: {}".format(type(exc).__name__, exc)
 
     la, marker = _start_loganalyzer(
