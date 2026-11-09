@@ -1,6 +1,8 @@
 import importlib.util
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock, call
+from urllib.error import HTTPError
 
 import pytest
 
@@ -10,6 +12,21 @@ SPEC = importlib.util.spec_from_file_location(
 )
 trigger = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(trigger)
+
+
+@pytest.mark.parametrize("body,expected", [
+    (b'{"message":"Build Service needs Queue builds permission"}', "Build Service needs Queue builds permission"),
+    (b"<html>Internal Server Error</html>", "Internal Server Error"),
+    (b'{"message":null}', "Internal Server Error"),
+])
+def test_http_failure_preserves_server_diagnostic_without_retry(monkeypatch, body, expected):
+    """Expose the API's error message instead of hiding the cause behind HTTP 500."""
+    url = f"{trigger.BUILD_API}/pipelines/3442/runs?api-version=7.1"
+    opener = Mock(side_effect=HTTPError(url, 500, "Internal Server Error", {}, BytesIO(body)))
+    monkeypatch.setattr(trigger, "urlopen", opener)
+    with pytest.raises(RuntimeError, match=expected):
+        trigger.request("POST", url, "token", {})
+    opener.assert_called_once()
 
 
 def test_buildimage_source_is_the_exact_pr_merge_revision():

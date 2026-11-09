@@ -8,6 +8,7 @@ import re
 import signal
 import sys
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -20,8 +21,18 @@ def request(method, url, token, payload=None):
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     })
-    with urlopen(req, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urlopen(req, timeout=30) as response:
+            return json.load(response)
+    except HTTPError as error:
+        message = error.reason
+        try:
+            details = json.load(error)
+            if isinstance(details, dict):
+                message = details.get("message") or message
+        except (ValueError, UnicodeError):
+            pass
+        raise RuntimeError(f"Azure DevOps {method} failed (HTTP {error.code}): {message}") from error
 
 
 def source_parameters(environ):
