@@ -166,6 +166,7 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.hwsku = self.test_params['hwsku']
         self.asic_type = self.test_params['asic_type']
+        self.is_spc6 = self.test_params.get('is_spc6', False)
         # The router MAC is the VLAN MAC for upstream traffic on dualtor testbed
         self.dualtor_upstream = self.test_params.get('dualtor_upstream', False)
         if self.dualtor_upstream:
@@ -259,7 +260,7 @@ class EverflowPolicerTest(BaseTest):
         if self.mirror_stage == "egress":
             payload_mask.set_do_not_care_scapy(scapy.Ether, "dst")
             payload_mask.set_do_not_care_scapy(scapy.IP, "chksum")
-            if self.asic_type == "mellanox":
+            if self.is_spc6:
                 payload_mask.set_do_not_care_scapy(scapy.Ether, "src")
                 payload_mask.set_do_not_care_scapy(scapy.IP, "ttl")
             else:

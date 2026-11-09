@@ -14,6 +14,7 @@ from common.helpers.assertions import pytest_assert
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
+from tests.common.mellanox_data import SPC6_HWSKUS
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, get_default_server_ip
 from retry.api import retry_call
 from .everflow_test_utilities import clear_interface_counters, assert_no_tx_drops_on_mirror_port, get_mirror_port
@@ -844,6 +845,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                self.mirror_type(),
                                expect_receive=True,
                                test_name="everflow_policer_test.EverflowPolicerTest",
+                               is_spc6=vendor == "mellanox" and everflow_dut.facts['hwsku'] in SPC6_HWSKUS,
                                src_port=rx_port_ptf_id,
                                dst_mirror_ports=mirror_port_id,
                                dst_ports=tx_port_ptf_id,
