@@ -90,9 +90,50 @@ Exact-source Linux validation passed 149 focused tests, 1070 full tests
 (13 integration cases deselected, 22 warnings), 13 integration tests, scoped
 Ruff and compilation. Both image repositories reference this producer revision.
 
-This follow-up has not been deployed to the DUT or included in a rebuilt full
-installer. The live and installer results above remain qualification of host
-commit `49402b82`; they are not evidence for the later retry correction.
+As of the October 9 record, this follow-up had not been deployed to the DUT or
+included in a rebuilt full installer. The October live and installer results
+remain qualification of host commit `49402b82`. The November 8 validation below
+uses a later deployed host revision that includes the retry correction.
+
+## Current-source validation, 2026-11-08
+
+Functional validation on lab DUT `172.25.43.65` passed, but host OOM containment
+failed. This campaign does **not** establish that a DLDD memory-limit failure
+is isolated from the rest of the switch.
+
+The deployed host source was
+`ba1969208273e54c4fb424f651ac00db88fbb207`, with utilities
+`83fc3c17c2f30b0f94f22ad72000632bde108ba8`. The unchanged Healthz backend
+was checked for installed-source/hash parity. The corresponding gNMI and
+management-common source references are
+`1f40bb832ffe37e6dcd4c4e77ed0e85a624bd7b7` and
+`687efc2724be38e20ee175925190f51f4ceb9f9c`. These references do not imply a
+new full-image installation: the host wheel build passed, but no new complete
+image was built, installed or intentionally boot-qualified in this campaign.
+
+| Area | Result and boundary |
+| --- | --- |
+| Scoped host tests | 330 DLDD/Healthz tests passed locally and natively on the DUT. Native execution does not turn mocked unit boundaries into hardware integration tests. |
+| Combined focused Python validation | 440 tests passed across host, utilities, Cisco DSE, legacy debug collection and gRPC helpers, plus two existing FEATURE service-health contract checks. |
+| Rule execution | Live fixtures covered Redis, file, CLI, Python and dynamic DSE sources; comparisons/correlation; inventory changes; localized runtime failures; and healthy, fault and recovery states. |
+| Local actions and collection | CLI and DSE actions exercised completion, wait/recheck and execution-error/timeout paths. Static/DSE logs, normalized file collection and captured action output were inspected in collected artifacts. |
+| Telemetry and RPCs | Actual fault telemetry was checked through `FAULT_INFO` and its OpenConfig mapping, separately from Healthz component state and artifact RPCs. Get/List, acknowledgement/filtering, pending/missing artifacts, invalid requests and synchronized ON_CHANGE paths were exercised. |
+| Large artifact/concurrency | A 48 MiB payload was packaged and retrieved through the actual Artifact RPC; reconstructed bytes matched the advertised size and SHA-256. Concurrent metadata calls completed within 1.53 seconds. This measures this DUT/load, not an unconditional latency guarantee. |
+| TLS authorization | All 23 role/trust cases passed on an isolated loopback listener. Repeated acknowledgement preserved the campaign archive. Temporary TLS/configuration/IPC resources were cleaned, with production gNMI identity unchanged during these probes. |
+| CPU enforcement | A disposable `CPUQuota=20%` unit measured 20.0069% aggregate CPU usage. This verifies that scoped CPU test, not every deployment profile. |
+| OOM containment | **FAIL:** exhausting an isolated 64 MiB memory-limited unit caused a host kernel panic/reboot. Kernel/kdump evidence identified a memory-cgroup OOM with host `vm.panic_on_oom=2`. A unit memory limit and `OOMPolicy` do not override that host panic policy. |
+| Remaining fault injection | Task-limit exhaustion, explicit service crash/restart and live BROKEN-threshold injection were not run after the panic. They remain unqualified in this campaign. |
+
+Normal host mypy retained 30 findings and Pyright retained 50 errors, unchanged
+from the clean baseline. The static-analysis result is not a zero-findings
+claim. Focused tests and CI checks do not substitute for the unrun full image,
+full sonic-mgmt harness or service-failure qualification.
+
+After the unexpected reboot, the original seven-rule ruleset and vendor wrapper
+were restored. The reboot is failure evidence, not successful reboot
+qualification. `/tmp`-only raw output was lost; durable `/var/tmp` fixture/RPC
+records, archives and baseline data remained available. Preserve that evidence
+and resolve the host OOM policy before repeating memory-exhaustion testing.
 
 ## Inputs and transport
 
