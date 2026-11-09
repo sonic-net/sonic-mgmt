@@ -330,7 +330,9 @@ class TestPlanManager(object):
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
         kvm_image_branch = kwargs.get("kvm_image_branch", "")
-        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
+        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo") and not (
+            kwargs.get("secure_boot", False) and kvm_image_build_id
+        ):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
         # kvm_image_build_id and kvm_image_branch are mutually exclusive; build id takes precedence
@@ -377,7 +379,8 @@ class TestPlanManager(object):
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch,
-                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
+                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None),
+                    "secure_boot": kwargs.get("secure_boot", False)
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -756,6 +759,17 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="KVM image build pipeline id."
+    )
+    parser_create.add_argument(
+        "--secure-boot",
+        type=ast.literal_eval,
+        dest="secure_boot",
+        nargs='?',
+        const=True,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Request a Secure Boot UEFI image and matching enrolled firmware."
     )
     parser_create.add_argument(
         "--mgmt-branch",
@@ -1221,6 +1235,7 @@ if __name__ == "__main__":
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
                     kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
+                    secure_boot=args.secure_boot,
                     min_worker=args.min_worker,
                     max_worker=args.max_worker,
                     pr_id=pr_id,
