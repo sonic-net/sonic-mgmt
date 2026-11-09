@@ -221,6 +221,17 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
+├── oir/
+│   ├── __init__.py
+│   ├── conftest.py                          # OIR fixtures; autouse fixture requests presence_verified and
+│   │                                        #   links_verified from top-level conftest.py. Physical OIR and
+│   │                                        #   remote reseat fixtures (ports under test, teardown restoration)
+│   │                                        #   are opted into by their test module.
+│   ├── oir_helpers.py                       # Physical OIR and remote reseat operations, and the OIR
+│   │                                        #   verification primitives both halves share
+│   ├── test_physical_oir.py                 # Physical OIR TC 1-6
+│   └── test_remote_reseat.py                # Remote reseat TC 1-2 (also requests gold_fw_verified)
+│
 ├── cdb_firmware_upgrade/
 │   ├── __init__.py
 │   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
