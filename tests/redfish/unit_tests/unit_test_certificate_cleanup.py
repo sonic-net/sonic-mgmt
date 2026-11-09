@@ -14,6 +14,7 @@ from pathlib import Path
 import shlex
 import ssl
 import stat
+import subprocess
 import tempfile
 import time
 from types import MappingProxyType, SimpleNamespace
@@ -473,17 +474,54 @@ def test_inspection_unavailable_still_attempts_recovery_then_fails_verification(
     assert ns["_inspect"].call_count == 2  # initial check and mandatory postcheck
 
 
-@pytest.mark.parametrize("raw_port,listener,test_raw", [
-    ("8443", 443, "443"), ("443", 8443, "8443"), (None, 8443, "8443"),
-    (None, 443, None), ("", 443, ""), ("invalid", 443, "invalid"),
-    ("0", 443, "0"), ("65536", 443, "65536"), ("00443", 443, "00443"),
-    ("08443", 8443, "08443"),
-    (" 8443 ", 443, "443"), (" 443 ", 8443, "8443"),
-    (" 8443 ", 8443, " 8443 "), (" 443 ", 443, " 443 "),
-])
+# Independently pinned native launcher; never use configured_port as the
+# restart oracle (its db_get strips whitespace, unlike the launcher).
+NATIVE_PORT_CASES = [
+    (None, 443), ("", 443), ("invalid", 443), ("0", 443), ("65536", 443),
+    ("1", 1), ("65535", 65535), ("443", 443), ("8443", 8443),
+    ("00443", 443), ("08443", 8443), ("000", 443), ("9" * 18, 443),
+    (" 8443 ", 443), (" 443 ", 443), ("\t8443", 443), ("8443\t", 443),
+    ("\n8443", 443), ("84\n43", 443), ("8443\n", 8443), ("8443\n\n", 8443),
+    ("\n", 443), ("8443\r\n", 443), ("８４４３", 443), ("٨٤٤٣", 443), ("²", 443),
+    ("\u00a08443", 443), ("+8443", 443), ("-1", 443),
+    # Deliberately not assigned a native overflow result. Production must
+    # canonicalize rather than assume this is a working default443 setting.
+    ("9" * 19, None), ("0" * 19 + "8443", None),
+]
+
+
+@pytest.fixture
+def native_port(tmp_path):
+    """Owner-run actual Bash parser with only DB/log/activation IO replaced."""
+    launcher = ROOT / "unit_tests/fixtures/bmcweb-start.sh"
+    # Exact upstream file, not a rewritten Python model of its decision.
+    # sonic-buildimage ff1d809c3b79bc43881aa7be858bf731dece68fd,
+    # dockers/docker-sonic-redfish/bmcweb-start.sh.
+    assert hashlib.sha256(launcher.read_bytes()).hexdigest() == (
+        "c2e9f985939652ed00b5ccd347f680b0fd5c981b6078d91003ebe16abc046b2e")
+    activate = tmp_path / "capture-port"
+    activate.write_text('#!/bin/sh\nprintf "CAPTURED_PORT=%s\\n" "$1"\n')
+    activate.chmod(0o700)
+
+    def parse(raw):
+        env = dict(os.environ, LC_ALL="C", RAW_PORT=raw or "", BMCWEB_ACTIVATE=str(activate))
+        result = subprocess.run(
+            ["bash", "-c", 'sonic-db-cli() { printf "%s\\n" "$RAW_PORT"; }; '
+             'logger() { :; }; source "$1"', "native-port", str(launcher)],
+            env=env, capture_output=True, text=True, timeout=5, check=True)
+        captured = [line[len("CAPTURED_PORT="):] for line in result.stdout.splitlines()
+                    if line.startswith("CAPTURED_PORT=")]
+        assert len(captured) == 1 and not result.stderr
+        return int(captured[0])
+
+    return parse
+
+
+@pytest.mark.parametrize("raw_port,native_effective", NATIVE_PORT_CASES)
+@pytest.mark.parametrize("listener", [443, 8443])
 @pytest.mark.parametrize("outcome", ["normal", "body_failure", "noncertificate", "setup_write_failure"])
 def test_provisioning_port_and_original_module_restoration(
-        api, tmp_path, monkeypatch, raw_port, listener, test_raw, outcome):
+        api, tmp_path, monkeypatch, native_port, raw_port, native_effective, listener, outcome):
     """Real fixture/snapshot/fallback/finalizer bodies; only hardware IO modeled.
 
     This is explicit generator lifecycle coverage, not a claim about actual
@@ -493,6 +531,12 @@ def test_provisioning_port_and_original_module_restoration(
     import sys
     from types import ModuleType
 
+    if native_effective is not None:
+        assert native_port(raw_port) == native_effective
+    # Existing snapshot API removes trailing LF; do not pretend it preserves
+    # arbitrary raw Redis bytes. Retain its module-original snapshot contract.
+    snapshot_port = None if raw_port is None else raw_port.rstrip("\n")
+    test_raw = snapshot_port if native_effective == listener else str(listener)
     ns = orchestration(api, [])
     ns["copy"] = copy
     tree = ast.parse((ROOT / "unit_tests/unit_test_tls_lifecycle.py").read_text())
@@ -550,7 +594,7 @@ def test_provisioning_port_and_original_module_restoration(
     selected = ns["redfish_port"].__wrapped__(device, None)
     generator = ns["bmc_tls_certs"].__wrapped__(
         request, device, "192.0.2.1", None, None, selected, SimpleNamespace(mktemp=lambda name: source))
-    mismatch = test_raw != raw_port
+    mismatch = native_effective != listener
     if outcome == "setup_write_failure" and mismatch:
         with pytest.raises(RuntimeError, match="port write failed"):
             next(generator)
@@ -563,7 +607,7 @@ def test_provisioning_port_and_original_module_restoration(
             frozen = certs["cleanup_expected"]
             assert json.loads(frozen["remote"])["port"] == test_raw
             assert frozen["port"] == selected == listener
-            assert device.config["REDFISH"].get("config", {}).get("port") == test_raw
+            assert device.config["REDFISH"].get("config", {}).get("port") == (test_raw if mismatch else raw_port)
             writes = [c for c in device.events if c.startswith('sonic-db-cli CONFIG_DB hset "REDFISH|config"')]
             assert len(writes) == int(mismatch)
 
@@ -571,7 +615,7 @@ def test_provisioning_port_and_original_module_restoration(
                 return device.config["REDFISH"].get("config", {}).get("port") == expectation["port"]
 
             def restart(dut):
-                live["port"] = ns["configured_port"](dut)
+                live["port"] = native_port(device.config["REDFISH"].get("config", {}).get("port"))
                 calls.append(live["port"])
                 return True
 
@@ -604,4 +648,6 @@ def test_provisioning_port_and_original_module_restoration(
     # restore_redfish_config writes, not a replacement snapshot assignment.
     for finalize in reversed(finalizers):
         finalize()
+    if raw_port is not None:
+        original["REDFISH"]["config"]["port"] = snapshot_port
     assert device.config == original

@@ -200,8 +200,17 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         # future cleanup restarts on the selected test endpoint; the untouched
         # snapshot above remains the module-original restoration target.
         cleanup_port = snapshot[REDFISH_CONFIG_TABLE, "port"]
-        value = (cleanup_port or "").strip()  # Match configured_port/db_get parsing, not stored bytes.
-        effective_port = int(value) if value.isdigit() and 1 <= int(value) <= 65535 else DEFAULT_PORT
+        # bmcweb-start.sh (buildimage ff1d809c) uses command substitution:
+        # only trailing LF disappears; spaces/tabs/non-ASCII digits are invalid.
+        value = (cleanup_port or "").rstrip("\n")
+        effective_port = DEFAULT_PORT
+        if value and all("0" <= char <= "9" for char in value):
+            # Do not emulate shell integer overflow. Unknown long values are
+            # canonicalized to the selected test port, never accepted as 443.
+            effective_port = None
+            if len(value) <= 18:  # within signed64 shell comparison range
+                number = int(value)
+                effective_port = number if 1 <= number <= 65535 else DEFAULT_PORT
         if effective_port != redfish_port:
             cleanup_port = str(redfish_port)
             db_set(bmc_duthost, "CONFIG_DB", REDFISH_CONFIG_TABLE, port=cleanup_port)
