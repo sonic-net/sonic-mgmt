@@ -29,7 +29,7 @@ import ptf
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
-from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet,\
+from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet, \
     send_packet, verify_packet, verify_no_packet, verify_packet_any_port, verify_no_packet_any
 from ptf.mask import Mask
 
@@ -335,7 +335,7 @@ class VNET(BaseTest):
                 "arp_responder state is not RUNNING! Output: %s" % output[0].decode())
 
     def tearDown(self):
-        if self.vxlan_enabled:
+        if self.vxlan_enabled or self.test_params.get("is_vpp"):
             self.cmd(["supervisorctl", "stop", "arp_responder"])
 
         json.dump(self.packets, open("/tmp/vnet_pkts.json", 'w'))
@@ -504,6 +504,8 @@ class VNET(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
             if isinstance(ip_address(test['host']), IPv4Address):
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                if self.test_params.get("is_vpp"):
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
@@ -516,11 +518,14 @@ class VNET(BaseTest):
             if not self.routes_removed:
                 status, received_pkt = verify_packet_any_port(
                     self, masked_exp_pkt, self.net_ports)
+                if self.test_params.get("is_vpp") and isinstance(ip_address(test['host']), IPv4Address):
+                    flags = int(scapy.Ether(received_pkt)[scapy.IP].flags)
+                    assert flags in (0, 2), "Unexpected outer IPv4 flags: {}".format(flags)
                 if self.vxlan_srcport_range_enabled:
                     scapy_pkt = scapy.Ether(received_pkt)
                     upper_bound = self.vxlan_srcport | (
                         0xff >> (8 - self.vxlan_srcport_mask))
-                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport),\
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport), \
                         ("Received packet has UDP src port {} that is not in expected range {} - {}"
                          .format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:

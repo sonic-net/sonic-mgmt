@@ -1,4 +1,6 @@
+from collections import namedtuple
 import json
+import time
 import os
 import pytest
 import logging
@@ -163,6 +165,62 @@ def remove_ip_addresses(ptfhost):
         ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
+def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs, route=False):
+    # Use route=True when the responder IP is not in the DUT interface subnet/VLAN
+    # and needs an explicit host route through that interface.
+    ip_intf_pairs = list(ip_intf_pairs)
+    arp_responder_conf = {}
+    ping_commands = []
+    for ip, dut_intf, ptf_index in ip_intf_pairs:
+        ip_addr = ip_interface(ip).ip
+        duthost.shell(
+            "ip -{} neigh flush to {} dev {}".format(ip_addr.version, ip_addr, dut_intf))
+        arp_responder_conf.setdefault("eth{}".format(ptf_index), []).append(str(ip_addr))
+        ping = "ping6" if ip_addr.version == 6 else "ping"
+        ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip_addr))
+
+    ptfhost.copy(content=json.dumps(arp_responder_conf), dest=responder_conf_path)
+    ptfhost.host.options["variable_manager"].extra_vars.update(
+        {"arp_responder_args": "--conf {}".format(responder_conf_path)})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder")
+
+    if route:
+        for ip, dut_intf, _ in ip_intf_pairs:
+            duthost.shell(_ptf_ip_route_cmd("replace", ip, dut_intf))
+    # Wait for Scapy/libpcap initialization before probing the PTF responder.
+    time.sleep(20)
+    for cmd in ping_commands:
+        duthost.shell(cmd, module_ignore_errors=True)
+
+
+def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs=None, route=False):
+    if ip_intf_pairs is not None:
+        ip_intf_pairs = list(ip_intf_pairs)
+
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    if ip_intf_pairs:
+        for ip, dut_intf, _ in ip_intf_pairs:
+            ip_addr = ip_interface(ip).ip
+            duthost.shell(
+                "ip -{} neigh flush to {} dev {}".format(ip_addr.version, ip_addr, dut_intf))
+
+    ptfhost.file(path=responder_conf_path, state="absent")
+    ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
+    ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
+    if route:
+        assert ip_intf_pairs, "ip_intf_pairs is required when route=True to clean up host routes"
+        for ip, dut_intf, _ in ip_intf_pairs:
+            duthost.shell(_ptf_ip_route_cmd("del", ip, dut_intf), module_ignore_errors=True)
+
+
+def _ptf_ip_route_cmd(action, ip, dut_intf):
+    ip_addr = ip_interface(str(ip)).ip
+    route_prefix_len = 128 if ip_addr.version == 6 else 32
+    return "ip -{} route {} {}/{} dev {}".format(
+        ip_addr.version, action, ip_addr, route_prefix_len, dut_intf)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def copy_arp_responder_py(ptfhost):
     """
@@ -180,6 +238,11 @@ def copy_arp_responder_py(ptfhost):
 
     logger.info("Delete arp_responder.py from ptfhost '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
+
+
+# responder_cfg: eth<ptf_index> -> [ipv4, ipv6] ([ipv6] on IPv6-only topos),
+# the exact IP(s) the responder answers per port.
+ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -254,7 +317,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base, ip_offset
+    yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
 
     ptfhost.command('supervisorctl stop arp_responder')
     # Remove the rendered config so it can't mislead diagnostics or be picked up
@@ -316,6 +379,32 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
 icmp_responder_session_started = False
 
 
+def get_icmp_responder_ipv6_args(duthosts):
+    """Allow IPv6 probe sources only for ports selecting IPv6 over absent IPv4."""
+    sources = set()
+    for duthost in duthosts:
+        config = duthost.get_running_config_facts()
+        ipv6_selected = False
+        for mux in config.get("MUX_CABLE", {}).values():
+            endpoint = "soc" if mux.get("cable_type") == "active-active" else "server"
+            if endpoint + "_ipv4" not in mux and mux.get(endpoint + "_ipv6"):
+                ipv6_selected = True
+                break
+        if not ipv6_selected:
+            continue
+        host_sources = set()
+        for prefix in config.get("LOOPBACK_INTERFACE", {}).get("Loopback2", {}):
+            try:
+                address = ip_interface(prefix).ip
+            except ValueError:
+                continue
+            if address.version == 6 and not address.is_unspecified:
+                host_sources.add(str(address))
+        pt_assert(host_sources, "{}: IPv6 probing requires an IPv6 Loopback2 source".format(duthost.hostname))
+        sources.update(host_sources)
+    return "".join(" --src_ipv6 {}".format(source) for source in sorted(sources))
+
+
 @pytest.fixture(scope="session", autouse=True)
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
@@ -328,7 +417,8 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
 
     global icmp_responder_session_started
 
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[0]
@@ -349,6 +439,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
@@ -381,7 +472,8 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         yield
         return
 
-    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS)
+    ipv6_args = get_icmp_responder_ipv6_args(duthosts)
+    update_linkmgrd_probe_interval(duthosts, tbinfo, PROBER_INTERVAL_MS, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -397,6 +489,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     vlan_mac = duthost.get_dut_iface_mac(vlan_name)
     icmp_responder_args = " ".join("-i eth%s" % ptf_indices[_] for _ in vlan_intfs)
     icmp_responder_args += " " + "-m {}".format(vlan_mac)
+    icmp_responder_args += ipv6_args
     ptfhost.copy(
         content=templ.render(icmp_responder_args=icmp_responder_args),
         dest=os.path.join(SUPERVISOR_CONFIG_DIR, "icmp_responder.conf")
@@ -409,7 +502,7 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
     logger.info("Stop running icmp_responder")
     ptfhost.shell("supervisorctl stop icmp_responder")
     logger.info("Recover linkmgrd probe interval")
-    recover_linkmgrd_probe_interval(duthosts, tbinfo)
+    recover_linkmgrd_probe_interval(duthosts, tbinfo, ipv6=bool(ipv6_args))
     duthosts.shell("config save -y")
 
 

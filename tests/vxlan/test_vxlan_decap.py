@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: 
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa: F401
 from tests.ptf_runner import ptf_runner
-from tests.common.dualtor.mux_simulator_control import mux_server_url,\
+from tests.common.dualtor.mux_simulator_control import mux_server_url, \
     toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 pytestmark = [
     pytest.mark.topology('t0')
@@ -84,12 +84,17 @@ def generate_vxlan_config_files(duthost, mg_facts):
         pytest.fail("ipv4 lo interface not found")
 
     # Generate vxlan tunnel config json file on DUT
+    vxlan_tunnel_entry = {
+        "src_ip": loopback_ip,
+        "dst_ip": VTEP2_IP
+    }
+    # On cisco-8000, base topology IP-in-IP decap tunnels may already use pipe TTL mode.
+    # Set VXLAN decap ttl_mode to pipe so orchagent passes DECAP_TTL_MODE consistently.
+    if duthost.facts.get("asic_type") == "cisco-8000":
+        vxlan_tunnel_entry["ttl_mode"] = "pipe"
     vxlan_tunnel_cfg = {
         "VXLAN_TUNNEL": {
-            "tlVxlan": {
-                "src_ip": loopback_ip,
-                "dst_ip": VTEP2_IP
-            }
+            "tlVxlan": vxlan_tunnel_entry
         }
     }
     duthost.copy(content=json.dumps(vxlan_tunnel_cfg, indent=2),

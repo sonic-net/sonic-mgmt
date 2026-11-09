@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
-TELEMETRY_CONTAINER = "telemetry"
 
 # Backdate notBefore on test certs to absorb clock skew between the
 # sonic-mgmt runner, the DUT, and the PTF docker. Without this, even a
@@ -60,31 +59,17 @@ def _parse_crl_dp_uri(extension_file):
 
 
 class GNMIEnvironment(object):
-    TELEMETRY_MODE = 0
     GNMI_MODE = 1
 
     def __init__(self, duthost, mode):
         logger.info(f"Initializing GNMIEnvironment with mode {mode}")
-        if mode == self.TELEMETRY_MODE:
-            ret = self.generate_telemetry_config(duthost)
-            if ret:
-                logger.info("Successfully generated telemetry config")
-                return
+        if mode == self.GNMI_MODE:
             ret = self.generate_gnmi_config(duthost)
             if ret:
                 logger.info("Successfully generated gnmi config")
-                return
-        elif mode == self.GNMI_MODE:
-            ret = self.generate_gnmi_config(duthost)
-            if ret:
-                logger.info("Successfully generated gnmi config")
-                return
-            ret = self.generate_telemetry_config(duthost)
-            if ret:
-                logger.info("Successfully generated telemetry config")
                 return
         # If no container found, use default configuration
-        logger.warning("No GNMI/Telemetry container found, using default configuration")
+        logger.warning("No GNMI container found, using default configuration")
         self._set_default_config()
         self._configure_connection_params(duthost)
 
@@ -110,29 +95,6 @@ class GNMIEnvironment(object):
                 logger.warning("GNMI container is not running")
         return False
 
-    def generate_telemetry_config(self, duthost):
-        cmd = "docker images | grep -w sonic-telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w {}".format(TELEMETRY_CONTAINER)
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = TELEMETRY_CONTAINER
-                # GNMI program is telemetry or gnmi-native
-                res = duthost.shell("docker exec %s supervisorctl status" % self.gnmi_container,
-                                    module_ignore_errors=True)
-                if 'telemetry' in res['stdout']:
-                    self.gnmi_program = "telemetry"
-                else:
-                    self.gnmi_program = "gnmi-native"
-                self.gnmi_process = "telemetry"
-
-                # Read configuration from CONFIG_DB or use defaults
-                self._configure_connection_params(duthost)
-                return True
-            else:
-                logger.warning("Telemetry container is not running")
-        return False
-
     def _set_default_config(self):
         """Set default configuration when no container is found"""
         self.gnmi_config_table = "GNMI"
@@ -146,11 +108,7 @@ class GNMIEnvironment(object):
         try:
             cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
-            # Only check the config table that matches our container type
-            if self.gnmi_config_table == "GNMI":
-                config = cfg_facts.get('GNMI', {}).get('gnmi', {})
-            else:  # TELEMETRY
-                config = cfg_facts.get('TELEMETRY', {}).get('gnmi', {})
+            config = cfg_facts.get('GNMI', {}).get('gnmi', {})
 
             if config:
                 self.gnmi_port = int(config.get('port', 8080))
@@ -295,12 +253,12 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
 
-def create_gnmi_certs(duthost, localhost, ptfhost):
+def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
     '''
     Create GNMI client certificates
     '''
     prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
+    prepare_server_cert(duthost, localhost, dut_ip=dut_ip)
     prepare_client_cert(localhost)
     create_revoked_cert_and_crl(localhost, ptfhost)
     copy_certificate_to_dut(duthost)
@@ -351,10 +309,10 @@ def create_root_cert(localhost, days):
     _write_pem_certificate("gnmiCA.pem", cert)
 
 
-def prepare_server_cert(duthost, localhost, days="825"):
+def prepare_server_cert(duthost, localhost, days="825", dut_ip=None):
     create_server_key(localhost)
     create_server_csr(localhost)
-    sign_server_certificate(duthost, localhost, days)
+    sign_server_certificate(duthost, localhost, days, dut_ip=dut_ip)
 
 
 def create_server_key(localhost):
@@ -371,15 +329,20 @@ def create_server_csr(localhost):
     localhost.shell(local_command)
 
 
-def sign_server_certificate(duthost, localhost, days):
-    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP)."""
+def sign_server_certificate(duthost, localhost, days, dut_ip=None):
+    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP).
+
+    When dut_ip is provided, it is used as the SAN IP address instead of
+    duthost.mgmt_ip. This lets callers bind the cert to the address the
+    gnmi server is actually reachable at (e.g. when bound to a non-default VRF).
+    """
     ca_cert = _load_pem_certificate("gnmiCA.pem")
     ca_key = _load_pem_private_key("gnmiCA.key")
     csr = _load_pem_csr("gnmiserver.csr")
     not_before, not_after = _cert_validity_period(days)
     san_entries = [
         x509.DNSName("hostname.com"),
-        x509.IPAddress(ipaddress.ip_address(duthost.mgmt_ip)),
+        x509.IPAddress(ipaddress.ip_address(dut_ip or duthost.mgmt_ip)),
     ]
     cert = (
         x509.CertificateBuilder()
@@ -539,34 +502,26 @@ def gnmi_capabilities(duthost, localhost):
         return 0, output['stdout']
 
 
-def ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
+def ensure_gnmi_insecure_mode(duthost):
     """
-    Configure GNMI/TELEMETRY certs table in CONFIG_DB with empty cert fields.
+    Configure the GNMI|certs table in CONFIG_DB with empty cert fields.
     This causes the startup script to use --insecure (TLS with self-signed cert)
     instead of --noTLS (cleartext), improving security while maintaining test compatibility.
 
     Args:
         duthost: DUT host object
-        mode: GNMI_MODE uses GNMI|certs table; TELEMETRY_MODE uses TELEMETRY|certs
     """
-    if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
-    else:
-        table = "TELEMETRY|certs"
-
+    table = "GNMI|certs"
     logger.info(f"Configuring {table} with empty cert fields to enable --insecure mode")
     # Include ca_crt "" to avoid jq returning string "null" for missing key,
-    # which would cause telemetry startup script to pass --ca_crt null and block port binding.
+    # which would cause the gnmi startup script to pass --ca_crt null and block port binding.
     duthost.shell(f'sonic-db-cli CONFIG_DB hset "{table}" server_crt "" server_key "" ca_crt ""',
                   module_ignore_errors=True)
 
 
-def cleanup_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
+def cleanup_gnmi_insecure_mode(duthost):
     """Remove the empty cert config added by ensure_gnmi_insecure_mode."""
-    if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
-    else:
-        table = "TELEMETRY|certs"
+    table = "GNMI|certs"
 
     # Only remove if no real certs are configured
     result = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{table}" server_crt',

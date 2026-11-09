@@ -4,13 +4,13 @@ import time
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_helpers import get_dut_port_id
-from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
+from tests.common.ixia.common_helpers import pfc_class_enable_vector, \
     get_egress_lossless_buffer_size, get_ingress_lossless_buffer_size, \
     config_ingress_lossless_buffer_alpha, \
     find_buffer_profile, get_buffer_alpha, config_buffer_alpha, stop_pfcwd, disable_packet_aging
 from tests.common.ixia.port import select_ports, select_tx_port
 
-from abstract_open_traffic_generator.flow import TxRx, Flow, Header,\
+from abstract_open_traffic_generator.flow import TxRx, Flow, Header, \
     Size, Rate, Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern

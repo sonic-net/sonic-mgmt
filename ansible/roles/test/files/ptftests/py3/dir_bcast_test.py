@@ -27,7 +27,7 @@ import ptf.packet as scapy
 
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
-from ptf.testutils import test_params_get, simple_ip_packet, simple_udp_packet,\
+from ptf.testutils import test_params_get, simple_ip_packet, simple_udp_packet, \
     send_packet, count_matched_packets_all_ports
 from ipaddress import ip_network
 

@@ -6,6 +6,7 @@ import logging
 import natsort
 import random
 import six
+import re
 from collections import defaultdict
 from contextlib import contextmanager
 
@@ -22,6 +23,8 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -37,6 +40,27 @@ pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
+
+logger = logging.getLogger(__name__)
+allure.logger = logger
+
+added_routes = set()
+
+
+@pytest.fixture(scope='function', autouse=False)
+def clear_static_route(rand_selected_dut):
+    """Clear route configuration
+
+    Args:
+        rand_selected_dut (object): DUT object
+    """
+    try:
+        yield
+    finally:
+        for route in added_routes:
+            rand_selected_dut.shell('config route del prefix {} nexthop {}'.format(
+                route[0], route[1]), module_ignore_errors=True)
+        added_routes.clear()
 
 
 def is_dualtor(tbinfo):
@@ -579,13 +603,16 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
     Addresses issue: https://github.com/sonic-net/sonic-buildimage/issues/21423
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
-    prefix = "3.3.3.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:3::/64" if ipv6 else "3.3.3.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=1,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
@@ -604,13 +631,16 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
     4. Traffic continues to be forwarded across all paths after warmboot
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
-    prefix = "4.4.4.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:4::/64" if ipv6 else "4.4.4.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=3,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
@@ -629,6 +659,8 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
     3. Continue to forward traffic correctly after warmboot completes
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
     prefix = "2000:3::/64"
 
@@ -656,12 +688,13 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    prefix = "5.5.5.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:5::/64" if ipv6 else "5.5.5.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=2,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Perform config reload
         duthost.shell('config save -y')
         if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
@@ -944,3 +977,82 @@ def test_static_route_blackhole_removal_after_config_reload(rand_selected_dut, r
         remove_blackhole_route(ipv4_prefix)
         remove_blackhole_route(ipv6_prefix)
         duthost.shell('config save -y')
+
+
+@pytest.mark.parametrize("ipv6", [False, True], ids=["ipv4", "ipv6"])
+def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route, tbinfo, ipv6):
+
+    def _get_bgp_neighbor_ip(duthost, ipv6):
+        """Get next hop from BGP neighbors
+
+        Args:
+            duthost (object): DUT object
+            ipv6 (bool): True if getting IPv6 nexthop
+
+        Returns:
+            str: Nexthop IP
+        """
+        if ipv6:
+            cmd = 'show ipv6 bgp summary'
+        else:
+            cmd = 'show ip bgp summary'
+        parse_result = duthost.show_and_parse(cmd)
+        if not parse_result:
+            return None
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']
+
+    def _add_route(duthost, prefix, nexthop):
+        """Add static route
+
+        Args:
+            duthost (object): DUT object
+            prefix (str): Route prefix
+            nexthop (str): Route nexthop
+        """
+        duthost.shell(
+            'config route add prefix {} nexthop {}'.format(prefix, nexthop))
+        added_routes.add((prefix, nexthop))
+
+    def _routes_from_swss_delta(delta):
+        """ROUTE_TABLE:<prefix> segments in delta order."""
+        return re.findall(r"ROUTE_TABLE:([^|]+)", delta)
+
+    """When adding N static routes, swss.rec delta must be exactly N non-empty lines of
+    ROUTE_TABLE|SET matching prefixes."""
+    if not ipv6 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Will not program IPv4 static route on IPv6-only topology")
+
+    duthost = rand_selected_dut
+    if ipv6:
+        prefixes = [f"2000:1:{i}::/64" for i in range(1, 3)]  # noqa: E231
+    else:
+        prefixes = [f"1.1.{i}.0/24" for i in range(1, 3)]
+    nexthop = _get_bgp_neighbor_ip(duthost, ipv6)
+    if not nexthop:
+        pytest.fail("No valid BGP neighbors found")
+    wait_time = 3
+
+    with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
+        mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
+        for p in prefixes:
+            _add_route(duthost, p, nexthop)
+
+    tail_offset = mark + 1
+    with allure.step("Wait then dump swss.rec incremental content"):
+        time.sleep(wait_time)
+        delta = duthost.shell(
+            f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
+
+        non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
+        logger.info(
+            f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
+
+        routes = _routes_from_swss_delta(delta)
+        pytest_assert(
+            set(routes) == set(prefixes),
+            f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
+        logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
+        logger.info(f"swss.rec delta raw:\n{delta}")  # noqa: E231

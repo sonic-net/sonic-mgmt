@@ -1,17 +1,15 @@
-class PortSpecError(ValueError):
-    """Raised for any invalid port specification."""
+"""Compatibility imports for the common port-attribute parser."""
 
+from tests.common.port_attributes.exceptions import (
+    AttributeMergeError,
+    DutInfoError,
+    PortSpecError,
+    TemplateValidationError,
+)
 
-"""Custom exceptions for transceiver onboarding infra."""
-
-
-class DutInfoError(Exception):
-    """Issues related to dut_info.json parsing or validation."""
-
-
-class AttributeMergeError(Exception):
-    """Raised when attribute merging encounters irrecoverable errors."""
-
-
-class TemplateValidationError(Exception):
-    """Raised for critical template validation failures (e.g., missing required attributes)."""
+__all__ = [
+    "AttributeMergeError",
+    "DutInfoError",
+    "PortSpecError",
+    "TemplateValidationError",
+]

@@ -40,7 +40,7 @@ class TestRedfishServiceRoot:
             "Expected Content-Type to contain 'application/json', got: {!r}".format(content_type)
         )
 
-    def test_service_root_fields(self, redfish_client):
+    def test_service_root_fields(self, redfish_client, bmc_exec):
         """
         Service root contains required fields.
 
@@ -61,7 +61,10 @@ class TestRedfishServiceRoot:
         assert_field_contains(body, "@odata.type", "ServiceRoot")
         assert_field_nonempty(body, "RedfishVersion")
         assert_field_nonempty(body, "UUID")
-        assert_field_equals(body, "Product", "SONiCBMC")
+        stdout, _, _ = bmc_exec("sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' mac")
+        mac = stdout.strip().lower()
+        expected = "SONiCBMC-{}".format(mac) if mac else "SONiCBMC"
+        assert_field_equals(body, "Product", expected)
 
         # Navigation links
         update_service_link = body.get("UpdateService", {}).get("@odata.id", "")

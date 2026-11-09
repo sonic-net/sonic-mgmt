@@ -27,6 +27,7 @@ def setup_multiple_vlans_and_teardown(request, rand_selected_dut, rand_unselecte
     first_vlan_info['dhcp_relay'] = running_config['DHCP_RELAY'].get(first_vlan_name, {}).get('dhcp_servers', [])
     first_vlan_info['dhcpv6_servers'] = running_config['VLAN'][first_vlan_name].get('dhcpv6_servers', [])
     first_vlan_info['dhcpv6_relay'] = running_config['DHCP_RELAY'].get(first_vlan_name, {}).get('dhcpv6_servers', [])
+    first_vlan_info['dhcpv4_relay'] = running_config.get('DHCPV4_RELAY', {}).get(first_vlan_name, {})
     disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
     connected_ptf_ports_idx = [interface for interface in
                                tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
@@ -69,6 +70,7 @@ def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_i
     sub_vlans_info, config_patch = [], []
     config_patch += remove_vlan_patch(vlan_name) \
         + remove_dhcpv6_relay_patch(vlan_name) \
+        + remove_dhcpv4_relay_patch(vlan_name, vlan_info.get('dhcpv4_relay', {})) \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv4']] \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv6']] \
         + [remove_vlan_member_patch(vlan_name, member)[0] for member in vlan_info['members']]
@@ -98,6 +100,7 @@ def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_i
         new_members_with_ptf_idx = info['members_with_ptf_idx']
         config_patch += add_vlan_patch(new_vlan_name, vlan_info['dhcp_servers'], vlan_info['dhcpv6_servers']) \
             + add_dhcpv6_relay_patch(new_vlan_name, vlan_info['dhcpv6_relay']) \
+            + add_dhcpv4_relay_patch(new_vlan_name, vlan_info.get('dhcpv4_relay', {})) \
             + add_vlan_ip_patch(new_vlan_name, new_interface_ipv4) \
             + add_vlan_ip_patch(new_vlan_name, new_interface_ipv6) \
             + [add_vlan_member_patch(new_vlan_name, member)[0] for member, _ in new_members_with_ptf_idx]
@@ -163,6 +166,27 @@ def remove_dhcpv6_relay_patch(vlan_name):
     patch = [{
         "op": "remove",
         "path": "/DHCP_RELAY/%s" % vlan_name
+    }]
+    return patch
+
+
+def add_dhcpv4_relay_patch(vlan_name, dhcpv4_relay_config):
+    if not dhcpv4_relay_config:
+        return []
+    patch = [{
+        "op": "add",
+        "path": "/DHCPV4_RELAY/%s" % vlan_name,
+        "value": dhcpv4_relay_config
+    }]
+    return patch
+
+
+def remove_dhcpv4_relay_patch(vlan_name, dhcpv4_relay_config):
+    if not dhcpv4_relay_config:
+        return []
+    patch = [{
+        "op": "remove",
+        "path": "/DHCPV4_RELAY/%s" % vlan_name
     }]
     return patch
 

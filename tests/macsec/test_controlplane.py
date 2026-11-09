@@ -5,7 +5,7 @@ import re
 
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
-from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session,\
+from tests.common.macsec.macsec_helper import check_wpa_supplicant_process, check_appl_db, check_mka_session, \
                            get_mka_session, get_sci, get_appl_db, get_ipnetns_prefix
 from tests.common.macsec.macsec_config_helper import setup_macsec_configuration, delete_macsec_profile
 from tests.common.macsec.macsec_platform_helper import get_platform, get_macsec_ifname
@@ -89,9 +89,11 @@ class TestControlPlane():
         duthost.command("rm {}".format(tmp_file))
 
     @pytest.mark.disable_loganalyzer
-    def test_profile_replace(self, duthost, ctrl_links,
+    def test_profile_replace(self, duthost, ctrl_links, port_profiles,
                              profile_name, default_priority, cipher_suite,
                              primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo, wait_mka_establish):
+        if port_profiles:
+            pytest.skip("Per-interface profile replacement tested in test_per_interface_profile")
         # Only pick one controlled link for profile replace test
         ctrl_link = dict([next(iter(ctrl_links.items()))])
         port_name, nbr = list(ctrl_link.items())[0]

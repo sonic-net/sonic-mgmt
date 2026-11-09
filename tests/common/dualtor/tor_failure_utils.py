@@ -7,6 +7,7 @@ Reboot a ToR
 """
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, \
                                 REBOOT_TYPE_COLD
+import json
 import ipaddress
 import pytest
 import logging
@@ -57,7 +58,25 @@ def shutdown_tor_heartbeat():
     yield shutdown_tor_heartbeat
 
     for duthost in torhost:
-        duthost.shell("systemctl start mux")
+        # `mux.service` has a strict systemd start rate-limit
+        # (StartLimitBurst=3 / StartLimitIntervalSec=1200). When multiple
+        # test cases in the same module run in sequence, the start budget
+        # can be exhausted and `systemctl start mux` fails with
+        # "start of the service was attempted too often". Detect that and
+        # recover with `systemctl reset-failed mux` followed by a retry.
+        try:
+            duthost.shell("systemctl start mux")
+        except Exception as e:
+            if "start of the service was attempted too often" in str(e):
+                logger.warning(
+                    "mux.service hit systemd start rate-limit on %s; "
+                    "running 'systemctl reset-failed mux' and retrying start",
+                    duthost.hostname,
+                )
+                duthost.shell("systemctl reset-failed mux")
+                duthost.shell("systemctl start mux")
+            else:
+                raise
         duthost.shell("systemctl enable mux")
 
 
@@ -163,9 +182,14 @@ def check_mux_feature(duthost):
     return "disabled" not in str(output)
 
 
+def get_container_status(duthost, container_name):
+    """Return Docker container state without using a Go template."""
+    output = duthost.shell("docker inspect --type container {}".format(container_name))["stdout"]
+    return json.loads(output)[0]["State"]["Status"]
+
+
 def check_mux_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
-    return "running" in str(output)
+    return get_container_status(duthost, "mux") == "running"
 
 
 @pytest.fixture
@@ -189,8 +213,7 @@ def wait_for_mux_container(duthost):
 
 
 def check_pmon_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' pmon")['stdout_lines']
-    return "running" in str(output)
+    return get_container_status(duthost, "pmon") == "running"
 
 
 @pytest.fixture

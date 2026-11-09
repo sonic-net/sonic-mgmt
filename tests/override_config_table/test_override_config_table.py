@@ -10,6 +10,10 @@ from tests.common.utilities import backup_config, restore_config, get_running_co
 from tests.common import mellanox_data
 from tests.common import broadcom_data
 
+# Tables known to be overriden in run-time config, which will appear different
+# if the golden config is overridden empty.
+GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT", "BGP_DEVICE_GLOBAL", "DNS_NAMESERVER",
+                             "MACSEC_PROFILE", "MUX_CABLE"]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -24,15 +28,17 @@ LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_image_version(duthost):
+def check_image_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Skips this test if the SONiC image installed on DUT is older than 202111
 
     Args:
-        duthost: DUT host object.
+        duthosts: DUT host objects.
+        enum_rand_one_per_hwsku_frontend_hostname: Selected frontend DUT hostname.
 
     Returns:
         None.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
@@ -63,7 +69,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True, override_config=True)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -84,32 +90,31 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
-def load_minigraph_with_golden_empty_input(duthost):
+def load_minigraph_with_golden_empty_input(duthost, wait_for_bgp):
     """Test Golden Config with empty input
     """
     initial_config = get_running_config(duthost)
 
     empty_input = {}
-    reload_minigraph_with_golden_config(duthost, empty_input)
+    reload_minigraph_with_golden_config(duthost, empty_input, wait_for_bgp=wait_for_bgp)
 
     current_config = get_running_config(duthost)
+    problem_tables = []
     for table in initial_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
 
         if table == "ACL_TABLE":
-            pytest_assert(
-                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
-                "empty input ACL_TABLE compare fail!"
-            )
+            if not compare_dicts_ignore_list_order(initial_config[table], current_config[table]):
+                problem_tables.append(table)
         else:
-            pytest_assert(
-                initial_config[table] == current_config[table],
-                "empty input compare fail! {}".format(table)
-            )
+            if not initial_config[table] == current_config[table]:
+                problem_tables.append(table)
+
+    pytest_assert(not problem_tables, "empty input compare fail: {}".format(problem_tables))
 
 
-def load_minigraph_with_golden_partial_config(duthost):
+def load_minigraph_with_golden_partial_config(duthost, wait_for_bgp):
     """Test Golden Config with partial config.
 
     Here we assume all config contain SYSLOG_SERVER table
@@ -120,7 +125,7 @@ def load_minigraph_with_golden_partial_config(duthost):
             "10.0.0.200": {}
         }
     }
-    reload_minigraph_with_golden_config(duthost, partial_config)
+    reload_minigraph_with_golden_config(duthost, partial_config, wait_for_bgp=wait_for_bgp)
 
     current_config = get_running_config(duthost)
     pytest_assert(
@@ -152,7 +157,7 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
             )
 
 
-def load_minigraph_with_golden_empty_table_removal(duthost):
+def load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp):
     """Test Golden Config with empty table removal.
 
     Here we assume all config contain SYSLOG_SERVER table
@@ -161,7 +166,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
         "SYSLOG_SERVER": {
         }
     }
-    reload_minigraph_with_golden_config(duthost, empty_table_removal)
+    reload_minigraph_with_golden_config(duthost, empty_table_removal, wait_for_bgp=wait_for_bgp)
 
     current_config = get_running_config(duthost)
     pytest_assert(
@@ -182,8 +187,11 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
         loganalyzer[duthost.hostname].expect_regex = []
         loganalyzer[duthost.hostname].ignore_regex = []
 
-    load_minigraph_with_golden_empty_input(duthost)
-    load_minigraph_with_golden_partial_config(duthost)
+    # CONFED BGP config will be lost during this test causing bgp sessions to not come up
+    wait_for_bgp = not duthost.get_bgp_confed_asn()
+
+    load_minigraph_with_golden_empty_input(duthost, wait_for_bgp)
+    load_minigraph_with_golden_partial_config(duthost, wait_for_bgp)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
-    load_minigraph_with_golden_empty_table_removal(duthost)
+    load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp)

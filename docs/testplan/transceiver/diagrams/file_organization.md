@@ -34,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_firmware_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -113,14 +122,24 @@ tests/transceiver/
 │
 ├── common/                                  # Shared modules across all transceiver test categories
 │   ├── __init__.py
+│   ├── attribute_helpers.py                 # Shared attribute constants and breakout lane resolution
 │   ├── health_checks.py                     # Per-test health: PID baseline/verify, log baseline/scan, core file check
 │   ├── prerequisites.py                     # Cross-category prerequisite logic: presence check, gold FW check,
 │   │                                        #   link-up check — called by conftest.py session fixtures
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
-│   └── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
+│   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
+│   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
+│   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
+│   ├── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
+│   └── topology.py                          # ASIC-scoped same-DUT/cross-DUT peer resolution
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -169,10 +188,8 @@ tests/transceiver/
 │   ├── process_restart/
 │   │   ├── __init__.py
 │   │   ├── conftest.py                      # Overrides per-test health check: expects PID changes
-│   │   ├── test_xcvrd_restart.py            # TC 1-3: xcvrd restart tests
-│   │   ├── test_pmon_restart.py             # TC 4: pmon docker restart
-│   │   ├── test_swss_restart.py             # TC 5: swss docker restart
-│   │   └── test_syncd_restart.py            # TC 6: syncd process restart
+│   │   └── test_processes_restart.py        # TC 1-6: xcvrd/pmon/swss/syncd
+│   │                                        #   restart + xcvrd crash tests
 │   │
 │   ├── recovery/
 │   │   ├── __init__.py
@@ -204,6 +221,17 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
+├── oir/
+│   ├── __init__.py
+│   ├── conftest.py                          # OIR fixtures; autouse fixture requests presence_verified and
+│   │                                        #   links_verified from top-level conftest.py. Physical OIR and
+│   │                                        #   remote reseat fixtures (ports under test, teardown restoration)
+│   │                                        #   are opted into by their test module.
+│   ├── oir_helpers.py                       # Physical OIR and remote reseat operations, and the OIR
+│   │                                        #   verification primitives both halves share
+│   ├── test_physical_oir.py                 # Physical OIR TC 1-6
+│   └── test_remote_reseat.py                # Remote reseat TC 1-2 (also requests gold_fw_verified)
+│
 ├── cdb_firmware_upgrade/
 │   ├── __init__.py
 │   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
@@ -220,8 +248,11 @@ tests/transceiver/
 │
 ├── vdm/
 │   ├── __init__.py
-│   ├── conftest.py                          # VDM-specific fixtures
-│   └── test_vdm.py                          # VDM specific test cases
+│   ├── conftest.py                          # VDM-capable primary/non-primary port selection; autouse fixture
+│   │                                        #   requests presence_verified, gold_fw_verified, links_verified
+│   │                                        #   from top-level conftest.py and checks DOM/VDM polling
+│   ├── vdm_helpers.py                       # VDM field planning, namespace-batched reads, and availability checks
+│   └── test_vdm_availability.py             # Basic TC 1: VDM data availability and primary-only publication
 │
 └── pm/
     ├── __init__.py
@@ -244,13 +275,13 @@ tests/transceiver/
 │  health_checks.py         │  │  eeprom/conftest.py  — requests links_   │
 │  prerequisites.py         │  │                        verified only     │
 │  verification.py          │  │                        (TC 1-2 own       │
-│                           │  │                        presence/gold_fw) │
-│  state_management.py      │  │  dom/conftest.py     — requests presence,│
-│  db_helpers.py            │  │                        gold_fw, links    │
+│  state_management.py      │  │                        presence/gold_fw) │
+│  db_helpers.py            │  │  dom/conftest.py     — requests presence,│
+│  dmesg_helpers.py         │  │                        gold_fw, links    │
 │  cli_helpers.py           │  │  system/conftest.py  — requests presence,│
-│                           │  │                        gold_fw, links    │
-│                           │  │  cdb_fw/conftest.py  — requests presence,│
-│                           │  │                        links             │
+│  cli_parser_helper.py     │  │                        gold_fw, links    │
+│  cmis_helper.py           │  │  cdb_fw/conftest.py  — requests presence,│
+│  eeprom_decode.py         │  │                        links             │
 └──────────┬────────────────┘  └──────────────────┬───────────────────────┘
            │ uses                                 │ uses
            ▼                                      ▼

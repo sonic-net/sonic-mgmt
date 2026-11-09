@@ -73,9 +73,16 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
             duthosts: list of DUTs.
            loganalyzer: Loganalyzer utility fixture
     """
-    # Determine which DUT hostname fixture is being used
+    # Determine which DUT hostname fixture is being used.
+    # Cluster tests: prefer downstream/context over selected_dut_hostname (pulled in
+    # by module autouse check_image_version but is not the GCU target).
     if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
         dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "port_speed_upgrade_context" in request.fixturenames:
+        ctx = request.getfixturevalue("port_speed_upgrade_context")
+        dut_hostname = ctx["enum_downstream_dut_hostname"]
+    elif "enum_downstream_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_downstream_dut_hostname")
     elif "selected_dut_hostname" in request.fixturenames:
         dut_hostname = request.getfixturevalue("selected_dut_hostname")
     elif "rand_one_dut_front_end_hostname" in request.fixturenames:
@@ -113,6 +120,15 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
+            # GCU tries several JsonPatch sortings when rolling back the ACL rule/mirror
+            # session/policer config added by test_monitor_config; some transient
+            # orderings apply the ACL rule removal before the mirror session removal
+            # (or vice versa), which orchagent logs as an ERR before the final,
+            # correctly-ordered patch converges to the expected state.
+            r".*ERR swss[0-9]*#orchagent.*activate: Mirror rule references mirror session "
+            r"\"mirror_session_dscp\" that does not exist yet.*",  # test_monitor_config
+            r".*ERR swss[0-9]*#orchagent.*add: Failed to create ACL rule RULE_1 "
+            r"in table EVERFLOW_DSCP.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation

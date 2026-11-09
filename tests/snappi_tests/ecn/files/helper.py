@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
      snappi_api                                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
-    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
+    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
     config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate, get_pfc_frame_count  # noqa: F401
 from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams

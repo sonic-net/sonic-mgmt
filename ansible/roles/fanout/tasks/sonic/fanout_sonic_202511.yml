@@ -52,41 +52,13 @@
   when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
 
 - name: Disable software control module function
-  block:
-    - name: Disable software control module function in SAI
-      lineinfile:
-        path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/sai.profile
-        line: 'SAI_INDEPENDENT_MODULE_MODE=1'
-        state: absent
-
-    - name: Check whether pmon_daemon_control.json exist
-      stat:
-        path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/pmon_daemon_control.json
-      register: pmon_daemon_control_json
-
-    - name: Skip transceiver cmis manager
-      lineinfile:
-        path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/pmon_daemon_control.json
-        regexp: '^(\s*"skip_xcvrd_cmis_mgr"\s*:\s*)(?:true|false)(,?)\s*$'
-        line: '\1true\2'
-        backrefs: yes
-      when: pmon_daemon_control_json.stat.exists
-
-    - name: Remove media setting file
-      file:
-        path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/media_settings.json
-        state: absent
-
-    - name: Remove optical setting file
-      file:
-        path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/optics_si_settings.json
-        state: absent
+  shell: cmis_host_mgmt.py --disable
   become: yes
   when: "'mellanox' in fanout_sonic_version.asic_type"
 
 - name: build fanout startup config
   template:
-    src: "sonic_deploy_202505.j2"
+    src: "sonic_deploy_202511.j2"
     dest: "/tmp/base_config.json"
 
 - name: generate config_db.json
@@ -203,3 +175,8 @@
             state: absent
           become: true
       when: lldp_container.stdout != "" and fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox']
+
+- name: Increase Redis busy threshold on 7215 fanouts
+  shell: docker exec database redis-cli CONFIG SET lua-time-limit 15000 && docker exec database redis-cli CONFIG REWRITE
+  become: yes
+  when: "'7215' in device_info[inventory_hostname]['HwSku']"

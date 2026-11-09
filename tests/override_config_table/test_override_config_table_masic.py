@@ -5,8 +5,14 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.common.utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
+from tests.common.utilities import backup_config, restore_config, get_running_config, \
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
+
+# Tables known to be overriden in run-time config, which will appear different
+# if the golden config is overridden empty.
+GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT", "BGP_DEVICE_GLOBAL", "DNS_NAMESERVER",
+                             "MACSEC_PROFILE", "MUX_CABLE"]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -58,7 +64,7 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, override_config=True)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -82,37 +88,53 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     config_reload(duthost, safe_reload=True)
 
 
-def load_minigraph_with_golden_empty_input(duthost):
-    """Test Golden Config with empty input
+def load_minigraph_with_golden_empty_input(duthost, wait_for_bgp):
+    """Compare an empty golden override against the plain minigraph baseline.
     """
+    # Setup applies the deployed golden config, including golden-only defaults.
+    config_reload(duthost, config_source="minigraph", safe_reload=True,
+                  override_config=False, wait_for_bgp=wait_for_bgp)
     initial_host_config = get_running_config(duthost)
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
-    reload_minigraph_with_golden_config(duthost, empty_input)
+
+    problem_tuples = []
+
+    reload_minigraph_with_golden_config(duthost, empty_input, wait_for_bgp=wait_for_bgp)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
     for table in initial_host_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
-        pytest_assert(
-            initial_host_config[table] == host_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_host_config[table],
+                                                   host_current_config[table]):
+                problem_tuples.append((table, None))
+        else:
+            if not initial_host_config[table] == host_current_config[table]:
+                problem_tuples.append((table, None))
 
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
-        pytest_assert(
-            initial_asic0_config[table] == asic0_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_asic0_config[table],
+                                                   asic0_current_config[table]):
+                problem_tuples.append((table, "asic0"))
+        else:
+            if not initial_asic0_config[table] == asic0_current_config[table]:
+                problem_tuples.append((table, "asic0"))
+
+    pytest_assert(not problem_tuples, "empty input compare fail: {}".format(problem_tuples))
 
 
-def load_minigraph_with_golden_partial_config(duthost):
+def load_minigraph_with_golden_partial_config(duthost, wait_for_bgp):
     """Test Golden Config with partial config.
 
     Here we assume all config contain TELEMETRY table
@@ -139,7 +161,7 @@ def load_minigraph_with_golden_partial_config(duthost):
             },
         }
     }
-    reload_minigraph_with_golden_config(duthost, partial_config)
+    reload_minigraph_with_golden_config(duthost, partial_config, wait_for_bgp=wait_for_bgp)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
@@ -154,7 +176,7 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_empty_table_removal(duthost):
+def load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp):
     """Test Golden Config with empty table removal.
 
     Here we assume all config contain FEATURE table
@@ -167,7 +189,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
             "TELEMETRY": {}
         }
     }
-    reload_minigraph_with_golden_config(duthost, empty_table_removal)
+    reload_minigraph_with_golden_config(duthost, empty_table_removal, wait_for_bgp=wait_for_bgp)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
@@ -204,9 +226,11 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_ran
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
     topo_type = tbinfo["topo"]["type"]
+    # CONFED BGP config will be lost during this test causing bgp sessions to not come up
+    wait_for_bgp = not duthost.get_bgp_confed_asn()
     if topo_type == 't2' and not is_upstream_t2_dut(duthost, tbinfo):
         # Skip empty golden-config testing on upstream linecards,
         # since the handling of empty golden config doesn't work on upstream linecards
-        load_minigraph_with_golden_empty_input(duthost)
-    load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_empty_table_removal(duthost)
+        load_minigraph_with_golden_empty_input(duthost, wait_for_bgp)
+    load_minigraph_with_golden_partial_config(duthost, wait_for_bgp)
+    load_minigraph_with_golden_empty_table_removal(duthost, wait_for_bgp)

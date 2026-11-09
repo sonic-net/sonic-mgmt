@@ -620,7 +620,7 @@ class Vxlan(BaseTest):
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
-            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac,\
+            arg = self.nr, nr_rcvd, str(net_port), str(acc_port), src_mac, dst_mac, \
                 test['src_ip'], ip_dst, inner_src_mac, inner_dst_mac, inner_src_ip, inner_dst_ip, test['vni']
             out = "sent = %d rcvd = %d | src_port=%s dst_port=%s | src_mac=%s dst_mac=%s "\
                 "src_ip=%s dst_ip=%s | Inner: src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s vni=%s" % arg

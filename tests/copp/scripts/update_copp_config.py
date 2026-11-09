@@ -83,21 +83,24 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
-            # For queue4_group3, use the default value in copp
+            # For queue4_group3 and queue3_group1, use the default value in copp
             # configuration as this is lower than 600 PPS
-            if tg == "queue4_group3":
+            if tg in ("queue4_group3", "queue3_group1"):
                 if asic_type == "cisco-8000":
-                    group_config["cir"] = "400"
-                    group_config["cbs"] = "400"
+                    group_config["cir"] = "600"
+                    group_config["cbs"] = "600"
                 else:
                     continue
             else:
                 # queue1_group3 is used by neighbor_miss trap.
                 # test_copp.py tests the neighbor_miss trap with default CBS/CIR
                 # values on platforms that support it.
-                # The default value is 200 PPS for queue1_group3
+                # Cisco-8000 HW policer granularity requires CIR=600 for accurate metering.
                 if tg == "queue1_group3":
                     if neighbor_miss_trap_supported:
+                        if asic_type == "cisco-8000":
+                            group_config["cir"] = "600"
+                            group_config["cbs"] = "600"
                         continue
                 if "cir" in group_config:
                     group_config["cir"] = pps_limit

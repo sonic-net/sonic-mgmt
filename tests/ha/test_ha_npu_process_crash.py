@@ -25,7 +25,7 @@ import ptf.testutils as testutils
 import pytest
 
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.common.utilities import wait_until, InterruptableThread
 from tests.ha.ha_utils import verify_ha_state
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config
@@ -226,8 +226,7 @@ class TestNpuProcessCrash:
         )
 
         # Wait for both DUTs to reach their initial expected HA states before
-        # the crash. Both DUTs show "active" in local_acked_asic_ha_state
-        # because the DPU HA dataplane operates in active/active mode.
+        # the crash.
         logger.info("Waiting for initial HA states to stabilize before crash")
         verify_ha_state_converged(
             crash_duthost, crash_scope_key, expected_ha_state_after_crash
@@ -237,7 +236,7 @@ class TestNpuProcessCrash:
         )
         logger.info("Initial HA states confirmed")
 
-        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan")
+        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan", tcp_flag_syn=True)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pl_config[LOCAL_PTF_INTF], send_pkt, count=1)
         testutils.verify_packet_any_port(
@@ -460,7 +459,8 @@ class TestNpuProcessCrash:
         localhost, ptfhost,
         activate_dash_ha_from_json,
         primary_vdpu_key,
-        standby_vdpu_key
+        standby_vdpu_key,
+        ha_owner
     ):
         self._run(
             process_name=process_name, container=container,
@@ -469,7 +469,7 @@ class TestNpuProcessCrash:
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify="active" if ha_owner == "dpu" else "standby",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0, duthosts=duthosts,
             localhost=localhost, ptfhost=ptfhost,
@@ -484,6 +484,7 @@ class TestNpuProcessCrash:
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
         activate_dash_ha_from_json,
+        ha_owner
     ):
         self._run(
             process_name=process_name, container=container,
@@ -492,7 +493,7 @@ class TestNpuProcessCrash:
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify="active" if ha_owner == "dpu" else "standby",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1, duthosts=duthosts,
             localhost=localhost, ptfhost=ptfhost,
@@ -507,12 +508,13 @@ class TestNpuProcessCrash:
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
         activate_dash_ha_from_json,
+        ha_owner
     ):
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash="active" if ha_owner == "dpu" else "standby",
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
@@ -530,12 +532,13 @@ class TestNpuProcessCrash:
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
         activate_dash_ha_from_json,
+        ha_owner
     ):
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash="active" if ha_owner == "dpu" else "standby",
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
