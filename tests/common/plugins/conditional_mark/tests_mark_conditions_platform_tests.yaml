@@ -1085,6 +1085,7 @@ platform_tests/cli/test_show_platform.py::test_show_platform_current:
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True and release in ['201911']"
       - "'bmc' in topo_type"
@@ -1393,7 +1394,6 @@ platform_tests/test_advanced_reboot.py:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
-      - "'isolated' in topo_name"
       - "'f2' in topo_name"
       - "topo_type not in ['t0','t0-sonic']"
 
@@ -1414,7 +1414,6 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
       - "https://github.com/sonic-net/sonic-mgmt/issues/6794"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
-      - "'isolated' in topo_name"
       - "'f2' in topo_name"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
@@ -1423,7 +1422,6 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
-      - "'isolated' in topo_name"
       - "is_smartswitch==True"
       - "'f2' in topo_name"
 
@@ -1433,7 +1431,6 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
-      - "'isolated' in topo_name"
       - "'f2' in topo_name"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
@@ -1442,7 +1439,6 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
-      - "'isolated' in topo_name"
       - "'f2' in topo_name"
       - "is_smartswitch==True"
 
@@ -1475,7 +1471,6 @@ platform_tests/test_cont_warm_reboot.py:
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
       - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
       - "is_smartswitch==True"
@@ -1657,7 +1652,6 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'c0']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
-      - "'isolated' in topo_name"
       - "'f2' in topo_name"
       - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
   xfail:

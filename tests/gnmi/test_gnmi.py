@@ -1,13 +1,14 @@
 import json
 import logging
 import os
-import random
 import re
 import threading
 import time
 import uuid
-from contextlib import ExitStack, closing
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import replace
+from datetime import timedelta
 
 import grpc
 import pytest
@@ -19,6 +20,7 @@ from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     gnmi_tls,
 )
 from tests.common.helpers import gnmi_cli_helpers as helper
+from tests.common.helpers.dut_utils import creds_on_dut
 from tests.common.helpers.gnmi_connection import (
     build_native_set_request,
     gnmi_connection,
@@ -29,7 +31,7 @@ from tests.common.helpers.gnmi_utils import (
 )
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.pygnmi_client import Encoding, PygnmiClient, StreamMode
-from tests.common.utilities import wait_until
+from tests.common.utilities import paramiko_ssh, wait_until
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -201,8 +203,10 @@ def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
 
-    interval_ms = 5000  # 5 second interval
+    interval = timedelta(seconds=1)
+    min_gap, max_gap = interval - timedelta(milliseconds=500), interval * 2
     count = 5
+    timeout = max_gap * count + timedelta(seconds=15)
     client = gnmi_tls.pygnmi_client
 
     def validates_subscribe_sample(output):
@@ -211,6 +215,13 @@ def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
         respCnt = sum(bool(response.get("update", {}).get("update")) for response in output)
         assert respCnt == count, f"expected {count} update responses, got {respCnt}"
         assert output[0].get("sync_response"), "Initial SAMPLE response did not synchronize"
+        assert not any(response.get("sync_response") for response in output[1:])
+        updates = [response["update"] for response in output if "update" in response]
+        gaps = [
+            timedelta(seconds=(later["timestamp"] - earlier["timestamp"]) / 1e9)
+            for earlier, later in zip(updates[1:], updates[2:])
+        ]
+        assert all(min_gap <= gap <= max_gap for gap in gaps), f"Unexpected sample gaps: {gaps}"
 
         logger.info(f"Successfully received exactly {count} gNMI subscribe sample responses")
 
@@ -218,9 +229,9 @@ def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
         stdout_msg = list(
             client.subscribe(
                 ["/PSU_INFO"],
-                sample_interval=interval_ms / 1000,
+                sample_interval=interval.total_seconds(),
                 count=count,
-                collect_seconds=30,
+                collect_seconds=timeout.total_seconds(),
                 target="STATE_DB",
                 encoding=Encoding.JSON_IETF,
             )
@@ -232,9 +243,9 @@ def test_gnmi_subscribe_sample(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
         stdout_msg = list(
             client.subscribe(
                 ["/COUNTERS_DB/localhost/COUNTERS"],
-                sample_interval=interval_ms / 1000,
+                sample_interval=interval.total_seconds(),
                 count=count,
-                collect_seconds=30,
+                collect_seconds=timeout.total_seconds(),
                 prefix="sonic-db://",
                 encoding=Encoding.JSON_IETF,
             )
@@ -312,43 +323,41 @@ def test_sysuptime(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
 
 def test_on_change_updates(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     """
-    Verify GNMI subscribe ON_CHANGE on STATE_DB NEIGH_STATE_TABLE reports a BGP
-    neighbor state change.
+    Verify GNMI subscribe ON_CHANGE reports a change made with a gNMI Set.
     """
     duthost = gnmi_tls.duthost
-    if duthost.is_supervisor_node():
-        pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
-
-    ns = random.choice(duthost.get_asic_namespace_list())
-    bgp_neighbor = random.choice(list(duthost.get_bgp_neighbors(ns).keys()))
-    asic_id = duthost.get_asic_id_from_namespace(ns)
-    original_state = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)["bgpState"]
-    new_state = "Established" if original_state.lower() == "active" else "Active"
-
-    namespace_name = ns if ns else "localhost"
-    path_list = ["/sonic-db:STATE_DB/{}/NEIGH_STATE_TABLE".format(namespace_name)]
-
     client = gnmi_tls.pygnmi_client
+    table, key, field = "GNMI_ON_CHANGE_TEST", "test_key", "test_field"
+    set_path = f"sonic-db:APPL_DB/localhost/{table}/{key}"
+    subscribe_path = f"sonic-db:APPL_DB/localhost/_{table}/{key}"
+    value = f"value-{int(time.time())}"
+    mutating_client = PygnmiClient(
+        client.host,
+        client.port,
+        ca_cert=client.ca_cert,
+        client_cert=client.client_cert,
+        client_key=client.client_key,
+        connect=False,
+    )
+    timeout = timedelta(seconds=60)
+    others = []
+    msg = None
     try:
         with closing(
-            client.subscribe(path_list, stream_mode=StreamMode.ON_CHANGE, count=2, collect_seconds=60)
-        ) as subscription:
-            # The native client runs on the runner, not the PTF. Its initial
-            # synchronized response establishes readiness before changing state.
-            msg = [next(subscription)]
-            cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, new_state)
-            cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-            duthost.shell(cmd)
-            msg.extend(subscription)
+            client.subscribe(subscribe_path, stream_mode=StreamMode.ON_CHANGE, collect_seconds=timeout.total_seconds())
+        ) as notifications:
+            snapshot = next(notifications, None)
+            assert snapshot is not None, f"No initial ON_CHANGE snapshot for {subscribe_path} within {timeout}"
+            mutating_client.set(update=[(set_path, {field: value})])
+            for notification in notifications:
+                if value in str(notification):
+                    msg = notification
+                    break
+                others.append(notification)
     finally:
-        # Restore the original neighbor state after closing the subscription.
-        cmd = 'sonic-db-cli STATE_DB HSET "NEIGH_STATE_TABLE|{}" "state" {}'.format(bgp_neighbor, original_state)
-        cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-        duthost.shell(cmd)
-
-    message = json.dumps(msg)
-    assert message != "", "Did not get output from native on-change client"
-    assert bgp_neighbor in message, "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, message)
+        duthost.shell(f"sonic-db-cli APPL_DB DEL _{table}:{key} {table}_KEY_SET {table}_DEL_SET")
+    logger.info("ON_CHANGE notifications received before the expected one: %s", others)
+    assert msg is not None, f"No on-change update with {key} {field}={value} within {timeout}"
 
 
 def test_mem_spike(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
@@ -357,53 +366,31 @@ def test_mem_spike(rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     creates channels with the gnmi server.
     """
     duthost = gnmi_tls.duthost
-    request = gnmi_pb2.SubscribeRequest(
-        subscribe=gnmi_pb2.SubscriptionList(
-            prefix=gnmi_pb2.Path(target="STATE_DB"),
-            mode=gnmi_pb2.SubscriptionList.STREAM,
-            encoding=gnmi_pb2.JSON_IETF,
-            subscription=[
-                gnmi_pb2.Subscription(
-                    path=gnmi_path_generator("DOCKER_STATS"), mode=gnmi_pb2.SAMPLE, sample_interval=10_000_000_000
-                )
-            ],
-        )
-    )
-    stop_creating = threading.Event()
-    errors: list[Exception] = []
+    client = gnmi_tls.pygnmi_client
+    creds = creds_on_dut(duthost)
+    stop = threading.Event()
 
-    def client_worker():
-        try:
-            # Keep contexts alive across requests and through the measurement.
-            # This controls retention explicitly, unlike the old CLI's GC lifetime.
-            for _ in range(2000):
-                if stop_creating.is_set():
-                    break
-                _, client = connections.enter_context(gnmi_connection(gnmi_tls))
-                responses = client.Subscribe(iter([request]), timeout=30)
-                try:
-                    next(response for response in responses if response.HasField("update"))
-                finally:
-                    responses.cancel()
-        except Exception as error:
-            errors.append(error)
+    def open_connections():
+        for _ in range(2000):
+            if stop.is_set():
+                return
+            list(client.subscribe("DOCKER_STATS", target="STATE_DB", count=1))
 
-    with ExitStack() as connections:
-        client_thread = threading.Thread(target=client_worker)
-        client_thread.start()
+    # Preserve master's no-Ansible-fork memory observer while the channel is open.
+    with paramiko_ssh(
+        duthost.mgmt_ip, creds["sonicadmin_user"], creds["sonicadmin_password"]
+    ) as ssh, ThreadPoolExecutor(max_workers=1) as executor:
+        connections = executor.submit(open_connections)
         try:
             for _ in range(MEMORY_CHECKER_CYCLES):
-                ret = duthost.shell("python3 /usr/bin/memory_checker gnmi 419430400", module_ignore_errors=True)
-                assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
+                _, stdout, _ = ssh.exec_command("sudo python3 /usr/bin/memory_checker gnmi 419430400")
+                output = stdout.read().decode()
+                assert stdout.channel.recv_exit_status() == 0, f"Memory utilization has exceeded threshold: {output}"
                 time.sleep(MEMORY_CHECKER_WAIT)
         except BaseException:
-            stop_creating.set()
+            stop.set()
             raise
-        finally:
-            # Only release retained channels after the worker stops adding them.
-            client_thread.join()
-    if errors:
-        raise errors[0]
+        connections.result()
 
 
 def test_telemetry_show_non_get(rand_one_dut_hostname, gnmi_tls, skip_non_container_test):  # noqa: F811
