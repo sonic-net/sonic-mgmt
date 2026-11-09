@@ -165,6 +165,85 @@ receipts and both restoration-path receipts; its bundle SHA-256 is
 This qualifies the scoped tests under policy `1`. The DUT now has policy `2`
 again, so the deployment blocker for service-only OOM recovery remains.
 
+## Failure-hardening follow-up, 2026-11-09 UTC
+
+This follow-up supersedes the earlier statements that the BROKEN-lifetime
+campaign was unrun and that DLDD lacked bounded file samples, default Redis
+deadlines, default query timeouts, or an execution watchdog. The earlier
+kernel-panic result remains valid. **Host failure handling, native Go,
+corrected OpenConfig GET/ON_CHANGE, and the deployed Healthz RPC checks pass.
+Production OOM isolation remains blocked by the host kernel policy.**
+
+The deployed host source is
+`47527541f0d2f996249d95cd71d0d4af73c1c48d`, following bounded-failure commit
+`7679cad7e004f4647249daf3ef59bfe51d4f01d5`. All 37 installed DLDD Python
+module hashes match the final host commit; the 38 source members also include
+one JSON file. Four changed Python files were deployed atomically with backups.
+The native wheel build passed and 44 DLDD/Healthz members were verified; its
+SHA-256 is
+`8e3dd4da9d81dda4eeeda8f6e94f3da46db8742f5b07bb1df896776d19dd5863`.
+This was a source overlay and wheel verification, not a new SONiC image boot.
+
+The active gNMI container image is
+`sha256:62b580fd5baafdee609d6856803cec03da7b824584fd63941ea170cbe0a10832`.
+Its Linux ELF SHA-256 is
+`36a1f5000139630dfcdc6bacca779731ba8bacf409f9f34098146519ab437a1e`,
+built normally from gNMI `1f40bb832ffe37e6dcd4c4e77ed0e85a624bd7b7` and
+management-common `2fb9a0ee73b977dee8324d88abdb33c6eb80fc2f` with full model
+generation. Current image model inputs and generated Go/schema compatibility
+were verified; the earlier reduced-model candidate was never deployed.
+
+| Area | Result and boundary |
+| --- | --- |
+| Scoped Python tests | 368 DLDD/Healthz tests passed locally in 42.28 seconds and on native DUT Python in 41.07 seconds. They retain mocked boundaries on the DUT. Five lifecycle cases passed again natively after test-only type refinements, in 19.347 seconds by JUnit. |
+| Private failure campaign | 19 groups passed: 16 actual-service/private-Redis groups plus direct Redis, emulated-I2C and file/durable-I/O component groups. Synthetic platform callbacks and a Healthz protocol double do not qualify production D-Bus, archives or hardware. |
+| I2C service path | A separate actual-service case passed source nonzero exit, timeout/recovery, peer progress, emulated local set and post-action recheck. Default command paths were bound to private tools; no physical I2C/ASIC write was performed. |
+| Process and admission failures | Disposable actual-service units passed native-GIL watchdog recovery, SIGSEGV restart, 120-second monitor nonprogress, restart limiting and TERM-ignoring child cleanup. Admission reached 32 tasks and 64 FDs and recovered through the same ActionRunner. The GIL watchdog used six seconds, stop timeout two seconds, and restart delay one second with a two-start limiter; these are explicit test overrides. No production crash was injected. |
+| Dynamic BROKEN lifetime | The earlier strict unclean-restart failure was reproduced and fixed. A four-child actual-service campaign sharing private Redis passed unclean same-generation BROKEN restoration before sampling, clean restart reevaluation, retained fault/action identity and new-checksum behavior. The strict campaign passed again against committed host `47527541`, in 15.478 seconds. |
+| Native Go | The full-model normal build passed. Focused native suites passed 18 fault/component-Healthz tests (56 including subtests), 52 Healthz/artifact/authorization tests (79 including subtests), and 51 Healthz/artifact tests with the race detector (78 including subtests). These are focused suites, not every translib/gNMI test. |
+| Keyed OpenConfig fault mapping | The request-bound-node defect was reproduced and fixed. Isolated binder/mapper/response tests passed 14 functions and 33 subcases, including five new red/green regressions. Actual keyed GET and synchronized ON_CHANGE then passed on the new image: initial `INACTIVE` at occurrence 4, sync, `ACTIVE` at occurrence 5, then `INACTIVE` still at occurrence 5, with stable origin `1794194416`. The original seven rules were restored. |
+| Deployed RPCs and artifact | All 23 TLS role/trust cases and 11 live Healthz metadata, acknowledgement, unsupported-operation and negative-path cases passed on the new image. The actual Artifact RPC streamed 50,347,739 bytes; reconstructed SHA-256 was `83e97027055f6a307ee36a004913a45a40f4c643a8ed158a2d146210f0921d8b`, exactly matching the archive. |
+
+The host changes add five-second Redis connect/read-inactivity waits, bounded
+file/sysfs raw samples, a 30-second default artifact-query timeout, bounded
+callback admission, monitor progress escalation and primary-loop-only systemd
+watchdog notification. The packaged watchdog is 120 seconds and uses SIGKILL.
+These do not impose a total Redis/DNS deadline, bound glob or kernel-driver
+execution, forcibly cancel vendor threads, stop uninterruptible kernel work,
+or roll back hardware effects. Generic Healthz remains a separate host service.
+
+The final static inventory covers 133 Python and four Go files; 108 Python
+scanner commands completed. Host production/test normal-mypy and Pyright
+finding multisets add no diagnostics versus the clean baseline. The scan is
+not clean: legacy correctness/security findings remain, and the campaign
+helper/test scope retains 42 normal-mypy and 115 Pyright findings
+(635 strict-mypy findings). Those helper findings are new, reviewed debt,
+not pre-existing production findings. The 26 probe regressions and seven
+deployment-helper mock tests pass with clean normal-mypy/Pyright scopes.
+Native Go vet retains 121 inherited diagnostics; every diagnosed file is
+byte-identical to its previously installed source, and no finding names a
+Healthz or fault-mapper implementation file. No static finding was suppressed.
+
+The intermediate production probes also retain their failures: P2 was blocked
+by the test unit's socket-group configuration; P3 rejected valid scalar
+TypedValue leaves because its verifier expected a JSON object. These were
+qualification-helper failures, not additional product defects. The corrected
+P4 probe passed the exact synchronized fault episode above.
+
+Final preservation checks retained all 146 prior events, 22 prior component
+aggregates and 20 archives, with 16 acknowledgements. The 156-event total has
+exactly ten additions for the controlled lab component, all without artifacts.
+The original seven rules and vendor code were restored; no fixture processes
+remained. Boot identity and OOM policy were unchanged.
+
+The earlier cgroup OOM panic under `vm.panic_on_oom=2` is still a production
+deployment blocker. Policy remains `2`; no OOM injection or kernel-policy
+change was part of this hardening follow-up. Retain the pre-fix failures and
+their passing replacements as separate evidence. Image branches pin the
+qualified producer commits; publication and CI status are tracked separately.
+Full SONiC image boot/upgrade, forwarding traffic, power-loss durability and a
+production soak are not established by these scoped results.
+
 ## Inputs and transport
 
 ### Automated pytest cases
