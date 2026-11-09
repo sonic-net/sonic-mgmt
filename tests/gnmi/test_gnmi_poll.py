@@ -4,8 +4,7 @@ import threading
 
 import pytest
 
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.pygnmi_client import Encoding, PygnmiClient, SubscribeMode
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import is_ipv6_only_topology, wait_until
 
 from .helper import gnmi_subscribe_polling_py
@@ -15,9 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures(
-        "setup_gnmi_ntp_client_server", "setup_gnmi_server", "setup_gnmi_rotated_server", "check_dut_timestamp"
-    ),
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "gnmi_tls", "check_dut_timestamp"),
 ]
 
 
@@ -32,9 +29,8 @@ def _verify_route_table_status(duthost, namespace, expected_status, is_ipv6_only
     return duthost.shell(cmd)["stdout"] == expected_status
 
 
-def _gnmi_client_connected(duthost, ptfhost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port), module_ignore_errors=True)
+def _gnmi_client_connected(gnmi_tls, ptfhost):  # noqa: F811
+    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(gnmi_tls.port), module_ignore_errors=True)
     return res["rc"] == 0
 
 
@@ -51,8 +47,8 @@ def _modify_fake_appdb_table(duthost, namespace, add=True, entries=1):
 
 
 def test_poll_mode_no_table_or_key(
-    duthosts, rand_one_dut_hostname, pygnmi_client: PygnmiClient, enum_rand_one_asic_index
-):
+    duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index, gnmi_tls  # noqa: F811
+):  # noqa: F811
     """
     POLL mode from APPL_DB querying a non-existent table and key returns sync
     responses and no error.
@@ -60,23 +56,27 @@ def test_poll_mode_no_table_or_key(
     duthost = duthosts[rand_one_dut_hostname]
     namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
     path_list = ["FAKE_APPL_DB_TABLE_0", "FAKE_APPL_DB_TABLE_1/fake_key1"]
-    target = "APPL_DB/{}".format(namespace) if namespace else "APPL_DB"
-    result = list(
-        pygnmi_client.subscribe(
-            path_list,
-            target=target,
-            mode=SubscribeMode.POLL,
-            encoding=Encoding.JSON_IETF,
-            poll_interval=5,
-            poll_count=5,
-        )
+    result = gnmi_subscribe_polling_py(
+        duthost,
+        ptfhost,
+        path_list,
+        target="APPL_DB",
+        polling_interval=5,
+        update_count=0,
+        max_sync_count=5,
+        timeout=30,
+        namespace=namespace,
+        tls=gnmi_tls,
     )
-    out = str(result)
-    sync_responses = [response for response in result if response.get("sync_response") is True]
+    assert result["rc"] == 0, "ptf poll command failed: {}".format(result)
+    out = str(result["stdout"])
+    sync_responses = re.findall("sync_response: true", out)
     assert len(sync_responses) == 5, "Expected 5 sync responses, got {}: {}".format(len(sync_responses), out)
 
 
-def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+def test_poll_mode_present_table_delayed_key(
+    duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index, gnmi_tls  # noqa: F811
+):  # noqa: F811
     """
     POLL an existing APPL_DB table returns data with no error; then re-poll while
     inserting a key mid-stream and confirm the new data appears.
@@ -96,6 +96,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, pt
         max_sync_count=-1,
         timeout=30,
         namespace=namespace,
+        tls=gnmi_tls,
     )
     assert result["rc"] == 0, "ptf poll command failed: {}".format(result)
     updates = re.findall("json_ietf_val", str(result["stdout"]))
@@ -114,12 +115,13 @@ def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, pt
             max_sync_count=-1,
             timeout=60,
             namespace=namespace,
+            tls=gnmi_tls,
         )
 
     client_thread = threading.Thread(target=poll_worker)
     client_thread.start()
     try:
-        wait_until(5, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+        wait_until(5, 1, 0, _gnmi_client_connected, gnmi_tls, ptfhost)
         _modify_fake_appdb_table(duthost, namespace, add=True, entries=2)  # add second table data
         client_thread.join(60)
     finally:
@@ -129,7 +131,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, pt
     assert re.findall("dummy1", out), "Missing update response for delayed key: {}".format(out)
 
 
-def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index, gnmi_tls):  # noqa: F811
     """
     POLL existing APPL_DB tables returns data with no error; then delete both
     mid-stream and confirm delete notifications.
@@ -149,6 +151,7 @@ def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_on
         max_sync_count=-1,
         timeout=30,
         namespace=namespace,
+        tls=gnmi_tls,
     )
     assert result["rc"] == 0, "ptf poll command failed: {}".format(result)
     updates = re.findall("json_ietf_val", str(result["stdout"]))
@@ -167,11 +170,12 @@ def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_on
             max_sync_count=15,
             timeout=60,
             namespace=namespace,
+            tls=gnmi_tls,
         )
 
     client_thread = threading.Thread(target=poll_worker)
     client_thread.start()
-    wait_until(5, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+    wait_until(5, 1, 0, _gnmi_client_connected, gnmi_tls, ptfhost)
     _modify_fake_appdb_table(duthost, namespace, add=False, entries=2)  # delete both tables
     client_thread.join(60)
 
@@ -180,7 +184,9 @@ def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_on
     assert len(deletes) == 2, "Expected 2 delete responses, got {}: {}".format(len(deletes), out)
 
 
-def test_poll_mode_default_route_supervisor(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+def test_poll_mode_default_route_supervisor(
+    duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index, gnmi_tls  # noqa: F811
+):  # noqa: F811
     """
     On a supervisor node, POLL an APPL_DB table plus the default route path returns
     data with no error.
@@ -202,6 +208,7 @@ def test_poll_mode_default_route_supervisor(duthosts, rand_one_dut_hostname, ptf
             max_sync_count=-1,
             timeout=30,
             namespace=namespace,
+            tls=gnmi_tls,
         )
         assert result["rc"] == 0, "ptf poll command failed: {}".format(result)
         updates = re.findall("json_ietf_val", str(result["stdout"]))
@@ -211,7 +218,13 @@ def test_poll_mode_default_route_supervisor(duthosts, rand_one_dut_hostname, ptf
 
 
 def test_poll_mode_default_route(
-    duthosts, rand_one_dut_hostname, ptfhost, enum_upstream_dut_hostname, tbinfo, enum_rand_one_asic_index
+    duthosts,
+    rand_one_dut_hostname,
+    ptfhost,
+    enum_upstream_dut_hostname,
+    tbinfo,
+    enum_rand_one_asic_index,
+    gnmi_tls,  # noqa: F811
 ):
     """
     POLL an APPL_DB table plus the default route: with the default route removed
@@ -247,6 +260,7 @@ def test_poll_mode_default_route(
             max_sync_count=-1,
             timeout=30,
             namespace=namespace,
+            tls=gnmi_tls,
         )
         assert result["rc"] == 0, "ptf poll command failed: {}".format(result)
         updates = re.findall("json_ietf_val", str(result["stdout"]))
@@ -265,11 +279,12 @@ def test_poll_mode_default_route(
                 max_sync_count=-1,
                 timeout=120,
                 namespace=namespace,
+                tls=gnmi_tls,
             )
 
         client_thread = threading.Thread(target=poll_worker)
         client_thread.start()
-        wait_until(5, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+        wait_until(5, 1, 0, _gnmi_client_connected, gnmi_tls, ptfhost)
         # Add the default route back.
         duthost.shell("config bgp startup all")
         assert wait_until(
