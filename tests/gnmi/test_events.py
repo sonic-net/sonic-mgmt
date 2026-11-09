@@ -7,6 +7,7 @@ import pytest
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,
 )
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.gnmi.events.event_utils import (
     event_publish_tool,
     read_event_counters,
@@ -18,7 +19,7 @@ from tests.gnmi.events.event_utils import (
 pytestmark = [
     pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "check_dut_timestamp"),
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "gnmi_tls", "check_dut_timestamp"),
 ]
 
 EVENTS_TESTS_PATH = "./gnmi/events"
