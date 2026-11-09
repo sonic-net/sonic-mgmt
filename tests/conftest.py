@@ -93,6 +93,7 @@ from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import patch_ansible_worker_process
 from tests.common.helpers.parallel import fix_logging_handler_fork_lock
+from tests.common.mellanox_data import is_issu_enabled, is_mellanox_device
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
 
 import tests.common.gnmi_setup as gnmi_setup
@@ -982,6 +983,28 @@ def is_macsec_enabled_for_test(duthosts):
     if request:
         macsec_en = request.config.getoption("--enable_macsec", default=False)
     return macsec_en
+
+
+@pytest.fixture(scope="module")
+def is_warm_reboot_enabled(rand_selected_dut):
+    """Return whether warm reboot is supported for the selected DUT.
+
+    Non-Mellanox devices are treated as supported. Mellanox devices require
+    ISSU to be enabled; otherwise warm reboot is not supported.
+    """
+    if is_mellanox_device(rand_selected_dut):
+        return is_issu_enabled(rand_selected_dut)
+    else:
+        return True
+
+
+@pytest.fixture(scope="module")
+def skip_if_warm_reboot_unsupported(is_warm_reboot_enabled):
+    """
+    Skip the test when warm reboot is unsupported (ISSU disabled on Mellanox).
+    """
+    if not is_warm_reboot_enabled:
+        pytest.skip("Warm reboot unsupported (ISSU disabled)")
 
 
 # Make sure in same test module, always use same random DUT

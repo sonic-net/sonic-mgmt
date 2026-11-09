@@ -6,7 +6,10 @@ from tests.common.fixtures.conn_graph_facts import (        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.usefixtures("skip_if_warm_reboot_unsupported"),
+]
 
 
 @pytest.mark.disable_loganalyzer
