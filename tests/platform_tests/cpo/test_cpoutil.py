@@ -276,9 +276,17 @@ def test_cpoutil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, c
 
 
 def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports):
-    """Check DOM structure and read status without asserting identity values."""
+    """Check public info/monitor/threshold fields without matching identity values."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     records = run_cpoutil(duthost, "show interface dom")["dom"]
+    # Text labels shared by public OE/ELS APIs. Check their presence, not a
+    # particular identifier/revision, sensor reading or hardware threshold.
+    common_fields = {
+        "info": {"Identifier", "Identifier Abbreviation", "Hardware Revision", "CMIS Revision"},
+        "dom": {"Temperature", "Vcc"},
+        "thresholds": {"TempHighAlarm", "TempLowAlarm", "TempHighWarning", "TempLowWarning",
+                       "VccHighAlarm", "VccLowAlarm", "VccHighWarning", "VccLowWarning"},
+    }
     for port in connected_cpo_ports:
         record = records[port]
         assert record["present"] is True, "DOM reports an absent port: " + port
@@ -288,6 +296,10 @@ def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connec
             assert record["fields"][endpoint] > 0, "DOM endpoint has no displayed fields: " + endpoint
             assert record["monitors"][endpoint] and record["thresholds"][endpoint], \
                 "DOM monitor/threshold headings are missing: " + endpoint
+            for section, required in common_fields.items():
+                missing = required - set(record["common_fields"][endpoint][section])
+                assert not missing, "Missing DOM fields for {} {} {}: {}".format(
+                    port, endpoint, section, sorted(missing))
 
 
 @pytest.mark.parametrize("target", ("oe", "els"))

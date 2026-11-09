@@ -17,6 +17,12 @@ TABLE_FIELDS = {
 }
 DIAGNOSTICS = ("not implemented", "invalid", "failed", "traceback", "no such command", "no such option",
                "missing option", "missing argument", "requires an argument", "must be supplied together")
+DOM_COMMON_FIELDS = {
+    "info": {"Identifier", "Identifier Abbreviation", "Hardware Revision", "CMIS Revision"},
+    "dom": {"Temperature", "Vcc"},
+    "thresholds": {"TempHighAlarm", "TempLowAlarm", "TempHighWarning", "TempLowWarning",
+                   "VccHighAlarm", "VccLowAlarm", "VccHighWarning", "VccLowWarning"},
+}
 
 
 def table_summary(output):
@@ -122,31 +128,42 @@ def table_summary(output):
 
 
 def dom_summary(output):
-    """Keep presence, read-error flags and section/field counts, never DOM values."""
+    """Keep public field names by section and read flags, never DOM/identity values."""
     records = {}
-    current, endpoint = None, None
+    current, endpoint, section = None, None, None
     for line in output.splitlines():
         match = re.fullmatch(r"(Ethernet\S+): CPO EEPROM (not )?detected", line)
         if match:
-            current, endpoint = match[1], None
+            current, endpoint, section = match[1], None, None
             if current in records:
                 raise ValueError("Duplicate DOM interface")
             records[current] = {"present": not bool(match[2]), "sections": [], "read_errors": False,
                                 "fields": {"oe": 0, "els": 0}, "monitors": {"oe": False, "els": False},
-                                "thresholds": {"oe": False, "els": False}}
+                                "thresholds": {"oe": False, "els": False},
+                                "common_fields": {kind: {part: [] for part in DOM_COMMON_FIELDS}
+                                                  for kind in ("oe", "els")}}
         elif current:
             label = line.strip()
             if label.startswith("Read errors:"):
                 records[current]["read_errors"] = True
             elif label in ("OE:", "ELS:"):
                 endpoint = label[:-1].lower()
+                section = "info"  # Info precedes the monitor/threshold headings.
                 records[current]["sections"].append(endpoint)
             elif endpoint and label in ("ChannelMonitorValues:", "ModuleMonitorValues:", "MonitorValues:"):
+                section = "dom"
                 records[current]["monitors"][endpoint] = True
-            elif endpoint and label in ("ChannelThresholdValues:", "ModuleThresholdValues:", "ThresholdValues:"):
+            elif endpoint and label in ("ChannelThresholdValues:", "ModuleThresholdValues:", "ThresholdValues:",
+                                        "CMISChannelThresholdValues:"):
+                section = "thresholds"
                 records[current]["thresholds"][endpoint] = True
+            elif endpoint and label.endswith(":"):
+                section = None  # Additional/private sections cannot satisfy public fields.
             elif endpoint and re.match(r"\s{8,}\S.*:\s*\S", line):
                 records[current]["fields"][endpoint] += 1
+                field = label.split(":", 1)[0].strip()
+                if section and field in DOM_COMMON_FIELDS[section]:
+                    records[current]["common_fields"][endpoint][section].append(field)
     return records
 
 

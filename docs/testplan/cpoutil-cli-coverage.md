@@ -1,6 +1,6 @@
 # cpoutil basic command coverage
 
-Updated 2026-11-06. Contract: merged sonic-utilities #4864; lane-status uses
+Updated 2026-11-09. Contract: merged sonic-utilities #4864; lane-status uses
 sonic-utilities #5012 at `8383e122ba046346dd3fc1fc98dfbda364d181f6`.
 There are 15 cases; this is not exhaustive command/argument acceptance.
 
@@ -8,7 +8,7 @@ There are 15 cases; this is not exhaustive command/argument acceptance.
 | --- | --- | --- |
 | show interface map | test_cpoutil_map | rc=0, headers/connected-port rows, configured OE/ELS pair and OE bank, current PORT lanes; exact laser set when mapped, unresolved placeholder allowed without precise laser mapping |
 | show interface presence | test_cpoutil_presence | Every connected CPO interface present; absent means failure |
-| show interface dom | test_cpoutil_dom | Detected, no Read errors, OE/ELS sections, displayed fields and monitor/threshold headings |
+| show interface dom | test_cpoutil_dom | Detected, no Read errors, OE/ELS sections; public identifier/revision fields, Temperature/Vcc and their eight alarm/warning thresholds in the correct groups |
 | show interface tx-disable | test_cpoutil_tx_disable_query | true/false text cells, PORT lane count and common columns/resources |
 | show interface speed application | test_cpoutil_application | Exact subport lane rows, populated configured/active cells and public AppSel/Host/Media display syntax or N/A |
 | show interface lane-status | test_cpoutil_lane_status | Exactly two public tables, headers/connected-port rows; every displayed connected-port OE lane must be DataPathActivated |
@@ -40,6 +40,13 @@ The default Application table renders selected descriptions rather than a
 standalone Advertisement dictionary. Only displayed lane/cell syntax is tested;
 the JSON-only advertisement fields are excluded. Raw DOM identities and cell
 descriptions never cross the DUT output filter.
+
+DOM requires Identifier, Identifier Abbreviation, Hardware Revision and CMIS
+Revision in info, Temperature/Vcc in monitors, and the four high/low
+alarm/warning thresholds for each in thresholds. It checks displayed field
+presence with a nonempty value, not a specific identity, sensor value or limit.
+Info N/A/Unknown placeholders are allowed. Missing required text fields fail;
+optional channel/laser fields and vendor-specific extensions are not required.
 
 Controls restore their original values and require previously up links to recover.
 Low-power leaves interface admin and DOM settings unchanged, following sfputil

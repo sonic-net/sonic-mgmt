@@ -33,7 +33,7 @@ separate from the cpoutil text output being tested.
 | --- | --- |
 | Map | Command success, common headers/connected-port rows; OE/ELS association and OE bank versus cpo.json, lanes versus current PORT; laser selection when precisely mapped |
 | Presence | Every connected CPO port must be present; absence fails |
-| DOM | Detected, no Read errors, OE/ELS sections with displayed fields and monitor/threshold headings |
+| DOM | Detected, no Read errors, OE/ELS sections and public info/monitor/threshold fields; no identity-value matching |
 | OE / ELS status | Exact ModuleReady state, finite temperature and On/Off low-power cells; actual OE/ELS headers/resources |
 | Application | Exact bank-local subport lane rows and nonempty configured/active cells; AppSel/Host/Media display syntax or N/A placeholders |
 | TX query | true/false lane cells, PORT lane count and public text columns |
@@ -63,6 +63,30 @@ The default table displays selected Application descriptions; the JSON-only
 Advertisement dictionary is outside this text test. It does not compare
 configured/active AppSel equality, advertisement membership,
 specific interface types or actual link speed.
+
+DOM checks a fixed public display baseline for both OE and ELS, separately for
+each connected port and endpoint:
+
+| Section | Required default-text fields |
+| --- | --- |
+| Info | Identifier (API type), Identifier Abbreviation, Hardware Revision, CMIS Revision |
+| DOM monitors | Temperature, Vcc |
+| Thresholds | TempHighAlarm, TempLowAlarm, TempHighWarning, TempLowWarning, VccHighAlarm, VccLowAlarm, VccHighWarning, VccLowWarning |
+
+Each required label must have a nonempty displayed value in the correct
+section. Public N/A/Unknown placeholders in info are allowed; no particular
+identifier, revision, sensor reading or threshold value is required. A required
+field missing from text fails, including one omitted by the CLI for unavailable
+monitor/threshold data. The case does not query another API/JSON result to
+infer fields missing from the display. This is a selected common baseline,
+not every public optional field or every hardware sensor capability.
+
+Vendor identity fields and private extensions are outside these assertions.
+Channel/laser counts, optical-power/bias fields and extra capability-dependent
+fields are not universally required. The filter returns only whitelisted public
+field names by endpoint/section, counts and read-status flags, never values or
+private labels. A field in another endpoint, info/monitor/threshold group or
+AdditionalValues cannot satisfy a missing required field.
 
 Lane status requires the exact public `DataPathActivated` state for every OE
 lane row displayed for connected CPO ports. Other states, empty/N/A and
