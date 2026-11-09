@@ -33,7 +33,6 @@ from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.common.reboot import REBOOT_TYPE_POWEROFF, reboot
 from tests.common.utilities import pdu_reboot
 from tests.common.platform.processes_utils import get_docker_started_at
-from tests.common.reboot import reboot
 from tests.transceiver.common import cli_helpers, db_helpers
 from tests.transceiver.common.health_checks import DEFAULT_MONITORED_PROCESSES
 
