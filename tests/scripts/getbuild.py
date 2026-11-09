@@ -110,9 +110,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 
     if content_type == 'image':
         if platform == 'vs':
-            if secure_boot:
-                filename = 'sonic-vs.img-uefi.img.gz'
-            elif num_asic == 6:
+            if num_asic == 6:
                 filename = 'sonic-6asic-vs.img.gz'
             elif num_asic == 4:
                 filename = 'sonic-4asic-vs.img.gz'
@@ -129,9 +127,6 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 
         url = url.replace('zip', 'file')
         url += "&subPath=%2Ftarget%2F{}".format(filename)
-        if secure_boot:
-            # Keep the standard local filename for existing VM image staging.
-            filename = 'sonic-vs.img.gz'
     else:
         filename = "{}.zip".format(platform)
 

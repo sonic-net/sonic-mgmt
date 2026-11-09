@@ -10,11 +10,11 @@ ARTIFACT_URL = 'https://dev.azure.com/example/artifacts?format=zip'
 
 
 class GetBuildSecureBootTest(unittest.TestCase):
-    def test_image_selection_preserves_the_local_staging_filename(self):
-        """Select UEFI only when requested, retaining the existing local image name."""
+    def test_image_selection_uses_standard_artifact_name(self):
+        """Use the published VS image name for regular and Secure Boot builds."""
         for secure_boot, remote_filename in (
             (False, 'sonic-vs.img.gz'),
-            (True, 'sonic-vs.img-uefi.img.gz'),
+            (True, 'sonic-vs.img.gz'),
         ):
             with self.subTest(secure_boot=secure_boot), \
                     mock.patch.object(getbuild, 'validate_url_or_abort'), \
