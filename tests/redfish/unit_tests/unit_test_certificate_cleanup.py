@@ -118,7 +118,7 @@ def test_frozen_artifact_tamper_cannot_become_expected(api, expected, leaf):
 
 
 def orchestration(api, ready):
-    api.update(pytest=pytest, pytest_assert=lambda ok, msg: require(ok, msg),
+    api.update(pytest=pytest, pytest_assert=require,
                contextmanager=contextmanager, logger=logging.getLogger("cleanup-test"), WATCHER="credentials-watcher")
     api["expected_ready"] = Mock(side_effect=ready)
     for name in ("restore_delivered_certs", "restore_expected_config", "supervisor", "recreate_container"):
@@ -180,12 +180,14 @@ def test_wrapper_cleanup_runs_after_body_failure(api, expected, index):
     generator = function(Mock(), {"cleanup_expected": expected})
     next(generator)
     # Pytest resumes yield fixtures normally even when a test call fails.
+    body = Mock(side_effect=RuntimeError("body failure"))
     with pytest.raises(RuntimeError, match="body failure"):
         try:
-            raise RuntimeError("body failure")
+            body()
         finally:
             with pytest.raises(StopIteration):
                 next(generator)
+    body.assert_called_once()
     assert ns["restore_delivered_certs"].call_count == 1
 
 
@@ -469,3 +471,137 @@ def test_inspection_unavailable_still_attempts_recovery_then_fails_verification(
     ns["restore_delivered_certs"].assert_called_once()
     ns["recreate_container"].assert_called_once()
     assert ns["_inspect"].call_count == 2  # initial check and mandatory postcheck
+
+
+@pytest.mark.parametrize("raw_port,listener,test_raw", [
+    ("8443", 443, "443"), ("443", 8443, "8443"), (None, 8443, "8443"),
+    (None, 443, None), ("", 443, ""), ("invalid", 443, "invalid"),
+    ("0", 443, "0"), ("65536", 443, "65536"), ("00443", 443, "00443"),
+    ("08443", 8443, "08443"),
+    (" 8443 ", 443, "443"), (" 443 ", 8443, "8443"),
+    (" 8443 ", 8443, " 8443 "), (" 443 ", 443, " 443 "),
+])
+@pytest.mark.parametrize("outcome", ["normal", "body_failure", "noncertificate", "setup_write_failure"])
+def test_provisioning_port_and_original_module_restoration(
+        api, tmp_path, monkeypatch, raw_port, listener, test_raw, outcome):
+    """Real fixture/snapshot/fallback/finalizer bodies; only hardware IO modeled.
+
+    This is explicit generator lifecycle coverage, not a claim about actual
+    pytest fixture scheduling (the owner-run standalone harness covers that).
+    """
+    import copy
+    import sys
+    from types import ModuleType
+
+    ns = orchestration(api, [])
+    ns["copy"] = copy
+    tree = ast.parse((ROOT / "unit_tests/unit_test_tls_lifecycle.py").read_text())
+    device_node = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Device")
+    exec(compile(ast.Module(body=[device_node], type_ignores=[]), "lifecycle-device", "exec"), ns)
+    device = ns["Device"](provisioned=True)
+    fields = device.config["REDFISH"]["config"]
+    if raw_port is None:
+        device.config["REDFISH"].pop("config")
+    else:
+        fields["port"] = raw_port
+    original = copy.deepcopy(device.config)
+    load(ROOT / "redfish_utils.py", ns, {"snapshot_redfish_config", "restore_redfish_config", "db_set",
+                                         "reset_to_bootstrap", "_bmcweb_running", "db_get", "configured_port"})
+    load(ROOT / "certificate_cleanup.py", ns, {"restore_expected_config", "expected_ready"})
+    finalizers = []
+    calls = []
+    native_shell = device.shell
+    live = {"port": listener}
+
+    def shell(command, **kwargs):
+        if command.startswith('sonic-db-cli CONFIG_DB hset "REDFISH|config" port'):
+            assert len(finalizers) == 1, "port must not change before original finalizer registration"
+            if outcome == "setup_write_failure":
+                raise RuntimeError("port write failed")
+        return native_shell(command, **kwargs)
+
+    device.shell = shell
+    source = tmp_path / "certs"
+    source.mkdir(mode=0o700)
+
+    def generate(directory, ip, client_cn):
+        for name in (ns["SERVER_CERT_NAME"], ns["SERVER_KEY_NAME"], ns["CA_CERT_NAME"],
+                     ns["CLIENT_CERT_NAME"], ns["CLIENT_KEY_NAME"]):
+            (directory / name).write_bytes(name.encode())
+            (directory / name).chmod(0o600)
+        return "generator"
+
+    helper = ModuleType("tests.redfish.certificate_cleanup")
+    helper.freeze_expected = ns["freeze_expected"]
+    for name in ("tests", "tests.redfish"):
+        if name not in sys.modules:
+            package = ModuleType(name)
+            package.__path__ = []
+            monkeypatch.setitem(sys.modules, name, package)
+    monkeypatch.setitem(sys.modules, "tests.redfish.certificate_cleanup", helper)
+    ns.update(pyrequire=require, back_up_device_state=Mock(return_value=[]), build_cert_chain=generate,
+              set_trusted_cnames=Mock(return_value=True), deliver_certs=Mock(),
+              wait_for_staging=Mock(return_value=True),
+              cert_status=Mock(return_value=""), listening_port=lambda dut: live["port"])
+    ns["ssl"] = SimpleNamespace(PEM_cert_to_DER_cert=lambda value: b"server-DER")
+    load(ROOT / "conftest.py", ns, {"redfish_port", "bmc_tls_certs"})
+    module = "test_redfish_chassis" if outcome == "noncertificate" else "test_redfish_certificates"
+    request = SimpleNamespace(module=SimpleNamespace(__name__=module), addfinalizer=finalizers.append)
+    selected = ns["redfish_port"].__wrapped__(device, None)
+    generator = ns["bmc_tls_certs"].__wrapped__(
+        request, device, "192.0.2.1", None, None, selected, SimpleNamespace(mktemp=lambda name: source))
+    mismatch = test_raw != raw_port
+    if outcome == "setup_write_failure" and mismatch:
+        with pytest.raises(RuntimeError, match="port write failed"):
+            next(generator)
+    else:
+        certs = next(generator)
+        if outcome == "noncertificate":
+            assert "cleanup_expected" not in certs
+            assert device.config["REDFISH"].get("config", {}).get("port") == raw_port
+        else:
+            frozen = certs["cleanup_expected"]
+            assert json.loads(frozen["remote"])["port"] == test_raw
+            assert frozen["port"] == selected == listener
+            assert device.config["REDFISH"].get("config", {}).get("port") == test_raw
+            writes = [c for c in device.events if c.startswith('sonic-db-cli CONFIG_DB hset "REDFISH|config"')]
+            assert len(writes) == int(mismatch)
+
+            def inspect(dut, expectation):
+                return device.config["REDFISH"].get("config", {}).get("port") == expectation["port"]
+
+            def restart(dut):
+                live["port"] = ns["configured_port"](dut)
+                calls.append(live["port"])
+                return True
+
+            ns.update(_inspect=inspect, restart_service=restart,
+                      privileged_ready=lambda host, expectation: live["port"] == expectation["port"])
+            cleanup = ns["provisioned_on_session_port"].__wrapped__(device, certs)
+            next(cleanup)
+            # A dirty body forces the real configuration fallback and modeled
+            # restart to consume CONFIG_DB, then actual expected_ready compares
+            # it with the original selected endpoint. This catches the review bug.
+            device.config["REDFISH"].setdefault("config", {})["port"] = "9443"
+            body = Mock(side_effect=RuntimeError("body failure"))
+            if outcome == "body_failure":
+                with pytest.raises(RuntimeError, match="body failure"):
+                    try:
+                        body()
+                    finally:
+                        with pytest.raises(StopIteration):
+                            next(cleanup)
+                body.assert_called_once()
+            else:
+                with pytest.raises(StopIteration):
+                    next(cleanup)
+            assert calls == [listener]
+            assert live["port"] == selected
+            assert device.config["REDFISH"].get("config", {}).get("port") == test_raw
+        with pytest.raises(StopIteration):
+            next(generator)
+    # Execute the actual registered module-original restore, including its
+    # restore_redfish_config writes, not a replacement snapshot assignment.
+    for finalize in reversed(finalizers):
+        finalize()
+    assert device.config == original

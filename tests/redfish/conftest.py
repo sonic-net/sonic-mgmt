@@ -19,12 +19,14 @@ from tests.redfish.redfish_utils import (
     configured_port,
     db_set,
     deliver_certs,
+    DEFAULT_PORT,
     DELIVERED_CA_CRT,
     DELIVERED_SERVER_CRT,
     DELIVERED_SERVER_KEY,
     DELIVERY_DIR,
     listening_port,
     REDFISH_CERTS_TABLE,
+    REDFISH_CONFIG_TABLE,
     REDFISH_ROOT,
     redfish_url,
     RedfishClient,
@@ -192,6 +194,18 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         reset_to_bootstrap(bmc_duthost, snapshot, saved)
     request.addfinalizer(restore)
 
+    certificate_module = request.module.__name__.endswith("test_redfish_certificates")
+    if certificate_module:
+        # The live listener can differ from a pending CONFIG_DB port. Keep
+        # future cleanup restarts on the selected test endpoint; the untouched
+        # snapshot above remains the module-original restoration target.
+        cleanup_port = snapshot[REDFISH_CONFIG_TABLE, "port"]
+        value = (cleanup_port or "").strip()  # Match configured_port/db_get parsing, not stored bytes.
+        effective_port = int(value) if value.isdigit() and 1 <= int(value) <= 65535 else DEFAULT_PORT
+        if effective_port != redfish_port:
+            cleanup_port = str(redfish_port)
+            db_set(bmc_duthost, "CONFIG_DB", REDFISH_CONFIG_TABLE, port=cleanup_port)
+
     cert_dir = tmp_path_factory.mktemp("bmc_certs")
     logger.info("Generating TLS certificates in {}".format(cert_dir))
 
@@ -228,8 +242,8 @@ def bmc_tls_certs(request, bmc_duthost, bmc_ip, bmc_clock_in_sync, redfish_featu
         "port": redfish_port,
     }
 
-    if request.module.__name__.endswith("test_redfish_certificates"):
+    if certificate_module:
         from tests.redfish.certificate_cleanup import freeze_expected
         certs["cleanup_expected"] = freeze_expected(
-            certs, cert_dir / "cleanup-original", snapshot["REDFISH|config", "port"])
+            certs, cert_dir / "cleanup-original", cleanup_port)
     yield certs

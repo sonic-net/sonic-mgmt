@@ -139,8 +139,9 @@ def _inspect(duthost, expected):
 def freeze_expected(certs, destination, raw_port):
     """Freeze generated artifacts once, BEFORE a test can rotate their sources.
 
-    raw_port comes from the existing pre-provisioning owned-config snapshot:
-    no additional container capability/setup gate and no dirty-case capture.
+    raw_port is the provisioning-time test configuration, reconciled to the
+    selected listener when necessary. The module-original snapshot is separate;
+    no additional container capability/setup gate or dirty-case capture.
     Canonical local artifacts are reconciled to this generation at cleanup,
     so later guard and unchanged-content cases see the same bytes as the DUT.
     """
