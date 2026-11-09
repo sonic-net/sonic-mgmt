@@ -3,8 +3,8 @@ import logging
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import DOM_ATTRIBUTES_KEY
+from tests.transceiver.common.attribute_helpers import OPERATIONAL_SUFFIX
 from tests.transceiver.dom.dom_helpers import (
-    OPERATIONAL_SUFFIX,
     build_dom_sensor_plan,
     dom_field_in_operational_range,
     read_dom_sensor_data,

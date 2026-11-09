@@ -13,6 +13,12 @@ import logging
 
 from collections import defaultdict
 from collections import OrderedDict
+from copy import deepcopy
+
+try:
+    from yaml import CSafeLoader as SafeLoader
+except ImportError:
+    from yaml import SafeLoader
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +113,7 @@ class TestbedInfo(object):
     def _read_testbed_topo_from_yaml(self):
         """Read yaml testbed info file."""
         with open(self.testbed_filename) as f:
-            tb_info = yaml.safe_load(f)
+            tb_info = yaml.load(f, Loader=SafeLoader)
 
             if tb_info is None or len(tb_info) == 0:
                 raise ValueError("Testbed file {} is empty".format(self.testbed_filename))
@@ -378,22 +384,28 @@ class TestbedInfo(object):
         return map
 
     def parse_topo(self):
+        topology_cache = {}
         for tb_name, tb in list(self.testbed_topo.items()):
             topo = tb.pop("topo")
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
 
-            if topo.startswith("nut-"):
+            is_nut_topology = topo.startswith("nut-")
+            if is_nut_topology:
                 topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.NUT_TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "{}.yml".format(topo))
-                with open(topo_file, 'r') as fh:
-                    tb['topo']['properties'] = yaml.safe_load(fh)
             else:
                 topo_dir = os.path.join(os.path.dirname(self.testbed_filename), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
+
+            cache_key = os.path.realpath(topo_file)
+            if cache_key not in topology_cache:
                 with open(topo_file, 'r') as fh:
-                    tb['topo']['properties'] = yaml.safe_load(fh)
+                    topology_cache[cache_key] = yaml.load(fh, Loader=SafeLoader)
+            # Keep each testbed's mutable topology properties independent.
+            tb['topo']['properties'] = deepcopy(topology_cache[cache_key])
+            if not is_nut_topology:
                 tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
                 tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
                 tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
