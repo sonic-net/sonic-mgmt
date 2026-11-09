@@ -1,4 +1,5 @@
 import logging
+
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
@@ -6,19 +7,19 @@ from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology("any"),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("rand_one_dut_hostname")
+    pytest.mark.usefixtures("rand_one_dut_hostname"),
 ]
 
 
 def test_gnmi_appldb_01(gnmi_tls):  # noqa: F811
-    '''
+    """
     Verify GNMI native write with ApplDB
     Update DASH_VNET_TABLE
-    '''
+    """
     client = gnmi_tls.pygnmi_client
-    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
+    text = '{"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}'
     # Add DASH_VNET_TABLE
     update_list = [("/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE", text)]
     client.set(update=update_list)

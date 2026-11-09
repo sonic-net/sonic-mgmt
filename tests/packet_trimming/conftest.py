@@ -18,6 +18,8 @@ from tests.packet_trimming.packet_trimming_helper import (
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
     get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl,
     create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
+    delete_buffer_queue_for_trim_queue,
+    delete_buffer_queue_for_block_queue, delete_created_block_queue_buffer_profiles,
     is_queue_level_trim_sent_drop_supported, stop_warm_reboot_traffic)
 
 
@@ -120,12 +122,13 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
 
         egress_ports.append(egress_port_2_dict)
 
+    trim_buffer_profiles = {'uplink': f"queue{block_queue}_uplink_lossy_profile"}
+    if len(egress_ports) > 1:
+        trim_buffer_profiles['downlink'] = f"queue{block_queue}_downlink_lossy_profile"
+
     test_param = {
         'block_queue': block_queue,
-        'trim_buffer_profiles': {
-            'uplink': f"queue{block_queue}_uplink_lossy_profile",
-            'downlink': f"queue{block_queue}_downlink_lossy_profile",
-        },
+        'trim_buffer_profiles': trim_buffer_profiles,
         'ingress_port': {
             'name': ingress_port_name,
             'ptf_id': ingress_port[ingress_port_name]['ptf_port_id'],
@@ -146,8 +149,8 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     counter_param = copy.deepcopy(test_params)
     counter_param['block_queue'] = counter_queue
     counter_param['trim_buffer_profiles'] = {
-        'uplink': f"queue{counter_queue}_uplink_lossy_profile",
-        'downlink': f"queue{counter_queue}_downlink_lossy_profile",
+        direction: f"queue{counter_queue}_{direction}_lossy_profile"
+        for direction in test_params['trim_buffer_profiles']
     }
     logger.info(f"The counter parameters: {counter_param}")
 
@@ -186,6 +189,12 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
     logger.info("Prepare packet trimming related configurations")
     platform = duthost.facts['platform']
 
+    # Track the blocking-queue buffer config this fixture adds so teardown can
+    # remove exactly what it created. On platforms whose base config already
+    # defines these profiles nothing is created and nothing is torn down.
+    created_block_profiles = set()
+    block_queue_bindings = []
+
     with allure.step("Backup configuration"):
         logger.info("Backup configuration before trimming test")
         duthost.shell("sudo config save -y /etc/sonic/config_db_before_trimming_test.json")
@@ -211,10 +220,14 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
         counter_uplink_port = trim_counter_params['egress_ports'][0]
         counter_block_interface = counter_uplink_port['dut_members']
         logger.info(f"Apply uplink buffer profile to interfaces: {block_interface}")
-        set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
-                                           test_params['trim_buffer_profiles']['uplink'])
-        set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
-                                           trim_counter_params['trim_buffer_profiles']['uplink'])
+        created_block_profiles.add(
+            set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                               test_params['trim_buffer_profiles']['uplink']))
+        block_queue_bindings.append((block_interface, test_params['block_queue']))
+        created_block_profiles.add(
+            set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                               trim_counter_params['trim_buffer_profiles']['uplink']))
+        block_queue_bindings.append((counter_block_interface, trim_counter_params['block_queue']))
         create_trim_queue_test_buffer_profile(duthost)
         set_buffer_profile_for_trim_queue(duthost, block_interface)
 
@@ -223,8 +236,10 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             downlink_port = test_params['egress_ports'][1]
             block_interface = downlink_port['dut_members']
             logger.info(f"Apply downlink buffer profile to {block_interface}:{test_params['block_queue']}")
-            set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
-                                               test_params['trim_buffer_profiles']['downlink'])
+            created_block_profiles.add(
+                set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                                   test_params['trim_buffer_profiles']['downlink']))
+            block_queue_bindings.append((block_interface, test_params['block_queue']))
             set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # Also set the downlink buffer profile for the block queue used in counter tests, if applicable.
@@ -233,8 +248,10 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             counter_block_interface = counter_downlink_port['dut_members']
             logger.info(f"Apply downlink buffer profile to "
                         f"{counter_block_interface}:{trim_counter_params['block_queue']}")
-            set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
-                                               trim_counter_params['trim_buffer_profiles']['downlink'])
+            created_block_profiles.add(
+                set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                                   trim_counter_params['trim_buffer_profiles']['downlink']))
+            block_queue_bindings.append((counter_block_interface, trim_counter_params['block_queue']))
 
     with allure.step("Create scheduler used for blocking egress queues"):
         create_blocking_scheduler(duthost)
@@ -257,6 +274,23 @@ def setup_trimming(duthost, test_params, trim_counter_params, request):
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
         for buffer_profile in trim_counter_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+
+    with allure.step("Remove trim queue buffer profile references"):
+        # config load merges the backup and does not delete BUFFER_QUEUE keys added on
+        # platforms whose base config lacks them (e.g. VPP). Clear them before deleting
+        # the profile so teardown does not leave a dangling BUFFER_QUEUE -> BUFFER_PROFILE
+        # leafref that fails post-test YANG validation.
+        delete_buffer_queue_for_trim_queue(duthost, test_params['egress_ports'][0]['dut_members'])
+        if len(test_params['egress_ports']) > 1:
+            delete_buffer_queue_for_trim_queue(duthost, test_params['egress_ports'][1]['dut_members'])
+
+    with allure.step("Remove blocking-queue buffer config added during setup"):
+        # Same rationale as the trim queue: clear the BUFFER_QUEUE bindings this fixture
+        # added and delete the buffer profiles it created on demand, so teardown leaves a
+        # clean, YANG-valid CONFIG_DB on platforms (e.g. VPP) whose base config lacks them.
+        for interfaces, block_queue_id in block_queue_bindings:
+            delete_buffer_queue_for_block_queue(duthost, interfaces, block_queue_id)
+        delete_created_block_queue_buffer_profiles(duthost, created_block_profiles)
 
     with allure.step("Delete trim queue test buffer profile"):
         delete_trim_queue_test_buffer_profile(duthost)

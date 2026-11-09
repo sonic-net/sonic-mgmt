@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(rand_selected_dut, ptfhost, tbinfo, config_sflow_feature):
+    duthost = rand_selected_dut
     global var
     var = {}
 
@@ -98,7 +98,13 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', safe_reload=True, wait=120, override_config=True)
+    config_reload(
+        duthost,
+        config_source='running_golden_config',
+        wait=120,
+        safe_reload=True
+    )
+    duthost.command('sudo config save -y')
 
 # ----------------------------------------------------------------------------------
 
