@@ -13,6 +13,7 @@ so every ZR module plugged into the DUT is covered without per-optic inventory.
 Only ports whose module is ModuleReady and whose link is oper up are checked.
 """
 
+import json
 import logging
 import math
 import re
@@ -21,7 +22,6 @@ import pytest
 from natsort import natsorted
 
 from tests.common.utilities import wait_until
-from tests.transceiver.common.db_helpers import get_db_table, parse_numeric
 
 logger = logging.getLogger(__name__)
 
@@ -54,17 +54,34 @@ CLI_NOT_APPLICABLE = "not applicable"
 CLI_PREFEC_BER_PATTERN = re.compile(r"^\s*Pre-FEC BER\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)", re.MULTILINE)
 
 
+def _parse_numeric(value):
+    """Return ``value`` as a float, or ``None`` if it is absent or not numeric (e.g. ``N/A``)."""
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _read_table(duthost, db, table, namespace, sep="|"):
-    entries, err = get_db_table(duthost, db, table, namespace=namespace, sep=sep)
-    if err:
-        pytest.fail("Failed to read {} {} in namespace {}: {}".format(db, table, namespace or "default", err))
-    return entries
+    """Return ``{key: {field: value}}`` for every ``<table><sep>*`` entry in ``db``."""
+    ns_prefix = "sudo ip netns exec {} ".format(namespace) if namespace else ""
+    cmd = "{}sonic-db-dump -n {} -y -k '{}{}*'".format(ns_prefix, db, table, sep)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result["rc"] != 0:
+        pytest.fail("Failed to read {} {} in namespace {}: {}".format(
+            db, table, namespace or "default", (result.get("stderr") or "").strip()))
+    try:
+        raw = json.loads(result["stdout"] or "{}")
+    except ValueError as exc:
+        pytest.fail("Could not parse '{}' output: {}".format(cmd, exc))
+    prefix = table + sep
+    return {key[len(prefix):]: entry.get("value", {}) for key, entry in raw.items()}
 
 
 def _numeric_pm(pm_entry):
     values = {}
     for field, raw in pm_entry.items():
-        value = parse_numeric(raw)
+        value = _parse_numeric(raw)
         if value is not None and math.isfinite(value):
             values[field] = value
     return values
@@ -161,7 +178,7 @@ def _check_pm_values(pm_entry, dom_entry):
 
     for pm_field, dom_field in PM_DOM_POWER_FIELDS:
         pm_value = pm.get(pm_field)
-        dom_value = parse_numeric(dom_entry.get(dom_field))
+        dom_value = _parse_numeric(dom_entry.get(dom_field))
         if pm_value is None:
             failures.append("{} missing or not numeric ({!r})".format(pm_field, pm_entry.get(pm_field)))
         elif dom_value is None or not math.isfinite(dom_value):
@@ -242,7 +259,7 @@ def test_coherent_pm_cli(coherent_pm_ports):
             if not match:
                 all_failures.append("{}: no Pre-FEC BER row in output".format(cmd))
                 continue
-            ber_avg = parse_numeric(match.group(2))
+            ber_avg = _parse_numeric(match.group(2))
             if ber_avg is None or ber_avg == PM_PLACEHOLDER_BER:
                 all_failures.append("{}: Pre-FEC BER avg is {}".format(cmd, match.group(2)))
                 continue
