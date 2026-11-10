@@ -23,6 +23,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+ROUTE_RECOVERY_TIMEOUT = 900
+
 
 @pytest.fixture(scope="module")
 def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts):
@@ -154,12 +156,12 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     cur_v6_routes = {}
     # Verify that all routes advertised to neighbor at the start of the test
     if not is_v6_topo:
-        if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-    if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+    if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                       duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
         if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -226,12 +228,12 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -300,12 +302,12 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -375,12 +377,12 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
         if not is_v6_topo:
-            if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+            if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                               duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                     pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(900, 10, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(ROUTE_RECOVERY_TIMEOUT, 10, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
