@@ -449,10 +449,14 @@ class TestConvergedLogicalHost:
             host.shell("show ipv6 bgp neighbors fc00::75 routes json")
         commands = [call.args[0] for call in mock_exec.call_args_list]
         assert commands == [
-            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv4 unicast '
-            'neighbors 10.0.0.58 routes json"',
-            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv6 unicast '
-            'neighbors fc00::75 routes json"',
+            ' '.join((
+                'vtysh -c "show bgp vrf VrfARISTA02T1 ipv4 unicast',
+                'neighbors 10.0.0.58 routes json"',
+            )),
+            ' '.join((
+                'vtysh -c "show bgp vrf VrfARISTA02T1 ipv6 unicast',
+                'neighbors fc00::75 routes json"',
+            )),
         ]
 
     def test_bgp_clear_commands_are_scoped_to_logical_vrf(self):
