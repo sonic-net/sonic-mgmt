@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.devices.csonic import CsonicHost
 
 
 pytestmark = [
@@ -17,6 +18,18 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def get_csonic_prime_peer_names(nbrhosts, selected_neighbor):
+    """Return logical peers sharing the selected converged cSONiC daemon."""
+    selected_host = nbrhosts[selected_neighbor]['host']
+    if not isinstance(selected_host, CsonicHost) or not selected_host.bgp_vrf:
+        return [selected_neighbor]
+    return sorted(
+        name for name, neighbor in nbrhosts.items()
+        if isinstance(neighbor.get('host'), CsonicHost)
+        and neighbor['host'].container_name == selected_host.container_name
+    )
 
 
 def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts,
@@ -166,16 +179,31 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         exabgp_ips = [ip.split("/")[0] for ip in exabgp_ips]
     test_neighbor_host = nbrhost['host']
 
-    # get neighbor BGP peers
-    test_bgp_neighbors = _find_test_bgp_neighbors(test_neighbor_name, bgp_neighbors)
+    # A converged cSONiC prime has one bgpd shared by all logical VRFs. Killing
+    # it is therefore a prime-wide disruption, not per-logical-peer isolation.
+    # Track every collateral DUT session explicitly, including the selected
+    # logical peer used for route-preservation assertions.
+    prime_peer_names = get_csonic_prime_peer_names(
+        nbrhosts, test_neighbor_name)
+    prime_bgp_neighbors = []
+    for peer_name in prime_peer_names:
+        prime_bgp_neighbors.extend(
+            _find_test_bgp_neighbors(peer_name, bgp_neighbors))
+    prime_bgp_neighbors = sorted(set(prime_bgp_neighbors))
 
-    logging.info("Select neighbor %s to verify that all bgp routes are preserved during graceful restart",
-                 test_neighbor_name)
+    logging.info(
+        "Select neighbor %s for graceful restart; prime-wide logical peers=%s, "
+        "DUT sessions=%s", test_neighbor_name, prime_peer_names,
+        prime_bgp_neighbors)
 
-    # get all routes received from neighbor before GR
-    all_neighbor_routes_before_gr = {}
-    for test_bgp_neighbor in test_bgp_neighbors:
-        all_neighbor_routes_before_gr.update(_get_learned_bgp_routes_from_neighbor(duthost, test_bgp_neighbor))
+    # Keep route snapshots per DUT session. Shared-prime peers can advertise
+    # overlapping prefixes, so merging them would hide which collateral peer's
+    # path disappeared during the prime-wide daemon stop.
+    prime_neighbor_routes_before_gr = {
+        prime_bgp_neighbor: _get_learned_bgp_routes_from_neighbor(
+            duthost, prime_bgp_neighbor)
+        for prime_bgp_neighbor in prime_bgp_neighbors
+    }
 
     # verify exabgp sessions to the neighbor are up before GR process
     pytest_assert(
@@ -188,19 +216,25 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         logger.info("shutdown rib process on neighbor {}".format(test_neighbor_name))
         test_neighbor_host.kill_bgpd()
 
-        # wait till DUT enters NSF state
-        for test_bgp_neighbor in test_bgp_neighbors:
+        # Wait until every DUT session on the shared prime enters NSF. This
+        # records the expected collateral effect of a prime-wide bgpd stop.
+        for prime_bgp_neighbor in prime_bgp_neighbors:
             pytest_assert(
-                wait_until(60, 5, 0, duthost.check_bgp_session_nsf, test_bgp_neighbor),
-                "neighbor {} does not enter NSF state".format(test_bgp_neighbor)
+                wait_until(60, 5, 0, duthost.check_bgp_session_nsf,
+                           prime_bgp_neighbor),
+                "prime-wide neighbor {} does not enter NSF state".format(
+                    prime_bgp_neighbor)
             )
 
-        # confirm routes from the neighbor still there
+        # Confirm routes from every logical peer sharing the prime are still
+        # present and stale, not only routes from the selected peer.
         rib_after_gr = _get_rib(duthost)
-        _verify_bgp_neighbor_routes_during_graceful_restart(all_neighbor_routes_before_gr, rib_after_gr)
+        for neighbor_routes in prime_neighbor_routes_before_gr.values():
+            _verify_bgp_neighbor_routes_during_graceful_restart(
+                neighbor_routes, rib_after_gr)
 
-        # confirm routes from the neighbor are in STALE state
-        _verify_prefix_counters_from_neighbor_during_graceful_restart(duthost, test_bgp_neighbors)
+        _verify_prefix_counters_from_neighbor_during_graceful_restart(
+            duthost, prime_bgp_neighbors)
 
     except Exception:
         test_neighbor_host.start_bgpd()
@@ -228,17 +262,22 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         for nbr_port in nbr_ports:
             test_neighbor_host.no_shutdown(nbr_port)
 
-    # confirm BGP session are up
+    # Confirm all collateral sessions on the shared prime recover, not only the
+    # selected logical peer whose ports were toggled.
     pytest_assert(
-        wait_until(300, 10, 0, duthost.check_bgp_session_state, test_bgp_neighbors),
-        "graceful restarted bgp sessions {} are not coming back".format(test_bgp_neighbors)
+        wait_until(300, 10, 0, duthost.check_bgp_session_state,
+                   prime_bgp_neighbors),
+        "prime-wide graceful restarted BGP sessions {} are not coming back"
+        .format(prime_bgp_neighbors)
     )
 
     # confirm routes from the neighbor are restored
     pytest_assert(
-        wait_until(300, 10, 0, _verify_prefix_counters_from_neighbor_after_graceful_restart,
-                   duthost, test_bgp_neighbors),
-        "after graceful restart, Rib is not restored"
+        wait_until(
+            300, 10, 0,
+            _verify_prefix_counters_from_neighbor_after_graceful_restart,
+            duthost, prime_bgp_neighbors),
+        "after prime-wide graceful restart, collateral RIBs are not restored"
     )
 
     # Verify no route changes in the application db
