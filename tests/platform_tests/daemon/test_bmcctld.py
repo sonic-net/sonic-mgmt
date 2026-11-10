@@ -36,6 +36,7 @@ from tests.common.platform.bmc_utils import (
     get_switch_host_or_skip_test,
     is_major_leak_supported,
     make_bmc_loganalyzer,
+    action_is_syslog_only,
     power_down_action_configured,
     pause_pmon_daemon,
     recover_switch_host_after_power_off,
@@ -293,8 +294,8 @@ class TestBmcctldDaemon:
             logger.info("Trigger 2a [STATE_DB SYSTEM_LEAK_STATUS]: already %s - skipping", orig_leak)
         elif not major_supported:
             logger.info("Trigger 2a: MAJOR leak not supported on this image - skipping")
-        elif power_down_action_configured(self.duthost, 'system_major_leak_action'):
-            logger.info("Trigger 2a: system_major_leak_action is a power-down action - skipping")
+        elif not action_is_syslog_only(self.duthost, 'system_major_leak_action'):
+            logger.info("Trigger 2a: system_major_leak_action is not syslog_only - skipping")
         else:
             major_host = get_switch_host_or_skip_test(self.duthost)
             major_pre_boot = get_host_uptime(major_host)
@@ -376,8 +377,8 @@ class TestBmcctldDaemon:
             if alert_severity == 'MAJOR' and not major_supported:
                 logger.info("Trigger 3: MAJOR rack alert not supported on this image - skipping")
                 continue
-            if power_down_action_configured(self.duthost, f'rack_mgr_{alert_severity.lower()}_alert_action'):
-                logger.info("Trigger 3: rack_mgr_%s_alert_action is a power-down action - skipping",
+            if not action_is_syslog_only(self.duthost, f'rack_mgr_{alert_severity.lower()}_alert_action'):
+                logger.info("Trigger 3: rack_mgr_%s_alert_action is not syslog_only - skipping",
                             alert_severity.lower())
                 continue
             alert_key = 'test_trigger_alert'
