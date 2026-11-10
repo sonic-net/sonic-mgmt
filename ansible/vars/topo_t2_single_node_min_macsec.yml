@@ -168,10 +168,18 @@ configuration:
       ipv4: 10.10.246.105/24
       ipv6: fc0a::6a/64
 
+# MACsec-enabled DUT<->VM links. Consumed by:
+#  - ansible/config_macsec_basedon_minigraph.yml (deploy-mg macsec setup)
+#  - ansible/templates/minigraph_link_meta.j2 (LinkMetadata MacSecEnabled/ProfileName)
+#  - tests/common/plugins/conditional_mark (macsec_topo skip variable)
+# Profile names reference tests/common/macsec/profile.json.
+# Each link may name its own profile. Quote purely numeric names ('128'):
+# YAML reads a bare 128 as an integer and the profile lookup is by string.
+# Two profiles are deliberately mixed so a run exercises per-link profiles.
 macsec_links:
   - vm: VM01T3
-    profile: 128_SCI
+    profile: 256_XPN
   - vm: VM02T3
-    profile: 128_SCI
+    profile: 256_XPN
   - vm: VM03T3
-    profile: 128_SCI
+    profile: 128_XPN

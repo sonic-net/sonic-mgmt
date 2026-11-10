@@ -6,7 +6,6 @@ import json
 import logging
 import time
 from collections import defaultdict, deque
-from collections.abc import Mapping
 from multiprocessing import Process
 
 import cryptography.exceptions
@@ -30,15 +29,17 @@ __all__ = [
     'create_exp_pkt',
     'get_appl_db',
     'get_macsec_attr',
+    'forget_macsec_ports',
+    'get_macsec_port_states',
     'prepare_ptf_macsec',
-    'program_ptf_ingress_sa',
+    'prime_macsec_info',
+    'refresh_macsec_info',
     'remove_ptf_ingress_sa',
     'remove_ptf_ingress_sas',
-    'purge_ptf_ingress_sas',
-    'is_ptf_row',
     'get_mka_session',
     'get_macsec_sa_name',
     'get_macsec_counters',
+    'get_macsec_ingress_sa_counters',
     'get_sci',
     'getns_prefix',
     'get_ipnetns_prefix',
@@ -47,21 +48,14 @@ __all__ = [
 logger = logging.getLogger(__name__)
 process_queue = []
 
-# APPL_DB field marking an ingress SA the harness programmed for PTF. Its value
-# is the SAK the harness wrote, so ownership is decided from the row alone:
-# ours iff ptf_sa == sak. A ProducerStateTable SET merges into an existing row,
-# so when MKA later rekeys onto that AN it rewrites 'sak' and leaves 'ptf_sa'
-# stale; the mismatch marks the row as MKA's.
+# APPL_DB field that marked the ingress SA older harness versions programmed
+# for PTF; such rows are purged, never created, now.
 PTF_SA_TAG = "ptf_sa"
-# (hostname, port) -> (APPL_DB key, sak hex) of the PTF ingress SA this process
-# programmed, so teardown can target exactly what it created.
-_PTF_SA_KEYS = {}
-
-
-def is_ptf_row(row):
-    """True iff an APPL_DB ingress SA row is a harness-programmed PTF SA (ptf_sa == sak)."""
-    tag = (row.get(PTF_SA_TAG) or "").lower()
-    return bool(tag) and tag == (row.get("sak") or "").lower()
+# hostname -> {port: ptf index} loaded by prime_macsec_info(), so
+# refresh_macsec_info() can re-read them without tbinfo.
+_PRIMED_PORTS = {}
+# PTF ports macsec_dp_poll has already warned about failing to decrypt.
+_DECRYPT_WARNED = set()
 
 
 def submit_async_task(target, args):
@@ -155,23 +149,16 @@ def get_macsec_sa_name(sonic_asic, port_name, egress=True):
     cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
     names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
     if not egress and names:
-        # Skip harness PTF SAs (is_ptf_row): a PTF AN can sort before the live
-        # MKA AN. A row MKA rekeyed onto has a new sak, so it counts as live.
+        # Rows tagged ptf_sa (left by an older harness) are skipped only while
+        # an untagged row exists: MKA may have rekeyed onto a PTF AN and the
+        # live row inherited the tag.
         ns = "-n {}".format(sonic_asic.namespace) if sonic_asic.namespace else ""
-        out = sonic_asic.sonichost.shell(
-            "for k in {}; do echo \"$k\t$(sonic-db-cli {} APPL_DB HGETALL $k)\"; done; true".format(
-                " ".join(names), ns), module_ignore_errors=True)["stdout"]
-        ours = set()
-        for ln in out.splitlines():
-            if "\t" not in ln:
-                continue
-            k, fields = ln.split("\t", 1)
-            try:
-                if is_ptf_row(ast.literal_eval(fields.strip())):
-                    ours.add(k)
-            except (ValueError, SyntaxError):
-                continue
-        names = [n for n in names if n not in ours] or names
+        tags = sonic_asic.sonichost.shell(
+            "for k in {}; do echo \"$k=$(sonic-db-cli {} APPL_DB HGET $k {})\"; done; true".format(
+                " ".join(names), ns, PTF_SA_TAG), module_ignore_errors=True)["stdout"]
+        tagged = {ln.split("=", 1)[0] for ln in tags.splitlines() if ln.endswith("=true")}
+        untagged = [n for n in names if n not in tagged]
+        names = untagged or names
     if names:
         names.sort()
         return ':'.join(names[0].split(':')[1:])
@@ -185,7 +172,7 @@ def get_appl_db(host, host_port_name, peer, peer_port_name):
     if isinstance(peer, EosHost):
         re_match = re.search(r'\d+', peer_port_name)
         peer_port_identifer = int(re_match.group())
-        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name, use_bridge_mac=True), peer_port_identifer)
+        peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name), peer_port_identifer)
     else:
         peer_sci = get_sci(peer.get_dut_iface_mac(peer_port_name))
     egress_sc_table = sonic_db_cli(
@@ -471,9 +458,8 @@ def _read_macsec_attrs(host, port):
     sak_hex = macsec_sa["sak"]
     sak = binascii.unhexlify(sak_hex)
     # The salt is a per-SAK value shared by every SA of the CA, so the egress SA
-    # is the authoritative source for what PTF encrypts with AND for the PTF
-    # ingress SA programmed below; the ingress row only contributes the peer's
-    # ssci / auth_key.
+    # is the authoritative source; the ingress row only contributes the peer's
+    # ssci.
     salt_hex = macsec_sa.get("salt", "000000000000000000000000")
     if xpn_en:
         ssci = int(macsec_sa["ssci"])
@@ -482,36 +468,32 @@ def _read_macsec_attrs(host, port):
         ssci = None
         salt = None
 
-    # Live peer SA: a non-PTF ingress row (is_ptf_row) carrying the current
-    # SAK. A row MKA rekeyed onto after we programmed it has a new sak and a
-    # stale ptf_sa, so it counts as live; program_ptf_ingress_sa clears the field.
+    # Live peer SA: prefer rows carrying the current SAK (a stale PTF row from
+    # an earlier session still holds the pre-rekey SAK) and rows without the
+    # PTF tag (a tagged row is still live if MKA rekeyed onto that AN and
+    # inherited it).
     rows = _ingress_sa_rows(host, port)
-    candidates = [(k, r) for k, r in rows.items() if not is_ptf_row(r)]
-    same_sak = [c for c in candidates if (c[1].get("sak") or "").lower() == sak_hex.lower()]
-    if not same_sak:
-        # No peer SA, or MKA is mid-rekey (ingress rows still carry the previous
-        # SAK). auth_key/ssci must come from a row keyed by the current SAK, so
-        # never mix material from a stale row; the caller retries once MKA settles.
-        raise KeyError("no live MACsec ingress SA carrying the current SAK for {} on {} (rows: {})".format(
-            port, host.hostname, sorted(candidates and dict(candidates).keys())))
-    live_key, live_row = sorted(same_sak)[0]
+    candidates = list(rows.items())
+    same_sak = [c for c in candidates if c[1].get("sak") == sak_hex] or candidates
+    untagged = [c for c in same_sak if c[1].get(PTF_SA_TAG) != "true"] or same_sak
+    if not untagged:
+        raise KeyError("no live MACsec ingress SA for {} on {}".format(port, host.hostname))
+    live_key, live_row = sorted(untagged)[0]
     _, peer_sci, peer_an = live_key.split(":")
     peer_an = int(peer_an)
     peer_ssci = int(live_row["ssci"]) if xpn_en else None
 
-    # PTF transmits on its own AN, (mka_an + 2) % 4: the MKA AN shares its XPN
-    # counter with live peer traffic, so by the time PTF sends, the ASIC's
-    # highest PN is already past the pickle value and PTF frames would be
-    # dropped as late. A separate AN starts from PN=0 with no competing sender
-    # and leaves the MKA SA untouched.
-    ptf_an = (peer_an + 2) % 4
+    # PTF transmits on the neighbour's AN. The topology runs without replay
+    # protection, so the DUT accepts PTF's PNs wherever they interleave with
+    # the neighbour's; PTF starts at the SA's current PN + 1 only because PN 0
+    # is reserved and the XPN upper half is recovered from the SA's counter.
+    ptf_an = peer_an
     return {
         "encrypt": encrypt, "send_sci": send_sci, "xpn_en": xpn_en,
         "sci": int(sci_hex, 16), "an": an, "sak": sak, "ssci": ssci, "salt": salt,
         "peer_sci": peer_sci, "peer_an": peer_an, "peer_ssci": peer_ssci, "ptf_an": ptf_an,
-        "sak_hex": sak_hex, "salt_hex": salt_hex,
-        "ssci_str": live_row.get("ssci", "0"), "auth_key": live_row.get("auth_key", sak_hex),
-        "live_key": live_key, "clear_tag": PTF_SA_TAG in live_row,
+        "sak_hex": sak_hex, "salt_hex": salt_hex, "live_key": live_key,
+        "peer_active": live_row.get("active"),
     }
 
 
@@ -536,23 +518,7 @@ _SWSS_PREAMBLE = (
     "db = DBConnector('APPL_DB', 0, False, ns) if ns else DBConnector('APPL_DB', 0, True)\n"
     "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
     "rt = Table(db, 'MACSEC_INGRESS_SA_TABLE')\n"
-    # Mirrors is_ptf_row for scripts running on the DUT.
-    "def is_ptf(fvs):\n"
-    "    d = dict(fvs); t = (d.get('%s') or '').lower()\n"
-    "    return bool(t) and t == (d.get('sak') or '').lower()\n"
-) % PTF_SA_TAG
-
-
-def _log_swss_result(what, host, result):
-    """Surface DUT-side script failures; a silent failure would leave orphan
-    rows and reproduce the cleanup timeouts these helpers exist to prevent."""
-    if not isinstance(result, Mapping):  # pytest-ansible ModuleResult is a UserDict, not a dict
-        return
-    if result.get("rc", 0) != 0 or result.get("failed"):
-        logger.warning("PTF SA %s script failed on %s: rc=%s stderr=%s", what, host.hostname,
-                       result.get("rc"), (result.get("stderr") or "").strip()[-400:])
-    elif result.get("stdout", "").strip():
-        logger.info("PTF SA %s on %s: %s", what, host.hostname, result["stdout"].strip().replace("\n", "; "))
+)
 
 
 def _run_swss_script(host, ns, body, **shell_kwargs):
@@ -563,131 +529,270 @@ def _run_swss_script(host, ns, body, **shell_kwargs):
     return host.shell("echo '{}' | base64 -d | sudo python3".format(b64), **shell_kwargs)
 
 
-def program_ptf_ingress_sa(host, port, attrs):
-    """Install the DUT ingress SA that accepts PTF's frames on ``port``.
-
-    ``attrs`` is the dict from _read_macsec_attrs(). The SA is keyed on the
-    peer SCI at PTF's AN, tagged ptf_sa=<sak>, and carries the SAK's salt plus
-    the peer's ssci / auth_key: XPN cipher suites derive the AES-GCM IV from
-    (ssci || PN) XOR salt, so mismatched values would fail every ICV check.
-    The key is recorded in _PTF_SA_KEYS so remove_ptf_ingress_sas can target
-    exactly what this process created.
-    """
-    key = "{}:{}:{}".format(port, attrs["peer_sci"], attrs["ptf_an"])
-    prev = _PTF_SA_KEYS.get((host.hostname, port), (None,))[0]
-    body = (
-        "key, live, prev = '{key}', '{live}', '{prev}'\n"
-        # A live MKA row that landed on an old PTF AN still carries our stale
-        # ptf_sa field (its sak moved on); drop the field.
-        "if {clear_tag}:\n"
-        "    rt.hdel(live, '{tag}')\n"
-        # Delete our previous key (MKA rekeyed since) and cross-session PTF
-        # orphans on this port; never the live SA or the key being (re)programmed.
-        "victims = set()\n"
-        "if prev and prev not in (key, live):\n"
-        "    victims.add(prev)\n"
-        "for k in rt.getKeys():\n"
-        "    if k.startswith('{port}:') and k not in (key, live):\n"
-        "        ok, fvs = rt.get(k)\n"
-        "        if ok and is_ptf(fvs):\n"
-        "            victims.add(k)\n"
-        "for k in victims:\n"
-        "    tbl.delete(k)\n"
-        # A SET on an existing SA reaches orchagent as one SET (ConsumerStateTable
-        # folds a preceding DEL into it); MACsecOrch recreates the SAI SA when
-        # the SET carries 'sak', which resets its highest-received PN for the
-        # fresh PN=1.. sequence PTF starts with.
-        "fvs = [('active','true'),('sak','{sak}'),('auth_key','{auth}'),"
-        "('lowest_acceptable_pn','1'),('ssci','{ssci}'),('salt','{salt}'),('{tag}','{sak}')]\n"
-        "tbl.set(key, fvs)\n"
-        "print('PTF SA set:', key, 'removed:', sorted(victims))\n"
-    ).format(key=key, live=attrs["live_key"], prev=prev or "", clear_tag=attrs["clear_tag"],
-             port=port, tag=PTF_SA_TAG, sak=attrs["sak_hex"], auth=attrs["auth_key"],
-             ssci=attrs["ssci_str"], salt=attrs["salt_hex"])
-    _log_swss_result("program", host, _run_swss_script(host, _port_namespace(host, port), body))
-    _PTF_SA_KEYS[(host.hostname, port)] = (key, attrs["sak_hex"])
-    time.sleep(2)  # let orchagent program the SA in the ASIC
-
-
 def remove_ptf_ingress_sas(host, ports=None):
-    """Delete the PTF ingress SAs this process programmed on ``host`` (all
-    ports, or only ``ports``). A registered key is left alone when its row no
-    longer holds the SAK we wrote: MKA has taken that AN over and the row is
-    the live peer SA."""
-    owned = {p: v for (h, p), v in _PTF_SA_KEYS.items()
-             if h == host.hostname and (ports is None or p in ports)}
-    by_ns = {}
-    for port, (key, sak_hex) in owned.items():
-        by_ns.setdefault(_port_namespace(host, port), []).append((port, key, sak_hex))
-    for ns, entries in by_ns.items():
-        body = "entries = {!r}\n".format(entries) + (
-            "for port, key, sak in entries:\n"
-            "    ok, fvs = rt.get(key)\n"
-            "    if not ok:\n"
-            "        continue\n"
-            # MKA adopting this AN rewrites 'sak'; an unchanged SAK means the row
-            # is still ours, even if it is the only SA left after an SC teardown.
-            "    if (dict(fvs).get('sak') or '').lower() != sak.lower():\n"
-            "        print('PTF SA now live, kept:', key)\n"
-            "        continue\n"
-            "    tbl.delete(key)\n"
-            "    print('PTF SA removed:', key)\n"
-        )
-        _log_swss_result("remove", host, _run_swss_script(host, ns, body, module_ignore_errors=True))
-    for port in owned:
-        _PTF_SA_KEYS.pop((host.hostname, port), None)
+    """Purge ptf_sa-tagged ingress SA rows an older harness left on ``host``
+    (the primed ports, or only ``ports``) and stop tracking them."""
+    primed = _PRIMED_PORTS.get(host.hostname, {})
+    for port in list(primed) if ports is None else ports:
+        remove_orphan_ptf_ingress_sas(host, port)
+    forget_macsec_ports(host, ports)
 
 
 def remove_ptf_ingress_sa(host, port):
-    """Delete the PTF ingress SA this process programmed on one ``port``."""
+    """Purge ptf_sa-tagged rows on one ``port`` and stop tracking it."""
     remove_ptf_ingress_sas(host, ports=[port])
 
 
-def purge_ptf_ingress_sas(host, ports=None):
-    """Delete every harness PTF ingress SA row (``ptf_sa == sak``, see
-    is_ptf_row) on ``host`` (all ports, or only ``ports``), whoever
-    programmed it.
+def remove_orphan_ptf_ingress_sas(host, port, sak_hex=None):
+    """Delete ptf_sa-tagged ingress SA rows an earlier harness left on ``port``.
+    wpa_supplicant never owned them, so interface_remove never deletes them.
+    A tagged row carrying a current SAK (``sak_hex``, or any of the port's
+    egress SAKs when not given) is live: MKA rekeyed onto that AN and the
+    ProducerStateTable SET merged into the tagged row. Deletes go through
+    ProducerStateTable so orchagent drops the SA from the ASIC too."""
+    body = (
+        "live = {{'{sak}'}} if '{sak}' else set()\n"
+        "if not live:\n"
+        "    et = Table(db, 'MACSEC_EGRESS_SA_TABLE')\n"
+        "    live = {{dict(et.get(k)[1]).get('sak') for k in et.getKeys() if k.startswith('{port}:')}}\n"
+        "keys = [k for k in rt.getKeys() if k.startswith('{port}:')]\n"
+        "rows = {{k: dict(rt.get(k)[1]) for k in keys}}\n"
+        "tagged = [k for k, r in rows.items() if r.get('{tag}') is not None and r.get('sak') not in live]\n"
+        "for k in tagged:\n"
+        "    tbl.delete(k)\n"
+        "if tagged:\n"
+        "    print('orphan PTF SA removed:', sorted(tagged))\n"
+    ).format(port=port, tag=PTF_SA_TAG, sak=sak_hex or "")
+    _run_swss_script(host, _port_namespace(host, port), body, module_ignore_errors=True)
 
-    Unlike remove_ptf_ingress_sas this does not consult the registry: it is
-    for MACsec teardown paths and cross-session orphans. A row MKA has since
-    rekeyed onto carries a new sak next to the stale ptf_sa field and is
-    therefore never matched, so a live supplicant SA is never deleted. A PTF
-    row whose secure channel MKA has torn down has no ASIC object behind it,
-    yet stays in APPL_DB until deleted here.
-    """
-    if isinstance(host, EosHost):
+
+class MacsecReplayProtectionOn(RuntimeError):
+    """The ASIC still checks replay on a MACsec port, so PTF cannot share the neighbour's SA."""
+
+
+class MacsecStateInvalid(RuntimeError):
+    """The DUT's MACsec tables describe a session the ASIC is not running on ``port``."""
+
+    def __init__(self, port, reason):
+        super().__init__("{}: {}".format(port, reason))
+        self.port = port
+        self.reason = reason
+
+
+# (hostname, port) -> (CURRENT_XPN of the peer SA, time read), the first
+# liveness sample; ports whose XPN was seen moving this session.
+_XPN_SAMPLES = {}
+_LIVE_PORTS = set()
+# CURRENT_XPN is polled into COUNTERS_DB every second (MACSEC_STAT_XPN_POLLING_INTERVAL_MS).
+_LIVENESS_GAP = 3
+
+
+def _namespace_macsec_state(host, ns):
+    """One round trip over namespace ``ns``: every MACsec SC and SA in ASIC_DB
+    and every ingress SA row in APPL_DB, as ({sc oid: fields}, {sc oid: {an}},
+    {peer sci: {an}}). The APPL_DB ANs are those orchagent creates SAI SAs
+    for: active=true rows, less the ptf_sa-tagged ones an older harness left.
+    ASIC_DB does not tie an SC to its port; callers match on direction and SCI."""
+    out = host.shell(
+        "for t in SC SA; do "
+        "for k in $(sonic-db-cli {ns} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_MACSEC_$t:*\"); do "
+        "echo \"$t\t${{k##*:MACSEC_$t:}}\t$(sonic-db-cli {ns} ASIC_DB HGETALL \"$k\")\"; "
+        "done; done; "
+        "for k in $(sonic-db-cli {ns} APPL_DB KEYS 'MACSEC_INGRESS_SA_TABLE:*'); do "
+        "echo \"APPL\t${{k#MACSEC_INGRESS_SA_TABLE:}}\t$(sonic-db-cli {ns} APPL_DB HGETALL \"$k\")\"; "
+        "done; true".format(ns=ns),
+        module_ignore_errors=True)["stdout"]
+    scs, sas, appl_ans = {}, {}, {}
+    for line in out.splitlines():
+        parts = line.split("\t", 2)
+        if len(parts) != 3:
+            continue
+        try:
+            fields = ast.literal_eval(parts[2].strip())
+        except (ValueError, SyntaxError):
+            continue
+        # SAs reference their SC by bare "oid:0x..."; key the SCs the same way
+        # whether or not the shell stripped the ASIC_STATE prefix.
+        if parts[0] == "SC":
+            scs[parts[1][parts[1].rfind("oid:"):]] = fields
+        elif parts[0] == "SA" and str(fields.get("SAI_MACSEC_SA_ATTR_AN", "")).isdigit():
+            sas.setdefault(fields.get("SAI_MACSEC_SA_ATTR_SC_ID"), set()).add(int(fields["SAI_MACSEC_SA_ATTR_AN"]))
+        elif parts[0] == "APPL" and parts[1].count(":") == 2:
+            _, sci, an = parts[1].split(":")
+            if an.isdigit() and fields.get("active") == "true" and fields.get(PTF_SA_TAG) != "true":
+                appl_ans.setdefault(sci, set()).add(int(an))
+    return scs, sas, appl_ans
+
+
+def _check_asic_state(host, port, attrs, state):
+    """Raise unless the ASIC runs the peer SC the way PTF needs: replay
+    protection off (PTF shares the neighbour's SA, and with strict replay
+    checking its frames and then the neighbour's are dropped as late; the
+    profile's setting reaches the ASIC only with an orchagent that forwards
+    it, sonic-net/sonic-swss#5037) and every ingress SA APPL_DB lists present.
+    A macsec container that died without deleting its rows leaves APPL_DB
+    describing SAs the ASIC never got (the SAK is create-only in SAI); the SAK
+    is masked in ASIC_DB, so the AN set is the comparable signal.
+
+    The check is per peer SCI, not per port: a vSONiC/cSONiC neighbour uses
+    one MAC and port id 1 on all its links, so LAG members to the same VM
+    share the SCI and the SC. The APPL_DB side is the union over every port
+    with that peer SCI; the per-port signal is the STATE_DB SA state in
+    _check_macsec_state. Extra ASIC ANs are allowed: an SA delete reaches the
+    ASIC asynchronously."""
+    scs, sas, appl_ans = state
+    # orchagent hands SAI the SCI in network byte order (MACsecSCI keeps the
+    # wire bytes), so ASIC_DB shows the byte-swapped integer.
+    sci = str(int.from_bytes(binascii.unhexlify(attrs["peer_sci"]), "little"))
+    sc_oids = [oid for oid, f in scs.items()
+               if f.get("SAI_MACSEC_SC_ATTR_MACSEC_DIRECTION") == "SAI_MACSEC_DIRECTION_INGRESS"
+               and f.get("SAI_MACSEC_SC_ATTR_MACSEC_SCI") == sci]
+    if not sc_oids:
+        raise MacsecStateInvalid(port, "ASIC_DB has no ingress SC for peer SCI {}".format(attrs["peer_sci"]))
+    replay = {scs[oid].get("SAI_MACSEC_SC_ATTR_MACSEC_REPLAY_PROTECTION_ENABLE", "absent") for oid in sc_oids}
+    if replay != {"false"}:
+        raise MacsecReplayProtectionOn(
+            "replay protection attribute absent in ASIC_DB (image without sonic-net/sonic-swss#5037) or set "
+            "to true ({}) on the ingress SC of {} on {}; PTF cannot share the neighbour's SA.".format(
+                ",".join(sorted(replay)), port, host.hostname))
+    asic_ans = set().union(*(sas.get(oid, set()) for oid in sc_oids))
+    missing = (appl_ans.get(attrs["peer_sci"], set()) | {attrs["peer_an"]}) - asic_ans
+    if missing:
+        raise MacsecStateInvalid(port, "ingress SA ANs {} of peer SCI {} are in APPL_DB but not in ASIC_DB ({})"
+                                 .format(sorted(missing), attrs["peer_sci"], sorted(asic_ans)))
+
+
+def _state_db_sa_key(port, attrs):
+    """STATE_DB key of the peer SA. The SCI is spelled as in the APPL_DB key:
+    wpa_supplicant writes it %016 PRIx64, orchagent's STATE_DB key
+    (MACsecSCI::str()) and COUNTERS map key (the APPL_DB key itself) match."""
+    return "MACSEC_INGRESS_SA_TABLE|{}|{}|{}".format(port, attrs["peer_sci"], attrs["peer_an"])
+
+
+def _check_macsec_state(host, port, attrs):
+    """Raise MacsecStateInvalid unless the peer SA PTF will transmit on is one
+    the ASIC runs on a port that is up. Returns the SA's CURRENT_XPN from
+    COUNTERS_DB (None if not published yet) for the PN seed and liveness."""
+    if attrs["peer_active"] != "true":
+        raise MacsecStateInvalid(port, "APPL_DB ingress SA {} has active={}".format(
+            attrs["live_key"], attrs["peer_active"]))
+    ns = getns_prefix(host, port)
+    counter_name = "{}:{}:{}".format(port, attrs["peer_sci"], attrs["peer_an"])
+    out = host.shell(
+        "v=$(sonic-db-cli {ns} STATE_DB HGET '{sa_key}' state); echo \"sa_state=${{v:-absent}}\"; "
+        "v=$(sonic-db-cli {ns} STATE_DB HGET 'PORT_TABLE|{port}' netdev_oper_status); echo \"oper=${{v:-absent}}\"; "
+        "o=$(sonic-db-cli {ns} COUNTERS_DB HGET COUNTERS_MACSEC_NAME_MAP '{counter}'); "
+        "v=$(sonic-db-cli {ns} COUNTERS_DB HGET \"COUNTERS:${{o:-none}}\" SAI_MACSEC_SA_ATTR_CURRENT_XPN); "
+        "echo \"xpn=${{v:-absent}}\"; true".format(
+            ns=ns, sa_key=_state_db_sa_key(port, attrs), port=port, counter=counter_name),
+        module_ignore_errors=True)["stdout"]
+    fields = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    if fields.get("sa_state") != "ok":
+        raise MacsecStateInvalid(port, "STATE_DB {} state={}: orchagent has not created the SAI SA".format(
+            _state_db_sa_key(port, attrs), fields.get("sa_state")))
+    if fields.get("oper") != "up":
+        raise MacsecStateInvalid(port, "STATE_DB PORT_TABLE|{} netdev_oper_status={}".format(
+            port, fields.get("oper")))
+    xpn = int(fields["xpn"]) if fields.get("xpn", "absent").isdigit() else None
+    if xpn is not None:
+        _XPN_SAMPLES[(host.hostname, port)] = (xpn, time.time())
+    return xpn
+
+
+def _read_current_xpns(host, ports):
+    """{port: CURRENT_XPN} of the peer SA of each port in ``ports``
+    ({port: attrs}), one round trip per namespace."""
+    by_ns = {}
+    for port, attrs in ports.items():
+        by_ns.setdefault(getns_prefix(host, port), []).append(
+            (port, "{}:{}:{}".format(port, attrs["peer_sci"], attrs["peer_an"])))
+    xpns = {}
+    for ns, entries in by_ns.items():
+        out = host.shell(
+            "; ".join(
+                "o=$(sonic-db-cli {ns} COUNTERS_DB HGET COUNTERS_MACSEC_NAME_MAP '{counter}'); "
+                "v=$(sonic-db-cli {ns} COUNTERS_DB HGET \"COUNTERS:${{o:-none}}\" SAI_MACSEC_SA_ATTR_CURRENT_XPN); "
+                "echo \"{port}=${{v:-absent}}\"".format(ns=ns, counter=counter, port=port)
+                for port, counter in entries) + "; true",
+            module_ignore_errors=True)["stdout"]
+        for line in out.splitlines():
+            port, _, value = line.partition("=")
+            if value.isdigit():
+                xpns[port] = int(value)
+    return xpns
+
+
+def _check_liveness(host, ports):
+    """Best-effort, once per session per port: read the peer SA's CURRENT_XPN
+    again and note if it has not moved since _check_macsec_state sampled it.
+    Samples under _LIVENESS_GAP apart give no verdict; a quiet neighbour is
+    legitimate, so this never fails the port. A stuck XPN with the tables all
+    ok points at a stale ASIC SA."""
+    now = time.time()
+    pending = {port: attrs for port, attrs in ports.items()
+               if (host.hostname, port) not in _LIVE_PORTS
+               and now - _XPN_SAMPLES.get((host.hostname, port), (0, now))[1] >= _LIVENESS_GAP}
+    if not pending:
         return
-    namespaces = [""]
-    try:
-        if getattr(host, "is_multi_asic", False) and hasattr(host, "get_asic_namespace_list"):
-            namespaces += host.get_asic_namespace_list()
-    except Exception:
-        logger.debug("asic namespace discovery failed on %s; purging host namespace only",
-                     host.hostname, exc_info=True)
-    ports = sorted(ports) if ports is not None else None
-    ports_lit = repr(ports) if ports is not None else "None"
-    body = "ports = {}\n".format(ports_lit) + (
-        "for k in rt.getKeys():\n"
-        "    if ports is not None and k.split(':', 1)[0] not in ports:\n"
-        "        continue\n"
-        "    ok, fvs = rt.get(k)\n"
-        "    if ok and is_ptf(fvs):\n"
-        "        tbl.delete(k)\n"
-        "        print('PTF SA purged:', k)\n"
-    )
-    for ns in namespaces:
-        _log_swss_result("purge", host, _run_swss_script(host, ns, body, module_ignore_errors=True))
-    for key in [k for k in _PTF_SA_KEYS
-                if k[0] == host.hostname and (ports is None or k[1] in ports)]:
-        _PTF_SA_KEYS.pop(key, None)
+    xpns = _read_current_xpns(host, pending)
+    for port in pending:
+        first, sampled = _XPN_SAMPLES[(host.hostname, port)]
+        if xpns.get(port, first) > first:
+            _LIVE_PORTS.add((host.hostname, port))
+        else:
+            logger.info("peer SA CURRENT_XPN of %s on %s stayed at %d over %.1fs; nothing received on the SA "
+                        "PTF was handed yet", port, host.hostname, first, time.time() - sampled)
 
 
-def prepare_ptf_macsec(host, port):
-    """Read ``port``'s MACsec attributes and program the DUT ingress SA PTF
-    will transmit on. Returns the MACSEC_INFO tuple."""
-    attrs = _read_macsec_attrs(host, port)
-    program_ptf_ingress_sa(host, port, attrs)
-    return _attr_tuple(attrs)
+def _ptf_macsec_info(host, port, attrs, asic_cache=None):
+    """The MACSEC_INFO tuple for ``attrs`` of ``port``, after checking the
+    DUT state is one PTF can use. PTF shares the neighbour's ingress SA; the
+    tuple's last element is the first PN PTF sends, the SA's current PN + 1,
+    and the codecs step by one from there. No harness SA is programmed.
+    ``asic_cache`` ({namespace: walk}) shares one ASIC_DB walk across ports."""
+    xpn = _check_macsec_state(host, port, attrs)
+    ns = getns_prefix(host, port)
+    asic_cache = {} if asic_cache is None else asic_cache
+    if ns not in asic_cache:
+        asic_cache[ns] = _namespace_macsec_state(host, ns)
+    _check_asic_state(host, port, attrs, asic_cache[ns])
+    if xpn is None:
+        sa = get_macsec_ingress_sa_counters(host, port, attrs["peer_an"])
+        if sa is None:
+            # The AN is not shown yet (SA just created); the merged view is the
+            # best available snapshot.
+            _, sa = get_macsec_counters(host, port)
+        xpn = int(sa.get("SAI_MACSEC_SA_ATTR_CURRENT_XPN", 0))
+    return _attr_tuple(attrs)[:-1] + (xpn + 1,)
+
+
+def _prepare_ptf_macsec(host, port, timeout, step, asic_cache):
+    """prepare_ptf_macsec returning (info, attrs). The SA row, its STATE_DB
+    and ASIC objects and the port's oper state settle one after another right
+    after MKA comes up, so a missing row (KeyError) or a failing state check
+    is retried until ``timeout`` (0: one attempt); the last error is raised
+    then. The namespace walk in ``asic_cache`` is redone after a failure."""
+    deadline = time.time() + timeout
+    asic_cache = {} if asic_cache is None else asic_cache
+    remove_orphan_ptf_ingress_sas(host, port)
+    while True:
+        try:
+            attrs = _read_macsec_attrs(host, port)
+            return _ptf_macsec_info(host, port, attrs, asic_cache), attrs
+        except (KeyError, MacsecStateInvalid) as err:
+            if time.time() >= deadline:
+                raise
+            logger.debug("MACsec state of %s on %s not usable yet, retrying: %s", port, host.hostname, err)
+            asic_cache.pop(getns_prefix(host, port), None)
+            time.sleep(step)
+
+
+def prepare_ptf_macsec(host, port, timeout=30, step=5, asic_cache=None):
+    """Read ``port``'s MACsec attributes for PTF once the DUT state is usable
+    (retried for ``timeout`` s; 0 tries once); rows left by earlier harness
+    versions are purged. Returns the MACSEC_INFO tuple. ``asic_cache``
+    ({namespace: walk}) shares one DB walk across ports."""
+    return _prepare_ptf_macsec(host, port, timeout, step, asic_cache)[0]
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -743,15 +848,220 @@ def find_portname_from_ptf_id(mg_facts, ptf_id):
     return None
 
 
-def load_macsec_info(duthost, port, force_reload=None):
+def load_macsec_info(duthost, port, force_reload=None, timeout=30, asic_cache=None):
     if force_reload or port not in __macsec_infos:
-        __macsec_infos[port] = prepare_ptf_macsec(duthost, port)
+        __macsec_infos[port] = prepare_ptf_macsec(duthost, port, timeout=timeout, asic_cache=asic_cache)
     return __macsec_infos[port]
 
 
-def load_macsec_info_for_ptf_id(duthost, ptf_id, port, force_reload=None):
-    if force_reload:
-        MACSEC_INFO[ptf_id] = prepare_ptf_macsec(duthost, port)
+def load_macsec_info_for_ptf_id(duthost, ptf_id, port, force_reload=None, asic_cache=None):
+    """Reload MACSEC_INFO[ptf_id] from the DUT in one attempt (called from the
+    receive loop of macsec_dp_poll). The old entry is kept when the DUT state
+    is not usable yet, so the poll reports a failure instead of aborting."""
+    if not force_reload:
+        return
+    try:
+        info = prepare_ptf_macsec(duthost, port, timeout=0, asic_cache=asic_cache)
+    except (KeyError, MacsecStateInvalid) as err:
+        logger.debug("MACsec reload of %s on %s skipped, keeping the current key: %s", port, duthost.hostname, err)
+        return
+    MACSEC_INFO[ptf_id] = info
+    MACSEC_PORT_NEXT_PN.pop(ptf_id, None)
+
+
+def get_macsec_port_states(host):
+    """{port: MACSEC_PORT_TABLE state} for every MACsec port, one SSH call.
+
+    Key presence signals a MACsec testbed (stable across MKA renegotiation).
+    state == 'ok' only means orchagent created the SAI MACsec port object; it
+    says nothing about MKA or the SAs (see _check_macsec_state for those).
+    """
+    namespaces = ['']
+    try:
+        if host.is_multi_asic:
+            namespaces += host.get_asic_namespace_list()
+    except Exception:
+        # Namespace discovery is best effort; the host namespace is still probed.
+        logger.debug("asic namespace discovery failed on %s; probing host namespace only",
+                     host.hostname, exc_info=True)
+    states = {}
+    for ns in namespaces:
+        ns_arg = "-n {} ".format(ns) if ns else ""
+        out = host.shell(
+            "for k in $(sonic-db-cli {ns}STATE_DB KEYS 'MACSEC_PORT_TABLE|*'); do "
+            "echo \"${{k#MACSEC_PORT_TABLE|}}=$(sonic-db-cli {ns}STATE_DB HGET \"$k\" state)\"; "
+            "done; true".format(ns=ns_arg),
+            module_ignore_errors=True,
+        ).get("stdout", "").strip()
+        states.update(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    return states
+
+
+def prime_macsec_info(host, ports, timeout=60, step=5):
+    """Load MACSEC_INFO for ``ports`` ({port: ptf index}) whose DUT state
+    passes the checks within ``timeout`` s (one deadline for all; the DB walk
+    is redone once per round) and remember them for refresh_macsec_info().
+    A port the ASIC still checks replay on is left out with an error logged;
+    the ptf_runner path raises for it. Returns the number of ports loaded."""
+    pending = dict(ports)
+    last_reason = {}
+    loaded = {}
+    attrs_by_port = {}
+    deadline = time.time() + timeout
+    for port in pending:
+        remove_orphan_ptf_ingress_sas(host, port)
+    while pending:
+        asic_cache = {}
+        for port, ptf_id in list(pending.items()):
+            try:
+                attrs = _read_macsec_attrs(host, port)
+                MACSEC_INFO[ptf_id] = _ptf_macsec_info(host, port, attrs, asic_cache)
+                attrs_by_port[port] = attrs
+                MACSEC_PORT_NEXT_PN.pop(ptf_id, None)
+                loaded[port] = ptf_id
+                _DECRYPT_WARNED.discard(ptf_id)
+            except MacsecReplayProtectionOn as err:
+                # Every PTF frame on this port would be dropped as late; only
+                # tests that inject through PTF fail for it (create_macsec_info).
+                logger.error("MACsec on %s of %s refused for PTF: %s", port, host.hostname, err)
+            except (KeyError, MacsecStateInvalid) as err:
+                last_reason[port] = str(err)
+                continue
+            except Exception:
+                logger.warning("prepare_ptf_macsec failed for %s on %s", port, host.hostname, exc_info=True)
+            pending.pop(port)
+        if pending and time.time() < deadline:
+            time.sleep(step)
+        else:
+            break
+    for port in pending:
+        logger.warning("MACsec on %s of %s is not usable by PTF, leaving it out: %s",
+                       port, host.hostname, last_reason[port])
+    _PRIMED_PORTS.setdefault(host.hostname, {}).update(loaded)
+    _check_liveness(host, attrs_by_port)
+    return len(loaded)
+
+
+def forget_macsec_ports(host, ports=None):
+    """Stop refresh_macsec_info() tracking ``ports`` of ``host`` (all if None).
+    Call wherever their MACSEC_INFO entries are torn down."""
+    primed = _PRIMED_PORTS.get(host.hostname)
+    if primed is None:
+        return
+    for port in list(primed) if ports is None else ports:
+        ptf_id = primed.pop(port, None)
+        _DECRYPT_WARNED.discard(ptf_id)
+        MACSEC_PORT_NEXT_PN.pop(ptf_id, None)
+        _LIVE_PORTS.discard((host.hostname, port))
+        _XPN_SAMPLES.pop((host.hostname, port), None)
+    if not primed:
+        _PRIMED_PORTS.pop(host.hostname, None)
+
+
+def _physical_ports(host, names):
+    """The front-panel ports behind ``names``; a PortChannel expands to its members."""
+    ports = set()
+    for name in names:
+        if name.startswith("PortChannel"):
+            keys = host.shell("sonic-db-cli CONFIG_DB KEYS 'PORTCHANNEL_MEMBER|{}|*'".format(name),
+                              module_ignore_errors=True).get("stdout", "").split()
+            ports.update(key.split("|")[-1] for key in keys)
+        else:
+            ports.add(name)
+    return ports
+
+
+def refresh_macsec_info(host, ports=None, timeout=300, rekey_grace=60):
+    """Reload the MACSEC_INFO entries prime_macsec_info() loaded for ``host``,
+    or only those behind ``ports`` (port or PortChannel names).
+
+    A swss restart (config reload, reboot, SRv6 enable) or a link flap makes
+    MKA negotiate a new SAK. Keys read before it no longer decrypt the DUT's
+    egress, so macsec_dp_poll hands back still-encrypted frames and every
+    capture on those ports comes up empty.
+
+    STATE_DB can still show the pre-restart session as ok, so a port only
+    counts once APPL_DB carries a SAK different from the one loaded. A port
+    whose SAK has not changed ``rekey_grace`` seconds after it was first seen
+    ok keeps the current key: MKA did not re-key it. A port that no longer
+    has MACsec is dropped. Returns False only if ports are still down and
+    none came back.
+    """
+    primed = _PRIMED_PORTS.get(host.hostname)
+    if not primed:
+        return True
+    pending = dict(primed)
+    if ports is not None:
+        wanted = _physical_ports(host, ports)
+        pending = {port: ptf_id for port, ptf_id in pending.items() if port in wanted}
+        if not pending:
+            return True
+    unchanged = {}  # port -> (first seen ok with the old SAK, attrs)
+    loaded = {}  # port -> attrs
+    dropped = []
+
+    fatal = []
+
+    def _install(port, attrs, asic_cache=None):
+        info = _ptf_macsec_info(host, port, attrs, asic_cache)
+        ptf_id = pending.pop(port)
+        MACSEC_INFO[ptf_id] = info
+        MACSEC_PORT_NEXT_PN.pop(ptf_id, None)
+        _DECRYPT_WARNED.discard(ptf_id)
+        unchanged.pop(port, None)
+        loaded[port] = attrs
+
+    def _poll():
+        states = get_macsec_port_states(host)
+        asic_cache = {}
+        for port in list(pending):
+            if port not in states:
+                logger.info("MACsec is no longer configured on %s of %s; dropping it", port, host.hostname)
+                pending.pop(port)
+                dropped.append(port)
+                forget_macsec_ports(host, [port])
+                continue
+            if states[port] != "ok":
+                continue
+            try:
+                attrs = _read_macsec_attrs(host, port)
+            except Exception as err:
+                logger.debug("MACsec SA of %s on %s not readable yet: %s", port, host.hostname, err)
+                continue
+            old = MACSEC_INFO.get(pending[port])
+            if old and attrs["sak"] == old[5]:
+                first_seen = unchanged.get(port, (time.time(),))[0]
+                unchanged[port] = (first_seen, attrs)
+                if time.time() - first_seen < rekey_grace:
+                    continue
+                logger.warning("SAK of %s on %s did not change; keeping the current key", port, host.hostname)
+            try:
+                _install(port, attrs, asic_cache)
+            except MacsecReplayProtectionOn as err:
+                # Configuration error: stop polling and raise below.
+                fatal.append(err)
+                return True
+            except Exception as err:
+                # The SA or the port is not back in the ASIC yet; poll again.
+                logger.debug("MACsec state of %s on %s not usable yet: %s", port, host.hostname, err)
+        return not pending
+
+    wait_until(timeout, 5, 0, _poll)
+    if fatal:
+        raise fatal[0]
+    for port in list(pending):
+        if port in unchanged:
+            try:
+                _install(port, unchanged[port][1])
+            except Exception as err:
+                logger.warning("Could not reload MACsec key of %s on %s: %s", port, host.hostname, err)
+        else:
+            logger.warning("MACsec session on %s of %s did not come back within %ss; PTF cannot decrypt it",
+                           port, host.hostname, timeout)
+    logger.info("Refreshed MACSEC_INFO for %d port(s) on %s (%d dropped, %d not back)",
+                len(loaded), host.hostname, len(dropped), len(pending))
+    _check_liveness(host, loaded)
+    return bool(loaded) or not pending
 
 
 # This API load the macsec session details from all ctrl links
@@ -760,6 +1070,7 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
     for port, nbr in ctrl_links.items():
         ptf_id = mg_facts["minigraph_ptf_indices"][port]
         MACSEC_INFO[ptf_id] = prepare_ptf_macsec(duthost, port)
+        MACSEC_PORT_NEXT_PN.pop(ptf_id, None)
 
 
 def macsec_send(test, port_id, pkt, count=1):
@@ -769,7 +1080,7 @@ def macsec_send(test, port_id, pkt, count=1):
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_number]
 
         if port_number not in MACSEC_PORT_NEXT_PN:
-            MACSEC_PORT_NEXT_PN[port_number] = pn + 1
+            MACSEC_PORT_NEXT_PN[port_number] = pn
 
         for n in range(count):
             if isinstance(pkt, bytes):
@@ -798,6 +1109,7 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
     force_reload = defaultdict(lambda: False)
     if hasattr(test, "force_reload_macsec"):
         force_reload = defaultdict(lambda: test.force_reload_macsec)
+    asic_cache = {}  # one DUT walk per namespace for all the ports this poll reloads
     while True:
         start_time = time.time()
         ret = __origin_dp_poll(
@@ -811,9 +1123,9 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                 break
             else:
                 continue
+        # The device number of PTF host is 0, if the target port isn't a injected port(belong to ptf host),
+        # Don't need to do MACsec further.
         pkt = scapy.Ether(ret.packet)
-        # MACsec decoding is only configured for device 0, but other devices
-        # must still match the expected packet.
         if ret.device != 0:
             if exp_pkt is None or ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                 return ret
@@ -827,11 +1139,16 @@ def macsec_dp_poll(test, device_number=0, port_number=None, timeout=None, exp_pk
                     if force_reload[ret.port]:
                         load_macsec_info_for_ptf_id(
                             test.duthost, ret.port, find_portname_from_ptf_id(test.mg_facts, ret.port),
-                            force_reload[ret.port])
+                            force_reload[ret.port], asic_cache)
                     encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                         MACSEC_INFO[ret.port]
                     force_reload[ret.port] = False
                     pkt, decap_success = decap_macsec_pkt(pkt, sci, an, sak, encrypt, send_sci, 0, xpn_en, ssci, salt)
+                    if not decap_success and ret.port not in _DECRYPT_WARNED:
+                        _DECRYPT_WARNED.add(ret.port)
+                        logger.warning("Could not decrypt a MACsec frame on PTF port %s. If captures on it come up "
+                                       "empty, MKA re-keyed since the SAK was read: call refresh_macsec_info() after "
+                                       "the restart or link flap", ret.port)
                     if exp_pkt is None or decap_success and ptf.dataplane.match_exp_pkt(exp_pkt, pkt):
                         # Here we explicitly create the PollSuccess struct and send the pkt which us decoded
                         # and the caller test can validate the pkt fields. Without this fix in case of macsec
@@ -912,28 +1229,56 @@ def _parse_show_macsec_counters(text):
             SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
             ---------------------------------------  ----------------------------------------------------------------
     '''
-    # One block per SA. A MACsec port carries two ingress SAs while a PTF SA is
-    # programmed (see program_ptf_ingress_sa); that block is skipped, otherwise
-    # its idle counters would overwrite the peer SA's. Blocks are recognised as
-    # PTF-owned by the same rule as is_ptf_row: ptf_sa == sak.
+    # Accumulate per SA block rather than straight into the result, because a
+    # port can show several SAs and the harness programs one of them itself:
+    # the PTF injector SA (ptf_sa=true, see PTF_SA_TAG) carries
+    # SAI_MACSEC_SA_ATTR_CURRENT_XPN 0, and whichever block is parsed last wins
+    # each key. When MKA settles on a lower AN than the PTF SA -- AN 0 against
+    # the injector's AN 2 -- that zero replaces the live SA's XPN, and since
+    # Counter addition in the caller drops non-positive values the key vanishes
+    # altogether. get_sa_name() already filters these rows out of the APPL_DB
+    # lookup for the same reason.
     blocks = []
+    stats = None
+    block = None
+    block_an = None
+    block_is_ptf = False
+    reg = re.compile(r'(SAI_MACSEC.*?) *(\d+)')
+    header = re.compile(r'MACsec (Egress|Ingress) SA \((\d+)\)')
     for line in text.splitlines():
         line = line.strip()
-        if line.startswith("MACsec Egress SA"):
-            blocks.append(('egress', {}))
-        elif line.startswith("MACsec Ingress SA"):
-            blocks.append(('ingress', {}))
-        elif blocks:
-            parts = line.split(None, 1)
-            if len(parts) == 2 and not line.startswith("-"):
-                blocks[-1][1][parts[0]] = parts[1].strip()
 
-    out = {'egress': {}, 'ingress': {}}
-    for direction, fields in blocks:
-        if is_ptf_row(fields):
+        # An SA header starts a new block; the number in parentheses is its AN.
+        found_header = header.match(line)
+        if found_header:
+            if block is not None:
+                blocks.append((stats, block_an, block, block_is_ptf))
+            stats = found_header.group(1).lower()
+            block_an, block, block_is_ptf = int(found_header.group(2)), {}, False
             continue
-        out[direction].update({k: int(v) for k, v in fields.items()
-                               if k.startswith("SAI_MACSEC") and v.isdigit()})
+        # No header yet, so no stats coming
+        if block is None:
+            continue
+
+        if line.startswith(PTF_SA_TAG) and line.split()[-1] == 'true':
+            block_is_ptf = True
+            continue
+
+        found = reg.match(line)
+        if found:
+            block[found.group(1)] = int(found.group(2))
+    if block is not None:
+        blocks.append((stats, block_an, block, block_is_ptf))
+
+    # 'ingress_by_an' keeps each live ingress SA apart: during a rekey two are
+    # up, and a caller that cares about one AN must not read the other's PN.
+    out = {'egress': {}, 'ingress': {}, 'ingress_by_an': {}}
+    for stats, an, block, block_is_ptf in blocks:
+        if block_is_ptf:
+            continue
+        out[stats].update(block)
+        if stats == 'ingress':
+            out['ingress_by_an'][an] = dict(block)
     return out
 
 
@@ -946,6 +1291,13 @@ def get_macsec_counters(duthost, port):
     return (out_dict['egress'], out_dict['ingress'])
 
 
+def get_macsec_ingress_sa_counters(duthost, port, an):
+    """Counters of the ingress SA on ``an`` of ``port``, or None if that AN is
+    not shown. Unlike get_macsec_counters this never merges SAs."""
+    output = duthost.command(f"show macsec {port}")["stdout"]
+    return _parse_show_macsec_counters(output)['ingress_by_an'].get(an)
+
+
 def clear_macsec_counters(duthost):
     assert duthost.command("sonic-clear macsec")["failed"] is False
 
@@ -954,9 +1306,9 @@ __origin_dp_poll = testutils.dp_poll
 __origin_send_packet = testutils.send_packet
 __macsec_infos = defaultdict(lambda: None)
 MACSEC_INFO = defaultdict(lambda: None)
-# Per-port next PN to send. Initialized to pn_at_pickle+1 on first use so PTF frames are
-# always just ahead of the real peer, rather than a shared global that grows by 100 per
-# send and inflates highest_PN on the ASIC far beyond the peer's actual position.
+# Per-port next PN to send, seeded from the MACSEC_INFO pn (the first PN to
+# send, as _ptf_macsec_info computes it) and stepped by one per frame; the
+# entry is dropped wherever MACSEC_INFO is reloaded so the new seed applies.
 MACSEC_PORT_NEXT_PN = {}
 testutils.dp_poll = macsec_dp_poll
 testutils.send_packet = macsec_send

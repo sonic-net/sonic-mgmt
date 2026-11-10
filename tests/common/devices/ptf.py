@@ -3,7 +3,7 @@ import pickle
 import tempfile
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.macsec.macsec_helper import load_macsec_info
+from tests.common.macsec.macsec_helper import MacsecStateInvalid, get_macsec_port_states, load_macsec_info
 
 logger = logging.getLogger(__name__)
 
@@ -40,42 +40,23 @@ class PTFHost(AnsibleHostBase):
         self.script(RESTART_INTERFACE_SCRIPT)
 
     def create_macsec_info(self):
-        # One STATE_DB query per namespace to find ports whose MKA is up
-        # (state=ok, so the SAK is in APP_DB) — avoids O(N_ports) SSH calls
-        # that would otherwise saturate DUT management CPU and starve
-        # wpa_supplicant.
-        namespaces = ['']
-        try:
-            if self.duthost.is_multi_asic:
-                namespaces += self.duthost.get_asic_namespace_list()
-        except Exception:
-            # Namespace discovery is best effort; the host namespace alone is
-            # still probed below.
-            logger.debug("asic namespace discovery failed on %s; probing host namespace only",
-                         self.duthost.hostname, exc_info=True)
-        active_macsec_ports = set()
-        for ns in namespaces:
-            ns_opt = "-n {} ".format(ns) if ns else ""
-            result = self.duthost.shell(
-                "for k in $(sonic-db-cli {ns}STATE_DB KEYS 'MACSEC_PORT_TABLE|*'); do "
-                "echo \"${{k#MACSEC_PORT_TABLE|}}=$(sonic-db-cli {ns}STATE_DB HGET \"$k\" state)\"; "
-                "done; true".format(ns=ns_opt),
-                module_ignore_errors=True)
-            for line in result.get("stdout", "").strip().splitlines():
-                if line.endswith("=ok"):
-                    active_macsec_ports.add(line.split("=", 1)[0])
+        # state=ok means the SAI port object exists; load_macsec_info checks the
+        # SA itself. A port the ASIC still checks replay on raises from there,
+        # so only tests that inject through PTF fail for it.
+        active_macsec_ports = {p for p, s in get_macsec_port_states(self.duthost).items() if s == "ok"}
 
         macsec_info = {}
+        asic_cache = {}  # one DUT walk per namespace for all ports
         ptf_indices = self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"]
         for port_name, injected_port_id in list(ptf_indices.items()):
             if port_name not in active_macsec_ports:
                 continue
             try:
+                # 10 s: a port whose MKA is legitimately down must not stall the run.
                 macsec_info[injected_port_id] = load_macsec_info(
-                    self.duthost, port_name, force_reload=True)
-            except KeyError:
-                logging.info(
-                    "No MACsec SA material in APP_DB for {}; skipping".format(port_name))
+                    self.duthost, port_name, force_reload=True, timeout=10, asic_cache=asic_cache)
+            except (KeyError, MacsecStateInvalid) as err:
+                logging.info("MACsec on {} is not usable by PTF; skipping: {}".format(port_name, err))
                 continue
         tf = tempfile.NamedTemporaryFile(delete=True)
         pickle.dump(macsec_info, tf)

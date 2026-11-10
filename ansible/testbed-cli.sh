@@ -584,7 +584,10 @@ function add_topo
   # Neighbor side of per-interface MACsec is a test-server concern: configure
   # the VMs now, from topology data alone, so deploy-mg only touches the DUT.
   # Exits cleanly (meta: end_play) when the topology declares no macsec_links.
-  ansible-playbook -i "$inv_name" config_macsec_neighbors.yml --vault-password-file="$passwd" -l "$duts" \
+  # Both inventories, as testbed_add_vm_topology.yml does: a cSONiC neighbor is
+  # configured through the test server, and only $vmfile puts that host in the
+  # vm_host group whose group_vars carry its credentials.
+  ansible-playbook -i "$vmfile" -i "$inv_name" config_macsec_neighbors.yml --vault-password-file="$passwd" -l "$duts" \
         -e testbed_name="$testbed_name" -e testbed_file="$tbfile" -e vm_file="$vmfile" -e vm_type="$vm_type"
 
   cache_files_path_value=$(is_cache_exist)

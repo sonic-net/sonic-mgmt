@@ -658,7 +658,7 @@ def parse_linkmeta(meta, hname):
         (macsec_enabled_ports, macsec_neighbors, macsec_links)
         - macsec_enabled_ports: list of local port names with MACsec enabled
         - macsec_neighbors: list of neighbor hostnames (parallel to macsec_enabled_ports)
-        - macsec_links: dict {local_port: {"neighbor": str, "neighbor_port": str, "profile": str}}
+        - macsec_links: dict {local_port: {"neighbor": str, "neighbor_port": str, "profile": str or None}}
     """
     link = meta.find(str(QName(ns, "Link")))
     macsec_neighbors = []
@@ -692,16 +692,18 @@ def parse_linkmeta(meta, hname):
         remote_parts = remote_endpoint.split(':')
         neighbor_name = remote_parts[0]
         neighbor_port = remote_parts[1] if len(remote_parts) > 1 else ""
-        # Default to "128_SCI" (matches the topo files' profile) for minigraphs
-        # that only carry MacSecEnabled. Warn so silent fallbacks are attributable.
+        # minigraph_link_meta.j2 always emits MacSecProfileName next to
+        # MacSecEnabled; a minigraph from elsewhere may carry only the flag.
+        # The profile is then unknown: report None rather than guess a name
+        # that may not exist in the DUT's MACSEC_PROFILE table.
         profile_name = props.get("MacSecProfileName")
         if not profile_name:
             print("WARNING: Link %s <-> %s:%s has MacSecEnabled=true but no "
-                  "MacSecProfileName; falling back to '128_SCI'. Update the "
-                  "minigraph to set MacSecProfileName explicitly." % (
+                  "MacSecProfileName; its profile is reported as None. Update "
+                  "the minigraph to set MacSecProfileName explicitly." % (
                       local_port, neighbor_name, neighbor_port),
                   file=sys.stderr)
-            profile_name = "128_SCI"
+            profile_name = None
 
         macsec_enabled_ports.append(local_port)
         macsec_neighbors.append(neighbor_name)

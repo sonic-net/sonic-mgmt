@@ -1,10 +1,12 @@
 {
 {%- set asic_cnt = asic_cnt|int -%}
-{#- On Broadcom DUTs, the MACsec SDK needs explicit rekey/replay settings:    -#}
-{#- without enable_replay_protect + replay_window, the anti-replay LAPN calc  -#}
-{#- collapses to LAPN = current_xpn + 1 and the engine drops every ingress    -#}
-{#- frame as LATE.  We emit those fields only when asic_type is broadcom to   -#}
-{#- avoid changing behavior on other vendors.                                 -#}
+{#- On Broadcom DUTs the profile states rekey_period and enable_replay_protect -#}
+{#- explicitly (replay_window only when replay protection is on). The always-  -#}
+{#- on testbed runs with replay protection off: PTF shares the neighbour's SA, -#}
+{#- so the two senders' PNs interleave and strict replay checking would drop   -#}
+{#- frames as late. orchagent passes the setting to the SAI                    -#}
+{#- (sonic-net/sonic-swss#5037); with it off, neighbour traffic shows            -#}
+{#- IN_PKTS_LATE 0 and BGP stays up. Other vendors keep the SAI defaults.      -#}
 {%- macro macsec_profile_body() -%}
         "priority": "{{priority}}",
         "cipher_suite": "{{cipher_suite}}",

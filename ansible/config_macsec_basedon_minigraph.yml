@@ -53,10 +53,12 @@
       fail:
         msg: >-
           Topology declares macsec_links but no PORT has a macsec binding in
-          CONFIG_DB. deploy-mg must run with '-e macsec_profile=<profile>' so
-          generate_golden_config_db emits the MACsec port bindings, and
+          CONFIG_DB, so golden config emitted no MACsec port bindings. The
+          config_sonic_basedon_testbed.yml run that preceded this play derives
+          macsec_profile from macsec_links (unless one was passed explicitly)
+          so generate_golden_config_db binds PORT.macsec. Check that
           vars/topo_{{ testbed_facts['topo'] }}.yml (exact name, no fallback)
-          must be the file that carries those macsec_links.
+          is the file that carries those macsec_links.
       when: dut_macsec_ports_raw.stdout_lines | length == 0
 
     - name: Wait for MACSEC_PORT_TABLE state=ok on every MACsec port
