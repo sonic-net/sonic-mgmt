@@ -207,6 +207,54 @@ def _isis_forwarding_only(nodes):
         pytest_assert(not failures, "Failed to restore BGP connected redistribution on {}".format(failures))
 
 
+def _cleanup_fabric(nodes, added_addresses):
+    """Attempt every cleanup action and report command/readback failures together."""
+    failures = []
+
+    def execute(name, command):
+        try:
+            result = nodes[name].shell(command, module_ignore_errors=True)
+            if result.get("rc", 1) != 0:
+                raise RuntimeError(str(result))
+            return result.get("stdout", "")
+        except Exception as error:
+            failures.append("{}: {}: {}".format(name, command, error))
+            return None
+
+    for name in nodes:
+        for interface in NODE_INTERFACES[name] + ["Loopback0"]:
+            execute(name, "sudo config interface isis unbind {}".format(interface))
+        execute(name, "sudo config isis instance del CORE")
+    for name, interface, address in reversed(added_addresses):
+        execute(name, "sudo config interface ip remove {} {}".format(interface, address))
+
+    # CLI success alone is insufficient: check owned rows and cascading children.
+    for name in nodes:
+        interfaces = set(NODE_INTERFACES[name] + ["Loopback0"])
+        addresses = {port + "|" + address for node, port, address in added_addresses if node == name}
+        for table in ("ISIS_INSTANCE", "ISIS_INSTANCE_LEVEL", "ISIS_REDISTRIBUTE",
+                      "ISIS_INTERFACE", "ISIS_INTERFACE_LEVEL", "INTERFACE"):
+            output = execute(name, "sudo sonic-cfggen -d --var-json {}".format(table))
+            if output is None:
+                continue
+            try:
+                # sonic-cfggen exits successfully with no output for an absent table.
+                rows = json.loads(output) if output.strip() else {}
+                if not isinstance(rows, dict):
+                    raise ValueError("Expected a table object")
+                if table == "INTERFACE":
+                    remaining = addresses.intersection(rows)
+                elif table.startswith("ISIS_INTERFACE"):
+                    remaining = {key for key in rows if key.split("|", 1)[0] in interfaces}
+                else:
+                    remaining = {key for key in rows if key == "default|CORE" or key.startswith("default|CORE|")}
+                if remaining:
+                    failures.append("{}: residual {} rows: {}".format(name, table, sorted(remaining)))
+            except (ValueError, TypeError, AttributeError) as error:
+                failures.append("{}: invalid {} cleanup readback: {}".format(name, table, error))
+    pytest_assert(not failures, "Force10 cleanup failed:\n" + "\n".join(failures))
+
+
 @pytest.fixture(scope="module")
 def isis_force10_fabric(rand_selected_dut, nbrhosts):
     """Configure the seven existing Force10 topology nodes through the SONiC CLI."""
@@ -246,13 +294,7 @@ def isis_force10_fabric(rand_selected_dut, nbrhosts):
                       "IS-IS adjacencies did not converge on the Force10 seven-node topology")
         yield nodes
     finally:
-        # Leave the shared community testbed without IS-IS configuration.
-        for name, node in nodes.items():
-            for interface in NODE_INTERFACES[name] + ["Loopback0"]:
-                _run(node, "sudo config interface isis unbind {}".format(interface), check=False)
-            _run(node, "sudo config isis instance del CORE", check=False)
-        for name, interface, address in reversed(added_addresses):
-            _run(nodes[name], "sudo config interface ip remove {} {}".format(interface, address), check=False)
+        _cleanup_fabric(nodes, added_addresses)
 
 
 def test_isis_cli_programs_configdb(isis_force10_fabric):

@@ -37,6 +37,8 @@ class Node:
 
     def shell(self, command, **kwargs):
         self.calls.append(command)
+        if "--var-json ISIS_" in command:
+            return {"rc": 0, "stdout": "{}"}
         if "--var-json INTERFACE" in command:
             return {"rc": 0, "stdout": json.dumps(self.rows)}
         if "sonic-db-cli" in command:
@@ -185,3 +187,77 @@ def test_failed_native_route_command_is_not_success_even_with_json():
     node = types.SimpleNamespace(shell=lambda *args, **kwargs: {
         "rc": 1, "stdout": json.dumps({prefix: [route]})})
     assert not module._route_is_installed(node, prefix)
+
+
+@pytest.mark.parametrize("failure", ["rc", "transport", "residual", "malformed", "readback_rc"])
+def test_cleanup_aggregates_failure_and_continues_all_nodes_and_addresses(failure):
+    module = load_setup()
+    nodes = nodes_for(module)
+    first = nodes['P1']
+    original = first.shell
+
+    def shell(command, **kwargs):
+        if command == 'sudo config interface isis unbind Ethernet112':
+            if failure == 'rc':
+                return {'rc': 1, 'stdout': 'injected unbind failure'}
+            if failure == 'transport':
+                raise OSError('injected transport failure')
+        if '--var-json ISIS_INSTANCE_LEVEL' in command:
+            if failure == 'residual':
+                return {'rc': 0, 'stdout': '{"default|CORE|level-2": {}}'}
+            if failure == 'malformed':
+                return {'rc': 0, 'stdout': 'broken json'}
+            if failure == 'readback_rc':
+                return {'rc': 1, 'stdout': ''}
+        return original(command, **kwargs)
+
+    first.shell = shell
+    addresses = [('P1', 'Ethernet112', '198.19.0.0/31'), ('PE3', 'Ethernet4', '198.19.0.22/31')]
+    with pytest.raises(pytest.fail.Exception, match='Force10 cleanup failed'):
+        module._cleanup_fabric(nodes, addresses)
+    for node in nodes.values():
+        assert 'sudo config isis instance del CORE' in node.calls
+        assert 'sudo sonic-cfggen -d --var-json INTERFACE' in node.calls
+    assert 'sudo config interface ip remove Ethernet4 198.19.0.22/31' in nodes['PE3'].calls
+
+
+def test_cleanup_accepts_absent_tables_and_preserves_unrelated_rows():
+    module = load_setup()
+    nodes = nodes_for(module)
+    for node in nodes.values():
+        original = node.shell
+
+        def shell(command, _original=original, **kwargs):
+            if '--var-json ISIS_INSTANCE' in command:
+                return {'rc': 0, 'stdout': '{"default|OTHER": {}}'}
+            if '--var-json ISIS_' in command:
+                return {'rc': 0, 'stdout': ''}
+            return _original(command, **kwargs)
+
+        node.shell = shell
+    module._cleanup_fabric(nodes, [])
+
+
+def test_cleanup_reports_multiple_failures_and_residual_owned_address():
+    module = load_setup()
+    nodes = nodes_for(module)
+    node = nodes['P1']
+    node.rows['Ethernet112|198.19.0.0/31'] = {}
+    original = node.shell
+
+    def shell(command, **kwargs):
+        if 'isis unbind Ethernet112' in command:
+            return {'rc': 1, 'stdout': 'unbind rejected'}
+        if 'isis instance del CORE' in command:
+            raise OSError('delete disconnected')
+        if 'ip remove Ethernet112' in command:
+            return {'rc': 0, 'stdout': ''}  # False success must fail readback.
+        return original(command, **kwargs)
+
+    node.shell = shell
+    with pytest.raises(pytest.fail.Exception) as error:
+        module._cleanup_fabric(nodes, [('P1', 'Ethernet112', '198.19.0.0/31')])
+    message = str(error.value)
+    assert 'unbind rejected' in message and 'delete disconnected' in message
+    assert 'residual INTERFACE rows' in message
+    assert 'sudo config isis instance del CORE' in nodes['PE3'].calls
