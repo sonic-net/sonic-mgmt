@@ -247,18 +247,12 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_a
             enum_frontend_asic_index,
             "vtysh -c \"show ip bgp neighbor {} advertised-routes\"".format(remote_ip)
         )
-        output = duthost.shell("{} | grep {}".format(cmd, loopback_ip), module_ignore_errors=True)
+        output = duthost.shell("{} | grep -Fq '{}/'".format(cmd, loopback_ip), module_ignore_errors=True)
         pytest_assert(output["rc"] == 0, (
             "Failed to check whether Loopback ipv4 address has been advertised. "
             "Return code: {} "
             "Output: {}"
         ).format(output["rc"], output))
-
-        pytest_assert(loopback_ip in output["stdout"], (
-            "Router advertised unexpected. "
-            "Expected loopback IP: {} "
-            "Actual output: {}"
-        ).format(loopback_ip, output["stdout"]))
 
 
 @pytest.mark.disable_loganalyzer
@@ -280,18 +274,12 @@ def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_front
             enum_frontend_asic_index,
             "vtysh -c \"show ipv6 bgp neighbor {} advertised-routes\"".format(remote_ip)
         )
-        output = duthost.shell("{} | grep {}".format(cmd, loopback_ipv6), module_ignore_errors=True)
+        output = duthost.shell("{} | grep -Fq '{}/'".format(cmd, loopback_ipv6), module_ignore_errors=True)
         pytest_assert(output["rc"] == 0, (
             "Failed to check whether Loopback ipv6 address has been advertised. "
             "Return code: {} "
             "Output: {}"
         ).format(output["rc"], output))
-
-        pytest_assert(loopback_ipv6 in output["stdout"], (
-            "Router advertised unexpected. "
-            "Expected loopback IP: {} "
-            "Actual output: {}"
-        ).format(loopback_ipv6, output["stdout"]))
 
 
 @pytest.mark.disable_loganalyzer
