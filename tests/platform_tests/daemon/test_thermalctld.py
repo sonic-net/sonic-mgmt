@@ -35,6 +35,7 @@ from tests.common.platform.bmc_utils import (
     bmc_log_zgrep,
     get_switch_host_or_skip_test,
     get_system_leak_status,
+    is_real_leak_present,
     inject_leak_sensor,
     make_bmc_loganalyzer,
 )
@@ -140,6 +141,13 @@ def _wait_for_system_leak_status(leak_mocker, expected_status, timeout_sec, poll
     return wait_until(timeout_sec, poll_interval_sec, 0, status_matches)
 
 
+def _skip_if_real_leak_present(duthost):
+    """Skip the test: a real leak is active, so test leak injection cannot be verified."""
+    if is_real_leak_present(duthost):
+        pytest.skip("A real leak is already present (device_leak_status={}); "
+                    "cannot test with test leak injection".format(get_system_leak_status(duthost)))
+
+
 def _create_platform_api_leak_mocker(duthost, platform_api_conn):  # noqa: F811
     """Return a leak mocker backed by the leak test platform API, skipping if unsupported."""
     if not LiquidLeakageMockerPlatformApi.is_supported(platform_api_conn):
@@ -147,6 +155,7 @@ def _create_platform_api_leak_mocker(duthost, platform_api_conn):  # noqa: F811
     leak_mocker = LiquidLeakageMockerPlatformApi(duthost, platform_api_conn)
     if not leak_mocker.sensor_names:
         pytest.skip("No leak sensors found on device")
+    _skip_if_real_leak_present(duthost)
     return leak_mocker
 
 
@@ -413,8 +422,7 @@ class TestThermalctldDaemon:
             self, mocker_factory, platform_api_conn, leak_severities,  # noqa: F811
             expected_system_leak_status, escalation):
         """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation."""
-        if get_system_leak_status(self.duthost) == 'CRITICAL':
-            pytest.skip("System leak status is already CRITICAL")
+        _skip_if_real_leak_present(self.duthost)
 
         # Prefer the vendor-independent leak test platform API; fall back to the vendor mocker
         if LiquidLeakageMockerPlatformApi.is_supported(platform_api_conn):

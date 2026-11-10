@@ -96,6 +96,8 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
             pytest.skip(f"Leak test platform API not available: {e}")
         if not supported:
             pytest.skip("Platform does not support leak test injection")
+        if leak_sensor_test.is_real_leak_present(platform_api_conn):
+            pytest.skip("A real leak is already present; cannot test with test leak injection")
         yield
         leak_sensor_test.clear_test_leaks(platform_api_conn)
 

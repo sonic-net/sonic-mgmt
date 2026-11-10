@@ -28,6 +28,13 @@ def leak_sensor_test_api(conn, name, args=None, kwargs=None):
     return res
 
 
+def is_real_leak_present(conn):
+    """True if any leak sensor reports a leak that is not a test leak."""
+    from tests.common.helpers.platform_api import leak_sensor, liquid_cooling
+    return any(leak_sensor.is_leak(conn, i) and not leak_sensor.is_test_leak(conn, i)
+               for i in range(liquid_cooling.get_num_leak_sensors(conn)))
+
+
 def is_leak_test_supported(conn):
     """LeakageSensorTestBase.is_leak_test_supported()"""
     return leak_sensor_test_api(conn, 'is_leak_test_supported')

@@ -144,7 +144,7 @@ Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fix
 
 ### 6. Leak Test API Feature Gate
 
-Leak injection tests use the vendor-independent leak test API (`LeakageSensorTestBase`, reached through `LiquidCoolingBase.get_leak_sensor_test()`). Injected leaks are flagged through `LeakageSensorBase.is_test_leak()` and never trigger a mitigation action. Every test that injects a leak first calls `is_leak_test_supported()` and skips (or falls back to a vendor mocker) when the platform does not support injection. All injected leaks are withdrawn with `clear_test_leaks()` on teardown.
+Leak injection tests use the vendor-independent leak test API (`LeakageSensorTestBase`, reached through `LiquidCoolingBase.get_leak_sensor_test()`). Injected leaks are flagged through `LeakageSensorBase.is_test_leak()` and never trigger a mitigation action. Every test that injects a leak first calls `is_leak_test_supported()` and skips (or falls back to a vendor mocker) when the platform does not support injection, and also skip when a real (non-test) leak is already active, since injection cannot be verified in that state. All injected leaks are withdrawn with `clear_test_leaks()` on teardown.
 
 ### 7. Test Style Conventions
 
