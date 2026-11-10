@@ -48,3 +48,71 @@ imports Linux-only testbed utilities.
 - Python 3
 - `pytest`
 - `unittest.mock` (built into Python standard library)
+
+## BMC cooling-aware startup regression
+
+`unit_test_bmcctld_startup.py` executes the startup assertions and power-loss test
+method via AST without importing Linux/testbed dependencies. It covers both
+air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
+or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
+and PDU outlet restoration after individual controller exceptions.
+It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
+positive delay-bypass and host-isolation evidence, and checks configuration
+restoration on success and failures. Failed or malformed delay snapshots must
+abort before configuration changes, cleanup, or reboot.
+Physical startup behavior still requires a BMC chassis with a wired PDU.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_bmcctld_startup.py -q
+```
+
+## PTF daily TACACS provisioning regression
+
+`helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and
+evaluates its conditions for Docker networking enabled, disabled, and unset.
+It covers both `add-topo` and `renumber-topo`, preserves the PTF-only scope and
+MAC-change guard, and checks delegation to the PTF management address.
+These isolated checks require `PyYAML` and `Jinja2`; they do not start a daemon
+or replace a live testbed run.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_ptf_tacacs_provisioning.py -q
+```
+
+## Host-failure lifecycle regressions
+
+Run the classifier unit tests and the real pytest lifecycle regressions together:
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/helpers/unit_test_host_failure_utils.py \
+  tests/common/unit_tests/helpers/unit_test_host_failure_lifecycle.py -q
+```
+
+`--confcutdir` also excludes parent package setup, so these tests do not load
+`tests/common/__init__.py` or require a SONiC container. The lifecycle tests extract
+the production hooks from `tests/conftest.py` and run them in isolated pytest
+subprocesses with real function/module/session fixtures. They cover teardown-first
+unreachability, later cleanup failures, exit code 15, complete final `CustomMsg`
+and captured cleanup logs, and preservation of normal test execution. Exception
+coverage includes `pytest.fail`, `pytest.skip`, mixed exception groups, and
+unchanged propagation of `SystemExit`, `KeyboardInterrupt`, and `pytest.exit`.
+Mixed-group coverage also checks independent same-scope finalizers and errors
+raised before the group, so completing ancestor scopes alone is not sufficient.
+
+## gNMI AAA TLS reuse
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/fixtures/unit_test_gnmi_aaa.py -q
+```
+
+These offline regressions extract production helpers to avoid testbed imports.
+They independently model raw Redis hashes and cfggen-decoded role lists, including
+empty fields and NULL sentinels. They exercise exact metadata restoration,
+setup/body/cleanup failures, configuration-leak detection, strict certificate
+cleanup, fresh public RPC channels, and real pytest fixture
+ordering with mocked devices. They do not establish device authorization,
+audit/rate-limit behavior, or a hardware performance improvement.

@@ -41,12 +41,13 @@ def invocation_type(request):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_max_time_for_interfaces(duthost):
+def set_max_time_for_interfaces(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global MAX_WAIT_TIME_FOR_INTERFACES
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
         MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
@@ -112,9 +113,19 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     if "6000" in dut.facts['hwsku']:
         interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
 
-    if dut.is_supervisor_node():
-        logging.info("skipping interfaces related check for supervisor")
+    skip_interface_check = dut.is_supervisor_node() or dut.is_bmc()
+    if skip_interface_check:
+        logging.info(
+            "Skipping interface and transceiver checks for %s",
+            "supervisor" if dut.is_supervisor_node() else "BMC",
+        )
     else:
+        # Only check administratively up ports. Admin-down ports in conn_graph/minigraph
+        # are expected to stay down and should not fail interface status checks.
+        admin_up_ports = set(dut.get_admin_up_ports())
+        interfaces = {k: v for k, v in interfaces.items() if k in admin_up_ports}
+        logging.info("Admin-up interfaces to check: %s", list(interfaces))
+
         logging.info("Wait {} seconds for all the transceivers to be detected".format(
             interfaces_wait_time))
         result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
@@ -131,8 +142,10 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_transceiver_basic(
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
+    # Retain the existing PMON check for BMC, but not for supervisors.
+    if not dut.is_supervisor_node():
         logging.info("Check pmon daemon status")
-        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0" or dut.is_bmc():
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
         else:
             result = wait_until(60, 5, 0, check_pmon_daemon_status, dut)

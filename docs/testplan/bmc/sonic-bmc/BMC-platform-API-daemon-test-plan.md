@@ -450,25 +450,25 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
 **Test Objective**:
-Verify that `power_on_delay` is configurable via `config chassis modules power-on-delay`, that bmcctld picks up the new value from CONFIG_DB, and that bmcctld's apply-vs-skip decision is driven by the **BMC's own last reboot cause** (not by anything the Switch-Host does):
-- Non-power-loss reboot of the BMC → bmcctld **skips** the delay
-- Power-loss reboot of the BMC (real AC loss via external PDU) → bmcctld **applies** the configured delay before dispatching POWER_ON to the Switch-Host
-- Note: default `power_on_delay` may be pre-seeded by platform policy (for example, 300s on liquid-cooled systems)
+Verify that `power_on_delay` is configurable and persists across chassis power loss, with startup expectations selected by the platform's `Chassis.is_liquid_cooled()` API:
+- **Air-cooled**: Switch-Host and BMC start simultaneously at rack power-on, without an additional delay. The factory CPU power state is ON. If the host is already ONLINE when bmcctld starts, the daemon skips its boot sequence; if OFFLINE with admin status up, it powers on immediately. ONLINE is hardware oper-status, not evidence that the host OS or services are ready.
+- **Liquid-cooled**: the factory CPU power state is OFF and admin status defaults to down. For an already provisioned host with admin status up, bmcctld applies the configured delay relative to **BMC boot uptime** on power loss, then checks Rack Manager commands and critical leaks/alerts before automatic power-on. Already-ONLINE, admin-down, or safety-blocked startup is not valid evidence of delayed dispatch in this test.
+- This test starts with a reachable, provisioned Switch-Host; it does not override factory liquid-cooling safety policy or test an explicit CLI/Rack Manager power-on.
 
 **Test Steps**:
-1. Snapshot original `power_on_delay`; set a short test value (e.g. 30 s) via `config chassis modules power-on-delay SWITCH-HOST 30`; assert CONFIG_DB reflects it
-2. **Scenario A — BMC cold reboot** (non-power-loss):
-   - Cold-reboot the BMC; scan pmon journal — `Skipping SWITCH_HOST_POWER_ON_DELAY` present, no delay applied
-3. **Scenario B — BMC power loss via external PDU** (skip if no PDU controller):
-   - PDU off then on; scan pmon journal — `SWITCH_HOST_POWER_ON_DELAY 30` present, then assert the subsequent `Issuing power_on` log line lands `30 ± 30 s` later
-4. `finally`: restore the original `power_on_delay`
+1. Query cooling type; fail on API errors or non-boolean results. Snapshot `power_on_delay`, set 30 s via CLI, verify CONFIG_DB and save it.
+2. Snapshot both boot IDs and write a persistent event.log marker. Resolve the chassis PDU through the paired Switch-Host; skip if no controller is wired.
+3. Remove chassis power, confirm BMC unreachability, restore all outlets, and wait for BMC critical processes. Require a changed BMC boot ID, Power Loss reboot cause, and persisted delay configuration.
+4. Scan only marker-bounded startup entries in persistent event.log:
+   - Air-cooled: require the explicit already-ONLINE/skip-boot-sequence or non-liquid-cooled/immediate-power-on path. Do not require a second power_on dispatch on an ONLINE host.
+   - Liquid-cooled: require the OFFLINE/issuing-power_on path. Verify its current-boot `bmcctld` journal monotonic timestamp against the configured BMC boot delay. Allow only the daemon's sub-second integer truncation of remaining delay, not a broad timing tolerance; uptime already exceeding the delay at daemon startup is valid.
+5. Require Switch-Host critical services to recover, a changed host boot ID, and Power Loss reboot cause. Restore and save the original delay in `finally`.
 
 **Expected Result**:
-- `config chassis modules power-on-delay` updates CONFIG_DB; new value is reflected in `CHASSIS_MODULE|SWITCH-HOST power_on_delay`
-- Scenario A: bmcctld emits a "Skipping" log on non-power-loss reboot; no delay is applied
-- Scenario B: bmcctld emits `SWITCH_HOST_POWER_ON_DELAY <N>` on power-loss reboot and waits ≥`<N>` seconds before dispatching POWER_ON
-- Scenario B is gracefully skipped on testbeds without a PDU controller
-- Original `power_on_delay` value is restored
+- Air-cooled immediate startup is accepted only with explicit fresh startup evidence and successful reboot/health verification.
+- Liquid-cooled automatic dispatch must occur at BMC uptime greater than `<N> - 1` seconds, retaining Rack Manager and leak safety gates. Missing logs, missing timing evidence, early dispatch, and failed recovery fail the test.
+- The power-loss scenario is skipped without a PDU controller; original configuration is restored.
+- BMC-only cold reboot isolation is covered separately by `test_bmc_reboot_does_not_affect_switch_host`, not by this chassis-power-loss test.
 
 ---
 
@@ -477,18 +477,20 @@ Verify that `power_on_delay` is configurable via `config chassis modules power-o
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
 **Test Objective**:
-Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Switch-Host must NOT power-cycle, reboot, or see any service interruption. Confirmed via reboot-cause history on both sides — a new entry must appear on the BMC, and no new entry must appear on the Switch-Host.
+Verify that an explicitly configured nonzero `power_on_delay` is ignored when the BMC alone cold-reboots and the paired Switch-Host is already ONLINE. The host must not power-cycle or reboot, and its critical services must be healthy afterward. This covers both cooling types without powering off the host or invoking the liquid-cooled OFFLINE startup sequence.
 
 **Test Steps**:
-1. Snapshot both sides: `uptime -s` and `show reboot-cause history` length on BMC and Switch-Host
-2. Cold-reboot the BMC and wait for `critical_services_fully_started`
-3. Assert BMC `uptime -s` advanced and its reboot-cause history grew by exactly 1
-4. Assert Switch-Host `uptime -s` unchanged and reboot-cause history length unchanged
+1. Snapshot BMC and Switch-Host kernel boot IDs and the original `power_on_delay`.
+2. Set `power_on_delay=300` through the CLI, verify CONFIG_DB, save, and write a persistent event.log marker.
+3. Cold-reboot only the BMC; require BMC critical-service recovery, a changed BMC boot ID, and a non-power-loss reboot cause.
+4. Require the configured delay to remain 300 after reboot. Require marker-bounded event.log and current-boot `bmcctld` journal evidence of `already ONLINE (daemon restart); skipping boot sequence`. Reject any current-boot `Waiting ... SWITCH_HOST_POWER_ON_DELAY` entry. Do not infer delay bypass from total SSH/service-recovery time.
+5. Require the Switch-Host boot ID to remain unchanged and its critical services to be healthy.
+6. In `finally`, restore the original delay (or remove the field if originally absent) and save configuration.
 
 **Expected Result**:
-- BMC reboot succeeds; BMC's own reboot-cause history shows a new "User issued 'reboot' command" entry
-- Switch-Host is undisturbed: uptime unchanged, no new reboot-cause history entry
-- This confirms BMC↔Switch-Host fault isolation: a BMC self-reboot does not trigger any `POWER_OFF`, `POWER_ON`, or `POWER_CYCLE` action on the Switch-Host
+- BMC reboot succeeds without power loss, and the explicit nonzero delay persists but is not applied on the already-ONLINE startup path.
+- Switch-Host boot ID remains unchanged and critical services remain healthy; missing startup evidence or a boot-delay wait fails the test.
+- Original configuration is restored even if the reboot or a verification fails. This is post-reboot isolation coverage, not continuous monitoring for service interruption during the BMC reboot.
 
 ---
 

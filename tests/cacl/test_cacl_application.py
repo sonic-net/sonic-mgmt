@@ -290,7 +290,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     # It has to wait cacl rules to be effective.
     wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
-    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+    insert_ssh_accept_rule(duthost)
 
     yield file_path
 
@@ -336,6 +336,31 @@ def check_iptable_rules(duthost):
     duthost.command("ip6tables -S")
 
     return False
+
+
+def insert_ssh_accept_rule(duthost):
+    """
+    Insert the SSH ACCEPT rule into the INPUT chain after acl-loader has reprogrammed it.
+
+    "iptables -I INPUT 3" assumes the chain already holds at least two rules. That is not
+    always true right after "acl-loader update full". An IPv6-only scale config, for
+    example, programs every rule into ip6tables and leaves the IPv4 INPUT chain nearly
+    empty, so the fixed position is out of range and iptables fails the whole test with
+    "Index of insertion too big".
+
+    Clamp the position to the current chain length so the rule always lands at a valid
+    index. Ordering does not matter here because the tests compare rule sets rather than
+    sequence.
+
+    Args:
+        duthost: DUT to insert the rule on.
+
+    Returns:
+        None.
+    """
+    rules = duthost.command("iptables -S INPUT")["stdout_lines"]
+    position = min(3, len([rule for rule in rules if rule.startswith("-A ")]) + 1)
+    duthost.command("iptables -I INPUT {} -p tcp -m tcp --dport 22 -j ACCEPT".format(position))
 
 
 # To specify a port range instead of a single port, use iptables format:
@@ -533,6 +558,30 @@ def append_midplane_traffic_rules(duthost, iptables_rules):
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 
+def append_allow_bmc_link_traffic_rule(duthost, iptables_rules):
+    """
+    caclmgrd accepts traffic from the peer on the link between the switch host and the BMC
+    (https://github.com/sonic-net/sonic-host-services/pull/467). /etc/sonic/bmc.json only exists
+    on a switch host or a BMC, the same file is used on both ends of the link.
+    """
+    # Check if the DUT has a BMC link, only a switch with a BMC and the BMC itself have /etc/sonic/bmc.json
+    result = duthost.shell("cat /etc/sonic/bmc.json", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return
+    # Check if caclmgrd on the DUT adds the BMC link rule
+    cmd = "grep -q generate_allow_bmc_link_traffic /usr/local/bin/caclmgrd"
+    if duthost.shell(cmd, module_ignore_errors=True)["rc"] != 0:
+        return
+
+    bmc_data = json.loads(result["stdout"])
+    intf, host_ip, bmc_ip = bmc_data["bmc_if_name"], bmc_data["bmc_if_addr"], bmc_data["bmc_addr"]
+    # bmc_if_addr is the switch host end of the link and bmc_addr is the BMC end
+    src_ip, dst_ip = (host_ip, bmc_ip) if duthost.is_bmc() else (bmc_ip, host_ip)
+    rule = f"-A INPUT -s {src_ip}/32 -d {dst_ip}/32 -i {intf} -j ACCEPT"
+    logger.info(f"Expect BMC link iptables rule: {rule}")
+    iptables_rules.append(rule)
+
+
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):
     iptables_rules = []
     ip6tables_rules = []
@@ -554,10 +603,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.append("-A INPUT -d 169.254.200.254/32 -j ACCEPT")
 
     if asic_index is None:
+        # Allow the switch host <-> BMC link peer (host namespace only)
+        append_allow_bmc_link_traffic_rule(duthost, iptables_rules)
+
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
-            if k in ("dhcp_server", "redfish"):
+            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
+            if k == "dhcp_server":
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
@@ -1021,7 +1073,7 @@ def generate_scale_rules(duthost, ip_type):
     # It has to wait cacl rules to be effective.
     wait_until(200, 10, 2, check_iptable_rules, duthost)
     # add ACCEPT rule for SSH to make sure testbed access
-    duthost.command("iptables -I INPUT 3 -p tcp -m tcp --dport 22 -j ACCEPT")
+    insert_ssh_accept_rule(duthost)
 
 
 def verify_cacl_show_acl_rule(duthost, acl_file):

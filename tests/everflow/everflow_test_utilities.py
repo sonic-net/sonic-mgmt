@@ -1,5 +1,7 @@
 """Utilities for testing the Everflow feature in SONiC."""
 from collections import defaultdict
+from contextlib import ExitStack
+from functools import partial
 import os
 import logging
 import random
@@ -11,6 +13,7 @@ import yaml
 import six
 import re
 
+from _pytest.outcomes import OutcomeException
 import ptf.testutils as testutils
 import ptf.packet as packet
 from scapy.layers.l2 import Ether
@@ -27,8 +30,8 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.mellanox_data import get_chip_type
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
-from tests.common.helpers.sonic_db import AsicDbCli
-from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, duthost_startup_ebgp
+from tests.common.helpers.sonic_db import AsicDbCli, redis_hget, redis_hgetall
+from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, restore_ebgp_on_exit
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -42,6 +45,11 @@ FILE_DIR = "everflow/files"
 EVERFLOW_V4_RULES = "ipv4_test_rules.yaml"
 EVERFLOW_DSCP_RULES = "dscp_test_rules.yaml"
 IP_TYPE_RULE_V6 = "test_rules_ip_type_v6.json"
+# Qualifiers an ASIC silently drops when programming an ACL rule.
+# SwitchVppAcl::acl_rule_field_update has no case for SAI_ACL_ENTRY_ATTR_FIELD_DSCP
+# or SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE; both fall through to default and are
+# logged as unhandled while the rule is still created.
+IGNORED_ACL_QUALIFIERS = {"vpp": {"dscp", "ethertype"}}
 
 DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
@@ -506,6 +514,18 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
     pytest_assert(not queues_with_drops, msg)
 
 
+def _remove_run_dir_on_exit(duthost, exc_type, exc, traceback):
+    """Remove a fixture-owned run directory without masking an earlier failure."""
+    try:
+        duthost.file(path=DUT_RUN_DIR, state="absent")
+    except (Exception, OutcomeException):
+        if exc_type is None:
+            raise
+        logging.exception("Failed to remove Everflow run directory on %s while handling %s",
+                          duthost.hostname, exc_type.__name__)
+    return False
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
@@ -536,23 +556,20 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
             ebgp_shutdown_duthosts.append(dut_host)
-            dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
         ebgp_shutdown_duthosts.append(duthost)
-        duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
 
-    v4ebgps = {}
-    v6ebgps = {}
-    for dut_host in ebgp_shutdown_duthosts:
-        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
-        v4ebgps[dut_host.hostname] = v4_routes_count
-        v6ebgps[dut_host.hostname] = v6_routes_count
+    # The previous post-yield cleanup was skipped when setup failed before yield.
+    with ExitStack() as cleanup:
+        for dut_host in ebgp_shutdown_duthosts:
+            if dut_host.file(path=DUT_RUN_DIR, state="directory")["changed"]:
+                cleanup.push(partial(_remove_run_dir_on_exit, dut_host))
 
-    yield setup_information
+        for dut_host in ebgp_shutdown_duthosts:
+            v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
+            cleanup.push(partial(restore_ebgp_on_exit, dut_host, v4_routes_count, v6_routes_count))
 
-    for dut_host in ebgp_shutdown_duthosts:
-        duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
-        dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
+        yield setup_information
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -568,10 +585,15 @@ def validate_asic_route(duthost, prefix):
     """
     Check if a route exists in the routing table of the asic.
     """
-    asicdb = AsicDbCli(duthost)
-    route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
-    if prefix in str(route_table):
-        return True
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+    for asic in asic_instances:
+        asicdb = AsicDbCli(asic)
+        route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
+        if prefix in str(route_table):
+            return True
     return False
 
 
@@ -579,11 +601,20 @@ def validate_mirror_session_up(duthost, session_name):
     """
     Check if a mirror session is up.
     """
-    cmd = f'sonic-db-cli STATE_DB HGET \"MIRROR_SESSION_TABLE|{session_name}\" status'
-    mirror_status = duthost.command(cmd)['stdout']
-    if 'active' in mirror_status:
-        return True
-    return False
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    checked_asic = False
+    for asic in asic_instances:
+        mirror_config = redis_hgetall(asic, 'CONFIG_DB', f'MIRROR_SESSION|{session_name}')
+        if mirror_config:
+            mirror_status = redis_hget(asic, 'STATE_DB', f'MIRROR_SESSION_TABLE|{session_name}', 'status')
+            if 'active' not in mirror_status:
+                return False
+            checked_asic = True
+    return checked_asic
 
 
 def validate_acl_rule_rids(duthost):
@@ -1262,6 +1293,19 @@ class BaseEverflowTest(object):
 
         duthost.get_asic_or_sonic_host_from_namespace(bind_namespace).command(command)
 
+    @staticmethod
+    def _drop_unprogrammable_rules(duthost, rules):
+        """Drop rules whose every qualifier this ASIC ignores."""
+        ignored = IGNORED_ACL_QUALIFIERS.get(duthost.facts["asic_type"])
+        if not ignored:
+            return rules
+
+        kept = [r for r in rules
+                if not {f for s in r.get("qualifiers", {}).values() for f in s}.issubset(ignored)]
+        pytest_assert(kept, "Every ACL rule was dropped as unprogrammable on {}"
+                            .format(duthost.facts["asic_type"]))
+        return kept
+
     def apply_acl_rule_config(
             self,
             duthost,
@@ -1271,6 +1315,7 @@ class BaseEverflowTest(object):
             rules=EVERFLOW_V4_RULES
     ):
         rules_config = load_acl_rules_config(table_name, os.path.join(FILE_DIR, rules))
+        rules_config["rules"] = self._drop_unprogrammable_rules(duthost, rules_config["rules"])
         duthost.host.options["variable_manager"].extra_vars.update(rules_config)
 
         if config_method == CONFIG_MODE_CLI:

@@ -131,6 +131,39 @@ def resolve_binary_path(metadata_map, vendor, pn, version):
     return None, f"firmware version {version} not staged for ({vendor}, {pn})"
 
 
+def create_zero_filled_binary(duthost, src_path):
+    """Create a zero-filled file the size of ``src_path`` on the DUT. Returns ``(dut_path, err)``."""
+    dest_path = f"{src_path}.zeroed"
+    result = duthost.command(f'stat -c %s "{src_path}"', module_ignore_errors=True)
+    if result["rc"] != 0:
+        return None, f"failed to read size of {src_path}: {result.get('stderr') or result.get('stdout')}"
+    size = result["stdout"].strip()
+
+    result = duthost.shell(f'head -c {size} /dev/zero > "{dest_path}"', module_ignore_errors=True)
+    if result["rc"] != 0:
+        return None, f"failed to create {dest_path}: {result.get('stderr') or result.get('stdout')}"
+    return dest_path, None
+
+
+_CORRUPT_BINARY_PYCODE = (
+    "data = bytearray(open('{src}', 'rb').read())\n"
+    "start = len(data) // 2\n"
+    "for i in range(start, start + {num_bytes}):\n"
+    "    data[i] ^= 0xFF\n"
+    "open('{dest}', 'wb').write(data)\n"
+)
+
+
+def create_corrupted_binary(duthost, src_path, num_bytes=8):
+    """Copy ``src_path`` on the DUT with ``num_bytes`` payload bytes flipped. Returns ``(dut_path, err)``."""
+    dest_path = f"{src_path}.corrupted"
+    pycode = _CORRUPT_BINARY_PYCODE.format(src=src_path, dest=dest_path, num_bytes=num_bytes)
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result["rc"] != 0:
+        return None, f"failed to create {dest_path}: {result.get('stderr') or result.get('stdout')}"
+    return dest_path, None
+
+
 def get_dut_firmware_base_url(duthost, firmware_base_url_dict):
     """
     Returns the firmware base URL for the given DUT host.
