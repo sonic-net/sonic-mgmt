@@ -5257,6 +5257,7 @@ route/test_static_route.py::test_static_route_ipv6_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "topo_type in ['m0', 'm1', 'mx']"
       - "'sn6600_ld' in platform"
+      - "asic_type in ['vpp']"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
@@ -5329,7 +5330,7 @@ sflow/test_sflow.py::TestReboot::testWarmreboot:
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "'sh6600_ld' in platform"
+      - "'sn6600_ld' in platform"
       - "asic_type in ['vpp']"
   xfail:
     reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
