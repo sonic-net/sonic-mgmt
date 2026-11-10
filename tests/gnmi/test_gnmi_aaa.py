@@ -6,6 +6,13 @@ import time
 import pytest
 from pygnmi.client import gNMIException
 
+from tests.common.fixtures.gnmi_aaa import (  # noqa: F401
+    gnmi_aaa_case_boundary as _gnmi_aaa_case_boundary,
+)
+from tests.common.fixtures.gnmi_aaa import (  # noqa: F401
+    gnmi_aaa_role_tls,
+    gnmi_aaa_tls_owner,
+)
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     _restart_gnoi_server,
     gnmi_tls,
@@ -56,6 +63,14 @@ CONFIG_DB_GET_PATH = "sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 CONFIG_DB_SET_PATH = "{}/cloudtype".format(CONFIG_DB_GET_PATH)
 AUDIT_GET_PATH = "/CONFIG_DB/localhost/DEVICE_METADATA/localhost"
 AUDIT_SET_PATH = "{}/cloudtype".format(AUDIT_GET_PATH)
+
+
+@pytest.fixture(autouse=True)
+def gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner, loganalyzer):  # noqa: F811
+    # Start the function log window before closing shared TLS at a transition.
+    # Autouse runs before other function fixtures, including fresh gnmi_tls.
+    # A usefixtures mark alone does not establish that dependency ordering.
+    _gnmi_aaa_case_boundary(request, gnmi_aaa_tls_owner)
 
 
 def _set_configdb(client):
@@ -373,18 +388,14 @@ UNMAPPED_CN_ROLE_CASES = [
     "role,operation,error_pattern",
     CAPABILITIES_ROLE_CASES + CONFIG_DB_ROLE_CASES + UNMAPPED_CN_ROLE_CASES,
 )
-def test_cn_role_access(gnmi_tls, role, operation, error_pattern):  # noqa: F811
+def test_cn_role_access(gnmi_aaa_role_tls, role, operation, error_pattern):  # noqa: F811
     """Verify generic and target-specific role authorization."""
-    duthost = gnmi_tls.duthost
-    role_key = "GNMI_CLIENT_CERT|{}".format(CLIENT_PRINCIPAL)
-    original_role = redis_hget(duthost, CONFIG_DB, role_key, "role@")
-    pytest_assert(original_role, "Client certificate role is not configured")
-    try:
-        _set_client_cert_role(duthost, role)
-        if error_pattern:
-            with pytest.raises(PygnmiClientError, match=error_pattern):
-                operation(gnmi_tls.pygnmi_client)
-        else:
-            operation(gnmi_tls.pygnmi_client)
-    finally:
-        _set_client_cert_role(duthost, original_role)
+    # Only role cases share TLS. Audit/rate-limit/default-auth cases keep the
+    # original fresh server lifecycle and observation windows.
+    duthost = gnmi_aaa_role_tls.duthost
+    _set_client_cert_role(duthost, role)
+    if error_pattern:
+        with pytest.raises(PygnmiClientError, match=error_pattern):
+            operation(gnmi_aaa_role_tls.pygnmi_client)
+    else:
+        operation(gnmi_aaa_role_tls.pygnmi_client)
