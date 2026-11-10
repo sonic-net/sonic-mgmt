@@ -204,7 +204,7 @@ def _get_routed_candidates(ip_interfaces, minigraph, status, config):
     vlan_members = {member for vlan in config.get('VLAN_MEMBER', {}).values() for member in vlan}
     for name, addresses in ip_interfaces.items():
         if (addresses.get('admin') != 'up' or addresses.get('oper_state') != 'up'
-                or not addresses.get('peer_ipv4')):
+                or not addresses.get('peer_ipv4') or addresses['peer_ipv4'] == 'N/A'):
             continue
         if name.startswith('PortChannel'):
             members = sorted(config.get('PORTCHANNEL_MEMBER', {}).get(name, {}))
