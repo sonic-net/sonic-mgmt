@@ -4,6 +4,7 @@ import re
 import json
 from tests.bgp.bgp_helpers import parse_rib
 from tests.common.devices.eos import EosHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
@@ -241,6 +242,63 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
+def _parse_routes_on_csonic_host(host, asn, peer_ip, ip_ver):
+    """Enable inbound soft reconfiguration and read one cSONiC VRF RIB."""
+    afi = 'ipv4' if ip_ver == 4 else 'ipv6'
+    config_result = host.config(
+        lines=['neighbor {} soft-reconfiguration inbound'.format(peer_ip)],
+        parents=[
+            'router bgp {}'.format(asn),
+            'address-family {} unicast'.format(afi),
+        ],
+    )
+    pytest_assert(config_result.get('rc', 0) == 0,
+                  'Failed to enable cSONiC inbound soft reconfiguration: {}'
+                  .format(config_result.get('stderr', '')))
+    if ip_ver == 4:
+        command = 'show ip bgp neighbors {} received-routes json'.format(
+            peer_ip)
+    else:
+        command = 'show ipv6 bgp neighbors {} received-routes json'.format(
+            peer_ip)
+    result = host.command(command, verbose=False)
+    pytest_assert(result.get('rc', 0) == 0,
+                  'Failed to retrieve routes from cSONiC VRF: {}'.format(
+                      result.get('stderr', '')))
+    received = json.loads(result.get('stdout') or '{}').get(
+        'receivedRoutes', {})
+    return {prefix: '' for prefix in received}
+
+
+def parse_routes_on_csonic(dut_host, neigh_hosts, ip_ver):
+    """Parse received routes from each logical cSONiC peer's runtime VRF."""
+    mg_facts = dut_host.minigraph_facts(
+        host=dut_host.hostname)['ansible_facts']
+    confed_asn = dut_host.get_bgp_confed_asn()
+    host_name_map = {
+        neighbor['host'].hostname: hostname
+        for hostname, neighbor in neigh_hosts.items()
+    }
+
+    def parse_routes_process(node=None, results=None):
+        hostname = host_name_map[node['host'].hostname]
+        peer_in_bgp_confed = node['conf']['bgp'].get(
+            'peer_in_bgp_confed', False)
+        dut_asn = mg_facts['minigraph_bgp_asn']
+        if peer_in_bgp_confed:
+            dut_asn = int(confed_asn)
+        peer_ips = node['conf']['bgp']['peers'][dut_asn]
+        peer_ip = next(
+            ip for ip in peer_ips
+            if ipaddress.IPNetwork(ip).version == ip_ver)
+        results[hostname] = _parse_routes_on_csonic_host(
+            node['host'], node['conf']['bgp']['asn'], peer_ip, ip_ver)
+
+    return parallel_run(
+        parse_routes_process, (), {}, list(neigh_hosts.values()),
+        timeout=120, concurrent_tasks=8)
+
+
 def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community, is_v6_topo=False):
     """
     Verify only loopback routes with certain community are announced to neighs in TSA
@@ -472,8 +530,13 @@ def assert_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, is_
 
 
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
-    if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
-        routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community)
+    first_host = list(neigh_hosts.items())[0][1]['host']
+    if isinstance(first_host, EosHost):
+        routes_on_all_nbrs = parse_routes_on_eos(
+            dut_host, neigh_hosts, ip_ver, exp_community)
+    elif isinstance(first_host, CsonicHost):
+        routes_on_all_nbrs = parse_routes_on_csonic(
+            dut_host, neigh_hosts, ip_ver)
     else:
         routes_on_all_nbrs = parse_routes_on_vsonic(
             dut_host, neigh_hosts, ip_ver)
