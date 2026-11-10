@@ -478,7 +478,13 @@ def get_convergence_for_remote_link_failover(snappi_api,
             flow = config.flows.flow(name='IPv6_Traffic_%d' % routes)[-1]
         else:
             raise Exception('Invalid route type given')
-        flow.tx_rx.device.tx_names = [config.devices[0].ethernets[0].name]
+        # Source must be the IP interface (not the Ethernet) so traffic generator builds
+        # an IPv4/IPv6 traffic item towards the BGP route-range endpoints.
+        tx_eth = config.devices[0].ethernets[0]
+        if route_type == 'IPv4':
+            flow.tx_rx.device.tx_names = [tx_eth.ipv4_addresses[0].name]
+        else:
+            flow.tx_rx.device.tx_names = [tx_eth.ipv6_addresses[0].name]
         flow.tx_rx.device.rx_names = rx_flows
         flow.size.fixed = 1024
         flow.rate.percentage = 100
