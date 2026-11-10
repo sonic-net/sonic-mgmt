@@ -42,7 +42,7 @@ class GnoiUpgradeConfig:
     to_image: str
     dut_image_path: str
     upgrade_type: str
-    protocol: str = "HTTP"
+    protocol: Optional[str] = None
     allow_fail: bool = False
     to_version: Optional[str] = None  # Expected version to validate; empty/None => derive from image
     ss_target_type: Optional[str] = None   # e.g. "dpu"
@@ -326,14 +326,15 @@ def perform_gnoi_upgrade(
     conn_graph_facts=None,
     xcvr_skip_list=None,
     duthosts=None,
+    download_policy=None,
 ):
     """
     gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
 
     Flow:
       1) preboot_setup (if provided)
-      2) File.TransferToRemote: download cfg.to_image -> cfg.dut_image_path on DUT
-      3) System.SetPackage: set package to cfg.dut_image_path
+      2) Install test-local trust policy on the receiving host
+      3) System.SetPackage: download and install cfg.to_image; restore policy
       4) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
       5) Mimic upgrade_test_helper reboot verification:
            networking_uptime -> timeout -> wait_until(check_reboot_cause)
@@ -362,46 +363,18 @@ def perform_gnoi_upgrade(
         # advance-reboot test (on ptf) does not support cold reboot yet
         if cold_reboot_setup:
             cold_reboot_setup()
-    # ---- 2) TransferToRemote (via wrapper) ----
-    transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        url=cfg.to_image,
-        local_path=cfg.dut_image_path,
-        protocol=cfg.protocol,
-    )
-    logger.info("TransferToRemote response: %s", transfer_resp)
-    pytest_assert(isinstance(transfer_resp, dict), "TransferToRemote did not return a JSON object")
-
-    # DUT-side validation: file exists and non-empty
-    res = duthost.shell(f"test -s {cfg.dut_image_path}", module_ignore_errors=True)
-    pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
-
-    # ---- 2b) Extract target version from the image binary if not provided ----
-    # Empty/None to_version means "always use the version extracted from the image".
-    target_version = cfg.to_version
-    if not target_version:
-        ver_result = duthost.shell(
-            "sonic_installer binary_version {} 2>&1".format(cfg.dut_image_path)
-            + " | grep 'SONiC-OS-' | awk -F'SONiC-OS-' '{print $2}'",
-            module_ignore_errors=True,
+    pytest_assert(download_policy is not None, "test-level download_policy context is required")
+    with download_policy(duthost, cfg.to_image):
+        setpkg_resp = ptf_gnoi.system_set_package(
+            local_path=cfg.dut_image_path, version=cfg.to_version, activate=True,
+            remote_url=cfg.to_image, protocol=cfg.protocol,
         )
-        extracted_version = ver_result.get("stdout", "").strip()
-        pytest_assert(
-            extracted_version,
-            "Failed to extract version from {}: {}".format(
-                cfg.dut_image_path, ver_result.get("stderr", "")
-            ),
-        )
-        target_version = "SONiC-OS-{}".format(extracted_version)
-        logger.info("Extracted target version from image: %s", target_version)
-
-    # ---- 3) SetPackage (via wrapper) ----
-    setpkg_resp = ptf_gnoi.system_set_package(
-        local_path=cfg.dut_image_path,
-        version=target_version,
-        activate=True,
-    )
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
+    # The server resolves an omitted version before install. Read its selected
+    # next image while still on the old boot, rather than a removed staging file.
+    target_version = cfg.to_version or _get_images_from_sonic_installer_list(duthost).get("next")
+    pytest_assert(target_version, "SetPackage did not select a target image")
 
     # ---- 4) Reboot (via reboot_and_check) ----
     pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
@@ -422,7 +395,7 @@ def perform_gnoi_upgrade(
 
     if cfg.allow_fail:
         logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
-        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+        return {"setpkg_resp": setpkg_resp}
 
     # ---- 5) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
     logger.info("Check reboot cause. Expected cause %s", cfg.upgrade_type)
@@ -445,7 +418,7 @@ def perform_gnoi_upgrade(
         f"Current image mismatch after reboot. current={images.get('current')} expected={target_version}. full={images}"
     )
 
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+    return {"setpkg_resp": setpkg_resp}
 
 
 def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
@@ -455,15 +428,15 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=No
 
 def _upgrade_one_dpu_via_gnoi(
     duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, download_policy=None,
 ) -> Dict:
     """
     Upgrade a single DPU via gNOI.
 
     Steps:
       1. Verify the DPU is reachable (gNOI System.Time)
-      2. Transfer the image to the DPU (File.TransferToRemote)
-      3. Stage the image as the next boot image (System.SetPackage)
+      2. Install test-local policy on the selected DPU
+      3. Download/install with System.SetPackage, then restore policy
       4. Reboot the DPU (System.Reboot)  -- skipped if cfg.skip_reboot=True
       5. Wait for DPU to come back up (gNOI System.Time)  -- skipped if cfg.skip_reboot=True
 
@@ -479,25 +452,17 @@ def _upgrade_one_dpu_via_gnoi(
     # Step 1: Verify DPU is reachable before we start
     ptf_gnoi.system_time(metadata=md)
 
-    # Step 2: Download the image onto the DPU
-    transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        url=cfg.to_image,
-        local_path=cfg.dut_image_path,
-        protocol=cfg.protocol,
-        metadata=md,
-    )
-
-    # Step 3: Mark the downloaded image as the next boot image
-    setpkg_resp = ptf_gnoi.system_set_package(
-        local_path=cfg.dut_image_path,
-        version=cfg.to_version,
-        activate=True,
-        metadata=md,
-    )
+    pytest_assert(download_policy is not None, "test-level download_policy context is required")
+    with download_policy(duthost, cfg.to_image, md):
+        setpkg_resp = ptf_gnoi.system_set_package(
+            local_path=cfg.dut_image_path, version=cfg.to_version, activate=True,
+            metadata=md, remote_url=cfg.to_image, protocol=cfg.protocol,
+        )
+    pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
     if cfg.skip_reboot:
         logger.info("skip_reboot=True: image staged on DPU, skipping reboot")
-        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": None}
+        return {"setpkg_resp": setpkg_resp, "reboot_resp": None}
 
     from tests.common.ptf_gnoi import PtfGnoi
     dpu_grpc = ptf_gnoi.grpc_client.with_ss_target("dpu", cfg.ss_target_index)
@@ -514,19 +479,16 @@ def _upgrade_one_dpu_via_gnoi(
         ptf_gnoi=dpu_ptf_gnoi,
     )
 
-    if cfg.allow_fail:
-        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
-
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+    return {"setpkg_resp": setpkg_resp}
 
 
 def perform_gnoi_upgrade_smartswitch_dpu(
     duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, download_policy=None,
 ) -> Dict:
     return _upgrade_one_dpu_via_gnoi(
         duthost, tbinfo, ptf_gnoi, cfg,
-        localhost=localhost, duthosts=duthosts,
+        localhost=localhost, duthosts=duthosts, download_policy=download_policy,
     )
 
 
@@ -535,7 +497,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     ptf_gnoi,
     cfgs: Sequence[GnoiUpgradeConfig],
     max_workers: Optional[int] = None,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, download_policy=None,
 ) -> Dict[int, Dict]:
     if not cfgs:
         raise ValueError("cfgs is empty")
@@ -548,7 +510,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
         for i, cfg in enumerate(cfgs):
             futs[i] = executor.submit(
                 _upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg,
-                localhost, duthosts,
+                localhost, duthosts, download_policy,
             )
 
         for i, fut in futs.items():
