@@ -313,6 +313,7 @@ class TestSfpApi(PlatformApiTestBase):
     LPMODE_SKIP_LIST = [
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-03'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
         {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
