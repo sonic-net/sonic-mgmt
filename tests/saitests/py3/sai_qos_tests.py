@@ -6875,8 +6875,19 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
         print("buf_pool_roid: 0x%lx" % (buf_pool_roid), file=sys.stderr)
 
+        # For cisco-8000 cross-asic, some packets stay in egress memory and don't show up in
+        # the ingress buffer pool; fill it first so the src-side watermark is accurate.
+        pkts_num_egr_mem = None
+        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
+            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        use_egr_mem_path = (self.clients['dst'] != self.clients['src'] and
+                            pkts_num_egr_mem is not None)
+
         buffer_pool_wm_base = 0
         client_to_use = self.src_client
+        if 'cisco-8000' in asic_type and not use_egr_mem_path:
+            # Without the egress memory fill, cisco-8000 reads the watermark on the dst asic.
+            client_to_use = self.dst_client
 
         # Prepare TCP packet data
         tos = dscp << 2
@@ -6940,12 +6951,6 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         extra_cap_margin = 8 * cell_occupancy
         if 'extra_cap_margin' in self.test_params:
             extra_cap_margin = int(self.test_params['extra_cap_margin'])
-
-        # For cisco-8000 cross-asic, some packets stay in egress memory and don't show up in
-        # the ingress buffer pool; fill it first so the src-side watermark is accurate.
-        pkts_num_egr_mem = 0
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
         # Adjust the methodology to enable TX for each incremental watermark value test
         # To this end, send the total # of packets instead of the incremental amount

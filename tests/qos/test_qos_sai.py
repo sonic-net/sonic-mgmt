@@ -1227,12 +1227,15 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "pkts_num_egr_mem": dutQosConfig["param"][portSpeedCableLength].get("pkts_num_egr_mem", 0),
             "pkts_num_fill_min": fillMin,
             "pkts_num_fill_shared": triggerDrop - 1,
             "buf_pool_roid": buf_pool_roid,
             "dut_asic": dutConfig["dutAsic"]
         })
+
+        egr_mem = dutQosConfig["param"][portSpeedCableLength].get("pkts_num_egr_mem")
+        if egr_mem is not None:
+            testParams["pkts_num_egr_mem"] = egr_mem
 
         if "wm_buf_pool_lossy" in bufPool:
             testParams["lossy_buf_pool_roid"] = egressLossyProfile["bufferPoolRoid"]

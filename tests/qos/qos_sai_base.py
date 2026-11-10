@@ -2163,8 +2163,9 @@ class QosSaiBase(QosBase):
 
             # On cross-asic (topo-t2) paths the 200G/1m backplane profile used to size egress
             # memory lives on the egress ASIC (dst_asic) and the fabric/RP asic0, not src_asic.
+            # Only gb autogenerates egress memory on topo-t2; other asics use qos yaml values.
             egr_mem_buffer_configs = None
-            if dutTopo == "topo-t2":
+            if dutTopo == "topo-t2" and dutAsic == "gb":
                 dst_dut = get_src_dst_asic_and_duts['dst_dut']
                 dst_asic = get_src_dst_asic_and_duts['dst_asic']
                 pytest_assert(duthosts.supervisor_nodes,
