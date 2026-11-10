@@ -506,6 +506,38 @@ def test_backtracks_transport_conflict(settings):
     assert first["transport"]["id"] == "endpoint-0"
 
 
+def test_transport_vlan_collision_backtracks_to_compatible_endpoint(settings):
+    """Skip a conflicting transport without rejecting its compatible alternative."""
+    snapshot = _snapshot(1)
+    for device in snapshot["devices"]:
+        device["cages"][0]["modes"] = device["cages"][0]["modes"][1:]
+    snapshot["lookup"] = snapshot["lookup"][:2]
+    snapshot["endpoints"].append(
+        dict(snapshot["endpoints"][0], id="aaa-colliding", vlan=settings["access_vlan"]))
+    manifest = planner.plan_scenario(snapshot, settings)
+    first = next(endpoint for endpoint in manifest["endpoints"] if endpoint["dut_port"] == "Ethernet0")
+    assert first["transport"]["id"] == "endpoint-0"
+    assert all(row["transport"]["vlan"] != settings["access_vlan"] for row in manifest["endpoints"])
+    planner.validate_manifest(manifest, snapshot, settings)
+
+
+@pytest.mark.parametrize("explicit_traffic", [False, True])
+def test_transport_vlan_collision_preserves_traffic_requirements(settings, explicit_traffic):
+    """Only automatic traffic requirements permit a physical-only fallback."""
+    snapshot = _snapshot(2)
+    for endpoint in snapshot["endpoints"]:
+        endpoint.update(vlan=settings["access_vlan"], trunk=endpoint["id"])
+    if explicit_traffic:
+        with pytest.raises(planner.InfeasiblePlan):
+            planner.plan_scenario(snapshot, settings)
+    else:
+        settings.pop("routed_ports")
+        manifest = planner.plan_scenario(snapshot, settings)
+        assert not manifest["endpoints"] and not manifest["traffic_cases"]
+        assert all(row["role"] == "l1" for row in manifest["port_bindings"])
+        planner.validate_manifest(manifest, snapshot, settings)
+
+
 def test_cable_assignment_backtracks_within_one_layout(settings):
     """Two cages must fit both modes and lookup pairs by assigning different cables to quad children."""
     manifest = planner.plan_scenario(_snapshot(2), settings)
@@ -698,6 +730,31 @@ def test_independent_validation_rejects_modified_manifest(snapshot, settings, fa
         manifest["endpoints"][0]["dut_cage"] = []
     manifest["integrity"].pop("manifest_sha256")
     manifest["integrity"]["manifest_sha256"] = planner._digest(manifest)
+    with pytest.raises(planner.InvalidManifest):
+        planner.validate_manifest(manifest, snapshot, settings)
+
+
+@pytest.mark.parametrize("role", ["routed", "access"])
+def test_independent_validation_rejects_transport_vlan_collision(snapshot, settings, role):
+    """Even a consistently hashed manifest must keep access and transport VLANs separate."""
+    frozen = planner._Planner(planner.normalize_inputs(snapshot, settings))
+    selected = frozen.search()
+    settings["access_vlan"] = next(
+        row["transport"]["vlan"] for row in selected.bindings if row["role"] == role)
+    frozen.settings["access_vlan"] = settings["access_vlan"]
+    manifest = frozen.manifest(selected)
+    with pytest.raises(planner.InvalidManifest):
+        planner.validate_manifest(manifest, snapshot, settings)
+
+
+def test_independent_validation_rejects_hidden_traffic_without_routed_anchor(snapshot, settings):
+    """An empty endpoint summary cannot bypass replayed traffic-role requirements."""
+    settings.pop("routed_ports")
+    manifest = planner.plan_scenario(snapshot, settings)
+    manifest["endpoints"] = []
+    for binding in manifest["port_bindings"]:
+        if binding["transport"] is not None:
+            binding["role"] = "access"
     with pytest.raises(planner.InvalidManifest):
         planner.validate_manifest(manifest, snapshot, settings)
 

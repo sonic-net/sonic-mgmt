@@ -471,7 +471,7 @@ class _Planner:
         if endpoint is None:
             if role != "l1":
                 return None
-        elif role not in endpoint["roles"]:
+        elif role not in endpoint["roles"] or endpoint["vlan"] == self.settings["access_vlan"]:
             return None
         if role == "routed" and (state.routed == self.settings.get(
                 "routed_ports", ipaddress.IPv4Network(self.settings["routed_network"]).num_addresses // 2)):
@@ -857,7 +857,7 @@ def _validate_manifest(manifest, planner):
         serialized = canonical_json(manifest)
     except (TypeError, ValueError) as error:
         raise InvalidManifest("Manifest is not canonical JSON: {}".format(error)) from error
-    require_traffic = bool(manifest["endpoints"]) or "routed_ports" in planner.settings
+    require_traffic = bool(state.routed or state.access) or "routed_ports" in planner.settings
     if planner._demands(state, require_traffic) or serialized != canonical_json(planner.manifest(state)):
         raise InvalidManifest("Coverage, identity, addresses, witnesses or integrity digests disagree")
 
