@@ -304,7 +304,7 @@ def test_cpoutil_dom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connec
 
 @pytest.mark.parametrize("target", ("oe", "els"))
 def test_cpoutil_endpoint_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, connected_cpo_ports, target):
-    """Require ModuleReady, finite temperature and a valid low-power mode for OE/ELS."""
+    """Require OE readiness, nonempty ELS status, finite temperature and valid LPM."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mapping = configured_cpo_ports(duthost)
     expected = {mapping[port][target]["id"].lower() for port in connected_cpo_ports}
@@ -318,9 +318,12 @@ def test_cpoutil_endpoint_status(duthosts, enum_rand_one_per_hwsku_frontend_host
         for name in expected:
             value = records[name]
             if command == "status":
-                # The filter checks the exact public enum on the DUT. It returns
-                # ready resource IDs, never arbitrary status/identity strings.
-                assert name in table["ready_resources"], "Expected ModuleReady for " + name
+                if target == "oe":
+                    assert name in table["ready_resources"], "Expected ModuleReady for " + name
+                else:
+                    # ELS can report power mode rather than CMIS readiness.
+                    # Check displayed data without prescribing a state string.
+                    assert value is True, "ELS status is empty or N/A: " + name
             elif command == "temperature":
                 assert not isinstance(value, bool) and math.isfinite(value)
             else:
