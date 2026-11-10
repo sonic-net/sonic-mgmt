@@ -49,7 +49,7 @@ def _public_candidate_paths():
         REPO_ROOT / "ansible" / "roles" / "test" / "files"
         / "ptftests" / "py3" / "evpn_mh_traffic.py",
         REPO_ROOT / "docs" / "testplan" / "evpn_mh"
-        / "evpn_mh_16cases.md",
+        / "evpn_mh_test_plan.md",
     )
     accepted = {".py", ".yml", ".yaml", ".md"}
     paths = []
