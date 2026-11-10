@@ -159,10 +159,14 @@ def test_converged_csonic_route_families_are_read_without_runtime_mutation():
     }
     assert routes_v6 == routes_v4
     assert commands == [
-        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
-        'neighbors 10.0.0.32 routes json"',
-        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv6 unicast '
-        'neighbors fc00::41 routes json"',
+        ' '.join((
+            'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast',
+            'neighbors 10.0.0.32 routes json"',
+        )),
+        ' '.join((
+            'vtysh -c "show bgp vrf VrfARISTA01T0 ipv6 unicast',
+            'neighbors fc00::41 routes json"',
+        )),
     ]
 
 
@@ -187,9 +191,12 @@ def test_ordinary_csonic_received_routes_keep_historical_commands():
 
     assert routes == {'172.16.10.0/24': ''}
     assert commands == [
-        "vtysh -c 'configure terminal' -c 'router bgp 64001' "
-        "-c 'address-family ipv4 unicast' "
-        "-c 'neighbor 10.0.0.32 soft-reconfiguration inbound'",
+        ' '.join((
+            "vtysh -c 'configure terminal'",
+            "-c 'router bgp 64001'",
+            "-c 'address-family ipv4 unicast'",
+            "-c 'neighbor 10.0.0.32 soft-reconfiguration inbound'",
+        )),
         'show ip bgp neighbors 10.0.0.32 received-routes json',
     ]
 
