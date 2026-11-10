@@ -6405,6 +6405,18 @@ vxlan/test_vxlan_underlay_ecmp.py:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp::test_underlay_portchannel_shutdown:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26839 and 't1-d96u4' in topo_name"
+
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp::test_underlay_specific_route:
+  xfail:
+    reason: "Test fails on t1-d96u4 topology due to backend neighbor group port classification issues"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26839 and 't1-d96u4' in topo_name"
+
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
     reason: "test_vxlan_vnet_bgp_subintf is not supported on dualtor topologies. Also not supported on cisco-8000 202511 image due to INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC orchagent validate failure."
