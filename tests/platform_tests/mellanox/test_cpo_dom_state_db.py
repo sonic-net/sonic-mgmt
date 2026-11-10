@@ -18,9 +18,6 @@ counterpart per optical-engine table. Asserts:
      ELS_DOM_SENSOR (they moved between images).
   7. The VDM threshold and flag tables, and the flag companions, exist.
 
-On SIMX, tables in CPO_SIMX_SKIPPED_TABLES (*_DOM_TEMPERATURE, VDM) and the
-CDB-backed ELS fields are not checked.
-
 Only one oper-up CPO port (first subport) is checked -- all CPO ports share
 the same pmon publication logic so one representative port is sufficient.
 """
@@ -37,7 +34,6 @@ from tests.common.platform.cpo_dom_field_catalog import (
     CPO_ELS_TABLE_SPEC,
     CPO_OE_TABLE_SPEC,
     CPO_REFRESHED_TABLES,
-    CPO_SIMX_SKIPPED_TABLES,
     CPO_VDM_TABLES,
     ELS_SETPOINT_FIELDS,
     ELS_SETPOINT_TABLES,
@@ -141,20 +137,6 @@ def cpo_test_port(duthosts, rand_one_dut_hostname, cpo_state_db_snapshot):
     return port
 
 
-def _is_simx(duthost):
-    return "simx" in duthost.facts["platform"]
-
-
-def _tables_to_check(duthost, tables):
-    """Drop tables that are not checked on SIMX (see CPO_SIMX_SKIPPED_TABLES)."""
-    if not _is_simx(duthost):
-        return list(tables)
-    skipped = sorted(t for t in tables if t in CPO_SIMX_SKIPPED_TABLES)
-    if skipped:
-        logger.info("SIMX: skipping %s", skipped)
-    return [t for t in tables if t not in CPO_SIMX_SKIPPED_TABLES]
-
-
 def _check_fields(port, table_name, fields, required, value_checks):
     """Return a list of failure strings for one (table, port) row."""
     failures = []
@@ -195,20 +177,14 @@ def _fail_if_any(failures, title):
     pytest_assert(not failures, f"{title}:\n  - " + "\n  - ".join(failures))
 
 
-def test_cpo_els_tables_in_state_db(
-    duthosts, rand_one_dut_hostname, cpo_state_db_snapshot, cpo_test_port,
-):
+def test_cpo_els_tables_in_state_db(cpo_state_db_snapshot, cpo_test_port):
     """Every laser-source table exists and carries its required fields."""
-    duthost = duthosts[rand_one_dut_hostname]
     port = cpo_test_port
     failures = []
 
-    for table_name in _tables_to_check(duthost, CPO_ELS_TABLE_SPEC):
+    for table_name in CPO_ELS_TABLE_SPEC:
         spec = CPO_ELS_TABLE_SPEC[table_name]
         required_fields = set(spec["els"])
-        # CDB-backed fields (e.g. laser_mpd_laneN) are not available on SIMX.
-        if not _is_simx(duthost):
-            required_fields.update(spec.get("cdb_els", ()))
 
         fields = cpo_state_db_snapshot.get(table_name, {}).get(port, {})
         with allure.step(f"{table_name}|{port}"):
@@ -248,28 +224,20 @@ def test_cpo_oe_flag_companion_tables_in_state_db(cpo_state_db_snapshot, cpo_tes
     _fail_if_any(failures, "CPO engine companion table validation failed")
 
 
-def test_cpo_vdm_tables_in_state_db(
-    duthosts, rand_one_dut_hostname, cpo_state_db_snapshot, cpo_test_port,
-):
-    """VDM threshold and flag tables, and the flag companions, exist (not on SIMX)."""
-    duthost = duthosts[rand_one_dut_hostname]
-    tables = _tables_to_check(duthost, CPO_VDM_TABLES)
-    if not tables:
-        pytest.skip("SIMX does not emulate VDM")
+def test_cpo_vdm_tables_in_state_db(cpo_state_db_snapshot, cpo_test_port):
+    """VDM threshold and flag tables, and the flag companions, exist."""
+    tables = CPO_VDM_TABLES
     with allure.step(f"{len(tables)} VDM tables on {cpo_test_port}"):
         failures = _missing_keys(cpo_state_db_snapshot, cpo_test_port, tables)
     _fail_if_any(failures, "CPO VDM table validation failed")
 
 
-def test_cpo_oe_tables_in_state_db(
-    duthosts, rand_one_dut_hostname, cpo_state_db_snapshot, cpo_test_port,
-):
+def test_cpo_oe_tables_in_state_db(cpo_state_db_snapshot, cpo_test_port):
     """Optical-engine tables carry their own fields and no laser-source leftovers."""
-    duthost = duthosts[rand_one_dut_hostname]
     port = cpo_test_port
     failures = []
 
-    for table_name in _tables_to_check(duthost, CPO_OE_TABLE_SPEC):
+    for table_name in CPO_OE_TABLE_SPEC:
         spec = CPO_OE_TABLE_SPEC[table_name]
         fields = cpo_state_db_snapshot.get(table_name, {}).get(port, {})
         with allure.step(f"{table_name}|{port}"):
@@ -302,7 +270,7 @@ def test_cpo_tables_last_update_time_fresh(duthosts, rand_one_dut_hostname, cpo_
     """``last_update_time`` of every refreshed table is within the 60 s DOM interval."""
     duthost = duthosts[rand_one_dut_hostname]
     port = cpo_test_port
-    tables = _tables_to_check(duthost, CPO_REFRESHED_TABLES)
+    tables = CPO_REFRESHED_TABLES
     stale = {}
 
     def _all_fresh():

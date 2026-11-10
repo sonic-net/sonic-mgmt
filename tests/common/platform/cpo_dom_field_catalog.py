@@ -54,7 +54,7 @@ ELS_DOM_SENSOR_FIELDS = [
 ] + _lanes("laser_bias_current_lane{n}") \
   + _lanes("optical_power_lane{n}") \
   + _lanes("voltage_lane{n}")
-# Published via CDB 0x9018 (laser monitoring); not available on SIMX.
+# Published via CDB 0x9018 (laser monitoring).
 ELS_DOM_SENSOR_CDB_FIELDS = [
     "power_consumption",
 ] + _lanes("laser_mpd_lane{n}") \
@@ -200,7 +200,7 @@ OE_STATUS_FLAG_FIELDS = (
 )
 
 # Standard CMIS VDM (pages 20h-2Fh) read from the optical engine; one sample
-# per lane. Not emulated on SIMX. ``els_input_power{n}`` (VDM ID 84) is a
+# per lane. ``els_input_power{n}`` (VDM ID 84) is a
 # standard CMIS VDM name, not a legacy laser-source field.
 OE_VDM_REAL_VALUE_FIELDS = _lanes("laser_age{n}")
 
@@ -227,7 +227,6 @@ CPO_OE_TABLE_SPEC = {
 }
 
 # Laser-source STATE_DB table -> {els: required fields,
-#                                 cdb_els: fields that need CDB (skipped on SIMX),
 #                                 value_check: {field: expected value}}
 # The *_FLAG tables also carry CHANGE_COUNT / SET_TIME / CLEAR_TIME companions
 # (see CPO_ELS_COMPANION_TABLES), whose existence is checked per port.
@@ -235,8 +234,7 @@ CPO_ELS_TABLE_SPEC = {
     "TRANSCEIVER_ELS_INFO":           {"els": ELS_INFO_FIELDS},
     "TRANSCEIVER_ELS_FIRMWARE_INFO":  {"els": ELS_FIRMWARE_INFO_FIELDS},
     "TRANSCEIVER_ELS_DOM_SENSOR": {
-        "els": ELS_DOM_SENSOR_FIELDS,
-        "cdb_els": ELS_DOM_SENSOR_CDB_FIELDS,
+        "els": ELS_DOM_SENSOR_FIELDS + ELS_DOM_SENSOR_CDB_FIELDS,
     },
     "TRANSCEIVER_ELS_DOM_TEMPERATURE": {"els": ELS_DOM_TEMPERATURE_FIELDS},
     "TRANSCEIVER_ELS_DOM_THRESHOLD":  {"els": ELS_DOM_THRESHOLD_FIELDS},
@@ -271,17 +269,6 @@ _VDM_FLAG_TABLES = tuple(
 CPO_VDM_TABLES = tuple(
     "TRANSCEIVER_VDM_{}_THRESHOLD".format(t) for t in _VDM_THRESHOLD_TYPES
 ) + _VDM_FLAG_TABLES + _flag_companions(_VDM_FLAG_TABLES)
-
-
-# Tables checked only on real HW, skipped on SIMX: the *_DOM_TEMPERATURE tables
-# are published by xcvrd's thermal task, which runs only when pmon sets
-# xcvrd.dom_temperature_poll_interval (not set on SIMX, where thermal control
-# was never validated), and SIMX does not emulate VDM.
-CPO_SIMX_SKIPPED_TABLES = frozenset((
-    "TRANSCEIVER_DOM_TEMPERATURE",
-    "TRANSCEIVER_ELS_DOM_TEMPERATURE",
-    "TRANSCEIVER_VDM_REAL_VALUE",
-) + CPO_VDM_TABLES)
 
 
 # Tables whose rows carry ``last_update_time`` and are refreshed by the DOM
