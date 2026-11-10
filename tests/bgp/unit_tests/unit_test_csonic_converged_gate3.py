@@ -2,9 +2,14 @@
 
 import json
 
+import pytest
+
 from tests.bgp import bgp_helpers
 from tests.bgp import route_checker
 from tests.bgp.test_bgp_gr_helper import get_csonic_prime_peer_names
+from tests.bgp.test_bgp_gr_helper import shared_prime_prefix_counters_preserved
+from tests.bgp.test_bgp_gr_helper import verify_shared_prime_peer_routes_during_graceful_restart
+from tests.bgp.test_bgp_gr_helper import verify_shared_prime_routes_during_graceful_restart
 from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
@@ -215,3 +220,103 @@ def test_gr_helper_reports_every_logical_peer_on_shared_csonic_prime():
         'ARISTA01T2',
         'ARISTA03T2',
     ]
+
+
+def test_gr_helper_accepts_compacted_stale_ecmp_paths_for_shared_prime():
+    neighbor_routes = {
+        '10.0.0.1': {
+            '192.0.2.0/24': [{'peerId': '10.0.0.1'}],
+            '198.51.100.0/24': [{'peerId': '10.0.0.1'}],
+        },
+        '10.0.0.5': {
+            '192.0.2.0/24': [{'peerId': '10.0.0.5'}],
+        },
+    }
+    rib = {
+        # FRR can omit one equivalent stale ECMP path from the global view.
+        '192.0.2.0/24': [{'peerId': '10.0.0.5', 'stale': True}],
+        '198.51.100.0/24': [{'peerId': '10.0.0.1', 'stale': True}],
+    }
+
+    verify_shared_prime_routes_during_graceful_restart(
+        neighbor_routes, rib, ['10.0.0.1', '10.0.0.5'])
+
+
+def test_gr_helper_requires_exact_shared_prime_route_counts():
+    during_restart = {
+        'ribTableWalkCounters': {
+            'Stale': 6370,
+            'All RIB': 6370,
+            'Valid': 6370,
+            'Useable': 6370,
+        },
+    }
+    recovered_empty_peer = {
+        'ribTableWalkCounters': {
+            'Stale': 0,
+            'All RIB': 0,
+            'Valid': 0,
+            'Useable': 0,
+        },
+    }
+    expected = {
+        'All RIB': 6370,
+        'Valid': 6370,
+        'Useable': 6370,
+    }
+
+    assert shared_prime_prefix_counters_preserved(
+        during_restart, expected, during_restart=True)
+    assert not shared_prime_prefix_counters_preserved(
+        during_restart, {**expected, 'All RIB': 6371},
+        during_restart=True)
+    assert shared_prime_prefix_counters_preserved(
+        recovered_empty_peer,
+        {'All RIB': 0, 'Valid': 0, 'Useable': 0},
+        during_restart=False)
+
+
+def test_gr_helper_requires_each_logical_peer_prefix_inventory():
+    routes_before = {
+        '10.0.0.1': {
+            '192.0.2.0/24': [{'peerId': '10.0.0.1'}],
+        },
+        '10.0.0.5': {
+            '192.0.2.0/24': [{'peerId': '10.0.0.5'}],
+        },
+    }
+    routes_during = {
+        '10.0.0.1': {
+            '192.0.2.0/24': [
+                {'peerId': '10.0.0.1', 'stale': True},
+            ],
+        },
+        '10.0.0.5': {
+            '192.0.2.0/24': [
+                {'peerId': '10.0.0.5', 'stale': True},
+            ],
+        },
+    }
+
+    verify_shared_prime_peer_routes_during_graceful_restart(
+        routes_before, routes_during)
+
+    del routes_during['10.0.0.1']['192.0.2.0/24']
+    with pytest.raises(pytest.fail.Exception, match='10.0.0.1 lost routes'):
+        verify_shared_prime_peer_routes_during_graceful_restart(
+            routes_before, routes_during)
+
+
+def test_gr_helper_rejects_non_stale_shared_prime_path():
+    neighbor_routes = {
+        '10.0.0.1': {
+            '192.0.2.0/24': [{'peerId': '10.0.0.1'}],
+        },
+    }
+    rib = {
+        '192.0.2.0/24': [{'peerId': '10.0.0.1', 'stale': False}],
+    }
+
+    with pytest.raises(pytest.fail.Exception, match='only stale paths'):
+        verify_shared_prime_routes_during_graceful_restart(
+            neighbor_routes, rib, ['10.0.0.1'])
