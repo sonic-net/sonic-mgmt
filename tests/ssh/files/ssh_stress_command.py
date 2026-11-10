@@ -19,6 +19,17 @@ TOKEN_PATTERN = re.compile(r"^[0-9a-f]{32}$")
 TERMINATE_GRACE = 2
 CANCEL_WAIT = 5
 WRAPPER_WAIT = 2 * (TERMINATE_GRACE + CANCEL_WAIT) + 1
+LAUNCH_GATE_SOURCE = """\
+import os
+import sys
+
+gate = int(sys.argv[1])
+released = os.read(gate, 1)
+os.close(gate)
+if released != b"1":
+    sys.exit(125)
+os.execve("/bin/bash", ["/bin/bash", "-lc", sys.argv[2]], os.environ)
+"""
 
 
 def _validate_token(token):
@@ -241,6 +252,8 @@ def run_command(
     command = base64.b64decode(encoded_command).decode("utf-8")
     process = None
     directory = None
+    launch_read = None
+    launch_write = None
 
     def terminate_child(_signum, _frame):
         if process is not None:
@@ -279,14 +292,26 @@ def run_command(
                     "LOGNAME": account.pw_name,
                     "USER": account.pw_name,
                 })
+            launch_read, launch_write = os.pipe()
             process = subprocess.Popen(
-                ["/bin/bash", "-lc", command],
+                [
+                    sys.executable,
+                    "-I",
+                    "-S",
+                    "-c",
+                    LAUNCH_GATE_SOURCE,
+                    str(launch_read),
+                    command,
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 start_new_session=start_new_session,
                 preexec_fn=child_setup,
                 env=child_env,
+                pass_fds=(launch_read,),
             )
+            os.close(launch_read)
+            launch_read = None
             start_time = _process_start_time(process.pid)
             if start_time is None:
                 raise RuntimeError("Could not identify command process")
@@ -300,6 +325,9 @@ def run_command(
                 os.path.join(directory, "owner.json"),
                 json.dumps(owner),
             )
+            os.write(launch_write, b"1")
+            os.close(launch_write)
+            launch_write = None
 
         command_stdout, command_stderr = process.communicate()
         # A synchronous stress command must not leave detached work in its
@@ -314,6 +342,10 @@ def run_command(
             _mark_done(directory, return_code)
         return return_code
     finally:
+        if launch_read is not None:
+            os.close(launch_read)
+        if launch_write is not None:
+            os.close(launch_write)
         if previous_term is not None:
             signal.signal(signal.SIGTERM, previous_term)
         if previous_int is not None:

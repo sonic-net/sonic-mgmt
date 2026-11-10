@@ -575,6 +575,88 @@ def test_cancel_all_fences_a_reserved_late_dispatch(
     ) == 124
 
 
+def test_wrapper_loss_before_owner_publication_never_launches_mutation(
+    command_helper, tmp_path
+):
+    token = uuid.uuid4().hex
+    mutation = tmp_path / "mutation"
+    startup_mutation = tmp_path / "startup-mutation"
+    startup_hook = tmp_path / "bash-env"
+    startup_hook.write_text(
+        "sleep 0.1\nprintf ran > {}\n".format(
+            shlex.quote(str(startup_mutation))
+        )
+    )
+    command_helper.reserve_command(str(tmp_path), token)
+    command = "python3 -c {}".format(shlex.quote(
+        "import pathlib; pathlib.Path({!r}).write_text('ran')".format(
+            str(mutation)
+        )
+    ))
+    encoded = command_helper.base64.b64encode(command.encode()).decode()
+    wrapper = """
+import importlib.util
+import os
+
+spec = importlib.util.spec_from_file_location("helper", {!r})
+helper = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(helper)
+atomic_write = helper._atomic_write
+
+def crash_before_owner(path, data):
+    if path.endswith("owner.json"):
+        os._exit(77)
+    atomic_write(path, data)
+
+helper._atomic_write = crash_before_owner
+helper.run_command({!r}, {!r}, {!r})
+""".format(str(HELPER_PATH), str(tmp_path), token, encoded)
+
+    wrapper_env = dict(os.environ, BASH_ENV=str(startup_hook))
+    process = subprocess.Popen(
+        [sys.executable, "-c", wrapper], env=wrapper_env
+    )
+    process.wait(timeout=2)
+    assert process.returncode == 77
+
+    command_helper.cancel_command(str(tmp_path), token)
+    time.sleep(0.3)
+
+    directory = tmp_path / token
+    assert not startup_mutation.exists()
+    assert not mutation.exists()
+    assert not (directory / "owner.json").exists()
+    assert command_helper.json.loads(
+        (directory / "done.json").read_text()
+    ) == {"return_code": 124}
+
+
+def test_launch_gate_descriptor_is_closed_before_command(
+    command_helper, tmp_path
+):
+    token = uuid.uuid4().hex
+    output = tmp_path / "open-fds"
+    command_helper.reserve_command(str(tmp_path), token)
+    script = (
+        "import json,os,pathlib; "
+        "fds=[fd for fd in range(3,256) "
+        "if os.path.exists('/proc/self/fd/{{}}'.format(fd))]; "
+        "pathlib.Path({!r}).write_text(json.dumps(fds))"
+    ).format(str(output))
+    encoded = command_helper.base64.b64encode(
+        "python3 -c {}".format(shlex.quote(script)).encode()
+    ).decode()
+
+    assert command_helper.run_command(
+        str(tmp_path),
+        token,
+        encoded,
+        stdout=io.BytesIO(),
+        stderr=io.BytesIO(),
+    ) == 0
+    assert command_helper.json.loads(output.read_text()) == []
+
+
 def test_cancel_waits_for_late_mutation_before_restoration(
     command_helper, monkeypatch, tmp_path
 ):
