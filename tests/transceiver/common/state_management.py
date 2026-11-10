@@ -131,19 +131,14 @@ def post_state_restoration(duthost, port_attributes_dict):
 
 
 def _pmon_daemon_control_path(duthost):
-    """Return the ``pmon_daemon_control.json`` that pmon actually reads.
-
-    Mirrors pmon's ``docker_init.sh``: the hwsku copy takes precedence over the
-    platform copy. When neither exists, the platform copy is returned so a
-    newly created file is picked up.
+    """Return the ``pmon_daemon_control.json`` pmon reads: the hwsku copy if present,
+    otherwise the platform copy.
 
     Args:
         duthost: DUT host object.
 
     Returns:
-        tuple: ``(dut_path, pmon_path)``.
-            dut_path: absolute path of the file on the DUT host.
-            pmon_path: the same file as mounted inside the pmon container.
+        tuple: ``(dut_path, pmon_path)``: the file's path on the DUT and inside pmon.
     """
     platform_dir = "/usr/share/sonic/device/{}".format(duthost.facts["platform"])
     hwsku_path = "{}/{}/pmon_daemon_control.json".format(platform_dir, duthost.facts["hwsku"])
@@ -158,21 +153,16 @@ def _pmon_daemon_control_path(duthost):
 def enable_pmon_skip_xcvrd(duthost):
     """Set ``"skip_xcvrd": true`` in ``pmon_daemon_control.json``.
 
-    Used by the System Event Handling "CMIS boot-up low power mode" test:
-    disabling xcvrd before a reboot lets a freshly-booted CMIS module's
-    default (low) power state be observed before xcvrd's init sequence would
-    otherwise bring it up. :func:`restore_pmon_daemon_control` reverts this.
-
-    The original contents are returned to the caller rather than backed up on
-    the DUT, because ``/tmp`` is wiped by the cold reboot that follows.
+    Lets a CMIS module's boot-up power state be observed before xcvrd initializes
+    it. The original contents are returned rather than backed up on the DUT, because
+    the reboot wipes ``/tmp``.
 
     Args:
         duthost: DUT host object.
 
     Returns:
-        tuple: ``(original_text, error)``.
-            original_text: original file contents, or ``None`` if the file did not exist.
-            error: error string, or ``None`` on success.
+        tuple: ``(original_text, error)``; ``original_text`` is ``None`` if the file
+        did not exist.
     """
     config_path, _ = _pmon_daemon_control_path(duthost)
     if duthost.stat(path=config_path)["stat"]["exists"]:
@@ -192,10 +182,12 @@ def enable_pmon_skip_xcvrd(duthost):
     daemon_dict["skip_xcvrd"] = True
 
     write_result = duthost.copy(
-        content=json.dumps(daemon_dict, indent=4) + "\n", dest=config_path,
+        content=json.dumps(daemon_dict, indent=4) + "\n", dest=config_path, module_ignore_errors=True,
     )
     if write_result.get("failed"):
-        return original_text, f"failed to write {config_path} with skip_xcvrd=true"
+        return original_text, "failed to write {} with skip_xcvrd=true: {}".format(
+            config_path, write_result.get("msg", "")
+        )
     return original_text, None
 
 
@@ -204,24 +196,19 @@ _PMON_CRITICAL_PROCESSES_FILE = "/etc/supervisor/critical_processes"
 
 
 def check_skip_xcvrd_critical_mismatch(duthost):
-    """Detect, before rebooting, a boot with ``skip_xcvrd`` that cannot come up healthy.
+    """Detect, before rebooting, a ``skip_xcvrd`` boot that can't come up healthy.
 
-    pmon's ``critical_processes`` file is static, while its ``supervisord.conf``
-    is rendered at container start from ``pmon_daemon_control.json`` (the file
-    :func:`_pmon_daemon_control_path` resolves). If xcvrd is
-    a critical process and the rendered config still defines ``[program:xcvrd]``,
-    xcvrd is either started anyway or reported not running, so neither the
-    boot-up LPMode check nor the post-reboot critical-process wait can pass.
-
-    Call after :func:`enable_pmon_skip_xcvrd`, while pmon is still running. Only
-    a confirmed mismatch is reported: if either file cannot be read or rendered,
-    this returns ``None`` and the reboot proceeds as normal.
+    pmon's ``critical_processes`` is static, but its ``supervisord.conf`` is
+    rendered from ``pmon_daemon_control.json``. If xcvrd is critical and the
+    rendered config still defines ``[program:xcvrd]``, the boot-up checks can't
+    pass. Call after :func:`enable_pmon_skip_xcvrd` while pmon is running. Nothing
+    is reported if either file can't be read or rendered.
 
     Args:
         duthost: DUT host object.
 
     Returns:
-        str or None: description of the mismatch, or ``None`` if none was found.
+        str or None: the mismatch, or ``None``.
     """
     critical = duthost.shell(
         f"docker exec pmon cat {_PMON_CRITICAL_PROCESSES_FILE}", module_ignore_errors=True,
@@ -256,9 +243,7 @@ def restore_pmon_daemon_control(duthost, original_text):
 
     Args:
         duthost: DUT host object.
-        original_text: original file contents returned by
-            :func:`enable_pmon_skip_xcvrd`; ``None`` means the file did not
-            exist and is removed.
+        original_text: that function's ``original_text``; ``None`` removes the file.
 
     Returns:
         str or None: error string, or ``None`` on success.
@@ -276,20 +261,17 @@ def restore_pmon_daemon_control(duthost, original_text):
 
 
 def verify_pmon_daemon_control_restored(duthost, original_text):
-    """Check that ``pmon_daemon_control.json`` and xcvrd are back to their pre-test state.
+    """Check ``pmon_daemon_control.json`` and xcvrd are back to their pre-test state.
 
-    The file must match what :func:`enable_pmon_skip_xcvrd` found (absent if it
-    was absent). xcvrd must be RUNNING unless the original file already set
-    ``skip_xcvrd``, in which case it is intentionally disabled and left so.
+    xcvrd must be RUNNING unless the original file already set ``skip_xcvrd``.
 
     Args:
         duthost: DUT host object.
-        original_text: original file contents returned by
-            :func:`enable_pmon_skip_xcvrd`; ``None`` means the file did not exist.
+        original_text: :func:`enable_pmon_skip_xcvrd`'s ``original_text``; ``None``
+            means the file must be absent.
 
     Returns:
-        str or None: description of what differs from the pre-test state, or
-        ``None`` if it was restored.
+        str or None: what differs, or ``None`` if restored.
     """
     config_path, _ = _pmon_daemon_control_path(duthost)
     read_result = duthost.shell(f"cat {config_path}", module_ignore_errors=True)

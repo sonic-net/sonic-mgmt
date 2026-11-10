@@ -21,12 +21,14 @@ Execution order::
                     least one port
          `-         every port: force high power -> enter LPMode -> one
                     shared I2C-recover wait -> one batched link-down poll
-                    -> per port verify DPDeactivated -> every port: exit
+                    -> per module with a CMIS active optical port,
+                    verify DPDeactivated on all of its host lanes ->
+                    every port (in finally): exit
                     LPMode -> one shared I2C-recover wait -> Standard Port
                     Recovery for all ports
     `- test_system_cmis_bootup_low_power_mode
-         |- <body>: skip unless cmis_bootup_low_power_test_supported is
-                    True for at least one port
+         |- <body>: skip unless at least one CMIS active optical port
+                    has cmis_bootup_low_power_test_supported True
          `-         disable xcvrd at boot -> fail early if pmon would
                     still define critical xcvrd -> cold reboot (safe_reboot:
                     waits for critical services/processes) -> wait for
@@ -49,9 +51,10 @@ import pytest
 
 from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.transceiver.attribute_parser.attribute_keys import (
-    BASE_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
+    EEPROM_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
 )
 from tests.transceiver.common import cli_helpers, cmis_helper, scenario_ops, state_management
+from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 from tests.transceiver.common.health_checks import (
     capture_baseline,
     DEFAULT_MONITORED_PROCESSES,
@@ -93,7 +96,7 @@ def test_system_low_power_mode(
         pytest.skip("low_power_mode_supported is False for every port")
 
     health_baseline = capture_baseline(duthost)
-    failures = []  # collected across every (port, step) tuple
+    failures = []
 
     recover_sec = _max_system_attr(
         port_attributes_dict, ports,
@@ -103,37 +106,34 @@ def test_system_low_power_mode(
         port_attributes_dict, ports, "port_startup_wait_sec", _DEFAULT_PORT_STARTUP_WAIT_SEC,
     ), len(ports))
 
-    # Step 3: ensure high power mode initially (idempotent safety net).
     failures.extend(scenario_ops.perform_ports_lpmode_set(duthost, ports, low_power=False))
 
-    # Step 4-5, 7: enter low power mode on every port (verifies LPMode via
-    # CLI), then share one I2C-recovery wait.
-    logger.info("Setting %d port(s) to low power mode", len(ports))
-    failures.extend(scenario_ops.perform_ports_lpmode_set(duthost, ports, low_power=True))
-    time.sleep(recover_sec)
+    try:
+        logger.info("Setting %d port(s) to low power mode", len(ports))
+        failures.extend(scenario_ops.perform_ports_lpmode_set(duthost, ports, low_power=True))
+        time.sleep(recover_sec)
 
-    # Step 6: verify link down (one batched poll) and DataPath deactivated.
-    failures.extend(wait_ports_oper_status(
-        duthost, ports, "down", scenario_ops.scale_bulk_wait(recover_sec, len(ports))
-    ))
-    for port in ports:
-        num_lanes = int(
-            port_attributes_dict[port].get(BASE_ATTRIBUTES_KEY, {}).get("host_lane_count", 0)
-        )
-        page_11_data, dp_err = cmis_helper.read_dp_state_bytes(duthost, port, num_lanes)
-        if dp_err:
-            failures.append(f"{port}: {dp_err}")
-        else:
-            dp_failures = cmis_helper.check_dp_state(
-                page_11_data, num_lanes, cmis_helper.CMIS_DP_STATE_DEACTIVATED,
-                state_label="DPDeactivated",
+        failures.extend(wait_ports_oper_status(
+            duthost, ports, "down", scenario_ops.scale_bulk_wait(recover_sec, len(ports))
+        ))
+        # CMIS-only register: other module types fail the read or misdecode it.
+        failures.extend(cmis_helper.check_modules_dp_state(
+            duthost,
+            [
+                port for port in ports
+                if is_cmis_active_optical(port_attributes_dict[port].get(EEPROM_ATTRIBUTES_KEY, {}))
+            ],
+            port_attributes_dict, lport_to_first_subport_mapping,
+            cmis_helper.CMIS_DP_STATE_DEACTIVATED, "DPDeactivated",
+        ))
+    finally:
+        logger.info("Restoring %d port(s) to high power mode", len(ports))
+        restore_failures = scenario_ops.perform_ports_lpmode_set(duthost, ports, low_power=False)
+        if restore_failures:
+            pytest.exit(
+                "Could not restore high power mode after low power mode test: "
+                + "; ".join(restore_failures)
             )
-            failures.extend(f"{port}: {failure}" for failure in dp_failures)
-
-    # Step 8-9: disable low power mode (restore high power) on every port,
-    # then share one I2C-recovery wait.
-    logger.info("Restoring %d port(s) to high power mode", len(ports))
-    failures.extend(scenario_ops.perform_ports_lpmode_set(duthost, ports, low_power=False))
     time.sleep(recover_sec)
 
     logger.info(
@@ -169,14 +169,19 @@ def test_system_cmis_bootup_low_power_mode(
     Disable xcvrd at boot, cold-reboot, and verify every CMIS transceiver
     that supports the check comes up in low power mode by default.
     """
+    # The flag is platform-level; only CMIS active optical modules boot into
+    # low power on their own.
     ports = sorted(
         port for port, attrs in port_attributes_dict.items()
         if attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get(
             "cmis_bootup_low_power_test_supported", False
         )
+        and is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {}))
     )
     if not ports:
-        pytest.skip("cmis_bootup_low_power_test_supported is False for every port")
+        pytest.skip(
+            "no CMIS active optical port has cmis_bootup_low_power_test_supported True"
+        )
 
     cold_reboot_settle_sec = _max_system_attr(
         port_attributes_dict, ports, "cold_reboot_settle_sec", _DEFAULT_COLD_REBOOT_SETTLE_SEC,
@@ -185,11 +190,9 @@ def test_system_cmis_bootup_low_power_mode(
         port_attributes_dict, ports, "pmon_restart_settle_sec", _DEFAULT_PMON_RESTART_SETTLE_SEC,
     )
 
-    failures = []  # collected across every (port, step) tuple
+    failures = []
 
-    # A cold reboot restarts every framework-monitored process, so the
-    # autouse per-test health check (tests/transceiver/conftest.py) must be
-    # told all of them are expected to change PID, not just xcvrd.
+    # A cold reboot restarts every monitored process, not just xcvrd.
     expected_pid_changes.update(DEFAULT_MONITORED_PROCESSES)
 
     original_daemon_control, setup_err = state_management.enable_pmon_skip_xcvrd(duthost)
@@ -200,7 +203,7 @@ def test_system_cmis_bootup_low_power_mode(
         pytest.fail(f"Could not disable xcvrd at boot: {setup_err}")
 
     try:
-        # Fail before the reboot rather than waiting out a boot that can never be healthy.
+        # Fail now rather than wait out a boot that can't come up healthy.
         mismatch_err = state_management.check_skip_xcvrd_critical_mismatch(duthost)
         if mismatch_err:
             pytest.fail(f"Cannot run CMIS boot-up low power mode test: {mismatch_err}")

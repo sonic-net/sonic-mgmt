@@ -7,6 +7,7 @@ window — e.g. confirming a transceiver reset generates no xcvrd OIR
 (``Got SFP removed/inserted event``) log line.
 """
 import logging
+import shlex
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +28,21 @@ def capture_syslog_line_watermark(duthost):
 
 
 def scan_new_syslog_lines(duthost, watermark, grep_pattern):
-    """Return ``(matching_lines, err)`` for lines appended to syslog since ``watermark``.
+    """Return lines appended to syslog since ``watermark`` that match ``grep_pattern``.
 
     Args:
-        watermark: the line count from :func:`capture_syslog_line_watermark`,
-            taken before the operation under test.
-        grep_pattern: an extended-regex (``grep -E``) pattern.
+        duthost: DUT host object.
+        watermark: line count from :func:`capture_syslog_line_watermark`.
+        grep_pattern: bare ``grep -E`` regex; it is shell-quoted here.
 
-    ``matching_lines`` is empty (with ``err`` ``None``) when nothing new
-    matches — the expected outcome for an absence check.
+    Returns:
+        tuple: ``(matching_lines, err)``; ``matching_lines`` is empty when nothing new matches.
     """
     if watermark is None:
         return [], "no syslog watermark captured - cannot scan for new lines"
-    cmd = f"tail -n +{watermark + 1} {_SYSLOG_PATH} | grep -E '{grep_pattern}'"
+    cmd = f"tail -n +{watermark + 1} {_SYSLOG_PATH} | grep -E -- {shlex.quote(grep_pattern)}"
     result = duthost.shell(cmd, module_ignore_errors=True)
-    # grep exits 1 for "no matches" - that is a pass here, not a failure.
+    # grep exits 1 when nothing matches.
     if result.get("rc", 1) not in (0, 1):
         return [], f"failed to scan syslog for new lines: {(result.get('stderr') or '').strip()}"
     return [line for line in result.get("stdout_lines", []) if line.strip()], None

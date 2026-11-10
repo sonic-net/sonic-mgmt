@@ -161,15 +161,13 @@ def poll_ports_recovered(check_fn, wait_sec, interval_sec, label):
 
 
 def _perform_reboot(duthost, localhost, reboot_type, safe_reboot=False):
-    """Reboot the DUT via the repo helper.
+    """Reboot the DUT.
 
     Args:
-        localhost: controller fixture used to observe SSH loss/recovery.
-        reboot_type: one of ``cold`` / ``warm`` / ``fast``.
-        safe_reboot: ``False`` (default) returns as soon as SSH reconnects.
-            ``True`` uses the repo helper's ``safe_reboot`` instead, which also
-            waits for docker, the database, every critical service and critical
-            process, and confirms the DUT actually rebooted.
+        localhost: controller fixture.
+        reboot_type: ``cold``, ``warm`` or ``fast``.
+        safe_reboot: ``False`` returns once SSH reconnects; ``True`` also waits for
+            critical services and processes and confirms the DUT rebooted.
     """
     logger.info("Performing %s reboot for transceiver scenario (safe_reboot=%s)", reboot_type, safe_reboot)
     if safe_reboot:
@@ -179,13 +177,11 @@ def _perform_reboot(duthost, localhost, reboot_type, safe_reboot=False):
 
 
 def perform_cold_reboot(duthost, localhost, safe_reboot=False):
-    """Perform a cold reboot.
+    """Cold-reboot the DUT.
 
     Args:
-        localhost: controller fixture used to observe SSH loss/recovery.
-        safe_reboot: ``False`` (default) returns when DUT SSH connectivity is
-            restored; ``True`` also waits for critical services/processes (see
-            :func:`_perform_reboot`).
+        localhost: controller fixture.
+        safe_reboot: see :func:`_perform_reboot`.
     """
     _perform_reboot(duthost, localhost, "cold", safe_reboot=safe_reboot)
 
@@ -201,22 +197,17 @@ def perform_fast_reboot(duthost, localhost):
 
 
 def wait_ports_created(duthost, ports, wait_sec):
-    """Wait until every port in ``ports`` has been created after a reboot.
+    """Wait until every port's STATE_DB ``PORT_TABLE`` entry has ``state == ok``.
 
-    A port counts as created once STATE_DB ``PORT_TABLE|<port>`` has
-    ``state == ok``. Link state is not checked, so this also holds for ports
-    expected to stay down (e.g. in LPMode with xcvrd disabled), unlike the
-    oper-up checks in ``tests/common``. One STATE_DB dump per ASIC namespace
-    per poll.
+    Link state is not checked, so this also works for ports expected to stay down.
 
     Args:
         duthost: DUT host object.
-        ports: logical ports that must be created.
+        ports: logical ports.
         wait_sec: max seconds to wait.
 
     Returns:
-        None. Fails the test (``pytest_assert``) if any port is not created
-        within ``wait_sec``.
+        None. Fails the test if any port isn't created in time.
     """
     deadline = time.monotonic() + wait_sec
     ports_by_ns = {}
@@ -361,47 +352,33 @@ def perform_daemon_restart(duthost, daemon, settle_sec, affected_processes=None)
 
 def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec, startup_wait_sec,
                           recover_wait_sec=0, post_reset_check=None, skip_pre_reset_shutdown=False):
-    """sfputil-reset each module inside one shutdown/startup cycle of every toggle port.
+    """``sfputil reset`` each module inside one bulk shutdown/startup of ``toggle_ports``.
 
-    ``sfputil reset <port>`` resets a whole physical module, dropping every
-    subport's datapath, so recovery toggles all of ``toggle_ports`` (every
-    subport of every reset module). All modules are reset within one bulk
-    shut/startup cycle (not one cycle per module), matching the other whole-DUT
-    scenario operations. EEPROM re-readability (the real I2C-recovery signal) is
-    owned by the feature verifier's poll, so this operation does not gate on
-    presence.
-
-    Default sequence::
-
-        shutdown -> reset -> recover wait -> post_reset_check -> startup
-
-    With ``skip_pre_reset_shutdown=True`` the modules are reset while their
-    ports are still admin-up, so ``post_reset_check`` observes what the reset
-    alone did (link down, low power) and xcvrd has no in-flight admin-down to
-    race the reset; the ports are toggled afterwards::
-
-        reset -> recover wait -> post_reset_check -> shutdown -> startup
+    Default order: shutdown -> reset -> recover wait -> post_reset_check -> startup.
+    With ``skip_pre_reset_shutdown=True``: reset -> recover wait -> post_reset_check
+    -> shutdown -> startup, so the check sees what the reset alone did. If anything
+    raises, the shutdown still runs before the startup. EEPROM re-readability is
+    left to the caller's verifier.
 
     Args:
-        reset_ports: ports to issue ``sfputil reset`` on (one per module).
-        toggle_ports: every subport to shut / start around the resets.
-        recover_wait_sec: settle time between the resets and ``post_reset_check``.
-        post_reset_check: optional zero-arg callable run after
-            ``recover_wait_sec``, while the modules are still in their
-            post-reset state; returns a list of failure strings that are
-            aggregated with the operation failures.
-        skip_pre_reset_shutdown: opt in to resetting with ``toggle_ports``
-            admin-up, shutting them down only after ``post_reset_check``.
+        reset_ports: ports to reset, one per module.
+        toggle_ports: every sub-port of the reset modules.
+        recover_wait_sec: settle time before ``post_reset_check``.
+        post_reset_check: optional zero-arg callable returning failure strings, run
+            while the modules are still in their post-reset state.
+        skip_pre_reset_shutdown: reset with the ports still admin-up (see above).
 
     Returns:
-        list[str]: operation failures for the caller to aggregate.
+        list[str]: failures for the caller to aggregate.
     """
     logger.info("sfputil reset of %d module(s), toggling %d port(s)%s",
                 len(reset_ports), len(toggle_ports),
                 ", ports admin-up during reset" if skip_pre_reset_shutdown else "")
     failures = []
+    shutdown_done = False
     if not skip_pre_reset_shutdown:
         failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+        shutdown_done = True
 
     try:
         for port in reset_ports:
@@ -416,8 +393,16 @@ def perform_sfputil_reset(duthost, reset_ports, toggle_ports, shutdown_wait_sec,
             failures += post_reset_check()
         if skip_pre_reset_shutdown:
             failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+            shutdown_done = True
     finally:
-        failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
+        # Startup alone doesn't re-init ports that are still admin-up, so the
+        # modules would stay down in low power. Nested try: startup always runs.
+        try:
+            if not shutdown_done:
+                logger.info("Post-reset shutdown was skipped by an exception; shutting down before startup")
+                failures += perform_ports_shutdown(duthost, toggle_ports, shutdown_wait_sec)
+        finally:
+            failures += perform_ports_startup(duthost, toggle_ports, startup_wait_sec)
 
     return failures
 
@@ -536,13 +521,12 @@ def verify_ports_lpmode(duthost, ports, low_power):
 
 
 def perform_ports_lpmode_set(duthost, ports, low_power=True):
-    """Move every port in ``ports`` into (``low_power=True``) or out of
-    low-power mode, then verify all of them with one batched read.
+    """Set every port into or out of low-power mode, then verify with one batched read.
 
-    The ``sfputil lpmode`` writes are issued back-to-back with no settle in
-    between, so the caller can apply a single shared settle wait afterwards.
+    Writes are back-to-back with no settle, so the caller applies one shared wait.
 
-    Returns a list of per-port failure strings.
+    Returns:
+        list[str]: per-port failures.
     """
     failures = []
     for port in ports:

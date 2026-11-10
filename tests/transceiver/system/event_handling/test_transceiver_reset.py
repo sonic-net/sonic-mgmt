@@ -20,8 +20,10 @@ Execution order::
                     shared I2C-recover wait -> post-reset check (every
                     sub-port oper-down -> one syslog scan asserting no OIR
                     log line -> one batched LPMode read -> per port, if
-                    low_pwr_request_hw_asserted, verify DPDeactivated +
-                    LowPwrAllowRequestHW) -> bulk shutdown -> bulk startup
+                    low_pwr_request_hw_asserted and the port is CMIS
+                    active optical, once per module verify DPDeactivated
+                    on all host lanes + LowPwrAllowRequestHW) -> bulk
+                    shutdown -> bulk startup
          `-         Standard Port Recovery and Verification for all
                     toggled ports
   session end
@@ -40,9 +42,10 @@ import pytest
 
 from tests.common.platform.interface_utils import is_first_subport, wait_ports_oper_status
 from tests.transceiver.attribute_parser.attribute_keys import (
-    BASE_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
+    EEPROM_ATTRIBUTES_KEY, SYSTEM_ATTRIBUTES_KEY
 )
 from tests.transceiver.common import cmis_helper, scenario_ops
+from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 from tests.transceiver.common.health_checks import capture_baseline
 from tests.transceiver.common.syslog_helpers import (
     capture_syslog_line_watermark,
@@ -58,8 +61,7 @@ _DEFAULT_PORT_SHUTDOWN_WAIT_SEC = 5
 _DEFAULT_PORT_STARTUP_WAIT_SEC = 60
 _DEFAULT_RESET_I2C_RECOVER_SEC = 5
 
-# xcvrd log_notice lines an in-place reset must NOT generate - a reset is a
-# re-init, not an OIR.
+# A reset is an in-place re-init, so xcvrd must not log an OIR event.
 _OIR_EVENT_PATTERN = r": Got SFP (removed|inserted) event"
 
 
@@ -76,17 +78,12 @@ def test_system_transceiver_reset(
     duthost, port_attributes_dict, expected_pid_changes,
     lport_to_first_subport_mapping,
 ):
+    """A reset with the ports still admin-up takes every sub-port down without an OIR
+    event and leaves the module in low power, with DataPath deactivated and
+    LowPwrAllowRequestHW set where checked; the ports recover after shutdown/startup.
     """
-    Reset each transceiver that supports it (with its sub-ports still
-    admin-up) and verify: every sub-port is linked down, no OIR event is
-    logged, the module is in low power mode, and (where
-    ``low_pwr_request_hw_asserted`` is True) the DataPath and
-    LowPwrAllowRequestHW registers reflect a deactivated/low-power state.
-    The ports are then shut down, started back up and re-verified.
-    """
-    # ``sfputil reset`` resets a whole physical module, so issue it once per
-    # module (its first sub-port, gated on that port's own attribute) and
-    # toggle every sub-port of the reset modules.
+    # sfputil reset is module-wide: one reset per module, but every sub-port
+    # is toggled.
     reset_ports = sorted(
         port for port, attrs in port_attributes_dict.items()
         if is_first_subport(port, lport_to_first_subport_mapping)
@@ -101,7 +98,7 @@ def test_system_transceiver_reset(
     )
 
     health_baseline = capture_baseline(duthost)
-    failures = []  # collected across every (port, step) tuple
+    failures = []
 
     recover_sec = _max_system_attr(
         port_attributes_dict, ports,
@@ -120,11 +117,10 @@ def test_system_transceiver_reset(
 
     def _verify_post_reset_state():
         """Run while the modules are still reset, before the ports are toggled."""
-        # The reset alone - not an admin shutdown - must take the links down.
+        # Ports are still admin-up, so only the reset can take the links down.
         check_failures = wait_ports_oper_status(duthost, ports, "down", shutdown_wait)
 
-        # One scan covers the whole reset window; xcvrd's OIR lines don't
-        # reliably name the port, so they are reported in aggregate.
+        # xcvrd's OIR lines don't reliably name the port, so report them in aggregate.
         oir_lines, scan_err = scan_new_syslog_lines(duthost, watermark, _OIR_EVENT_PATTERN)
         if scan_err:
             check_failures.append(scan_err)
@@ -145,30 +141,33 @@ def test_system_transceiver_reset(
             low_power=True,
         ))
 
-        for port in ports:
-            attrs = port_attributes_dict[port]
-            if not attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get("low_pwr_request_hw_asserted", True):
-                continue
-            num_lanes = int(attrs.get(BASE_ATTRIBUTES_KEY, {}).get("host_lane_count", 0))
-            page_11_data, dp_err = cmis_helper.read_dp_state_bytes(duthost, port, num_lanes)
-            if dp_err:
-                check_failures.append(f"{port}: {dp_err}")
-            else:
-                dp_failures = cmis_helper.check_dp_state(
-                    page_11_data, num_lanes, cmis_helper.CMIS_DP_STATE_DEACTIVATED,
-                    state_label="DPDeactivated",
-                )
-                check_failures.extend(f"{port}: {failure}" for failure in dp_failures)
-
-            byte_val, lpreq_err = cmis_helper.read_low_pwr_allow_request_hw(duthost, port)
+        # CMIS-only registers: other module types fail the read or misdecode it.
+        lp_ports = [
+            port for port in ports
+            if port_attributes_dict[port].get(SYSTEM_ATTRIBUTES_KEY, {}).get(
+                "low_pwr_request_hw_asserted", True
+            )
+            and is_cmis_active_optical(port_attributes_dict[port].get(EEPROM_ATTRIBUTES_KEY, {}))
+        ]
+        check_failures.extend(cmis_helper.check_modules_dp_state(
+            duthost, lp_ports, port_attributes_dict, lport_to_first_subport_mapping,
+            cmis_helper.CMIS_DP_STATE_DEACTIVATED, "DPDeactivated",
+        ))
+        for first_subport, module_ports in cmis_helper.group_ports_by_module(
+            lp_ports, lport_to_first_subport_mapping,
+        ).items():
+            label = "{} (module {})".format("/".join(module_ports), first_subport)
+            byte_val, lpreq_err = cmis_helper.read_low_pwr_allow_request_hw(duthost, first_subport)
             if lpreq_err:
-                check_failures.append(f"{port}: {lpreq_err}")
-            else:
-                bit_failures = cmis_helper.check_bit_set(
+                check_failures.append(f"{label}: {lpreq_err}")
+                continue
+            check_failures.extend(
+                f"{label}: {failure}"
+                for failure in cmis_helper.check_bit_set(
                     byte_val, cmis_helper.CMIS_PAGE_00_LOW_PWR_ALLOW_REQUEST_HW_BIT,
                     1, "LowPwrAllowRequestHW",
                 )
-                check_failures.extend(f"{port}: {failure}" for failure in bit_failures)
+            )
         return check_failures
 
     failures.extend(scenario_ops.perform_sfputil_reset(

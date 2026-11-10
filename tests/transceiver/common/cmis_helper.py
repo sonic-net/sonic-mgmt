@@ -4,6 +4,7 @@ Holds the CMIS-specific page constants and decoders that are not part of the
 SFF-8024 family dispatch. The per-family vendor-field offsets and the family
 classifier live in ``tests.transceiver.common.eeprom_decode`` instead.
 """
+from tests.transceiver.attribute_parser.attribute_keys import BASE_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "CMIS_DP_STATE_DEACTIVATED",
     "CMIS_DP_STATE_NIBBLE_MASK",
     "CMIS_DP_STATE_LANES_PER_BYTE",
+    "CMIS_DP_STATE_MAX_LANES",
 
     # ── Constants: CMIS page 01h (CDB capability) ──────────────────────────
     "CMIS_PAGE_01_CDB_CAP_PAGE",
@@ -25,17 +27,20 @@ __all__ = [
 
     # ── Constants: CMIS page 01h (advertising - timing fields) ─────────────
     "CMIS_PAGE_01_MAX_DURATION_DP_TX_TURNOFF_OFFSET",
-    "CMIS_DP_PATH_TIMINGS_US",
+    "CMIS_DP_PATH_TIMINGS_MS",
 
     # ── Public helpers ──────────────────────────────────────────────────────
     "check_dp_state",
     "check_dp_state_activated",
     "read_dp_state_bytes",
+    "group_ports_by_module",
+    "module_host_lane_count",
+    "check_modules_dp_state",
     "check_bit_set",
     "read_nibble",
     "read_low_pwr_allow_request_hw",
-    "read_max_duration_dp_tx_turnoff_us",
-    "decode_dp_path_timing_us",
+    "read_max_duration_dp_tx_turnoff_ms",
+    "decode_dp_path_timing_ms",
 ]
 
 # CMIS upper page 11h: DataPath state registers (2 lanes per byte, nibble-encoded).
@@ -46,6 +51,7 @@ CMIS_DP_STATE_LANES_PER_BYTE = 2
 CMIS_DP_STATE_ACTIVATED = 0x4   # DPActivated nibble value per CMIS spec
 CMIS_DP_STATE_DEACTIVATED = 0x1   # DPDeactivated nibble value per CMIS spec
 CMIS_DP_STATE_NIBBLE_MASK = 0x0F
+CMIS_DP_STATE_MAX_LANES = 8   # bank 0
 
 # CMIS Page 01h: CDB capability register
 # CMIS global byte 163 (decimal) = 0xA3 (hex).
@@ -58,23 +64,17 @@ CMIS_PAGE_01_CDB_CAP_PAGE = 0x01   # Page 01h (Capabilities Advertising)
 CMIS_PAGE_01_CDB_CAP_OFFSET = 0xA3   # sfputil offset = CMIS global byte 163 (decimal)
 CMIS_PAGE_01_CDB_BG_MODE_BIT = 5      # bit 5: CDB background mode support (1=yes, 0=no)
 
-# CMIS Page 00h lower page, byte 26 (decimal): LowPwrAllowRequestHW.
-# Lower-page bytes are common across every selected upper page, so this is
-# read with the page selector at its default (page 0h).
+# Lower-page byte: reads the same whichever upper page is selected.
 CMIS_PAGE_00_LOW_PWR_ALLOW_REQUEST_HW_OFFSET = 26
 CMIS_PAGE_00_LOW_PWR_ALLOW_REQUEST_HW_BIT = 6
 
-# CMIS Page 01h upper page, byte 168 (decimal): DP_TX_TURNON_DURATION
-# (bits 3:0) / DP_TX_TURNOFF_DURATION (bits 7:4) — mirrors
-# sonic-platform-common's page01.py CodeRegField definitions.
+# Bits 7:4 are DP_TX_TURNOFF_DURATION; bits 3:0 are DP_TX_TURNON_DURATION.
 CMIS_PAGE_01_MAX_DURATION_DP_TX_TURNOFF_OFFSET = 168
 
-# CMIS "DP_PATH_TIMINGS" code table: decodes a 4-bit timing-advertisement
-# nibble (DP init/deinit, Tx turn-on/off, module power-up/down durations) to
-# microseconds. Mirrors sonic-platform-common's
-# sonic_xcvr/codes/public/cmis.py ``Sff8636Codes.DP_PATH_TIMINGS`` table.
-# Codes 14/15 are reserved (0 == "no duration advertised").
-CMIS_DP_PATH_TIMINGS_US = {
+# Each code's upper bound in ms (code 7, "1 s <= max < 5 s" -> 5000), as in
+# sonic-platform-common's CmisCodes.DP_PATH_TIMINGS. Reserved codes 14/15 -> 0
+# (not advertised).
+CMIS_DP_PATH_TIMINGS_MS = {
     0: 1, 1: 5, 2: 10, 3: 50, 4: 100, 5: 500, 6: 1000, 7: 5000,
     8: 10000, 9: 60000, 10: 300000, 11: 600000, 12: 3000000, 13: 6000000,
     14: 0, 15: 0,
@@ -146,10 +146,18 @@ def check_dp_state_activated(page_11_data, num_lanes):
 
 
 def read_dp_state_bytes(duthost, port, num_lanes):
-    """Read the CMIS page 11h DataPath-state bytes covering ``num_lanes`` lanes.
+    """Read the page 11h DataPath-state bytes covering lanes ``1..num_lanes``.
 
-    Returns ``(page_11_data, err)`` where ``page_11_data`` is the
-    ``{address(int): byte_value(int)}`` map :func:`check_dp_state` expects.
+    The window starts at the module's lane 1, not at a breakout sub-port's own lanes.
+
+    Args:
+        duthost: DUT host object.
+        port: logical port whose module is read.
+        num_lanes: host lanes to cover, from lane 1.
+
+    Returns:
+        tuple: ``(page_11_data, err)``: the ``{address: byte}`` map
+        :func:`check_dp_state` expects, and an error string or ``None``.
     """
     if num_lanes <= 0:
         return {}, f"invalid lane count {num_lanes} for DP-state read"
@@ -157,6 +165,58 @@ def read_dp_state_bytes(duthost, port, num_lanes):
     return cli_helpers.sfputil_read_eeprom(
         duthost, port, offset=CMIS_DP_STATE_START, size=num_bytes, page=0x11,
     )
+
+
+def group_ports_by_module(ports, lport_to_first_subport_mapping):
+    """Group ports by module.
+
+    Args:
+        ports: logical port names.
+        lport_to_first_subport_mapping: ``{port: first_subport}``; an unmapped port
+            is its own module.
+
+    Returns:
+        dict: ``{first_subport: [port, ...]}``, ports in input order.
+    """
+    modules = {}
+    for port in ports:
+        modules.setdefault(lport_to_first_subport_mapping.get(port, port), []).append(port)
+    return modules
+
+
+def module_host_lane_count(first_subport, port_attributes_dict, lport_to_first_subport_mapping):
+    """Sum ``host_lane_count`` over every sub-port of a module.
+
+    Args:
+        first_subport: the module's first sub-port.
+        port_attributes_dict: per-port attributes; every sub-port needs a positive
+            ``BASE_ATTRIBUTES.host_lane_count``.
+        lport_to_first_subport_mapping: ``{port: first_subport}``.
+
+    Returns:
+        tuple: ``(num_lanes, err)``; ``err`` is set if a sub-port has no lane count
+        or the total exceeds :data:`CMIS_DP_STATE_MAX_LANES`.
+    """
+    siblings = sorted(
+        port for port, first in lport_to_first_subport_mapping.items() if first == first_subport
+    ) or [first_subport]
+    total = 0
+    for port in siblings:
+        count = int(
+            (port_attributes_dict.get(port) or {}).get(BASE_ATTRIBUTES_KEY, {}).get("host_lane_count", 0)
+        )
+        if count <= 0:
+            return None, (
+                f"{port}: BASE_ATTRIBUTES.host_lane_count missing or non-positive - cannot "
+                f"determine the host lanes of module {first_subport}"
+            )
+        total += count
+    if total > CMIS_DP_STATE_MAX_LANES:
+        return None, (
+            f"module {first_subport}: sub-ports {'/'.join(siblings)} sum to {total} host "
+            f"lanes, more than the {CMIS_DP_STATE_MAX_LANES} page 11h covers"
+        )
+    return total, None
 
 
 def check_bit_set(byte_val, bit_index, expected, field_label):
@@ -200,22 +260,28 @@ def read_low_pwr_allow_request_hw(duthost, port):
     return byte_val, None
 
 
-def decode_dp_path_timing_us(nibble_value):
-    """Decode a CMIS DP_PATH_TIMINGS-coded nibble (0-15) to microseconds.
+def decode_dp_path_timing_ms(nibble_value):
+    """Decode a CMIS DP_PATH_TIMINGS nibble to milliseconds.
 
-    Mirrors ``codes.DP_PATH_TIMINGS`` in sonic-platform-common
-    (``sonic_xcvr/codes/public/cmis.py``) — the CMIS-spec table used to
-    decode module timing-advertisement fields (DP init/deinit, Tx
-    turn-on/off, module power-up/down durations).
+    Args:
+        nibble_value: 4-bit code (0-15).
+
+    Returns:
+        int: advertised maximum in ms; 0 for reserved codes 14/15 (not advertised).
     """
-    return CMIS_DP_PATH_TIMINGS_US.get(nibble_value, 0)
+    return CMIS_DP_PATH_TIMINGS_MS.get(nibble_value, 0)
 
 
-def read_max_duration_dp_tx_turnoff_us(duthost, port):
-    """Read CMIS page 1h byte 168 bits 7:4 (DP_TX_TURNOFF_DURATION) and
-    decode it to microseconds.
+def read_max_duration_dp_tx_turnoff_ms(duthost, port):
+    """Read MaxDurationDPTxTurnOff (page 1h byte 168, bits 7:4) in milliseconds.
 
-    Returns ``(duration_us, err)``.
+    Args:
+        duthost: DUT host object.
+        port: logical port.
+
+    Returns:
+        tuple: ``(duration_ms, err)``; ``duration_ms`` is 0 if not advertised and
+        ``None`` on error.
     """
     data, err = cli_helpers.sfputil_read_eeprom(
         duthost, port,
@@ -229,4 +295,43 @@ def read_max_duration_dp_tx_turnoff_us(duthost, port):
             "DP_TX_TURNOFF_DURATION byte missing at page 1h offset "
             f"{CMIS_PAGE_01_MAX_DURATION_DP_TX_TURNOFF_OFFSET}"
         )
-    return decode_dp_path_timing_us(read_nibble(byte_val, high=True)), None
+    return decode_dp_path_timing_ms(read_nibble(byte_val, high=True)), None
+
+
+def check_modules_dp_state(
+    duthost, ports, port_attributes_dict, lport_to_first_subport_mapping,
+    expected_state, state_label,
+):
+    """Check every host lane of each module hosting ``ports`` is in ``expected_state``.
+
+    Reads page 11h once per module, through its first sub-port.
+
+    Args:
+        duthost: DUT host object.
+        ports: logical ports whose modules to check (CMIS active optical only).
+        port_attributes_dict: per-port attributes, for host lane counts.
+        lport_to_first_subport_mapping: ``{port: first_subport}``.
+        expected_state: DataPath-state nibble every lane must report.
+        state_label: name of ``expected_state`` in failure messages.
+
+    Returns:
+        list[str]: failures prefixed with the module's sub-ports; empty if all lanes match.
+    """
+    failures = []
+    for first_subport, module_ports in group_ports_by_module(ports, lport_to_first_subport_mapping).items():
+        label = "{} (module {})".format("/".join(module_ports), first_subport)
+        num_lanes, lane_err = module_host_lane_count(
+            first_subport, port_attributes_dict, lport_to_first_subport_mapping,
+        )
+        if lane_err:
+            failures.append(f"{label}: {lane_err}")
+            continue
+        page_11_data, dp_err = read_dp_state_bytes(duthost, first_subport, num_lanes)
+        if dp_err:
+            failures.append(f"{label}: {dp_err}")
+            continue
+        failures.extend(
+            f"{label}: {failure}"
+            for failure in check_dp_state(page_11_data, num_lanes, expected_state, state_label=state_label)
+        )
+    return failures

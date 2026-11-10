@@ -33,6 +33,7 @@ transceiver test aggregates per-port failures into a single
 ``pytest.fail`` at the end, and an exception inside the loop would
 short-circuit that pattern.
 """
+import json
 import time
 
 from tests.transceiver.common.cli_parser_helper import (
@@ -435,11 +436,10 @@ def config_interface_transceiver_frequency(duthost, port, frequency, namespace=N
 def config_interface_transceiver_tx_power(duthost, port, tx_power, namespace=None):
     """Run ``sudo config interface [-n <ns>] transceiver tx_power <port> [--] <tx_power>``.
 
-    A ``--`` separator precedes a negative ``tx_power`` so Click parses it as
-    a positional argument rather than an option, matching the CLI's own usage
-    note (``config interface transceiver tx_power Ethernet0 -- -11``). See
-    :func:`config_interface_shutdown` for the namespace-placement note.
-    Returns ``None`` on success, or a short error string.
+    A negative ``tx_power`` is preceded by ``--`` so Click doesn't parse it as an option.
+
+    Returns:
+        str or None: error string, or ``None`` on success.
     """
     value = f"-- {tx_power}" if tx_power < 0 else str(tx_power)
     cmd = f"sudo config interface{_ns_flag(namespace)} transceiver tx_power {port} {value}"
@@ -449,30 +449,124 @@ def config_interface_transceiver_tx_power(duthost, port, tx_power, namespace=Non
     return None
 
 
-_TX_DISABLE_PYCODE = (
+# Timed on the DUT so host round trips don't count. No sleep between polls:
+# each EEPROM read paces the loop, and a sleep would inflate the measurement.
+# No double quotes: the code is wrapped in python3 -c "...".
+_TX_DISABLE_TIMED_PYCODE = (
+    "import json, time\n"
     "import sonic_platform.platform as P\n"
-    "ok = P.Platform().get_chassis().get_sfp({idx}).tx_disable({disable})\n"
-    "print('OK' if ok else 'FAILED')\n"
+    "api = P.Platform().get_chassis().get_sfp({idx}).get_xcvr_api()\n"
+    "keys = ['DP%dState' % lane for lane in range(1, {num_lanes} + 1)]\n"
+    "def read_states():\n"
+    "    states = api.get_datapath_state() or {{}}\n"
+    "    return any(states.get(k) != 'DataPathActivated' for k in keys), states\n"
+    "out = {{'elapsed_ms': None}}\n"
+    "left, states = read_states()\n"
+    "if left:\n"
+    "    out['error'] = 'DataPath not activated before Tx disable: %s' % states\n"
+    "else:\n"
+    "    t_start = time.monotonic()\n"
+    "    ok = api.tx_disable(True)\n"
+    "    t_done = time.monotonic()\n"
+    "    out['disable_call_ms'] = (t_done - t_start) * 1000\n"
+    "    if not ok:\n"
+    "        out['error'] = 'tx_disable(True) returned %r' % (ok,)\n"
+    "    else:\n"
+    "        while True:\n"
+    "            t_read = time.monotonic()\n"
+    "            left, states = read_states()\n"
+    "            if left:\n"
+    "                out['elapsed_ms'] = (t_read - t_done) * 1000\n"
+    "                out['read_ms'] = (time.monotonic() - t_read) * 1000\n"
+    "                break\n"
+    "            if time.monotonic() - t_done >= {poll_limit_sec}:\n"
+    "                break\n"
+    "out['states'] = states\n"
+    "print(json.dumps(out))\n"
 )
 
 
-def set_tx_disable(duthost, physical_index, disable):
-    """Call the platform API's ``sfp.tx_disable(disable)`` for one module.
+def time_tx_disable_dp_transition(duthost, physical_index, num_lanes, poll_limit_sec):
+    """Disable Tx on one module and time, on the DUT, how long its DataPath takes to
+    leave DataPathActivated.
 
-    Mirrors the inline-python invocation pattern used by
-    :func:`issue_cdb_fw_abort` / :func:`get_module_cdb_abort_support_map` —
-    there is no ``sfputil`` subcommand for Tx disable, so this goes through
-    ``sonic_platform_base``'s ``sfp.tx_disable()`` directly.
-    Returns ``None`` on success (the API returned truthy), or a short error string.
+    Checks lanes ``1..num_lanes`` are activated, calls ``api.tx_disable(True)``, then
+    polls ``api.get_datapath_state()`` until any of those lanes leaves
+    DataPathActivated or ``poll_limit_sec`` passes. Tx is left disabled.
+
+    Args:
+        duthost: DUT host object.
+        physical_index: 1-based physical SFP index.
+        num_lanes: host lanes to check, from lane 1.
+        poll_limit_sec: how long to poll after ``tx_disable`` returns.
+
+    Returns:
+        tuple: ``(timing, err)``.
+            timing: dict, or ``None`` on error:
+                elapsed_ms: from ``tx_disable`` returning to the start of the first
+                    poll that saw a lane leave DataPathActivated (``None`` if none
+                    did); may be low by up to ``read_ms``.
+                read_ms: duration of that poll's read.
+                disable_call_ms: duration of the ``tx_disable`` call.
+                states: last ``{DP<n>State: state}`` read.
+            err: error string, or ``None`` on success.
     """
-    pycode = _TX_DISABLE_PYCODE.format(idx=int(physical_index), disable=bool(disable))
+    pycode = _TX_DISABLE_TIMED_PYCODE.format(
+        idx=int(physical_index), num_lanes=int(num_lanes), poll_limit_sec=float(poll_limit_sec),
+    )
     result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
-        return f"tx_disable({disable}) failed with rc={result.get('rc')} ({_error_detail(result)})"
-    status = " ".join(result.get("stdout_lines") or []).strip()
-    if status != "OK":
-        return f"tx_disable({disable}) API returned falsy: {status or 'no output'}"
-    return None
+        return None, f"timed tx_disable failed with rc={result.get('rc')} ({_error_detail(result)})"
+    stdout_lines = result.get("stdout_lines") or []
+    try:
+        timing = json.loads(stdout_lines[-1])
+    except (IndexError, ValueError):
+        return None, f"timed tx_disable produced no parsable result ({_error_detail(result)})"
+    if timing.get("error"):
+        return None, timing["error"]
+    return timing, None
+
+
+_TX_DISABLE_BATCH_PYCODE = (
+    "import sonic_platform.platform as P\n"
+    "chassis = P.Platform().get_chassis()\n"
+    "for idx in {indices}:\n"
+    "    try:\n"
+    "        ok = chassis.get_sfp(idx).get_xcvr_api().tx_disable({disable})\n"
+    "        print('%d %s' % (idx, 'OK' if ok else 'FAILED'))\n"
+    "    except Exception as exc:\n"
+    "        print('%d ERROR %s' % (idx, ' '.join(str(exc).split())))\n"
+)
+
+
+def set_modules_tx_disable(duthost, physical_indices, disable):
+    """Call ``api.tx_disable(disable)`` on every module in one ``python3 -c``.
+
+    Args:
+        duthost: DUT host object.
+        physical_indices: 1-based physical SFP indices.
+        disable: ``True`` disables Tx, ``False`` re-enables it.
+
+    Returns:
+        dict: ``{physical_index: err}`` for each module that failed; empty if all succeeded.
+    """
+    indices = sorted({int(idx) for idx in physical_indices})
+    if not indices:
+        return {}
+    pycode = _TX_DISABLE_BATCH_PYCODE.format(indices=indices, disable=bool(disable))
+    result = duthost.shell('python3 -c "{}"'.format(pycode), module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        err = f"tx_disable({disable}) failed with rc={result.get('rc')} ({_error_detail(result)})"
+        return {idx: err for idx in indices}
+    status = {}
+    for line in result.get("stdout_lines") or []:
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            status[int(parts[0])] = parts[1]
+    return {
+        idx: f"tx_disable({disable}) on module {idx}: {status.get(idx, 'no result')}"
+        for idx in indices if status.get(idx) != "OK"
+    }
 
 
 def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
