@@ -158,34 +158,40 @@ DOWNSTREAM_IP_TO_BLOCK_VLAN2000 = {
     "ipv6": "fc02:1000:0:1::7"
 }
 
-VLAN_DERIVED_IP_OFFSETS = {
-    "ipv4": (123, 122, 121),
-    "ipv6": (5, 6, 7)
+VLAN_LEGACY_IPS = {
+    ip for ip_set in (DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN,
+                      DOWNSTREAM_DST_IP_VLAN2000, DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000)
+    for ip in ip_set.values()
 }
 
 
 def get_vlan_downstream_ips(mg_facts, vlan_name):
     """Get the (dst, allow, block) downstream test IPs for a VLAN.
 
-    Vlan1000 and Vlan2000 use the fixed IPs above. Any other VLAN uses IPs at fixed
-    offsets from the network address of its own subnet, so they are routed into that VLAN.
+    Vlan1000 and Vlan2000 use the fixed IPs above. Any other VLAN uses the highest usable addresses of its own
+    subnets, excluding the VLAN interface addresses and the fixed IPs above.
     """
     if vlan_name == "Vlan2000":
         return DOWNSTREAM_DST_IP_VLAN2000, DOWNSTREAM_IP_TO_ALLOW_VLAN2000, DOWNSTREAM_IP_TO_BLOCK_VLAN2000
-    dst_ip, ip_to_allow, ip_to_block = DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN
     if vlan_name == "Vlan1000":
-        return dst_ip, ip_to_allow, ip_to_block
+        return DOWNSTREAM_DST_IP_VLAN, DOWNSTREAM_IP_TO_ALLOW_VLAN, DOWNSTREAM_IP_TO_BLOCK_VLAN
 
-    dst_ip, ip_to_allow, ip_to_block = dict(dst_ip), dict(ip_to_allow), dict(ip_to_block)
-    for vlan_intf in mg_facts["minigraph_vlan_interfaces"]:
-        if vlan_intf["attachto"] != vlan_name:
-            continue
+    dst_ip, ip_to_allow, ip_to_block = \
+        dict(DOWNSTREAM_DST_IP_VLAN), dict(DOWNSTREAM_IP_TO_ALLOW_VLAN), dict(DOWNSTREAM_IP_TO_BLOCK_VLAN)
+    vlan_intfs = [intf for intf in mg_facts["minigraph_vlan_interfaces"] if intf["attachto"] == vlan_name]
+    for vlan_intf in vlan_intfs:
         network = ipaddress.ip_network("{}/{}".format(vlan_intf["addr"], vlan_intf["prefixlen"]), strict=False)
+        reserved = {ipaddress.ip_address(intf["addr"]) for intf in vlan_intfs}
+        candidates = []
+        candidate = network.broadcast_address - 1
+        while candidate > network.network_address and len(candidates) < 3:
+            if candidate not in reserved and str(candidate) not in VLAN_LEGACY_IPS:
+                candidates.append(str(candidate))
+            candidate -= 1
+        if len(candidates) < 3:
+            pytest.skip("Subnet {} of {} has fewer than 3 usable test addresses".format(network, vlan_name))
         ip_version = "ipv{}".format(network.version)
-        dst_offset, allow_offset, block_offset = VLAN_DERIVED_IP_OFFSETS[ip_version]
-        dst_ip[ip_version] = str(network.network_address + dst_offset)
-        ip_to_allow[ip_version] = str(network.network_address + allow_offset)
-        ip_to_block[ip_version] = str(network.network_address + block_offset)
+        dst_ip[ip_version], ip_to_allow[ip_version], ip_to_block[ip_version] = candidates
     return dst_ip, ip_to_allow, ip_to_block
 
 
@@ -409,16 +415,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
-    elif is_ipv6_only_topology(tbinfo):
-        if tbinfo['topo']['type'] in ['t0']:
+    elif is_ipv6_only_topology(tbinfo) and tbinfo['topo']['type'] not in ['t0']:
+        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
+        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
+        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
+    elif tbinfo['topo']['type'] in ['t0']:
+        if is_ipv6_only_topology(tbinfo):
             DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
             DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
             DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
-        else:
-            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
-            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
-            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
-    elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
             if vlan_config in ('one_vlan_a', 'two_vlan_a'):
