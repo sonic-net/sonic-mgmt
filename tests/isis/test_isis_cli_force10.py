@@ -1,7 +1,10 @@
 """IS-IS CLI integration tests for the community Force10 seven-node topology."""
 
+import ipaddress
+import json
 import logging
 import re
+from contextlib import contextmanager
 
 import pytest
 
@@ -34,6 +37,25 @@ NODE_INTERFACES = {
     "P4": ["Ethernet0", "Ethernet4", "Ethernet8", "Ethernet12"],
 }
 
+# Preserve the profile's IPv6/BGP topology. The fixture temporarily numbers
+# these same twelve links for its IPv4 forwarding assertions, then removes only
+# addresses it added. Link order assigns consecutive /31s from 198.19.0.0/27.
+FABRIC_LINKS = (
+    (("P1", "Ethernet112"), ("PE1", "Ethernet0")),
+    (("P1", "Ethernet116"), ("PE2", "Ethernet0")),
+    (("P1", "Ethernet124"), ("P3", "Ethernet0")),
+    (("P1", "Ethernet64"), ("P2", "Ethernet0")),
+    (("P1", "Ethernet68"), ("P4", "Ethernet0")),
+    (("PE1", "Ethernet4"), ("P3", "Ethernet4")),
+    (("PE2", "Ethernet8"), ("P3", "Ethernet8")),
+    (("P3", "Ethernet12"), ("P2", "Ethernet4")),
+    (("P3", "Ethernet16"), ("P4", "Ethernet4")),
+    (("P2", "Ethernet8"), ("P4", "Ethernet8")),
+    (("P2", "Ethernet12"), ("PE3", "Ethernet4")),
+    (("P4", "Ethernet12"), ("PE3", "Ethernet12")),
+)
+
+
 EXPECTED_NEIGHBORS = {
     "P1": 5,
     "PE1": 2,
@@ -56,6 +78,46 @@ def _run(node, command, check=True):
 
 def _config_value(node, table_key, field):
     return _run(node, "sudo sonic-db-cli CONFIG_DB HGET '{}' {}".format(table_key, field))
+
+
+def _ipv4_underlay_plan(nodes):
+    """Preflight every node before changing any addressing in the shared lab."""
+    tables = {name: json.loads(_run(node, "sudo sonic-cfggen -d --var-json INTERFACE"))
+              for name, node in nodes.items()}
+    planned = []
+    first = ipaddress.IPv4Address("198.19.0.0")
+    expected = {(name, interface): ipaddress.ip_interface("{}/31".format(first + index * 2 + side))
+                for index, endpoints in enumerate(FABRIC_LINKS)
+                for side, (name, interface) in enumerate(endpoints)}
+    reserved = ipaddress.ip_network("198.19.0.0/27")
+    for name, rows in tables.items():
+        for key in rows:
+            if "|" not in key:
+                continue
+            interface, prefix = key.split("|", 1)
+            address = ipaddress.ip_interface(prefix.strip())
+            if address.version == 4 and address.network.overlaps(reserved):
+                pytest_assert(expected.get((name, interface)) == address,
+                              "Test IPv4 subnet conflicts with {}:{}".format(name, key))
+    for index, endpoints in enumerate(FABRIC_LINKS):
+        for side, (name, interface) in enumerate(endpoints):
+            rows = tables[name]
+            pytest_assert(interface in rows, "Missing routed interface {}:{}".format(name, interface))
+            address = ipaddress.ip_interface("{}/31".format(first + index * 2 + side))
+            present = False
+            for key in rows:
+                if "|" not in key:
+                    continue
+                existing_port, prefix = key.split("|", 1)
+                existing = ipaddress.ip_interface(prefix.strip())
+                if existing.version != 4 or not existing.network.overlaps(address.network):
+                    continue
+                pytest_assert(existing_port == interface and existing == address,
+                              "Test IPv4 subnet conflicts with {}:{}".format(name, key))
+                present = True
+            if not present:
+                planned.append((name, interface, str(address)))
+    return planned
 
 
 def _configure_global(node, net):
@@ -103,8 +165,46 @@ def _neighbor_count_is(node, count):
 
 def _route_is_installed(node, prefix):
     family = "ipv6" if ":" in prefix else "ip"
-    output = _run(node, "sudo show {} route isis".format(family), check=False)
-    return prefix in output and "via" in output
+    result = node.shell("sudo docker exec bgp vtysh -c 'show {} route {} json'".format(family, prefix),
+                        module_ignore_errors=True)
+    if result.get("rc", 1) != 0:
+        return False
+    try:
+        rows = json.loads(result.get("stdout", "")).get(prefix, [])
+        return any(row.get("protocol") == "isis" and row.get("selected") and row.get("installed")
+                   and any(hop.get("active") and hop.get("fib") for hop in row.get("nexthops", []))
+                   for row in rows)
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
+@contextmanager
+def _isis_forwarding_only(nodes):
+    """Keep BGP sessions, but withdraw competing endpoint connected prefixes."""
+    key = "BGP_GLOBALS_AF|default|ipv6_unicast"
+    previous = {name: _config_value(nodes[name], key, "redistribute_connected") for name in ("P1", "PE3")}
+    for name, value in previous.items():
+        pytest_assert(value in ("", "true", "false"),
+                      "Unexpected BGP redistribute_connected value on {}: {!r}".format(name, value))
+    changed = []
+    try:
+        for name, value in previous.items():
+            if value == "true":
+                changed.append(name)
+                _run(nodes[name], "sudo sonic-db-cli CONFIG_DB HSET '{}' redistribute_connected false".format(key))
+        yield
+    finally:
+        failures = []
+        for name in reversed(changed):
+            try:
+                result = nodes[name].shell(
+                    "sudo sonic-db-cli CONFIG_DB HSET '{}' redistribute_connected true".format(key),
+                    module_ignore_errors=True)
+                if result.get("rc", 1) != 0:
+                    failures.append(name)
+            except Exception:
+                failures.append(name)
+        pytest_assert(not failures, "Failed to restore BGP connected redistribution on {}".format(failures))
 
 
 @pytest.fixture(scope="module")
@@ -124,12 +224,19 @@ def isis_force10_fabric(rand_selected_dut, nbrhosts):
         pytest_assert(framework_enabled.lower() == "true",
                       "FRR management framework is not enabled in ConfigDB on {}".format(name))
 
+    address_plan = _ipv4_underlay_plan(nodes)
+    added_addresses = []
     try:
         # Remove stale IS-IS state from a previous interrupted run.
         for name, node in nodes.items():
             for interface in NODE_INTERFACES[name] + ["Loopback0"]:
                 _run(node, "sudo config interface isis unbind {}".format(interface))
             _run(node, "sudo config isis instance del CORE")
+
+        for name, interface, address in address_plan:
+            # Record before execution so an uncertain CLI reply is cleaned up.
+            added_addresses.append((name, interface, address))
+            _run(nodes[name], "sudo config interface ip add {} {}".format(interface, address))
 
         for name, node in nodes.items():
             _configure_global(node, NODE_NETS[name])
@@ -144,6 +251,8 @@ def isis_force10_fabric(rand_selected_dut, nbrhosts):
             for interface in NODE_INTERFACES[name] + ["Loopback0"]:
                 _run(node, "sudo config interface isis unbind {}".format(interface), check=False)
             _run(node, "sudo config isis instance del CORE", check=False)
+        for name, interface, address in reversed(added_addresses):
+            _run(nodes[name], "sudo config interface ip remove {} {}".format(interface, address), check=False)
 
 
 def test_isis_cli_programs_configdb(isis_force10_fabric):
@@ -178,14 +287,17 @@ def test_isis_cli_establishes_adjacencies_and_routes(isis_force10_fabric):
         database = _run(nodes[name], "sudo show isis database detail")
         pytest_assert(database, "IS-IS database is empty on {}".format(name))
 
-    # PE3 destination and P1 source Loopback0 addresses from committed profiles.
-    for prefix, source in (("100.1.0.31/32", "100.1.0.35"),
-                           ("2064:300::1f/128", "2064:700::23")):
-        pytest_assert(wait_until(120, 5, 0, _route_is_installed, nodes["P1"], prefix),
-                      "P1 did not learn PE3 {} through IS-IS".format(prefix))
-        destination = prefix.split("/")[0]
-        family = "-6" if ":" in prefix else "-4"
-        _run(nodes["P1"], "ping {} -I {} -c 5 -W 2 {}".format(family, source, destination))
+    # BGP also advertises the profiles' IPv6 Loopbacks. Confirm selected native
+    # IS-IS paths in both directions, rather than allowing BGP to mask a failure.
+    with _isis_forwarding_only(nodes):
+        for prefix, reverse in (("100.1.0.31/32", "100.1.0.35/32"),
+                                ("2064:300::1f/128", "2064:700::23/128")):
+            for name, target in (("P1", prefix), ("PE3", reverse)):
+                pytest_assert(wait_until(120, 5, 0, _route_is_installed, nodes[name], target),
+                              "{} has no installed IS-IS route for {}".format(name, target))
+            destination, source = prefix.split("/")[0], reverse.split("/")[0]
+            family = "-6" if ":" in prefix else "-4"
+            _run(nodes["P1"], "ping {} -I {} -c 5 -W 2 {}".format(family, source, destination))
 
 
 def test_isis_cli_interface_disable_enable(isis_force10_fabric):
