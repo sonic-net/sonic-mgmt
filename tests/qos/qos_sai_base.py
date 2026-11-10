@@ -3,6 +3,7 @@ import json
 import logging
 import pytest
 import re
+import shlex
 import yaml
 import random
 import os
@@ -1754,28 +1755,106 @@ class QosSaiBase(QosBase):
                 a_asic.bgp_drop_rule(state="absent", **ipVersion)
 
     @pytest.fixture(scope='class')
-    def disable_mux_for_qos(
+    def freeze_mux_for_qos(
         self, duthosts, get_mux_status, tbinfo, upper_tor_host, lower_tor_host,  # noqa: F811
         toggle_all_simulator_ports, active_active_ports, active_standby_ports,  # noqa: F811
         mux_status_from_nic_simulator  # noqa: F811
     ):
         """Keep dual-ToR mux ports stable during QoS tests.
 
-        Active-standby ports are moved to the lower ToR, which is the DUT used
-        by dual-ToR QoS tests. Active-active ports are made active on both ToRs.
-        The mux service and write_standby.py remain untouched; manual muxcable
-        mode prevents linkmgrd from changing the established forwarding state
-        while the test is running.
+        Keep server traffic on the lower ToR and stop mux heartbeats while QoS
+        counters are measured. Restore automatic mux control after the tests.
         """
         is_dualtor = 'dualtor' in tbinfo['topo']['name']
         if not is_dualtor:
             yield
             return
 
+        tor_hosts = (lower_tor_host, upper_tor_host)
+        mux_ports = set(active_standby_ports) | set(active_active_ports)
+        removed_session_ports = {tor_host.hostname: set() for tor_host in tor_hosts}
+
+        def linkmgrd_running(tor_host):
+            status = tor_host.shell(
+                'docker exec mux supervisorctl status linkmgrd',
+                module_ignore_errors=True)['stdout']
+            return 'RUNNING' in status
+
+        def start_linkmgrd(tor_host):
+            if not linkmgrd_running(tor_host):
+                tor_host.shell('docker exec mux supervisorctl start linkmgrd')
+            if not wait_until(30, 5, 0, linkmgrd_running, tor_host):
+                raise RuntimeError('linkmgrd did not start on {}'.format(tor_host.hostname))
+
+        def icmp_session_keys(tor_host, db):
+            keys = tor_host.shell(
+                "sonic-db-cli {} KEYS 'ICMP_ECHO_SESSION_TABLE:*'".format(db)
+            )['stdout_lines']
+            return [key.strip() for key in keys if key.strip()]
+
+        def mux_icmp_session_keys(tor_host, db):
+            # The ICMP offload key is table:vrf:interface:guid:type. Remove
+            # only sessions belonging to this testbed's mux interfaces.
+            return [key for key in icmp_session_keys(tor_host, db)
+                    if len(key.split(':')) == 5 and key.split(':')[2] in mux_ports]
+
+        def remove_mux_icmp_sessions(tor_host):
+            session_keys = mux_icmp_session_keys(tor_host, 'APP_DB')
+            removed_session_ports[tor_host.hostname] = {
+                key.split(':')[2] for key in session_keys}
+            for key in session_keys:
+                # ProducerStateTable publishes a delete to icmporch. A plain
+                # Redis DEL would not reliably remove the ASIC session.
+                session_key = key.split(':', 1)[1]
+                script = ("import sys; "
+                          "from swsscommon.swsscommon import APPL_DB, DBConnector, ProducerStateTable; "
+                          "ProducerStateTable(DBConnector(APPL_DB, '/var/run/redis/redis.sock', True), "
+                          "'ICMP_ECHO_SESSION_TABLE')._del(sys.argv[1])")
+                tor_host.shell('docker exec swss python3 -c {} {}'.format(
+                    shlex.quote(script), shlex.quote(session_key)))
+            pytest_assert(
+                wait_until(30, 2, 0,
+                           lambda: not mux_icmp_session_keys(tor_host, 'APP_DB')
+                           and not mux_icmp_session_keys(tor_host, 'STATE_DB')),
+                'ICMP offload sessions remain on {}'.format(tor_host.hostname))
+
+        def active_active_ports_forward_only_on_lower():
+            mux_status = mux_status_from_nic_simulator()
+            return len(mux_status) == len(active_active_ports) and all(
+                port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                and not port_status.get(ActiveActivePortID.UPPER_TOR, True)
+                for port_status in mux_status.values())
+
+        def mux_status_recovered():
+            if active_standby_ports and not check_mux_status(duthosts, LOWER_TOR):
+                return False
+            if active_active_ports:
+                mux_status = mux_status_from_nic_simulator()
+                if len(mux_status) != len(active_active_ports) or not all(
+                        port_status.get(ActiveActivePortID.UPPER_TOR, False)
+                        and port_status.get(ActiveActivePortID.LOWER_TOR, False)
+                        for port_status in mux_status.values()):
+                    return False
+            for tor_host in tor_hosts:
+                status = json.loads(tor_host.shell('show muxcable status --json')['stdout'])['MUX_CABLE']
+                if not mux_ports.issubset(status) or any(
+                        status[port]['HEALTH'] != 'healthy'
+                        or status[port]['HWSTATUS'] != 'consistent'
+                        for port in mux_ports):
+                    return False
+                recovered_session_ports = {
+                    key.split(':')[2] for key in mux_icmp_session_keys(tor_host, 'APP_DB')}
+                if not removed_session_ports[tor_host.hostname].issubset(recovered_session_ports):
+                    return False
+            return True
+
         try:
-            # Recover from manual mode left by an interrupted previous run
-            # before establishing the forwarding state required by QoS tests.
-            duthosts.shell('sudo config muxcable mode auto all')
+            # Recover from an interrupted run that left manual mode or a
+            # stopped linkmgrd behind.
+            for tor_host in tor_hosts:
+                tor_host.shell('sudo config muxcable mode auto all')
+            for tor_host in tor_hosts:
+                start_linkmgrd(tor_host)
 
             if active_standby_ports:
                 toggle_all_simulator_ports(LOWER_TOR, retries=3)
@@ -1784,64 +1863,68 @@ class QosSaiBase(QosBase):
                 validate_check_result(check_result, duthosts, get_mux_status)
 
             if active_active_ports:
-                # QoS uses the lower ToR on dual-ToR testbeds. Ensure that its
-                # SAI/PTF port map contains every active-active server port,
-                # while retaining normal active-active forwarding on the upper
-                # ToR as well.
                 active_commands = [
                     'sudo config muxcable mode active {}'.format(port)
                     for port in active_active_ports
                 ]
-                for tor_host in (upper_tor_host, lower_tor_host):
-                    tor_host.shell_cmds(cmds=active_commands)
-
-                def active_active_ports_forward_on_both_tors():
-                    mux_status = mux_status_from_nic_simulator()
-                    if len(mux_status) != len(active_active_ports):
-                        return False
-                    return all(
-                        port_status.get(ActiveActivePortID.UPPER_TOR, False)
-                        and port_status.get(ActiveActivePortID.LOWER_TOR, False)
-                        for port_status in mux_status.values()
-                    )
+                standby_commands = [
+                    'sudo config muxcable mode standby {}'.format(port)
+                    for port in active_active_ports
+                ]
+                lower_tor_host.shell_cmds(cmds=active_commands)
+                upper_tor_host.shell_cmds(cmds=standby_commands)
 
                 pytest_assert(
-                    wait_until(60, 5, 0, active_active_ports_forward_on_both_tors),
-                    "Active-active mux ports did not become active on both ToRs")
+                    wait_until(60, 5, 0, active_active_ports_forward_only_on_lower),
+                    'Active-active mux ports did not forward only to the lower ToR')
 
-            # Do not stop mux or modify write_standby.py. Manual mode prevents
-            # automatic linkmgrd/heartbeat changes after the required active-
-            # standby and active-active forwarding states are established.
-            duthosts.shell('sudo config muxcable mode manual all')
-            logger.info("Set mux ports to manual mode for dual-ToR QoS tests")
+            for tor_host in tor_hosts:
+                tor_host.shell('sudo config muxcable mode manual all')
+            if active_active_ports:
+                pytest_assert(active_active_ports_forward_only_on_lower(),
+                              'Active-active forwarding changed after setting manual mode')
+            for tor_host in tor_hosts:
+                tor_host.shell('docker exec mux supervisorctl stop linkmgrd')
+                pytest_assert(not linkmgrd_running(tor_host),
+                              'linkmgrd is still running on {}'.format(tor_host.hostname))
+                remove_mux_icmp_sessions(tor_host)
+            logger.info('Frozen mux forwarding and stopped mux heartbeats for dual-ToR QoS tests')
 
             yield
         finally:
             cleanup_errors = []
-            for tor_host in (lower_tor_host, upper_tor_host):
+            for tor_host in tor_hosts:
                 try:
                     tor_host.shell('sudo config muxcable mode auto all')
                 except Exception as e:
                     cleanup_errors.append(
                         "failed to restore mux ports to auto mode on {}: {}".format(
                             tor_host.hostname, e))
+            for tor_host in tor_hosts:
                 try:
-                    tor_host.shell('sudo config save -y')
+                    start_linkmgrd(tor_host)
                 except Exception as e:
                     cleanup_errors.append(
-                        "failed to save mux mode on {}: {}".format(
+                        "failed to start linkmgrd on {}: {}".format(
                             tor_host.hostname, e))
+
+            if not cleanup_errors:
+                try:
+                    if not wait_until(120, 10, 10, mux_status_recovered):
+                        raise RuntimeError('mux status did not recover after QoS tests')
+                except Exception as e:
+                    cleanup_errors.append(str(e))
 
             if cleanup_errors:
                 raise RuntimeError("Dual-ToR QoS cleanup failed: {}".format(
                     "; ".join(cleanup_errors)))
 
-            logger.info("Restored mux ports to auto mode after dual-ToR QoS tests")
+            logger.info('Restored automatic mux control after dual-ToR QoS tests')
 
     @pytest.fixture(scope='class')
     def stopServices(
         self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
-        swapSyncd_on_selected_duts, disable_mux_for_qos,
+        swapSyncd_on_selected_duts, freeze_mux_for_qos,
         enable_container_autorestart, disable_container_autorestart,
         tbinfo, upper_tor_host  # noqa: F811
     ):
