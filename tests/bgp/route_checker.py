@@ -69,7 +69,11 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
                 nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
             nbr_prefix_community_set.add(received_community)
         if nbr_prefix_set != device_lo_addr_prefix_set:
-            logger.warning("missing loopback address or some other routes present on neighbor")
+            logger.warning(
+                "missing loopback address or some other routes present on "
+                "neighbor %s: expected=%s actual=%s",
+                hostname, sorted(device_lo_addr_prefix_set),
+                sorted(nbr_prefix_set))
             return False
         if 6 == ip_ver and device_ipv6_lo_addr_subnet_len_set != nbr_prefix_ipv6_subnet_len_set:
             logger.warning("ipv6 subnet is not /64 for loopback")
@@ -243,30 +247,46 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
 
 
 def _parse_routes_on_csonic_host(host, asn, peer_ip, ip_ver):
-    """Enable inbound soft reconfiguration and read one cSONiC VRF RIB."""
+    """Read routes learned from one cSONiC BGP peer.
+
+    Keep the historical received-routes path for ordinary cSONiC. A
+    converged logical handle must not enable soft reconfiguration at runtime:
+    several handles share one FRR daemon, and enabling it after TSA can expose
+    the pre-policy Adj-RIB-In instead of the current accepted routes. FRR's
+    per-neighbor ``routes`` view needs no configuration mutation and is scoped
+    by CsonicHost to the logical peer's runtime VRF.
+    """
     afi = 'ipv4' if ip_ver == 4 else 'ipv6'
-    config_result = host.config(
-        lines=['neighbor {} soft-reconfiguration inbound'.format(peer_ip)],
-        parents=[
-            'router bgp {}'.format(asn),
-            'address-family {} unicast'.format(afi),
-        ],
-    )
-    pytest_assert(config_result.get('rc', 0) == 0,
-                  'Failed to enable cSONiC inbound soft reconfiguration: {}'
-                  .format(config_result.get('stderr', '')))
-    if ip_ver == 4:
-        command = 'show ip bgp neighbors {} received-routes json'.format(
-            peer_ip)
+    if not host.bgp_vrf:
+        config_result = host.config(
+            lines=['neighbor {} soft-reconfiguration inbound'.format(
+                peer_ip)],
+            parents=[
+                'router bgp {}'.format(asn),
+                'address-family {} unicast'.format(afi),
+            ],
+        )
+        pytest_assert(
+            config_result.get('rc', 0) == 0,
+            'Failed to enable cSONiC inbound soft reconfiguration: {}'
+            .format(config_result.get('stderr', '')))
+        route_key = 'receivedRoutes'
+        route_view = 'received-routes'
     else:
-        command = 'show ipv6 bgp neighbors {} received-routes json'.format(
-            peer_ip)
+        route_key = 'routes'
+        route_view = 'routes'
+
+    if ip_ver == 4:
+        command = 'show ip bgp neighbors {} {} json'.format(
+            peer_ip, route_view)
+    else:
+        command = 'show ipv6 bgp neighbors {} {} json'.format(
+            peer_ip, route_view)
     result = host.command(command, verbose=False)
     pytest_assert(result.get('rc', 0) == 0,
                   'Failed to retrieve routes from cSONiC VRF: {}'.format(
                       result.get('stderr', '')))
-    received = json.loads(result.get('stdout') or '{}').get(
-        'receivedRoutes', {})
+    received = json.loads(result.get('stdout') or '{}').get(route_key, {})
     return {prefix: '' for prefix in received}
 
 

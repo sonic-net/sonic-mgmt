@@ -129,17 +129,17 @@ def test_eos_and_sonic_route_shapes_remain_supported():
         {'host': sonic}, '172.16.10.0/24')['aspath'] == '65100 64001'
 
 
-def test_csonic_received_routes_are_configured_and_read_in_runtime_vrf():
+def test_converged_csonic_route_families_are_read_without_runtime_mutation():
     host = CsonicHost('csonic-prime', bgp_vrf='VrfARISTA01T0')
     commands = []
 
     def docker_exec(command, **kwargs):
         commands.append(command)
-        if 'received-routes json' in command:
+        if 'routes json' in command:
             return {
                 'rc': 0,
                 'stdout': json.dumps({
-                    'receivedRoutes': {
+                    'routes': {
                         '172.16.10.0/24': {},
                         '172.16.30.0/24': {},
                     },
@@ -148,23 +148,50 @@ def test_csonic_received_routes_are_configured_and_read_in_runtime_vrf():
         return {'rc': 0, 'stdout': ''}
 
     host._docker_exec = docker_exec
-    routes = route_checker._parse_routes_on_csonic_host(
+    routes_v4 = route_checker._parse_routes_on_csonic_host(
         host, 64001, '10.0.0.32', 4)
+    routes_v6 = route_checker._parse_routes_on_csonic_host(
+        host, 64001, 'fc00::41', 6)
 
-    assert routes == {
+    assert routes_v4 == {
         '172.16.10.0/24': '',
         '172.16.30.0/24': '',
     }
-    assert any(
-        "router bgp 64001 vrf VrfARISTA01T0" in command
-        and "address-family ipv4 unicast" in command
-        for command in commands
-    )
-    assert any(
-        'show bgp vrf VrfARISTA01T0 neighbors 10.0.0.32 '
-        'received-routes json' in command
-        for command in commands
-    )
+    assert routes_v6 == routes_v4
+    assert commands == [
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv4 unicast '
+        'neighbors 10.0.0.32 routes json"',
+        'vtysh -c "show bgp vrf VrfARISTA01T0 ipv6 unicast '
+        'neighbors fc00::41 routes json"',
+    ]
+
+
+def test_ordinary_csonic_received_routes_keep_historical_commands():
+    host = CsonicHost('csonic-neighbor')
+    commands = []
+
+    def docker_exec(command, **kwargs):
+        commands.append(command)
+        if 'received-routes json' in command:
+            return {
+                'rc': 0,
+                'stdout': json.dumps({
+                    'receivedRoutes': {'172.16.10.0/24': {}},
+                }),
+            }
+        return {'rc': 0, 'stdout': ''}
+
+    host._docker_exec = docker_exec
+    routes = route_checker._parse_routes_on_csonic_host(
+        host, 64001, '10.0.0.32', 4)
+
+    assert routes == {'172.16.10.0/24': ''}
+    assert commands == [
+        "vtysh -c 'configure terminal' -c 'router bgp 64001' "
+        "-c 'address-family ipv4 unicast' "
+        "-c 'neighbor 10.0.0.32 soft-reconfiguration inbound'",
+        'show ip bgp neighbors 10.0.0.32 received-routes json',
+    ]
 
 
 def test_gr_helper_reports_every_logical_peer_on_shared_csonic_prime():
