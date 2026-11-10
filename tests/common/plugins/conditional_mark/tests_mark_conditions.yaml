@@ -3631,6 +3631,12 @@ ip/:
     conditions:
       - "'bmc' in topo_type"
 
+ip/link_local/test_link_local_ip.py:
+  xfail:
+    reason: "Test crashes with ValueError on topologies without PortChannels"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26581 and 't1-d96u4' in topo_name"
+
 ip/test_ip_packet.py:
   skip:
     reason: "Skipping ip packet test since can't provide enough interfaces"
