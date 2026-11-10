@@ -356,6 +356,13 @@ class TestBmcCliCommands:
                                   f"After {cmd!r}, show platform leak control-policy does not "
                                   f"reflect {field_substr}={new_action}")
                     logger.info(f"Verified via show: {field_substr}={new_action}")
+                    # Restore right away so a power-down action is not left active while
+                    # the later steps run (the outer finally still covers failures above).
+                    restore_cmd = f"config liquid-cool leak-action {target} {severity} {current_action}"
+                    restore = self.duthost.shell(restore_cmd, module_ignore_errors=True)
+                    pytest_assert(restore['rc'] == 0 and policy_has(field_substr, current_action),
+                                  f"Failed to restore {field_substr}={current_action} via {restore_cmd!r}")
+                    applied_changes.pop()
 
             # --- leak-control functional toggle (policy field: {target}_leak_policy=enabled|disabled) ---
             for target in ['system', 'rack_mgr']:

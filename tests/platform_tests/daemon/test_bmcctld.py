@@ -220,6 +220,14 @@ class TestBmcctldDaemon:
         pytest_assert(result['rc'] == 0 and result['stdout'].strip(),
                       "'config chassis modules' CLI must be available for CHASSIS_MODULE triggers")
 
+        # Do not inject over a real severe leak: it would be masked while injected and the
+        # restore could re-dispatch a configured MAJOR/CRITICAL action.
+        orig_leak = redis_hget(self.duthost, STATE_DB,
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                               'device_leak_status') or 'None'
+        if orig_leak in ('CRITICAL', 'MAJOR'):
+            pytest.skip(f"System leak status is already {orig_leak}; not injecting leak events")
+
         # Single LogAnalyzer for all triggers; re-init per phase to refresh markers
         # in both syslog and event.log (additional_files).
         la = make_bmc_loganalyzer(self.duthost, "bmcctld_event_trigger_chassis_module")
@@ -245,54 +253,46 @@ class TestBmcctldDaemon:
 
         # --- Trigger 2: STATE_DB SYSTEM_LEAK_STATUS device_leak_status ---
         # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is for CRITICAL and MAJOR).
-        orig_leak = redis_hget(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                               'device_leak_status') or 'None'
-        if orig_leak == 'CRITICAL':
-            logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: already CRITICAL - skipping")
-        else:
-            la.marker_prefix = "bmcctld_event_trigger_minor_leak"
-            marker = la.init(log_target='syslog')
-            ev_marker = la.init()
-            la.match_regex = []
-            # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
-            with pause_pmon_daemon(self.duthost, 'thermalctld'):
-                try:
-                    redis_hset(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                               device_leak_status='MINOR')
-                    time.sleep(15)
-                finally:
-                    redis_hset(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                               device_leak_status=orig_leak)
-            la.match_regex = [r".*MINOR_SYSTEM_LEAK.*"]
-            r2 = la.analyze(marker, fail=False, log_target='syslog')
-            trigger_results['SYSTEM_LEAK_STATUS'] = r2.get("total", {}).get("match", 0) > 0
-            pytest_assert(trigger_results['SYSTEM_LEAK_STATUS'],
-                          "bmcctld did not log the MINOR_SYSTEM_LEAK event in syslog")
-            # MINOR is syslog-only: must NOT appear in event.log (scanned separately).
-            la.match_regex = [r"(?i).*leak.*"]
-            r2_ev = la.analyze(ev_marker)
-            # Skip LogAnalyzer marker lines: their names contain the words leak/minor/major.
-            minor_in_eventlog = [
-                ln for ln in r2_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
-                if 'loganalyzer' not in ln.lower() and 'minor' in ln.lower()
-            ]
-            pytest_assert(
-                not minor_in_eventlog,
-                f"MINOR leak event must NOT be written to {BMC_EVENT_LOG} (syslog-only). "
-                f"Found {len(minor_in_eventlog)} line(s): {minor_in_eventlog[:3]}"
-            )
+        la.marker_prefix = "bmcctld_event_trigger_minor_leak"
+        marker = la.init(log_target='syslog')
+        ev_marker = la.init()
+        la.match_regex = []
+        # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
+        with pause_pmon_daemon(self.duthost, 'thermalctld'):
+            try:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                           device_leak_status='MINOR')
+                time.sleep(15)
+            finally:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                           device_leak_status=orig_leak)
+        la.match_regex = [r".*MINOR_SYSTEM_LEAK.*"]
+        r2 = la.analyze(marker, fail=False, log_target='syslog')
+        trigger_results['SYSTEM_LEAK_STATUS'] = r2.get("total", {}).get("match", 0) > 0
+        pytest_assert(trigger_results['SYSTEM_LEAK_STATUS'],
+                      "bmcctld did not log the MINOR_SYSTEM_LEAK event in syslog")
+        # MINOR is syslog-only: must NOT appear in event.log (scanned separately).
+        la.match_regex = [r"(?i).*leak.*"]
+        r2_ev = la.analyze(ev_marker)
+        # Skip LogAnalyzer marker lines: their names contain the words leak/minor/major.
+        minor_in_eventlog = [
+            ln for ln in r2_ev.get("match_messages", {}).get(BMC_EVENT_LOG, [])
+            if 'loganalyzer' not in ln.lower() and 'minor' in ln.lower()
+        ]
+        pytest_assert(
+            not minor_in_eventlog,
+            f"MINOR leak event must NOT be written to {BMC_EVENT_LOG} (syslog-only). "
+            f"Found {len(minor_in_eventlog)} line(s): {minor_in_eventlog[:3]}"
+        )
 
         # --- Trigger 2a: MAJOR leak (syslog_only, no power action) ---
         # MAJOR aggregates MIN-N or more concurrent Minor leaks; default action is
         # syslog_only, so the paired Switch-Host must stay up. bmcctld records the MAJOR
         # detection in event.log (like CRITICAL), unlike MINOR which is syslog-only.
         major_supported = is_major_leak_supported(self.duthost)
-        if orig_leak in ('CRITICAL', 'MAJOR'):
-            logger.info("Trigger 2a [STATE_DB SYSTEM_LEAK_STATUS]: already %s - skipping", orig_leak)
-        elif not major_supported:
+        if not major_supported:
             logger.info("Trigger 2a: MAJOR leak not supported on this image - skipping")
         elif not action_is_syslog_only(self.duthost, 'system_major_leak_action'):
             logger.info("Trigger 2a: system_major_leak_action is not syslog_only - skipping")

@@ -317,6 +317,13 @@ def power_down_action_configured(duthost, action_field):
     return action in ('power_off', 'graceful_shutdown')
 
 
+def action_is_syslog_only(duthost, action_field):
+    """True if the effective policy action in `action_field` is syslog_only (unset means the
+    syslog_only default). Read-only; LEAK_CONTROL_POLICY is not modified."""
+    action = redis_hget(duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|policy', action_field)
+    return action in ('', None, 'syslog_only')
+
+
 def get_major_leak_min_sensors(duthost, default=None):
     """Return the effective MIN-N: the number of concurrent Minor leaks at or above
     which thermalctld classifies the system as MAJOR_SYSTEM_LEAK.
