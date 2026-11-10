@@ -11,6 +11,7 @@ import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.ptf_grpc import PtfGrpcError
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -170,17 +171,9 @@ def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
 
 
 def test_gnoi_file_stat_not_found(gnmi_tls):  # noqa: F811
-    """Verify File.Stat returns NOT_FOUND error for a non-existent path"""
-    try:
+    """Missing paths are denied without revealing whether a file exists."""
+    with pytest.raises(PtfGrpcError, match="PermissionDenied"):
         gnmi_tls.gnoi.file_stat("/etc/this_path_does_not_exist_gnoi_test")
-        pytest_assert(False, "File.Stat should have failed for non-existent path but returned success")
-    except Exception as e:
-        err = str(e)
-        logger.info("File.Stat NOT_FOUND response: {}".format(err))
-        pytest_assert(
-            "NotFound" in err or "not found" in err.lower() or "no such file" in err.lower(),
-            "Expected NOT_FOUND error, got: {}".format(err),
-        )
 
 
 @pytest.mark.parametrize(
