@@ -442,6 +442,19 @@ class TestConvergedLogicalHost:
         assert mock_exec.call_args[0][0] == (
             'vtysh -c "show bgp vrf VrfARISTA02T1 neighbors 10.0.0.58"')
 
+    def test_bgp_neighbor_routes_retain_requested_address_family(self):
+        host = make_converged_host()
+        with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:
+            host.shell("show ip bgp neighbors 10.0.0.58 routes json")
+            host.shell("show ipv6 bgp neighbors fc00::75 routes json")
+        commands = [call.args[0] for call in mock_exec.call_args_list]
+        assert commands == [
+            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv4 unicast '
+            'neighbors 10.0.0.58 routes json"',
+            'vtysh -c "show bgp vrf VrfARISTA02T1 ipv6 unicast '
+            'neighbors fc00::75 routes json"',
+        ]
+
     def test_bgp_clear_commands_are_scoped_to_logical_vrf(self):
         host = make_converged_host()
         with patch.object(host, "_docker_exec", return_value=docker_ok("")) as mock_exec:

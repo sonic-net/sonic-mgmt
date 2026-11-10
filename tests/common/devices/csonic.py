@@ -83,11 +83,15 @@ def _vrf_scope_bgp_reads(value, vrf):
             scoped = 'vtysh -c "show bgp vrf {} {} {}"'.format(
                 vrf, afi, suffix)
         elif re.match(r'^neighbors?\b', suffix, re.IGNORECASE):
-            # FRR accepts per-neighbor detail queries at the VRF level, without
-            # an intervening address-family.  The otherwise-canonical
-            # ``<afi> unicast neighbors <peer>`` form is incomplete unless a
-            # trailing detail subcommand is supplied.
-            scoped = 'vtysh -c "show bgp vrf {} {}"'.format(vrf, suffix)
+            # FRR accepts bare per-neighbor detail queries at the VRF level,
+            # without an intervening address-family. Route-list queries are a
+            # trailing detail subcommand and must retain the requested AFI;
+            # the AFI-less form defaults to the wrong family for IPv4 peers.
+            if re.search(r'\sroutes(?:\s|$)', suffix, re.IGNORECASE):
+                scoped = 'vtysh -c "show bgp vrf {} {} unicast {}"'.format(
+                    vrf, afi, suffix)
+            else:
+                scoped = 'vtysh -c "show bgp vrf {} {}"'.format(vrf, suffix)
         else:
             scoped = 'vtysh -c "show bgp vrf {} {} unicast{}"'.format(
                 vrf, afi, ' {}'.format(suffix) if suffix else '')
