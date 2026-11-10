@@ -4606,6 +4606,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
       - "'isolated' in topo_name and release in ['202412']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26876 and 't1-d96u4' in topo_name"
 
 qos/test_qos_masic.py:
   skip:
@@ -4662,6 +4663,10 @@ qos/test_qos_sai.py:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202412']"
+  xfail:
+    reason: "QoS SAI tests fail on t1-d96u4 topology due to incorrect src/dst port selection across backend neighbor groups"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26876 and 't1-d96u4' in topo_name"
 
 qos/test_qos_sai.py::TestQosSai:
   skip:
