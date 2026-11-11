@@ -481,6 +481,8 @@ def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(
         "DUT_CHECK_NAMESPACE": "dut_check",
         "add_custom_msg": lambda request, key, value: messages.update({key: value}),
     }
+    # Execute only named fixture functions from this checkout, never external input.
+    # nosemgrep: exec-detected
     exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
     request = SimpleNamespace(config=SimpleNamespace(option=SimpleNamespace()),
                               node=SimpleNamespace(name="generic-smoke", iter_markers=lambda: []))
