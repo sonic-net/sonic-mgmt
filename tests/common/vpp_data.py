@@ -19,27 +19,6 @@ IP_VALIDATE_CONFIG_VAR = "IP_VALIDATE_CONFIG"
 IP_VALIDATE_LINK_LOCAL_DROP_OFF = "{}=link-local-drop=off".format(IP_VALIDATE_CONFIG_VAR)
 
 
-def set_vpp_link_local_drop(duthost, enable):
-    """
-    Enable or disable dropping of link-local sourced/destined packets by the VPP ip-validate plugin
-
-    The setting is a startup config of the plugin, so it only takes effect after VPP is restarted
-    by a config reload. Dropping is enabled by default, which is why disabling it is expressed as
-    an explicit IP_VALIDATE_CONFIG entry and restoring the default is done by removing that entry.
-
-    Args:
-        duthost(AnsibleHost) : dut instance
-        enable(bool) : True to restore the default link-local drop, False to disable it
-    """
-    duthost.shell("sed -i '/^{}=/d' {}".format(IP_VALIDATE_CONFIG_VAR, VPP_SYNCD_ENV_PATH))
-    if not enable:
-        duthost.shell("echo '{}' >> {}".format(IP_VALIDATE_LINK_LOCAL_DROP_OFF, VPP_SYNCD_ENV_PATH))
-
-    logger.info("%s VPP link-local drop, reloading config to restart VPP",
-                "Enabled" if enable else "Disabled")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-
-
 def vpp_bds_with_uu_flood(duthost):
     """
     Collect the VPP bridge domain ids that currently have unknown unicast flooding enabled
@@ -85,3 +64,24 @@ def set_vpp_bd_uu_flood(duthost, bd_id, enable):
     """
     duthost.shell("docker exec syncd vppctl set bridge-domain uu-flood {}{}"
                   .format(bd_id, "" if enable else " disable"))
+
+
+def set_vpp_link_local_drop(duthost, enable):
+    """
+    Enable or disable dropping of link-local sourced/destined packets by the VPP ip-validate plugin
+
+    The setting is a startup config of the plugin, so it only takes effect after VPP is restarted
+    by a config reload. Dropping is enabled by default, which is why disabling it is expressed as
+    an explicit IP_VALIDATE_CONFIG entry and restoring the default is done by removing that entry.
+
+    Args:
+        duthost(AnsibleHost) : dut instance
+        enable(bool) : True to restore the default link-local drop, False to disable it
+    """
+    duthost.shell("sed -i '/^{}=/d' {}".format(IP_VALIDATE_CONFIG_VAR, VPP_SYNCD_ENV_PATH))
+    if not enable:
+        duthost.shell("echo '{}' >> {}".format(IP_VALIDATE_LINK_LOCAL_DROP_OFF, VPP_SYNCD_ENV_PATH))
+
+    logger.info("%s VPP link-local drop, reloading config to restart VPP",
+                "Enabled" if enable else "Disabled")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
