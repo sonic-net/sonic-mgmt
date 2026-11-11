@@ -1,19 +1,35 @@
 #!/usr/bin/python
 """Verify selected links and applied PG/queue/QoS objects without configuring services."""
 
+import json
 from pathlib import Path
 import socket
 import time
 
 
-QOS_ATTRIBUTES = {
-    "dscp_to_tc_map": "SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP",
-    "tc_to_dscp_map": "SAI_PORT_ATTR_QOS_TC_AND_COLOR_TO_DSCP_MAP",
-    "dot1p_to_tc_map": "SAI_PORT_ATTR_QOS_DOT1P_TO_TC_MAP",
-    "tc_to_pg_map": "SAI_PORT_ATTR_QOS_TC_TO_PRIORITY_GROUP_MAP",
-    "tc_to_queue_map": "SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP",
-    "pfc_to_pg_map": "SAI_PORT_ATTR_QOS_PFC_PRIORITY_TO_PRIORITY_GROUP_MAP",
-    "pfc_to_queue_map": "SAI_PORT_ATTR_QOS_PFC_PRIORITY_TO_QUEUE_MAP",
+QOS_MAPS = {
+    "dscp_to_tc_map": {
+        "table": "DSCP_TO_TC_MAP", "attribute": "SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP",
+        "type": "DSCP_TO_TC", "key": "dscp", "value": "tc"},
+    "tc_to_dscp_map": {
+        "table": "TC_TO_DSCP_MAP", "attribute": "SAI_PORT_ATTR_QOS_TC_AND_COLOR_TO_DSCP_MAP",
+        "type": "TC_AND_COLOR_TO_DSCP", "key": "tc", "value": "dscp"},
+    "dot1p_to_tc_map": {
+        "table": "DOT1P_TO_TC_MAP", "attribute": "SAI_PORT_ATTR_QOS_DOT1P_TO_TC_MAP",
+        "type": "DOT1P_TO_TC", "key": "dot1p", "value": "tc"},
+    "tc_to_pg_map": {
+        "table": "TC_TO_PRIORITY_GROUP_MAP", "attribute": "SAI_PORT_ATTR_QOS_TC_TO_PRIORITY_GROUP_MAP",
+        "type": "TC_TO_PRIORITY_GROUP", "key": "tc", "value": "pg"},
+    "tc_to_queue_map": {
+        "table": "TC_TO_QUEUE_MAP", "attribute": "SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP",
+        "type": "TC_TO_QUEUE", "key": "tc", "value": "qidx"},
+    "pfc_to_pg_map": {
+        "table": "PFC_PRIORITY_TO_PRIORITY_GROUP_MAP",
+        "attribute": "SAI_PORT_ATTR_QOS_PFC_PRIORITY_TO_PRIORITY_GROUP_MAP",
+        "type": "PFC_PRIORITY_TO_PRIORITY_GROUP", "key": "prio", "value": "pg"},
+    "pfc_to_queue_map": {
+        "table": "MAP_PFC_PRIORITY_TO_QUEUE", "attribute": "SAI_PORT_ATTR_QOS_PFC_PRIORITY_TO_QUEUE_MAP",
+        "type": "PFC_PRIORITY_TO_QUEUE", "key": "prio", "value": "qidx"},
 }
 
 
@@ -91,6 +107,63 @@ def profile_matches(database, request, port, index, binding, kind, asic_profile)
     return bool(profile and pool and asic_pool)
 
 
+def qos_map_matches(database, request, field, name, oid):
+    spec = QOS_MAPS[field]
+    expected = request.get("qos_maps", {}).get(spec["table"], {}).get(reference(name, spec["table"]))
+    if not isinstance(expected, dict) or not expected or not isinstance(oid, str) or oid == "oid:0x0":
+        return False
+    row = database.get_all("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:" + oid) or {}
+    if row.get("SAI_QOS_MAP_ATTR_TYPE") != "SAI_QOS_MAP_TYPE_" + spec["type"]:
+        return False
+    try:
+        entries = json.loads(row["SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST"])
+        if (type(entries["count"]) is not int or not isinstance(entries["list"], list)
+                or entries["count"] != len(entries["list"])):
+            return False
+        # SWSS initializes TC_TO_DSCP keys with the default green packet color.
+        color = ("SAI_PACKET_COLOR_GREEN",) if field == "tc_to_dscp_map" else ()
+        expected_entries = {(int(key),) + color: int(value) for key, value in expected.items()}
+        if len(expected_entries) != len(expected):
+            return False
+        actual = {}
+        for entry in entries["list"]:
+            key, value = entry["key"][spec["key"]], entry["value"][spec["value"]]
+            if type(key) is not int or type(value) is not int:
+                return False
+            key = (key,) + ((entry["key"]["color"],) if color else ())
+            if key in actual:
+                return False
+            actual[key] = value
+        return actual == expected_entries
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def pfc_matches(request, port, asic_port):
+    configured = request["qos"][port]["pfc_enable"]
+    if not isinstance(configured, str):
+        raise ValueError("Frozen PFC priorities must be a comma-separated string")
+    bitmap = 0
+    for priority in configured.split(",") if configured else []:
+        if not priority.isdigit() or int(priority) > 7:
+            raise ValueError("Frozen PFC priorities must be in the range 0-7")
+        bitmap |= 1 << int(priority)
+    asymmetric = request.get("pfc_asym", {}).get(port, "off")
+    if asymmetric not in ("on", "off"):
+        raise ValueError("Frozen PFC asymmetric mode must be on or off")
+    # SAI defaults unwritten PFC attributes to zero and combined mode.
+    prefix = "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL"
+    mode = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_"
+    if asic_port.get(prefix + "_MODE", mode + "COMBINED") != mode + (
+            "SEPARATE" if asymmetric == "on" else "COMBINED"):
+        return False
+    expected = {"_TX": bitmap, "_RX": 255} if asymmetric == "on" else {"": bitmap}
+    try:
+        return all(int(asic_port.get(prefix + suffix, "0")) == value for suffix, value in expected.items())
+    except (TypeError, ValueError):
+        return False
+
+
 def check(request, database, interface_root=Path("/sys/class/net")):
     problems, checked = [], 0
     reservations = {}
@@ -131,8 +204,12 @@ def check(request, database, interface_root=Path("/sys/class/net")):
         if not linked:
             problems.append(port + ": selected physical link is not up")
         oid = names.get(port)
-        if not oid:
+        if not oid or oid == "oid:0x0":
             problems.append(port + ": actual ASIC port mapping is absent")
+            continue
+        asic_port = database.get_all("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:" + oid) or {}
+        if not asic_port:
+            problems.append(port + ": actual ASIC port object is absent")
             continue
         for kind, prefix, bindings in (
                 ("INGRESS_PRIORITY_GROUP", "SAI_INGRESS_PRIORITY_GROUP_ATTR_", request["pg"][port]),
@@ -164,14 +241,12 @@ def check(request, database, interface_root=Path("/sys/class/net")):
                         port, kind, index))
                 else:
                     checked += 1
-        asic_port = database.get_all("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:" + oid) or {}
-        for field in request["qos"][port]:
-            attribute = QOS_ATTRIBUTES.get(field)
-            if attribute is not None:
-                mapping = asic_port.get(attribute)
-                if (mapping in (None, "oid:0x0")
-                        or not database.get_all("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:" + mapping)):
-                    problems.append(port + ": applied QoS map is absent: " + field)
+        for field, name in request["qos"][port].items():
+            if field in QOS_MAPS and not qos_map_matches(
+                    database, request, field, name, asic_port.get(QOS_MAPS[field]["attribute"])):
+                problems.append(port + ": applied QoS map is absent or disagrees with frozen type/entries: " + field)
+        if "pfc_enable" in request["qos"][port] and not pfc_matches(request, port, asic_port):
+            problems.append(port + ": applied PFC bitmap/mode disagrees with frozen policy")
     if "headroom_limit" in request:
         limit = request["headroom_limit"]
         if type(limit) is not int or limit < 0:

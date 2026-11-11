@@ -18,7 +18,7 @@ sys.path.insert(0, str(ANSIBLE / "library"))
 from generic_hwsku_deployment import (ConflictError, DeploymentTransaction, RestorationError,  # noqa: E402
                                       TransactionError, _buffer_reservations, read_artifact,
                                       render_bundle, render_contexts)
-from generic_hwsku_health import port_bindings, reference  # noqa: E402
+from generic_hwsku_health import QOS_MAPS, port_bindings, reference  # noqa: E402
 from generic_hwsku_host_action import candidate_state, validate_spec  # noqa: E402
 
 
@@ -174,6 +174,8 @@ class NativeBackend:
                         qos[port].update(attributes)
             result = self.device_call(device, "running", "health", request={
                 "device": device, "ports": ports, "qos": qos,
+                "qos_maps": {spec["table"]: config.get(spec["table"], {}) for spec in QOS_MAPS.values()},
+                "pfc_asym": {port: config.get("PORT", {}).get(port, {}).get("pfc_asym", "off") for port in ports},
                 "pg": {port: port_bindings(config, "BUFFER_PG", port) for port in ports},
                 "queues": {port: port_bindings(config, "BUFFER_QUEUE", port) for port in ports},
                 "headroom_limit": bundle["manifest"]["resources"]["available"][device]["headroom"],

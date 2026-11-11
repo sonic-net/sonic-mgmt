@@ -2,6 +2,7 @@
 
 import fnmatch
 import importlib
+import json
 from pathlib import Path
 import sys
 
@@ -32,7 +33,9 @@ def _ready(tmp_path):
         "profiles": {"egress-profile": {"size": "0", "pool": "egress-pool", "dynamic_th": "3"}},
         "pools": {"ingress-pool": {"size": "10000", "type": "ingress", "mode": "dynamic"},
                   "egress-pool": {"size": "20000", "type": "egress", "mode": "dynamic"}},
-        "qos": {"Ethernet0": {"tc_to_queue_map": "default"}},
+        "qos": {"Ethernet0": {"tc_to_queue_map": "default", "pfc_enable": ""}},
+        "qos_maps": {"TC_TO_QUEUE_MAP": {"default": {"0": "0", "1": "1"}}},
+        "pfc_asym": {"Ethernet0": "off"},
     }
     values = {
         ("COUNTERS_DB", "COUNTERS_PORT_NAME_MAP"): {"Ethernet0": "oid:port"},
@@ -62,7 +65,12 @@ def _ready(tmp_path):
             "SAI_BUFFER_PROFILE_ATTR_POOL_ID": "oid:egress-pool",
             "SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE": "0", "SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH": "3"},
         ("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:port"): {"SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP": "oid:qos"},
-        ("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:qos"): {"SAI_QOS_MAP_ATTR_TYPE": "TC_TO_QUEUE"},
+        ("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:qos"): {
+            "SAI_QOS_MAP_ATTR_TYPE": "SAI_QOS_MAP_TYPE_TC_TO_QUEUE",
+            "SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST": json.dumps({
+                "count": 2, "list": [
+                    {"key": {"tc": 1}, "value": {"qidx": 1}},
+                    {"key": {"tc": 0}, "value": {"qidx": 0}}]})},
     }
     for direction, size in (("ingress", "10000"), ("egress", "20000")):
         values[("APPL_DB", "BUFFER_POOL_TABLE:" + direction + "-pool")] = {
@@ -77,6 +85,58 @@ def test_ready_requires_matching_applied_buffers_and_qos(tmp_path):
     request, database = _ready(tmp_path)
     observed = health.check(request, database, tmp_path)
     assert observed["ready"] and observed["applied_buffer_bindings"] == 2
+
+
+def test_stale_counter_and_buffer_objects_cannot_replace_the_actual_asic_port(tmp_path):
+    request, database = _ready(tmp_path)
+    request["qos"]["Ethernet0"] = {"pfc_enable": ""}
+    del database.values[("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:port")]
+    observed = health.check(request, database, tmp_path)
+    assert not observed["ready"]
+    assert any("ASIC port object" in error for error in observed["blocking_errors"])
+
+
+@pytest.mark.parametrize("change", ["wrong-type", "wrong-entry", "wrong-count", "duplicate", "malformed", "unfrozen"])
+def test_applied_qos_map_must_match_the_frozen_type_and_entries(tmp_path, change):
+    request, database = _ready(tmp_path)
+    row = database.values[("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:qos")]
+    entries = json.loads(row["SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST"])
+    if change == "wrong-type":
+        row["SAI_QOS_MAP_ATTR_TYPE"] = "SAI_QOS_MAP_TYPE_TC_TO_PRIORITY_GROUP"
+    elif change == "wrong-entry":
+        entries["list"][0]["value"]["qidx"] = 7
+    elif change == "wrong-count":
+        entries["count"] = 1
+    elif change == "duplicate":
+        entries["list"][0] = entries["list"][1]
+    elif change == "unfrozen":
+        request["qos_maps"]["TC_TO_QUEUE_MAP"].clear()
+    row["SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST"] = "not-json" if change == "malformed" else json.dumps(entries)
+    observed = health.check(request, database, tmp_path)
+    assert not observed["ready"]
+    assert any("tc_to_queue_map" in error for error in observed["blocking_errors"])
+
+
+@pytest.mark.parametrize("configured,asymmetric,attributes,ready", [
+    ("", "off", {}, True),
+    ("", "off", {"": "8"}, False),
+    ("3,4", "off", {"": "24"}, True),
+    ("3,4", "off", {"": "16"}, False),
+    ("", "off", {"": "invalid"}, False),
+    ("", "off", {"_MODE": "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE", "_TX": "0", "_RX": "255"}, False),
+    ("3,4", "on", {"_MODE": "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE", "_TX": "24", "_RX": "255"}, True),
+    ("3,4", "on", {"_MODE": "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE", "_TX": "24", "_RX": "0"}, False),
+])
+def test_applied_pfc_bitmap_and_mode_must_match_frozen_policy(tmp_path, configured, asymmetric, attributes, ready):
+    request, database = _ready(tmp_path)
+    request["qos"]["Ethernet0"]["pfc_enable"] = configured
+    request["pfc_asym"]["Ethernet0"] = asymmetric
+    database.values[("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:port")].update({
+        "SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL" + suffix: value for suffix, value in attributes.items()})
+    observed = health.check(request, database, tmp_path)
+    assert observed["ready"] is ready
+    if not ready:
+        assert any("PFC" in error for error in observed["blocking_errors"])
 
 
 @pytest.mark.parametrize("change", ["missing-name", "wrong-port", "wrong-index", "missing-asic"])
@@ -95,17 +155,22 @@ def test_counter_identity_never_substitutes_for_the_matching_applied_asic_object
     assert any("INGRESS_PRIORITY_GROUP 3" in error for error in observed["blocking_errors"])
 
 
-@pytest.mark.parametrize("applied", [False, True])
-def test_tc_to_dscp_requires_the_applied_asic_port_binding(tmp_path, applied):
+@pytest.mark.parametrize("applied,color", [
+    (False, "SAI_PACKET_COLOR_GREEN"), (True, "SAI_PACKET_COLOR_GREEN"), (True, "SAI_PACKET_COLOR_RED")])
+def test_tc_to_dscp_requires_the_applied_asic_port_binding(tmp_path, applied, color):
     request, database = _ready(tmp_path)
     request["qos"]["Ethernet0"]["tc_to_dscp_map"] = "AZURE"
+    request["qos_maps"]["TC_TO_DSCP_MAP"] = {"AZURE": {"0": "16"}}
     if applied:
         database.values[("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:port")][
             "SAI_PORT_ATTR_QOS_TC_AND_COLOR_TO_DSCP_MAP"] = "oid:dscp"
         database.values[("ASIC_DB", "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:dscp")] = {
-            "SAI_QOS_MAP_ATTR_TYPE": "SAI_QOS_MAP_TYPE_TC_AND_COLOR_TO_DSCP"}
+            "SAI_QOS_MAP_ATTR_TYPE": "SAI_QOS_MAP_TYPE_TC_AND_COLOR_TO_DSCP",
+            "SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST": json.dumps({
+                "count": 1, "list": [{"key": {"tc": 0, "color": color},
+                                     "value": {"dscp": 16}}]})}
     observed = health.check(request, database, tmp_path)
-    assert observed["ready"] is applied
+    assert observed["ready"] is (applied and color == "SAI_PACKET_COLOR_GREEN")
     if not applied:
         assert any("tc_to_dscp_map" in error for error in observed["blocking_errors"])
 

@@ -3407,6 +3407,21 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         if check_flag:
 
+            def collect_running_config(dut):
+                running_config = {
+                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
+                }
+                if dut.is_multi_asic:
+                    for asic_index in range(0, dut.facts.get('num_asic')):
+                        asic_ns = "asic{}".format(asic_index)
+                        running_config[asic_ns] = json.loads(
+                            dut.shell(
+                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
+                                verbose=False,
+                            )['stdout']
+                        )
+                return running_config
+
             def collect_before_test(dut):
                 logger.info("Dumping Disk and Memory Space information before test on {}".format(dut.hostname))
                 dut.shell("free -h")
@@ -3422,6 +3437,10 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 duts_data[dut.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
                 logger.info("Collecting running config before test on {}".format(dut.hostname))
+                if tbinfo["topo"].get("type") == "generic":
+                    logger.info("Using deployed Generic config without changing shared golden artifacts")
+                    duts_data[dut.hostname]["pre_running_config"] = collect_running_config(dut)
+                    return
                 duts_data[dut.hostname]["pre_running_config"] = {}
                 if not dut.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                     logger.info("Collecting running golden config before test on {}".format(dut.hostname))
@@ -3483,21 +3502,6 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
         check_result = {}
 
         if check_flag:
-
-            def collect_running_config(dut):
-                running_config = {
-                    None: json.loads(dut.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
-                }
-                if dut.is_multi_asic:
-                    for asic_index in range(0, dut.facts.get('num_asic')):
-                        asic_ns = "asic{}".format(asic_index)
-                        running_config[asic_ns] = json.loads(
-                            dut.shell(
-                                "sonic-cfggen -n {} -d --print-data".format(asic_ns),
-                                verbose=False,
-                            )['stdout']
-                        )
-                return running_config
 
             def collect_core_dumps(dut):
                 if "20191130" in dut.os_version:

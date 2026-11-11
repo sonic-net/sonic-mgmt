@@ -1,10 +1,12 @@
 """Private native readback, immutable smoke admission and fresh-collection regressions."""
 
+import ast
 import base64
 import copy
 import importlib
 import importlib.util
 import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -153,7 +155,10 @@ def test_native_health_checks_physical_only_ports_and_preserves_failure_diagnost
                                   {"dut_port": "traffic-child", "leaf": "leaf", "leaf_port": "traffic-peer"}],
                 "resources": {"available": {"dut": {"headroom": 1000}, "leaf": {"headroom": 1000}}}}
     bundle = {"scenario_id": "scenario", "dut": "dut", "manifest": manifest,
-              "add_configs": {"dut": {}, "leaf": {}}, "transport": [],
+              "add_configs": {"dut": {
+                  "PORT": {"l1-child": {"pfc_asym": "on"}},
+                  "PORT_QOS_MAP": {"l1-child": {"tc_to_queue_map": "frozen-map", "pfc_enable": "3,4"}},
+                  "TC_TO_QUEUE_MAP": {"frozen-map": {"0": "1"}}}, "leaf": {}}, "transport": [],
               "ownership": {device: {"ports": ports, "old_ports": ["old-" + device]} for device, ports in (
                   ("dut", ["l1-child", "traffic-child"]), ("leaf", ["l1-peer", "traffic-peer"]))}}
     native = backend.NativeBackend({"bundle": bundle, "devices": {"dut": {}, "leaf": {}}},
@@ -170,6 +175,8 @@ def test_native_health_checks_physical_only_ports_and_preserves_failure_diagnost
     if ready:
         expected["leaf"] = ["l1-peer", "traffic-peer"]
     assert {target: request["request"]["ports"] for target, request in calls} == expected
+    assert calls[0][1]["request"]["qos_maps"]["TC_TO_QUEUE_MAP"] == {"frozen-map": {"0": "1"}}
+    assert calls[0][1]["request"]["pfc_asym"]["l1-child"] == "on"
 
 
 @pytest.mark.parametrize("available", [False, True])
@@ -421,6 +428,85 @@ def core_dump_and_config_check(tbinfo):
         assert "GENERIC_RECOVERY_VERIFIED" not in completed.stdout
     else:
         assert "GENERIC_RECOVERY_VERIFIED" in completed.stdout
+
+
+@pytest.mark.parametrize("topology,cached,drift", [
+    ("generic", True, False), ("generic", False, False), ("generic", True, True),
+    ("t0", True, False), ("t0", False, False)])
+def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(topology, cached, drift):
+    source = ROOT.parent / "tests" / "conftest.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                 and node.name in ("compare_running_config", "core_dump_and_config_check")]
+    for function in functions:
+        function.decorator_list = []
+    current = {"PORT": {"deployed": {"admin_status": "up"}}}
+    old = {"PORT": {"original": {"admin_status": "up"}}}
+    state = {"running": copy.deepcopy(current), "golden": {
+        "data": json.dumps(old, indent=4) + "\n", "mode": 0o640, "uid": 12, "gid": 34} if cached else None}
+    original_golden = copy.deepcopy(state["golden"])
+    commands, repairs, messages = [], [], {}
+
+    def shell(command, **keywords):
+        commands.append(command)
+        if command == "sonic-cfggen -d --print-data":
+            return {"stdout": json.dumps(state["running"])}
+        if command == "sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json":
+            state["golden"] = {"data": json.dumps(state["running"]), "mode": 0o644, "uid": 0, "gid": 0}
+        if command == "cat /etc/sonic/running_golden_config.json":
+            return {"stdout": state["golden"]["data"]}
+        return {"stdout": ""}
+
+    class Pool:
+        def __init__(self, **keywords):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *arguments):
+            return False
+
+        def submit(self, function, *arguments):
+            return function(*arguments)
+
+    dut = SimpleNamespace(hostname="dut", os_version="202605", is_multi_asic=False, shell=shell,
+                          stat=lambda **keywords: {"stat": {"exists": state["golden"] is not None}})
+    namespace = {
+        "json": json, "logger": logging.getLogger(__name__), "SafeThreadPoolExecutor": Pool,
+        "get_unrestored_runtime_managed_entries_by_context": lambda *arguments: {},
+        "refresh_core_dump_inventory": lambda before, collect, previous: (collect(), []),
+        "restore_config_db_and_config_reload": lambda data, *arguments: repairs.append(
+            copy.deepcopy(data["dut"]["pre_running_config"])),
+        "DUT_CHECK_NAMESPACE": "dut_check",
+        "add_custom_msg": lambda request, key, value: messages.update({key: value}),
+    }
+    exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
+    request = SimpleNamespace(config=SimpleNamespace(option=SimpleNamespace()),
+                              node=SimpleNamespace(name="generic-smoke", iter_markers=lambda: []))
+    guard = namespace["core_dump_and_config_check"](
+        [dut], {"topo": {"type": topology, "name": topology}},
+        SimpleNamespace(is_par_run=False), request, None)
+    try:
+        data = next(guard)
+        baseline = current if topology == "generic" or not cached else old
+        assert data["dut"]["pre_running_config"] == {None: baseline}
+        if drift:
+            state["running"] = {"PORT": {"unexpected": {}}}
+        with pytest.raises(StopIteration):
+            next(guard)
+        if drift or topology != "generic" and cached:
+            assert repairs == [{None: baseline}]
+            assert messages["dut_check.config_db_check_failed"]
+        else:
+            assert not repairs
+        if topology == "generic":
+            assert state["golden"] == original_golden
+            assert not any("running_golden_config" in command for command in commands)
+        elif not cached:
+            assert state["golden"] is not None
+    finally:
+        guard.close()
 
 
 def test_shared_testbed_entry_needs_no_request_file_or_handwritten_policy(tmp_path, monkeypatch):

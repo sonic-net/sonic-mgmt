@@ -167,6 +167,11 @@ responders. Shared parents/bridges are not reconfigured.
 leaf configuration, ports, cables and transport are not replanned or reapplied.
 Readiness checks selected carriers, actual ASIC port objects, named APPL
 buffer profiles, matching applied ASIC profile/pool attributes and QoS objects.
+Every selected port must have an actual ASIC PORT object, not just counter
+mappings. Applied QoS map types and complete key/value entries must match the
+frozen definitions; port PFC bitmaps and combined/asymmetric mode must match
+the frozen policy. Unwritten PFC attributes use documented SAI zero/combined
+defaults only after the actual port object is established.
 This is deployment convergence, not complete MMU behavior validation.
 
 A failed add/readiness check records its original cause before compensation.
@@ -207,6 +212,14 @@ The deployment-only pytest entry is `generic_hwsku/test_deployment_smoke.py`,
 marked `generic` rather than T0. Use the approved diagnostic runner's
 `--topology generic,any --skip_sanity --disable_loganalyzer` controls; the
 ordinary T0 sanity/minigraph path is not a Generic validation substitute.
+
+For Generic only, the ordinary module config/core guard snapshots the deployed
+running configuration in memory without reading or writing shared
+`running_golden_config*.json` artifacts. Their bytes, metadata or original
+absence remain unchanged. Core/drift checks stay enabled and finish before
+session-finalized Generic recovery; ordinary topology cache behavior is unchanged.
+This module-check baseline never replaces frozen transaction originals, which
+smoke still verifies independently.
 
 Final `remove-topo` restores distinct original running and exact startup
 bytes/mode/uid/gid, removes only owned PTF/VLAN resources, and deletes only
