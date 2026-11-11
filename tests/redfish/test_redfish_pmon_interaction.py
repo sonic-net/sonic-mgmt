@@ -22,6 +22,7 @@ which bmcctld resolves as a successful no-op, so the switch host is never
 power cycled.
 """
 import logging
+import re
 import time
 
 import pytest
@@ -79,7 +80,10 @@ CMD_DONE = "DONE"
 CMD_FAILED = "FAILED"
 TERMINAL_STATUSES = (CMD_DONE, CMD_FAILED)
 RESULT_SUCCESS = "SUCCESS"
-RESULT_CRITICAL = "CRITICAL_LEAK_PRESENT"
+RESULTS_POWER_ON_BLOCKED = (
+    "CRITICAL_LEAK_PRESENT",
+    "POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE",
+)
 
 COMMAND_ROW_TIMEOUT = 30
 COMMAND_DONE_TIMEOUT = 60
@@ -134,11 +138,11 @@ def _wait_for_terminal(bmc_duthost, key):
     return fields
 
 
-def _assert_command_outcome(key, fields, status, result):
+def _assert_command_outcome(key, fields, status, results):
     pytest_assert(fields.get("command") == CMD_POWER_ON,
                   "{} command must be {}, got: {}".format(key, CMD_POWER_ON, fields))
-    pytest_assert(fields.get("status") == status and fields.get("result") == result,
-                  "{} must end status={} result={}, got: {}".format(key, status, result, fields))
+    pytest_assert(fields.get("status") == status and fields.get("result") in results,
+                  "{} must end status={} result in {}, got: {}".format(key, status, results, fields))
     pytest_assert(fields.get("last_change_timestamp"),
                   "{} must carry last_change_timestamp, got: {}".format(key, fields))
 
@@ -247,9 +251,10 @@ def critical_alert_blocks_power_on(bmc_duthost):
 def ignore_refused_power_on_logs(bmc_duthost, loganalyzer):
     """The refused POWER_ON is logged at ERR by the bridge and bmcctld; that is the behaviour under test."""
     if loganalyzer:
+        reasons = r"(?:{})(?=\s|$)".format("|".join(re.escape(result) for result in RESULTS_POWER_ON_BLOCKED))
         loganalyzer[bmc_duthost.hostname].ignore_regex.extend([
-            r".*sonic-dbus-bridge.*Rack manager command .* \(POWER_ON\) failed: {}.*".format(RESULT_CRITICAL),
-            r".*bmcctld.*RACK_MGR_CMD FAILED.*reason={}.*".format(RESULT_CRITICAL),
+            r".*sonic-dbus-bridge.*Rack manager command .* \(POWER_ON\) failed: {}.*".format(reasons),
+            r".*bmcctld.*RACK_MGR_CMD FAILED.*reason={}.*".format(reasons),
         ])
 
 
@@ -275,7 +280,7 @@ class TestRedfishPmonInteraction:
                       "{} command must be {}, got: {}".format(key, CMD_POWER_ON, pending))
 
         fields = _wait_for_terminal(bmc_duthost, key)
-        _assert_command_outcome(key, fields, CMD_DONE, RESULT_SUCCESS)
+        _assert_command_outcome(key, fields, CMD_DONE, (RESULT_SUCCESS,))
 
         time.sleep(RETENTION_SETTLE)
         retained = redis_hgetall(bmc_duthost, STATE_DB, key)
@@ -319,7 +324,8 @@ class TestRedfishPmonInteraction:
 
         Submit a CRITICAL LeakDetected alert through SONiC.SubmitAlert. bmcweb
         still accepts the following ResetType=On, but bmcctld must fail the
-        command row with result=CRITICAL_LEAK_PRESENT and the host must stay On.
+        command row with FAILED and result=POWER_DOWN_POLICY_CONFIGURED_EVENT_ACTIVE
+        (CRITICAL_LEAK_PRESENT on older images), and the host must stay On.
         Once the alert is cleared to Normal the next ResetType=On must complete
         with DONE/SUCCESS again.
         """
@@ -329,7 +335,7 @@ class TestRedfishPmonInteraction:
                       "{} did not reach leak=CRITICAL within {}s".format(LEAK_KEY, ALERT_TIMEOUT))
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
-        _assert_command_outcome(key, fields, CMD_FAILED, RESULT_CRITICAL)
+        _assert_command_outcome(key, fields, CMD_FAILED, RESULTS_POWER_ON_BLOCKED)
         pytest_assert(_device_power_state(bmc_duthost) == system_is_on,
                       "{} must stay {} while the alert is active".format(HOST_STATE_KEY, system_is_on))
 
@@ -339,7 +345,7 @@ class TestRedfishPmonInteraction:
                       "{} did not return to leak=NORMAL within {}s".format(LEAK_KEY, ALERT_TIMEOUT))
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
-        _assert_command_outcome(key, fields, CMD_DONE, RESULT_SUCCESS)
+        _assert_command_outcome(key, fields, CMD_DONE, (RESULT_SUCCESS,))
 
     def test_bmcctld_restart_resyncs_host_state(self, redfish_client, bmc_duthost, system_is_on, bmcctld_running):
         """
@@ -387,4 +393,4 @@ class TestRedfishPmonInteraction:
                       "{} must still read {} after restarting {}".format(HOST_STATE_KEY, HOST_POWERED_ON, BMCCTLD))
 
         key, fields = _run_reset_to_completion(redfish_client, bmc_duthost)
-        _assert_command_outcome(key, fields, CMD_DONE, RESULT_SUCCESS)
+        _assert_command_outcome(key, fields, CMD_DONE, (RESULT_SUCCESS,))
