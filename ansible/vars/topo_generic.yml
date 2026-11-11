@@ -1,0 +1,2 @@
+# Dynamic ports and PTF mappings come from the frozen manifest, not a static layout.
+topology: {}

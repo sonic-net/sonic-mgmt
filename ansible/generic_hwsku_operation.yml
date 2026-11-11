@@ -1,0 +1,120 @@
+- name: Perform one private conditional device resource operation
+  hosts: "{{ generic_device_hosts }}"
+  connection: ssh
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Select the original device authentication
+      include_tasks: generic_hwsku_device_auth.yml
+    - name: Allocate this call's private device readback directory
+      tempfile:
+        state: directory
+        prefix: sonic-generic-operation-
+      register: generic_remote
+    - name: Execute and fetch exact native resource readback
+      block:
+        - name: Install only the private native readback helper
+          copy:
+            src: "{{ playbook_dir }}/library/generic_hwsku_device_action.py"
+            dest: "{{ generic_remote.path }}/generic_hwsku_device_action.py"
+            mode: "0600"
+        - name: Execute the guarded native device adapter
+          generic_hwsku_device_action:
+            action: "{{ generic_call.action }}"
+            scenario: "{{ generic_call.scenario }}"
+            device: "{{ inventory_hostname }}"
+            kind: "{{ generic_call.kind }}"
+            request: "{{ generic_call.request | default(omit) }}"
+            before: "{{ generic_call.before | default(omit) }}"
+            after: "{{ generic_call.after | default(omit) }}"
+            operation_id: "{{ generic_call.operation_id | default(omit) }}"
+            alias_name: "{{ generic_call.alias_name | default(omit) }}"
+            destination: "{{ generic_remote.path }}/result.json"
+          become: true
+          no_log: true
+          when: generic_call.action != 'health'
+        - name: Read selected link and applied buffer and QoS readiness
+          generic_hwsku_health:
+            request: "{{ generic_call.request }}"
+            destination: "{{ generic_remote.path }}/result.json"
+          become: true
+          environment:
+            PYTHONPATH: "{{ generic_remote.path }}"
+          no_log: true
+          when: generic_call.action == 'health'
+        - name: Fetch private device readback without redacting its file bytes
+          fetch:
+            src: "{{ generic_remote.path }}/result.json"
+            dest: "{{ generic_result_file }}"
+            flat: true
+          become: true
+          no_log: true
+        - name: Restrict the controller device readback
+          file:
+            path: "{{ generic_result_file }}"
+            mode: "0600"
+          delegate_to: localhost
+          no_log: true
+      always:
+        - name: Remove only this call's temporary device readback
+          file:
+            path: "{{ generic_remote.path }}"
+            state: absent
+          become: true
+
+- name: Perform one private conditional host resource operation
+  hosts: "{{ generic_host_hosts }}"
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Select original host authentication
+      include_tasks: generic_hwsku_host_auth.yml
+    - name: Allocate this call's private host adapter directory
+      tempfile:
+        state: directory
+        prefix: sonic-generic-host-operation-
+      register: generic_remote
+    - name: Execute and fetch actual owned namespace state
+      block:
+        - name: Install only the native adapter helper
+          copy:
+            src: "{{ playbook_dir }}/library/generic_hwsku_device_action.py"
+            dest: "{{ generic_remote.path }}/generic_hwsku_device_action.py"
+            mode: "0600"
+        - name: Install the bounded packet-smoke helper
+          copy:
+            src: "{{ playbook_dir }}/scripts/generic_hwsku_packet_smoke.py"
+            dest: "{{ generic_remote.path }}/generic_hwsku_packet_smoke.py"
+            mode: "0600"
+          when: generic_call.action == 'smoke'
+        - name: Execute the guarded native host adapter
+          generic_hwsku_host_action:
+            action: "{{ generic_call.action }}"
+            request: "{{ generic_call.request }}"
+            before: "{{ generic_call.before | default(omit) }}"
+            after: "{{ generic_call.after | default(omit) }}"
+            operation_id: "{{ generic_call.operation_id | default(omit) }}"
+            destination: "{{ generic_remote.path }}/result.json"
+          become: true
+          environment:
+            PYTHONPATH: "{{ generic_remote.path }}"
+          no_log: true
+        - name: Fetch private native host readback
+          fetch:
+            src: "{{ generic_remote.path }}/result.json"
+            dest: "{{ generic_result_file }}"
+            flat: true
+          become: true
+          no_log: true
+        - name: Restrict the controller host readback
+          file:
+            path: "{{ generic_result_file }}"
+            mode: "0600"
+          delegate_to: localhost
+          no_log: true
+      always:
+        - name: Remove only this call's temporary host adapter
+          file:
+            path: "{{ generic_remote.path }}"
+            state: absent
+          become: true

@@ -1,0 +1,14 @@
+- name: Use existing VM host login settings
+  set_fact:
+    ansible_user: "{{ vm_host_user }}"
+  when: vm_host_user is defined and vm_host_user != 'use_own_value'
+- name: Use existing VM host authentication
+  set_fact:
+    ansible_password: "{{ vm_host_password }}"
+  when: vm_host_password is defined and vm_host_password != 'use_own_value'
+  no_log: true
+- name: Use existing VM host privilege settings
+  set_fact:
+    ansible_become_password: "{{ vm_host_become_password }}"
+  when: vm_host_become_password is defined and vm_host_become_password != 'use_own_value'
+  no_log: true
