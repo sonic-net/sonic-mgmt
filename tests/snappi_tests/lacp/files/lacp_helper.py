@@ -568,7 +568,7 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
         rx_snappi_port_names.append(bgp_config.ports[i].name)
         rx_dut_port.append(tgen_ports[i]['peer_port'])
     all_port_names = rx_snappi_port_names[:]
-    all_port_names.insert(0, 'Test_Port_1')
+    all_port_names.insert(0, 'Test_Port_0')
     snappi_api.set_config(bgp_config)
 
     def get_avg_cpdp_convergence_time(rx_snappi_port_name, dut_port_name):
