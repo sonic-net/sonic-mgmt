@@ -135,8 +135,7 @@ def macsec_send(test, port_id, pkt, count=1):
     # Check if the port is macsec enabled; if so send the macsec encap/encrypted frame.
     device, port_number = ptf.testutils.port_to_tuple(port_id)
     if port_number not in MACSEC_INFOS or not MACSEC_INFOS[port_number]:
-        __origin_send_packet(test, port_id, pkt, count)
-        return
+        return __origin_send_packet(test, port_id, pkt, count)
 
     sa = _SA_CACHE.get(port_number)
     if sa is None:
@@ -153,11 +152,13 @@ def macsec_send(test, port_id, pkt, count=1):
     if _REWRITE_OUTER_SMAC:
         eth_bytes = eth_bytes[:6] + sa["peer_mac_bytes"] + eth_bytes[12:]
 
+    sent = None
     for _ in range(count):
         send_pn = MACSEC_PORT_NEXT_PN[port_number]
         MACSEC_PORT_NEXT_PN[port_number] += 1
         wire = _macsec_encap_encrypt(sa, eth_bytes, send_pn)
-        __origin_send_packet(test, port_id, wire, 1)
+        sent = __origin_send_packet(test, port_id, wire, 1)
+    return sent
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
