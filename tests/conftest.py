@@ -297,7 +297,8 @@ def pytest_addoption(parser):
     #   weak server options    #
     ############################
     parser.addoption("--weak_server", action="store_true", default=False,
-                     help="Treat testbed as a weak server (reduces packet counts and adds delays in relevant tests)")
+                     help="Treat testbed as a weak server (paces or reduces traffic, adds delays, and tolerates "
+                          "a few lost packets in exact packet-count checks in relevant tests)")
 
     ############################
     #  keysight ixanvl options #
