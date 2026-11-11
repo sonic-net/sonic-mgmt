@@ -4644,6 +4644,14 @@ qos/test_qos_probe.py:
       # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
       - "asic_subtype in ['broadcom-dnx']"
 
+qos/test_qos_probe.py::TestQosProbe:
+  skip:
+    reason: "MMU threshold probing is not applicable on this topology."
+    conditions_logical_operator: and
+    conditions:
+      - *lossyTopos
+      - "topo_name not in constants['QOS_SAI_TOPO']"
+
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   skip:
     reason: "HeadroomPool probe fails on Mellanox SPC1 starting at iteration #2: all packets sent to pg=4 (immediately after a successful pg=3 probe on the same src port) are ingress-dropped, so the probe algorithm cannot find a PFC threshold for pg=4. Tracked by #24215 (SPC1)."
