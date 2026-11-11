@@ -427,11 +427,11 @@ Each non-disruptive scenario injects a value, waits up to 30 s for the expected 
    - **Check**: `/host/bmc/event.log` MUST contain a `MAJOR SYSTEM LEAK detected` entry (bmcctld logs MAJOR to `event.log` like CRITICAL; only MINOR is syslog-only)
 3. **CRITICAL leak → Switch-Host power off** (disruptive):
    - Snapshot Switch-Host `uptime -s`
-   - Ensure `system_critical_leak_action = power_off`
-   - **Pause `thermalctld`** to keep the injected value pinned; set `device_leak_status = CRITICAL`
+   - Snapshot existence and value of `LEAK_CONTROL_POLICY|policy system_critical_leak_action` before changing it; accept numeric (`0`/`1`) or boolean (`False`/`True`) existence output and abort if the snapshot fails. Set `power_off` with checked command execution.
+   - **Pause `thermalctld`** to keep the injected value pinned; check `supervisorctl` stop/restart results rather than using helpers that discard errors. Abort injection if stopping fails; set `device_leak_status = CRITICAL` only after a successful stop.
    - Wait for Switch-Host SSH drop, then for `critical_services_fully_started`
    - Assert `uptime -s` advanced and `show reboot-cause` reports a BMC-initiated cause
-   - `finally`: restart `thermalctld`, restore policy, and if needed `config chassis modules startup SWITCH-HOST` to recover
+   - On success or failure, restore the injected leak status, restart `thermalctld`, and recover the Switch-Host. Restore the original policy value, or HDEL only `system_critical_leak_action` if originally absent; preserve other fields. Report cleanup errors, including pytest failure exceptions, without masking an earlier failure. A cleanup failure alone must fail the test.
 4. **Rack-manager alert** — inject STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert severity = MINOR`, then `= MAJOR`; default action for both is syslog-only; no power action (Switch-Host `uptime -s` unchanged for each); the MAJOR alert is also written to `event.log` ("MAJOR RACK MGR ALERT"), MINOR is syslog-only
 5. **Pre-flight checks** — `thermalctld` is RUNNING and `config chassis modules --help` exposes the `startup`/`shutdown` commands
 6. **Post-check** — if `/host/bmc/event.log` exists, it has fresh entries; otherwise log info
@@ -521,7 +521,7 @@ Verify that `power_on_delay` is configurable and persists across chassis power l
 4. Scan only marker-bounded startup entries in persistent event.log:
    - Air-cooled: require the explicit already-ONLINE/skip-boot-sequence or non-liquid-cooled/immediate-power-on path. Do not require a second power_on dispatch on an ONLINE host.
    - Liquid-cooled: require the OFFLINE/issuing-power_on path. Verify its current-boot `bmcctld` journal monotonic timestamp against the configured BMC boot delay. Allow only the daemon's sub-second integer truncation of remaining delay, not a broad timing tolerance; uptime already exceeding the delay at daemon startup is valid.
-5. Require Switch-Host critical services to recover, a changed host boot ID, and Power Loss reboot cause. Restore and save the original delay in `finally`.
+5. Require Switch-Host critical services to recover, a changed host boot ID, and Power Loss reboot cause. Restore and save the validated original delay (or remove only the originally absent field) on success or failure. If the BMC never recovers, skip unsafe database access and report the original delay for manual recovery. A cleanup failure must fail the test when there is no earlier test failure, including when a missing PDU causes a skip.
 
 **Expected Result**:
 - Air-cooled immediate startup is accepted only with explicit fresh startup evidence and successful reboot/health verification.
@@ -542,7 +542,7 @@ Verify that an explicitly configured nonzero `power_on_delay` is ignored when th
 1. Snapshot BMC and Switch-Host kernel boot IDs and the original `power_on_delay`.
 2. Set `power_on_delay=300` through the CLI, verify CONFIG_DB, save, and write a persistent event.log marker.
 3. Cold-reboot only the BMC; require BMC critical-service recovery, a changed BMC boot ID, and a non-power-loss reboot cause.
-4. Require the configured delay to remain 300 after reboot. Require marker-bounded event.log and current-boot `bmcctld` journal evidence of `already ONLINE (daemon restart); skipping boot sequence`. Reject any current-boot `Waiting ... SWITCH_HOST_POWER_ON_DELAY` entry. Do not infer delay bypass from total SSH/service-recovery time.
+4. Require the configured delay to remain 300 after reboot. Require marker-bounded event.log and current-boot `bmcctld` syslog evidence of `already ONLINE (daemon restart); skipping boot sequence`. Read `sudo zcat -f /var/log/syslog*`, including rotations; BMC syslog is on tmpfs and belongs to the current boot. Filter for genuine daemon records and exclude Ansible invocation echoes. Reject any current-boot `Waiting ... SWITCH_HOST_POWER_ON_DELAY` daemon record. An empty host journal is not a failure, but missing genuine syslog evidence is. Do not infer delay bypass from total SSH/service-recovery time.
 5. Require the Switch-Host boot ID to remain unchanged and its critical services to be healthy.
 6. In `finally`, restore the original delay (or remove the field if originally absent) and save configuration.
 
