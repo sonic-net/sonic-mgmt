@@ -211,36 +211,18 @@ def perform(kind, before, after, operation_id, request, directory, startup, devi
     current = capture(kind, request, startup, device_root, alias_name)
     if current != before:
         raise DeviceActionError("Unexplained {} drift blocks the conditional device write".format(kind))
-    if kind == "running":
-        validate_config(after, request["baseline"]["running"])
-        config_path = directory / "candidate-running.json"
-        atomic_json(config_path, after)
-        original_startup = startup_snapshot(startup)
-        reload_log = directory / ("reload-" + digest(operation_id) + ".log")
-    elif kind == "startup":
-        if (not isinstance(after, dict) or set(after) != {"bytes_base64", "metadata"}
-                or set(after["metadata"]) != {"mode", "uid", "gid"}):
-            raise DeviceActionError("Startup operations require exact bytes and mode/uid/gid")
-        data = base64.b64decode(after["bytes_base64"], validate=True)
-    elif kind == "alias":
-        path, source = alias_path(request, alias_name, device_root)
-        if after is not None and after != {"name": alias_name, "target": str(source)}:
-            raise DeviceActionError("Only a verified base-HWSKU alias is permitted")
-        if after is None:
-            for config in (read_running(), json.loads(startup.read_bytes())):
-                if config["DEVICE_METADATA"]["localhost"]["hwsku"] == alias_name:
-                    raise DeviceActionError("Running/startup configuration still references the created alias")
-            receipt = directory / "created-alias.json"
-            if not receipt.is_file():
-                raise DeviceActionError("Alias ownership receipt is missing; retain it for reconciliation")
-            owned = json.loads(receipt.read_text())
-            info = path.lstat()
-            if (not path.is_symlink() or info.st_ino != owned["inode"] or info.st_dev != owned["device"]):
-                raise DeviceActionError("Alias ownership changed; refusing another owner's path")
     intent = {"operation_id": operation_id, "kind": kind, "before": before, "after": after}
-    atomic_json(directory / (kind + "-intent.json"), intent)
+    details = {}
     try:
         if kind == "running":
+            validate_config(after, request["baseline"]["running"])
+            config_path = directory / "candidate-running.json"
+            atomic_json(config_path, after)
+            original_startup = startup_snapshot(startup)
+            reload_log = directory / ("reload-" + digest(operation_id) + ".log")
+            details["reload_log"] = str(reload_log)
+            atomic_json(directory / (kind + "-intent.json"), intent)
+
             def verify_before_reload():
                 verify_sources(request)
                 if read_running() != before or startup_snapshot(startup) != original_startup:
@@ -250,37 +232,61 @@ def perform(kind, before, after, operation_id, request, directory, startup, devi
             if startup_snapshot(startup) != original_startup:
                 raise DeviceActionError("Installed config reload changed an undeclared startup resource")
         elif kind == "startup":
+            if (not isinstance(after, dict) or set(after) != {"bytes_base64", "metadata"}
+                    or set(after["metadata"]) != {"mode", "uid", "gid"}):
+                raise DeviceActionError("Startup operations require exact bytes and mode/uid/gid")
+            data = base64.b64decode(after["bytes_base64"], validate=True)
+            atomic_json(directory / (kind + "-intent.json"), intent)
             atomic_bytes(startup, data)
             os.chown(str(startup), after["metadata"]["uid"], after["metadata"]["gid"])
             os.chmod(str(startup), after["metadata"]["mode"])
-        elif after is None:
-            path.unlink()
-        else:
-            staging = Path(tempfile.mkdtemp(prefix=".sonic-generic-alias-", dir=str(path.parent)))
-            # Private directories require owner traversal, not group/world access.
-            os.chmod(str(staging), 0o700)  # nosemgrep: insecure-file-permissions
-            staged = staging / "alias"
-            os.symlink(str(source), str(staged))
-            info = staged.lstat()
-            atomic_json(directory / "created-alias.json", {
-                "name": alias_name, "inode": info.st_ino, "device": info.st_dev,
-                "operation_id": operation_id, "staging": str(staging)})
-            os.link(str(staged), str(path), follow_symlinks=False)
-            staged.unlink()
-            staging.rmdir()
+        elif kind == "alias":
+            path, source = alias_path(request, alias_name, device_root)
+            if after is not None and after != {"name": alias_name, "target": str(source)}:
+                raise DeviceActionError("Only a verified base-HWSKU alias is permitted")
+            if after is None:
+                for config in (read_running(), json.loads(startup.read_bytes())):
+                    if config["DEVICE_METADATA"]["localhost"]["hwsku"] == alias_name:
+                        raise DeviceActionError("Running/startup configuration still references the created alias")
+                receipt_path = directory / "created-alias.json"
+                if not receipt_path.is_file():
+                    raise DeviceActionError("Alias ownership receipt is missing; retain it for reconciliation")
+                owned = json.loads(receipt_path.read_text())
+                info = path.lstat()
+                if (not path.is_symlink() or info.st_ino != owned["inode"] or info.st_dev != owned["device"]):
+                    raise DeviceActionError("Alias ownership changed; refusing another owner's path")
+            atomic_json(directory / (kind + "-intent.json"), intent)
+            if after is None:
+                path.unlink()
+            else:
+                staging = Path(tempfile.mkdtemp(prefix=".sonic-generic-alias-", dir=str(path.parent)))
+                # Private directories require owner traversal, not group/world access.
+                os.chmod(str(staging), 0o700)  # nosemgrep: insecure-file-permissions
+                staged = staging / "alias"
+                os.symlink(str(source), str(staged))
+                info = staged.lstat()
+                atomic_json(directory / "created-alias.json", {
+                    "name": alias_name, "inode": info.st_ino, "device": info.st_dev,
+                    "operation_id": operation_id, "staging": str(staging)})
+                os.link(str(staged), str(path), follow_symlinks=False)
+                staged.unlink()
+                staging.rmdir()
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
-        actual = capture(kind, request, startup, device_root, alias_name)
-        receipt = {"operation_id": operation_id, "observed_sha256": digest(actual), "completed": False,
-                   "error_type": type(error).__name__, "error": str(error)}
-        if kind == "running":
-            receipt["reload_log"] = str(reload_log)
-        atomic_json(directory / (kind + "-" + digest(operation_id) + "-receipt.json"), receipt)
-        atomic_json(directory / (kind + "-receipt.json"), receipt)
+        receipt = dict(details, operation_id=operation_id, completed=False,
+                       error_type=type(error).__name__, error=str(error))
+        try:
+            receipt["observed_sha256"] = digest(capture(kind, request, startup, device_root, alias_name))
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.CalledProcessError) as capture_error:
+            receipt["capture_error"] = str(capture_error)
+        try:
+            atomic_json(directory / (kind + "-" + digest(operation_id) + "-receipt.json"), receipt)
+            atomic_json(directory / (kind + "-receipt.json"), receipt)
+        except OSError as receipt_error:
+            raise DeviceActionError("{}; native failure receipt could not be saved: {}".format(
+                error, receipt_error)) from error
         raise
     actual = capture(kind, request, startup, device_root, alias_name)
-    receipt = {"operation_id": operation_id, "observed_sha256": digest(actual), "completed": actual == after}
-    if kind == "running":
-        receipt["reload_log"] = str(reload_log)
+    receipt = dict(details, operation_id=operation_id, observed_sha256=digest(actual), completed=actual == after)
     if actual != after:
         receipt["error"] = "Native command completed but independent readback differs"
     atomic_json(directory / (kind + "-" + digest(operation_id) + "-receipt.json"), receipt)
@@ -337,7 +343,7 @@ def main():
             ownership = None
             if receipt_path.is_file():
                 receipt = json.loads(receipt_path.read_text())
-                if receipt["observed_sha256"] == digest(value):
+                if receipt.get("observed_sha256") == digest(value):
                     ownership = receipt["operation_id"]
             write_result(module.params["destination"], {"value": value, "owned_by": ownership})
             module.exit_json(changed=module.params["action"] == "perform", artifact_written=True)

@@ -15,7 +15,7 @@ import yaml
 
 from generic_hwsku_preflight import (
     ANSIBLE, PrerequisiteError, connection_rows, digest, plan_collected, read_json, read_testbed, readiness_report)
-from generic_hwsku_deployment import RestorationError, TransactionError
+from generic_hwsku_deployment import RestorationError, TransactionError, _private
 
 
 def private_json(path, value):
@@ -42,11 +42,10 @@ def private_json(path, value):
 def private_workspace(path):
     if any(parent.is_symlink() for parent in [path] + list(path.parents)):
         raise PrerequisiteError("The Generic private workspace must not traverse symlinks")
-    # Private directories require owner traversal, not group/world access.
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(str(path.parent), 0o700)  # nosemgrep: insecure-file-permissions
-    path.mkdir(mode=0o700, exist_ok=True)
-    os.chmod(str(path), 0o700)  # nosemgrep: insecure-file-permissions
+    if os.name == "posix" and path.parent.stat().st_mode & 0o022:
+        raise PrerequisiteError("The Generic workspace parent is group/world writable")
+    _private(str(path), directory=True, create=not path.exists())
     return path
 
 
@@ -276,8 +275,8 @@ def main(argv=None):
     except (OSError, ValueError, KeyError, TypeError, ImportError, RuntimeError,
             yaml.YAMLError, subprocess.CalledProcessError) as error:
         attempted = workspace is not None and (workspace / "mutation-attempted.json").is_file()
-        retained_recovery = (arguments.action == "remove-topo" and workspace is not None
-                             and (workspace / "transaction").exists())
+        retained_recovery = (arguments.action == "remove-topo"
+                             and (workspace is None or (workspace / "transaction").exists()))
         status = ("RESTORE_FAILED" if isinstance(error, RestorationError) or retained_recovery else
                   "FAILED_RESTORED" if isinstance(error, TransactionError) else
                   "FAILED_UNVERIFIED" if attempted else "NOT_READY")

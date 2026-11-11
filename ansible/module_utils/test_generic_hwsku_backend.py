@@ -10,6 +10,7 @@ import logging
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -430,14 +431,16 @@ def core_dump_and_config_check(tbinfo):
         assert "GENERIC_RECOVERY_VERIFIED" in completed.stdout
 
 
-@pytest.mark.parametrize("topology,cached,drift", [
-    ("generic", True, False), ("generic", False, False), ("generic", True, True),
-    ("t0", True, False), ("t0", False, False)])
-def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(topology, cached, drift):
+@pytest.mark.parametrize("topology,cached,drift,core_dump", [
+    ("generic", True, False, False), ("generic", False, False, False), ("generic", True, True, False),
+    ("generic", True, False, True), ("t0", True, False, False), ("t0", False, False, False),
+    ("t0", False, False, True)])
+def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(topology, cached, drift, core_dump):
     source = ROOT.parent / "tests" / "conftest.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)
-                 and node.name in ("compare_running_config", "core_dump_and_config_check")]
+                 and node.name in ("compare_running_config", "core_dump_and_config_check",
+                                   "restore_config_db_and_config_reload")]
     for function in functions:
         function.decorator_list = []
     current = {"PORT": {"deployed": {"admin_status": "up"}}}
@@ -445,6 +448,8 @@ def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(
     state = {"running": copy.deepcopy(current), "golden": {
         "data": json.dumps(old, indent=4) + "\n", "mode": 0o640, "uid": 12, "gid": 34} if cached else None}
     original_golden = copy.deepcopy(state["golden"])
+    original_startup = json.dumps(current, separators=(",", ":")).encode() + b"\n"
+    state["startup"] = original_startup
     commands, repairs, messages = [], [], {}
 
     def shell(command, **keywords):
@@ -455,7 +460,17 @@ def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(
             state["golden"] = {"data": json.dumps(state["running"]), "mode": 0o644, "uid": 0, "gid": 0}
         if command == "cat /etc/sonic/running_golden_config.json":
             return {"stdout": state["golden"]["data"]}
+        if command == "ls /var/core/":
+            return {"stdout": "new.core" if state.get("new_core") else ""}
         return {"stdout": ""}
+
+    def copy_config(content, **keywords):
+        state["startup"] = content.encode()
+        repairs.append({None: json.loads(content)})
+
+    def refresh_cores(before, collect, previous):
+        current_cores = collect()
+        return current_cores, [item for item in current_cores if item not in before]
 
     class Pool:
         def __init__(self, **keywords):
@@ -467,24 +482,25 @@ def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(
         def __exit__(self, *arguments):
             return False
 
-        def submit(self, function, *arguments):
-            return function(*arguments)
+        def submit(self, function, *arguments, **keywords):
+            return function(*arguments, **keywords)
 
     dut = SimpleNamespace(hostname="dut", os_version="202605", is_multi_asic=False, shell=shell,
+                          copy=copy_config, fetch=lambda **keywords: None,
                           stat=lambda **keywords: {"stat": {"exists": state["golden"] is not None}})
     namespace = {
-        "json": json, "logger": logging.getLogger(__name__), "SafeThreadPoolExecutor": Pool,
+        "json": json, "os": os, "__file__": str(source),
+        "logger": logging.getLogger(__name__), "SafeThreadPoolExecutor": Pool,
         "get_unrestored_runtime_managed_entries_by_context": lambda *arguments: {},
-        "refresh_core_dump_inventory": lambda before, collect, previous: (collect(), []),
-        "restore_config_db_and_config_reload": lambda data, *arguments: repairs.append(
-            copy.deepcopy(data["dut"]["pre_running_config"])),
+        "refresh_core_dump_inventory": refresh_cores,
+        "config_reload": lambda *arguments, **keywords: state.update(running=json.loads(state["startup"])),
         "DUT_CHECK_NAMESPACE": "dut_check",
         "add_custom_msg": lambda request, key, value: messages.update({key: value}),
     }
     # Execute only named fixture functions from this checkout, never external input.
     # nosemgrep: exec-detected
     exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), "exec"), namespace)
-    request = SimpleNamespace(config=SimpleNamespace(option=SimpleNamespace()),
+    request = SimpleNamespace(config=SimpleNamespace(option=SimpleNamespace(), getoption=lambda name: True),
                               node=SimpleNamespace(name="generic-smoke", iter_markers=lambda: []))
     guard = namespace["core_dump_and_config_check"](
         [dut], {"topo": {"type": topology, "name": topology}},
@@ -495,20 +511,82 @@ def test_module_guard_uses_live_generic_baseline_without_touching_shared_golden(
         assert data["dut"]["pre_running_config"] == {None: baseline}
         if drift:
             state["running"] = {"PORT": {"unexpected": {}}}
+        if core_dump:
+            state["new_core"] = True
         with pytest.raises(StopIteration):
             next(guard)
-        if drift or topology != "generic" and cached:
-            assert repairs == [{None: baseline}]
+        failed_config = drift or topology != "generic" and cached
+        if failed_config:
             assert messages["dut_check.config_db_check_failed"]
+        if core_dump:
+            assert messages["dut_check.core_dump_check_failed"]
+        if topology != "generic" and (failed_config or core_dump):
+            assert repairs == [{None: baseline}]
         else:
             assert not repairs
         if topology == "generic":
             assert state["golden"] == original_golden
+            assert state["startup"] == original_startup
+            if drift:
+                assert state["running"] == {"PORT": {"unexpected": {}}}
             assert not any("running_golden_config" in command for command in commands)
         elif not cached:
             assert state["golden"] is not None
     finally:
         guard.close()
+
+
+def test_custom_private_workspace_never_chmods_an_existing_shared_parent(tmp_path, monkeypatch):
+    from generic_hwsku_deployment import _private
+
+    parent = tmp_path / "shared"
+    parent.mkdir()
+    before = stat.S_IMODE(parent.stat().st_mode)
+    original_chmod, changed = lifecycle.os.chmod, []
+
+    def chmod(path, mode):
+        changed.append(Path(path))
+        original_chmod(path, mode)
+
+    monkeypatch.setattr(lifecycle.os, "chmod", chmod)
+    workspace = lifecycle.private_workspace(parent / "private-child")
+    assert parent not in changed
+    assert stat.S_IMODE(parent.stat().st_mode) == before
+    _private(str(workspace), directory=True)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX ownership/mode admission")
+@pytest.mark.parametrize("unsafe", ["parent", "workspace"])
+def test_existing_unsafe_workspace_permissions_are_rejected_not_silently_adopted(tmp_path, unsafe):
+    parent = tmp_path / "parent"
+    parent.mkdir(mode=0o700)
+    workspace = parent / "private-child"
+    target = parent if unsafe == "parent" else workspace
+    if unsafe == "workspace":
+        workspace.mkdir(mode=0o700)
+    target.chmod(0o777)
+    with pytest.raises(ValueError, match="writable|private"):
+        lifecycle.private_workspace(workspace)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o777
+
+
+@pytest.mark.parametrize("phase,exit_code,status", [
+    ("remove-topo", 4, "RESTORE_FAILED"), ("preflight", 2, "NOT_READY")])
+def test_untrusted_workspace_never_receives_evidence_and_recovery_retains_a_hold(
+        monkeypatch, capsys, phase, exit_code, status):
+    def reject(path):
+        raise lifecycle.PrerequisiteError("workspace parent is unsafe")
+
+    def forbidden(*arguments):
+        raise AssertionError("Untrusted workspace must not receive private artifacts")
+
+    monkeypatch.setattr(lifecycle, "private_workspace", reject)
+    monkeypatch.setattr(lifecycle, "private_json", forbidden)
+    result = lifecycle.main([
+        "--action", phase, "--testbed", "bed-generic", "--testbed-file", "testbed.yaml",
+        "--inventory", "inventory", "--vm-inventory", "veos", "--vault-password-file", "vault"])
+    assert result == exit_code
+    assert "GENERIC_DEPLOYMENT_" + status in capsys.readouterr().err
 
 
 def test_shared_testbed_entry_needs_no_request_file_or_handwritten_policy(tmp_path, monkeypatch):
@@ -556,7 +634,7 @@ def test_frozen_generic_entry_cannot_rebind_even_when_both_management_rows_chang
     path = _testbed_file(tmp_path, entries)
     scope = lifecycle.load_scope(path, "bed-generic")
     workspace = tmp_path / "private"
-    workspace.mkdir()
+    lifecycle.private_workspace(workspace)
     lifecycle.private_json(workspace / "provenance.json", {"scope_sha256": lifecycle.digest(scope)})
     for entry in entries:
         entry["ptf_ip"] = "192.0.2.4/24"
@@ -636,7 +714,7 @@ def test_remove_uses_frozen_inputs_and_never_replans_after_configuration_changes
     path = _testbed_file(tmp_path, entries)
     frozen_scope = lifecycle.load_scope(path, "bed-generic")
     workspace = tmp_path / "private"
-    workspace.mkdir()
+    lifecycle.private_workspace(workspace)
     bundle = {"scenario_id": "original-scenario", "bundle_sha256": "frozen-bundle", "manifest": {
         "scenario_id": "original-scenario", "coverage": {"traffic": {"complete": False}}, "traffic_cases": []}}
     lifecycle.private_json(workspace / "backend.json", {"bundle": bundle})

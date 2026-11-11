@@ -178,10 +178,12 @@ def check(request, database, interface_root=Path("/sys/class/net")):
         if not separator or not profile:
             problems.append(port + ": reclaimed PG reservation is unresolved")
             continue
-        if not {"xon", "xoff"} <= set(profile):
+        thresholds = {"xon", "xoff"}
+        if not thresholds.intersection(profile):
             continue
-        if not str(profile.get("size", "")).isdigit():
-            problems.append(port + ": applied lossless reservation size is unresolved")
+        if (not thresholds <= set(profile) or not profile.get("pool")
+                or any(not str(profile.get(field, "")).isdigit() for field in ("size", "xon", "xoff"))):
+            problems.append(port + ": applied lossless PG reservation is unresolved")
             continue
         for index in selectors(indices):
             identity = (port, index)

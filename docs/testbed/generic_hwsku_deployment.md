@@ -172,6 +172,9 @@ mappings. Applied QoS map types and complete key/value entries must match the
 frozen definitions; port PFC bitmaps and combined/asymmetric mode must match
 the frozen policy. Unwritten PFC attributes use documented SAI zero/combined
 defaults only after the actual port object is established.
+Residual PGs in reclaimed headroom scope must have complete, numeric lossless
+threshold/reservation evidence. A partially populated lossless profile blocks
+readiness instead of disappearing from the budget.
 This is deployment convergence, not complete MMU behavior validation.
 
 A failed add/readiness check records its original cause before compensation.
@@ -220,6 +223,11 @@ absence remain unchanged. Core/drift checks stay enabled and finish before
 session-finalized Generic recovery; ordinary topology cache behavior is unchanged.
 This module-check baseline never replaces frozen transaction originals, which
 smoke still verifies independently.
+On a Generic core/config check failure, the framework retains the failure but
+does not run legacy config-save/reload repair. Only the owned session finalizer
+may restore frozen resources. Unknown configuration drift still blocks that
+conditional recovery and requires a reservation hold; it is never normalized
+or adopted as a new baseline.
 
 Final `remove-topo` restores distinct original running and exact startup
 bytes/mode/uid/gid, removes only owned PTF/VLAN resources, and deletes only
@@ -235,6 +243,10 @@ missing originals or a different plan owner fail safely with retained evidence.
 Private originals, templates, operation readbacks, journal and reports live
 under ignored `.generic_hwsku/<testbed>/`, restricted to their owner. Collection
 attempts use fresh directories, so a failed collection cannot reuse stale facts.
+Custom workspace paths never change an existing parent directory's permissions.
+On POSIX, group/world-writable parents are rejected; an existing workspace must
+already satisfy the private ownership/permission contract rather than being
+silently adopted. New private directories use the existing native permission helper.
 Native readbacks travel as private fetched files, not credential-redacted
 Ansible result dictionaries or desired-value echoes. Never publish this directory.
 
@@ -245,6 +257,8 @@ Reports include generated physical/traffic coverage and availability, keep
 Restoration failure is exit code 4, not success. Both failed restoration and
 unverified possibly-applied writes emit a private `recovery-required.json` hold.
 Preserve all recovery evidence.
+Native failure receipts retain the first operation error even if its follow-up
+capture fails, and transaction restore errors retain their causal messages.
 The adapter does not acquire/release platform reservations: the approved caller
 must retain/quarantine affected resources on failed restoration. **Do not use a
 mutating scheduler profile that unconditionally releases an unsafe bed.**

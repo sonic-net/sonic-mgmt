@@ -146,6 +146,28 @@ def test_native_restore_failure_retains_the_original_request(device, monkeypatch
     assert json.loads((directory / "request.json").read_text()) == request
 
 
+def test_failed_capture_does_not_erase_the_original_native_failure(device, monkeypatch):
+    request, directory, startup, original_startup, state = device
+    action.stage(request, directory, startup)
+
+    def failed_capture():
+        raise action.DeviceActionError("capture unavailable")
+
+    def failed_reload(*arguments):
+        monkeypatch.setattr(action, "read_running", failed_capture)
+        raise action.DeviceActionError("first reload failure")
+
+    monkeypatch.setattr(action, "reload_config", failed_reload)
+    with pytest.raises(action.DeviceActionError, match="first reload failure"):
+        action.perform("running", request["baseline"]["running"], request["candidates"]["add"],
+                       "scenario:add:running", request, directory, startup, directory)
+    receipt = json.loads((directory / "running-receipt.json").read_text())
+    assert receipt["error"] == "first reload failure"
+    assert receipt["capture_error"] == "capture unavailable"
+    assert not receipt["completed"] and "observed_sha256" not in receipt
+    assert startup.read_bytes() == original_startup
+
+
 def test_installed_source_drift_blocks_before_a_native_reload(device):
     request, directory, startup, original_startup, state = device
     action.stage(request, directory, startup)

@@ -416,7 +416,7 @@ def test_template_contexts_match_final_layout_cables_and_forwarding_without_fabr
     port = next(iter(inputs[3]["dut"]))
     contexts["dut"]["add"]["PORT"][port]["subport"] = "caller-change"
     assert contexts["dut"]["deploy"]["PORT"][port]["subport"] != "caller-change"
-    assert inputs == original
+    assert repr(inputs) == repr(original)
 
 
 def test_context_generated_tables_still_require_independent_complete_bundle_validation(inputs):
@@ -742,30 +742,38 @@ def test_native_pfc_to_queue_map_resolves_the_standard_configdb_table(inputs):
 
 def test_durable_private_intents_repeats_and_dut_only_deploy(workspace, bundle):
     transaction, backend, hosts, aliases = _transaction(workspace, bundle)
-    assert transaction.add()["state"] == "ADDED"
+    result = transaction.add()
+    assert result["state"] == "ADDED"
     add_writes = len(backend.writes)
     assert add_writes
-    assert not transaction.add()["changed"]
+    result = transaction.add()
+    assert not result["changed"]
     assert len(backend.writes) == add_writes
     leaf_before = {key: copy.deepcopy(value) for key, value in backend.values.items() if key[1] == "leaf"}
-    assert transaction.deploy()["state"] == "DEPLOYED"
+    result = transaction.deploy()
+    assert result["state"] == "DEPLOYED"
     assert all(op["target"] == "dut" and op["kind"] in {"running", "startup"}
                for op in backend.writes[add_writes:])
     assert all(backend.values[key] == value for key, value in leaf_before.items())
     after_deploy = len(backend.writes)
-    assert not transaction.deploy()["changed"]
-    assert not transaction.add()["changed"]
+    result = transaction.deploy()
+    assert not result["changed"]
+    result = transaction.add()
+    assert not result["changed"]
     resumed = deployment.DeploymentTransaction(workspace, bundle, backend, hosts, aliases)
-    assert not resumed.deploy()["changed"]
+    result = resumed.deploy()
+    assert not result["changed"]
     assert len(backend.writes) == after_deploy
     assert all(op["status"] == "VERIFIED" for op in resumed.status()["operations"])
     for path in [workspace, workspace / "journal.json", workspace / "artifacts"]:
         deployment._private(str(path), directory=path.is_dir())
         if os.name != "nt":
             assert not path.stat().st_mode & 0o077
-    assert transaction.remove()["state"] == "RESTORED"
+    result = transaction.remove()
+    assert result["state"] == "RESTORED"
     assert backend.values == backend.originals
-    assert not transaction.remove()["changed"]
+    result = transaction.remove()
+    assert not result["changed"]
 
 
 @pytest.mark.parametrize("kind,target,mode", [
@@ -815,8 +823,10 @@ def test_restored_failure_retry_preserves_history_and_resumes_its_new_attempt(wo
     assert resumed.status()["state"] == "ADDING"
     assert resumed.status()["attempt"] == 1
     recovered = deployment.DeploymentTransaction.open(workspace, backend)
-    assert recovered.add()["state"] == "ADDED"
-    assert recovered.deploy()["state"] == "DEPLOYED"
+    result = recovered.add()
+    assert result["state"] == "ADDED"
+    result = recovered.deploy()
+    assert result["state"] == "DEPLOYED"
     current = recovered.status()
     assert current["previous_attempts"][0]["last_error"] == closed["last_error"]
     assert current["operations"][:len(closed["operations"])] == closed["operations"]
@@ -825,7 +835,8 @@ def test_restored_failure_retry_preserves_history_and_resumes_its_new_attempt(wo
     assert sum(operation.get("attempt", 0) == 1 and operation["phase"] == "add"
                and operation["kind"] == "running" and operation["target"] == "leaf"
                for operation in backend.writes) == 1
-    assert recovered.remove()["state"] == "RESTORED"
+    result = recovered.remove()
+    assert result["state"] == "RESTORED"
     assert backend.values == backend.originals
     assert recovered.status()["operations"][:len(closed["operations"])] == closed["operations"]
 
@@ -986,7 +997,8 @@ def test_interrupted_forward_intent_can_resume_or_restore(workspace, bundle):
     assert transaction.status()["state"] == "ADDING"
     writes = len(backend.writes)
     resumed = deployment.DeploymentTransaction.open(workspace, backend)
-    assert resumed.add()["state"] == "ADDED"
+    result = resumed.add()
+    assert result["state"] == "ADDED"
     assert len([op for op in backend.writes if op["phase"] == "add" and op["kind"] == "running"
                 and op["target"] == "leaf"]) == 1
     assert len(backend.writes) > writes
@@ -1001,7 +1013,8 @@ def test_pending_host_intent_is_compensated_on_explicit_remove(workspace, bundle
         transaction.add()
     assert transaction.status()["operations"][-1]["status"] == "INTENT"
     resumed = deployment.DeploymentTransaction(workspace, bundle, backend, hosts, aliases)
-    assert resumed.remove()["state"] == "RESTORED"
+    result = resumed.remove()
+    assert result["state"] == "RESTORED"
     assert backend.values == backend.originals
 
 
@@ -1012,7 +1025,8 @@ def test_last_unacknowledged_write_is_not_reported_as_no_change(workspace, bundl
         transaction.add()
     writes = len(backend.writes)
     resumed = deployment.DeploymentTransaction.open(workspace, backend)
-    assert resumed.add() == {
+    result = resumed.add()
+    assert result == {
         "state": "ADDED", "changed": True, "scenario_id": bundle["scenario_id"],
         "journal": str(workspace.resolve() / "journal.json"), "attempt": 0,
     }
@@ -1029,13 +1043,26 @@ def test_distinct_startup_bytes_metadata_and_interrupted_restoration_are_preserv
         transaction.remove()
     assert transaction.status()["state"] == "RESTORING"
     resumed = deployment.DeploymentTransaction(workspace, bundle, backend, hosts, aliases)
-    assert resumed.remove()["state"] == "RESTORED"
+    result = resumed.remove()
+    assert result["state"] == "RESTORED"
     assert backend.values == backend.originals
     assert b"must-not-be-saved-over" in backend.values[("startup", "dut")]["data"]
     assert backend.values[("startup", "dut")]["data"].startswith(b" \n")
     assert backend.values[("startup", "dut")]["metadata"]["mode"] == 0o640
     assert b"must-not-be-saved-over" not in planner.canonical_json(backend.values[("running", "dut")]).encode()
     assert all(op["status"] == "VERIFIED" for op in resumed.status()["operations"] if op["phase"] == "restore")
+
+
+def test_failed_restoration_keeps_the_causal_diagnostic(workspace, bundle):
+    transaction, backend, hosts, aliases = _transaction(workspace, bundle)
+    transaction.add()
+    backend.failures.append(("restore", "startup", "dut", "before"))
+    with pytest.raises(deployment.RestorationError):
+        transaction.remove()
+    errors = transaction.status()["restore_errors"]
+    assert any(error["kind"] == "startup" and error["target"] == "dut"
+               and error.get("message") == "Injected failure before write" for error in errors)
+    assert transaction.status()["state"] == "RESTORE_FAILED"
 
 
 def test_restore_failure_retains_aliases_and_can_resume(workspace, bundle):
@@ -1051,7 +1078,8 @@ def test_restore_failure_retains_aliases_and_can_resume(workspace, bundle):
     assert (workspace / "journal.json").is_file()
     assert list((workspace / "artifacts").iterdir())
     resumed = deployment.DeploymentTransaction(workspace, bundle, backend, hosts, aliases)
-    assert resumed.remove()["state"] == "RESTORED"
+    result = resumed.remove()
+    assert result["state"] == "RESTORED"
     assert backend.values == backend.originals
 
 

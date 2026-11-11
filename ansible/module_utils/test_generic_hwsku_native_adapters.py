@@ -135,7 +135,7 @@ def test_traditional_native_render_requires_the_exact_recorded_lookup(tmp_path, 
 
 
 def test_installed_cable_hook_uses_frozen_lengths_instead_of_neighbor_role_defaults(tmp_path, monkeypatch):
-    from jinja2 import Environment, FileSystemLoader, StrictUndefined
+    from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoescape
 
     template = tmp_path / "buffers.json.j2"
     template.write_text(
@@ -149,7 +149,8 @@ def test_installed_cable_hook_uses_frozen_lengths_instead_of_neighbor_role_defau
         wrapper = Path(arguments[arguments.index("-t") + 1])
         # Installed buffer templates emit JSON, not HTML.
         # nosemgrep: direct-use-of-jinja2
-        environment = Environment(loader=FileSystemLoader(str(tmp_path)), undefined=StrictUndefined)
+        environment = Environment(loader=FileSystemLoader(str(tmp_path)), undefined=StrictUndefined,
+                                  autoescape=select_autoescape(("html", "htm", "xml")))
         actual = json.loads(Path(arguments[2]).read_text())
         output = environment.get_template(wrapper.name).render(actual)
         return SimpleNamespace(returncode=0, stdout=output.encode(), stderr=b"")

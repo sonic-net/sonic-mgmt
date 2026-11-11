@@ -821,7 +821,7 @@ def render_bundle(snapshot, manifest, baselines, canonical_ports, template_table
 
 def _windows_security(path, create=False):
     """Create/check an owner-and-SYSTEM-only DACL, without starting a console."""
-    from ctypes import wintypes
+    import ctypes.wintypes as wintypes
 
     advapi, kernel = ctypes.WinDLL("advapi32", use_last_error=True), ctypes.WinDLL("kernel32", use_last_error=True)
     pointer = ctypes.c_void_p
@@ -1298,9 +1298,11 @@ class DeploymentTransaction:
             self._verify_all(originals=True)
         except Exception as error:
             self.journal["state"] = "RESTORE_FAILED"
-            self.journal["restore_errors"] = [{"kind": "verification", "type": type(error).__name__}]
+            self.journal["restore_errors"] = [{
+                "kind": "verification", "type": type(error).__name__, "message": str(error)}]
             self._save()
-            raise RestorationError("Previously restored state has drifted; retain the journal") from None
+            raise RestorationError(
+                "Previously restored state has drifted; retain the journal: " + str(error)) from error
 
     def _phase(self, phase):
         with self._lock():
@@ -1338,10 +1340,13 @@ class DeploymentTransaction:
                 self._record_failure(phase, error, "configuration-apply")
                 try:
                     self._restore()
-                except Exception:
-                    raise RestorationError("Deployment failed; restoration is incomplete; retain journal") from None
-                raise TransactionError("Deployment failed ({}); original state verified restored".format(
-                    type(error).__name__)) from None
+                except Exception as restore_error:
+                    raise RestorationError(
+                        "Deployment failed; restoration is incomplete; retain journal; "
+                        "first failure {}: {}; restore: {}"
+                        .format(type(error).__name__, error, restore_error)) from restore_error
+                raise TransactionError("Deployment failed ({}: {}); original state verified restored".format(
+                    type(error).__name__, error)) from error
 
     def add(self):
         """Apply aliases, owned host transport, leaf/DUT layouts and initial templates."""
@@ -1404,24 +1409,26 @@ class DeploymentTransaction:
             try:
                 changed = self._restore_resource(resource) or changed
             except Exception as error:
-                errors.append({"kind": resource["kind"], "target": resource["target"], "type": type(error).__name__})
+                errors.append({"kind": resource["kind"], "target": resource["target"],
+                               "type": type(error).__name__, "message": str(error)})
         if not errors:
             try:
                 self._alias_barrier()
             except Exception as error:
-                errors.append({"kind": "alias-barrier", "type": type(error).__name__})
+                errors.append({"kind": "alias-barrier", "type": type(error).__name__, "message": str(error)})
         if not errors:
             for resource in resources:
                 if resource["kind"] == "alias":
                     try:
                         changed = self._restore_resource(resource) or changed
                     except Exception as error:
-                        errors.append({"kind": "alias", "target": resource["target"], "type": type(error).__name__})
+                        errors.append({"kind": "alias", "target": resource["target"],
+                                       "type": type(error).__name__, "message": str(error)})
         if not errors:
             try:
                 self._verify_all(originals=True)
             except Exception as error:
-                errors.append({"kind": "verification/alias", "type": type(error).__name__})
+                errors.append({"kind": "verification/alias", "type": type(error).__name__, "message": str(error)})
         if errors:
             self.journal["state"], self.journal["restore_errors"] = "RESTORE_FAILED", errors
             self._save()

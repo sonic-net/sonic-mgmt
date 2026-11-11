@@ -197,6 +197,26 @@ def test_reclaimed_budget_includes_residual_and_inactive_children_not_only_live_
     assert any("frozen reclaimed headroom budget" in error for error in observed["blocking_errors"])
 
 
+@pytest.mark.parametrize("change", ["missing-xon", "missing-xoff", "invalid-xon", "missing-pool"])
+def test_unresolved_residual_lossless_pg_cannot_disappear_from_the_budget(tmp_path, change):
+    request, database = _ready(tmp_path)
+    request.update(headroom_limit=100, headroom_ports=["Ethernet0", "old-child"])
+    profile = {"pool": "ingress-pool", "size": "0", "xon": "20", "xoff": "80"}
+    if change == "missing-xon":
+        del profile["xon"]
+    elif change == "missing-xoff":
+        del profile["xoff"]
+    elif change == "invalid-xon":
+        profile["xon"] = "unknown"
+    else:
+        del profile["pool"]
+    database.values[("APPL_DB", "BUFFER_PG_TABLE:old-child:3")] = {"profile": "residual-profile"}
+    database.values[("APPL_DB", "BUFFER_PROFILE_TABLE:residual-profile")] = profile
+    observed = health.check(request, database, tmp_path)
+    assert not observed["ready"]
+    assert any("old-child" in error and "unresolved" in error for error in observed["blocking_errors"])
+
+
 @pytest.mark.parametrize("change", [
     "link-down", "wrong-asic-size", "stale-app-profile", "missing-qos", "missing-headroom"])
 def test_configured_but_unconverged_resources_are_not_ready(tmp_path, change):

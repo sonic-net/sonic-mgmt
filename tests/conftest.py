@@ -3717,7 +3717,12 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts, request)
+                if tbinfo["topo"].get("type") == "generic":
+                    logger.warning(
+                        "Generic check failure retained; only the owned session finalizer may restore frozen resources"
+                    )
+                else:
+                    restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 
