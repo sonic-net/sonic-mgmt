@@ -7,8 +7,8 @@ import pytest
 from tests.bgp import bgp_helpers
 from tests.bgp import route_checker
 from tests.bgp.test_bgp_gr_helper import get_csonic_prime_peer_names
+from tests.bgp.test_bgp_gr_helper import shared_prime_prefix_counter_snapshots_match
 from tests.bgp.test_bgp_gr_helper import shared_prime_prefix_counters_preserved
-from tests.bgp.test_bgp_gr_helper import verify_shared_prime_peer_routes_during_graceful_restart
 from tests.bgp.test_bgp_gr_helper import verify_shared_prime_routes_during_graceful_restart
 from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.eos import EosHost
@@ -242,6 +242,40 @@ def test_gr_helper_accepts_compacted_stale_ecmp_paths_for_shared_prime():
         neighbor_routes, rib, ['10.0.0.1', '10.0.0.5'])
 
 
+def test_gr_helper_requires_stable_non_empty_counter_snapshots():
+    previous = {
+        ('10.0.0.1', None): {
+            'All RIB': 1843,
+            'Valid': 1843,
+            'Useable': 1843,
+        },
+        ('10.0.0.5', None): {
+            'All RIB': 2460,
+            'Valid': 2460,
+            'Useable': 2460,
+        },
+    }
+    current = {
+        peer: dict(counters)
+        for peer, counters in previous.items()
+    }
+
+    assert shared_prime_prefix_counter_snapshots_match(previous, current)
+    assert not shared_prime_prefix_counter_snapshots_match(None, current)
+
+    current[('10.0.0.1', None)]['All RIB'] += 1
+    assert not shared_prime_prefix_counter_snapshots_match(previous, current)
+
+    current = {
+        ('10.0.0.1', None): {
+            'All RIB': 0,
+            'Valid': 0,
+            'Useable': 0,
+        },
+    }
+    assert not shared_prime_prefix_counter_snapshots_match(current, current)
+
+
 def test_gr_helper_requires_exact_shared_prime_route_counts():
     during_restart = {
         'ribTableWalkCounters': {
@@ -270,41 +304,19 @@ def test_gr_helper_requires_exact_shared_prime_route_counts():
     assert not shared_prime_prefix_counters_preserved(
         during_restart, {**expected, 'All RIB': 6371},
         during_restart=True)
+    assert not shared_prime_prefix_counters_preserved(
+        {
+            'ribTableWalkCounters': {
+                **during_restart['ribTableWalkCounters'],
+                'Valid': 6369,
+            },
+        },
+        expected,
+        during_restart=True)
     assert shared_prime_prefix_counters_preserved(
         recovered_empty_peer,
         {'All RIB': 0, 'Valid': 0, 'Useable': 0},
         during_restart=False)
-
-
-def test_gr_helper_requires_each_logical_peer_prefix_inventory():
-    routes_before = {
-        '10.0.0.1': {
-            '192.0.2.0/24': [{'peerId': '10.0.0.1'}],
-        },
-        '10.0.0.5': {
-            '192.0.2.0/24': [{'peerId': '10.0.0.5'}],
-        },
-    }
-    routes_during = {
-        '10.0.0.1': {
-            '192.0.2.0/24': [
-                {'peerId': '10.0.0.1', 'stale': True},
-            ],
-        },
-        '10.0.0.5': {
-            '192.0.2.0/24': [
-                {'peerId': '10.0.0.5', 'stale': True},
-            ],
-        },
-    }
-
-    verify_shared_prime_peer_routes_during_graceful_restart(
-        routes_before, routes_during)
-
-    del routes_during['10.0.0.1']['192.0.2.0/24']
-    with pytest.raises(pytest.fail.Exception, match='10.0.0.1 lost routes'):
-        verify_shared_prime_peer_routes_during_graceful_restart(
-            routes_before, routes_during)
 
 
 def test_gr_helper_rejects_non_stale_shared_prime_path():
