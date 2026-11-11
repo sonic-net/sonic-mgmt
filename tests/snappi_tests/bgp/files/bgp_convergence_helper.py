@@ -1,10 +1,69 @@
 import logging
 import time
+from collections import defaultdict                                 # Added for multi-asic support
+import pytest                                                       # Added for multi-asic support
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_assert
+# Added for multi-asic support: per-ASIC / per-DUT config helpers (ported from data3)
+from tests.snappi_tests.bgp.files.rib_combo_dut_setup import (
+    asic_instance_from_port,
+    asic_indices_for_duthost,
+    affected_setup_targets,
+    backup_config_dbs,
+    get_config_db,
+    revert_config_db as rib_revert_config_db,
+    unique_duthosts_from_targets,
+)
 logger = logging.getLogger(__name__)
+
+# Added for multi-asic support: state used to back up / restore per-ASIC config_db
+BGP_HELPER_CONFIG_DB_BACKUP_TAG = "bgp_convergence_helper"
+_bgp_config_db_backups = []
+
+# Added for multi-asic support: tier-2 community tagging. Opt-in per call through
+# ``run_rib_in_convergence_test(tag_tier2_leak_communities=True)``; reset on every call.
+_tag_tier2_leak_on_routes = False
+
+
+# Added for multi-asic support
+def _tier2_upstream_deny_present(duthost, tgen_ports, port_count):
+    targets = affected_setup_targets(tgen_ports, port_count, default_duthost=duthost)
+    for _dh, asic in targets:
+        try:
+            res = asic.run_vtysh("-c 'show running-config'")
+            text = (res.get("stdout") or "") + (res.get("stderr") or "")
+        except Exception as exc:
+            logger.debug("show running-config failed on asic %s: %s", asic.asic_index, exc)
+            continue
+        if "UPSTREAM_PREFIX_DENY" in text:
+            return True
+    return False
+
+
+# Added for multi-asic support
+def _should_tag_tier2_leak_communities(duthost, tgen_ports, port_count):
+    """Tag IXIA routes so they pass FROM_TIER2 deny route-maps when needed."""
+    if _tier2_upstream_deny_present(duthost, tgen_ports, port_count):
+        return True
+    return bool(duthost.is_multi_asic)
+
+
+# Added for multi-asic support
+def _apply_tier2_leak_communities(route_range):
+    if not _tag_tier2_leak_on_routes:
+        return
+    try:
+        from tests.snappi_tests.variables import COMMUNITY_LOWER_TIER_LEAK
+    except ImportError:
+        COMMUNITY_LOWER_TIER_LEAK = ["8075:54000"]
+    for community in COMMUNITY_LOWER_TIER_LEAK:
+        manual_as_community = route_range.communities.add()
+        manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+        manual_as_community.as_number = int(community.split(":")[0])
+        manual_as_community.as_custom = int(community.split(":")[1])
+
 
 TGEN_AS_NUM = 65200
 DUT_AS_NUM = 65100
@@ -21,11 +80,311 @@ MEM_CPU_MONITOR_RIB_IN_POST_SUCCESS_SEC = 300
 MEM_CPU_MONITOR_RIB_IN_POST_FAILURE_SEC = 7
 
 
+# Added for multi-asic support: resolve (duthost, SonicAsic) owning a tgen_ports entry
+def _resolve_port_context(default_duthost, port_entry):
+    duthost = port_entry.get("duthost") or default_duthost
+    return duthost, asic_instance_from_port(duthost, port_entry)
+
+
+# Added for multi-asic support: keys written by _duthost_bgp_config_multi_asic on every tgen_ports entry it
+# configures (ASNs resolved from the DUT, else TGEN_AS_NUM / DUT_AS_NUM); __tgen_bgp_config honours them.
+RESOLVED_DUT_ASN_KEY = "bgp_dut_asn"
+RESOLVED_PEER_ASN_KEY = "bgp_peer_asn"
+
+
+# Added for multi-asic support: running config_facts of the ASIC owning a port (host level on single-asic DUT)
+def _live_config_facts(dh, asic, cache):
+    key = (dh.hostname, asic.asic_index if dh.is_multi_asic else 0)
+    if key not in cache:
+        cache[key] = asic.config_facts(host=dh.hostname, source="running")["ansible_facts"]
+    return cache[key]
+
+
+# Added for multi-asic support: pure parsers over config_facts dicts
+def _to_asn(value):
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _asn_from_device_metadata(config_facts):
+    meta = (config_facts.get("DEVICE_METADATA") or {}).get("localhost") or {}
+    return _to_asn(meta.get("bgp_asn"))
+
+
+def _peer_asn_from_bgp_neighbors(config_facts, dut_ip, neighbor_ip):
+    """ASN of the BGP neighbor configured on the DUT for ``neighbor_ip`` (or, failing that, for the neighbor whose
+    local_addr is ``dut_ip``). None when the DUT has no such neighbor."""
+    neighbors = config_facts.get("BGP_NEIGHBOR") or {}
+    wanted = (neighbor_ip or "").lower()
+    local = (dut_ip or "").lower()
+    if wanted:
+        for nbr_ip, props in neighbors.items():
+            asn = _to_asn((props or {}).get("asn"))
+            if nbr_ip.lower() == wanted and asn is not None:
+                return asn
+    if local:
+        for _nbr_ip, props in neighbors.items():
+            asn = _to_asn((props or {}).get("asn"))
+            if ((props or {}).get("local_addr") or "").lower() == local and asn is not None:
+                return asn
+    return None
+
+
+def _interface_addresses(config_facts, port_name):
+    """IP addresses (``addr/prefix``) configured on ``port_name``."""
+    addrs = []
+    for key, val in (config_facts.get("INTERFACE") or {}).items():
+        if "|" in key:
+            name, addr = key.split("|", 1)
+            if name == port_name:
+                addrs.append(addr)
+        elif key == port_name and isinstance(val, dict):
+            addrs.extend(a for a in val if "/" in a)
+    return addrs
+
+
+def _groups_with_member(table, port_name):
+    """Names of the PORTCHANNEL_MEMBER / VLAN_MEMBER groups that contain ``port_name``."""
+    groups = []
+    for key, val in (table or {}).items():
+        if "|" in key:
+            group, member = key.split("|", 1)
+            if member == port_name:
+                groups.append(group)
+        else:
+            members = list(val.keys()) if isinstance(val, dict) else list(val or [])
+            if port_name in members:
+                groups.append(key)
+    return groups
+
+
+def _acl_tables_with_port(config_facts, port_name):
+    """Names of the ACL_TABLE entries bound to ``port_name``."""
+    tables = []
+    for name, props in (config_facts.get("ACL_TABLE") or {}).items():
+        ports = (props or {}).get("ports") or []
+        if isinstance(ports, str):
+            ports = [p.strip() for p in ports.split(",")]
+        if port_name in ports:
+            tables.append(name)
+    return tables
+
+
+def _portchannel_names(config_facts):
+    return set(name.split("|", 1)[0] for name in (config_facts.get("PORTCHANNEL") or {}))
+
+
+def _free_portchannel_name(preferred_index, used_names):
+    """``PortChannel<preferred_index>`` when free, else the next free ``PortChannel<N>``."""
+    index = preferred_index
+    while "PortChannel{}".format(index) in used_names:
+        index += 1
+    return "PortChannel{}".format(index)
+
+
+# Added for multi-asic support: DUT BGP ASN of an ASIC; DEVICE_METADATA of the ASIC, then of the host (per-ASIC
+# config_db may lack bgp_asn), else DUT_AS_NUM.
+def _resolve_dut_asn(dh, config_facts):
+    asn = _asn_from_device_metadata(config_facts)
+    if asn is None and dh.is_multi_asic:
+        host_facts = dh.config_facts(host=dh.hostname, source="running")["ansible_facts"]
+        asn = _asn_from_device_metadata(host_facts)
+    return asn if asn is not None else DUT_AS_NUM
+
+
+# Added for multi-asic support: describe the first ``port_count`` tgen_ports that are bound to an ACL table or are
+# VLAN members on the ASIC owning them (empty list when all are usable). ``use_saved_config=True`` reads the saved
+# config_db file of the ASIC (what a reboot will load, used before the DUT is touched); otherwise the running
+# config is read. Read only: nothing is changed on the DUT.
+def find_blocked_ports(duthost, tgen_ports, port_count, use_saved_config=False, facts_cache=None):
+    cache = facts_cache if facts_cache is not None else {}
+    blocked = []
+    for i in range(0, port_count):
+        port = tgen_ports[i]
+        dh, asic = _resolve_port_context(duthost, port)
+        if use_saved_config:
+            asic_idx = asic.asic_index if dh.is_multi_asic else 0
+            key = (dh.hostname, asic_idx, "saved")
+            if key not in cache:
+                cache[key] = get_config_db(dh, asic_idx)
+            cfg = cache[key]
+        else:
+            cfg = _live_config_facts(dh, asic, cache)
+        peer = port["peer_port"]
+        acl_tables = _acl_tables_with_port(cfg, peer)
+        vlans = _groups_with_member(cfg.get("VLAN_MEMBER"), peer)
+        if acl_tables or vlans:
+            blocked.append(
+                "{}/{} (asic {}): ACL table(s) {}, VLAN(s) {}".format(
+                    dh.hostname, peer, asic.asic_index, acl_tables or "none", vlans or "none"))
+    return blocked
+
+
+# Added for multi-asic support
+def _run_vtysh_lines(asic_inst, lines):
+    """Run vtysh with multiple -c arguments (configure / router bgp / ...)."""
+    parts = []
+    for line in lines:
+        parts.append("-c '{}'".format(line))
+    cmdstr = " ".join(parts)
+    return asic_inst.run_vtysh(cmdstr)
+
+
+# Added for multi-asic support: back up per-ASIC config_db of every DUT/ASIC used by the test ports
+def _backup_config_before_bgp(duthost, tgen_ports, port_count):
+    global _bgp_config_db_backups
+    _bgp_config_db_backups = []
+    targets = affected_setup_targets(tgen_ports, port_count, default_duthost=duthost)
+    for dh in unique_duthosts_from_targets(targets):
+        dh.command("sudo config save -y")
+        indices = asic_indices_for_duthost(dh, targets)
+        backup_config_dbs(dh, indices, backup_tag=BGP_HELPER_CONFIG_DB_BACKUP_TAG)
+        _bgp_config_db_backups.append((dh, indices))
+
+
+# Added for multi-asic support: DUT PortChannel + BGP config done per ASIC (used when
+# --bgp_pc_config is NOT passed and the DUT is multi-asic, or the ports span several DUTs / line cards).
+# It (1) reads the live config of each port's ASIC (DUT / peer ASNs, existing IPs, PortChannel membership) and
+# stops with a message if a port is bound to an ACL table or is a VLAN member, (2) backs up the config_db,
+# (3) frees the ports, (4) builds one PortChannel per port, (5) configures BGP with the resolved ASNs.
+def _duthost_bgp_config_multi_asic(duthost, tgen_ports, port_count, route_type):
+    global temp_tg_port
+    temp_tg_port = tgen_ports
+
+    # Step 1 (read only): live config of the ASIC owning every port. Resolve the DUT / peer ASNs and find out what
+    # has to be removed from each port. Ports bound to ACL tables or in a VLAN are not handled: all of them are
+    # reported at once, before anything is changed on the DUT.
+    facts_cache = {}
+    pc_names_in_use = {}
+    port_plan = {}
+    for i in range(0, port_count):
+        port = tgen_ports[i]
+        dh, asic = _resolve_port_context(duthost, port)
+        cfg = _live_config_facts(dh, asic, facts_cache)
+        peer = port["peer_port"]
+        asic_key = (dh.hostname, asic.asic_index if dh.is_multi_asic else 0)
+        pc_names_in_use.setdefault(asic_key, _portchannel_names(cfg))
+
+        port[RESOLVED_DUT_ASN_KEY] = _resolve_dut_asn(dh, cfg)
+        if i >= 1:
+            if route_type == "IPv4":
+                found_asn = _peer_asn_from_bgp_neighbors(cfg, port.get("peer_ip"), port.get("ip"))
+            else:
+                found_asn = _peer_asn_from_bgp_neighbors(cfg, port.get("peer_ipv6"), port.get("ipv6"))
+            port[RESOLVED_PEER_ASN_KEY] = found_asn if found_asn is not None else TGEN_AS_NUM
+            logger.info(
+                "%s/%s: DUT ASN %s, peer ASN %s (%s)", dh.hostname, peer, port[RESOLVED_DUT_ASN_KEY],
+                port[RESOLVED_PEER_ASN_KEY], "from DUT BGP config" if found_asn is not None else "default")
+
+        port_plan[i] = {
+            "ips": _interface_addresses(cfg, peer),
+            "portchannels": _groups_with_member(cfg.get("PORTCHANNEL_MEMBER"), peer),
+        }
+
+    # Safety net: the test fixture already checks the saved config before the DUT is touched (same logic).
+    blocked_ports = find_blocked_ports(duthost, tgen_ports, port_count, facts_cache=facts_cache)
+    if blocked_ports:
+        pytest.skip(
+            "Test ports cannot be used while bound to an ACL table or a VLAN. Unbind / remove them on the DUT and "
+            "re-run. Nothing was changed on the DUT. Affected ports:\n  {}".format("\n  ".join(blocked_ports)))
+
+    # Step 2: back up the config_db (only once the ports are known to be usable)
+    _backup_config_before_bgp(duthost, tgen_ports, port_count)
+
+    # Step 3: free the ports (IPs and PortChannel membership)
+    for i in range(0, port_count):
+        port = tgen_ports[i]
+        dh, asic = _resolve_port_context(duthost, port)
+        peer = port["peer_port"]
+        for addr in port_plan[i]["ips"]:
+            asic.config_ip_intf(peer, addr, "remove")
+        for pc in port_plan[i]["portchannels"]:
+            asic.config_portchannel_member(pc, peer, "del")
+        logger.info(
+            "Freed %s (asic %s): removed IPs %s, PortChannel(s) %s",
+            peer, asic.asic_index, port_plan[i]["ips"], port_plan[i]["portchannels"])
+
+    # Step 4: one PortChannel per port with the test IPs
+    for i in range(0, port_count):
+        port = tgen_ports[i]
+        dh, asic = _resolve_port_context(duthost, port)
+        asic_key = (dh.hostname, asic.asic_index if dh.is_multi_asic else 0)
+        pc = _free_portchannel_name(i + 1, pc_names_in_use[asic_key])
+        pc_names_in_use[asic_key].add(pc)
+        port["pc_name"] = pc
+        member = port["peer_port"]
+        asic.config_portchannel(pc, "add")
+        asic.config_portchannel_member(pc, member, "add")
+        asic.config_ip_intf(pc, "{}/{}".format(port["peer_ip"], port["prefix"]), "add")
+        asic.config_ip_intf(pc, "{}/{}".format(port["peer_ipv6"], port["ipv6_prefix"]), "add")
+        logger.info(
+            "Configuring %s to %s with IPs %s,%s (asic %s)",
+            member, pc, port["peer_ip"], port["peer_ipv6"], asic.asic_index,
+        )
+
+    neighbors_by_asic = defaultdict(list)
+    for i in range(1, port_count):
+        _dh, asic = _resolve_port_context(duthost, tgen_ports[i])
+        neighbors_by_asic[(_dh, asic.asic_index)].append(i)
+
+    for (dh, asic_index), neighbor_idxs in neighbors_by_asic.items():
+        asic = dh.asic_instance(asic_index)
+        dut_asn = tgen_ports[neighbor_idxs[0]][RESOLVED_DUT_ASN_KEY]
+        max_paths = len(neighbor_idxs)
+        _run_vtysh_lines(
+            asic,
+            [
+                "configure terminal",
+                "router bgp {}".format(dut_asn),
+                "no bgp ebgp-requires-policy",
+                "bgp bestpath as-path multipath-relax",
+                "maximum-paths {}".format(max_paths),
+                "exit",
+            ],
+        )
+        if route_type == "IPv4":
+            for i in neighbor_idxs:
+                nbr = tgen_ports[i]["ip"]
+                _run_vtysh_lines(
+                    asic,
+                    [
+                        "configure terminal",
+                        "router bgp {}".format(dut_asn),
+                        "neighbor {} remote-as {}".format(nbr, tgen_ports[i][RESOLVED_PEER_ASN_KEY]),
+                        "address-family ipv4 unicast",
+                        "neighbor {} activate".format(nbr),
+                        "exit",
+                    ],
+                )
+                logger.info("Configuring BGP v4 Neighbor %s on asic %s", nbr, asic_index)
+        else:
+            for i in neighbor_idxs:
+                nbr = tgen_ports[i]["ipv6"]
+                _run_vtysh_lines(
+                    asic,
+                    [
+                        "configure terminal",
+                        "router bgp {}".format(dut_asn),
+                        "neighbor {} remote-as {}".format(nbr, tgen_ports[i][RESOLVED_PEER_ASN_KEY]),
+                        "address-family ipv6 unicast",
+                        "neighbor {} activate".format(nbr),
+                        "exit",
+                    ],
+                )
+                logger.info("Configuring BGP v6 Neighbor %s on asic %s", nbr, asic_index)
+
+
 def _asn_from_port_entry(port_entry, skip_duthost_bgp_config, fixture_keys, default):
     """
     When skip_duthost_bgp_config is True, prefer ASN from tgen_ports (dut_asn / peer_asn
     from config_facts, or optional DUT_AS_NUM / TGEN_AS_NUM keys); else use module default.
     """
+    # Added for multi-asic support: ASN resolved from the DUT by _duthost_bgp_config_multi_asic (set only there)
+    resolved_key = {"peer_asn": RESOLVED_PEER_ASN_KEY, "dut_asn": RESOLVED_DUT_ASN_KEY}.get(fixture_keys[0])
+    if resolved_key and port_entry.get(resolved_key) is not None:
+        return int(port_entry[resolved_key])
     if not skip_duthost_bgp_config:
         return int(default)
     for key in fixture_keys:
@@ -132,7 +491,9 @@ def run_rib_in_convergence_test(snappi_api,
                                 route_type,
                                 timeout=None,
                                 skip_duthost_bgp_config=False,
-                                mem_cpu_monitor=None,):
+                                mem_cpu_monitor=None,
+                                tag_tier2_leak_communities=False,       # Added for multi-asic support
+                                skip_cleanup=True,):                    # Added for multi-asic support
     """
     Run RIB-IN Convergence test
 
@@ -149,6 +510,10 @@ def run_rib_in_convergence_test(snappi_api,
         mem_cpu_monitor: optional ``mem_cpu_monitor`` fixture; passed to
             :func:`get_rib_in_convergence` for snapshots around RIB-IN metrics, then a **60s** wait
             followed by ``stop()`` in that helper's ``finally`` block.
+        tag_tier2_leak_communities: opt-in (multi-asic support); tag IXIA routes with the tier-2
+            leak community when the DUT has UPSTREAM_PREFIX_DENY or is multi-asic.
+        skip_cleanup: (multi-asic support) default True keeps the previous behaviour (no DUT config
+            revert here). Pass False to revert the DUT config done by ``duthost_bgp_config``.
     """
 
     if timeout is None:
@@ -159,6 +524,12 @@ def run_rib_in_convergence_test(snappi_api,
     """ Set global temp_tg_port for __tgen_bgp_config (used by tgen BGP config) """
     global temp_tg_port
     temp_tg_port = tgen_ports
+
+    # Added for multi-asic support: tier-2 tagging is opt-in and reset on every call
+    global _tag_tier2_leak_on_routes
+    _tag_tier2_leak_on_routes = (
+        _should_tag_tier2_leak_communities(duthost, tgen_ports, port_count)
+        if tag_tier2_leak_communities else False)
 
     """ Create bgp config on dut """
     if not skip_duthost_bgp_config:
@@ -186,6 +557,10 @@ def run_rib_in_convergence_test(snappi_api,
                            route_type,
                            timeout,
                            mem_cpu_monitor=mem_cpu_monitor,)
+
+    # Added for multi-asic support: optional revert of DUT config done by duthost_bgp_config
+    if not skip_cleanup:
+        cleanup_config(duthost)
 
 
 def run_RIB_IN_capacity_test(snappi_api,
@@ -236,6 +611,12 @@ def duthost_bgp_config(duthost,
         multipath: ECMP value for BGP config
         route_type: IPv4 or IPv6 routes
     """
+    # Added for multi-asic support: per-ASIC configuration path (single-asic flow below is unchanged). Also used
+    # when tgen_ports were planned per ASIC (ports spread over several DUTs / line cards).
+    if duthost.is_multi_asic or any(p.get("multi_asic_flow") for p in tgen_ports):
+        _duthost_bgp_config_multi_asic(duthost, tgen_ports, port_count, route_type)
+        return
+
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -416,6 +797,7 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = aspaths
+            _apply_tier2_leak_communities(route_range)      # Added for multi-asic support
             rx_flow_names.append(route_range.name)
         return (tx_flow_name, rx_flow_names)
 
@@ -465,6 +847,7 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = aspaths
+            _apply_tier2_leak_communities(route_range)      # Added for multi-asic support
             rx_flow_names.append(route_range.name)
         return (tx_flow_name, rx_flow_names)
 
@@ -1202,3 +1585,23 @@ def get_RIB_IN_capacity(snappi_api,
         columns = ['Test Name', 'Maximum no. of Routes']
         logger.info("\n%s" % tabulate(
             [['RIB-IN Capacity Test', max_routes]], headers=columns, tablefmt="psql"))
+
+
+# Added for multi-asic support: opt-in revert of the per-ASIC config_db backed up by
+# _duthost_bgp_config_multi_asic (used via run_rib_in_convergence_test(skip_cleanup=False)).
+# The single-asic flow of duthost_bgp_config is unchanged and takes no backup, so nothing to revert there.
+def cleanup_config(duthost):
+    """
+    Cleaning up dut config at the end of the test (multi-asic only)
+
+    Args:
+        duthost (pytest fixture): duthost fixture
+    """
+    global _bgp_config_db_backups
+    if _bgp_config_db_backups:      # Added for multi-asic support: also set for single-asic DUTs of a multi-DUT run
+        for dh, indices in _bgp_config_db_backups:
+            rib_revert_config_db(dh, indices, backup_tag=BGP_HELPER_CONFIG_DB_BACKUP_TAG)
+        _bgp_config_db_backups = []
+        logger.info('Convergence Test Completed')
+        return
+    logger.info('cleanup_config: no multi-asic config_db backup to revert')
