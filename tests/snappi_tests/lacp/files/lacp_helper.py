@@ -162,11 +162,9 @@ def duthost_bgp_config(duthost,
     # leaves its PortChannels behind. Restore the backed up config before configuring again.
     if duthost.shell("redis-cli -n 4 exists 'PORTCHANNEL|PortChannel2'")['stdout'].strip() == '1':
         logger.info('PortChannel2 left over from a previous run, restoring the initial config')
-        error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y 
-")['stderr']
+        error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y")['stderr']
         if 'Error' in error:
-            pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y 
-")['stderr'],
+            pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y")['stderr'],
                           'Error while reloading config in {} !!!!!'.format(duthost.hostname))
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
