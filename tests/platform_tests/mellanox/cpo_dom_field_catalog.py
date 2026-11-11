@@ -71,7 +71,7 @@ ELS_DOM_SENSOR_FIELDS = [
 ] + _lanes("laser_bias_current_lane{n}") \
   + _lanes("optical_power_lane{n}") \
   + _lanes("voltage_lane{n}")
-# Published via CDB 0x9018 (laser monitoring).
+# NVIDIA-specific ELS sensor fields provided through vendor CDB commands.
 ELS_DOM_SENSOR_CDB_FIELDS = [
     "power_consumption",
 ] + _lanes("laser_mpd_lane{n}") \
@@ -130,27 +130,6 @@ ELS_STATUS_FLAG_FIELDS = [
     "datapath_firmware_fault", "module_firmware_fault",
     "module_state_changed", "last_update_time",
 ] + _lanes("fault_flag_lane{n}") + _lanes("warning_flag_lane{n}")
-
-
-# STATE_DB-only fields the ELS platform API (chassis.get_cpo(i).elsfp.get_api())
-# does not return.
-_ELS_STATE_DB_ONLY_FIELDS = ("last_update_time", "is_replaceable")
-
-
-def _els_api_fields(fields):
-    return [f for f in fields if f not in _ELS_STATE_DB_ONLY_FIELDS]
-
-
-# Keys that get_elsfp_* must return. Same names as the TRANSCEIVER_ELS_* tables
-# (no ``els_`` prefix) minus the STATE_DB-only fields.
-ELS_API_INFO_FIELDS = _els_api_fields(ELS_INFO_FIELDS)
-ELS_API_FIRMWARE_INFO_FIELDS = _els_api_fields(ELS_FIRMWARE_INFO_FIELDS)
-# CDB-backed sensors are hardware-only, so they are not required.
-ELS_API_DOM_REAL_VALUE_FIELDS = _els_api_fields(ELS_DOM_SENSOR_FIELDS) + ELS_SETPOINT_FIELDS
-ELS_API_THRESHOLD_FIELDS = _els_api_fields(ELS_DOM_THRESHOLD_FIELDS)
-ELS_API_DOM_FLAG_FIELDS = _els_api_fields(ELS_DOM_FLAG_FIELDS)
-ELS_API_STATUS_FIELDS = _els_api_fields(ELS_STATUS_FIELDS)
-ELS_API_STATUS_FLAG_FIELDS = _els_api_fields(ELS_STATUS_FLAG_FIELDS)
 
 
 def _per_lane(templates):
