@@ -1184,7 +1184,7 @@ def auto_populate_macsec_info(duthosts, tbinfo):
     SAI port object exists, not that MKA or an SA is up, so prime_macsec_info
     checks the SA, port and ASIC state itself and leaves unusable ports out.
     """
-    from tests.common.macsec.macsec_helper import prime_macsec_info, remove_ptf_ingress_sas
+    from tests.common.macsec.macsec_helper import prime_macsec_info, forget_macsec_ports
     _logger = logging.getLogger(__name__)
     for duthost in duthosts:
         # state=ok ports: MACsec-capable; the SA checks happen in prime.
@@ -1200,13 +1200,8 @@ def auto_populate_macsec_info(duthosts, tbinfo):
                 "MACsec auto-detected: populated MACSEC_INFO for %d port(s) on %s",
                 active_ports, duthost.hostname)
     yield
-    # Purges ptf_sa rows an older harness left on the primed ports and stops
-    # tracking them; this harness programs no rows of its own.
     for duthost in duthosts:
-        try:
-            remove_ptf_ingress_sas(duthost)
-        except Exception:
-            _logger.warning("remove_ptf_ingress_sas failed on %s", duthost.hostname, exc_info=True)
+        forget_macsec_ports(duthost)
 
 
 @pytest.fixture(scope="module")

@@ -1,5 +1,4 @@
 import ast
-import base64
 import binascii
 import re
 import json
@@ -34,8 +33,6 @@ __all__ = [
     'prepare_ptf_macsec',
     'prime_macsec_info',
     'refresh_macsec_info',
-    'remove_ptf_ingress_sa',
-    'remove_ptf_ingress_sas',
     'get_mka_session',
     'get_macsec_sa_name',
     'get_macsec_counters',
@@ -48,9 +45,6 @@ __all__ = [
 logger = logging.getLogger(__name__)
 process_queue = []
 
-# APPL_DB field that marked the ingress SA older harness versions programmed
-# for PTF; such rows are purged, never created, now.
-PTF_SA_TAG = "ptf_sa"
 # hostname -> {port: ptf index} loaded by prime_macsec_info(), so
 # refresh_macsec_info() can re-read them without tbinfo.
 _PRIMED_PORTS = {}
@@ -148,17 +142,6 @@ def get_macsec_sa_name(sonic_asic, port_name, egress=True):
 
     cmd = "APPL_DB KEYS '{}:{}:*'".format(table, port_name)
     names = sonic_asic.run_sonic_db_cli_cmd(cmd)['stdout_lines']
-    if not egress and names:
-        # Rows tagged ptf_sa (left by an older harness) are skipped only while
-        # an untagged row exists: MKA may have rekeyed onto a PTF AN and the
-        # live row inherited the tag.
-        ns = "-n {}".format(sonic_asic.namespace) if sonic_asic.namespace else ""
-        tags = sonic_asic.sonichost.shell(
-            "for k in {}; do echo \"$k=$(sonic-db-cli {} APPL_DB HGET $k {})\"; done; true".format(
-                " ".join(names), ns, PTF_SA_TAG), module_ignore_errors=True)["stdout"]
-        tagged = {ln.split("=", 1)[0] for ln in tags.splitlines() if ln.endswith("=true")}
-        untagged = [n for n in names if n not in tagged]
-        names = untagged or names
     if names:
         names.sort()
         return ':'.join(names[0].split(':')[1:])
@@ -468,17 +451,14 @@ def _read_macsec_attrs(host, port):
         ssci = None
         salt = None
 
-    # Live peer SA: prefer rows carrying the current SAK (a stale PTF row from
-    # an earlier session still holds the pre-rekey SAK) and rows without the
-    # PTF tag (a tagged row is still live if MKA rekeyed onto that AN and
-    # inherited it).
+    # Live peer SA: prefer rows carrying the current SAK (a row from before a
+    # rekey still holds the old SAK).
     rows = _ingress_sa_rows(host, port)
     candidates = list(rows.items())
     same_sak = [c for c in candidates if c[1].get("sak") == sak_hex] or candidates
-    untagged = [c for c in same_sak if c[1].get(PTF_SA_TAG) != "true"] or same_sak
-    if not untagged:
+    if not same_sak:
         raise KeyError("no live MACsec ingress SA for {} on {}".format(port, host.hostname))
-    live_key, live_row = sorted(untagged)[0]
+    live_key, live_row = sorted(same_sak)[0]
     _, peer_sci, peer_an = live_key.split(":")
     peer_an = int(peer_an)
     peer_ssci = int(live_row["ssci"]) if xpn_en else None
@@ -508,64 +488,6 @@ def get_macsec_attr(host, port):
     return _attr_tuple(_read_macsec_attrs(host, port))
 
 
-_SWSS_PREAMBLE = (
-    "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable, Table\n"
-    "ns = '{ns}'\n"
-    # Namespaced redis is reached via unix socket and needs the global db config;
-    # the default namespace keeps the plain TCP connection.
-    "if ns and not SonicDBConfig.isGlobalInit():\n"
-    "    SonicDBConfig.load_sonic_global_db_config()\n"
-    "db = DBConnector('APPL_DB', 0, False, ns) if ns else DBConnector('APPL_DB', 0, True)\n"
-    "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
-    "rt = Table(db, 'MACSEC_INGRESS_SA_TABLE')\n"
-)
-
-
-def _run_swss_script(host, ns, body, **shell_kwargs):
-    """Run ``body`` on the DUT after _SWSS_PREAMBLE (sonic-db-cli HSET would
-    write the row without notifying orchagent; ProducerStateTable does)."""
-    script = _SWSS_PREAMBLE.format(ns=ns) + body
-    b64 = base64.b64encode(script.encode()).decode()
-    return host.shell("echo '{}' | base64 -d | sudo python3".format(b64), **shell_kwargs)
-
-
-def remove_ptf_ingress_sas(host, ports=None):
-    """Purge ptf_sa-tagged ingress SA rows an older harness left on ``host``
-    (the primed ports, or only ``ports``) and stop tracking them."""
-    primed = _PRIMED_PORTS.get(host.hostname, {})
-    for port in list(primed) if ports is None else ports:
-        remove_orphan_ptf_ingress_sas(host, port)
-    forget_macsec_ports(host, ports)
-
-
-def remove_ptf_ingress_sa(host, port):
-    """Purge ptf_sa-tagged rows on one ``port`` and stop tracking it."""
-    remove_ptf_ingress_sas(host, ports=[port])
-
-
-def remove_orphan_ptf_ingress_sas(host, port, sak_hex=None):
-    """Delete ptf_sa-tagged ingress SA rows an earlier harness left on ``port``.
-    wpa_supplicant never owned them, so interface_remove never deletes them.
-    A tagged row carrying a current SAK (``sak_hex``, or any of the port's
-    egress SAKs when not given) is live: MKA rekeyed onto that AN and the
-    ProducerStateTable SET merged into the tagged row. Deletes go through
-    ProducerStateTable so orchagent drops the SA from the ASIC too."""
-    body = (
-        "live = {{'{sak}'}} if '{sak}' else set()\n"
-        "if not live:\n"
-        "    et = Table(db, 'MACSEC_EGRESS_SA_TABLE')\n"
-        "    live = {{dict(et.get(k)[1]).get('sak') for k in et.getKeys() if k.startswith('{port}:')}}\n"
-        "keys = [k for k in rt.getKeys() if k.startswith('{port}:')]\n"
-        "rows = {{k: dict(rt.get(k)[1]) for k in keys}}\n"
-        "tagged = [k for k, r in rows.items() if r.get('{tag}') is not None and r.get('sak') not in live]\n"
-        "for k in tagged:\n"
-        "    tbl.delete(k)\n"
-        "if tagged:\n"
-        "    print('orphan PTF SA removed:', sorted(tagged))\n"
-    ).format(port=port, tag=PTF_SA_TAG, sak=sak_hex or "")
-    _run_swss_script(host, _port_namespace(host, port), body, module_ignore_errors=True)
-
-
 class MacsecReplayProtectionOn(RuntimeError):
     """The ASIC still checks replay on a MACsec port, so PTF cannot share the neighbour's SA."""
 
@@ -591,7 +513,7 @@ def _namespace_macsec_state(host, ns):
     """One round trip over namespace ``ns``: every MACsec SC and SA in ASIC_DB
     and every ingress SA row in APPL_DB, as ({sc oid: fields}, {sc oid: {an}},
     {peer sci: {an}}). The APPL_DB ANs are those orchagent creates SAI SAs
-    for: active=true rows, less the ptf_sa-tagged ones an older harness left.
+    for: active=true rows.
     ASIC_DB does not tie an SC to its port; callers match on direction and SCI."""
     out = host.shell(
         "for t in SC SA; do "
@@ -619,7 +541,7 @@ def _namespace_macsec_state(host, ns):
             sas.setdefault(fields.get("SAI_MACSEC_SA_ATTR_SC_ID"), set()).add(int(fields["SAI_MACSEC_SA_ATTR_AN"]))
         elif parts[0] == "APPL" and parts[1].count(":") == 2:
             _, sci, an = parts[1].split(":")
-            if an.isdigit() and fields.get("active") == "true" and fields.get(PTF_SA_TAG) != "true":
+            if an.isdigit() and fields.get("active") == "true":
                 appl_ans.setdefault(sci, set()).add(int(an))
     return scs, sas, appl_ans
 
@@ -774,7 +696,6 @@ def _prepare_ptf_macsec(host, port, timeout, step, asic_cache):
     then. The namespace walk in ``asic_cache`` is redone after a failure."""
     deadline = time.time() + timeout
     asic_cache = {} if asic_cache is None else asic_cache
-    remove_orphan_ptf_ingress_sas(host, port)
     while True:
         try:
             attrs = _read_macsec_attrs(host, port)
@@ -789,9 +710,8 @@ def _prepare_ptf_macsec(host, port, timeout, step, asic_cache):
 
 def prepare_ptf_macsec(host, port, timeout=30, step=5, asic_cache=None):
     """Read ``port``'s MACsec attributes for PTF once the DUT state is usable
-    (retried for ``timeout`` s; 0 tries once); rows left by earlier harness
-    versions are purged. Returns the MACSEC_INFO tuple. ``asic_cache``
-    ({namespace: walk}) shares one DB walk across ports."""
+    (retried for ``timeout`` s; 0 tries once). Returns the MACSEC_INFO tuple.
+    ``asic_cache`` ({namespace: walk}) shares one DB walk across ports."""
     return _prepare_ptf_macsec(host, port, timeout, step, asic_cache)[0]
 
 
@@ -908,8 +828,6 @@ def prime_macsec_info(host, ports, timeout=60, step=5):
     loaded = {}
     attrs_by_port = {}
     deadline = time.time() + timeout
-    for port in pending:
-        remove_orphan_ptf_ingress_sas(host, port)
     while pending:
         asic_cache = {}
         for port, ptf_id in list(pending.items()):
@@ -1229,20 +1147,12 @@ def _parse_show_macsec_counters(text):
             SAI_MACSEC_SA_STAT_OCTETS_PROTECTED      0
             ---------------------------------------  ----------------------------------------------------------------
     '''
-    # Accumulate per SA block rather than straight into the result, because a
-    # port can show several SAs and the harness programs one of them itself:
-    # the PTF injector SA (ptf_sa=true, see PTF_SA_TAG) carries
-    # SAI_MACSEC_SA_ATTR_CURRENT_XPN 0, and whichever block is parsed last wins
-    # each key. When MKA settles on a lower AN than the PTF SA -- AN 0 against
-    # the injector's AN 2 -- that zero replaces the live SA's XPN, and since
-    # Counter addition in the caller drops non-positive values the key vanishes
-    # altogether. get_sa_name() already filters these rows out of the APPL_DB
-    # lookup for the same reason.
+    # Accumulate per SA block: during a rekey a port shows two ingress SAs
+    # and callers need them apart.
     blocks = []
     stats = None
     block = None
     block_an = None
-    block_is_ptf = False
     reg = re.compile(r'(SAI_MACSEC.*?) *(\d+)')
     header = re.compile(r'MACsec (Egress|Ingress) SA \((\d+)\)')
     for line in text.splitlines():
@@ -1252,30 +1162,24 @@ def _parse_show_macsec_counters(text):
         found_header = header.match(line)
         if found_header:
             if block is not None:
-                blocks.append((stats, block_an, block, block_is_ptf))
+                blocks.append((stats, block_an, block))
             stats = found_header.group(1).lower()
-            block_an, block, block_is_ptf = int(found_header.group(2)), {}, False
+            block_an, block = int(found_header.group(2)), {}
             continue
         # No header yet, so no stats coming
         if block is None:
-            continue
-
-        if line.startswith(PTF_SA_TAG) and line.split()[-1] == 'true':
-            block_is_ptf = True
             continue
 
         found = reg.match(line)
         if found:
             block[found.group(1)] = int(found.group(2))
     if block is not None:
-        blocks.append((stats, block_an, block, block_is_ptf))
+        blocks.append((stats, block_an, block))
 
     # 'ingress_by_an' keeps each live ingress SA apart: during a rekey two are
     # up, and a caller that cares about one AN must not read the other's PN.
     out = {'egress': {}, 'ingress': {}, 'ingress_by_an': {}}
-    for stats, an, block, block_is_ptf in blocks:
-        if block_is_ptf:
-            continue
+    for stats, an, block in blocks:
         out[stats].update(block)
         if stats == 'ingress':
             out['ingress_by_an'][an] = dict(block)
