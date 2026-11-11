@@ -141,7 +141,8 @@ def main():
         if destination.exists() or destination.is_symlink() or destination.parent.is_symlink():
             raise ValueError("Refusing to overwrite an existing render artifact")
         directory = Path(tempfile.mkdtemp(prefix="sonic-generic-render-", dir=str(destination.parent)))
-        os.chmod(str(directory), 0o700)
+        # Private directories require owner traversal, not group/world access.
+        os.chmod(str(directory), 0o700)  # nosemgrep: insecure-file-permissions
         tables = render(request["context"], request["templates"], request["template_sha256"], directory,
                         request.get("lookup_source"), request.get("fully_lossy", False))
         descriptor = os.open(str(destination), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)

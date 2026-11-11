@@ -357,7 +357,8 @@ def main():
             raise HostActionError("Host recovery paths must not traverse symlinks")
         for path in (root, directory.parent, directory):
             path.mkdir(mode=0o700, exist_ok=True)
-            os.chmod(str(path), 0o700)
+            # Private directories require owner traversal, not group/world access.
+            os.chmod(str(path), 0o700)  # nosemgrep: insecure-file-permissions
         with open(str(root / ".host-action.lock"), "a") as lock:
             os.chmod(str(root / ".host-action.lock"), 0o600)
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

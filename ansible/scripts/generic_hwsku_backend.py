@@ -60,7 +60,8 @@ class AnsibleRunner:
 
     def play(self, filename, variables):
         directory = Path(tempfile.mkdtemp(prefix="native-call-", dir=str(self.workspace)))
-        os.chmod(str(directory), 0o700)
+        # Private directories require owner traversal, not group/world access.
+        os.chmod(str(directory), 0o700)  # nosemgrep: insecure-file-permissions
         request = directory / "vars.json"
         variables = dict(variables, generic_dut=self.dut)
         private_json(request, variables)
@@ -85,7 +86,8 @@ class AnsibleRunner:
 
     def call(self, kind, target, call):
         directory = Path(tempfile.mkdtemp(prefix="readback-", dir=str(self.workspace)))
-        os.chmod(str(directory), 0o700)
+        # Private directories require owner traversal, not group/world access.
+        os.chmod(str(directory), 0o700)  # nosemgrep: insecure-file-permissions
         result = directory / "result.json"
         self.play("generic_hwsku_operation.yml", {
             "generic_device_hosts": [] if kind == "host" else [target],
@@ -291,7 +293,8 @@ def prepare_backend(arguments, scope, workspace):
                 "lookup_source": lookup_source,
                 "fully_lossy": runtime["buffer_profiles"][device]["profile"] == "lossy"}
     render_directory = Path(tempfile.mkdtemp(prefix="templates-", dir=str(workspace)))
-    os.chmod(str(render_directory), 0o700)
+    # Private directories require owner traversal, not group/world access.
+    os.chmod(str(render_directory), 0o700)  # nosemgrep: insecure-file-permissions
     runner.play("generic_hwsku_render.yml", {
         "generic_render_hosts": selected, "generic_render_requests": requests,
         "generic_render_directory": str(render_directory)})

@@ -42,10 +42,11 @@ def private_json(path, value):
 def private_workspace(path):
     if any(parent.is_symlink() for parent in [path] + list(path.parents)):
         raise PrerequisiteError("The Generic private workspace must not traverse symlinks")
+    # Private directories require owner traversal, not group/world access.
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(str(path.parent), 0o700)
+    os.chmod(str(path.parent), 0o700)  # nosemgrep: insecure-file-permissions
     path.mkdir(mode=0o700, exist_ok=True)
-    os.chmod(str(path), 0o700)
+    os.chmod(str(path), 0o700)  # nosemgrep: insecure-file-permissions
     return path
 
 
@@ -103,7 +104,8 @@ def resolve_scheduler_testbed(path, requested, target):
 
 def run_collection(arguments, scope, testbed, workspace):
     collection = Path(tempfile.mkdtemp(prefix="collection-", dir=str(workspace)))
-    os.chmod(str(collection), 0o700)
+    # Private directories require owner traversal, not group/world access.
+    os.chmod(str(collection), 0o700)  # nosemgrep: insecure-file-permissions
     variables = {
         "generic_collect_hosts": [scope["dut"]] + scope["leaves"], "generic_collect_dut": scope["dut"],
         "generic_collect_server": testbed["server"], "generic_collect_group": testbed["group-name"],

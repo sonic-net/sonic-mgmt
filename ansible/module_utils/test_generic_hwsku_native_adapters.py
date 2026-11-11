@@ -147,6 +147,8 @@ def test_installed_cable_hook_uses_frozen_lengths_instead_of_neighbor_role_defau
 
     def run(arguments, **keywords):
         wrapper = Path(arguments[arguments.index("-t") + 1])
+        # Installed buffer templates emit JSON, not HTML.
+        # nosemgrep: direct-use-of-jinja2
         environment = Environment(loader=FileSystemLoader(str(tmp_path)), undefined=StrictUndefined)
         actual = json.loads(Path(arguments[2]).read_text())
         output = environment.get_template(wrapper.name).render(actual)

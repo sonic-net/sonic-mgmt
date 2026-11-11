@@ -257,7 +257,8 @@ def perform(kind, before, after, operation_id, request, directory, startup, devi
             path.unlink()
         else:
             staging = Path(tempfile.mkdtemp(prefix=".sonic-generic-alias-", dir=str(path.parent)))
-            os.chmod(str(staging), 0o700)
+            # Private directories require owner traversal, not group/world access.
+            os.chmod(str(staging), 0o700)  # nosemgrep: insecure-file-permissions
             staged = staging / "alias"
             os.symlink(str(source), str(staged))
             info = staged.lstat()
@@ -314,7 +315,8 @@ def main():
             raise DeviceActionError("A device recovery path must not traverse symlinks")
         for path in (root, directory.parent, directory):
             path.mkdir(mode=0o700, exist_ok=True)
-            os.chmod(str(path), 0o700)
+            # Private directories require owner traversal, not group/world access.
+            os.chmod(str(path), 0o700)  # nosemgrep: insecure-file-permissions
         startup, device_root = Path("/etc/sonic/config_db.json"), Path("/usr/share/sonic/device")
         with open(str(root / ".action.lock"), "a") as lock:
             os.chmod(str(root / ".action.lock"), 0o600)
