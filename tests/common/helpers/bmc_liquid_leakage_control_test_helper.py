@@ -146,7 +146,7 @@ class LiquidLeakageMockerBMC(LiquidLeakageMocker, ABC):
             return None
 
 
-class LiquidLeakageMockerPlatformApi(LiquidLeakageMockerBMC):
+class LeakTestApiInjector(LiquidLeakageMockerBMC):
     """
     Vendor-independent BMC liquid leakage mocker.
 

@@ -18,7 +18,7 @@ from tests.common.helpers.liquid_leakage_control_test_helper import get_liquid_c
 from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
 from tests.common.platform.bmc_utils import recover_switch_host_after_power_off
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
-from tests.common.helpers.bmc_liquid_leakage_control_test_helper import LiquidLeakageMockerPlatformApi
+from tests.common.helpers.bmc_liquid_leakage_control_test_helper import LeakTestApiInjector
 from tests.common.helpers.platform_api import leak_sensor
 
 from tests.common.helpers.assertions import pytest_assert
@@ -158,9 +158,9 @@ def _skip_if_real_leak_present(duthost):
 
 def _create_platform_api_leak_mocker(duthost, platform_api_conn):  # noqa: F811
     """Return a leak mocker backed by the leak test platform API, skipping if unsupported."""
-    if not LiquidLeakageMockerPlatformApi.is_supported(platform_api_conn):
+    if not LeakTestApiInjector.is_supported(platform_api_conn):
         pytest.skip("Platform does not support the leak test platform API")
-    leak_mocker = LiquidLeakageMockerPlatformApi(duthost, platform_api_conn)
+    leak_mocker = LeakTestApiInjector(duthost, platform_api_conn)
     if not leak_mocker.sensor_names:
         pytest.skip("No leak sensors found on device")
     _skip_if_real_leak_present(duthost)
@@ -448,8 +448,8 @@ class TestThermalctldDaemon:
             leak_severities = ['MINOR'] * min_n
 
         # Prefer the vendor-independent leak test platform API; fall back to the vendor mocker
-        if LiquidLeakageMockerPlatformApi.is_supported(platform_api_conn):
-            leak_mocker = LiquidLeakageMockerPlatformApi(self.duthost, platform_api_conn)
+        if LeakTestApiInjector.is_supported(platform_api_conn):
+            leak_mocker = LeakTestApiInjector(self.duthost, platform_api_conn)
         else:
             leak_mocker = mocker_factory(self.duthost, 'LiquidLeakageMockerBMC')
         if leak_mocker is None:

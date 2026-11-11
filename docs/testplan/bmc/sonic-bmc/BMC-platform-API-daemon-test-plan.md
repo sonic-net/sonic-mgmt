@@ -684,7 +684,7 @@ Inject a leak through the leak test platform API and verify the STATE_DB entry a
 **Test Objective**:
 Exercise the §2.1.5 aggregation truth table end-to-end: hardware `is_leak()` → in-memory `self.leaking_sensors` → `LIQUID_COOLING_INFO|<sensor>` (per-sensor row) → `SYSTEM_LEAK_STATUS|system device_leak_status` (aggregated).
 
-Leaks are injected through the leak test platform API (`LiquidLeakageMockerPlatformApi`). When the platform does not support it, the test falls back to the vendor mocker (`LiquidLeakageMockerBMC`) and skips if there is none.
+Leaks are injected through the leak test platform API (`LeakTestApiInjector`). When the platform does not support it, the test falls back to the vendor mocker (`LiquidLeakageMockerBMC`) and skips if there is none.
 
 **Aggregation truth table**:
 
