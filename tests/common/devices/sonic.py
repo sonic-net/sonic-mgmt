@@ -7,6 +7,7 @@ import shlex
 import socket
 import time
 import sys
+import ast
 
 from collections import defaultdict
 from collections.abc import Mapping
@@ -1041,12 +1042,13 @@ class SonicHost(AnsibleHostBase):
         if exit_code != 0:
             return namespace_ids, False
 
-        config_info = command_output["stdout_lines"]
-        for index, item in enumerate(config_info):
-            if item == "has_global_scope":
-                has_global_scope = config_info[index + 1]
-            elif item == "has_per_asic_scope":
-                has_per_asic_scope = config_info[index + 1]
+        config_info_str = command_output["stdout_lines"][0]
+        config_info = ast.literal_eval(config_info_str)  # Python dict formatted string
+        for key, value in config_info.items():
+            if key == "has_global_scope":
+                has_global_scope = value
+            elif key == "has_per_asic_scope":
+                has_per_asic_scope = value
 
         if num_asics > 1:
             if has_global_scope == "True":
