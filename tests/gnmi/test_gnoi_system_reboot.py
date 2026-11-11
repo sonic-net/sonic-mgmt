@@ -11,7 +11,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import wait_for_shutdown, wait_for_startup
 from tests.common.utilities import wait_until
-from tests.snappi_tests.dash.ha.ha_helper import is_smartswitch
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -70,7 +69,8 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    shutdown_timeout = 360 if is_smartswitch(duthost) else 180
+    is_smartswitch = duthost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"].get("is_smartswitch")
+    shutdown_timeout = 360 if is_smartswitch else 180
 
     # Record uptime before reboot
     uptime_before = duthost.get_up_time(utc_timezone=True)
