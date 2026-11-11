@@ -213,9 +213,10 @@ def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None):
 
 
 def check_phy_counters_populated(sample_ports):
-    """Check that every sampled port has all required PHY fields."""
+    """Check required PHY fields and healthy RX/RS-FEC values on oper-up ports."""
     if not sample_ports:
         return False
+    interface_status = {}
     for port_info in sample_ports:
         asic = port_info['asic']
         try:
@@ -228,6 +229,33 @@ def check_phy_counters_populated(sample_ports):
             logging.debug("PHY fields are missing on asic%s port %s: %s",
                           asic.asic_index, port_info['interface'], sorted(missing_fields))
             return False
+
+        if asic not in interface_status:
+            interface_status[asic] = asic.show_interface(command='status')['ansible_facts']['int_status']
+        port_status = interface_status[asic].get(port_info['interface'], {})
+        if port_status.get('oper_state') not in ('up', 'down'):
+            logging.debug("Operational state is not available for asic%s port %s",
+                          asic.asic_index, port_info['interface'])
+            return False
+        if port_status['oper_state'] != 'up':
+            continue
+
+        latch_fields = ['phy_rx_signal_detect']
+        if port_status.get('fec', '').lower() == 'rs':
+            latch_fields.append('pcs_fec_lane_alignment_lock')
+        for attribute in latch_fields:
+            try:
+                lane_data = json.loads(data[attribute])
+            except (TypeError, json.JSONDecodeError):
+                logging.debug("Invalid %s data on asic%s port %s: %s",
+                              attribute, asic.asic_index, port_info['interface'], data[attribute])
+                return False
+            if not isinstance(lane_data, dict) or not lane_data or not all(
+                    isinstance(value, list) and value and value[0] in ('T', 'T*')
+                    for value in lane_data.values()):
+                logging.debug("Waiting for %s lanes to reach T/T* on oper-up asic%s port %s: %s",
+                              attribute, asic.asic_index, port_info['interface'], lane_data)
+                return False
     return True
 
 
@@ -664,7 +692,8 @@ def test_phy_enable_and_validate(duthosts, enum_rand_one_per_hwsku_frontend_host
         timeout = 180 if duthost.is_multi_asic else 120
         pytest_assert(
             wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
-            "Required PHY fields did not populate on the sampled ports within {} seconds".format(timeout))
+            "Required PHY fields did not populate or reach T/T* on oper-up sampled ports within {} seconds".format(
+                timeout))
 
     verify_attribute_list_in_flex_counter_db(sample_ports)
 
@@ -677,7 +706,7 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     Steps:
     1. Enable PHY counters and change interval to 5000ms
-    2. Verify CLI, CONFIG_DB, FLEX_COUNTER_DB
+    2. Verify CLI, CONFIG_DB, FLEX_COUNTER_DB, and COUNTERS_DB
     3. Change interval to 10000ms
     4. Verify new interval in all locations
     """
@@ -695,6 +724,14 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=5000)
     verify_phy_attr_in_flex_counter_db(duthost, expected_interval=5000)
 
+    sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
+    timeout = 180 if duthost.is_multi_asic else 120
+    with allure.step("Waiting for PHY data after changing interval to 5000ms"):
+        pytest_assert(
+            wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
+            "PHY data did not populate or reach T/T* on oper-up sampled ports after the 5000ms interval change")
+    verify_counters_db_data(sample_ports)
+
     with allure.step("Changing interval to 10000ms"):
         for asic in duthost.asics:
             ConterpollHelper.set_counterpoll_interval(asic, PORT_PHY_ATTR, 10000)
@@ -702,6 +739,12 @@ def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     verify_phy_attr_in_cli(duthost, ENABLE)
     verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
     verify_phy_attr_in_flex_counter_db(duthost, expected_interval=10000)
+
+    with allure.step("Waiting for PHY data after changing interval to 10000ms"):
+        pytest_assert(
+            wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
+            "PHY data did not populate or reach T/T* on oper-up sampled ports after the 10000ms interval change")
+    verify_counters_db_data(sample_ports)
 
 
 def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -743,7 +786,8 @@ def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_fronten
         timeout = 180 if duthost.is_multi_asic else 120
         pytest_assert(
             wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
-            "Required PHY fields did not populate after config reload within {} seconds".format(timeout))
+            "PHY data did not populate or reach T/T* on oper-up sampled ports after config reload "
+            "within {} seconds".format(timeout))
 
     verify_counters_db_data(sample_ports)
 
@@ -785,7 +829,8 @@ def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         timeout = 180 if duthost.is_multi_asic else 120
         pytest_assert(
             wait_until(timeout, 5, 0, check_phy_counters_populated, sample_ports),
-            "Required PHY fields did not populate after reboot within {} seconds".format(timeout))
+            "PHY data did not populate or reach T/T* on oper-up sampled ports after reboot within {} seconds".format(
+                timeout))
 
     verify_counters_db_data(sample_ports)
 
