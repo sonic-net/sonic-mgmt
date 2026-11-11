@@ -72,6 +72,19 @@ def verify_shared_prime_routes_during_graceful_restart(
                 "restarting prime.".format(prefix))
 
 
+def get_shared_prime_preserved_prefix_counters(walk_counters):
+    """Return accepted-route counters that must survive a prime-wide restart.
+
+    ``Used`` counts selected paths and can legitimately move between equivalent
+    peers after FRR restarts, so it is not a route-preservation invariant.
+    """
+    return {
+        name: walk_counters[name]
+        for name in ("All RIB", "Valid", "Useable")
+        if name in walk_counters
+    }
+
+
 def shared_prime_prefix_counter_snapshots_match(previous, current):
     """Return whether every peer's non-empty counter snapshot is unchanged."""
     return (
@@ -156,11 +169,9 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
             for namespace in duthost.get_frontend_asic_namespace_list():
                 counters = _get_prefix_counters(
                     duthost, bgp_neighbor, namespace)["ribTableWalkCounters"]
-                snapshots[(bgp_neighbor, namespace)] = {
-                    name: counters[name]
-                    for name in ("All RIB", "Valid", "Useable", "Used")
-                    if name in counters
-                }
+                snapshots[(bgp_neighbor, namespace)] = (
+                    get_shared_prime_preserved_prefix_counters(counters)
+                )
         return snapshots
 
     def _snapshot_shared_prime_state_when_stable(duthost, bgp_neighbors):
