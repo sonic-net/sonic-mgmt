@@ -49,6 +49,24 @@ imports Linux-only testbed utilities.
 - `pytest`
 - `unittest.mock` (built into Python standard library)
 
+## BMC cooling-aware startup regression
+
+`unit_test_bmcctld_startup.py` executes the startup assertions and power-loss test
+method via AST without importing Linux/testbed dependencies. It covers both
+air-cooled startup paths, liquid-cooled boot-relative delay thresholds, missing
+or malformed evidence, reboot/health failures, platform API JSON boolean type checking,
+and PDU outlet restoration after individual controller exceptions.
+It also exercises BMC-only cold reboot with an explicit nonzero delay, verifies
+positive delay-bypass and host-isolation evidence, and checks configuration
+restoration on success and failures. Failed or malformed delay snapshots must
+abort before configuration changes, cleanup, or reboot.
+Physical startup behavior still requires a BMC chassis with a wired PDU.
+
+```bash
+python3 -m pytest --noconftest --confcutdir=tests/common/unit_tests \
+  tests/common/unit_tests/unit_test_bmcctld_startup.py -q
+```
+
 ## PTF daily TACACS provisioning regression
 
 `helpers/unit_test_ptf_tacacs_provisioning.py` loads the topology task YAML and

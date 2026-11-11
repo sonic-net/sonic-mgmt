@@ -10,6 +10,8 @@ from ptf.dataplane import match_exp_pkt
 from scapy.all import sniff
 from scapy.packet import ls
 
+from tests.common.helpers.dut_utils import is_virtual_platform
+
 
 @contextlib.contextmanager
 def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets,
@@ -54,6 +56,8 @@ class ServerTrafficMonitor(object):
     """Monit traffic between DUT and server."""
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
+    # The vmhost tap of a KVM DUT's front panel port (ansible/roles/vm_set/templates/sonic.xml.j2)
+    KVM_TAP_INTERFACE_TEMPLATE = "{dut_name}-{index}"
 
     def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface,
                  conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
@@ -71,6 +75,14 @@ class ServerTrafficMonitor(object):
         @existing: True to expect to find a match for `exp_pkt` while False to
                    expect to not find a match for `exp_pkt`.
         @is_mocked: True that it is a mocked dualtor testbed.
+
+        The monitor sniffs on the DUT's own link to the server, before the mux,
+        so it doesn't see what the other ToR sends the server:
+        - on a physical testbed, the vmhost VLAN interface the connection graph
+          has for `dut_iface`;
+        - on a KVM testbed, which has no connection graph, the vmhost tap of
+          `dut_iface`, its port on the mux simulator bridge;
+        - on a mocked dualtor testbed, which has a single ToR, its PTF port.
         """
         self.duthost = duthost
         self.dut_iface = dut_iface
@@ -92,7 +104,10 @@ class ServerTrafficMonitor(object):
                 self.captured_packets
             )
         else:
-            vmhost_iface = self._find_vmhost_vlan_interface()
+            if is_virtual_platform(self.duthost):
+                vmhost_iface = self._find_vmhost_kvm_tap_interface()
+            else:
+                vmhost_iface = self._find_vmhost_vlan_interface()
             self.dump_utility = dump_intf_packets(
                 vmhost,
                 vmhost_iface,
@@ -116,6 +131,13 @@ class ServerTrafficMonitor(object):
         device_port_vlans = self.conn_graph_facts["device_port_vlans"][self.duthost.hostname]
         vlan_id = device_port_vlans[self.dut_iface]["vlanlist"][0]
         return self.VLAN_INTERFACE_TEMPLATE.format(external_port=self.vmhost.external_port, vlan_id=vlan_id)
+
+    def _find_vmhost_kvm_tap_interface(self):
+        """Find the vmhost tap of the DUT interface that will be sniffed on, on a KVM testbed."""
+        mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
+        # tap -0 is the management port
+        port_index = mg_facts["minigraph_port_indices"][self.dut_iface] + 1
+        return self.KVM_TAP_INTERFACE_TEMPLATE.format(dut_name=self.duthost.hostname, index=port_index)
 
     def __enter__(self):
         self.captured_packets[:] = []

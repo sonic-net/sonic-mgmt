@@ -180,6 +180,13 @@ arp/:
     conditions:
       - "'bmc' in topo_type"
 
+arp/test_arp_dualtor.py::test_ipv6_na_after_failed_neighbor_moves_to_incomplete:
+  xfail:
+    reason: "Deleting a resolved IPv6 VLAN neighbor can leave a stale NEIGH_FAILED_TABLE entry, which fails the
+             failed-neighbor check in setup or teardown. See https://github.com/sonic-net/sonic-swss/issues/5074"
+    conditions:
+      - "https://github.com/sonic-net/sonic-swss/issues/5074"
+
 arp/test_arp_dualtor.py::test_standby_unsolicited_neigh_learning[IPv4-active-standby]:
   skip:
     reason: "This testcase has low passing rate in KVM PR test, skip with issue to unblock PR test."
@@ -271,8 +278,6 @@ arp/test_wr_arp.py:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
-      - "'isolated' in topo_name"
-      - *lossyTopos
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
 
@@ -464,9 +469,11 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has known issues on specific large topologies."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/27135 and topo_name in ['t1-d96u4']"
 
 bgp/test_bgp_link_local.py::test_bgp_link_local[ethernet]:
   skip:
@@ -598,7 +605,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
-      - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
+      - "'backend' in topo_name or 'mgmttor' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'f2' in topo_name"
 
@@ -770,6 +777,12 @@ bgp/test_traffic_shift_sup.py:
 bmp/:
   skip:
     reason: 'BMP tests require BGP routing, not available on BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
+bmp/test_docker_restart.py:
+  skip:
+    reason: "BMP docker/service is not available on BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -987,12 +1000,6 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-
-dash/test_dash_metering.py:
-  skip:
-    reason: "Metering w/ FNIC not supported on Nvidia yet"
-    conditions:
-      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_privatelink.py:
   skip:
@@ -2191,6 +2198,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor and not stable on Non-T2 platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name and topo_type not in ['lrh', 'urh']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
     reason: "Test not supported on non broadcom-dnx and non voq platforms"
@@ -2198,6 +2211,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_ev
     conditions:
       - "(asic_subtype not in ['broadcom-dnx'])"
       - "('voq' not in switch_type)"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_frwd_with_bkg_trf:
+  skip:
+    reason: "Test is not ready for dualtor and not stable on Non-T2 platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17034 and 't2' not in topo_name and topo_type not in ['lrh', 'urh']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclEgressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
@@ -2957,12 +2976,6 @@ gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi.py::test_on_change_updates:
-  skip:
-    reason: "Test relies on BGP neighbors; none configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -3047,7 +3060,6 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
 
@@ -3162,21 +3174,21 @@ hash/test_generic_hash.py:
     reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['t0', 't1']"
+      - "topo_type in ['t0', 't1'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_backend_error_messages:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
@@ -3215,7 +3227,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
+    reason: 'Independent ECMP hash configuration is not supported in Broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields; VPP has fixed dataplane field selections.'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
@@ -3239,14 +3251,14 @@ hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
+    reason: "This test is not enabled outside Mellanox, Marvell-Teralynx, and VPP t1-lag; xfail until qualified"
     conditions:
-      - "asic_type not in ['mellanox', 'marvell-teralynx']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx'] and not (asic_type == 'vpp' and topo_name == 't1-lag')"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
+    reason: 'Independent LAG hash configuration is not supported in Broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields; VPP has fixed dataplane field selections.'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
@@ -3442,12 +3454,11 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-Non
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. Warm reboot is not supported on x86_64-nvidia_sn5640-r0.'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -4389,17 +4400,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/test_advanced_reboot.py:
-  skip:
-    reason: "Advanced reboot tests are not supported on lossy topologies."
+platform_tests/counterpoll/test_counterpoll_watermark.py:
+  xfail:
+    reason: "Testcase fails sporadically due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/24900"
     conditions:
-      - *lossyTopos
-
-platform_tests/test_cont_warm_reboot.py:
-  skip:
-    reason: "Continuous warm reboot tests are not supported on lossy topologies."
-    conditions:
-      - *lossyTopos
+    - "https://github.com/sonic-net/sonic-mgmt/issues/24900 and 'ptf' in topo_name and 'sn5640' in platform"
 
 platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
   skip:
@@ -4640,6 +4645,10 @@ qos/test_qos_probe.py:
       - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
+  skip:
+    reason: "HeadroomPool probe fails on Mellanox SPC1 starting at iteration #2: all packets sent to pg=4 (immediately after a successful pg=3 probe on the same src port) are ingress-dropped, so the probe algorithm cannot find a PFC threshold for pg=4. Tracked by #24215 (SPC1)."
+    conditions:
+      - "asic_gen in ['spc1'] and https://github.com/sonic-net/sonic-mgmt/issues/24215"
   xfail:
     reason: "HeadroomPool probe fails on Mellanox SPC1 and SPC3 starting at iteration #2: all packets sent to pg=4 (immediately after a successful pg=3 probe on the same src port) are ingress-dropped, so the probe algorithm cannot find a PFC threshold for pg=4. Tracked by #24558 (SPC1+SPC3) and #24215 (SPC1)."
     conditions:
@@ -5264,11 +5273,10 @@ sflow/test_sflow.py::TestReboot::testFastreboot:
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform or vpp platform."
+    reason: "Dualtor topology doesn't support advanced-reboot or vpp platform."
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
       - "asic_type in ['vpp']"
   xfail:
     reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
@@ -5443,6 +5451,12 @@ snappi_tests/lacp:
     reason: "Skipping snappi lacp on 2025, 202605 and 202608 releases"
     conditions:
       - "'2025' in release or '202605' in release or '202608' in release"
+
+snappi_tests/packet_trimming:
+  skip:
+    reason: "Snappi packet trimming tests are not supported on Mellanox SPC1-SPC3 platforms."
+    conditions:
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
 
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
@@ -5638,6 +5652,12 @@ srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
     conditions:
       - "'isolated' in topo_name and release in ['202412']"
 
+srv6/test_srv6_qos.py:
+  skip:
+    reason: "SONiC-VPP lacks QoS queues required by these tests."
+    conditions:
+      - "asic_type in ['vpp']"
+
 srv6/test_srv6_static_config.py:
   skip:
     reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
@@ -5657,10 +5677,10 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
-    reason: "Only target mellanox SPC4+/brcm platform with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target Mellanox SPC4+, SRv6-capable Broadcom platforms, and SONiC-VPP with a master, 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom'] or (release != 'master' and release != '202412' and release < '202511')"
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
