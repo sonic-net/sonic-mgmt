@@ -299,7 +299,7 @@ def validate_mac(mac):
 
 def get_fdb_test_pairs(vlan_members, is_bsl):
     if not is_bsl:
-        return itertools.combinations(vlan_members, 2)
+        return list(itertools.combinations(vlan_members, 2))
 
     members = sorted(vlan_members, key=lambda member: min(member['port_index']))
     member_count = len(members)
@@ -433,10 +433,8 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:
         test_pairs = get_fdb_test_pairs(vlan_table[vlan], is_bsl)
-        member_count = len(vlan_table[vlan])
-        pair_count = len(test_pairs) if is_bsl else member_count * (member_count - 1) // 2
         logger.info("Validate %s forwarding pairs across %s VLAN %s members",
-                    pair_count, member_count, vlan)
+                    len(test_pairs), len(vlan_table[vlan]), vlan)
         for src, dst in test_pairs:
             if 'port_index' not in src or 'tagging_mode' not in src:
                 continue
